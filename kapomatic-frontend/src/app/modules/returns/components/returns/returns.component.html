@@ -1,0 +1,106 @@
+<app-side-nav>
+  <main class="returns-page" [attr.dir]="direction" [class.returns-page--dark]="isDarkMode$ | async">
+    <header class="page-header">
+      <div><h1>{{ 'returnsPage.title' | translate }}</h1><p>{{ 'returnsPage.subtitle' | translate }}</p></div>
+      <button mat-flat-button class="export-button" type="button"
+        [disabled]="isExporting || returns.length === 0 || isLoading" (click)="exportToExcel()">
+        <i class="fa-solid fa-download" aria-hidden="true"></i>{{ (isExporting ? 'returnsPage.actions.exporting' : 'returnsPage.actions.export') | translate }}
+      </button>
+    </header>
+
+    <section class="summary-grid" [attr.aria-label]="'returnsPage.summary.label' | translate">
+      <article class="summary-card"><span>{{ 'returnsPage.summary.cash' | translate }}</span><strong>{{ summary.totalCashReturns | number }}</strong></article>
+      <article class="summary-card"><span>{{ 'returnsPage.summary.credit' | translate }}</span><strong>{{ summary.totalCreditReturns | number }}</strong></article>
+      <article class="summary-card"><span>{{ 'returnsPage.summary.amount' | translate }}</span><strong>{{ formatCurrency(summary.totalReturnedAmount) }}</strong></article>
+      <article class="summary-card"><span>{{ 'returnsPage.summary.items' | translate }}</span><strong>{{ summary.totalReturnedItems | number }}</strong></article>
+    </section>
+
+    <form class="filters-card" [formGroup]="filtersForm" (ngSubmit)="search()">
+      <div class="flex min-w-0 flex-col gap-1">
+        <label for="returnType" class="font-roboto text-sm">{{ 'returnsPage.fields.returnType' | translate }}</label>
+        <p-select inputId="returnType" [options]="returnTypeOptions" optionLabel="label" optionValue="value" formControlName="returnType" appendTo="body" styleClass="w-full" />
+      </div>
+      <div class="flex min-w-0 flex-col gap-1">
+        <label for="customerName" class="font-roboto text-sm">{{ 'returnsPage.fields.customerName' | translate }}</label>
+        <input id="customerName" pInputText formControlName="customerName" autocomplete="off" class="w-full" />
+      </div>
+      <div class="flex min-w-0 flex-col gap-1">
+        <label for="customerPhone" class="font-roboto text-sm">{{ 'returnsPage.fields.customerPhone' | translate }}</label>
+        <input id="customerPhone" pInputText formControlName="customerPhone" autocomplete="off" class="w-full" />
+      </div>
+      <div class="flex min-w-0 flex-col gap-1">
+        <label for="productCode" class="font-roboto text-sm">{{ 'returnsPage.fields.productCode' | translate }}</label>
+        <input id="productCode" pInputText formControlName="productCode" autocomplete="off" class="w-full" />
+      </div>
+      <div class="flex min-w-0 flex-col gap-1">
+        <label for="invoiceId" class="font-roboto text-sm">{{ 'returnsPage.fields.invoiceId' | translate }}</label>
+        <input id="invoiceId" pInputText formControlName="invoiceId" autocomplete="off" class="w-full" />
+      </div>
+      <div class="flex min-w-0 flex-col gap-1">
+        <label for="dateFrom" class="font-roboto text-sm">{{ 'returnsPage.fields.dateFrom' | translate }}</label>
+        <p-datepicker inputId="dateFrom" formControlName="dateFrom" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="w-full" inputStyleClass="w-full" />
+      </div>
+      <div class="flex min-w-0 flex-col gap-1">
+        <label for="dateTo" class="font-roboto text-sm">{{ 'returnsPage.fields.dateTo' | translate }}</label>
+        <p-datepicker inputId="dateTo" formControlName="dateTo" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="w-full" inputStyleClass="w-full" />
+      </div>
+      <div class="filter-actions">
+        <p-button type="submit" [label]="'returnsPage.actions.search' | translate" icon="fa-solid fa-magnifying-glass" [disabled]="isLoading" styleClass="!px-3 !py-2 !bg-orange !border-none !text-gray_dark !font-semibold" />
+        <p-button type="button" [label]="'returnsPage.actions.reset' | translate" [disabled]="isLoading" (onClick)="resetFilters()" styleClass="!px-3 !py-2 !bg-[#b9b9b9] !border-none !text-gray_dark !font-semibold" />
+      </div>
+    </form>
+
+    <section class="table-card" aria-live="polite">
+      @if (isLoading) {
+        <div class="state-container"><mat-spinner diameter="44" /><p>{{ 'returnsPage.messages.loading' | translate }}</p></div>
+      } @else if (errorMessage) {
+        <div class="state-container state-container--error"><i class="fa-solid fa-circle-exclamation state-icon" aria-hidden="true"></i><p>{{ errorMessage }}</p>
+          <button mat-stroked-button type="button" (click)="search()">{{ 'returnsPage.actions.tryAgain' | translate }}</button></div>
+      } @else if (returns.length === 0) {
+        <div class="state-container"><i class="fa-solid fa-box-open state-icon" aria-hidden="true"></i><p>{{ 'returnsPage.messages.empty' | translate }}</p></div>
+      } @else {
+        <div class="table-scroll"><table mat-table [dataSource]="returns" [trackBy]="trackByReturnId">
+          <ng-container matColumnDef="returnDate"><th mat-header-cell *matHeaderCellDef>{{ 'returnsPage.fields.returnDate' | translate }}</th><td mat-cell *matCellDef="let item">{{ formatDisplayDate(item.returnDate) }}</td></ng-container>
+          <ng-container matColumnDef="returnType"><th mat-header-cell *matHeaderCellDef>{{ 'returnsPage.fields.type' | translate }}</th><td mat-cell *matCellDef="let item"><span class="type-badge" [class.type-badge--credit]="item.returnType === 'credit'">{{ formatType(item.returnType) }}</span></td></ng-container>
+          <ng-container matColumnDef="invoiceNumber"><th mat-header-cell *matHeaderCellDef>{{ 'returnsPage.fields.invoiceNumber' | translate }}</th><td mat-cell *matCellDef="let item">{{ item.invoiceNumber || '—' }}</td></ng-container>
+          <ng-container matColumnDef="customerName"><th mat-header-cell *matHeaderCellDef>{{ 'returnsPage.fields.customerName' | translate }}</th><td mat-cell *matCellDef="let item">{{ item.customerName || '—' }}</td></ng-container>
+          <ng-container matColumnDef="customerPhone"><th mat-header-cell *matHeaderCellDef>{{ 'returnsPage.fields.customerPhone' | translate }}</th><td mat-cell *matCellDef="let item">{{ item.customerPhone || '—' }}</td></ng-container>
+          <ng-container matColumnDef="itemsCount"><th mat-header-cell *matHeaderCellDef>{{ 'returnsPage.fields.itemsCount' | translate }}</th><td mat-cell *matCellDef="let item">{{ item.items.length | number }}</td></ng-container>
+          <ng-container matColumnDef="finalReturnedAmount"><th mat-header-cell *matHeaderCellDef>{{ 'returnsPage.fields.finalReturnedAmount' | translate }}</th><td mat-cell *matCellDef="let item" class="amount-cell">{{ formatCurrency(item.finalReturnedAmount) }}</td></ng-container>
+          <ng-container matColumnDef="actions"><th mat-header-cell *matHeaderCellDef>{{ 'returnsPage.fields.actions' | translate }}</th><td mat-cell *matCellDef="let item"><button mat-button class="details-button" type="button" (click)="viewDetails(item)">{{ 'returnsPage.actions.viewDetails' | translate }}</button></td></ng-container>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr><tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table></div>
+        <mat-paginator [length]="pagination.totalItems" [pageIndex]="pagination.page - 1"
+          [pageSize]="pagination.limit" [pageSizeOptions]="pageSizeOptions" [showFirstLastButtons]="true"
+          (page)="onPageChange($event)" [attr.aria-label]="'returnsPage.pagination.label' | translate" />
+      }
+    </section>
+  </main>
+</app-side-nav>
+
+<ng-template #detailsDialog>
+  <div class="details-dialog" [attr.dir]="direction" [class.details-dialog--dark]="isDarkMode$ | async">
+    <div class="dialog-header"><div><span>{{ 'returnsPage.dialog.title' | translate }}</span><h2 mat-dialog-title>{{ selectedReturn?.invoiceNumber || ('returnsPage.dialog.invoice' | translate) }}</h2></div>
+      <button mat-icon-button type="button" [attr.aria-label]="'returnsPage.dialog.closeAria' | translate" (click)="closeDetails()"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+    <mat-dialog-content>
+      @if (isDetailsLoading) {
+        <div class="state-container"><mat-spinner diameter="40" /><p>{{ 'returnsPage.messages.loadingDetails' | translate }}</p></div>
+      } @else if (detailsErrorMessage) {
+        <div class="state-container state-container--error"><i class="fa-solid fa-circle-exclamation state-icon" aria-hidden="true"></i><p>{{ detailsErrorMessage }}</p></div>
+      } @else if (selectedReturn; as item) {
+        <div class="info-grid">
+          <div><span>{{ 'returnsPage.fields.invoiceNumber' | translate }}</span><strong>{{ item.invoiceNumber || '—' }}</strong></div><div><span>{{ 'returnsPage.fields.invoiceId' | translate }}</span><strong>{{ item.invoiceId || '—' }}</strong></div>
+          <div><span>{{ 'returnsPage.fields.customerName' | translate }}</span><strong>{{ item.customerName || '—' }}</strong></div><div><span>{{ 'returnsPage.fields.customerPhone' | translate }}</span><strong>{{ item.customerPhone || '—' }}</strong></div>
+          <div><span>{{ 'returnsPage.fields.returnType' | translate }}</span><strong>{{ formatType(item.returnType) }}</strong></div><div><span>{{ 'returnsPage.fields.returnDate' | translate }}</span><strong>{{ formatDisplayDate(item.returnDate) }}</strong></div>
+        </div>
+        <div class="note-block"><span>{{ 'returnsPage.fields.note' | translate }}</span><p>{{ item.note || ('returnsPage.messages.noNote' | translate) }}</p></div>
+        <h3>{{ 'returnsPage.dialog.returnedItems' | translate }}</h3>
+        <div class="items-table-scroll"><table class="items-table"><thead><tr><th>{{ 'returnsPage.fields.productName' | translate }}</th><th>{{ 'returnsPage.fields.productCode' | translate }}</th><th>{{ 'returnsPage.fields.quantity' | translate }}</th><th>{{ 'returnsPage.fields.price' | translate }}</th><th>{{ 'returnsPage.fields.total' | translate }}</th><th>{{ 'returnsPage.fields.returnReason' | translate }}</th></tr></thead>
+          <tbody>@for (returnedItem of item.items; track returnedItem.productId) {<tr><td>{{ returnedItem.productName || '—' }}</td><td>{{ returnedItem.productCode || '—' }}</td><td>{{ returnedItem.quantity | number }}</td><td>{{ formatCurrency(returnedItem.price) }}</td><td>{{ formatCurrency(returnedItem.total) }}</td><td>{{ returnedItem.returnReason || '—' }}</td></tr>} @empty {<tr><td colspan="6" class="empty-cell">{{ 'returnsPage.messages.noItems' | translate }}</td></tr>}</tbody>
+        </table></div>
+        <div class="totals-block"><div><span>{{ 'returnsPage.fields.subtotalReturnedAmount' | translate }}</span><strong>{{ formatCurrency(item.subtotalReturnedAmount) }}</strong></div><div><span>{{ 'returnsPage.fields.discountAmount' | translate }}</span><strong>{{ formatCurrency(item.discountAmount) }}</strong></div><div><span>{{ 'returnsPage.fields.shippingFees' | translate }}</span><strong>{{ formatCurrency(item.shippingFees) }}</strong></div><div class="grand-total"><span>{{ 'returnsPage.fields.finalReturnedAmount' | translate }}</span><strong>{{ formatCurrency(item.finalReturnedAmount) }}</strong></div></div>
+      }
+    </mat-dialog-content>
+    <mat-dialog-actions align="end"><button mat-flat-button class="search-button" type="button" (click)="closeDetails()">{{ 'returnsPage.actions.close' | translate }}</button></mat-dialog-actions>
+  </div>
+</ng-template>

@@ -1,0 +1,116 @@
+@if (direction() === 'rtl') {
+<div class="w-full flex justify-between items-center px-8" [attr.dir]="direction()" [style.flex-direction]="direction() === 'rtl' ? 'row-reverse' : 'row'" [ngClass]="{
+    'bg-light_bg text-orange': !(isDarkMode$ | async),
+    'bg-dark': (isDarkMode$ | async)
+  }">
+
+    <div class="flex items-center gap-4" [style.flex-direction]="direction() === 'rtl' ? 'row-reverse' : 'row'">
+        <button class="flex items-center justify-center border-none outline-none bg-transparent" (click)="toggleDarkMode()">
+            @if (isDarkMode$ | async) {
+            <app-mode></app-mode>
+            } @else {
+            <app-moon></app-moon>
+            }
+        </button>
+        <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-full border border-current bg-transparent transition-colors duration-200"
+            [ngClass]="{
+              'text-orange hover:bg-orange/10': !(isDarkMode$ | async),
+              'text-light_orange hover:bg-white/10': (isDarkMode$ | async)
+            }"
+            [attr.aria-label]="backButtonLabel"
+            [attr.title]="backButtonLabel"
+            (click)="goBack()">
+            <span class="sr-only">{{ backButtonLabel }}</span>
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                [style.transform]="direction() === 'rtl' ? 'scaleX(-1)' : 'none'">
+                <path d="M15.75 19.5L8.25 12L15.75 4.5" stroke="currentColor" stroke-width="2.25"
+                    stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        </button>
+        <p-select [options]="i18n" [(ngModel)]="currentLang" (ngModelChange)="onLanguageChange($event)" appendTo="body"
+            optionLabel="name" optionValue="id" placeholder="Select Language" class="custom-select w-32" [ngClass]="{
+                  'light-mode-select': !(isDarkMode$ | async),
+                  'dark-mode-select': (isDarkMode$ | async)
+                }"></p-select>
+
+    </div>
+    <div class="flex items-center gap-4" [style.flex-direction]="direction() === 'rtl' ? 'row-reverse' : 'row'">
+        <div class="items-center gap-2 hidden sm:flex" [style.flex-direction]="direction() === 'rtl' ? 'row-reverse' : 'row'">
+            <img src="assets/svg/Kapo.svg" alt="Logo" class="sm:h-8 lg:h-24" />
+                
+            <div class="flex flex-col space-y-2">
+                <!-- <img src="/assets/img/Okland Typography (Orange).png" class="sm:w-16 sm:h-4 lg:w-28 lg:h-6"
+                    alt="Logo" /> -->
+                <!-- <h2 class="block sm:text-sm lg:text-xl tracking-widest font-azonix" [ngClass]="{
+                  'text-orange': !(isDarkMode$ | async),
+                  'text-light_orange': (isDarkMode$ | async)
+                }">
+                    INVENTORY SYSTEM
+                </h2> -->
+            </div>
+        </div>
+
+        <app-menu-open class="cursor-pointer" (click)="toggleSidenav()"></app-menu-open>
+    </div>
+
+</div>
+} @else {
+<div class="w-full flex justify-between items-center px-8" [attr.dir]="direction()" [style.flex-direction]="direction() === 'rtl' ? 'row-reverse' : 'row'" [ngClass]="{
+    'bg-light_bg text-orange': !(isDarkMode$ | async),
+    'bg-dark': (isDarkMode$ | async)
+  }">
+    <div class="flex items-center gap-4" [style.flex-direction]="direction() === 'rtl' ? 'row-reverse' : 'row'">
+        <app-menu-open class="cursor-pointer" (click)="toggleSidenav()"></app-menu-open>
+
+        <div class="items-center gap-2 hidden sm:flex" [style.flex-direction]="direction() === 'rtl' ? 'row-reverse' : 'row'">
+        <img src="assets/svg/Kapo.svg" alt="Logo" class="sm:h-8 lg:h-24" />
+            
+            <div class="flex flex-col space-y-2">
+                <!-- <img src="/assets/img/Okland Typography (Orange).png" class="sm:w-16 sm:h-4 lg:w-28 lg:h-6"
+                    alt="Logo" /> -->
+                <!-- <h2 class="block sm:text-sm lg:text-xl tracking-widest font-azonix" [ngClass]="{
+                  'text-orange': !(isDarkMode$ | async),
+                  'text-light_orange': (isDarkMode$ | async)
+                }">
+                    INVENTORY SYSTEM
+                </h2> -->
+            </div>
+        </div>
+    </div>
+
+    <div class="flex items-center gap-4" [style.flex-direction]="direction() === 'rtl' ? 'row-reverse' : 'row'">
+        <p-select [options]="i18n" [(ngModel)]="currentLang" (ngModelChange)="onLanguageChange($event)" appendTo="body" optionLabel="name" optionValue="id" placeholder="Select Language" class="custom-select w-32" [ngClass]="{
+              'light-mode-select': !(isDarkMode$ | async),
+              'dark-mode-select': (isDarkMode$ | async)
+            }"></p-select>
+
+        <button class="flex items-center justify-center border-none outline-none bg-transparent"
+            (click)="toggleDarkMode()">
+            @if (isDarkMode$ | async) {
+                <app-mode></app-mode>
+            } @else {
+                <app-moon></app-moon>
+            }
+        </button>
+        <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-full border border-current bg-transparent transition-colors duration-200"
+            [ngClass]="{
+              'text-orange hover:bg-orange/10': !(isDarkMode$ | async),
+              'text-light_orange hover:bg-white/10': (isDarkMode$ | async)
+            }"
+            [attr.aria-label]="backButtonLabel"
+            [attr.title]="backButtonLabel"
+            (click)="goBack()">
+            <span class="sr-only">{{ backButtonLabel }}</span>
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                [style.transform]="direction() === 'rtl' ? 'scaleX(-1)' : 'none'">
+                <path d="M15.75 19.5L8.25 12L15.75 4.5" stroke="currentColor" stroke-width="2.25"
+                    stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        </button>
+    </div>
+</div>
+}

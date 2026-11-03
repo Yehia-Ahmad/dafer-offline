@@ -1,0 +1,148 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.invoice-history-shell {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.invoice-history-table-scroll {
+  max-height: 450px;
+  overflow: auto;
+  width: 100%;
+}
+
+.invoice-history-load-more {
+  padding: 1rem 0 0;
+  text-align: center;
+  font-family: 'Roboto', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.invoice-items-column {
+  min-width: 25rem;
+}
+
+.invoice-items-stack {
+  display: flex;
+  min-width: 22rem;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.invoice-item-card {
+  border-radius: 16px;
+  border: 1px solid transparent;
+  padding: 0.95rem 1rem;
+}
+
+.invoice-item-card--dark {
+  border-color: rgba(243, 222, 198, 0.08);
+  background: linear-gradient(180deg, #43434a 0%, #383841 100%);
+  color: #f3dec6;
+}
+
+.invoice-item-card--light {
+  border-color: #d4d8df;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f6f9 100%);
+  color: #243245;
+}
+
+.invoice-item-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.invoice-item-card__identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.invoice-item-card__name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.invoice-item-card__category {
+  font-size: 0.76rem;
+  opacity: 0.68;
+}
+
+.invoice-item-card__code {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #f4d80a;
+  color: #232327;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.invoice-item-card__metrics {
+  margin-top: 0.85rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.invoice-item-card__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.invoice-item-card__metric-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  opacity: 0.62;
+  text-transform: uppercase;
+}
+
+.invoice-item-card__metric-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.invoice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-width: 12.5rem;
+}
+
+:host ::ng-deep .invoice-history-table .p-datatable-tbody > tr > td {
+  vertical-align: top;
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
+:host ::ng-deep .invoice-history-table .p-datatable-thead > tr > th {
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .invoice-items-column {
+    min-width: 20rem;
+  }
+
+  .invoice-items-stack {
+    min-width: 18rem;
+  }
+
+  .invoice-item-card__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-actions {
+    min-width: 10rem;
+  }
+}

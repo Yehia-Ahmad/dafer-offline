@@ -1,0 +1,741 @@
+<app-side-nav>
+  <div
+    class="min-h-[calc(100vh-8rem)]"
+    [ngClass]="(isDarkMode$ | async) ? 'bg-gray-900 text-light_orange' : 'bg-light_bg text-dark'"
+  >
+    <div class="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+      <div>
+        <p class="mb-1 text-xs font-extrabold uppercase tracking-wide text-orange">
+          {{ 'ecommerceSettings.eyebrow' | translate }}
+        </p>
+        <h1 class="m-0 font-azonix text-azonix-display leading-tight">
+          {{ 'ecommerceSettings.title' | translate }}
+        </h1>
+        <p
+          class="m-0 text-sm"
+          [ngClass]="(isDarkMode$ | async) ? 'text-light_gray' : 'text-gray-600'"
+        >
+          {{ 'ecommerceSettings.subtitle' | translate }}
+        </p>
+      </div>
+    </div>
+
+    <div
+      class="mb-4 flex flex-wrap gap-2 rounded-lg border p-2"
+      [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-gray_dark' : 'border-gray-200 bg-white'"
+    >
+      <button
+        type="button"
+        class="rounded-lg px-4 py-2 text-sm font-extrabold transition"
+        [ngClass]="activeSection === 'categories' ? 'bg-orange text-dark' : 'bg-transparent'"
+        (click)="selectSection('categories')"
+      >
+        {{ 'ecommerceSettings.sections.categories' | translate }}
+      </button>
+      <button
+        type="button"
+        class="rounded-lg px-4 py-2 text-sm font-extrabold transition"
+        [ngClass]="activeSection === 'shipping' ? 'bg-orange text-dark' : 'bg-transparent'"
+        (click)="selectSection('shipping')"
+      >
+        {{ 'ecommerceSettings.sections.shipping' | translate }}
+      </button>
+      <button
+        type="button"
+        class="rounded-lg px-4 py-2 text-sm font-extrabold transition"
+        [ngClass]="activeSection === 'general' ? 'bg-orange text-dark' : 'bg-transparent'"
+        (click)="selectSection('general')"
+      >
+        {{ 'ecommerceSettings.shipping.general.title' | translate }}
+      </button>
+      <button
+        type="button"
+        class="rounded-lg px-4 py-2 text-sm font-extrabold transition"
+        [ngClass]="activeSection === 'homePage' ? 'bg-orange text-dark' : 'bg-transparent'"
+        (click)="selectSection('homePage')"
+      >
+        {{ 'ecommerceSettings.homePageCategories.tabTitle' | translate }}
+      </button>
+    </div>
+
+    @if (isLoading) {
+      <div
+        class="rounded-lg border p-4"
+        [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-gray_dark' : 'border-gray-200 bg-white'"
+      >
+        {{ 'actions.loading' | translate }}
+      </div>
+    } @else if (activeSection === 'categories') {
+      <div class="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
+        <aside
+          class="grid gap-3 rounded-lg border p-4"
+          [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-gray_dark' : 'border-gray-200 bg-white'"
+        >
+          <h2 class="m-0 font-azonix text-azonix-title">
+            {{ 'ecommerceSettings.categories' | translate }}
+          </h2>
+          @for (category of categories; track category.categoryId) {
+            <button
+              type="button"
+              class="grid gap-1 rounded-lg border px-4 py-3 text-left transition"
+              [ngClass]="[
+                activeCategory?.categoryId === category.categoryId
+                  ? 'border-orange bg-light_orange text-dark'
+                  : (isDarkMode$ | async)
+                    ? 'border-gray bg-dark'
+                    : 'border-gray-200 bg-light_content'
+              ]"
+              (click)="selectCategory(category)"
+            >
+              <span class="font-semibold">{{ category.categoryName }}</span>
+              <small
+                class="text-xs"
+                [ngClass]="(isDarkMode$ | async) ? 'text-light_gray' : 'text-gray-500'"
+              >
+                {{
+                  (category.showOnWebsite
+                    ? 'ecommerceSettings.status.visible'
+                    : 'ecommerceSettings.status.hidden') | translate
+                }}
+                · {{ category.productIds.length }} {{ 'ecommerceSettings.products.count' | translate }}
+              </small>
+            </button>
+          }
+        </aside>
+
+        @if (activeCategory) {
+          <form class="grid gap-4 rounded-lg border p-4" [formGroup]="form" (ngSubmit)="saveSettings()">
+            <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div>
+                <p class="mb-1 text-xs font-extrabold uppercase tracking-wide text-orange">
+                  {{ 'ecommerceSettings.categorySettings' | translate }}
+                </p>
+                <h2 class="m-0 font-azonix text-azonix-title">{{ activeCategory.categoryName }}</h2>
+              </div>
+              <label class="inline-flex items-center gap-2 font-bold">
+                <input type="checkbox" formControlName="showOnWebsite" class="h-4 w-4 accent-orange" />
+                <span>{{ 'ecommerceSettings.showOnWebsite' | translate }}</span>
+              </label>
+            </section>
+
+            @if (form.controls.showOnWebsite.value) {
+              <section class="grid gap-4 rounded-lg border p-4" [ngClass]="(isDarkMode$ | async) ? 'border-gray' : 'border-gray-200'">
+                <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                  <h3 class="m-0 font-azonix text-azonix-card">{{ 'ecommerceSettings.products.title' | translate }}</h3>
+                  <div class="flex flex-wrap items-center justify-end gap-3">
+                    <label class="inline-flex items-center gap-2 text-sm font-bold">
+                      <input
+                        type="checkbox"
+                        class="h-4 w-4 accent-orange"
+                        [checked]="areAllProductsSelected"
+                        [indeterminate]="areSomeProductsSelected"
+                        [disabled]="!activeProducts.length"
+                        (change)="toggleAllProducts()"
+                      />
+                      <span>{{ 'ecommerceSettings.products.selectAll' | translate }}</span>
+                    </label>
+                    <span class="text-sm font-semibold text-gray-500">
+                      {{ form.controls.productIds.value.length }} /
+                      {{ activeProducts.length }}
+                    </span>
+                  </div>
+                </div>
+                <div class="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(12rem,1fr))]">
+                  @for (product of activeProducts; track product.id) {
+                    <button
+                      type="button"
+                      class="relative grid gap-1 rounded-lg border p-4 text-left transition hover:-translate-y-px hover:shadow-md"
+                      [ngClass]="isProductSelected(product.id)
+                        ? 'border-orange bg-light_orange text-dark shadow-[inset_0_0_0_1px_#d6b300,0_8px_18px_rgba(244,216,10,0.18)]'
+                        : (isDarkMode$ | async)
+                          ? 'border-gray bg-dark'
+                          : 'border-gray-200 bg-white'"
+                      (click)="toggleCategoryProduct(product.id)"
+                    >
+                      @if (isProductSelected(product.id)) {
+                        <i class="fa-solid fa-check justify-self-end text-sm text-brown" aria-hidden="true"></i>
+                      }
+                      <span class="font-semibold">{{ product.name }}</span>
+                      <small class="text-xs" [ngClass]="(isDarkMode$ | async) ? 'text-light_gray' : 'text-gray-500'">
+                        {{ product.code || product.id }}
+                      </small>
+                    </button>
+                  }
+                </div>
+              </section>
+
+              <section class="grid gap-4 rounded-lg border p-4" formArrayName="filters" [ngClass]="(isDarkMode$ | async) ? 'border-gray' : 'border-gray-200'">
+                <div class="grid gap-1">
+                  <h3 class="m-0 font-azonix text-azonix-card">{{ 'ecommerceSettings.filters.title' | translate }}</h3>
+                  <p class="m-0 text-sm" [ngClass]="(isDarkMode$ | async) ? 'text-light_gray' : 'text-gray-500'">
+                    {{ 'ecommerceSettings.filters.optionsHint' | translate }}
+                  </p>
+                </div>
+
+                <div class="grid gap-3">
+                  @for (filter of filters.controls; track $index; let index = $index) {
+                    <div class="grid gap-4 rounded-lg border p-4" [formGroupName]="index" [ngClass]="(isDarkMode$ | async) ? 'border-gray' : 'border-gray-200'">
+                      <div class="grid gap-3 lg:grid-cols-[minmax(12rem,1fr)_auto] lg:items-end">
+                        <label>
+                          <span class="text-xs font-bold">{{ 'ecommerceSettings.filters.itemTitle' | translate }}</span>
+                          <input type="text" formControlName="title" readonly class="min-h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit opacity-80" />
+                        </label>
+                        <label class="inline-flex items-center gap-2 font-bold">
+                          <input type="checkbox" formControlName="isVisible" class="h-4 w-4 accent-orange" />
+                          <span>{{ 'ecommerceSettings.filters.visible' | translate }}</span>
+                        </label>
+                      </div>
+
+                      <div class="grid gap-3">
+                        <span class="text-sm font-extrabold text-gray-500">
+                          {{ 'ecommerceSettings.filters.options' | translate }}
+                        </span>
+                        @if (filter.controls.values.value.length) {
+                          <div class="flex flex-wrap gap-2">
+                            @for (value of filter.controls.values.value; track value) {
+                              <span class="rounded-full bg-light_orange px-3 py-1 text-xs font-bold text-dark">
+                                {{ value }}
+                              </span>
+                            }
+                          </div>
+                        } @else {
+                          <span class="text-xs" [ngClass]="(isDarkMode$ | async) ? 'text-light_gray' : 'text-gray-500'">
+                            {{ 'ecommerceSettings.filters.emptyOptions' | translate }}
+                          </span>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              </section>
+            } @else {
+              <section class="rounded-lg border p-4" [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-gray_dark' : 'border-gray-200 bg-white'">
+                <p class="m-0 text-sm text-gray-500">{{ 'ecommerceSettings.hiddenHint' | translate }}</p>
+              </section>
+            }
+
+            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div></div>
+              <div class="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  class="rounded-lg bg-light_orange px-4 py-2 font-extrabold text-dark disabled:cursor-not-allowed disabled:opacity-60"
+                  [disabled]="isResetting"
+                  (click)="resetSettings()"
+                >
+                  {{ 'ecommerceSettings.actions.reset' | translate }}
+                </button>
+                <button type="submit" class="rounded-lg bg-orange px-4 py-2 font-extrabold text-dark disabled:cursor-not-allowed disabled:opacity-60" [disabled]="form.invalid || isSaving">
+                  {{ (isSaving ? 'actions.creating' : 'actions.save') | translate }}
+                </button>
+              </div>
+            </div>
+          </form>
+        }
+      </div>
+    } @else if (activeSection === 'shipping') {
+      <form
+        class="grid gap-4 rounded-lg border p-4"
+        [formGroup]="shippingForm"
+        [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-gray_dark' : 'border-gray-200 bg-white'"
+        (ngSubmit)="saveShippingSettings()"
+      >
+        <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div>
+            <p class="mb-1 text-xs font-extrabold uppercase tracking-wide text-orange">
+              {{ 'ecommerceSettings.shipping.eyebrow' | translate }}
+            </p>
+            <h2 class="m-0 font-azonix text-azonix-title">
+              {{ 'ecommerceSettings.shipping.governments.title' | translate }}
+            </h2>
+            <p class="m-0 text-sm" [ngClass]="(isDarkMode$ | async) ? 'text-light_gray' : 'text-gray-500'">
+              {{ 'ecommerceSettings.shipping.governments.subtitle' | translate }}
+            </p>
+          </div>
+          <div class="flex flex-wrap justify-end gap-3">
+            <button
+              type="button"
+              class="rounded-lg bg-light_orange px-4 py-2 font-extrabold text-dark"
+              (click)="addGovernmentFee()"
+            >
+              {{ 'ecommerceSettings.shipping.governments.addGovernment' | translate }}
+            </button>
+          </div>
+        </section>
+
+        <div class="grid gap-3" formArrayName="governmentFees">
+          @for (governmentFee of governmentFees.controls; track $index; let index = $index) {
+            <div
+              class="grid gap-3 rounded-lg border p-4 lg:grid-cols-[minmax(12rem,1fr)_12rem_auto] lg:items-start"
+              [formGroupName]="index"
+              [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-dark' : 'border-gray-200 bg-light_content'"
+            >
+              <label class="grid gap-1">
+                <span class="text-xs font-bold">{{ 'ecommerceSettings.shipping.governments.government' | translate }}</span>
+                <input
+                  type="text"
+                  formControlName="government"
+                  class="min-h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit"
+                  [placeholder]="'ecommerceSettings.shipping.governments.governmentPlaceholder' | translate"
+                />
+                @if (governmentFee.controls.government.touched && governmentFee.controls.government.invalid) {
+                  <small class="text-red">{{ 'ecommerceSettings.shipping.governments.governmentRequired' | translate }}</small>
+                }
+              </label>
+
+              <label class="grid gap-1">
+                <span class="text-xs font-bold">{{ 'ecommerceSettings.shipping.governments.shippingFees' | translate }}</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  formControlName="shippingFees"
+                  class="min-h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit"
+                />
+                @if (governmentFee.controls.shippingFees.touched && governmentFee.controls.shippingFees.invalid) {
+                  <small class="text-red">{{ 'ecommerceSettings.shipping.governments.shippingFeesRequired' | translate }}</small>
+                }
+              </label>
+
+              <button
+                type="button"
+                class="min-h-10 rounded-lg border border-red px-4 py-2 font-extrabold text-red"
+                (click)="removeGovernmentFee(index)"
+              >
+                {{ 'ecommerceSettings.shipping.governments.remove' | translate }}
+              </button>
+            </div>
+          }
+        </div>
+
+        <div class="flex justify-end">
+          <button
+            type="submit"
+            class="rounded-lg bg-orange px-4 py-2 font-extrabold text-dark disabled:cursor-not-allowed disabled:opacity-60"
+            [disabled]="shippingForm.invalid || isSavingShipping"
+          >
+            {{ (isSavingShipping ? 'actions.creating' : 'actions.save') | translate }}
+          </button>
+        </div>
+      </form>
+    } @else if (activeSection === 'general') {
+      <form
+        class="grid gap-6 rounded-lg border p-4"
+        [formGroup]="websiteGeneralSettingsForm"
+        [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-gray_dark' : 'border-gray-200 bg-white'"
+        (ngSubmit)="saveWebsiteGeneralSettings()"
+      >
+        <section class="grid gap-1">
+          <p class="mb-1 text-xs font-extrabold uppercase tracking-wide text-orange">
+            {{ 'ecommerceSettings.websiteGeneral.eyebrow' | translate }}
+          </p>
+          <h2 class="m-0 font-azonix text-azonix-title">
+            {{ 'ecommerceSettings.websiteGeneral.title' | translate }}
+          </h2>
+          <p
+            class="m-0 text-sm"
+            [ngClass]="(isDarkMode$ | async) ? 'text-light_gray' : 'text-gray-500'"
+          >
+            {{ 'ecommerceSettings.websiteGeneral.subtitle' | translate }}
+          </p>
+        </section>
+
+        <section class="grid gap-4 rounded-lg border p-4 lg:grid-cols-2" [ngClass]="(isDarkMode$ | async) ? 'border-gray' : 'border-gray-200'">
+          <div class="grid content-start gap-3">
+            <span class="text-xs font-bold">
+              {{ 'ecommerceSettings.websiteGeneral.logo.label' | translate }}
+            </span>
+            @if (websiteGeneralSettingsForm.controls.mainLogo.value) {
+              <div class="flex min-h-32 items-center justify-center rounded-lg border border-gray-300 p-3">
+                <img
+                  [src]="websiteGeneralSettingsForm.controls.mainLogo.value"
+                  [alt]="'ecommerceSettings.websiteGeneral.logo.previewAlt' | translate"
+                  class="max-h-32 max-w-full object-contain"
+                />
+              </div>
+            }
+            <label class="w-fit cursor-pointer rounded-lg border border-orange px-4 py-2 font-extrabold text-orange">
+              {{ 'ecommerceSettings.websiteGeneral.logo.choose' | translate }}
+              <input
+                type="file"
+                accept="image/*"
+                class="sr-only"
+                (change)="onMainLogoSelected($event)"
+              />
+            </label>
+            <small [ngClass]="(isDarkMode$ | async) ? 'text-light_gray' : 'text-gray-500'">
+              {{ 'ecommerceSettings.websiteGeneral.logo.hint' | translate }}
+            </small>
+          </div>
+
+          <div class="grid content-start gap-3">
+            <span class="text-xs font-bold">
+              {{ 'ecommerceSettings.websiteGeneral.mainColor.label' | translate }}
+            </span>
+            <div class="grid max-w-md grid-cols-[4rem_minmax(0,1fr)] gap-3">
+              <input
+                type="color"
+                formControlName="mainColor"
+                class="h-11 w-16 cursor-pointer rounded-lg border border-gray-300 bg-transparent p-1"
+                [attr.aria-label]="'ecommerceSettings.websiteGeneral.mainColor.label' | translate"
+              />
+              <input
+                type="text"
+                maxlength="7"
+                formControlName="mainColor"
+                class="min-h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 uppercase text-inherit"
+                [placeholder]="'ecommerceSettings.websiteGeneral.mainColor.placeholder' | translate"
+              />
+            </div>
+            @if (
+              websiteGeneralSettingsForm.controls.mainColor.touched &&
+              websiteGeneralSettingsForm.controls.mainColor.invalid
+            ) {
+              <small class="text-red">
+                {{ 'ecommerceSettings.websiteGeneral.mainColor.invalid' | translate }}
+              </small>
+            }
+          </div>
+        </section>
+
+        <section class="grid gap-4 rounded-lg border p-4 lg:grid-cols-2" [ngClass]="(isDarkMode$ | async) ? 'border-gray' : 'border-gray-200'">
+          <label class="grid content-start gap-1">
+            <span class="text-xs font-bold">
+              {{ 'ecommerceSettings.shipping.general.freeShippingMinimumAmount' | translate }}
+            </span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              formControlName="freeShippingMinimumAmount"
+              class="min-h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit"
+            />
+            @if (
+              websiteGeneralSettingsForm.controls.freeShippingMinimumAmount.touched &&
+              websiteGeneralSettingsForm.controls.freeShippingMinimumAmount.invalid
+            ) {
+              <small class="text-red">
+                {{ 'ecommerceSettings.shipping.general.freeShippingMinimumAmountRequired' | translate }}
+              </small>
+            }
+          </label>
+
+          <label class="grid content-start gap-1">
+            <span class="text-xs font-bold">
+              {{ 'ecommerceSettings.currency.label' | translate }}
+            </span>
+            <input
+              type="text"
+              maxlength="3"
+              autocomplete="off"
+              spellcheck="false"
+              formControlName="currency"
+              class="min-h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 uppercase text-inherit"
+              [placeholder]="'ecommerceSettings.currency.placeholder' | translate"
+            />
+            @if (
+              websiteGeneralSettingsForm.controls.currency.touched &&
+              websiteGeneralSettingsForm.controls.currency.invalid
+            ) {
+              <small class="text-red">
+                {{ 'ecommerceSettings.currency.invalid' | translate }}
+              </small>
+            }
+          </label>
+
+          <label class="grid content-start gap-1">
+            <span class="text-xs font-bold">
+              {{ 'ecommerceSettings.websiteGeneral.walletPhone.label' | translate }}
+            </span>
+            <input
+              type="tel"
+              autocomplete="tel"
+              formControlName="walletPhone"
+              class="min-h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit"
+              [placeholder]="'ecommerceSettings.websiteGeneral.walletPhone.placeholder' | translate"
+            />
+            @if (
+              websiteGeneralSettingsForm.controls.walletPhone.touched &&
+              websiteGeneralSettingsForm.controls.walletPhone.invalid
+            ) {
+              <small class="text-red">
+                {{ 'ecommerceSettings.websiteGeneral.walletPhone.invalid' | translate }}
+              </small>
+            }
+          </label>
+
+          <label class="grid content-start gap-1">
+            <span class="text-xs font-bold">
+              {{ 'ecommerceSettings.websiteGeneral.instapayLink.label' | translate }}
+            </span>
+            <input
+              type="url"
+              autocomplete="url"
+              formControlName="instapayLink"
+              class="min-h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit"
+              [placeholder]="'ecommerceSettings.websiteGeneral.instapayLink.placeholder' | translate"
+            />
+            @if (
+              websiteGeneralSettingsForm.controls.instapayLink.touched &&
+              websiteGeneralSettingsForm.controls.instapayLink.invalid
+            ) {
+              <small class="text-red">
+                {{ 'ecommerceSettings.websiteGeneral.instapayLink.invalid' | translate }}
+              </small>
+            }
+          </label>
+        </section>
+
+        <section class="grid gap-4 rounded-lg border p-4" formArrayName="storeLocations" [ngClass]="(isDarkMode$ | async) ? 'border-gray' : 'border-gray-200'">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="m-0 font-azonix text-azonix-card">
+                {{ 'ecommerceSettings.websiteGeneral.locations.title' | translate }}
+              </h3>
+              <p class="m-0 text-sm" [ngClass]="(isDarkMode$ | async) ? 'text-light_gray' : 'text-gray-500'">
+                {{ 'ecommerceSettings.websiteGeneral.locations.subtitle' | translate }}
+              </p>
+            </div>
+            <button type="button" class="rounded-lg bg-light_orange px-4 py-2 font-extrabold text-dark" (click)="addStoreLocation()">
+              {{ 'ecommerceSettings.websiteGeneral.locations.add' | translate }}
+            </button>
+          </div>
+
+          @for (location of storeLocations.controls; track location; let index = $index) {
+            <div class="grid gap-3 rounded-lg border p-4 lg:grid-cols-2" [formGroupName]="index" [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-dark' : 'border-gray-200 bg-light_content'">
+              <label class="grid gap-1">
+                <span class="text-xs font-bold">{{ 'ecommerceSettings.websiteGeneral.locations.name' | translate }}</span>
+                <input type="text" formControlName="name" class="min-h-10 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit" />
+                @if (location.controls.name.touched && location.controls.name.invalid) {
+                  <small class="text-red">{{ 'ecommerceSettings.websiteGeneral.required' | translate }}</small>
+                }
+              </label>
+              <label class="grid gap-1">
+                <span class="text-xs font-bold">{{ 'ecommerceSettings.websiteGeneral.locations.mapLink' | translate }}</span>
+                <input type="url" formControlName="mapLink" class="min-h-10 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit" placeholder="https://maps.google.com/..." />
+                @if (location.controls.mapLink.touched && location.controls.mapLink.invalid) {
+                  <small class="text-red">{{ 'ecommerceSettings.websiteGeneral.validUrl' | translate }}</small>
+                }
+              </label>
+              <label class="grid gap-1 lg:col-span-2">
+                <span class="text-xs font-bold">{{ 'ecommerceSettings.websiteGeneral.locations.detailedLocation' | translate }}</span>
+                <textarea rows="3" formControlName="detailedLocation" class="rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit"></textarea>
+                @if (location.controls.detailedLocation.touched && location.controls.detailedLocation.invalid) {
+                  <small class="text-red">{{ 'ecommerceSettings.websiteGeneral.required' | translate }}</small>
+                }
+              </label>
+              <div class="flex justify-end lg:col-span-2">
+                <button type="button" class="rounded-lg border border-red px-4 py-2 font-extrabold text-red" (click)="removeStoreLocation(index)">
+                  {{ 'ecommerceSettings.websiteGeneral.remove' | translate }}
+                </button>
+              </div>
+            </div>
+          } @empty {
+            <p class="m-0 text-sm" [ngClass]="(isDarkMode$ | async) ? 'text-light_gray' : 'text-gray-500'">
+              {{ 'ecommerceSettings.websiteGeneral.locations.empty' | translate }}
+            </p>
+          }
+        </section>
+
+        <section class="grid gap-4 rounded-lg border p-4" formArrayName="socialMediaLinks" [ngClass]="(isDarkMode$ | async) ? 'border-gray' : 'border-gray-200'">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="m-0 font-azonix text-azonix-card">
+                {{ 'ecommerceSettings.websiteGeneral.social.title' | translate }}
+              </h3>
+              <p class="m-0 text-sm" [ngClass]="(isDarkMode$ | async) ? 'text-light_gray' : 'text-gray-500'">
+                {{ 'ecommerceSettings.websiteGeneral.social.subtitle' | translate }}
+              </p>
+            </div>
+            <button type="button" class="rounded-lg bg-light_orange px-4 py-2 font-extrabold text-dark" (click)="addSocialMediaLink()">
+              {{ 'ecommerceSettings.websiteGeneral.social.add' | translate }}
+            </button>
+          </div>
+
+          @for (socialMediaLink of socialMediaLinks.controls; track socialMediaLink; let index = $index) {
+            <div class="grid gap-3 rounded-lg border p-4 lg:grid-cols-[minmax(12rem,1fr)_minmax(16rem,2fr)_auto] lg:items-start" [formGroupName]="index" [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-dark' : 'border-gray-200 bg-light_content'">
+              <label class="grid gap-1">
+                <span class="text-xs font-bold">{{ 'ecommerceSettings.websiteGeneral.social.name' | translate }}</span>
+                <input type="text" formControlName="name" class="min-h-10 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit" placeholder="Facebook" />
+                @if (socialMediaLink.controls.name.touched && socialMediaLink.controls.name.invalid) {
+                  <small class="text-red">{{ 'ecommerceSettings.websiteGeneral.required' | translate }}</small>
+                }
+              </label>
+              <label class="grid gap-1">
+                <span class="text-xs font-bold">
+                  {{ (isWhatsAppSocialMediaLink(socialMediaLink) ? 'ecommerceSettings.websiteGeneral.social.whatsappPhone' : 'ecommerceSettings.websiteGeneral.social.link') | translate }}
+                </span>
+                <input type="text" formControlName="link" class="min-h-10 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit" [placeholder]="getSocialMediaLinkPlaceholder(socialMediaLink)" />
+                @if (socialMediaLink.controls.link.touched && socialMediaLink.controls.link.hasError('required')) {
+                  <small class="text-red">{{ 'ecommerceSettings.websiteGeneral.required' | translate }}</small>
+                } @else if (socialMediaLink.touched && socialMediaLink.hasError('invalidWhatsappPhone')) {
+                  <small class="text-red">{{ 'ecommerceSettings.websiteGeneral.social.validWhatsappPhone' | translate }}</small>
+                } @else if (socialMediaLink.touched && socialMediaLink.hasError('invalidSocialUrl')) {
+                  <small class="text-red">{{ 'ecommerceSettings.websiteGeneral.validUrl' | translate }}</small>
+                }
+              </label>
+              <button type="button" class="min-h-10 rounded-lg border border-red px-4 py-2 font-extrabold text-red" (click)="removeSocialMediaLink(index)">
+                {{ 'ecommerceSettings.websiteGeneral.remove' | translate }}
+              </button>
+            </div>
+          } @empty {
+            <p class="m-0 text-sm" [ngClass]="(isDarkMode$ | async) ? 'text-light_gray' : 'text-gray-500'">
+              {{ 'ecommerceSettings.websiteGeneral.social.empty' | translate }}
+            </p>
+          }
+        </section>
+
+        <div class="flex justify-end">
+          <button
+            type="submit"
+            class="rounded-lg bg-orange px-4 py-2 font-extrabold text-dark disabled:cursor-not-allowed disabled:opacity-60"
+            [disabled]="websiteGeneralSettingsForm.invalid || isLoadingWebsiteGeneralSettings || isSavingWebsiteGeneralSettings"
+          >
+            {{ (isSavingWebsiteGeneralSettings ? 'actions.creating' : 'actions.save') | translate }}
+          </button>
+        </div>
+      </form>
+    } @else {
+      <section
+        class="grid gap-6 rounded-lg border p-4"
+        [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-gray_dark' : 'border-gray-200 bg-white'"
+      >
+        <header class="grid gap-1">
+          <p class="mb-1 text-xs font-extrabold uppercase tracking-wide text-orange">
+            {{ 'ecommerceSettings.homePageCategories.eyebrow' | translate }}
+          </p>
+          <h2 class="m-0 font-azonix text-azonix-title">
+            {{ 'ecommerceSettings.homePageCategories.title' | translate }}
+          </h2>
+          <p class="m-0 text-sm" [ngClass]="(isDarkMode$ | async) ? 'text-light_gray' : 'text-gray-500'">
+            {{ 'ecommerceSettings.homePageCategories.subtitle' | translate }}
+          </p>
+        </header>
+
+        @if (isLoadingHomePageCategories) {
+          <div class="rounded-lg border p-6 text-center" [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-dark' : 'border-gray-200 bg-light_content'">
+            {{ 'actions.loading' | translate }}
+          </div>
+        } @else {
+          <div class="grid gap-4 xl:grid-cols-2">
+            <section class="grid content-start gap-4 rounded-lg border p-4" [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-dark' : 'border-gray-200 bg-light_content'">
+              <div>
+                <h3 class="m-0 font-azonix text-azonix-card">
+                  {{ 'ecommerceSettings.homePageCategories.availableTitle' | translate }}
+                </h3>
+                <p class="m-0 text-sm opacity-70">
+                  {{ 'ecommerceSettings.homePageCategories.availableHint' | translate }}
+                </p>
+              </div>
+
+              <div class="grid gap-3 sm:grid-cols-2">
+                @for (category of homePageCategoryOptions; track category.id) {
+                  <button
+                    type="button"
+                    class="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border p-3 text-start transition disabled:cursor-not-allowed disabled:opacity-50"
+                    [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-gray_dark' : 'border-gray-200 bg-white'"
+                    [disabled]="isHomePageCategorySelected(category.id)"
+                    (click)="addHomePageCategory(category.id)"
+                  >
+                    @if (category.image) {
+                      <img [src]="category.image" [alt]="category.name" class="h-12 w-12 rounded-md object-cover" />
+                    } @else {
+                      <span class="flex h-12 w-12 items-center justify-center rounded-md bg-light_orange font-bold text-dark">
+                        {{ category.name.charAt(0) }}
+                      </span>
+                    }
+                    <span class="font-bold">{{ category.name }}</span>
+                    <span class="text-xl font-bold text-orange">+</span>
+                  </button>
+                } @empty {
+                  <p class="m-0 text-sm opacity-70 sm:col-span-2">
+                    {{ 'ecommerceSettings.homePageCategories.noActiveCategories' | translate }}
+                  </p>
+                }
+              </div>
+            </section>
+
+            <section class="grid content-start gap-4 rounded-lg border p-4" [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-dark' : 'border-gray-200 bg-light_content'">
+              <div>
+                <h3 class="m-0 font-azonix text-azonix-card">
+                  {{ 'ecommerceSettings.homePageCategories.selectedTitle' | translate }}
+                </h3>
+                <p class="m-0 text-sm opacity-70">
+                  {{ 'ecommerceSettings.homePageCategories.orderHint' | translate }}
+                </p>
+              </div>
+
+              <div class="grid gap-3">
+                @for (category of selectedHomePageCategories; track category.id; let index = $index) {
+                  <div class="grid grid-cols-[auto_3rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border p-3" [ngClass]="(isDarkMode$ | async) ? 'border-gray bg-gray_dark' : 'border-gray-200 bg-white'">
+                    <span class="flex h-8 w-8 items-center justify-center rounded-full bg-orange font-extrabold text-dark">
+                      {{ index + 1 }}
+                    </span>
+                    @if (category.image) {
+                      <img [src]="category.image" [alt]="category.name" class="h-12 w-12 rounded-md object-cover" />
+                    } @else {
+                      <span class="flex h-12 w-12 items-center justify-center rounded-md bg-light_orange font-bold text-dark">
+                        {{ category.name.charAt(0) }}
+                      </span>
+                    }
+                    <span class="font-bold">{{ category.name }}</span>
+                    <div class="flex gap-1">
+                      <button type="button" class="rounded border border-gray-300 px-2 py-1 disabled:opacity-30" [disabled]="index === 0" (click)="moveHomePageCategory(index, -1)" [attr.aria-label]="'ecommerceSettings.homePageCategories.moveUp' | translate">↑</button>
+                      <button type="button" class="rounded border border-gray-300 px-2 py-1 disabled:opacity-30" [disabled]="index === selectedHomePageCategories.length - 1" (click)="moveHomePageCategory(index, 1)" [attr.aria-label]="'ecommerceSettings.homePageCategories.moveDown' | translate">↓</button>
+                      <button type="button" class="rounded border border-red px-2 py-1 text-red" (click)="removeHomePageCategory(index)" [attr.aria-label]="'ecommerceSettings.homePageCategories.remove' | translate">×</button>
+                    </div>
+                  </div>
+                } @empty {
+                  <p class="m-0 rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm opacity-70">
+                    {{ 'ecommerceSettings.homePageCategories.emptySelection' | translate }}
+                  </p>
+                }
+              </div>
+            </section>
+          </div>
+
+          <div class="flex justify-end">
+            <button
+              type="button"
+              class="rounded-lg bg-orange px-5 py-2 font-extrabold text-dark disabled:cursor-not-allowed disabled:opacity-60"
+              [disabled]="isSavingHomePageCategories"
+              (click)="saveHomePageCategories()"
+            >
+              {{ (isSavingHomePageCategories ? 'actions.creating' : 'actions.save') | translate }}
+            </button>
+          </div>
+        }
+      </section>
+    }
+  </div>
+</app-side-nav>
+
+<p-dialog
+  [(visible)]="messageVisible"
+  [modal]="true"
+  [closable]="true"
+  [dismissableMask]="true"
+  [style]="{ width: '28rem' }"
+  styleClass="!border-0"
+>
+  <ng-template #headless>
+    <div class="flex flex-col gap-4 rounded-2xl bg-[#393939] px-8 py-8">
+      <div class="flex items-center justify-center">
+        <h3 class="m-0 text-2xl font-bold font-azonix text-orange">{{ messageTitle }}</h3>
+      </div>
+      <p class="m-0 text-center font-roboto text-light_orange">
+        {{ messageBody }}
+      </p>
+      <div class="flex justify-center">
+        <button
+          type="button"
+          class="rounded-lg border border-white/30 px-6 py-2 font-bold uppercase text-gray_dark"
+          [ngClass]="messageTone === 'error' ? 'bg-red text-light_orange' : 'bg-orange'"
+          (click)="closeMessageDialog()"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  </ng-template>
+</p-dialog>

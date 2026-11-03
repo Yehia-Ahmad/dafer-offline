@@ -1,0 +1,380 @@
+<app-side-nav>
+  <div class="grid gap-6" [ngClass]="(isDarkMode$ | async) ? 'text-light_orange' : 'text-gray_dark'">
+    <header class="flex flex-wrap items-start justify-between gap-4 rounded-xl p-6" [ngClass]="(isDarkMode$ | async) ? 'bg-gray_dark' : 'bg-light_card_bg'">
+      <div>
+        <p class="mb-1 text-xs font-extrabold uppercase tracking-wide text-orange">
+          {{ 'websiteImages.eyebrow' | translate }}
+        </p>
+        <h1 class="m-0 font-azonix text-azonix-display leading-tight">
+          {{ 'websiteImages.title' | translate }}
+        </h1>
+        <p class="m-0 mt-1 text-sm opacity-75">{{ 'websiteImages.subtitle' | translate }}</p>
+      </div>
+      <button type="button" class="rounded-lg bg-orange px-5 py-2 font-extrabold text-dark" (click)="openCreate()">
+        {{ 'websiteImages.actions.add' | translate }}
+      </button>
+    </header>
+
+    @if (loadError) {
+      <div class="rounded-lg border border-red bg-red/10 p-4 text-red">{{ loadError }}</div>
+    }
+
+    <section class="overflow-hidden rounded-xl" [ngClass]="(isDarkMode$ | async) ? 'bg-gray_dark' : 'bg-light_card_bg'">
+      <p-table
+        [value]="images"
+        [loading]="isLoading"
+        [scrollable]="true"
+        [tableStyle]="{ 'min-width': '960px' }"
+        styleClass="website-images-table"
+      >
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'websiteImages.columns.preview' | translate }}</th>
+            <th>{{ 'websiteImages.columns.title' | translate }}</th>
+            <th>{{ 'websiteImages.columns.targetType' | translate }}</th>
+            <th>{{ 'websiteImages.columns.status' | translate }}</th>
+            <th>{{ 'websiteImages.columns.createdAt' | translate }}</th>
+            <th>{{ 'websiteImages.columns.actions' | translate }}</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-image>
+          <tr>
+            <td>
+              @if (image.image) {
+                <img [src]="image.image" [alt]="image.title" class="h-16 w-24 rounded-md object-cover" />
+              } @else {
+                <span class="opacity-60">—</span>
+              }
+            </td>
+            <td class="font-semibold">{{ image.title }}</td>
+            <td>{{ (image.viewOnly ? 'websiteImages.targetTypes.viewOnly' : 'websiteImages.targetTypes.' + image.targetType) | translate }}</td>
+            <td>
+              <span class="rounded-full px-3 py-1 text-xs font-bold" [ngClass]="image.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'">
+                {{ (image.isActive ? 'websiteImages.status.active' : 'websiteImages.status.inactive') | translate }}
+              </span>
+            </td>
+            <td>{{ image.createdAt ? (image.createdAt | date: 'mediumDate') : '—' }}</td>
+            <td>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" class="rounded-md border border-orange px-3 py-1 font-bold text-orange" (click)="openEdit(image)">
+                  {{ 'websiteImages.actions.edit' | translate }}
+                </button>
+                <button type="button" class="rounded-md border border-red px-3 py-1 font-bold text-red" (click)="requestDelete(image)">
+                  {{ 'websiteImages.actions.delete' | translate }}
+                </button>
+                <button type="button" class="rounded-md bg-light_orange px-3 py-1 font-bold text-dark" (click)="previewProducts(image)">
+                  {{ 'websiteImages.actions.previewProducts' | translate }}
+                </button>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="6" class="py-10 text-center opacity-70">
+              {{ 'websiteImages.messages.empty' | translate }}
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </section>
+  </div>
+
+  <p-dialog
+    [(visible)]="editorVisible"
+    [modal]="true"
+    [closable]="!isSaving"
+    [dismissableMask]="!isSaving"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '52rem', maxWidth: '95vw' }"
+    [contentStyle]="{ overflow: 'auto', maxHeight: '82vh' }"
+    [styleClass]="(isDarkMode$ | async) ? 'website-images-dialog website-images-dialog--dark' : 'website-images-dialog website-images-dialog--light'"
+    (onHide)="closeEditor()"
+  >
+    <ng-template pTemplate="header">
+      <h2 class="m-0 font-azonix text-xl text-orange">
+        {{ (editingId ? 'websiteImages.form.editTitle' : 'websiteImages.form.addTitle') | translate }}
+      </h2>
+    </ng-template>
+
+    @if (isEditorLoading) {
+      <div class="py-12 text-center">{{ 'actions.loading' | translate }}</div>
+    } @else {
+      <form
+        class="grid gap-5"
+        [formGroup]="form"
+        [ngClass]="(isDarkMode$ | async) ? 'text-light_orange' : 'text-gray_dark'"
+        (ngSubmit)="save()"
+      >
+        @if (formError) {
+          <div class="rounded-lg border border-red bg-red/10 p-3 text-red">{{ formError }}</div>
+        }
+
+        <label class="grid gap-1">
+          <span class="text-sm font-bold">{{ 'websiteImages.form.title' | translate }}</span>
+          <input type="text" formControlName="title" class="min-h-11 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit" />
+          @if (form.controls.title.touched && form.controls.title.invalid) {
+            <small class="text-red">{{ 'websiteImages.validation.titleRequired' | translate }}</small>
+          }
+        </label>
+
+        <div class="grid gap-3">
+          <span class="text-sm font-bold">{{ 'websiteImages.form.image' | translate }}</span>
+          @if (imagePreview) {
+            <div class="flex min-h-40 items-center justify-center rounded-lg border border-gray-300 p-3">
+              <img [src]="imagePreview" [alt]="form.controls.title.value" class="max-h-52 max-w-full rounded-md object-contain" />
+            </div>
+          }
+          <label class="w-fit cursor-pointer rounded-lg border border-orange px-4 py-2 font-bold text-orange">
+            {{ (imagePreview ? 'websiteImages.actions.changeImage' : 'websiteImages.actions.chooseImage') | translate }}
+            <input type="file" accept="image/*" class="sr-only" (change)="onImageSelected($event)" />
+          </label>
+          @if (form.controls.imageBase64.touched && form.controls.imageBase64.invalid) {
+            <small class="text-red">{{ 'websiteImages.validation.imageRequired' | translate }}</small>
+          }
+        </div>
+
+        <label class="inline-flex items-center gap-3 font-bold">
+          <input type="checkbox" formControlName="viewOnly" class="h-5 w-5 accent-orange" (change)="onViewOnlyChanged()" />
+          <span>{{ 'websiteImages.form.viewOnly' | translate }}</span>
+        </label>
+
+        @if (!isViewOnly) {
+          <label class="grid gap-1">
+            <span class="text-sm font-bold">{{ 'websiteImages.form.targetType' | translate }}</span>
+            <select formControlName="targetType" class="min-h-11 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit" (change)="onTargetTypeChanged()">
+              <option value="category">{{ 'websiteImages.targetTypes.category' | translate }}</option>
+              <option value="product">{{ 'websiteImages.targetTypes.product' | translate }}</option>
+              <option value="both">{{ 'websiteImages.targetTypes.both' | translate }}</option>
+              <option value="price">{{ 'websiteImages.targetTypes.price' | translate }}</option>
+              <option value="specification">{{ 'websiteImages.targetTypes.specification' | translate }}</option>
+            </select>
+          </label>
+        }
+
+        @if (showsCategories) {
+          <label class="grid gap-1">
+            <span class="text-sm font-bold">
+              {{ 'websiteImages.form.categories' | translate }}
+              @if (targetType === 'price') {
+                <span class="font-normal opacity-70">({{ 'websiteImages.form.optional' | translate }})</span>
+              }
+            </span>
+            <p-multiSelect
+              [options]="categories"
+              optionLabel="name"
+              optionValue="id"
+              formControlName="categoryIds"
+              [filter]="true"
+              [loading]="isCategoriesLoading"
+              [placeholder]="'websiteImages.form.selectCategories' | translate"
+              display="chip"
+              styleClass="w-full"
+              appendTo="body"
+              (onChange)="onCategoriesChanged()"
+            />
+            @if (form.controls.categoryIds.touched && form.controls.categoryIds.invalid) {
+              <small class="text-red">{{ 'websiteImages.validation.categoriesRequired' | translate }}</small>
+            }
+            @if (targetType === 'price') {
+              <small class="opacity-70">{{ 'websiteImages.form.priceCategoryHint' | translate }}</small>
+            }
+          </label>
+        }
+
+        @if (showsSpecification) {
+          <section class="grid gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 class="m-0 text-sm font-bold">{{ 'websiteImages.form.specificationFilters' | translate }}</h3>
+                <small class="opacity-70">{{ 'websiteImages.form.specificationHint' | translate }}</small>
+              </div>
+              <button type="button" class="rounded-lg bg-orange px-4 py-2 font-bold text-dark disabled:opacity-50" [disabled]="!canAddSpecificationFilter() || isSpecificationsLoading" (click)="addSpecificationFilter()">
+                {{ 'websiteImages.actions.addSpecification' | translate }}
+              </button>
+            </div>
+
+            @if (!form.controls.categoryIds.value.length) {
+              <small class="opacity-70">{{ 'websiteImages.form.selectCategoriesForSpecifications' | translate }}</small>
+            } @else if (isSpecificationsLoading) {
+              <small class="opacity-70">{{ 'websiteImages.form.loadingSpecifications' | translate }}</small>
+            } @else if (!availableSpecifications.length) {
+              <small class="text-red">{{ 'websiteImages.form.noSpecifications' | translate }}</small>
+            }
+
+            <div formArrayName="specificationFilters" class="grid gap-3">
+              @for (filter of specificationFilters.controls; track $index; let index = $index) {
+                <div [formGroupName]="index" class="grid grid-cols-1 items-start gap-3 rounded-lg border border-gray-300 p-3 md:grid-cols-[1fr_1.5fr_auto]">
+                  <label class="grid gap-1">
+                    <span class="text-sm font-bold">{{ 'websiteImages.form.specificationName' | translate }}</span>
+                    <select formControlName="specificationName" class="min-h-11 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit" (change)="onSpecificationChanged(index)">
+                      <option value="">{{ 'websiteImages.form.selectSpecificationName' | translate }}</option>
+                      @for (name of getSpecificationNames(index); track name) {
+                        <option [value]="name">{{ name }}</option>
+                      }
+                    </select>
+                    @if (filter.controls.specificationName.touched && filter.controls.specificationName.invalid) {
+                      <small class="text-red">{{ 'websiteImages.validation.specificationNameRequired' | translate }}</small>
+                    }
+                  </label>
+
+                  <label class="grid gap-1">
+                    <span class="text-sm font-bold">{{ 'websiteImages.form.specificationValues' | translate }}</span>
+                    <p-multiSelect
+                      [options]="getSpecificationValues(filter.controls.specificationName.value, filter.controls.values.value)"
+                      formControlName="values"
+                      [disabled]="!filter.controls.specificationName.value"
+                      [placeholder]="'websiteImages.form.selectSpecificationValues' | translate"
+                      display="chip"
+                      styleClass="w-full"
+                      appendTo="body"
+                    />
+                    @if (filter.controls.values.touched && filter.controls.values.invalid) {
+                      <small class="text-red">{{ 'websiteImages.validation.specificationValuesRequired' | translate }}</small>
+                    }
+                  </label>
+
+                  <button type="button" class="mt-6 rounded-lg border border-red px-3 py-2 font-bold text-red" (click)="removeSpecificationFilter(index)">
+                    {{ 'websiteImages.actions.removeSpecification' | translate }}
+                  </button>
+                </div>
+              }
+            </div>
+
+            @if (specificationFilters.touched && specificationFilters.invalid && !specificationFilters.length) {
+              <small class="text-red">{{ 'websiteImages.validation.specificationFiltersRequired' | translate }}</small>
+            }
+          </section>
+        }
+
+        @if (showsProducts) {
+          <label class="grid gap-1">
+            <span class="text-sm font-bold">{{ 'websiteImages.form.products' | translate }}</span>
+            <p-multiSelect
+              [options]="products"
+              optionLabel="name"
+              optionValue="id"
+              formControlName="productIds"
+              [filter]="true"
+              [loading]="isProductsLoading"
+              [disabled]="!form.controls.categoryIds.value.length"
+              [placeholder]="'websiteImages.form.selectProducts' | translate"
+              display="chip"
+              styleClass="w-full"
+              appendTo="body"
+            >
+              <ng-template pTemplate="item" let-product>
+                <div class="grid gap-0.5">
+                  <span class="font-semibold">{{ product.name }} <span class="opacity-70">{{ product.code }}</span></span>
+                  <small class="opacity-70">{{ product.categoryName }}</small>
+                </div>
+              </ng-template>
+            </p-multiSelect>
+            @if (form.controls.productIds.touched && form.controls.productIds.invalid) {
+              <small class="text-red">{{ 'websiteImages.validation.productsRequired' | translate }}</small>
+            }
+            @if (!form.controls.categoryIds.value.length) {
+              <small class="opacity-70">{{ 'websiteImages.form.selectCategoriesFirst' | translate }}</small>
+            }
+          </label>
+        }
+
+        @if (showsMaxPrice) {
+          <label class="grid gap-1">
+            <span class="text-sm font-bold">{{ 'websiteImages.form.maxPrice' | translate }}</span>
+            <input type="number" min="0" step="0.01" formControlName="maxPrice" class="min-h-11 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-inherit" />
+            @if (form.controls.maxPrice.touched && form.controls.maxPrice.invalid) {
+              <small class="text-red">{{ 'websiteImages.validation.maxPriceRequired' | translate }}</small>
+            }
+          </label>
+        }
+
+        <label class="inline-flex items-center gap-3 font-bold">
+          <input type="checkbox" formControlName="isActive" class="h-5 w-5 accent-orange" />
+          <span>{{ 'websiteImages.form.active' | translate }}</span>
+        </label>
+
+        <div class="flex justify-end gap-3">
+          <button type="button" class="rounded-lg border border-gray-300 px-5 py-2 font-bold" [disabled]="isSaving" (click)="closeEditor()">
+            {{ 'websiteImages.actions.cancel' | translate }}
+          </button>
+          <button type="submit" class="rounded-lg bg-orange px-5 py-2 font-extrabold text-dark disabled:opacity-60" [disabled]="form.invalid || isSaving || isProductsLoading || isSpecificationsLoading">
+            {{ (isSaving ? 'websiteImages.actions.saving' : 'websiteImages.actions.save') | translate }}
+          </button>
+        </div>
+      </form>
+    }
+  </p-dialog>
+
+  <p-dialog
+    [(visible)]="deleteVisible"
+    [modal]="true"
+    [closable]="!isDeleting"
+    [dismissableMask]="!isDeleting"
+    [style]="{ width: '30rem', maxWidth: '92vw' }"
+    [styleClass]="(isDarkMode$ | async) ? 'website-images-dialog website-images-dialog--dark' : 'website-images-dialog website-images-dialog--light'"
+  >
+    <div class="grid gap-5 p-3 text-center" [ngClass]="(isDarkMode$ | async) ? 'text-light_orange' : 'text-gray_dark'">
+      <h2 class="m-0 font-azonix text-xl text-red">{{ 'websiteImages.delete.title' | translate }}</h2>
+      <p>{{ 'websiteImages.delete.message' | translate }} <strong>{{ deletingImage?.title }}</strong>?</p>
+      <div class="flex justify-center gap-3">
+        <button type="button" class="rounded-lg border border-gray-300 px-5 py-2 font-bold" [disabled]="isDeleting" (click)="cancelDelete()">{{ 'websiteImages.actions.cancel' | translate }}</button>
+        <button type="button" class="rounded-lg bg-red px-5 py-2 font-bold text-white disabled:opacity-60" [disabled]="isDeleting" (click)="confirmDelete()">
+          {{ (isDeleting ? 'websiteImages.actions.deleting' : 'websiteImages.actions.delete') | translate }}
+        </button>
+      </div>
+    </div>
+  </p-dialog>
+
+  <p-dialog
+    [(visible)]="productsPreviewVisible"
+    [modal]="true"
+    [dismissableMask]="true"
+    [draggable]="false"
+    [style]="{ width: '70rem', maxWidth: '96vw' }"
+    [contentStyle]="{ overflow: 'auto', maxHeight: '78vh' }"
+    [styleClass]="(isDarkMode$ | async) ? 'website-images-dialog website-images-dialog--dark' : 'website-images-dialog website-images-dialog--light'"
+  >
+    <ng-template pTemplate="header">
+      <h2 class="m-0 font-azonix text-xl text-orange">
+        {{ 'websiteImages.preview.title' | translate }} — {{ previewingImage?.title }}
+      </h2>
+    </ng-template>
+
+    @if (previewError) {
+      <div class="mb-3 rounded-lg border border-red bg-red/10 p-3 text-red">{{ previewError }}</div>
+    }
+    <p-table [value]="resolvedProducts" [loading]="isPreviewLoading" [scrollable]="true" [tableStyle]="{ 'min-width': '760px' }">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>{{ 'websiteImages.preview.image' | translate }}</th>
+          <th>{{ 'websiteImages.preview.name' | translate }}</th>
+          <th>{{ 'websiteImages.preview.code' | translate }}</th>
+          <th>{{ 'websiteImages.preview.category' | translate }}</th>
+          <th>{{ 'websiteImages.preview.retailPrice' | translate }}</th>
+          <th>{{ 'websiteImages.preview.priceAfterDiscount' | translate }}</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-product>
+        <tr>
+          <td>
+            @if (product.image) {
+              <img [src]="product.image" [alt]="product.name" class="h-12 w-16 rounded object-cover" />
+            } @else { — }
+          </td>
+          <td>{{ product.name }}</td>
+          <td>{{ product.code || '—' }}</td>
+          <td>{{ product.categoryName || '—' }}</td>
+          <td>{{ product.retailPrice | number: '1.2-2' }}</td>
+          <td>{{ product.priceAfterDiscount !== null ? (product.priceAfterDiscount | number: '1.2-2') : '—' }}</td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="6" class="py-8 text-center">{{ 'websiteImages.preview.empty' | translate }}</td></tr>
+      </ng-template>
+    </p-table>
+  </p-dialog>
+</app-side-nav>

@@ -1,0 +1,43 @@
+import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { getDesktopRuntimeConfig } from '../core/runtime/runtime-config';
+
+/**
+ * Offline edition only: shows this PC's version, and warns when a client PC runs a different
+ * version from the main PC (the warning does not block work).
+ */
+@Component({
+  selector: 'app-version-notice',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    @if (mismatch() && !dismissed()) {
+      <div
+        class="fixed inset-x-0 top-0 z-[9999] flex items-center justify-center gap-4 bg-[#fff3cd] px-4 py-2 text-sm text-[#664d03] shadow"
+        dir="rtl"
+        lang="ar"
+        role="status"
+      >
+        <span>
+          إصدار البرنامج على هذا الجهاز ({{ appVersion }}) يختلف عن إصدار الجهاز الرئيسي ({{ serverVersion }}).
+          يُنصح بتثبيت نفس الإصدار على كل الأجهزة.
+        </span>
+        <button type="button" class="rounded px-2 font-bold" aria-label="إخفاء" (click)="dismissed.set(true)">×</button>
+      </div>
+    }
+    <div
+      class="pointer-events-none fixed bottom-1 left-2 z-[9998] text-[11px] text-gray-500 opacity-80"
+      dir="ltr"
+      aria-hidden="true"
+    >
+      v{{ appVersion }}
+    </div>
+  `,
+})
+export class VersionNoticeComponent {
+  private readonly config = getDesktopRuntimeConfig();
+  protected readonly appVersion = this.config?.appVersion ?? '';
+  protected readonly serverVersion = this.config?.serverVersion ?? '';
+  protected readonly dismissed = signal(false);
+  protected readonly mismatch = computed(
+    () => Boolean(this.appVersion && this.serverVersion && this.appVersion !== this.serverVersion)
+  );
+}

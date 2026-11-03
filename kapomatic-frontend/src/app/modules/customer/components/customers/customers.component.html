@@ -1,0 +1,397 @@
+<app-side-nav>
+  <div class="w-full flex flex-col gap-8 overflow-hidden">
+    <div class="w-full flex flex-col items-center justify-between lg:flex-row">
+      <div class="flex flex-col gap-2">
+        <h1 class="text-2xl font-bold font-azonix" [ngClass]="{
+          'text-gray_light': isDarkMode$ | async,
+          'text-orange': !(isDarkMode$ | async)
+        }">
+          {{ 'customerPage.title' | translate }}
+        </h1>
+        <p class="font-roboto text-sm sm:text-base" [ngClass]="{
+          'text-gray_light': isDarkMode$ | async,
+          'text-gray_dark': !(isDarkMode$ | async)
+        }">
+          {{ 'customerPage.subtitle' | translate }}
+        </p>
+      </div>
+
+      <div class="w-fit flex flex-col gap-3 sm:flex-row">
+        <div class="w-full rounded-md px-3 py-2" [ngClass]="{
+          'bg-gray_dark text-light_orange border border-gray': isDarkMode$ | async,
+          'bg-light_bg text-orange border border-orange': !(isDarkMode$ | async)
+        }">
+          <input
+            type="text"
+            [(ngModel)]="searchTerm"
+            (keyup.enter)="searchCustomers()"
+            class="w-full border-none bg-transparent outline-none"
+            [ngClass]="{
+              'text-light_orange placeholder:text-light_orange/60': isDarkMode$ | async,
+              'text-orange placeholder:text-orange/60': !(isDarkMode$ | async)
+            }"
+            [placeholder]="'customerPage.searchPlaceholder' | translate"
+          />
+        </div>
+
+        <div class="flex flex-wrap gap-3 sm:flex-nowrap">
+          <button
+            type="button"
+            (click)="searchCustomers()"
+            class="inline-flex shrink-0 items-center justify-center rounded-[0.75rem] bg-orange px-5 py-2.5 font-roboto font-semibold text-gray_dark transition-opacity duration-200 hover:opacity-90"
+            [disabled]="isFetching"
+          >
+            {{ 'customerPage.actions.search' | translate }}
+          </button>
+          <button
+            type="button"
+            (click)="clearSearch()"
+            class="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[0.75rem] border px-5 py-2.5 font-roboto font-semibold transition-all duration-200 hover:-translate-y-0.5"
+            [ngClass]="{
+              'border-[#5a5a5a] bg-[#3f3f3f] text-light_orange hover:bg-[#4a4a4a]': isDarkMode$ | async,
+              'border-[#d8d8d8] bg-[#ececec] text-gray_dark hover:bg-[#e2e2e2]': !(isDarkMode$ | async)
+            }"
+          >
+            {{ 'customerPage.actions.reset' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid w-full grid-cols-1 gap-6 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+      <div class="rounded-xl p-6" [ngClass]="{
+        'bg-gray_dark': isDarkMode$ | async,
+        'bg-light_card_bg': !(isDarkMode$ | async)
+      }">
+        <h2 class="text-xl font-bold font-azonix" [ngClass]="{
+          'text-light_orange': isDarkMode$ | async,
+          'text-orange': !(isDarkMode$ | async)
+        }">
+          {{ (isEditMode ? 'customerPage.form.editTitle' : 'customerPage.form.addTitle') | translate }}
+        </h2>
+
+        <form class="mt-6 flex flex-col gap-4" [formGroup]="customerForm" (ngSubmit)="saveCustomer()">
+          <div class="flex flex-col gap-2">
+            <label class="text-lg font-medium font-roboto" [ngClass]="{
+              'text-light_orange': isDarkMode$ | async,
+              'text-gray_dark': !(isDarkMode$ | async)
+            }">
+              {{ 'customerPage.form.name' | translate }}
+            </label>
+            <input
+              type="text"
+              formControlName="name"
+              class="w-full rounded-md border bg-transparent p-3 font-roboto outline-none"
+              [ngClass]="{
+                'border-gray text-light_orange placeholder:text-light_orange/60': isDarkMode$ | async,
+                'border-orange text-orange placeholder:text-orange/60': !(isDarkMode$ | async)
+              }"
+              [placeholder]="'customerPage.form.placeholders.name' | translate"
+            />
+            @if (customerForm.get('name')?.invalid && customerForm.get('name')?.touched) {
+              <p class="text-sm text-red">
+                {{ 'customerPage.form.validation.name' | translate }}
+              </p>
+            }
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label class="text-lg font-medium font-roboto" [ngClass]="{
+              'text-light_orange': isDarkMode$ | async,
+              'text-gray_dark': !(isDarkMode$ | async)
+            }">
+              {{ 'customerPage.form.phone' | translate }}
+            </label>
+            <input
+              type="tel"
+              formControlName="phone"
+              class="w-full rounded-md border bg-transparent p-3 font-roboto outline-none"
+              [ngClass]="{
+                'border-gray text-light_orange placeholder:text-light_orange/60': isDarkMode$ | async,
+                'border-orange text-orange placeholder:text-orange/60': !(isDarkMode$ | async)
+              }"
+              [placeholder]="'customerPage.form.placeholders.phone' | translate"
+            />
+            @if (customerForm.get('phone')?.invalid && customerForm.get('phone')?.touched) {
+              <p class="text-sm text-red">
+                {{ 'customerPage.form.validation.phone' | translate }}
+              </p>
+            }
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3 pt-2">
+            <button
+              type="submit"
+              class="rounded-[0.65rem] bg-orange px-5 py-2 font-roboto font-semibold text-gray_dark transition-opacity duration-200 hover:opacity-90 disabled:cursor-wait disabled:opacity-50"
+              [disabled]="customerForm.invalid || isFormBusy || isDeleting"
+            >
+              {{ (isEditMode ? 'customerPage.actions.update' : 'customerPage.actions.create') | translate }}
+            </button>
+
+            @if (isEditMode) {
+              <button
+                type="button"
+                (click)="resetForm()"
+                class="rounded-[0.65rem] px-5 py-2 font-roboto font-semibold transition-opacity duration-200 hover:opacity-90"
+                [ngClass]="{
+                  'bg-gray text-light_orange': isDarkMode$ | async,
+                  'bg-[#e1e0e0] text-gray_dark': !(isDarkMode$ | async)
+                }"
+              >
+                {{ 'customerPage.actions.cancelEdit' | translate }}
+              </button>
+            }
+          </div>
+        </form>
+      </div>
+
+      <div class="rounded-xl p-4 sm:p-6" [ngClass]="{
+        'bg-gray_dark': isDarkMode$ | async,
+        'bg-light_card_bg': !(isDarkMode$ | async)
+      }">
+        <div class="mb-4 flex items-center justify-between gap-4">
+          <h2 class="text-xl font-bold font-azonix" [ngClass]="{
+            'text-light_orange': isDarkMode$ | async,
+            'text-orange': !(isDarkMode$ | async)
+          }">
+            {{ 'customerPage.listTitle' | translate }}
+          </h2>
+          <span class="font-roboto text-sm" [ngClass]="{
+            'text-gray_light': isDarkMode$ | async,
+            'text-gray_dark': !(isDarkMode$ | async)
+          }">
+            {{ customers.length }} {{ 'customerPage.count' | translate }}
+          </span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[34rem] border-collapse">
+            <thead>
+              <tr class="uppercase text-xs" [ngClass]="{
+                'bg-[#515151] text-gray-200': isDarkMode$ | async,
+                'bg-[#f3f3f3] text-gray_dark': !(isDarkMode$ | async)
+              }">
+                <th class="px-4 py-3 text-center">{{ 'tableHeaders.name' | translate }}</th>
+                <th class="px-4 py-3 text-center">{{ 'tableHeaders.number' | translate }}</th>
+                <th class="px-4 py-3 text-center">{{ 'tableHeaders.actions' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @if (isFetching) {
+                <tr>
+                  <td colspan="3" class="px-4 py-8 text-center font-roboto" [ngClass]="{
+                    'text-light_orange': isDarkMode$ | async,
+                    'text-gray_dark': !(isDarkMode$ | async)
+                  }">
+                    {{ 'customerPage.loading' | translate }}
+                  </td>
+                </tr>
+              } @else if (!customers.length) {
+                <tr>
+                  <td colspan="3" class="px-4 py-8 text-center font-roboto" [ngClass]="{
+                    'text-gray_light': isDarkMode$ | async,
+                    'text-gray_dark': !(isDarkMode$ | async)
+                  }">
+                    {{ 'customerPage.empty' | translate }}
+                  </td>
+                </tr>
+              } @else {
+                @for (customer of customers; track customer._id ?? $index) {
+                  <tr [ngClass]="{
+                    'border-b border-b-light_orange/30': isDarkMode$ | async,
+                    'border-b border-b-orange/20': !(isDarkMode$ | async)
+                  }">
+                    <td class="px-4 py-4 text-center font-roboto" [ngClass]="{
+                      'text-red': customer.isIndebted,
+                      'text-light_orange': (isDarkMode$ | async) && !customer.isIndebted,
+                      'text-orange': !(isDarkMode$ | async) && !customer.isIndebted
+                    }">
+                      {{ customer.name }}
+                    </td>
+                    <td class="px-4 py-4 text-center font-roboto" [ngClass]="{
+                      'text-light_orange': isDarkMode$ | async,
+                      'text-orange': !(isDarkMode$ | async)
+                    }">
+                      {{ customer.phone }}
+                    </td>
+                    <td class="px-4 py-4">
+                      <div class="flex flex-wrap items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          (click)="openCustomerDetails(customer)"
+                          class="rounded-md px-4 py-2 font-roboto text-sm font-semibold transition-opacity duration-200 hover:opacity-90"
+                          [ngClass]="{
+                            'bg-[#3f3f3f] text-light_orange': isDarkMode$ | async,
+                            'bg-[#ececec] text-gray_dark': !(isDarkMode$ | async)
+                          }"
+                        >
+                          {{ 'customerPage.actions.viewDetails' | translate }}
+                        </button>
+                        <button
+                          type="button"
+                          (click)="editCustomer(customer)"
+                          class="rounded-md bg-[#f2c49b] px-4 py-2 font-roboto text-sm font-semibold text-gray_dark transition-opacity duration-200 hover:opacity-90 disabled:opacity-50"
+                          [disabled]="isFormBusy || isDeleting"
+                        >
+                          {{ 'customerPage.actions.edit' | translate }}
+                        </button>
+                        <button
+                          type="button"
+                          (click)="promptDelete(customer)"
+                          class="rounded-md bg-red px-4 py-2 font-roboto text-sm font-semibold text-white transition-opacity duration-200 hover:opacity-90 disabled:opacity-50"
+                          [disabled]="isDeleting"
+                        >
+                          {{ 'customerPage.actions.delete' | translate }}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p-dialog [(visible)]="deleteVisible" [modal]="true" styleClass="!border-0" [style]="{ width: '32rem' }">
+    <ng-template #headless>
+      <div class="flex flex-col gap-6 rounded-2xl px-8 py-8" [ngClass]="{
+        'bg-gray_dark': isDarkMode$ | async,
+        'bg-light_card_bg': !(isDarkMode$ | async)
+      }">
+        <div class="mx-auto">
+          <app-warn></app-warn>
+        </div>
+
+        <div class="text-center">
+          <h2 class="text-2xl font-bold font-azonix text-orange">
+            {{ 'customerPage.messages.deleteTitle' | translate }}
+          </h2>
+        </div>
+
+        <p class="text-center font-roboto text-lg" [ngClass]="{
+          'text-light_orange': isDarkMode$ | async,
+          'text-gray_dark': !(isDarkMode$ | async)
+        }">
+          {{ 'customerPage.messages.deleteConfirm' | translate }}
+          @if (customerToDelete?.name) {
+            <span class="block mt-2 font-semibold">{{ customerToDelete?.name }}</span>
+          }
+        </p>
+
+        <div class="flex items-center justify-center gap-4">
+          <button
+            type="button"
+            (click)="closeDeleteDialog()"
+            class="rounded-md bg-orange px-5 py-2 font-roboto text-lg font-semibold text-gray_dark"
+          >
+            {{ 'actions.cancelButton' | translate }}
+          </button>
+          <button
+            type="button"
+            (click)="deleteCustomer()"
+            class="rounded-md bg-red px-5 py-2 font-roboto text-lg font-semibold text-light_orange disabled:opacity-50"
+            [disabled]="isDeleting"
+          >
+            {{ 'actions.deleteButton' | translate }}
+          </button>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog [(visible)]="restoreCreditInvoicesVisible" [modal]="true" styleClass="!border-0" [style]="{ width: '36rem' }">
+    <ng-template #headless>
+      <div class="flex flex-col gap-6 rounded-2xl px-8 py-8" [ngClass]="{
+        'bg-gray_dark': isDarkMode$ | async,
+        'bg-light_card_bg': !(isDarkMode$ | async)
+      }">
+        <div class="mx-auto">
+          <app-warn></app-warn>
+        </div>
+
+        <div class="text-center">
+          <h2 class="text-2xl font-bold font-azonix text-orange">
+            {{ 'customerPage.messages.restoreCreditInvoicesTitle' | translate }}
+          </h2>
+        </div>
+
+        <div class="space-y-3 text-center font-roboto text-base" [ngClass]="{
+          'text-light_orange': isDarkMode$ | async,
+          'text-gray_dark': !(isDarkMode$ | async)
+        }">
+          <p>
+            {{ 'customerPage.messages.restoreCreditInvoicesConfirm' | translate }}
+          </p>
+          @if (customerToDelete?.name) {
+            <p class="font-semibold">{{ customerToDelete?.name }}</p>
+          }
+          @if (deleteConfirmation?.message) {
+            <p class="text-sm opacity-80">{{ deleteConfirmation?.message }}</p>
+          }
+          @if (deleteConfirmation?.relatedCreditInvoiceCount !== undefined) {
+            <p class="text-sm opacity-80">
+              {{ 'customerPage.messages.relatedCreditInvoices' | translate }}:
+              <span class="font-semibold">{{ deleteConfirmation?.relatedCreditInvoiceCount }}</span>
+            </p>
+          }
+        </div>
+
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
+          <button
+            type="button"
+            (click)="closeRestoreCreditInvoicesDialog()"
+            class="rounded-md bg-orange px-5 py-2 font-roboto text-base font-semibold text-gray_dark"
+            [disabled]="isDeleting"
+          >
+            {{ 'actions.cancelButton' | translate }}
+          </button>
+          <button
+            type="button"
+            (click)="confirmDeleteWithCreditInvoices(false)"
+            class="rounded-md bg-gray px-5 py-2 font-roboto text-base font-semibold text-light_orange disabled:opacity-50"
+            [disabled]="isDeleting"
+          >
+            {{ 'customerPage.actions.deleteWithoutRestore' | translate }}
+          </button>
+          <button
+            type="button"
+            (click)="confirmDeleteWithCreditInvoices(true)"
+            class="rounded-md bg-red px-5 py-2 font-roboto text-base font-semibold text-light_orange disabled:opacity-50"
+            [disabled]="isDeleting"
+          >
+            {{ 'customerPage.actions.deleteWithRestore' | translate }}
+          </button>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog [(visible)]="errorVisible" [modal]="true" [closable]="true" [dismissableMask]="true" [style]="{ width: '24rem' }" styleClass="!border-0">
+    <ng-template #headless>
+      <div class="flex flex-col gap-4 rounded-2xl p-6" [ngClass]="{
+        'bg-gray': isDarkMode$ | async,
+        'bg-light_card_bg': !(isDarkMode$ | async)
+      }">
+        <app-error-icon class="mx-auto"></app-error-icon>
+        <p class="text-center font-roboto" [ngClass]="{
+          'text-light_orange': isDarkMode$ | async,
+          'text-gray_dark': !(isDarkMode$ | async)
+        }">
+          {{ errorMessage }}
+        </p>
+        <div class="flex justify-center">
+          <button
+            type="button"
+            (click)="closeErrorDialog()"
+            class="rounded-lg bg-orange px-6 py-2 text-white"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+</app-side-nav>

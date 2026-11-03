@@ -1,0 +1,65 @@
+:host {
+  display: block;
+}
+
+:host ::ng-deep .website-images-table .p-datatable-thead > tr > th,
+:host ::ng-deep .website-images-table .p-datatable-tbody > tr > td {
+  padding: 0.9rem 1rem;
+  text-align: start;
+}
+
+:host ::ng-deep .p-multiselect {
+  min-height: 2.75rem;
+  border-radius: 0.5rem;
+}
+
+:host ::ng-deep .website-images-dialog--dark .p-dialog-header,
+:host ::ng-deep .website-images-dialog--dark .p-dialog-content {
+  background: #393939;
+  color: #ffdfc2;
+}
+
+:host ::ng-deep .website-images-dialog--dark .p-dialog-close-button {
+  color: #f4d80a;
+}
+
+:host ::ng-deep .website-images-dialog--dark input,
+:host ::ng-deep .website-images-dialog--dark select {
+  border-color: #696969;
+  color: #ffdfc2;
+}
+
+:host ::ng-deep .website-images-dialog--dark select option {
+  background: #393939;
+  color: #ffdfc2;
+}
+
+:host ::ng-deep .website-images-dialog--dark .p-multiselect {
+  border-color: #696969;
+  background: #2f2f2f;
+  color: #ffdfc2;
+}
+
+:host ::ng-deep .website-images-dialog--dark .p-multiselect-label,
+:host ::ng-deep .website-images-dialog--dark .p-multiselect-dropdown {
+  color: #ffdfc2;
+}
+
+:host ::ng-deep .website-images-dialog--dark .p-datatable,
+:host ::ng-deep .website-images-dialog--dark .p-datatable-header,
+:host ::ng-deep .website-images-dialog--dark .p-datatable-thead > tr > th,
+:host ::ng-deep .website-images-dialog--dark .p-datatable-tbody > tr > td {
+  background: #393939;
+  color: #ffdfc2;
+  border-color: #696969;
+}
+
+:host ::ng-deep .website-images-dialog--light .p-dialog-header,
+:host ::ng-deep .website-images-dialog--light .p-dialog-content {
+  background: #fff;
+  color: #2f2f2f;
+}
+
+:host ::ng-deep .website-images-dialog--light .p-dialog-close-button {
+  color: #2f2f2f;
+}

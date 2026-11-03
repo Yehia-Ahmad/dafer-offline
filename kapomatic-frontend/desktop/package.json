@@ -1,0 +1,8 @@
+{
+  "name": "kapomatic-inventory-system-desktop",
+  "version": "0.0.0",
+  "description": "Kapomatic Inventory System desktop app",
+  "author": "Kapomatic",
+  "main": "electron/main.js",
+  "private": true
+}

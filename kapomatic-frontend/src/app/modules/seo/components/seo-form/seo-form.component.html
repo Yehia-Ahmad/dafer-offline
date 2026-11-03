@@ -1,0 +1,219 @@
+<section class="seo-form" [formGroup]="form">
+  <div class="seo-form__tabs" role="tablist">
+    @for (tab of tabs; track tab.id) {
+      <button
+        type="button"
+        role="tab"
+        class="seo-form__tab"
+        [class.seo-form__tab--active]="activeTab === tab.id"
+        [attr.aria-selected]="activeTab === tab.id"
+        (click)="setTab(tab.id)"
+      >
+        {{ tab.labelKey | translate }}
+      </button>
+    }
+  </div>
+
+  <div class="seo-form__actions">
+    <button type="button" class="seo-form__secondary" (click)="generateSeo(false)">
+      {{ 'seo.actions.generateFromContent' | translate }}
+    </button>
+  </div>
+
+  <div class="seo-form__panel">
+    @if (activeTab === 'basic') {
+      <div class="seo-form__grid" formGroupName="translations">
+        <div class="seo-form__field" formGroupName="ar" dir="rtl">
+          <label for="seo-ar-basic-name">{{ 'seo.fields.arName' | translate }}</label>
+          <input id="seo-ar-basic-name" type="text" formControlName="name" />
+        </div>
+        <div class="seo-form__field" formGroupName="en" dir="ltr">
+          <label for="seo-en-basic-name">{{ 'seo.fields.enName' | translate }}</label>
+          <input id="seo-en-basic-name" type="text" formControlName="name" />
+        </div>
+      </div>
+    }
+
+    @if (activeTab === 'ar') {
+      <ng-container
+        [ngTemplateOutlet]="languageFields"
+        [ngTemplateOutletContext]="{ lang: 'ar', dir: 'rtl', checking: arSlugChecking }"
+      />
+    }
+
+    @if (activeTab === 'en') {
+      <ng-container
+        [ngTemplateOutlet]="languageFields"
+        [ngTemplateOutletContext]="{ lang: 'en', dir: 'ltr', checking: enSlugChecking }"
+      />
+    }
+  </div>
+
+  @if (activeTab === 'social') {
+    <div class="seo-form__panel" formGroupName="seo">
+      <div class="seo-form__field">
+        <label for="seo-og-image">{{ 'seo.fields.ogImage' | translate }}</label>
+        <input id="seo-og-image" type="text" formControlName="ogImage" />
+      </div>
+      <label class="seo-form__check">
+        <input type="checkbox" formControlName="useEntityImageFallback" />
+        <span>{{ 'seo.fields.useEntityImageFallback' | translate }}</span>
+      </label>
+      <app-seo-search-preview [preview]="preview" [device]="previewDevice" />
+    </div>
+  }
+
+  @if (activeTab === 'preview') {
+    <div class="seo-form__panel">
+      <div class="seo-form__switches">
+        <button type="button" [class.is-active]="previewLanguage === 'ar'" (click)="previewLanguage = 'ar'">
+          {{ 'seo.preview.arabic' | translate }}
+        </button>
+        <button type="button" [class.is-active]="previewLanguage === 'en'" (click)="previewLanguage = 'en'">
+          {{ 'seo.preview.english' | translate }}
+        </button>
+        <button type="button" [class.is-active]="previewDevice === 'desktop'" (click)="previewDevice = 'desktop'">
+          {{ 'seo.preview.desktop' | translate }}
+        </button>
+        <button type="button" [class.is-active]="previewDevice === 'mobile'" (click)="previewDevice = 'mobile'">
+          {{ 'seo.preview.mobile' | translate }}
+        </button>
+      </div>
+      <app-seo-search-preview [preview]="preview" [device]="previewDevice" />
+    </div>
+  }
+
+  @if (activeTab === 'advanced') {
+    <div class="seo-form__panel" formGroupName="seo">
+      <label class="seo-form__check">
+        <input type="checkbox" formControlName="robotsIndex" />
+        <span>{{ 'seo.fields.robotsIndex' | translate }}</span>
+      </label>
+      <label class="seo-form__check">
+        <input type="checkbox" formControlName="robotsFollow" />
+        <span>{{ 'seo.fields.robotsFollow' | translate }}</span>
+      </label>
+      <label class="seo-form__check">
+        <input type="checkbox" formControlName="includeInSitemap" />
+        <span>{{ 'seo.fields.includeInSitemap' | translate }}</span>
+      </label>
+      <div class="seo-form__grid">
+        <div class="seo-form__field">
+          <label for="seo-priority">{{ 'seo.fields.sitemapPriority' | translate }}</label>
+          <input id="seo-priority" type="number" min="0" max="1" step="0.1" formControlName="sitemapPriority" />
+          @if (fieldError(form.controls.seo.controls.sitemapPriority)) {
+            <small class="seo-form__error">{{ fieldError(form.controls.seo.controls.sitemapPriority) }}</small>
+          }
+        </div>
+        <div class="seo-form__field">
+          <label for="seo-frequency">{{ 'seo.fields.sitemapChangeFrequency' | translate }}</label>
+          <select id="seo-frequency" formControlName="sitemapChangeFrequency">
+            @for (option of changeFrequencyOptions; track option) {
+              <option [value]="option">{{ ('seo.changeFrequency.' + option) | translate }}</option>
+            }
+          </select>
+        </div>
+      </div>
+    </div>
+  }
+</section>
+
+<ng-template #languageFields let-lang="lang" let-dir="dir" let-checking="checking">
+  <ng-container [formGroup]="form">
+  <div formGroupName="translations">
+    <div class="seo-form__language" [formGroupName]="lang" [attr.dir]="dir">
+      <div class="seo-form__grid">
+        <div class="seo-form__field">
+          <label [for]="'seo-' + lang + '-name'">{{ (lang === 'ar' ? 'seo.fields.arName' : 'seo.fields.enName') | translate }}</label>
+          <input [id]="'seo-' + lang + '-name'" type="text" formControlName="name" />
+        </div>
+        <div class="seo-form__field">
+          <label [for]="'seo-' + lang + '-slug'">{{ (lang === 'ar' ? 'seo.fields.arSlug' : 'seo.fields.enSlug') | translate }}</label>
+          <div class="seo-form__inline">
+            <input
+              [id]="'seo-' + lang + '-slug'"
+              type="text"
+              formControlName="slug"
+              (input)="markSlugManual(lang)"
+            />
+            <button type="button" class="seo-form__secondary" (click)="generateSlug(lang)">
+              {{ 'seo.actions.generateSlug' | translate }}
+            </button>
+          </div>
+          @if (checking) {
+            <small class="seo-form__hint">{{ 'seo.messages.checkingSlug' | translate }}</small>
+          }
+          @if (fieldError(form.controls.translations.controls[lang].controls.slug)) {
+            <small class="seo-form__error">{{ fieldError(form.controls.translations.controls[lang].controls.slug) }}</small>
+          }
+        </div>
+      </div>
+
+      <div class="seo-form__field">
+        <label [for]="'seo-' + lang + '-description'">{{ 'seo.fields.description' | translate }}</label>
+        <textarea [id]="'seo-' + lang + '-description'" rows="3" formControlName="description"></textarea>
+      </div>
+      <div class="seo-form__field">
+        <label [for]="'seo-' + lang + '-short'">{{ 'seo.fields.shortDescription' | translate }}</label>
+        <textarea [id]="'seo-' + lang + '-short'" rows="2" formControlName="shortDescription"></textarea>
+      </div>
+      <div class="seo-form__field">
+        <label [for]="'seo-' + lang + '-alt'">{{ 'seo.fields.imageAlt' | translate }}</label>
+        <input [id]="'seo-' + lang + '-alt'" type="text" formControlName="imageAlt" />
+        @if (warningFor('imageAlt', lang)) {
+          <small class="seo-form__warning">{{ warningFor('imageAlt', lang) }}</small>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="seo-form__language" formGroupName="seo" [attr.dir]="dir">
+    <div [formGroupName]="lang" class="seo-form__seo-fields">
+      <div class="seo-form__field">
+        <label [for]="'seo-' + lang + '-meta-title'">{{ 'seo.fields.metaTitle' | translate }}</label>
+        <input [id]="'seo-' + lang + '-meta-title'" type="text" formControlName="metaTitle" />
+        @if (warningFor('metaTitle', lang)) {
+          <small class="seo-form__warning">{{ warningFor('metaTitle', lang) }}</small>
+        }
+        @if (fieldError(form.controls.seo.controls[lang].controls.metaTitle)) {
+          <small class="seo-form__error">{{ fieldError(form.controls.seo.controls[lang].controls.metaTitle) }}</small>
+        }
+      </div>
+      <div class="seo-form__field">
+        <label [for]="'seo-' + lang + '-meta-description'">{{ 'seo.fields.metaDescription' | translate }}</label>
+        <textarea [id]="'seo-' + lang + '-meta-description'" rows="3" formControlName="metaDescription"></textarea>
+        @if (warningFor('metaDescription', lang)) {
+          <small class="seo-form__warning">{{ warningFor('metaDescription', lang) }}</small>
+        }
+        @if (fieldError(form.controls.seo.controls[lang].controls.metaDescription)) {
+          <small class="seo-form__error">{{ fieldError(form.controls.seo.controls[lang].controls.metaDescription) }}</small>
+        }
+      </div>
+      <div class="seo-form__field">
+        <label [for]="'seo-' + lang + '-keywords'">{{ 'seo.fields.keywords' | translate }}</label>
+        <input [id]="'seo-' + lang + '-keywords'" type="text" formControlName="keywordsText" />
+        <small class="seo-form__hint">{{ 'seo.hints.keywords' | translate }}</small>
+        @if (fieldError(form.controls.seo.controls[lang].controls.keywordsText)) {
+          <small class="seo-form__error">{{ fieldError(form.controls.seo.controls[lang].controls.keywordsText) }}</small>
+        }
+      </div>
+      <div class="seo-form__field">
+        <label [for]="'seo-' + lang + '-og-title'">{{ 'seo.fields.ogTitle' | translate }}</label>
+        <input [id]="'seo-' + lang + '-og-title'" type="text" formControlName="ogTitle" />
+      </div>
+      <div class="seo-form__field">
+        <label [for]="'seo-' + lang + '-og-description'">{{ 'seo.fields.ogDescription' | translate }}</label>
+        <textarea [id]="'seo-' + lang + '-og-description'" rows="2" formControlName="ogDescription"></textarea>
+      </div>
+      <div class="seo-form__field">
+        <label [for]="'seo-' + lang + '-canonical'">{{ 'seo.fields.canonicalOverride' | translate }}</label>
+        <input [id]="'seo-' + lang + '-canonical'" type="url" formControlName="canonicalOverride" />
+        <small class="seo-form__warning">{{ warningFor('canonical') }}</small>
+        @if (fieldError(form.controls.seo.controls[lang].controls.canonicalOverride)) {
+          <small class="seo-form__error">{{ fieldError(form.controls.seo.controls[lang].controls.canonicalOverride) }}</small>
+        }
+      </div>
+    </div>
+  </div>
+  </ng-container>
+</ng-template>

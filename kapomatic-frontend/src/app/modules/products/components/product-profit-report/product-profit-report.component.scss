@@ -1,0 +1,79 @@
+:host {
+  display: block;
+}
+
+.profit-report-shell {
+  overflow: hidden;
+}
+
+.profit-report-row {
+  transition: background-color 0.2s ease;
+}
+
+.profit-report-row:hover {
+  color: #ff9933;
+  background: rgba(255, 153, 51, 0.08);
+}
+
+.invoice-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.invoice-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(255, 153, 51, 0.14);
+  color: #ff9933;
+  font-family: 'Roboto', sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.invoice-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.invoice-detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid transparent;
+}
+
+.invoice-detail-card--dark {
+  background: #2f2f2f;
+  border-color: #515151;
+}
+
+.invoice-detail-card--light {
+  background: #f7f7f7;
+  border-color: #e4e4e4;
+}
+
+.invoice-detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.invoice-detail-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+@media (max-width: 960px) {
+  .invoice-detail-grid,
+  .invoice-detail-metrics {
+    grid-template-columns: 1fr;
+  }
+}

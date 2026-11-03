@@ -1,0 +1,42 @@
+{
+  "_comment": "Pinned MongoDB binaries bundled with the offline edition. SHA-256 values are the ones MongoDB publishes in downloads.mongodb.org/full.json and tools/db/release.json. Windows 10 is not on MongoDB's official support list for any current release; 8.0 was chosen for its support window (end of life October 31, 2029). mongod.exe links the Visual C++ 2015-2022 runtime, so the installer also runs the pinned Microsoft redistributable.",
+  "mongodbServer": {
+    "version": "8.0.34",
+    "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.0.34.zip",
+    "sha256": "6b021a0864494e4decf278b36477a29eb36072432773e4e62c2f42c302630db0",
+    "binaries": [
+      "bin/mongod.exe"
+    ],
+    "licenses": [
+      "LICENSE-Community.txt",
+      "MPL-2",
+      "THIRD-PARTY-NOTICES"
+    ],
+    "versionCheck": {
+      "binary": "mongod.exe",
+      "expect": "db version v8.0.34"
+    }
+  },
+  "databaseTools": {
+    "version": "100.20.0",
+    "url": "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-windows-x86_64-100.20.0.zip",
+    "sha256": "b65a32595db38cdf0f413d53cac440c4a6ddac0d224405b550e4100535bdd5ca",
+    "binaries": [
+      "bin/mongodump.exe",
+      "bin/mongorestore.exe"
+    ],
+    "licenses": [
+      "LICENSE.md",
+      "THIRD-PARTY-NOTICES"
+    ],
+    "versionCheck": {
+      "binary": "mongodump.exe",
+      "expect": "version: 100.20.0"
+    }
+  },
+  "vcRedist": {
+    "url": "https://download.visualstudio.microsoft.com/download/pr/990c720a-46ce-4dc7-87b9-c2eb615d34b9/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe",
+    "sha256": "cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b",
+    "signer": "O=Microsoft Corporation"
+  }
+}

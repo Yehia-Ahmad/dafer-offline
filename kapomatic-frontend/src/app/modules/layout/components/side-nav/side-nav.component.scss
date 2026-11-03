@@ -1,0 +1,7 @@
+mat-sidenav-container {
+    transition: height 0.3s ease;
+}
+
+::ng-deep .mat-drawer-inner-container {
+    overflow-x: hidden !important;
+}

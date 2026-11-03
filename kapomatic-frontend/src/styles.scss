@@ -1,0 +1,88 @@
+/* You can add global styles to this file, and also import other style files */
+/* Tailwind first */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+@font-face {
+    font-family: 'Azonix';
+    src: url('assets/fonts/Montserrat-VariableFont_wght.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'SinkinSans';
+    src: url('assets/fonts/SinkinSans-500Medium.otf') format('opentype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Roboto';
+    src: url('assets/fonts/Roboto-VariableFont_wdth,wght.ttf') format('truetype');
+    font-weight: 100 900;
+    /* supports all weights */
+    font-stretch: 75% 100%;
+    font-style: normal;
+    font-display: swap;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Splash screen styles */
+#splash-screen {
+    position: fixed;
+    inset: 0;
+    background: #2F2F2F;
+    /* or your theme color */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.splash-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.splash-logo {
+    width: 120px;
+    height: auto;
+    animation: fadeIn 0.8s ease-in-out;
+}
+
+.splash-loader {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #ccc;
+    border-top-color: #007bff;
+    /* main accent color */
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.fade-out {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}

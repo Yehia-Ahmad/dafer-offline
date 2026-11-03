@@ -1,0 +1,47 @@
+{
+  "appId": "com.kapomatic.inventory.offline",
+  "productName": "Kapomatic Offline",
+  "beforeBuild": "electron/before-build.js",
+  "afterPack": "scripts/offline/after-pack.js",
+  "npmRebuild": false,
+  "nodeGypRebuild": false,
+  "extraMetadata": {
+    "dependencies": {}
+  },
+  "directories": {
+    "app": "offline-stage/app",
+    "output": "release-offline"
+  },
+  "files": [
+    "dist/**/*",
+    "electron-offline/**/*",
+    "!electron-offline/test/**/*",
+    "package.json",
+    "!**/node_modules/**/*"
+  ],
+  "asar": true,
+  "icon": "build/icon.ico",
+  "win": {
+    "signAndEditExecutable": false,
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "build/icon.ico",
+    "artifactName": "Kapomatic-Offline-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": true,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Kapomatic Offline",
+    "deleteAppDataOnUninstall": false,
+    "include": "installer-offline/installer.nsh"
+  }
+}

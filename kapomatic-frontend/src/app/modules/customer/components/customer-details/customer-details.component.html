@@ -1,0 +1,1097 @@
+<app-side-nav>
+  <div class="w-full flex flex-col gap-8">
+    <div class="w-full flex flex-col items-start justify-between gap-4 lg:flex-row">
+      <div class="flex flex-col gap-2">
+        <h1
+          class="text-2xl font-bold font-azonix"
+          [ngClass]="{
+            'text-gray_light': isDarkMode$ | async,
+            'text-orange': !(isDarkMode$ | async)
+          }"
+        >
+          {{ customer?.name || ('customerDetailsPage.title' | translate) }}
+        </h1>
+        <p
+          class="font-roboto text-sm sm:text-base"
+          [ngClass]="{
+            'text-gray_light': isDarkMode$ | async,
+            'text-gray_dark': !(isDarkMode$ | async)
+          }"
+        >
+          {{ 'customerDetailsPage.subtitle' | translate }}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        (click)="backToCustomers()"
+        class="cursor-pointer rounded-[0.65rem] border border-transparent bg-[#f4d80a] px-4 py-2 font-roboto text-[0.95rem] font-bold text-gray_dark transition-opacity duration-200 hover:opacity-90"
+      >
+        {{ 'home.actions.back' | translate }}
+      </button>
+    </div>
+
+    @if (isLoading) {
+      <div class="w-full rounded-xl p-6 sm:p-8" [ngClass]="{
+        'bg-gray_dark': isDarkMode$ | async,
+        'bg-light_card_bg': !(isDarkMode$ | async)
+      }">
+        <p class="font-roboto text-base" [ngClass]="{
+          'text-light_orange': isDarkMode$ | async,
+          'text-gray_dark': !(isDarkMode$ | async)
+        }">
+          {{ 'customerDetailsPage.messages.loading' | translate }}
+        </p>
+      </div>
+    } @else if (errorMessage || !customer) {
+      <div class="w-full rounded-xl p-6 sm:p-8" [ngClass]="{
+        'bg-gray_dark': isDarkMode$ | async,
+        'bg-light_card_bg': !(isDarkMode$ | async)
+      }">
+        <p class="font-roboto text-base text-red">
+          {{ errorMessage || ('customerDetailsPage.messages.notFound' | translate) }}
+        </p>
+      </div>
+    } @else {
+      <div class="grid w-full grid-cols-1 gap-6 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+        <div class="flex flex-col gap-6">
+          <div class="rounded-xl p-6" [ngClass]="{
+            'bg-gray_dark': isDarkMode$ | async,
+            'bg-light_card_bg': !(isDarkMode$ | async)
+          }">
+            <p class="mb-4 font-roboto text-xs uppercase tracking-[0.24em]" [ngClass]="{
+              'text-light_orange': isDarkMode$ | async,
+              'text-orange': !(isDarkMode$ | async)
+            }">
+              {{ 'customerDetailsPage.labels.profile' | translate }}
+            </p>
+
+            <div class="space-y-4 font-roboto">
+              <div>
+                <p class="text-xs uppercase tracking-[0.18em]" [ngClass]="{
+                  'text-gray_light': isDarkMode$ | async,
+                  'text-gray': !(isDarkMode$ | async)
+                }">{{ 'customerPage.form.name' | translate }}</p>
+                <strong class="text-lg" [ngClass]="{
+                  'text-light_orange': isDarkMode$ | async,
+                  'text-orange': !(isDarkMode$ | async)
+                }">{{ customer.name }}</strong>
+              </div>
+
+              <div>
+                <p class="text-xs uppercase tracking-[0.18em]" [ngClass]="{
+                  'text-gray_light': isDarkMode$ | async,
+                  'text-gray': !(isDarkMode$ | async)
+                }">{{ 'customerPage.form.phone' | translate }}</p>
+                <strong class="text-lg" [ngClass]="{
+                  'text-light_orange': isDarkMode$ | async,
+                  'text-orange': !(isDarkMode$ | async)
+                }">{{ customer.phone }}</strong>
+              </div>
+
+              <div>
+                <p class="text-xs uppercase tracking-[0.18em]" [ngClass]="{
+                  'text-gray_light': isDarkMode$ | async,
+                  'text-gray': !(isDarkMode$ | async)
+                }">{{ 'customerDetailsPage.labels.customerId' | translate }}</p>
+                <span class="break-all" [ngClass]="{
+                  'text-gray_light': isDarkMode$ | async,
+                  'text-gray_dark': !(isDarkMode$ | async)
+                }">{{ customer._id || ('customerDetailsPage.labels.notAvailable' | translate) }}</span>
+              </div>
+
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <p class="text-xs uppercase tracking-[0.18em]" [ngClass]="{
+                    'text-gray_light': isDarkMode$ | async,
+                    'text-gray': !(isDarkMode$ | async)
+                  }">{{ 'customerDetailsPage.labels.createdAt' | translate }}</p>
+                  <span [ngClass]="{
+                    'text-light_orange': isDarkMode$ | async,
+                    'text-gray_dark': !(isDarkMode$ | async)
+                  }">{{ formatDate(customer.createdAt) }}</span>
+                </div>
+
+                <div>
+                  <p class="text-xs uppercase tracking-[0.18em]" [ngClass]="{
+                    'text-gray_light': isDarkMode$ | async,
+                    'text-gray': !(isDarkMode$ | async)
+                  }">{{ 'customerDetailsPage.labels.updatedAt' | translate }}</p>
+                  <span [ngClass]="{
+                    'text-light_orange': isDarkMode$ | async,
+                    'text-gray_dark': !(isDarkMode$ | async)
+                  }">{{ formatDate(customer.updatedAt) }}</span>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div>
+                  <p class="text-xs uppercase tracking-[0.18em]" [ngClass]="{
+                    'text-gray_light': isDarkMode$ | async,
+                    'text-gray': !(isDarkMode$ | async)
+                  }">{{ 'customerDetailsPage.labels.lastCashSaleDate' | translate }}</p>
+                  <span [ngClass]="{
+                    'text-light_orange': isDarkMode$ | async,
+                    'text-gray_dark': !(isDarkMode$ | async)
+                  }">{{ formatDate(customer.lastCashSaleDate) }}</span>
+                </div>
+
+                <div>
+                  <p class="text-xs uppercase tracking-[0.18em]" [ngClass]="{
+                    'text-gray_light': isDarkMode$ | async,
+                    'text-gray': !(isDarkMode$ | async)
+                  }">{{ 'customerDetailsPage.labels.lastCreditSaleDate' | translate }}</p>
+                  <span [ngClass]="{
+                    'text-light_orange': isDarkMode$ | async,
+                    'text-gray_dark': !(isDarkMode$ | async)
+                  }">{{ formatDate(customer.lastCreditSaleDate) }}</span>
+                </div>
+
+                <div>
+                  <p class="text-xs uppercase tracking-[0.18em]" [ngClass]="{
+                    'text-gray_light': isDarkMode$ | async,
+                    'text-gray': !(isDarkMode$ | async)
+                  }">{{ 'customerDetailsPage.labels.lastCreditSalePaymentDate' | translate }}</p>
+                  <span [ngClass]="{
+                    'text-light_orange': isDarkMode$ | async,
+                    'text-gray_dark': !(isDarkMode$ | async)
+                  }">{{ formatDate(customer.lastCreditSalePaymentDate) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-xl p-6 text-white" [ngClass]="{
+            'bg-gray_dark': isDarkMode$ | async,
+            'bg-light_card_bg': !(isDarkMode$ | async)
+          }">
+            <p class="mb-4 font-roboto text-xs uppercase tracking-[0.24em]" [ngClass]="{
+              'text-light_orange': isDarkMode$ | async,
+              'text-orange': !(isDarkMode$ | async)
+            }">
+              {{ 'customerDetailsPage.labels.statusBreakdown' | translate }}
+            </p>
+
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div class="rounded-xl border p-4" [ngClass]="{
+                'border-[#42604f] bg-[#2b4035]/35': isDarkMode$ | async,
+                'border-[#b7dccb] bg-[#f1fbf6]': !(isDarkMode$ | async)
+              }">
+                <p class="font-roboto text-sm">{{ 'customerDetailsPage.summary.openInvoices' | translate }}</p>
+                <strong class="font-azonix text-xl">{{ customer.creditSummary.openInvoices }}</strong>
+              </div>
+
+              <!-- <div class="rounded-xl border p-4" [ngClass]="{
+                'border-[#5c5030] bg-[#4a4126]/40': isDarkMode$ | async,
+                'border-[#f2d467] bg-[#fff7d1]': !(isDarkMode$ | async)
+              }">
+                <p class="font-roboto text-sm">{{ 'customerDetailsPage.summary.pendingInvoices' | translate }}</p>
+                <strong class="font-azonix text-xl">{{ customer.creditSummary.pendingInvoices }}</strong>
+              </div> -->
+
+              <!-- <div class="rounded-xl border p-4" [ngClass]="{
+                'border-[#7f5730] bg-[#5a432c]/35': isDarkMode$ | async,
+                'border-[#ffc88f] bg-[#fff0df]': !(isDarkMode$ | async)
+              }">
+                <p class="font-roboto text-sm">{{ 'customerDetailsPage.summary.partiallyPaidInvoices' | translate }}</p>
+                <strong class="font-azonix text-xl">{{ customer.creditSummary.partiallyPaidInvoices }}</strong>
+              </div> -->
+
+              <div class="rounded-xl border p-4" [ngClass]="{
+                'border-[#2d6a58] bg-[#23443a]/35': isDarkMode$ | async,
+                'border-[#7bd8bf] bg-[#e8fff8]': !(isDarkMode$ | async)
+              }">
+                <p class="font-roboto text-sm">{{ 'customerDetailsPage.summary.paidInvoices' | translate }}</p>
+                <strong class="font-azonix text-xl">{{ customer.creditSummary.paidInvoices }}</strong>
+              </div>
+
+              <div class="rounded-xl border p-4" [ngClass]="{
+                'border-[#6a3030] bg-[#4a2525]/35': isDarkMode$ | async,
+                'border-[#ff9f9f] bg-[#fff0f0]': !(isDarkMode$ | async)
+              }">
+                <p class="font-roboto text-sm">{{ 'customerDetailsPage.summary.overdueInvoices' | translate }}</p>
+                <strong class="font-azonix text-xl">{{ customer.creditSummary.overdueInvoices }}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-6">
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div class="rounded-xl p-5" [ngClass]="{
+              'bg-gray_dark': isDarkMode$ | async,
+              'bg-light_card_bg': !(isDarkMode$ | async)
+            }">
+              <p class="font-roboto text-xs uppercase tracking-[0.22em]" [ngClass]="{
+                'text-gray_light': isDarkMode$ | async,
+                'text-gray': !(isDarkMode$ | async)
+              }">{{ 'customerDetailsPage.summary.totalInvoices' | translate }}</p>
+              <strong class="mt-3 block font-azonix text-2xl" [ngClass]="{
+                'text-light_orange': isDarkMode$ | async,
+                'text-orange': !(isDarkMode$ | async)
+              }">{{ customer.creditSummary.totalInvoices }}</strong>
+            </div>
+
+            <div class="rounded-xl p-5" [ngClass]="{
+              'bg-gray_dark': isDarkMode$ | async,
+              'bg-light_card_bg': !(isDarkMode$ | async)
+            }">
+              <p class="font-roboto text-xs uppercase tracking-[0.22em]" [ngClass]="{
+                'text-gray_light': isDarkMode$ | async,
+                'text-gray': !(isDarkMode$ | async)
+              }">{{ 'customerDetailsPage.summary.totalCredit' | translate }}</p>
+              <strong class="mt-3 block font-azonix text-2xl" [ngClass]="{
+                'text-light_orange': isDarkMode$ | async,
+                'text-orange': !(isDarkMode$ | async)
+              }">{{ formatMoney(customer.creditSummary.totalCredit) }}</strong>
+            </div>
+
+            <div class="rounded-xl p-5" [ngClass]="{
+              'bg-gray_dark': isDarkMode$ | async,
+              'bg-light_card_bg': !(isDarkMode$ | async)
+            }">
+              <p class="font-roboto text-xs uppercase tracking-[0.22em]" [ngClass]="{
+                'text-gray_light': isDarkMode$ | async,
+                'text-gray': !(isDarkMode$ | async)
+              }">{{ 'customerDetailsPage.summary.paidAmount' | translate }}</p>
+              <strong class="mt-3 block font-azonix text-2xl text-[#20c997]">
+                {{ formatMoney(customer.creditSummary.paidAmount) }}
+              </strong>
+            </div>
+
+            <div class="rounded-xl p-5" [ngClass]="{
+              'bg-gray_dark': isDarkMode$ | async,
+              'bg-light_card_bg': !(isDarkMode$ | async)
+            }">
+              <p class="font-roboto text-xs uppercase tracking-[0.22em]" [ngClass]="{
+                'text-gray_light': isDarkMode$ | async,
+                'text-gray': !(isDarkMode$ | async)
+              }">{{ 'customerDetailsPage.summary.remainingAmount' | translate }}</p>
+              <strong class="mt-3 block font-azonix text-2xl text-red">
+                {{ formatMoney(customer.creditSummary.remainingAmount) }}
+              </strong>
+            </div>
+          </div>
+
+          <div class="rounded-xl p-6" [ngClass]="{
+            'bg-gray_dark': isDarkMode$ | async,
+            'bg-light_card_bg': !(isDarkMode$ | async)
+          }">
+            <div class="mb-5 flex items-center justify-between gap-4">
+              <div>
+                <h2 class="text-xl font-bold font-azonix" [ngClass]="{
+                  'text-light_orange': isDarkMode$ | async,
+                  'text-orange': !(isDarkMode$ | async)
+                }">
+                  {{ 'customerDetailsPage.history.title' | translate }}
+                </h2>
+                <p class="mt-2 font-roboto text-sm" [ngClass]="{
+                  'text-gray_light': isDarkMode$ | async,
+                  'text-gray_dark': !(isDarkMode$ | async)
+                }">
+                  {{ 'customerDetailsPage.history.subtitle' | translate }}
+                </p>
+              </div>
+
+              <div class="flex flex-wrap items-center justify-end gap-3">
+                @if (hasAvailablePaymentTargets()) {
+                  <button
+                    type="button"
+                    (click)="openCustomerPaymentDialog()"
+                    class="inline-flex items-center justify-center rounded-lg px-4 py-2 font-roboto text-sm font-semibold transition-opacity duration-200 hover:opacity-90"
+                    [ngClass]="{
+                      'bg-[#f4d80a] text-gray_dark': isDarkMode$ | async,
+                      'bg-orange text-gray_dark': !(isDarkMode$ | async)
+                    }"
+                  >
+                    {{ 'customerDetailsPage.actions.addPayment' | translate }}
+                  </button>
+                }
+
+                <span class="font-roboto text-sm" [ngClass]="{
+                  'text-gray_light': isDarkMode$ | async,
+                  'text-gray_dark': !(isDarkMode$ | async)
+                }">
+                  {{ customer.creditHistory.length }} {{ 'customerDetailsPage.history.count' | translate }}
+                </span>
+              </div>
+            </div>
+
+            @if (historyActionError) {
+              <p class="mb-4 font-roboto text-sm text-red">
+                {{ historyActionError }}
+              </p>
+            }
+
+            @if (!customer.creditHistory.length) {
+              <div class="rounded-xl border border-dashed px-5 py-8 text-center font-roboto" [ngClass]="{
+                'border-[#5a5a5a] text-gray_light': isDarkMode$ | async,
+                'border-[#d8d8d8] text-gray_dark': !(isDarkMode$ | async)
+              }">
+                {{ 'customerDetailsPage.history.empty' | translate }}
+              </div>
+            } @else {
+              <div class="flex flex-col gap-4">
+                @for (entry of customer.creditHistory; track trackHistory($index, entry)) {
+                  <article class="rounded-xl border p-5" [ngClass]="{
+                    'border-[#4d4d52] bg-[#343439]': isDarkMode$ | async,
+                    'border-[#ebebeb] bg-white': !(isDarkMode$ | async)
+                  }">
+                    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div class="space-y-3">
+                        <div class="flex flex-wrap items-center gap-3">
+                          <h3 class="font-azonix text-lg" [ngClass]="{
+                            'text-light_orange': isDarkMode$ | async,
+                            'text-orange': !(isDarkMode$ | async)
+                          }">
+                            {{ entry.invoiceId }}
+                          </h3>
+                          <span class="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]" [ngClass]="getStatusClasses(entry.status)">
+                            {{ getStatusLabel(entry.status) }}
+                          </span>
+                          @if (isInvoiceOverdue(entry)) {
+                            <span class="rounded-full bg-red/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-red">
+                              {{ 'customerDetailsPage.labels.overdue' | translate }}
+                            </span>
+                          }
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                          <div>
+                            <p class="text-xs uppercase tracking-[0.18em]" [ngClass]="{
+                              'text-gray_light': isDarkMode$ | async,
+                              'text-gray': !(isDarkMode$ | async)
+                            }">{{ 'customerDetailsPage.history.sellingDate' | translate }}</p>
+                            <span class="font-roboto" [ngClass]="{
+                              'text-light_orange': isDarkMode$ | async,
+                              'text-gray_dark': !(isDarkMode$ | async)
+                            }">{{ formatDate(entry.sellingDate) }}</span>
+                          </div>
+
+                          <div>
+                            <p class="text-xs uppercase tracking-[0.18em]" [ngClass]="{
+                              'text-gray_light': isDarkMode$ | async,
+                              'text-gray': !(isDarkMode$ | async)
+                            }">{{ 'customerDetailsPage.history.dueDate' | translate }}</p>
+                            <span class="font-roboto" [ngClass]="{
+                              'text-light_orange': isDarkMode$ | async,
+                              'text-gray_dark': !(isDarkMode$ | async)
+                            }">{{ formatDate(entry.dueDate) }}</span>
+                          </div>
+
+                          <div>
+                            <p class="text-xs uppercase tracking-[0.18em]" [ngClass]="{
+                              'text-gray_light': isDarkMode$ | async,
+                              'text-gray': !(isDarkMode$ | async)
+                            }">{{ 'customerDetailsPage.history.items' | translate }}</p>
+                            <span class="font-roboto" [ngClass]="{
+                              'text-light_orange': isDarkMode$ | async,
+                              'text-gray_dark': !(isDarkMode$ | async)
+                            }">
+                              {{ entry.itemCount }} / {{ entry.totalQuantity }}
+                            </span>
+                          </div>
+
+                          <div>
+                            <p class="text-xs uppercase tracking-[0.18em]" [ngClass]="{
+                              'text-gray_light': isDarkMode$ | async,
+                              'text-gray': !(isDarkMode$ | async)
+                            }">{{ 'customerDetailsPage.history.paymentsCount' | translate }}</p>
+                            <span class="font-roboto" [ngClass]="{
+                              'text-light_orange': isDarkMode$ | async,
+                              'text-gray_dark': !(isDarkMode$ | async)
+                            }">{{ entry.paymentsCount }}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="flex min-w-[220px] flex-col gap-3">
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+                          <div class="rounded-lg px-4 py-3" [ngClass]="{
+                            'bg-[#2f3530]': isDarkMode$ | async,
+                            'bg-[#eef8f4]': !(isDarkMode$ | async)
+                          }">
+                            <p class="font-roboto text-xs uppercase tracking-[0.16em] text-[#20c997]">
+                              {{ 'customerDetailsPage.history.totalPrice' | translate }}
+                            </p>
+                            <strong class="mt-2 block font-azonix text-base text-[#20c997]">
+                              {{ formatMoney(entry.totalPrice) }}
+                            </strong>
+                          </div>
+
+                          <div class="rounded-lg px-4 py-3" [ngClass]="{
+                            'bg-[#35342f]': isDarkMode$ | async,
+                            'bg-[#fff7df]': !(isDarkMode$ | async)
+                          }">
+                            <p class="font-roboto text-xs uppercase tracking-[0.16em] text-[#f4d80a]">
+                              {{ 'customerDetailsPage.history.paidAmount' | translate }}
+                            </p>
+                            <strong class="mt-2 block font-azonix text-base text-[#f4d80a]">
+                              {{ formatMoney(entry.paidAmount) }}
+                            </strong>
+                          </div>
+
+                          <div class="rounded-lg px-4 py-3" [ngClass]="{
+                            'bg-[#3b2b2b]': isDarkMode$ | async,
+                            'bg-[#fff1f1]': !(isDarkMode$ | async)
+                          }">
+                            <p class="font-roboto text-xs uppercase tracking-[0.16em] text-red">
+                              {{ 'customerDetailsPage.history.remainingAmount' | translate }}
+                            </p>
+                            <strong class="mt-2 block font-azonix text-base text-red">
+                              {{ formatMoney(entry.remainingAmount) }}
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          <div class="rounded-lg px-4 py-3" [ngClass]="{
+                            'bg-[#35303f]': isDarkMode$ | async,
+                            'bg-[#f8eefc]': !(isDarkMode$ | async)
+                          }">
+                            <p class="font-roboto text-xs uppercase tracking-[0.16em] text-[#b56de3]">
+                              {{ 'customerDetailsPage.history.discountAmount' | translate }}
+                            </p>
+                            <strong class="mt-2 block font-azonix text-base text-[#b56de3]">
+                              {{ formatMoney(entry.discountAmount) }}
+                            </strong>
+                          </div>
+
+                          <div class="rounded-lg px-4 py-3" [ngClass]="{
+                            'bg-[#2e3240]': isDarkMode$ | async,
+                            'bg-[#eef3ff]': !(isDarkMode$ | async)
+                          }">
+                            <p class="font-roboto text-xs uppercase tracking-[0.16em] text-[#5b8def]">
+                              {{ 'customerDetailsPage.history.discountPercentage' | translate }}
+                            </p>
+                            <strong class="mt-2 block font-azonix text-base text-[#5b8def]">
+                              {{ formatPercentage(entry.discountPercentage) }}
+                            </strong>
+                          </div>
+
+                          <div class="rounded-lg px-4 py-3" [ngClass]="{
+                            'bg-[#2f3138]': isDarkMode$ | async,
+                            'bg-[#f3f4f6]': !(isDarkMode$ | async)
+                          }">
+                            <p class="font-roboto text-xs uppercase tracking-[0.16em] text-gray">
+                              {{ 'customerDetailsPage.history.shippingFees' | translate }}
+                            </p>
+                            <strong class="mt-2 block font-azonix text-base" [ngClass]="{
+                              'text-gray_light': isDarkMode$ | async,
+                              'text-gray_dark': !(isDarkMode$ | async)
+                            }">
+                              {{ formatMoney(entry.shippingFees) }}
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div class="flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            (click)="printCreditInvoice(entry)"
+                            class="inline-flex items-center justify-center rounded-lg px-4 py-2 font-roboto text-sm font-semibold text-white transition-opacity duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                            [disabled]="isPrintingInvoice(entry.id)"
+                            [ngClass]="{
+                              'bg-[#2563eb]': isDarkMode$ | async,
+                              'bg-[#1d4ed8]': !(isDarkMode$ | async)
+                            }"
+                          >
+                            {{ isPrintingInvoice(entry.id)
+                              ? ('actions.loading' | translate)
+                              : ('customerDetailsPage.actions.printInvoice' | translate) }}
+                          </button>
+
+                          <!-- @if (canAddPayment(entry)) {
+                            <button
+                              type="button"
+                              (click)="openPaymentDialog(entry)"
+                              class="inline-flex items-center justify-center rounded-lg px-4 py-2 font-roboto text-sm font-semibold transition-opacity duration-200 hover:opacity-90"
+                              [ngClass]="{
+                                'bg-[#f4d80a] text-gray_dark': isDarkMode$ | async,
+                                'bg-orange text-gray_dark': !(isDarkMode$ | async)
+                              }"
+                            >
+                              {{ 'customerDetailsPage.actions.addPayment' | translate }}
+                            </button>
+                          } -->
+
+                          @if (canAddRefund(entry)) {
+                            <button
+                              type="button"
+                              (click)="openRefundDialog(entry)"
+                              class="inline-flex items-center justify-center rounded-lg px-4 py-2 font-roboto text-sm font-semibold text-gray_dark transition-opacity duration-200 hover:opacity-90 disabled:opacity-60"
+                              [disabled]="isDeletingCreditSale"
+                              [ngClass]="{
+                                'bg-[#f4d80a]': isDarkMode$ | async,
+                                'bg-orange': !(isDarkMode$ | async)
+                              }"
+                            >
+                              {{ 'customerDetailsPage.actions.addRefund' | translate }}
+                            </button>
+                          }
+
+                          <button
+                            type="button"
+                            (click)="openDeleteCreditDialog(entry)"
+                            class="inline-flex items-center justify-center rounded-lg bg-red px-4 py-2 font-roboto text-sm font-semibold text-white transition-opacity duration-200 hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
+                            [disabled]="isDeletingCreditSale"
+                          >
+                            {{ 'customerDetailsPage.actions.deleteInvoice' | translate }}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    @if (entry.notes) {
+                      <div class="mt-4 rounded-lg border px-4 py-3 font-roboto text-sm" [ngClass]="{
+                        'border-[#4b4b4f] text-gray_light': isDarkMode$ | async,
+                        'border-[#ececec] text-gray_dark': !(isDarkMode$ | async)
+                      }">
+                        <span class="font-semibold">{{ 'customerDetailsPage.history.notes' | translate }}:</span>
+                        {{ entry.notes }}
+                      </div>
+                    }
+
+                    @if (entry.items.length || entry.payments.length) {
+                      <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+                        @if (entry.items.length) {
+                          <div class="rounded-lg border px-4 py-4" [ngClass]="{
+                            'border-[#4b4b4f] text-gray_light': isDarkMode$ | async,
+                            'border-[#ececec] text-gray_dark': !(isDarkMode$ | async)
+                          }">
+                            <p class="mb-3 text-xs font-semibold uppercase tracking-[0.18em]" [ngClass]="{
+                              'text-light_orange': isDarkMode$ | async,
+                              'text-orange': !(isDarkMode$ | async)
+                            }">
+                              {{ 'customerDetailsPage.history.products' | translate }}
+                            </p>
+
+                            <div class="flex flex-col gap-3">
+                              @for (item of entry.items; track trackHistoryItem($index, item)) {
+                                <div class="rounded-lg px-3 py-3" [ngClass]="{
+                                  'bg-[#3a3a3f]': isDarkMode$ | async,
+                                  'bg-[#f8f8f8]': !(isDarkMode$ | async)
+                                }">
+                                  <div class="flex items-start justify-between gap-3">
+                                    <div class="flex flex-col gap-1">
+                                      <strong>{{ item.productName || ('customerDetailsPage.labels.notAvailable' | translate) }}</strong>
+                                      <span class="text-sm">
+                                        {{ item.productCode || ('customerDetailsPage.labels.notAvailable' | translate) }}
+                                        @if (item.categoryName) {
+                                          <span> • {{ item.categoryName }}</span>
+                                        }
+                                      </span>
+                                    </div>
+                                    <strong>{{ formatMoney(item.totalPrice) }}</strong>
+                                  </div>
+                                  <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                                    <span>{{ 'customerDetailsPage.history.quantity' | translate }}: {{ item.quantity }}</span>
+                                    <span>{{ 'customerDetailsPage.history.unitPrice' | translate }}: {{ formatMoney(item.pricePerEach) }}</span>
+                                  </div>
+                                </div>
+                              }
+                            </div>
+                          </div>
+                        }
+
+                        @if (entry.payments.length) {
+                          <div class="rounded-lg border px-4 py-4" [ngClass]="{
+                            'border-[#4b4b4f] text-gray_light': isDarkMode$ | async,
+                            'border-[#ececec] text-gray_dark': !(isDarkMode$ | async)
+                          }">
+                            <p class="mb-3 text-xs font-semibold uppercase tracking-[0.18em]" [ngClass]="{
+                              'text-light_orange': isDarkMode$ | async,
+                              'text-orange': !(isDarkMode$ | async)
+                            }">
+                              {{ 'customerDetailsPage.history.payments' | translate }}
+                            </p>
+
+                            <div class="flex flex-col gap-3">
+                              @for (payment of entry.payments; track trackPayment($index, payment)) {
+                                <div class="rounded-lg px-3 py-3" [ngClass]="{
+                                  'bg-[#3a3a3f]': isDarkMode$ | async,
+                                  'bg-[#f8f8f8]': !(isDarkMode$ | async)
+                                }">
+                                  <div class="flex items-start justify-between gap-3">
+                                    <div class="flex flex-col gap-1">
+                                      <strong>{{ 'customerDetailsPage.history.paymentDate' | translate }}</strong>
+                                      <span class="text-sm">{{ formatDate(payment.paymentDate) }}</span>
+                                    </div>
+                                    <strong>{{ formatMoney(payment.amount) }}</strong>
+                                  </div>
+
+                                  @if (payment.note) {
+                                    <p class="mt-2 text-sm">
+                                      <span class="font-semibold">{{ 'customerDetailsPage.history.notes' | translate }}:</span>
+                                      {{ payment.note }}
+                                    </p>
+                                  }
+                                </div>
+                              }
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </article>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <p-dialog [(visible)]="paymentDialogVisible" [modal]="true" [style]="{ width: '34rem' }" styleClass="!border-0">
+    <ng-template #headless>
+      <div class="flex flex-col gap-5 rounded-2xl p-6 sm:p-7" [attr.dir]="direction" [ngClass]="{
+        'bg-gray_dark': isDarkMode$ | async,
+        'bg-light_card_bg': !(isDarkMode$ | async)
+      }">
+        <div class="flex flex-col gap-2">
+          <p class="font-roboto text-xs uppercase tracking-[0.24em]" [ngClass]="{
+            'text-light_orange': isDarkMode$ | async,
+            'text-orange': !(isDarkMode$ | async)
+          }">
+            {{ 'customerDetailsPage.paymentDialog.eyebrow' | translate }}
+          </p>
+          <h3 class="font-azonix text-xl" [ngClass]="{
+            'text-light_orange': isDarkMode$ | async,
+            'text-orange': !(isDarkMode$ | async)
+          }">
+            {{ 'customerDetailsPage.paymentDialog.title' | translate }}
+          </h3>
+          <p class="font-roboto text-sm" [ngClass]="{
+            'text-gray_light': isDarkMode$ | async,
+            'text-gray_dark': !(isDarkMode$ | async)
+          }">
+            {{ 'customerDetailsPage.paymentDialog.subtitle' | translate }}
+          </p>
+        </div>
+
+        <!-- <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div class="rounded-lg px-4 py-3" [ngClass]="{
+            'bg-[#3a3a3f] text-light_orange': isDarkMode$ | async,
+            'bg-[#f6f6f6] text-gray_dark': !(isDarkMode$ | async)
+          }">
+            <p class="text-xs uppercase tracking-[0.16em]">{{ 'tableHeaders.invoice' | translate }}</p>
+            <strong class="mt-2 block break-all">{{ getPaymentTargetInvoice()?.invoiceId || '-' }}</strong>
+          </div>
+
+          <div class="rounded-lg px-4 py-3" [ngClass]="{
+            'bg-[#3a3a3f] text-light_orange': isDarkMode$ | async,
+            'bg-[#f6f6f6] text-gray_dark': !(isDarkMode$ | async)
+          }">
+            <p class="text-xs uppercase tracking-[0.16em]">{{ 'customerDetailsPage.history.remainingAmount' | translate }}</p>
+            <strong class="mt-2 block">{{ formatMoney(getPaymentTargetInvoice()?.remainingAmount || 0) }}</strong>
+          </div>
+        </div> -->
+
+        <form [formGroup]="paymentForm" class="flex flex-col gap-4" (ngSubmit)="savePayment()">
+          @if (paymentDialogMode === 'customer') {
+            <div class="flex flex-col gap-3">
+              <!-- <label class="font-roboto text-sm font-medium" [ngClass]="{
+                'text-light_orange': isDarkMode$ | async,
+                'text-gray_dark': !(isDarkMode$ | async)
+              }">
+                {{ 'customerDetailsPage.paymentDialog.invoiceTarget' | translate }}
+              </label> -->
+
+              <!-- <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label
+                  class="flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3"
+                  [ngClass]="{
+                    'border-[#4b4b4f] text-light_orange': isDarkMode$ | async,
+                    'border-[#ececec] text-gray_dark': !(isDarkMode$ | async)
+                  }"
+                >
+                  <input
+                    #firstInvoiceCheckbox
+                    type="checkbox"
+                    class="h-4 w-4 accent-orange"
+                    [checked]="!!paymentForm.get('firstInvoice')?.value"
+                    (change)="setPaymentTarget('first', firstInvoiceCheckbox.checked)"
+                  />
+                  <span class="font-roboto text-sm font-medium">
+                    {{ 'customerDetailsPage.paymentDialog.firstInvoice' | translate }}
+                  </span>
+                </label>
+
+                <label
+                  class="flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3"
+                  [ngClass]="{
+                    'border-[#4b4b4f] text-light_orange': isDarkMode$ | async,
+                    'border-[#ececec] text-gray_dark': !(isDarkMode$ | async)
+                  }"
+                >
+                  <input
+                    #lastInvoiceCheckbox
+                    type="checkbox"
+                    class="h-4 w-4 accent-orange"
+                    [checked]="!!paymentForm.get('lastInvoice')?.value"
+                    (change)="setPaymentTarget('last', lastInvoiceCheckbox.checked)"
+                  />
+                  <span class="font-roboto text-sm font-medium">
+                    {{ 'customerDetailsPage.paymentDialog.lastInvoice' | translate }}
+                  </span>
+                </label>
+              </div> -->
+
+              @if (hasPaymentTargetSelectionError()) {
+                <p class="text-sm font-roboto text-red">
+                  {{ 'customerDetailsPage.paymentDialog.targetRequired' | translate }}
+                </p>
+              }
+            </div>
+          }
+
+          <div class="flex flex-col gap-2">
+            <label class="font-roboto text-sm font-medium" [ngClass]="{
+              'text-light_orange': isDarkMode$ | async,
+              'text-gray_dark': !(isDarkMode$ | async)
+            }">
+              {{ 'customerDetailsPage.paymentDialog.amount' | translate }}
+            </label>
+            <p-inputNumber
+              formControlName="amount"
+              [min]="0"
+              [mode]="'decimal'"
+              [useGrouping]="false"
+              styleClass="w-full"
+              inputStyleClass="w-full rounded-md border border-orange bg-transparent px-3 py-3 font-roboto outline-none"
+            />
+            @if ((paymentForm.get('amount')?.invalid && (paymentForm.get('amount')?.touched || paymentSubmitAttempted))) {
+              <p class="text-sm font-roboto text-red">
+                {{ 'customerDetailsPage.paymentDialog.amountRequired' | translate }}
+              </p>
+            }
+            <!-- @if (isPaymentAmountExceeded()) {
+              <p class="text-sm font-roboto text-red">
+                {{ 'customerDetailsPage.paymentDialog.amountExceeded' | translate }}
+              </p>
+            } -->
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label class="font-roboto text-sm font-medium" [ngClass]="{
+              'text-light_orange': isDarkMode$ | async,
+              'text-gray_dark': !(isDarkMode$ | async)
+            }">
+              {{ 'customerDetailsPage.paymentDialog.paymentDate' | translate }}
+            </label>
+            <p-datepicker
+              formControlName="paymentDate"
+              [showIcon]="true"
+              [iconDisplay]="'input'"
+              styleClass="w-full"
+              inputStyleClass="w-full rounded-md border border-orange bg-transparent px-3 py-3 font-roboto outline-none"
+            />
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label class="font-roboto text-sm font-medium" [ngClass]="{
+              'text-light_orange': isDarkMode$ | async,
+              'text-gray_dark': !(isDarkMode$ | async)
+            }">
+              {{ 'customerDetailsPage.paymentDialog.note' | translate }}
+            </label>
+            <textarea
+              formControlName="note"
+              rows="3"
+              class="w-full rounded-md border border-orange bg-transparent px-3 py-3 font-roboto outline-none"
+              [ngClass]="{
+                'text-light_orange placeholder:text-light_orange/60': isDarkMode$ | async,
+                'text-gray_dark placeholder:text-gray/70': !(isDarkMode$ | async)
+              }"
+              [placeholder]="'customerDetailsPage.paymentDialog.notePlaceholder' | translate"
+            ></textarea>
+          </div>
+
+          @if (paymentErrorMessage) {
+            <p class="text-sm font-roboto text-red">{{ paymentErrorMessage }}</p>
+          }
+
+          <div class="flex flex-wrap justify-end gap-3 pt-1">
+            <button
+              type="button"
+              (click)="closePaymentDialog()"
+              class="rounded-lg px-4 py-2 font-roboto text-sm font-semibold transition-opacity duration-200 hover:opacity-90"
+              [ngClass]="{
+                'bg-[#4b4b4f] text-light_orange': isDarkMode$ | async,
+                'bg-[#ececec] text-gray_dark': !(isDarkMode$ | async)
+              }"
+            >
+              {{ 'customerDetailsPage.paymentDialog.cancel' | translate }}
+            </button>
+
+            <button
+              type="submit"
+              class="rounded-lg bg-orange px-4 py-2 font-roboto text-sm font-semibold text-gray_dark transition-opacity duration-200 hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
+              [disabled]="isSavingPayment"
+            >
+              {{
+                isSavingPayment
+                  ? ('customerDetailsPage.paymentDialog.saving' | translate)
+                  : ('customerDetailsPage.paymentDialog.save' | translate)
+              }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog [(visible)]="refundDialogVisible" [modal]="true" [style]="{ width: '42rem' }" styleClass="!border-0">
+    <ng-template #headless>
+      <div class="flex flex-col gap-5 rounded-2xl p-6 sm:p-7" [attr.dir]="direction" [ngClass]="{
+        'bg-gray_dark': isDarkMode$ | async,
+        'bg-light_card_bg': !(isDarkMode$ | async)
+      }">
+        <div class="flex flex-col gap-2">
+          <p class="font-roboto text-xs uppercase tracking-[0.24em]" [ngClass]="{
+            'text-light_orange': isDarkMode$ | async,
+            'text-orange': !(isDarkMode$ | async)
+          }">
+            {{ 'customerDetailsPage.refundDialog.eyebrow' | translate }}
+          </p>
+          <h3 class="font-azonix text-xl" [ngClass]="{
+            'text-light_orange': isDarkMode$ | async,
+            'text-orange': !(isDarkMode$ | async)
+          }">
+            {{ 'customerDetailsPage.refundDialog.title' | translate }}
+          </h3>
+          <p class="font-roboto text-sm" [ngClass]="{
+            'text-gray_light': isDarkMode$ | async,
+            'text-gray_dark': !(isDarkMode$ | async)
+          }">
+            {{ 'customerDetailsPage.refundDialog.subtitle' | translate }}
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div class="rounded-lg px-4 py-3" [ngClass]="{
+            'bg-[#3a3a3f] text-light_orange': isDarkMode$ | async,
+            'bg-[#f6f6f6] text-gray_dark': !(isDarkMode$ | async)
+          }">
+            <p class="text-xs uppercase tracking-[0.16em]">{{ 'tableHeaders.invoice' | translate }}</p>
+            <strong class="mt-2 block break-all">{{ selectedInvoiceForRefund?.invoiceId || '-' }}</strong>
+          </div>
+
+          <div class="rounded-lg px-4 py-3" [ngClass]="{
+            'bg-[#3a3a3f] text-light_orange': isDarkMode$ | async,
+            'bg-[#f6f6f6] text-gray_dark': !(isDarkMode$ | async)
+          }">
+            <p class="text-xs uppercase tracking-[0.16em]">{{ 'customerDetailsPage.history.totalPrice' | translate }}</p>
+            <strong class="mt-2 block">{{ formatMoney(selectedInvoiceForRefund?.totalPrice || 0) }}</strong>
+          </div>
+        </div>
+
+        <form [formGroup]="refundForm" class="flex flex-col gap-4" (ngSubmit)="saveRefund()">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="flex flex-col gap-2">
+              <label class="font-roboto text-sm font-medium" [ngClass]="{
+                'text-light_orange': isDarkMode$ | async,
+                'text-gray_dark': !(isDarkMode$ | async)
+              }">
+                {{ 'customerDetailsPage.refundDialog.refundDate' | translate }}
+              </label>
+              <p-datepicker
+                formControlName="refundDate"
+                [showIcon]="true"
+                [iconDisplay]="'input'"
+                styleClass="w-full"
+                inputStyleClass="w-full rounded-md border border-orange bg-transparent px-3 py-3 font-roboto outline-none"
+              />
+            </div>
+
+            <div class="flex flex-col gap-2">
+              <label class="font-roboto text-sm font-medium" [ngClass]="{
+                'text-light_orange': isDarkMode$ | async,
+                'text-gray_dark': !(isDarkMode$ | async)
+              }">
+                {{ 'customerDetailsPage.refundDialog.note' | translate }}
+              </label>
+              <textarea
+                formControlName="note"
+                rows="3"
+                class="w-full rounded-md border border-orange bg-transparent px-3 py-3 font-roboto outline-none"
+                [ngClass]="{
+                  'text-light_orange placeholder:text-light_orange/60': isDarkMode$ | async,
+                  'text-gray_dark placeholder:text-gray/70': !(isDarkMode$ | async)
+                }"
+                [placeholder]="'customerDetailsPage.refundDialog.notePlaceholder' | translate"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <p class="font-roboto text-sm font-semibold" [ngClass]="{
+              'text-light_orange': isDarkMode$ | async,
+              'text-gray_dark': !(isDarkMode$ | async)
+            }">
+              {{ 'customerDetailsPage.refundDialog.itemsTitle' | translate }}
+            </p>
+
+            <div class="flex flex-wrap gap-2">
+              <button
+                type="button"
+                (click)="fillRefundWithAllItems()"
+                class="rounded-lg px-3 py-2 font-roboto text-sm font-semibold transition-opacity duration-200 hover:opacity-90"
+                [ngClass]="{
+                  'bg-[#f4d80a] text-gray_dark': isDarkMode$ | async,
+                  'bg-orange text-gray_dark': !(isDarkMode$ | async)
+                }"
+              >
+                {{ 'customerDetailsPage.refundDialog.returnAll' | translate }}
+              </button>
+
+              <button
+                type="button"
+                (click)="clearRefundQuantities()"
+                class="rounded-lg px-3 py-2 font-roboto text-sm font-semibold transition-opacity duration-200 hover:opacity-90"
+                [ngClass]="{
+                  'bg-[#4b4b4f] text-light_orange': isDarkMode$ | async,
+                  'bg-[#ececec] text-gray_dark': !(isDarkMode$ | async)
+                }"
+              >
+                {{ 'customerDetailsPage.refundDialog.clear' | translate }}
+              </button>
+            </div>
+          </div>
+
+          <div formArrayName="items" class="flex flex-col gap-3">
+            @for (refundItem of refundItems.controls; track trackRefundItem($index); let index = $index) {
+              <div class="rounded-lg border px-4 py-4" [formGroupName]="index" [ngClass]="{
+                'border-[#4b4b4f]': isDarkMode$ | async,
+                'border-[#ececec]': !(isDarkMode$ | async)
+              }">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_180px] md:items-end">
+                  <div class="flex flex-col gap-2">
+                    <strong [ngClass]="{
+                      'text-light_orange': isDarkMode$ | async,
+                      'text-orange': !(isDarkMode$ | async)
+                    }">
+                      {{ refundItem.get('productName')?.value || ('customerDetailsPage.labels.notAvailable' | translate) }}
+                    </strong>
+                    <p class="font-roboto text-sm" [ngClass]="{
+                      'text-gray_light': isDarkMode$ | async,
+                      'text-gray_dark': !(isDarkMode$ | async)
+                    }">
+                      {{ refundItem.get('productCode')?.value || ('customerDetailsPage.labels.notAvailable' | translate) }}
+                      @if (refundItem.get('categoryName')?.value) {
+                        <span> • {{ refundItem.get('categoryName')?.value }}</span>
+                      }
+                    </p>
+                    <p class="font-roboto text-sm" [ngClass]="{
+                      'text-gray_light': isDarkMode$ | async,
+                      'text-gray_dark': !(isDarkMode$ | async)
+                    }">
+                      {{ 'customerDetailsPage.refundDialog.availableQuantity' | translate }}:
+                      {{ refundItem.get('availableQuantity')?.value || 0 }}
+                    </p>
+                  </div>
+
+                  <div class="flex flex-col gap-2">
+                    <label class="font-roboto text-sm font-medium" [ngClass]="{
+                      'text-light_orange': isDarkMode$ | async,
+                      'text-gray_dark': !(isDarkMode$ | async)
+                    }">
+                      {{ 'customerDetailsPage.refundDialog.returnQuantity' | translate }}
+                    </label>
+                    <p-inputNumber
+                      formControlName="quantity"
+                      [min]="0"
+                      [max]="refundItem.get('availableQuantity')?.value || 0"
+                      [mode]="'decimal'"
+                      [useGrouping]="false"
+                      [minFractionDigits]="0"
+                      [maxFractionDigits]="0"
+                      styleClass="w-full"
+                      inputStyleClass="w-full rounded-md border border-orange bg-transparent px-3 py-3 font-roboto outline-none"
+                    />
+                    @if (isRefundQuantityExceeded($index) || (refundSubmitAttempted && refundItem.get('quantity')?.hasError('max'))) {
+                      <p class="text-sm font-roboto text-red">
+                        {{ 'customerDetailsPage.refundDialog.quantityExceeded' | translate }}
+                      </p>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+
+          @if (refundSubmitAttempted && !hasRefundSelection()) {
+            <p class="text-sm font-roboto text-red">
+              {{ 'customerDetailsPage.refundDialog.selectionRequired' | translate }}
+            </p>
+          }
+
+          @if (refundErrorMessage) {
+            <p class="text-sm font-roboto text-red">{{ refundErrorMessage }}</p>
+          }
+
+          <div class="flex flex-wrap justify-end gap-3 pt-1">
+            <button
+              type="button"
+              (click)="closeRefundDialog()"
+              class="rounded-lg px-4 py-2 font-roboto text-sm font-semibold transition-opacity duration-200 hover:opacity-90"
+              [ngClass]="{
+                'bg-[#4b4b4f] text-light_orange': isDarkMode$ | async,
+                'bg-[#ececec] text-gray_dark': !(isDarkMode$ | async)
+              }"
+            >
+              {{ 'customerDetailsPage.refundDialog.cancel' | translate }}
+            </button>
+
+            <button
+              type="submit"
+              class="rounded-lg bg-red px-4 py-2 font-roboto text-sm font-semibold text-white transition-opacity duration-200 hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
+              [disabled]="isSavingRefund"
+            >
+              {{
+                isSavingRefund
+                  ? ('customerDetailsPage.refundDialog.saving' | translate)
+                  : ('customerDetailsPage.refundDialog.save' | translate)
+              }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog
+    [(visible)]="deleteCreditDialogVisible"
+    [modal]="true"
+    [closable]="!isDeletingCreditSale"
+    [dismissableMask]="!isDeletingCreditSale"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: 'min(34rem, 94vw)' }"
+    styleClass="!border-0"
+    (onHide)="closeDeleteCreditDialog()"
+  >
+    <div class="flex flex-col gap-5 p-3" [ngClass]="{
+      'text-light_orange': isDarkMode$ | async,
+      'text-gray_dark': !(isDarkMode$ | async)
+    }">
+      <h2 class="text-center text-2xl font-bold font-azonix text-red">{{ 'customerDetailsPage.deleteDialog.title' | translate }}</h2>
+      <p class="text-center font-roboto">{{ 'customerDetailsPage.deleteDialog.confirm' | translate }}</p>
+      <p class="text-center font-roboto text-sm opacity-75">{{ 'customerDetailsPage.deleteDialog.inventoryWarning' | translate }}</p>
+
+      @if (deleteCreditErrorMessage) {
+        <p class="text-center font-roboto text-sm text-red">{{ deleteCreditErrorMessage }}</p>
+      }
+
+      <div class="flex justify-center gap-3">
+        <button type="button" (click)="closeDeleteCreditDialog()" [disabled]="isDeletingCreditSale" class="rounded-lg bg-[#b9b9b9] px-4 py-2 font-roboto text-sm font-semibold text-gray_dark disabled:opacity-60">
+          {{ 'actions.cancelButton' | translate }}
+        </button>
+        <button type="button" (click)="deleteCreditInvoice()" [disabled]="isDeletingCreditSale" class="rounded-lg bg-red px-4 py-2 font-roboto text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">
+          {{ isDeletingCreditSale ? ('actions.loading' | translate) : ('customerDetailsPage.actions.deleteInvoice' | translate) }}
+        </button>
+      </div>
+    </div>
+  </p-dialog>
+</app-side-nav>

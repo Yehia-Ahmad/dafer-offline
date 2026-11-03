@@ -1,0 +1,14 @@
+node_modules/
+.angular/
+dist/
+dist-offline/
+offline-stage/
+offline-dev-home/
+release-offline/
+vendor/
+release/
+build/
+desktop/dist/
+desktop/electron/
+desktop/node_modules/
+.codex

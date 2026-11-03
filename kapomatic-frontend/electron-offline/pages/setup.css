@@ -1,0 +1,199 @@
+/* Setup page; builds on status.css (colours, card, buttons, spinner). */
+
+body {
+  padding: 1.5rem 1rem;
+}
+
+.card.wide {
+  width: min(40rem, calc(100vw - 2rem));
+  text-align: right;
+}
+
+h1 {
+  text-align: center;
+}
+
+h2 {
+  margin: 0 0 1rem;
+  font-size: 1.2rem;
+}
+
+.lead {
+  margin: 0 0 0.75rem;
+}
+
+.choices {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.2rem;
+  text-align: right;
+  background: transparent;
+  color: var(--text);
+  outline: 1px solid var(--muted);
+}
+
+.choice:hover,
+.choice:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.choice strong {
+  font-size: 1.1rem;
+}
+
+.choice span {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+label {
+  display: block;
+  margin: 1rem 0 0.35rem;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--muted);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+
+input[aria-invalid='true'] {
+  border-color: var(--error-text);
+  outline: 1px solid var(--error-text);
+}
+
+input.ltr {
+  direction: ltr;
+  text-align: left;
+  font-family: Consolas, 'Courier New', monospace;
+}
+
+input.short {
+  width: 8rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.row.spread {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.row .grow {
+  flex: 1;
+}
+
+.row button {
+  white-space: nowrap;
+}
+
+.hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+fieldset {
+  margin: 1.25rem 0 0;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--muted);
+  border-radius: 0.75rem;
+}
+
+legend {
+  padding: 0 0.4rem;
+  font-weight: 600;
+}
+
+label.radio,
+label.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.6rem 0 0;
+  font-weight: normal;
+}
+
+label.radio input,
+label.checkbox input {
+  width: auto;
+}
+
+#backup-picker {
+  margin-top: 0.75rem;
+}
+
+details {
+  margin-top: 1rem;
+}
+
+summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.progress p {
+  margin: 0;
+}
+
+.servers {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.servers button {
+  width: 100%;
+  text-align: right;
+  background: transparent;
+  color: var(--text);
+  outline: 1px solid var(--muted);
+}
+
+.servers button[aria-pressed='true'] {
+  outline: 2px solid var(--accent);
+}
+
+.servers .address {
+  direction: ltr;
+  display: inline-block;
+  color: var(--muted);
+  margin-inline-start: 0.5rem;
+}
+
+.actions {
+  justify-content: flex-start;
+}
+
+.error {
+  margin-top: 1rem;
+}
+
+footer {
+  text-align: center;
+}

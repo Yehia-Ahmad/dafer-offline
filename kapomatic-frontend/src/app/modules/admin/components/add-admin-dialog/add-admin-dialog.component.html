@@ -1,0 +1,43 @@
+<p-dialog [modal]="true" [(visible)]="visible" [style]="{ width: '50vw' }">
+    <div class="flex justify-center items-center">
+        @if(mode === 'add'){
+            <h1 class="text-2xl font-bold font-azonix text-orange">add admin</h1>
+        } @else {
+            <h1 class="text-2xl font-bold font-azonix text-orange">change admin</h1>
+        }
+    </div>
+    <form class="flex flex-col gap-4 my-6" [formGroup]="changeForm">
+        <div class="w-full flex flex-col gap-2 items-start">
+            <label class="text-lg font-semibold font-roboto text-light_orange" for="username">Username</label>
+            <input type="text"
+                class="w-full rounded-md p-2 bg-transparent text-light_orange border border-[#696969] focus:outline-none"
+                pInputText formControlName="username" />
+        </div>
+        <div class="w-full flex flex-col gap-2 items-start">
+            <label class="text-lg font-semibold font-roboto text-light_orange" for="email">Email</label>
+            <input type="email"
+                class="w-full rounded-md p-2 bg-transparent text-light_orange border border-[#696969] focus:outline-none"
+                pInputText formControlName="email" />
+        </div>
+        <div class="w-full flex flex-col gap-2 items-start">
+            <label class="text-lg font-semibold font-roboto text-light_orange" for="phone_number">Phone Number</label>
+            <input type="tel"
+                class="w-full rounded-md p-2 bg-transparent text-light_orange border border-[#696969] focus:outline-none"
+                pInputText formControlName="phone_number" />
+        </div>
+        <div class="w-full flex flex-col gap-2 items-start">
+            <label class="text-lg font-semibold font-roboto text-light_orange" for="password">Password</label>
+            <input type="password"
+                class="w-full rounded-md p-2 bg-transparent text-light_orange border border-[#696969] focus:outline-none"
+                pInputText formControlName="password" />
+        </div>
+        <div class="w-full flex flex-col gap-2 items-start">
+            <label class="text-lg font-semibold font-roboto text-light_orange" for="role">Role</label>
+            <p-select [options]="roles" formControlName="role" optionLabel="name" appendTo="body" placeholder="Select Role"
+                class="w-full rounded-md bg-transparent text-light_orange border border-[#696969] focus:outline-none" />
+        </div>
+    </form>
+    <div class="flex justify-center items-center">
+        <p-button label="Save" severity="warn" (click)="visible = false" />
+    </div>
+</p-dialog>

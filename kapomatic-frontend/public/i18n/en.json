@@ -1,0 +1,142 @@
+{
+  "ProductTitle": "Product List",
+  "searchPlaceholder": "Search ...",
+  "sidebarTitles": {
+    "mainitems": "Main Items",
+    "admins": "Admins",
+    "addAdmins": "Add Admins",
+    "showAdmins": "Show Admins",
+    "products": "Products",
+    "returns": "Returns",
+    "addProducts": "Add Products",
+    "showProducts": "Show Products",
+    "warranties": "Warranties"
+  },
+  "addProduct": "Add Product",
+  "tableHeaders": {
+    "name": "Name",
+    "type": "Type",
+    "description": "Description",
+    "warranty": "Warranty",
+    "expiryDate": "Expiry Date",
+    "actions": "Actions"
+  },
+  "showQR": "Show QR",
+  "delete": "Delete",
+  "qrCodesForProduct": "QR Codes for Product",
+  "printQRCode": "🖨️ Print QR Code",
+  "copies": "Copies",
+  "errors": {
+    "invalidProductId": "Invalid product ID received.",
+    "uniqueNameRequired": "You Should Enter Unique Name",
+    "errorMsgToShowProducts": "Failed to load products",
+    "genericError": "Something went wrong.",
+    "fetchError": "Error fetching admins",
+    "notFound": "Admin not found",
+    "deleteError": "Error deleting admin"
+  },
+  "product": {
+    "product": "Product",
+    "noDescription": "No description available",
+    "newProduct": "New Product",
+    "createNewProduct": "Create New Product",
+    "form": {
+      "name": "Product Name",
+      "type": "Product Type",
+      "warranty": "Warranty Period",
+      "description": "Product Description"
+    },
+    "actions": {
+      "creationSuccess": "Product created successfully!",
+      "backToList": "Back to List",
+      "saving": "Saving...",
+      "saveButton": "Save Product"
+    }
+  },
+  "admin": {
+    "createNewAdmin": "Create New Admin",
+    "form": {
+      "username": "Username",
+      "phone": "Phone Number",
+      "email": "Email",
+      "password": "Password",
+      "role": "Role"
+    },
+    "roles": {
+      "admin": "Admin",
+      "moderator": "Moderator"
+    },
+    "actions": {
+      "creating": "Creating...",
+      "createAdmin": "Create Admin",
+      "deleteSuccess": "Admin deleted successfully"
+    },
+    "list_Title": "Admin List",
+    "add_Button": "Add Admin"
+  },
+  "validationForm": {
+    "name": "Name",
+    "phone": "Phone",
+    "shopName": "Shop Name",
+    "shopNumber": "Shop Number",
+    "purchaseDate": "Purchase Date",
+    "invoicePhoto": "Invoice Photo",
+    "userInfo": "User Info",
+    "invoiceInfo": "Invoice Info",
+    "browsePhoto": "Browse Photo"
+  },
+  "warrant": {
+    "oklandWarranty": "Okland company warranty",
+    "expiresOn": "Warranty expires on",
+    "activate": "Activate Warranty",
+    "success": "Warranty Activated Successfully!",
+    "failure": "Failed to activate warranty",
+    "validation": "Invoice photo with visible date must be uploaded to activate warranty"
+  },
+  "upload": {
+    "uploading": "Uploading...",
+    "complete": "Upload Complete"
+  },
+  "showWarranty": "Show Warranty",
+  "viewAllWarranties": "View All Warranties",
+ "warranty": {
+    "invoicePhoto": "Invoice Photo"
+  },
+  "sellingPage": {
+    "fields": {
+      "searchProduct": "Search Product Code",
+      "selectProduct": "Select Product",
+      "productName": "Product Name",
+      "categoryName": "Category Name",
+      "priceType": "Price Type",
+      "price": "Price",
+      "customerName": "Customer Name",
+      "sellingDate": "Selling Date",
+      "productQuantity": "Product Quantity",
+      "totalInvoicePrice": "Total Invoice Price"
+    },
+    "priceTypeOptions": {
+      "wholesalePrice": "Wholesale Price",
+      "retailPrice": "Retail Price",
+      "custom": "Custom"
+    },
+    "placeholders": {
+      "searchProduct": "Enter product code (e.g. WM-001)",
+      "selectProduct": "Select product from results",
+      "selectPriceType": "Select Price Type"
+    },
+    "actions": {
+      "search": "Search",
+      "searching": "Searching...",
+      "createSelling": "Create Selling",
+      "saving": "Saving..."
+    },
+    "messages": {
+      "noProductFound": "No product found for this code.",
+      "searchFailed": "Failed to search product.",
+      "createdSuccess": "Selling created successfully.",
+      "createFailed": "Failed to create selling."
+    }
+  },
+  "logout": "Logout"
+}

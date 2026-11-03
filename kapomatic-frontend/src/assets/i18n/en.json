@@ -1,0 +1,1301 @@
+{
+    "ProductTitle": "Product List",
+    "searchPlaceholder": "Search ...",
+    "sidebarTitles": {
+        "mainitems": "Main Items",
+        "admins": "Admins",
+        "addAdmins": "Add Admins",
+        "showAdmins": "Show Admins",
+        "products": "Products",
+        "customers": "Customers",
+        "selling": "Selling",
+        "credit_sales": "Credit Sales",
+        "invoice_history": "Invoice History",
+        "returns": "Returns",
+        "profit_report": "Profit Report",
+        "ecommerce_settings": "E-commerce Settings",
+        "website_images": "Website Images",
+        "export_products": "Export Products",
+        "addProducts": "Add Products",
+        "showProducts": "Show Products",
+        "categories": "Categories",
+        "warranties": "Warranties",
+        "add_new_category": "Add New Category",
+        "backup": "Backup"
+    },
+    "actions": {
+        "save": "Save",
+        "creating": "Creating...",
+        "loading": "Loading...",
+        "cancelButton": "No Cancel",
+        "deleteButton": "Yes Delete"
+    },
+    "addProduct": "Add Product",
+    "tableHeaders": {
+        "name": "Name",
+        "username": "Username",
+        "number": "Number",
+        "email": "Email",
+        "role": "Role",
+        "product": "Product",
+        "model": "Model",
+        "invoice": "Invoice", 
+        "remining": "Remining",
+        "expiry": "Expiry",
+        "type": "Type",
+        "description": "Description",
+        "warranty": "Warranty",
+        "expiryDate": "Expiry Date",
+        "actions": "Actions"
+    },
+    "showQR": "Show QR",
+    "delete": "Delete",
+    "qrCodesForProduct": "QR Codes for Product",
+    "printQRCode": "🖨️ Print QR Code",
+    "copies": "Copies",
+    "errors": {
+        "invalidProductId": "Invalid product ID received.",
+        "uniqueNameRequired": "You Should Enter Unique Name",
+        "errorMsgToShowProducts": "Failed to load products",
+        "genericError": "Something went wrong.",
+        "fetchError": "Error fetching admins",
+        "notFound": "Admin not found",
+        "deleteError": "Error deleting admin"
+    },
+    "product": {
+        "product": "Product",
+        "noDescription": "No description available",
+        "newProduct": "New Product",
+        "createNewProduct": "Create New Product",
+        "form": {
+            "name": "Product Name",
+            "type": "Product Type",
+            "warranty": "Warranty Period",
+            "description": "Product Description"
+        },
+        "actions": {
+            "creationSuccess": "Product created successfully!",
+            "backToList": "Back to List",
+            "saving": "Saving...",
+            "saveButton": "Save Product"
+        }
+    },
+    "admin": {
+        "title": "system admins",
+        "createNewAdmin": "Create New Admin",
+        "form": {
+            "username": "Username",
+            "phone": "Phone Number",
+            "email": "Email",
+            "password": "Password",
+            "role": "Role"
+        },
+        "roles": {
+            "admin": "Admin",
+            "moderator": "Moderator"
+        },
+        "actions": {
+            "creating": "Creating...",
+            "createAdmin": "Create Admin",
+            "deleteSuccess": "Admin deleted successfully"
+        },
+        "change_Button": "Change",
+        "remove_Button": "Delete",
+        "list_Title": "Admin List",
+        "add_Button": "Add Admin"
+    },
+    "category": {
+        "importExport": {
+            "toolsTitle": "Category tools",
+            "export": "Export Categories",
+            "exporting": "Exporting...",
+            "import": "Import Categories",
+            "importing": "Importing...",
+            "template": "Download Template",
+            "generating": "Generating...",
+            "resultTitle": "Category Import Result",
+            "importedCount": "Imported",
+            "skippedCount": "Skipped",
+            "errors": "Import errors",
+            "noErrors": "No import errors"
+        },
+        "products": {
+            "loading": "Loading more products...",
+            "noMore": "No more products",
+            "retry": "Retry"
+        },
+        "add_new_category": "Add New Category",
+        "pressAddModel": "Press Add Model to",
+        "printQr": "Print QR codes",
+        "info": "for each product Edit Product ONLY when it's upgraded to change its specifications.",
+        "name": "Name",
+        "namePlaceholder": "Enter Category Name",
+        "description": "Description",
+        "descriptionPlaceholder": "Enter Category Description",
+        "specifications": {
+            "title": "Specifications",
+            "addButton": "Add",
+            "rowNamePlaceholder": "Enter row name",
+            "valuePlaceholder": "Enter value",
+            "removeButton": "Remove"
+        },
+        "addProduct": {
+            "title": "Add Product",
+            "productName": "Product Name",
+            "code": "Product Code",
+            "inventoryCount": "Inventory Count",
+            "wholesalePrice": "Wholesale Price",
+            "purchasePrice": "Purchase Price",
+            "retailPrice": "Retail Price",
+            "soldItemCount": "Sold Item Count",
+            "description": "Product Description",
+            "category": "Product Category",
+            "uploadImage": "Upload Image",
+            "changeImage": "Change Image",
+            "actions": {
+                "save": "Save Product",
+                "creating": "Creating..."
+            }
+        },
+        "editProduct": {
+            "info": "Editting Product Details",
+            "title": "Edit Product",
+            "productName": "Product Name",
+            "code": "Product Code",
+            "inventoryCount": "Inventory Count",
+            "newInventory": "New Inventory",
+            "wholesalePrice": "Wholesale Price",
+            "purchasePrice": "Purchase Price",
+            "retailPrice": "Retail Price",
+            "discountPercentage": "Discount Percentage",
+            "soldItemCount": "Sold Item Count",
+            "description": "Product Description",
+            "category": "Category",
+            "uploadImage": "Upload Image",
+            "changeImage": "Change Image",
+            "actions": {
+                "save": "Save & Exit",
+                "syncPurchasePrice": "Sync Selling Price",
+                "creating": "Creating...",
+                "deleteButton": "Delete Product"
+            },
+            "syncPurchasePrice": {
+                "title": "Sync Selling Price",
+                "dateFrom": "Date From",
+                "dateTo": "Date To",
+                "cancel": "Cancel",
+                "save": "Save"
+            }
+        },
+        "deleteProduct": {
+            "title": "Delete Product",
+            "deleteMessage": "Do you want to delete this product?",
+            "actions": {
+                "deleteButton": "Delete Product",
+                "cancelButton": "No Cancel"
+            }
+        },
+        "addModel": {
+            "title": "Add Model",
+            "forProduct": "For Product",
+            "model": "Model",
+            "modelPlaceholder": "Model Name",
+            "quantity": "Quantity",
+            "quantityPlaceholder": "Enter Quantity",
+            "actions": {
+                "createQRs": "Generate QR Codes",
+                "creating": "Generating...",
+                "createModel": "Create Model",
+                "deleteSuccess": "Model deleted successfully"
+            }
+        },
+        "qrCodes": {
+            "title": "Model QR Codes"
+        },
+        "actions": {
+          "creating": "Creating...",
+          "createCategory": "Create Category",
+          "deleteSuccess": "Category deleted successfully"
+        },
+        "saveButton": "Save Category",
+        "updateButton": "Update Category",
+        "isSaving": "Saving...",
+        "addButton": "Add Category",
+        "listTitle": "Category List",
+        "edit_category_title": "Edit Category",
+        "delete_category_title": "Delete Category",
+        "delete_category_message": "Do you want to delete this category?",
+        "cancel_button": "No Cancel",
+        "delete_button": "Yes Delete",
+        "deleteButton": "Delete Category",
+        "changeButton": "Change Category"
+    },
+    "validationForm": {
+        "name": "Name",
+        "phone": "Phone",
+        "shopName": "Shop Name",
+        "shopNumber": "Shop Number",
+        "purchaseDate": "Purchase Date",
+        "invoicePhoto": "Invoice Photo",
+        "userInfo": "User Info",
+        "invoiceInfo": "Invoice Info",
+        "browsePhoto": "Browse Photo"
+    },
+    "warrant": {
+        "oklandWarranty": "Okland company warranty",
+        "expiresOn": "Warranty expires on",
+        "activate": "Activate Warranty",
+        "success": "Warranty Activated Successfully!",
+        "failure": "Failed to activate warranty",
+        "validation": "Invoice photo with visible date must be uploaded to activate warranty"
+    },
+    "upload": {
+        "uploading": "Uploading...",
+        "complete": "Upload Complete"
+    },
+    "showWarranty": "Show Warranty",
+    "viewAllWarranties": "View All Warranties",
+    "warranty": {
+        "title": "warranty dashboard",
+        "invoicePhoto": "Invoice Photo",
+        "productName": "Product Name",
+        "modal": "Modal",
+        "expiresOn": "Warranty expires on",
+        "deleteWarranty": {
+            "title": "Delete Warranty",
+            "deleteMessage": "Do you want to delete this warranty?",
+            "warrantyExpiries": "warranty expiries on",
+            "actions": {
+                "deleteButton": "Yes Delete",
+                "cancelButton": "No Cancel"
+            }   
+        },
+        "activateWarranty": {
+            "userInformation": "User Information",
+            "fullName": "Your Full Name",
+            "phoneNumber": "Your Phone Number",
+            "invoiceInformation": "Invoice Information",
+            "branchName": "Branch Name",
+            "branchNumber": "Branch Number",
+            "uploadPhoto": "Upload Photo",
+            "photoInfo": "Invoice photo must be uploaded with visible data to activate the warranty",
+            "actions": {
+                "activate": "Activate Warranty"
+            }
+        }
+    },
+    "home": {
+        "title": "INVENTORY SYSTEM",
+        "subtitle": "Choose a section to continue",
+        "cards": {
+            "inventory": {
+                "title": "Inventory",
+                "description": "Manage inventory operations."
+            },
+            "products": {
+                "title": "Products",
+                "description": "Go to selling and invoice history pages."
+            },
+            "customers": {
+                "title": "Customers",
+                "description": "Create and manage customer records."
+            },
+            "ecommerceSettings": {
+                "title": "E-commerce Settings",
+                "description": "Control website category visibility, products, and filters."
+            },
+            "websiteOrders": {
+                "title": "Website Orders",
+                "description": "Review, confirm, and refund website orders."
+            },
+            "selling": {
+                "title": "Selling",
+                "description": "Open the selling page."
+            },
+            "creditSales": {
+                "title": "Credit Sales",
+                "description": "Open the sale on credit workspace."
+            },
+            "invoiceHistory": {
+                "title": "Invoice History",
+                "description": "Open invoice history page."
+            }
+        },
+        "pages": {
+            "inventoryReady": "Inventory page is ready.",
+            "sellingReady": "Selling page is ready.",
+            "invoiceHistoryReady": "Invoice history page is ready."
+        },
+        "actions": {
+            "back": "Back",
+            "resetView": "Reset View"
+        }
+    },
+    "websiteOrders": {
+        "title": "Website Orders",
+        "subtitle": "Review website checkout orders and move pending orders into selling invoices.",
+        "tabs": {
+            "label": "Website order status filters",
+            "all": "All Orders",
+            "pending": "Pending",
+            "accepted": "Accepted",
+            "refunded": "Refunded"
+        },
+        "columns": {
+            "order": "Order",
+            "status": "Status",
+            "paymentMethod": "Payment Method",
+            "customer": "Customer",
+            "phone": "Phone",
+            "location": "Location",
+            "date": "Date",
+            "quantity": "Qty",
+            "total": "Total",
+            "invoice": "Invoice",
+            "actions": "Actions"
+        },
+        "status": {
+            "pending": "Pending",
+            "accepted": "Accepted",
+            "refunded": "Refunded"
+        },
+        "paymentMethods": {
+            "cash": "Cash",
+            "wallet": "E-Wallet",
+            "e_wallet": "E-Wallet",
+            "instapay": "InstaPay"
+        },
+        "actions": {
+            "refresh": "Refresh",
+            "confirm": "Confirm",
+            "refund": "Refund",
+            "viewTransfer": "View Transfer",
+            "showItems": "Show Items",
+            "hideItems": "Hide Items"
+        },
+        "itemLabels": {
+            "quantity": "Qty",
+            "unitPrice": "Unit",
+            "total": "Total"
+        },
+        "pagination": {
+            "range": "{{start}}-{{end}} of {{total}}",
+            "previous": "Previous",
+            "next": "Next"
+        },
+        "messages": {
+            "empty": "No website orders found.",
+            "noItems": "No order items found.",
+            "loadFailed": "Failed to load website orders.",
+            "confirmFailed": "Failed to confirm website order.",
+            "refundFailed": "Failed to refund website order."
+        },
+        "confirmDialog": {
+            "title": "Confirm Website Order",
+            "message": "This will create a linked selling invoice for the selected website order.",
+            "confirmInventory": "Auto-restock shortages if inventory is insufficient."
+        },
+        "refundDialog": {
+            "title": "Refund Website Order",
+            "message": "Mark this website order as refunded.",
+            "notePlaceholder": "Add a refund note"
+        },
+        "transferDialog": {
+            "title": "Transfer Details",
+            "phone": "Transfer Phone",
+            "imageAlt": "Transfer image",
+            "noImage": "No transfer image found.",
+            "close": "Close"
+        }
+    },
+    "websiteImages": {
+        "eyebrow": "Website merchandising",
+        "title": "Website Images",
+        "subtitle": "Manage promotional images and the products they target.",
+        "columns": {
+            "preview": "Image Preview",
+            "title": "Title",
+            "targetType": "Target Type",
+            "status": "Status",
+            "createdAt": "Created Date",
+            "actions": "Actions"
+        },
+        "targetTypes": {
+            "category": "Category",
+            "product": "Product",
+            "both": "Both",
+            "price": "Price",
+            "specification": "Specification",
+            "viewOnly": "View Only"
+        },
+        "status": {
+            "active": "Active",
+            "inactive": "Inactive"
+        },
+        "actions": {
+            "add": "Add Website Image",
+            "edit": "Edit",
+            "delete": "Delete",
+            "previewProducts": "Preview Products",
+            "chooseImage": "Choose Image",
+            "changeImage": "Change Image",
+            "cancel": "Cancel",
+            "save": "Save",
+            "saving": "Saving...",
+            "deleting": "Deleting...",
+            "addSpecification": "Add Specification",
+            "removeSpecification": "Remove"
+        },
+        "form": {
+            "addTitle": "Add Website Image",
+            "editTitle": "Edit Website Image",
+            "title": "Title",
+            "image": "Image",
+            "targetType": "Target Type",
+            "categories": "Categories",
+            "products": "Products",
+            "maxPrice": "Maximum Price",
+            "specificationFilters": "Specification Filters",
+            "specificationName": "Specification Name",
+            "specificationValues": "Values",
+            "viewOnly": "View only",
+            "active": "Active",
+            "optional": "Optional",
+            "selectCategories": "Select categories",
+            "selectProducts": "Select products",
+            "selectSpecificationName": "Select specification",
+            "selectSpecificationValues": "Select one or more values",
+            "selectCategoriesFirst": "Select one or more categories to load products.",
+            "selectCategoriesForSpecifications": "Select one or more categories to load their specifications.",
+            "loadingSpecifications": "Loading specifications...",
+            "noSpecifications": "No specifications with available values were found for the selected categories.",
+            "priceCategoryHint": "Leave categories empty to target products across every category.",
+            "specificationHint": "Every row must match. Multiple values within one row match any selected value."
+        },
+        "validation": {
+            "titleRequired": "Title is required.",
+            "imageRequired": "An image is required when creating a website image.",
+            "categoriesRequired": "Select at least one category.",
+            "productsRequired": "Select at least one product.",
+            "maxPriceRequired": "Enter a maximum price of zero or more.",
+            "specificationFiltersRequired": "Add at least one specification filter.",
+            "specificationNameRequired": "Select a specification name.",
+            "specificationValuesRequired": "Select at least one value."
+        },
+        "delete": {
+            "title": "Delete Website Image",
+            "message": "Delete"
+        },
+        "preview": {
+            "title": "Resolved Products",
+            "image": "Product Image",
+            "name": "Name",
+            "code": "Code",
+            "category": "Category",
+            "retailPrice": "Retail Price",
+            "priceAfterDiscount": "Price After Discount",
+            "empty": "No products match this image's targeting rules."
+        },
+        "messages": {
+            "empty": "No website images have been created."
+        }
+    },
+    "ecommerceSettings": {
+        "eyebrow": "Website catalog",
+        "title": "E-commerce Settings",
+        "subtitle": "Choose which categories appear on the website, select their products, and define dynamic product groups for each filter.",
+        "sections": {
+            "categories": "Categories",
+            "shipping": "Shipping"
+        },
+        "categories": "Categories",
+        "categorySettings": "Category Settings",
+        "showOnWebsite": "Show category on website",
+        "hiddenHint": "This category is hidden from the website. Enable it to choose products, visible fields, and filters.",
+        "status": {
+            "visible": "Visible",
+            "hidden": "Hidden"
+        },
+        "products": {
+            "title": "Products shown inside this category",
+            "count": "products",
+            "selectAll": "Select all"
+        },
+        "specifications": {
+            "title": "Category filter values",
+            "subtitle": "Unique product specification values computed for this category.",
+            "emptyValues": "No values yet"
+        },
+        "filters": {
+            "title": "Dynamic filters",
+            "add": "Add filter",
+            "itemTitle": "Filter title",
+            "visible": "Visible",
+            "products": "Products inside this filter",
+            "options": "Filter options",
+            "optionsHint": "Filter titles and options are generated from category filters.",
+            "emptyOptions": "No options yet"
+        },
+        "shipping": {
+            "eyebrow": "Shipping settings",
+            "navigationTitle": "Shipping Pages",
+            "general": {
+                "title": "General Settings",
+                "subtitle": "Set the cart amount that qualifies an order for free shipping.",
+                "freeShippingMinimumAmount": "Free Shipping Minimum Amount",
+                "freeShippingMinimumAmountRequired": "Free shipping minimum must be zero or more."
+            },
+            "governments": {
+                "title": "Government Shipping Fees",
+                "subtitle": "Add every government and its shipping fee. Saving replaces the full government fees list.",
+                "addGovernment": "Add Government",
+                "government": "Government",
+                "governmentPlaceholder": "Cairo",
+                "shippingFees": "Shipping Fees",
+                "governmentRequired": "Government name is required.",
+                "shippingFeesRequired": "Shipping fees must be zero or more.",
+                "remove": "Remove"
+            }
+        },
+        "currency": {
+            "title": "Website Currency",
+            "subtitle": "Set the currency used to display prices on the website.",
+            "label": "Currency Code",
+            "placeholder": "EGP",
+            "invalid": "Enter a valid three-letter currency code, such as EGP or USD."
+        },
+        "websiteGeneral": {
+            "eyebrow": "Website settings",
+            "title": "Store Identity and Contact",
+            "subtitle": "Manage the website logo, primary color, store locations, and social media links.",
+            "required": "This field is required.",
+            "validUrl": "Enter a valid URL beginning with http:// or https://.",
+            "remove": "Remove",
+            "logo": {
+                "label": "Main Logo",
+                "choose": "Choose Logo",
+                "hint": "Select an image to store as the website's main logo.",
+                "previewAlt": "Main logo preview"
+            },
+            "mainColor": {
+                "label": "Main Color",
+                "placeholder": "#F4D80A",
+                "invalid": "Enter a valid six-digit hexadecimal color."
+            },
+            "walletPhone": {
+                "label": "Wallet Phone",
+                "placeholder": "+201234567890",
+                "invalid": "Enter a valid wallet phone number."
+            },
+            "instapayLink": {
+                "label": "InstaPay Link",
+                "placeholder": "https://ipn.eg/S/example",
+                "invalid": "Enter a valid InstaPay URL beginning with http:// or https://."
+            },
+            "locations": {
+                "title": "Store Locations",
+                "subtitle": "Add the name, address, and map link for each store.",
+                "add": "Add Store Location",
+                "name": "Store Name",
+                "detailedLocation": "Detailed Location",
+                "mapLink": "Map Link",
+                "empty": "No store locations have been added."
+            },
+            "social": {
+                "title": "Social Media Links",
+                "subtitle": "Add each social platform and its public profile link. Use a phone number for WhatsApp.",
+                "add": "Add Social Link",
+                "name": "Platform Name",
+                "link": "Profile Link",
+                "whatsappPhone": "WhatsApp Phone",
+                "validWhatsappPhone": "Enter a valid WhatsApp phone number or WhatsApp URL.",
+                "empty": "No social media links have been added."
+            }
+        },
+        "homePageCategories": {
+            "tabTitle": "Home Page Categories",
+            "eyebrow": "Home page settings",
+            "title": "Displayed Categories",
+            "subtitle": "Choose the active categories displayed on the website home page and arrange their display order.",
+            "availableTitle": "Active Categories",
+            "availableHint": "Select a category to add it to the home page.",
+            "selectedTitle": "Home Page Order",
+            "orderHint": "Use the arrow buttons to control the display order.",
+            "noActiveCategories": "No active categories are available.",
+            "emptySelection": "No categories are currently selected for the home page.",
+            "moveUp": "Move category up",
+            "moveDown": "Move category down",
+            "remove": "Remove category"
+        },
+        "actions": {
+            "reset": "Reset"
+        }
+    },
+    "sellingPage": {
+        "fields": {
+            "invoiceDetails": "Invoice Details",
+            "customerInformation": "Customer Information",
+            "invoiceProducts": "Invoice Products",
+            "invoiceProduct": "Product Line",
+            "searchProduct": "Search Product Code",
+            "searchCustomer": "Search Customer",
+            "selectProduct": "Select Product",
+            "productName": "Product Name",
+            "categoryName": "Category Name",
+            "priceType": "Price Type",
+            "price": "Price",
+            "lineTotal": "Line Total",
+            "customerName": "Customer Name",
+            "customerPhone": "Customer Phone",
+            "sellingDate": "Selling Date",
+            "productQuantity": "Product Quantity",
+            "productsCount": "Products Count",
+            "totalQuantity": "Total Quantity",
+            "subtotal": "Subtotal",
+            "discountPercentage": "Discount Percentage",
+            "discountAmount": "Discount Amount",
+            "shippingFees": "Shipping Fees",
+            "invoiceSummary": "Invoice Summary",
+            "totalInvoicePrice": "Total Invoice Price"
+        },
+        "priceTypeOptions": {
+            "wholesalePrice": "Wholesale Price",
+            "retailPrice": "Retail Price",
+            "custom": "Custom"
+        },
+        "placeholders": {
+            "searchProduct": "Enter product code (e.g. WM-001)",
+            "searchCustomer": "Search customer by name or phone",
+            "selectProduct": "Select product from results",
+            "selectPriceType": "Select Price Type"
+        },
+        "actions": {
+            "search": "Search",
+            "searching": "Searching...",
+            "addProduct": "Add Product",
+            "removeProduct": "Remove",
+            "clearProduct": "Clear",
+            "createSelling": "Save Invoice",
+            "saving": "Saving Invoice..."
+        },
+        "messages": {
+            "noProductFound": "No product found for this code.",
+            "noCustomerFound": "No customer found for this search.",
+            "searchFailed": "Failed to search product.",
+            "customerSearchFailed": "Failed to search customer.",
+            "createdSuccess": "Invoice saved successfully.",
+            "createFailed": "Failed to save invoice."
+        },
+        "inventoryConfirmation": {
+            "title": "Insufficient inventory",
+            "message": "Some products do not have enough stock. Proceeding will add the missing quantities and complete the sale.",
+            "requested": "Requested",
+            "available": "Available",
+            "missing": "Missing",
+            "cancel": "Cancel",
+            "proceed": "Proceed"
+        }
+    },
+    "creditSalePage": {
+        "title": "Sale On Credit",
+        "subtitle": "Prepare a customer credit invoice, add items, and record the upfront payment before saving.",
+        "fields": {
+            "accountProfile": "Account Profile",
+            "customerInformation": "Customer Information",
+            "searchCustomer": "Search Customer",
+            "customerName": "Customer Name",
+            "customerPhone": "Customer Phone",
+            "customerAddress": "Customer Address",
+            "nationalId": "National ID",
+            "saleDate": "Sale Date",
+            "guarantorName": "Guarantor Name",
+            "guarantorPhone": "Guarantor Phone",
+            "notes": "Internal Notes",
+            "termsEyebrow": "Credit Terms",
+            "creditTerms": "Repayment Terms",
+            "repaymentPlan": "Repayment Plan",
+            "installmentsCount": "Installments Count",
+            "firstInstallmentDate": "First Installment Date",
+            "downPayment": "Down Payment",
+            "markupRate": "Markup Rate",
+            "creditLimit": "Credit Limit",
+            "approvalStatus": "Approval Status",
+            "basketEyebrow": "Credit Basket",
+            "creditItems": "Credit Sale Items",
+            "basketItem": "Item",
+            "searchProduct": "Search Product",
+            "productName": "Product Name",
+            "itemName": "Item Name",
+            "itemCode": "Item Code",
+            "categoryName": "Category",
+            "unitPrice": "Unit Price",
+            "quantity": "Quantity",
+            "lineTotal": "Line Total",
+            "snapshotEyebrow": "Repayment Snapshot",
+            "repaymentSnapshot": "Credit Snapshot",
+            "productsCount": "Products Count",
+            "totalQuantity": "Total Quantity",
+            "subtotal": "Subtotal",
+            "discountPercentage": "Discount Percentage",
+            "discountAmount": "Discount Amount",
+            "shippingFees": "Shipping Fees",
+            "financedAmount": "Remaining Amount",
+            "markupValue": "Markup Value",
+            "totalReceivable": "Total Receivable",
+            "installmentAmount": "Installment Amount",
+            "remainingLimit": "Remaining Limit",
+            "schedulePreview": "Installment Schedule",
+            "perInstallment": "Per installment:",
+            "installment": "Installment",
+            "dueDate": "Final Due Date"
+        },
+        "planOptions": {
+            "weekly": "Weekly",
+            "biweekly": "Every 2 Weeks",
+            "monthly": "Monthly"
+        },
+        "approvalStatusOptions": {
+            "pending": "Pending Approval",
+            "review": "Under Review",
+            "approved": "Approved"
+        },
+        "placeholders": {
+            "searchCustomer": "Search customer by name or phone",
+            "customerAddress": "Write the customer address and delivery notes",
+            "nationalId": "Enter national ID or tax number",
+            "guarantorName": "Enter guarantor full name",
+            "guarantorPhone": "Enter guarantor phone number",
+            "notes": "Add collection notes, collateral details, or approval comments",
+            "searchProduct": "Search by product code or name",
+            "itemName": "Enter product or bundle name",
+            "itemCode": "SKU / internal code"
+        },
+        "actions": {
+            "searching": "Searching...",
+            "addItem": "Add Item",
+            "removeItem": "Remove Item",
+            "clearItem": "Clear Item",
+            "createCreditSale": "Save Credit Sale",
+            "savingCreditSale": "Saving Credit Sale...",
+            "reviewCreditSale": "Review Credit Sale",
+            "resetDraft": "Reset Draft"
+        },
+        "messages": {
+            "limitExceeded": "This agreement exceeds the defined credit limit and needs manual approval.",
+            "completeRequired": "Complete the required customer and item details before reviewing the credit sale.",
+            "downPaymentExceeded": "Down payment cannot be greater than the total receivable amount.",
+            "noProductFound": "No product found for this search.",
+            "noCustomerFound": "No customer found for this search.",
+            "searchFailed": "Failed to search product.",
+            "customerSearchFailed": "Failed to search customer.",
+            "createdSuccess": "Credit sale saved successfully.",
+            "createFailed": "Failed to save credit sale."
+        },
+        "dialog": {
+            "eyebrow": "Review",
+            "title": "Credit File Ready",
+            "subtitle": "Use this snapshot to confirm the customer, sale date, and remaining balance before saving.",
+            "close": "Close Review"
+        }
+    },
+    "invoiceHistoryPage": {
+        "filters": {
+            "categoryId": "Category ID",
+            "productId": "Product ID",
+            "customerName": "Customer Name",
+            "customerPhone": "Customer Phone",
+            "sellingDate": "Selling Date",
+            "placeholders": {
+                "categoryId": "Select category",
+                "productId": "Select product",
+                "customerName": "Enter customer name",
+                "customerPhone": "Enter customer phone"
+            },
+            "actions": {
+                "apply": "Apply",
+                "reset": "Reset"
+            }
+        },
+    "tableHeaders": {
+            "index": "#",
+            "invoiceNumber": "Invoice Number",
+            "product": "Product",
+            "items": "Items",
+            "itemCount": "Items Count",
+            "category": "Category",
+            "customer": "Customer",
+            "customerPhone": "Customer Phone",
+            "date": "Date",
+            "quantity": "Quantity",
+            "totalQuantity": "Total Quantity",
+            "discountAmount": "Discount Amount",
+            "discountPercentage": "Discount %",
+            "shippingFees": "Shipping Fees",
+            "unitPrice": "Unit Price",
+            "totalPrice": "Total Price",
+            "action": "Action"
+        },
+        "actions": {
+            "downloadInvoice": "Download Invoice",
+            "createReturn": "Return Items"
+        },
+        "returnDialog": {
+            "title": "Create Cash Return",
+            "subtitle": "Choose the returned quantities. This restores inventory without deleting the invoice.",
+            "returnDate": "Return Date",
+            "note": "Note",
+            "notePlaceholder": "Add an optional return note",
+            "items": "Returned Items",
+            "available": "Available",
+            "reason": "Return reason",
+            "returnAll": "Return All",
+            "clear": "Clear",
+            "selectionRequired": "Choose at least one item quantity to return."
+        },
+        "messages": {
+            "deleteConfirm": "Do you want to delete this invoice?",
+            "deleteInventoryWarning": "This deletes only the invoice row. Use Return Items to restore inventory.",
+            "deleteFailed": "Failed to delete invoice.",
+            "empty": "No invoices found.",
+            "invoiceWindowBlocked": "Allow pop-ups to open and save the invoice.",
+            "invoiceDownloadFailed": "Failed to open the invoice.",
+            "returnFailed": "Failed to create the return."
+        }
+    },
+    "profitReportPage": {
+        "title": "Products Profit Report",
+        "subtitle": "Review profit across all products and open invoice details by selecting a row.",
+        "filters": {
+            "categoryId": "Category",
+            "productId": "Product",
+            "dateFrom": "Date From",
+            "dateTo": "Date To",
+            "placeholders": {
+                "categoryId": "Select category",
+                "productId": "Select product"
+            },
+            "actions": {
+                "apply": "Apply",
+                "reset": "Reset"
+            }
+        },
+        "export": {
+            "year": "Year",
+            "yearPlaceholder": "Enter year",
+            "action": "Export PDF"
+        },
+        "tableHeaders": {
+            "index": "#",
+            "productName": "Product Name",
+            "categoryName": "Category Name",
+            "totalProfit": "Profit Value",
+            "lastSellingDate": "Last Selling Date",
+            "lastSellingPrice": "Last Selling Price",
+            "invoices": "Invoices"
+        },
+        "invoiceTypes": {
+            "selling": "Selling",
+            "creditSale": "Credit Sale",
+            "unknown": "Unknown"
+        },
+        "dialog": {
+            "title": "Invoice Details",
+            "sellingPrice": "Selling Price",
+            "purchasePrice": "Purchase Price",
+            "quantity": "Quantity",
+            "profit": "Profit",
+            "customerName": "Customer"
+        },
+        "messages": {
+            "empty": "No product profit rows found.",
+            "noInvoices": "No related invoices.",
+            "loadFailed": "Failed to load products profit report."
+        }
+    },
+    "customerPage": {
+        "title": "Customers",
+        "subtitle": "Store and manage customer names and phone numbers.",
+        "searchPlaceholder": "Search by customer name or phone",
+        "listTitle": "Customer List",
+        "count": "customers",
+        "loading": "Loading customers...",
+        "empty": "No customers found.",
+        "form": {
+            "addTitle": "Add Customer",
+            "editTitle": "Edit Customer",
+            "name": "Customer Name",
+            "phone": "Phone Number",
+            "placeholders": {
+                "name": "Enter customer name",
+                "phone": "Enter customer phone"
+            },
+            "validation": {
+                "name": "Customer name is required.",
+                "phone": "Customer phone is required."
+            }
+        },
+        "actions": {
+            "search": "Search",
+            "reset": "Reset",
+            "create": "Save Customer",
+            "update": "Update Customer",
+            "cancelEdit": "Cancel Edit",
+            "viewDetails": "View Details",
+            "edit": "Change",
+            "delete": "Delete",
+            "deleteWithRestore": "Delete and Restore Products",
+            "deleteWithoutRestore": "Delete Customer Only"
+        },
+        "messages": {
+            "deleteTitle": "Delete Customer",
+            "deleteConfirm": "Do you want to delete this customer?",
+            "restoreCreditInvoicesTitle": "Restore Credit Invoices?",
+            "restoreCreditInvoicesConfirm": "This customer only has fully paid credit invoices. Choose whether to restore the invoice products to inventory before deleting the customer data.",
+            "relatedCreditInvoices": "Related credit invoices"
+        }
+    },
+    "customerDetailsPage": {
+        "title": "Customer Details",
+        "subtitle": "Review customer profile and all credit-sale invoices.",
+        "labels": {
+            "profile": "Customer Profile",
+            "customerId": "Customer ID",
+            "createdAt": "Created At",
+            "updatedAt": "Updated At",
+            "lastCashSaleDate": "Last Cash Sale",
+            "lastCreditSaleDate": "Last Credit Sale",
+            "lastCreditSalePaymentDate": "Last Credit Payment",
+            "statusBreakdown": "Credit Status Breakdown",
+            "notAvailable": "N/A",
+            "overdue": "Overdue"
+        },
+        "summary": {
+            "totalInvoices": "Total Invoices",
+            "openInvoices": "Open Invoices",
+            "totalCredit": "Total Credit",
+            "paidAmount": "Paid Amount",
+            "remainingAmount": "Remaining Amount",
+            "pendingInvoices": "Pending Invoices",
+            "partiallyPaidInvoices": "Partially Paid",
+            "paidInvoices": "Paid Invoices",
+            "overdueInvoices": "Overdue Invoices",
+            "dueSoonInvoices": "Due Soon"
+        },
+        "history": {
+            "title": "Credit History",
+            "subtitle": "All credit-sale invoices linked to this customer.",
+            "count": "invoices",
+            "empty": "No credit-sale invoices found for this customer.",
+            "sellingDate": "Selling Date",
+            "dueDate": "Due Date",
+            "items": "Items / Qty",
+            "products": "Products",
+            "payments": "Payments",
+            "paymentsCount": "Payments",
+            "paymentDate": "Payment Date",
+            "quantity": "Quantity",
+            "unitPrice": "Unit Price",
+            "totalPrice": "Total Price",
+            "discountAmount": "Discount Amount",
+            "discountPercentage": "Discount %",
+            "shippingFees": "Shipping Fees",
+            "paidAmount": "Paid",
+            "remainingAmount": "Remaining",
+            "notes": "Notes"
+        },
+        "status": {
+            "pending": "Pending",
+            "partially_paid": "Partially Paid",
+            "paid": "Paid",
+            "reactionary": "Reactionary",
+            "unknown": "Unknown"
+        },
+        "actions": {
+            "addPayment": "Add Payment",
+            "addRefund": "Return Items",
+            "printInvoice": "Print Invoice",
+            "deleteInvoice": "Delete Invoice"
+        },
+        "deleteDialog": {
+            "title": "Delete Credit Invoice",
+            "confirm": "Do you want to delete this credit invoice?",
+            "inventoryWarning": "This deletes only the invoice row. Use Return Items to restore inventory."
+        },
+        "print": {
+            "status": "Status",
+            "footerNote": "This credit invoice was generated electronically from the Kapomatic system."
+        },
+        "paymentDialog": {
+            "eyebrow": "Payment",
+            "title": "Record Payment",
+            "subtitle": "Add a new payment for this credit invoice and refresh the customer balance.",
+            "invoiceTarget": "Apply Payment To",
+            "firstInvoice": "First Invoice",
+            "lastInvoice": "Last Invoice",
+            "targetRequired": "Select either the first invoice or the last invoice.",
+            "amount": "Payment Amount",
+            "amountRequired": "Enter a payment amount greater than zero.",
+            "amountExceeded": "Payment amount cannot be greater than the remaining amount.",
+            "paymentDate": "Payment Date",
+            "note": "Note",
+            "notePlaceholder": "Add an optional payment note",
+            "cancel": "Cancel",
+            "save": "Save Payment",
+            "saving": "Saving..."
+        },
+        "refundDialog": {
+            "eyebrow": "Refund",
+            "title": "Record Refund",
+            "subtitle": "Return all items in this invoice or enter partial quantities for the products being refunded.",
+            "refundDate": "Refund Date",
+            "note": "Refund Note",
+            "notePlaceholder": "Add a refund note",
+            "itemsTitle": "Refund Items",
+            "availableQuantity": "Available Quantity",
+            "returnQuantity": "Return Quantity",
+            "selectionRequired": "Choose at least one item quantity to refund.",
+            "quantityExceeded": "Return quantity cannot be greater than the available quantity.",
+            "returnAll": "Return All",
+            "clear": "Clear",
+            "cancel": "Cancel",
+            "save": "Save Refund",
+            "saving": "Saving..."
+        },
+        "messages": {
+            "loading": "Loading customer details...",
+            "loadFailed": "Failed to load customer details.",
+            "notFound": "Customer details were not found.",
+            "paymentFailed": "Failed to record payment.",
+            "refundFailed": "Failed to record refund.",
+            "deleteInvoiceFailed": "Failed to delete credit invoice."
+        }
+    },
+    "returnsPage": {
+        "title": "Returns Log",
+        "subtitle": "Review and export cash and credit returns.",
+        "summary": {
+            "label": "Returns summary",
+            "cash": "Total Cash Returns",
+            "credit": "Total Credit Returns",
+            "amount": "Total Returned Amount",
+            "items": "Total Returned Items"
+        },
+        "types": {
+            "all": "All",
+            "cash": "Cash",
+            "credit": "Credit"
+        },
+        "fields": {
+            "returnDate": "Return Date",
+            "returnType": "Return Type",
+            "type": "Type",
+            "invoiceNumber": "Invoice Number",
+            "invoiceId": "Invoice ID",
+            "customerName": "Customer Name",
+            "customerPhone": "Customer Phone",
+            "productName": "Product Name",
+            "productCode": "Product Code",
+            "itemsCount": "Items Count",
+            "quantity": "Quantity",
+            "price": "Price",
+            "total": "Total",
+            "returnReason": "Return Reason",
+            "dateFrom": "Date From",
+            "dateTo": "Date To",
+            "note": "Note",
+            "subtotalReturnedAmount": "Subtotal Returned Amount",
+            "discountAmount": "Discount Amount",
+            "shippingFees": "Shipping Fees",
+            "finalReturnedAmount": "Final Returned Amount",
+            "actions": "Actions"
+        },
+        "actions": {
+            "search": "Search",
+            "reset": "Reset",
+            "export": "Export Excel",
+            "exporting": "Exporting…",
+            "viewDetails": "View Details",
+            "tryAgain": "Try Again",
+            "close": "Close"
+        },
+        "dialog": {
+            "title": "Return Details",
+            "invoice": "Invoice",
+            "returnedItems": "Returned Items",
+            "closeAria": "Close return details"
+        },
+        "messages": {
+            "loading": "Loading returns…",
+            "loadingDetails": "Loading details…",
+            "empty": "No returns found",
+            "noItems": "No returned items",
+            "noNote": "No note provided.",
+            "loadFailed": "Failed to load returns. Please try again.",
+            "detailsLoadFailed": "Failed to load return details.",
+            "exportSuccess": "Returns exported successfully.",
+            "exportFailed": "Failed to export returns.",
+            "invalidDateRange": "Date From cannot be later than Date To."
+        },
+        "pagination": {
+            "label": "Returns pagination",
+            "itemsPerPage": "Items per page:",
+            "next": "Next page",
+            "previous": "Previous page",
+            "first": "First page",
+            "last": "Last page",
+            "range": "{{start}} – {{end}} of {{total}}"
+        }
+    },
+    "seo": {
+        "tabs": {
+            "basic": "Basic Content",
+            "ar": "Arabic Content and SEO",
+            "en": "English Content and SEO",
+            "social": "Social Sharing",
+            "preview": "Search Preview",
+            "advanced": "Advanced SEO"
+        },
+        "basicNotice": "Manage optional multilingual content and SEO data for the customer website. This desktop app does not render SEO tags.",
+        "fields": {
+            "arName": "Arabic name",
+            "enName": "English name",
+            "description": "Description",
+            "shortDescription": "Short description",
+            "arSlug": "Arabic slug",
+            "enSlug": "English slug",
+            "imageAlt": "Image alt text",
+            "metaTitle": "Meta title",
+            "metaDescription": "Meta description",
+            "keywords": "Keywords",
+            "ogTitle": "Open Graph title",
+            "ogDescription": "Open Graph description",
+            "canonicalOverride": "Canonical override",
+            "ogImage": "Open Graph image",
+            "useEntityImageFallback": "Use main entity image as fallback",
+            "robotsIndex": "Allow indexing",
+            "robotsFollow": "Allow following links",
+            "includeInSitemap": "Include in sitemap",
+            "sitemapPriority": "Sitemap priority",
+            "sitemapChangeFrequency": "Sitemap change frequency"
+        },
+        "actions": {
+            "generateFromContent": "Generate SEO from content",
+            "generateSlug": "Generate slug"
+        },
+        "messages": {
+            "checkingSlug": "Checking slug availability...",
+            "regenerateSlugConfirm": "This slug was edited manually. Regenerate it from the name?",
+            "overwriteConfirm": "Some SEO fields already contain values. Overwrite them with generated suggestions?"
+        },
+        "hints": {
+            "keywords": "Separate keywords with commas. Maximum 20 keywords."
+        },
+        "warnings": {
+            "metaTitle": "Recommended title length is up to 60 characters.",
+            "metaDescription": "Recommended description length is 120-160 characters.",
+            "imageAlt": "An image exists. Add alt text for accessibility and SEO.",
+            "canonical": "Use only when a custom canonical URL is required. This should normally remain empty."
+        },
+        "validation": {
+            "required": "This field is required.",
+            "invalid": "Invalid value.",
+            "maxLength": "Value is too long.",
+            "slugMaxLength": "Slug must be 150 characters or less.",
+            "slugSlash": "Slug cannot contain slashes.",
+            "slugQuery": "Slug cannot contain query strings.",
+            "slugProtocol": "Slug cannot include a protocol.",
+            "slugEdgeHyphen": "Slug cannot start or end with a hyphen.",
+            "slugRepeatedHyphen": "Slug cannot contain repeated hyphens.",
+            "slugDuplicate": "This slug is already used.",
+            "metaTitleHard": "Meta title must be 70 characters or less.",
+            "metaDescriptionHard": "Meta description must be 200 characters or less.",
+            "canonicalUrl": "Enter an absolute HTTP or HTTPS URL.",
+            "keywordsCount": "Use 20 keywords or fewer.",
+            "keywordMaxLength": "Each keyword must be 60 characters or fewer.",
+            "sitemapPriority": "Priority must be between 0 and 1."
+        },
+        "preview": {
+            "arabic": "Arabic",
+            "english": "English",
+            "desktop": "Desktop",
+            "mobile": "Mobile"
+        },
+        "changeFrequency": {
+            "always": "Always",
+            "hourly": "Hourly",
+            "daily": "Daily",
+            "weekly": "Weekly",
+            "monthly": "Monthly",
+            "yearly": "Yearly",
+            "never": "Never"
+        }
+    },
+    "logout": {
+        "title": "Logout",
+        "logoutMessage": "Do you want to log out?",
+        "logoutButton": "Yes Logout",
+        "cancelButton": "No Cancel"
+    },
+    "backupPage": {
+        "title": "Backup and restore",
+        "subtitle": "Available on the main PC only.",
+        "create": {
+            "title": "Create a backup",
+            "description": "Saves all of the program's data in one file. Keep the file on a USB drive or another computer so the data survives if this PC fails.",
+            "button": "Create a backup now",
+            "working": "Creating the backup...",
+            "done": "Backup saved: {{collections}} collections, {{documents}} records ({{size}} MB).",
+            "sameDrive": "This backup is on the same drive as the program's data ({{drive}}), so it does not count as a copy outside this PC. Copy the file to a USB drive, an external disk or another partition."
+        },
+        "restore": {
+            "title": "Restore from a backup",
+            "description": "Replaces all current data with the contents of the backup file. Before it starts, the program saves a copy of the current data automatically, and client PCs are disconnected until the restore finishes.",
+            "button": "Choose a file and restore",
+            "working": "Restoring...",
+            "done": "Restore finished: {{documents}} records in {{collections}} collections.",
+            "safety": "The data from before the restore is saved here:"
+        },
+        "safety": {
+            "title": "Backups folder on this PC",
+            "description": "The program keeps the daily backups (the last 14) and a copy of the data from before each restore (the last 5) in the backups folder on this PC.",
+            "openFolder": "Open the backups folder"
+        },
+        "status": {
+            "title": "Backup status",
+            "lastBackup": "Last backup: {{date}}",
+            "kind": {
+                "auto": "(daily, automatic)",
+                "manual": "(manual)"
+            },
+            "none": "There is no backup yet.",
+            "daily": "The program saves an automatic backup once a day and keeps the last {{keep}}. The server pauses for a few seconds while it saves.",
+            "autoError": "The last daily backup failed ({{date}}): {{message}} The program will try again later."
+        },
+        "warning": {
+            "title": "We recommend keeping a backup on a USB drive or another disk",
+            "never": "No backup has been saved on a drive other than the program's data drive yet.",
+            "since": "The last backup on another drive was on {{date}}, more than {{days}} days ago.",
+            "advice": "If the program's data drive ({{drive}}) fails, the backups on it are lost too. Create a backup and save it on a USB drive, an external disk or another partition, or choose a folder on another drive below."
+        },
+        "copy": {
+            "title": "Extra copy on a USB drive or another disk",
+            "description": "The program copies every daily backup to this folder and keeps the last 14 there. If the folder is not available at that time it is skipped, and the latest backup is copied once it is.",
+            "none": "No folder chosen.",
+            "choose": "Choose a folder",
+            "change": "Change folder",
+            "clear": "Stop the extra copy",
+            "copied": "The latest daily backup was copied to this folder on {{date}}.",
+            "unavailable": "The folder is not available right now (is the USB drive plugged in?). The copy happens automatically once it is.",
+            "failed": "Could not copy to this folder: {{message}}",
+            "waiting": "The next daily backup will be copied to this folder.",
+            "sameDrive": "This folder is on the same drive as the program's data ({{drive}}), so it does not protect the data if that drive fails and does not count as a copy outside this PC. Choose a folder on a USB drive, an external disk or another partition."
+        },
+        "progress": {
+            "backup": "Saving data... {{done}} of {{total}}",
+            "safety-backup": "Saving a copy of the current data... {{done}} of {{total}}",
+            "restoring": "Restoring data... {{done}} of {{total}}",
+            "rolling-back": "The restore failed; putting the previous data back..."
+        },
+        "showFile": "Show the file"
+    }
+}

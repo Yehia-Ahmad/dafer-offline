@@ -1,0 +1,3935 @@
+{
+  "info": {
+    "_postman_id": "c3f7ec4d-1f66-4d59-9c4b-dc7fd8e5bb01",
+    "name": "Kapomatic Warehouse API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Collection for Warehouse backend APIs (categories, customers, products, credit-sales, sellings, cart checkout, website currency, and shipping settings), updated to match current request fields and filters. Customer details now return lastCreditSaleDate, lastCashSaleDate, lastCreditSalePaymentDate, and creditSummary with debtStatusSummary, totalDebtAmount, paidAmount, remainingAmount, totalRefundDueAmount, totalReturnedPaidAmount, and totalReallocatedPaidAmount. Customer deletion now blocks outstanding credit invoices, returns a confirmation response for fully paid related credit invoices, and supports restoreCreditInvoices/restoreCreditSales/restoreInvoices to delete with or without restoring invoice items to inventory. Products now support purchasePrice and profit report endpoints. Cash and credit refunds are created only through POST /api/returns using returnType and invoiceId. Cash full refunds delete the selling invoice; cash partial refunds hide refunded item quantities from selling invoice responses. Invoice DELETE endpoints remove only the invoice row and do not change inventory. Credit-sale requests support customer linking, payment registration, partial or full invoice refunds, refundDueAmount tracking, automatic returnedPaidAmount handling on full refunds, automatic reallocatedPaidAmount handling when a partial refund creates overpayment, invoice status changing to Reactionary on full return, inventory deduction/restoration, and optional discountAmount plus shippingFees invoice fields. Selling creation returns HTTP 409 with shortage details when inventory is insufficient and supports confirmInsufficientInventory to auto-restock the missing quantity and complete the full sale. Cart checkout creates pending website orders from customer, shipping location, and products payloads. Confirming a website order creates the linked selling invoice; website orders can be listed by pending, accepted, and refunded status. Website settings store the currency, government shipping fees, and the minimum amount for free shipping. Update Product applies newInventory only when the payload inventoryCount matches the product's current stored inventoryCount. Selling and credit-sale responses now expose profit-related item fields. SEO and multilingual support requests are included for localized category/product slugs, slug availability, public localized lookups, slug aliases, crawlable public image URLs, localized search, and sitemap feeds."
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            ""
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "Get All Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Category By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories",
+                "{{categoryId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data._id) {",
+                  "  pm.collectionVariables.set(\"categoryId\", data._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Electronics\",\n  \"imageBase64\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA\",\n  \"specifications\": [\n    {\n      \"name\": \"Color\",\n      \"value\": \"Black\"\n    },\n    {\n      \"name\": \"Size\",\n      \"value\": \"Medium\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Category With SEO",
+          "request": {
+            "method": "POST",
+            "description": "Creates a category using the backward-compatible multilingual and SEO fields. Existing create payloads without these fields still work.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"قطع غيار فتيس\",\n  \"imageBase64\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA\",\n  \"specifications\": [\n    {\n      \"name\": \"Brand\",\n      \"value\": \"Kapomatic\"\n    }\n  ],\n  \"translations\": {\n    \"ar\": {\n      \"name\": \"قطع غيار فتيس\",\n      \"description\": \"قطع غيار فتيس متاحة للطلب من كابوماتيك.\",\n      \"shortDescription\": \"قطع غيار فتيس\",\n      \"slug\": \"قطع غيار فتيس\",\n      \"imageAlt\": \"قطع غيار فتيس كابوماتيك\"\n    },\n    \"en\": {\n      \"name\": \"Transmission Parts\",\n      \"description\": \"Transmission parts available from Kapomatic.\",\n      \"shortDescription\": \"Transmission parts\",\n      \"slug\": \"Transmission Parts\",\n      \"imageAlt\": \"Kapomatic transmission parts\"\n    }\n  },\n  \"seo\": {\n    \"ar\": {\n      \"metaTitle\": \"قطع غيار فتيس في مصر | كابوماتيك\",\n      \"metaDescription\": \"اطلب قطع غيار فتيس من كابوماتيك.\",\n      \"keywords\": [\n        \"فتيس\",\n        \"قطع غيار\"\n      ]\n    },\n    \"en\": {\n      \"metaTitle\": \"Transmission Parts in Egypt | Kapomatic\",\n      \"metaDescription\": \"Order transmission parts from Kapomatic.\",\n      \"keywords\": [\n        \"transmission\",\n        \"parts\"\n      ]\n    },\n    \"robotsIndex\": true,\n    \"robotsFollow\": true,\n    \"includeInSitemap\": true,\n    \"sitemapPriority\": 0.7,\n    \"sitemapChangeFrequency\": \"weekly\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Category SEO",
+          "request": {
+            "method": "PUT",
+            "description": "Partially updates category translations and SEO. When a published slug changes, the previous slug is stored as an alias.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"translations\": {\n    \"ar\": {\n      \"slug\": \"قطع غيار فتيس اوتوماتيك\"\n    },\n    \"en\": {\n      \"slug\": \"automatic-transmission-parts\"\n    }\n  },\n  \"seo\": {\n    \"includeInSitemap\": true,\n    \"sitemapPriority\": 0.7\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories",
+                "{{categoryId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Category",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Electronics\",\n  \"imageBase64\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA\",\n  \"specifications\": [\n    {\n      \"name\": \"Color\",\n      \"value\": \"Black\"\n    },\n    {\n      \"name\": \"Warranty\",\n      \"value\": \"1 year\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories",
+                "{{categoryId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Category",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories",
+                "{{categoryId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "E-commerce Settings",
+      "item": [
+        {
+          "name": "Get All E-commerce Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Storefront Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/storefront",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "storefront"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Home Page Categories",
+          "request": {
+            "method": "GET",
+            "description": "Returns the ordered category IDs and populated categories selected for the website home page.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/home-page/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "home-page",
+                "categories"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Home Page Categories",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Home page categories are stored\", function () {",
+                  "  pm.expect(data.categoryIds).to.be.an(\"array\");",
+                  "  pm.expect(data.categories).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "description": "Replaces the ordered home page category selection. Send an empty categoryIds array to clear it.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryIds\": [\n    \"{{categoryId}}\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/home-page/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "home-page",
+                "categories"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get General Settings",
+          "request": {
+            "method": "GET",
+            "description": "Returns the main logo, main color, currency code, free-shipping minimum amount, wallet phone, InstaPay link, store locations, and social media links.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/general",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "general"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Or Update General Settings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"General settings are stored\", function () {",
+                  "  pm.expect(data).to.have.property(\"mainLogo\");",
+                  "  pm.expect(data.mainColor).to.eql(\"#1A73E8\");",
+                  "  pm.expect(data.currencyCode).to.eql(\"EGP\");",
+                  "  pm.expect(data.freeShippingMinimumAmount).to.eql(1000);",
+                  "  pm.expect(data.walletPhone).to.eql(\"+201234567890\");",
+                  "  pm.expect(data.instapayLink).to.eql(\"https://ipn.eg/S/example\");",
+                  "  pm.expect(data.storeLocations).to.be.an(\"array\");",
+                  "  pm.expect(data.socialMediaLinks).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "description": "Partially updates the global general settings. Omitted fields are preserved; submitted arrays replace their stored arrays.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mainLogo\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==\",\n  \"mainColor\": \"#1A73E8\",\n  \"currencyCode\": \"EGP\",\n  \"freeShippingMinimumAmount\": 1000,\n  \"walletPhone\": \"+201234567890\",\n  \"instapayLink\": \"https://ipn.eg/S/example\",\n  \"storeLocations\": [\n    {\n      \"name\": \"Nasr City Store\",\n      \"detailedLocation\": \"10 Example Street, Nasr City, Cairo\",\n      \"mapLink\": \"https://maps.google.com/?q=30.05,31.33\"\n    }\n  ],\n  \"socialMediaLinks\": [\n    {\n      \"name\": \"Facebook\",\n      \"link\": \"https://www.facebook.com/example\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/general",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "general"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Website Currency",
+          "request": {
+            "method": "GET",
+            "description": "Returns the website currency. Defaults to EGP until a currency is explicitly saved.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/currency",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "currency"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Or Update Website Currency",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Website currency is stored\", function () {",
+                  "  pm.expect(data.currency).to.eql(\"EGP\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "description": "Creates or updates the global website currency using a three-letter ISO 4217 code.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currency\": \"EGP\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/currency",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "currency"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Government Shipping Fees",
+          "request": {
+            "method": "GET",
+            "description": "Returns the government options and fees used by the checkout form, together with the free-shipping minimum amount.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/shipping/governments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "shipping",
+                "governments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Government Shipping Fees",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Shipping setting stores government fees\", function () {",
+                  "  pm.expect(data).to.have.property(\"governmentFees\");",
+                  "  pm.expect(data.governmentFees).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "description": "Stores shipping fees for each government/governorate. Replaces the full governmentFees list.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"governmentFees\": [\n    {\n      \"government\": \"Cairo\",\n      \"shippingFees\": {{cairoShippingFees}}\n    },\n    {\n      \"government\": \"Giza\",\n      \"shippingFees\": {{gizaShippingFees}}\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/shipping/governments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "shipping",
+                "governments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Free Shipping Minimum",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Shipping setting stores free shipping minimum\", function () {",
+                  "  pm.expect(data).to.have.property(\"freeShippingMinimumAmount\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "description": "Stores the minimum cart amount required for free shipping.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"freeShippingMinimumAmount\": {{freeShippingMinimumAmount}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/shipping/free-minimum",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "shipping",
+                "free-minimum"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Categories With Products And Settings",
+          "request": {
+            "method": "GET",
+            "description": "Returns each category with products, setting, and category.filters built from category specifications. Each filter includes values containing the unique product specification values for that category. The same computed filters are also exposed as category.specifications for compatibility.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "categories"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Active Categories With Products And Settings",
+          "request": {
+            "method": "GET",
+            "description": "Returns the same response shape as Get Categories With Products And Settings, filtered to categories whose e-commerce setting has showOnWebsite true.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/categories/active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "categories",
+                "active"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Category Filters",
+          "request": {
+            "method": "GET",
+            "description": "Returns only an array of category specification filters. Each object has title, isVisible, and values. values are unique specification values from all products in this category, and isVisible reflects the saved e-commerce setting filter visibility when available.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/categories/{{categoryId}}/filters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "categories",
+                "{{categoryId}}",
+                "filters"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Products By Active Category",
+          "request": {
+            "method": "GET",
+            "description": "Returns only displayed products selected in selectedProducts for a category when that category has an e-commerce setting with showOnWebsite true. Response includes success, products, and pagination only. Add page and limit for pagination, sort/filter with price_asc, price_desc, or rating_desc, and one or more specification/value query pairs to search displayed products by matching product specification values.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/categories/active/{{categoryId}}/products?page=1&limit=10&sort=price_asc&specification=Color&value=Black&specification=Size&value=Medium",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "categories",
+                "active",
+                "{{categoryId}}",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "price_asc",
+                  "description": "Allowed values: price_asc, price_desc, rating_desc"
+                },
+                {
+                  "key": "specification",
+                  "value": "Color"
+                },
+                {
+                  "key": "value",
+                  "value": "Black"
+                },
+                {
+                  "key": "specification",
+                  "value": "Size"
+                },
+                {
+                  "key": "value",
+                  "value": "Medium"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Active Products",
+          "request": {
+            "method": "GET",
+            "description": "Searches all active e-commerce website products by product name. Only products selected in selectedProducts for categories with showOnWebsite true are returned. Results are ranked by relevance, then paginated. q is required.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/products/search?q={{productSearchName}}&page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "products",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "{{productSearchName}}",
+                  "description": "Required product name search term"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product By Active Category",
+          "request": {
+            "method": "GET",
+            "description": "Returns a single product only when the category has an e-commerce setting with showOnWebsite true, the product belongs to that category, and the product is selected in selectedProducts.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/categories/active/{{categoryId}}/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "categories",
+                "active",
+                "{{categoryId}}",
+                "products",
+                "{{productId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get E-commerce Setting By Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "{{categoryId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upsert E-commerce Setting",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"showOnWebsite\": true,\n  \"productIds\": [\n    \"{{productId}}\"\n  ],\n  \"filters\": [\n    {\n      \"title\": \"Featured\",\n      \"products\": [\n        \"{{productId}}\"\n      ],\n      \"isVisible\": true\n    },\n    {\n      \"title\": \"Best sellers\",\n      \"products\": [],\n      \"isVisible\": true\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "{{categoryId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset E-commerce Setting",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ecommerce-settings/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ecommerce-settings",
+                "{{categoryId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "Get All Customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Customers",
+          "request": {
+            "method": "GET",
+            "description": "Use search for one term across both customer name and phone, or send name and/or phone explicitly.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers?search={{customerSearchTerm}}&name={{customerSearchName}}&phone={{customerSearchPhone}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "{{customerSearchTerm}}"
+                },
+                {
+                  "key": "name",
+                  "value": "{{customerSearchName}}"
+                },
+                {
+                  "key": "phone",
+                  "value": "{{customerSearchPhone}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Customer By ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Customer details include credit summary fields\", function () {",
+                  "  pm.expect(data).to.have.property(\"lastCreditSaleDate\");",
+                  "  pm.expect(data).to.have.property(\"lastCashSaleDate\");",
+                  "  pm.expect(data).to.have.property(\"lastCreditSalePaymentDate\");",
+                  "  pm.expect(data).to.have.property(\"creditSummary\");",
+                  "  pm.expect(data.creditSummary).to.have.property(\"debtStatusSummary\");",
+                  "  pm.expect(data.creditSummary).to.have.property(\"totalDebtAmount\");",
+                  "  pm.expect(data.creditSummary).to.have.property(\"paidAmount\");",
+                  "  pm.expect(data.creditSummary).to.have.property(\"remainingAmount\");",
+                  "  pm.expect(data.creditSummary).to.have.property(\"totalRefundDueAmount\");",
+                  "  pm.expect(data.creditSummary).to.have.property(\"totalReturnedPaidAmount\");",
+                  "  pm.expect(data.creditSummary).to.have.property(\"totalReallocatedPaidAmount\");",
+                  "});",
+                  "if (data && data._id) {",
+                  "  pm.collectionVariables.set(\"customerId\", data._id);",
+                  "}",
+                  "if (data && data.name) {",
+                  "  pm.collectionVariables.set(\"customerName\", data.name);",
+                  "}",
+                  "if (data && data.phone) {",
+                  "  pm.collectionVariables.set(\"customerPhone\", data.phone);",
+                  "}",
+                  "if (data && Array.isArray(data.creditHistory) && data.creditHistory[0] && (data.creditHistory[0]._id || data.creditHistory[0].invoiceId)) {",
+                  "  pm.collectionVariables.set(\"creditSaleId\", data.creditHistory[0]._id || data.creditHistory[0].invoiceId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "description": "Returns customer details plus lastCreditSaleDate, lastCashSaleDate, lastCreditSalePaymentDate, creditSummary, and creditHistory. creditSummary includes debtStatusSummary, totalDebtAmount, paidAmount, remainingAmount, totalRefundDueAmount, totalReturnedPaidAmount, and totalReallocatedPaidAmount.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers",
+                "{{customerId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data._id) {",
+                  "  pm.collectionVariables.set(\"customerId\", data._id);",
+                  "}",
+                  "if (data && data.name) {",
+                  "  pm.collectionVariables.set(\"customerName\", data.name);",
+                  "}",
+                  "if (data && data.phone) {",
+                  "  pm.collectionVariables.set(\"customerPhone\", data.phone);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ahmed Ali\",\n  \"phone\": \"+201234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.name) {",
+                  "  pm.collectionVariables.set(\"customerName\", data.name);",
+                  "}",
+                  "if (data && data.phone) {",
+                  "  pm.collectionVariables.set(\"customerPhone\", data.phone);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ahmed Mohamed\",\n  \"phone\": \"+201234567891\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers",
+                "{{customerId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Customer Payment",
+          "request": {
+            "method": "POST",
+            "description": "Adds a payment to the customer's first open invoice or last open invoice. Send exactly one of firstInvoice or lastInvoice as true. If lastInvoice is selected and amount exceeds that invoice remainingAmount, the backend distributes the extra amount to the customer's other open invoices in newest-to-oldest order. If amount exceeds the customer's totalRemainingAmount across open invoices, the API returns message, invoiceId, remainingAmount, and totalRemainingAmount.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 25,\n  \"firstInvoice\": false,\n  \"lastInvoice\": true,\n  \"paymentDate\": \"{{creditPaymentDate}}\",\n  \"note\": \"Customer installment\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/{{customerId}}/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers",
+                "{{customerId}}",
+                "payments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Customer (Check Confirmation)",
+          "request": {
+            "method": "DELETE",
+            "description": "Deletes a customer when there are no related credit invoices. If the customer has outstanding credit invoices, the API returns 400 with outstandingInvoiceCount, outstandingAmount, and outstandingInvoices. If all related credit invoices are fully paid and no restore flag is supplied, the API returns 409 with requiresConfirmation and confirmationField=restoreCreditInvoices.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers",
+                "{{customerId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Customer (Without Inventory Restore)",
+          "request": {
+            "method": "DELETE",
+            "description": "Confirms customer deletion and deletes related fully paid credit invoices without restoring invoice items to product inventory. The backend also accepts restoreCreditSales or restoreInvoices as aliases for restoreCreditInvoices.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restoreCreditInvoices\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers",
+                "{{customerId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Customer (With Inventory Restore)",
+          "request": {
+            "method": "DELETE",
+            "description": "Confirms customer deletion, deletes related fully paid credit invoices, restores invoice quantities to product inventoryCount, and reduces soldItemCount. The response includes creditInvoicesRestored, deletedCreditInvoiceCount, restoredProductCount, and restoredItemCount.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restoreCreditInvoices\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/{{customerId}}?restoreCreditInvoices={{restoreCreditInvoices}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers",
+                "{{customerId}}"
+              ],
+              "query": [
+                {
+                  "key": "restoreCreditInvoices",
+                  "value": "{{restoreCreditInvoices}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "Get Products (Required categoryId)",
+          "request": {
+            "method": "GET",
+            "description": "Returns paginated products with discountPercentage and the calculated priceAfterDiscount.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products?categoryId={{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "categoryId",
+                  "value": "{{categoryId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Products By Category",
+          "request": {
+            "method": "GET",
+            "description": "Returns products with discountPercentage and the calculated priceAfterDiscount.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products?categoryId={{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "categoryId",
+                  "value": "{{categoryId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search By Product Name Or Code",
+          "request": {
+            "method": "GET",
+            "description": "Use q for one term across both product name and code, or send name and/or code explicitly. Every product includes discountPercentage and priceAfterDiscount.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/search?q={{productSearchTerm}}&name={{productSearchName}}&code={{productSearchCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "{{productSearchTerm}}"
+                },
+                {
+                  "key": "name",
+                  "value": "{{productSearchName}}"
+                },
+                {
+                  "key": "code",
+                  "value": "{{productSearchCode}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Product With SEO",
+          "request": {
+            "method": "POST",
+            "description": "Creates a product using optional translations and SEO fields. Existing product payloads remain valid.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"فلتر فتيس\",\n  \"code\": \"TR-FILTER-001\",\n  \"inventoryCount\": 10,\n  \"categoryId\": \"{{categoryId}}\",\n  \"wholesalePrice\": 750,\n  \"purchasePrice\": 650,\n  \"retailPrice\": 1000,\n  \"discountPercentage\": 10,\n  \"imageBase64\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA\",\n  \"translations\": {\n    \"ar\": {\n      \"name\": \"فلتر فتيس\",\n      \"description\": \"فلتر فتيس أصلي متاح للطلب من كابوماتيك.\",\n      \"shortDescription\": \"فلتر فتيس أصلي\",\n      \"slug\": \"فلتر فتيس\",\n      \"imageAlt\": \"فلتر فتيس كابوماتيك\"\n    },\n    \"en\": {\n      \"name\": \"Transmission Filter\",\n      \"description\": \"Original transmission filter available from Kapomatic.\",\n      \"shortDescription\": \"Original transmission filter\",\n      \"slug\": \"Transmission Filter\",\n      \"imageAlt\": \"Kapomatic transmission filter\"\n    }\n  },\n  \"seo\": {\n    \"ar\": {\n      \"metaTitle\": \"فلتر فتيس | كابوماتيك\",\n      \"metaDescription\": \"اطلب فلتر فتيس أصلي من كابوماتيك.\",\n      \"keywords\": [\n        \"فلتر فتيس\",\n        \"قطع غيار\"\n      ]\n    },\n    \"en\": {\n      \"metaTitle\": \"Transmission Filter | Kapomatic\",\n      \"metaDescription\": \"Order an original transmission filter from Kapomatic.\",\n      \"keywords\": [\n        \"transmission filter\",\n        \"auto parts\"\n      ]\n    },\n    \"robotsIndex\": true,\n    \"robotsFollow\": true,\n    \"includeInSitemap\": true,\n    \"sitemapPriority\": 0.8,\n    \"sitemapChangeFrequency\": \"weekly\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product SEO",
+          "request": {
+            "method": "PUT",
+            "description": "Partially updates product translations and SEO. Previous slugs are kept as aliases on change.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"translations\": {\n    \"ar\": {\n      \"slug\": \"فلتر-فتيس-اوتوماتيك\"\n    },\n    \"en\": {\n      \"slug\": \"automatic-transmission-filter\"\n    }\n  },\n  \"seo\": {\n    \"includeInSitemap\": true,\n    \"sitemapPriority\": 0.8\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product By ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data._id) {",
+                  "  pm.collectionVariables.set(\"productId\", data._id);",
+                  "}",
+                  "if (data && data.inventoryCount !== undefined) {",
+                  "  pm.collectionVariables.set(\"productInventoryCount\", String(data.inventoryCount));",
+                  "}",
+                  "pm.test(\"Product includes discount pricing\", function () {",
+                  "  pm.expect(data).to.have.property(\"discountPercentage\");",
+                  "  pm.expect(data).to.have.property(\"priceAfterDiscount\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Products Profit Report",
+          "request": {
+            "method": "GET",
+            "description": "Returns all product profit rows with optional filters. dateFrom and dateTo are optional.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/profit-report?categoryId={{categoryId}}&productId={{productId}}&dateFrom={{profitDateFrom}}&dateTo={{profitDateTo}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "profit-report"
+              ],
+              "query": [
+                {
+                  "key": "categoryId",
+                  "value": "{{categoryId}}"
+                },
+                {
+                  "key": "productId",
+                  "value": "{{productId}}"
+                },
+                {
+                  "key": "dateFrom",
+                  "value": "{{profitDateFrom}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{profitDateTo}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product Profit Report By ID",
+          "request": {
+            "method": "GET",
+            "description": "Returns one product profit row including lastSellingDate, lastSellingPrice, and related invoices.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}/profit-report?dateFrom={{profitDateFrom}}&dateTo={{profitDateTo}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}",
+                "profit-report"
+              ],
+              "query": [
+                {
+                  "key": "dateFrom",
+                  "value": "{{profitDateFrom}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{profitDateTo}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Year Profit Bar Chart",
+          "request": {
+            "method": "GET",
+            "description": "Returns monthly profit totals for the provided year aggregated across all products. Defaults to the current year when year is omitted.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/profit-bar?year={{profitYear}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "profit-bar"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "{{profitYear}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sync Product Purchase Price To Invoices",
+          "request": {
+            "method": "POST",
+            "description": "Copies the product's current purchasePrice into matching cash and credit invoice items, then recalculates stored item profit. dateFrom and dateTo are optional; if omitted, all invoices for the product are updated.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dateFrom\": \"{{profitDateFrom}}\",\n  \"dateTo\": \"{{profitDateTo}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}/sync-purchase-price",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}",
+                "sync-purchase-price"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data._id) {",
+                  "  pm.collectionVariables.set(\"productId\", data._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Wireless Mouse\",\n  \"code\": \"WM-001\",\n  \"inventoryCount\": 100,\n  \"categoryId\": \"{{categoryId}}\",\n  \"wholesalePrice\": 8.5,\n  \"purchasePrice\": 7.25,\n  \"retailPrice\": 15,\n  \"discountPercentage\": 10,\n  \"soldItemCount\": 10,\n  \"specifications\": [\n    {\n      \"name\": \"Color\",\n      \"value\": \"Black\"\n    },\n    {\n      \"name\": \"Size\",\n      \"value\": \"Medium\"\n    }\n  ],\n  \"imageBase64\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PUT",
+            "description": "Updates product details including discountPercentage (0-100). The response includes priceAfterDiscount. Set editProduct to true when editing product details without applying newInventory. If both inventoryCount and newInventory are sent, newInventory is added only when editProduct is not true and inventoryCount matches the product's current stored inventoryCount. If they differ, newInventory is ignored.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Wireless Mouse Pro\",\n  \"code\": \"WM-001-PRO\",\n  \"editProduct\": true,\n  \"inventoryCount\": {{productInventoryCount}},\n  \"newInventory\": 15,\n  \"categoryId\": \"{{categoryId}}\",\n  \"wholesalePrice\": 9,\n  \"purchasePrice\": 7.5,\n  \"retailPrice\": 17,\n  \"discountPercentage\": 15,\n  \"soldItemCount\": 20,\n  \"specifications\": [\n    {\n      \"name\": \"Color\",\n      \"value\": \"Black\"\n    },\n    {\n      \"name\": \"Warranty\",\n      \"value\": \"1 year\"\n    }\n  ],\n  \"imageBase64\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Credit Sales",
+      "item": [
+        {
+          "name": "Get All Credit Sales",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "  pm.test(\"Credit-sale invoices include debt and refund totals\", function () {",
+                  "    pm.expect(data[0]).to.have.property(\"paidAmount\");",
+                  "    pm.expect(data[0]).to.have.property(\"remainingAmount\");",
+                  "    pm.expect(data[0]).to.have.property(\"refundDueAmount\");",
+                  "    pm.expect(data[0]).to.have.property(\"refundStatus\");",
+                  "    pm.expect(data[0]).to.have.property(\"returnedPaidAmount\");",
+                  "    pm.expect(data[0]).to.have.property(\"reallocatedPaidAmount\");",
+                  "    pm.expect(data[0]).to.have.property(\"discountAmount\");",
+                  "    pm.expect(data[0]).to.have.property(\"shippingFees\");",
+                  "    pm.expect(data[0]).to.have.property(\"payments\");",
+                  "    pm.expect(data[0]).to.have.property(\"refunds\");",
+                  "  });",
+                  "  if (data[0]._id) {",
+                  "    pm.collectionVariables.set(\"creditSaleId\", data[0]._id);",
+                  "  }",
+                  "  if (data[0].status) {",
+                  "    pm.collectionVariables.set(\"creditSaleStatus\", data[0].status);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "description": "Returns all credit-sale invoices with payment, refund, remaining balance, refundDueAmount, returnedPaidAmount, reallocatedPaidAmount, discountAmount, and shippingFees information.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/credit-sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "credit-sales"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Credit Sales With Filters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/credit-sales?customerId={{customerId}}&customerName={{customerName}}&customerPhone={{customerPhone}}&status={{creditSaleStatus}}&sellingDate={{creditSellingDate}}&dueDate={{creditDueDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "credit-sales"
+              ],
+              "query": [
+                {
+                  "key": "customerId",
+                  "value": "{{customerId}}"
+                },
+                {
+                  "key": "customerName",
+                  "value": "{{customerName}}"
+                },
+                {
+                  "key": "customerPhone",
+                  "value": "{{customerPhone}}"
+                },
+                {
+                  "key": "status",
+                  "value": "{{creditSaleStatus}}"
+                },
+                {
+                  "key": "sellingDate",
+                  "value": "{{creditSellingDate}}"
+                },
+                {
+                  "key": "dueDate",
+                  "value": "{{creditDueDate}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Credit Sale By ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Credit-sale invoice includes payment and refund fields\", function () {",
+                  "  pm.expect(data).to.have.property(\"payments\");",
+                  "  pm.expect(data).to.have.property(\"remainingAmount\");",
+                  "  pm.expect(data).to.have.property(\"refunds\");",
+                  "  pm.expect(data).to.have.property(\"refundStatus\");",
+                  "  pm.expect(data).to.have.property(\"returnedPaidAmount\");",
+                  "  pm.expect(data).to.have.property(\"reallocatedPaidAmount\");",
+                  "  pm.expect(data).to.have.property(\"discountAmount\");",
+                  "  pm.expect(data).to.have.property(\"shippingFees\");",
+                  "});",
+                  "if (data && data._id) {",
+                  "  pm.collectionVariables.set(\"creditSaleId\", data._id);",
+                  "}",
+                  "if (data && data.status) {",
+                  "  pm.collectionVariables.set(\"creditSaleStatus\", data.status);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "description": "Returns one credit-sale invoice by invoice document ID, including payments, refunds, remainingAmount, refundDueAmount, returnedPaidAmount, reallocatedPaidAmount, discountAmount, and shippingFees.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/credit-sales/{{creditSaleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "credit-sales",
+                "{{creditSaleId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Credit Sale",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Created credit-sale invoice includes discount and shipping fields\", function () {",
+                  "  pm.expect(data).to.have.property(\"discountAmount\");",
+                  "  pm.expect(data).to.have.property(\"shippingFees\");",
+                  "});",
+                  "if (data && (data._id || data.invoiceId)) {",
+                  "  pm.collectionVariables.set(\"creditSaleId\", data._id || data.invoiceId);",
+                  "}",
+                  "if (data && data.customerId) {",
+                  "  pm.collectionVariables.set(\"customerId\", data.customerId);",
+                  "}",
+                  "if (data && data.customerName) {",
+                  "  pm.collectionVariables.set(\"customerName\", data.customerName);",
+                  "}",
+                  "if (data && data.customerPhone) {",
+                  "  pm.collectionVariables.set(\"customerPhone\", data.customerPhone);",
+                  "}",
+                  "if (data && data.status) {",
+                  "  pm.collectionVariables.set(\"creditSaleStatus\", data.status);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "description": "Creates a credit-sale invoice, links or creates the customer automatically, deducts inventory, optionally stores an initial payment, and accepts optional discountAmount plus shippingFees.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"{{customerName}}\",\n  \"customerPhone\": \"{{customerPhone}}\",\n  \"sellingDate\": \"{{creditSellingDate}}\",\n  \"dueDate\": \"{{creditDueDate}}\",\n  \"notes\": \"Monthly installment\",\n  \"discountAmount\": 10,\n  \"shippingFees\": 25,\n  \"initialPaidAmount\": 50,\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 2,\n      \"price\": 15\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/credit-sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "credit-sales"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Credit Sale Payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Credit-sale payment updates totals\", function () {",
+                  "  pm.expect(data).to.have.property(\"paidAmount\");",
+                  "  pm.expect(data).to.have.property(\"remainingAmount\");",
+                  "});",
+                  "if (data && data._id) {",
+                  "  pm.collectionVariables.set(\"creditSaleId\", data._id);",
+                  "}",
+                  "if (data && data.status) {",
+                  "  pm.collectionVariables.set(\"creditSaleStatus\", data.status);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "description": "Adds a payment to an existing credit-sale invoice and recalculates paid and remaining totals. The selected invoice is paid first, then if amount exceeds its remainingAmount the backend distributes the extra amount to the customer's other open invoices in newest-to-oldest order. If amount exceeds the customer's totalRemainingAmount across open invoices, the API returns message, invoiceId, remainingAmount, and totalRemainingAmount.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 25,\n  \"paymentDate\": \"{{creditPaymentDate}}\",\n  \"note\": \"Second installment\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/credit-sales/{{creditSaleId}}/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "credit-sales",
+                "{{creditSaleId}}",
+                "payments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Credit Return",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Credit-sale refund updates refund fields\", function () {",
+                  "  pm.expect(data).to.have.property(\"refunds\");",
+                  "  pm.expect(data).to.have.property(\"refundStatus\");",
+                  "  pm.expect(data).to.have.property(\"refundDueAmount\");",
+                  "  pm.expect(data).to.have.property(\"returnedPaidAmount\");",
+                  "  pm.expect(data).to.have.property(\"reallocatedPaidAmount\");",
+                  "});",
+                  "if (data && data._id) {",
+                  "  pm.collectionVariables.set(\"creditSaleId\", data._id);",
+                  "}",
+                  "if (data && data.status) {",
+                  "  pm.collectionVariables.set(\"creditSaleStatus\", data.status);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "description": "Creates a credit return through the centralized returns endpoint. For a full invoice return, replace items with { \"refundAll\": true }. When a partial refund creates overpayment, the backend reallocates it to the customer's other open credit invoices first, then returns any leftover cash in returnedPaidAmount and stores the transferred amount in reallocatedPaidAmount. When the invoice is fully returned, the backend returns the invoice paidAmount, stores it in returnedPaidAmount, and changes status to Reactionary.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"returnType\": \"credit\",\n  \"invoiceId\": \"{{creditSaleId}}\",\n  \"refundDate\": \"{{creditRefundDate}}\",\n  \"note\": \"Customer returned one unit\",\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/returns",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "returns"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Credit Sale",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Updated credit-sale invoice includes remainingAmount\", function () {",
+                  "  pm.expect(data).to.have.property(\"remainingAmount\");",
+                  "  pm.expect(data).to.have.property(\"discountAmount\");",
+                  "  pm.expect(data).to.have.property(\"shippingFees\");",
+                  "});",
+                  "if (data && data._id) {",
+                  "  pm.collectionVariables.set(\"creditSaleId\", data._id);",
+                  "}",
+                  "if (data && data.status) {",
+                  "  pm.collectionVariables.set(\"creditSaleStatus\", data.status);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "description": "Updates credit-sale invoice details, items, discountAmount, and shippingFees. Payment amounts must be changed through the payments endpoint.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"{{customerName}}\",\n  \"customerPhone\": \"{{customerPhone}}\",\n  \"sellingDate\": \"{{creditSellingDate}}\",\n  \"dueDate\": \"{{creditDueDate}}\",\n  \"notes\": \"Updated installment plan\",\n  \"discountAmount\": 5,\n  \"shippingFees\": 20,\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 3,\n      \"price\": 15\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/credit-sales/{{creditSaleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "credit-sales",
+                "{{creditSaleId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Credit Sale",
+          "request": {
+            "method": "DELETE",
+            "description": "Deletes only the credit-sale invoice row. Inventory changes must be performed through POST /api/returns.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/credit-sales/{{creditSaleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "credit-sales",
+                "{{creditSaleId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Sellings",
+      "item": [
+        {
+          "name": "Get All Selling Invoices",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "  pm.test(\"Selling invoices include item productCode\", function () {",
+                  "    pm.expect(data[0]).to.have.property(\"items\");",
+                  "    pm.expect(data[0]).to.have.property(\"discountAmount\");",
+                  "    pm.expect(data[0]).to.have.property(\"shippingFees\");",
+                  "    if (Array.isArray(data[0].items) && data[0].items.length > 0) {",
+                  "      pm.expect(data[0].items[0]).to.have.property(\"productCode\");",
+                  "    }",
+                  "  });",
+                  "  if (data[0]._id) {",
+                  "    pm.collectionVariables.set(\"sellingId\", data[0]._id);",
+                  "  }",
+                  "  if (Array.isArray(data[0].items) && data[0].items[0] && data[0].items[0].productCode) {",
+                  "    pm.collectionVariables.set(\"productCode\", data[0].items[0].productCode);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "description": "Returns paginated selling invoices. Fully refunded invoices are excluded. Partially refunded invoices include only remaining, non-refunded item quantities. Each invoice item includes the productCode field, and each invoice includes discountAmount and shippingFees.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sellings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sellings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Selling Invoices With Filters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sellings?categoryId={{categoryId}}&productId={{productId}}&customerName={{customerName}}&customerPhone={{customerPhone}}&sellingDate=2026-02-28",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sellings"
+              ],
+              "query": [
+                {
+                  "key": "categoryId",
+                  "value": "{{categoryId}}"
+                },
+                {
+                  "key": "productId",
+                  "value": "{{productId}}"
+                },
+                {
+                  "key": "customerName",
+                  "value": "{{customerName}}"
+                },
+                {
+                  "key": "customerPhone",
+                  "value": "{{customerPhone}}"
+                },
+                {
+                  "key": "sellingDate",
+                  "value": "2026-02-28"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Selling Invoice By ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Selling invoice response includes items\", function () {",
+                  "  pm.expect(data).to.have.property(\"items\");",
+                  "  pm.expect(data).to.have.property(\"discountAmount\");",
+                  "  pm.expect(data).to.have.property(\"shippingFees\");",
+                  "});",
+                  "if (data && data._id) {",
+                  "  pm.collectionVariables.set(\"sellingId\", data._id);",
+                  "}",
+                  "if (data && Array.isArray(data.items) && data.items[0] && data.items[0].productCode) {",
+                  "  pm.collectionVariables.set(\"productCode\", data.items[0].productCode);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "description": "Returns one selling invoice by invoice document ID, including discountAmount and shippingFees. Fully refunded invoices are treated as deleted/not found, and partially refunded invoices include only remaining, non-refunded item quantities.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sellings/{{sellingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sellings",
+                "{{sellingId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Selling Invoice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (pm.response.code === 409) {",
+                  "  pm.test(\"Insufficient inventory response includes confirmation details\", function () {",
+                  "    pm.expect(data.code).to.eql(\"INSUFFICIENT_INVENTORY\");",
+                  "    pm.expect(data.requiresConfirmation).to.eql(true);",
+                  "    pm.expect(data.shortages).to.be.an(\"array\").that.is.not.empty;",
+                  "  });",
+                  "} else {",
+                  "  pm.test(\"Created selling invoice includes discount and shipping fields\", function () {",
+                  "    pm.expect(pm.response.code).to.eql(201);",
+                  "    pm.expect(data).to.have.property(\"discountAmount\");",
+                  "    pm.expect(data).to.have.property(\"shippingFees\");",
+                  "  });",
+                  "  if (data && (data._id || data.invoiceId)) {",
+                  "    pm.collectionVariables.set(\"sellingId\", data._id || data.invoiceId);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "description": "Creates a selling invoice with one or more items plus optional discountAmount and shippingFees. When stock is insufficient, the API returns HTTP 409 with code INSUFFICIENT_INVENTORY, requiresConfirmation=true, and a shortages array containing requestedQuantity, availableQuantity, and missingQuantity. After user confirmation, repeat the request with confirmInsufficientInventory=true to auto-restock the missing quantity and complete the full sale. If no customer exists with the submitted customerName and customerPhone, the backend creates the customer. If the phone already exists with a different name, the customer name is updated.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"{{customerName}}\",\n  \"customerPhone\": \"{{customerPhone}}\",\n  \"sellingDate\": \"2026-03-12\",\n  \"discountAmount\": 10,\n  \"shippingFees\": 25,\n  \"confirmInsufficientInventory\": false,\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 2,\n      \"price\": 15\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sellings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sellings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Selling Invoice - Confirm Insufficient Inventory",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Confirmed selling invoice is created\", function () {",
+                  "  pm.expect(pm.response.code).to.eql(201);",
+                  "  pm.expect(data).to.have.property(\"items\");",
+                  "});",
+                  "if (data && (data._id || data.invoiceId)) {",
+                  "  pm.collectionVariables.set(\"sellingId\", data._id || data.invoiceId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "description": "Retries selling creation after the user accepts the insufficient-inventory warning. The backend automatically adds each missing quantity, sells the full requested quantity, and leaves affected inventory at zero.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"{{customerName}}\",\n  \"customerPhone\": \"{{customerPhone}}\",\n  \"sellingDate\": \"2026-03-12\",\n  \"discountAmount\": 10,\n  \"shippingFees\": 25,\n  \"confirmInsufficientInventory\": true,\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 10,\n      \"price\": 15\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sellings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sellings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Selling Invoice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Updated selling invoice response includes items\", function () {",
+                  "  pm.expect(data).to.have.property(\"items\");",
+                  "  pm.expect(data).to.have.property(\"discountAmount\");",
+                  "  pm.expect(data).to.have.property(\"shippingFees\");",
+                  "});",
+                  "if (data && data._id) {",
+                  "  pm.collectionVariables.set(\"sellingId\", data._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "description": "Updates a selling invoice, including optional discountAmount and shippingFees. Send the full items array when replacing invoice lines, especially for invoices that contain more than one item.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"{{customerName}}\",\n  \"customerPhone\": \"{{customerPhone}}\",\n  \"sellingDate\": \"2026-03-13\",\n  \"discountAmount\": 5,\n  \"shippingFees\": 20,\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 3,\n      \"price\": 15\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sellings/{{sellingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sellings",
+                "{{sellingId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Cash Return",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Cash return is created\", function () {",
+                  "  pm.expect(pm.response.code).to.eql(201);",
+                  "  pm.expect(data.success).to.eql(true);",
+                  "  pm.expect(data.data).to.have.property(\"returnLog\");",
+                  "});",
+                  "pm.test(\"Cash return response matches partial or full refund behavior\", function () {",
+                  "  const payload = data.data || {};",
+                  "  const isFullRefund = Object.prototype.hasOwnProperty.call(payload, \"deletedInvoiceId\");",
+                  "  if (isFullRefund) {",
+                  "    pm.expect(payload).to.have.property(\"deletedInvoiceId\");",
+                  "    pm.expect(payload).to.not.have.property(\"invoice\");",
+                  "  } else {",
+                  "    pm.expect(payload).to.have.property(\"invoice\");",
+                  "    pm.expect(payload.invoice).to.have.property(\"items\").that.is.an(\"array\");",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "description": "Creates a cash return through the centralized returns endpoint and restores only the returned quantities to inventory. A partial return keeps the selling invoice and returns only remaining, non-refunded invoice items. A full return deletes the selling invoice and returns deletedInvoiceId with the returnLog.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"returnType\": \"cash\",\n  \"invoiceId\": \"{{sellingId}}\",\n  \"returnDate\": \"2026-06-25\",\n  \"note\": \"Customer returned one unit\",\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1,\n      \"returnReason\": \"Damaged item\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/returns",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "returns"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Selling Invoice",
+          "request": {
+            "method": "DELETE",
+            "description": "Deletes only the selling invoice row. Inventory changes must be performed through POST /api/returns.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sellings/{{sellingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sellings",
+                "{{sellingId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Website Images",
+      "item": [
+        {
+          "name": "Create Website Image",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Website image is created\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(data).to.have.property(\"_id\");",
+                  "  pm.expect(data.targetType).to.eql(\"price\");",
+                  "});",
+                  "if (data && data._id) pm.collectionVariables.set(\"websiteImageId\", data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "description": "Creates a website image target. This example resolves products priced at or below maxPrice inside the selected category.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Summer offer\",\n  \"imageBase64\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==\",\n  \"targetType\": \"price\",\n  \"categoryIds\": [\"{{categoryId}}\"],\n  \"maxPrice\": 500,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/website-images",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-images"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Specification Website Image",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Specification website image is created\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(data.targetType).to.eql(\"specification\");",
+                  "  pm.expect(data.categoryIds).to.be.an(\"array\").that.is.not.empty;",
+                  "  pm.expect(data.specificationFilters).to.be.an(\"array\").that.is.not.empty;",
+                  "});",
+                  "if (data && data._id) pm.collectionVariables.set(\"websiteImageId\", data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "description": "Creates a specification target for the selected categories. Every specification filter must match; selecting multiple values inside one filter matches any selected value. Use GET /api/website-images/specifications first to load each selected category's specifications and available values.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Black large products\",\n  \"imageBase64\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==\",\n  \"targetType\": \"specification\",\n  \"categoryIds\": [\"{{categoryId}}\"],\n  \"specificationFilters\": [\n    {\n      \"specificationName\": \"Color\",\n      \"values\": [\"Black\"]\n    },\n    {\n      \"specificationName\": \"Size\",\n      \"values\": [\"Large\", \"XL\"]\n    }\n  ],\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/website-images",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-images"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create View Only Website Image",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"View only website image is created\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(data).to.have.property(\"_id\");",
+                  "  pm.expect(data.viewOnly).to.eql(true);",
+                  "  pm.expect(data.categoryIds).to.be.an(\"array\").that.is.empty;",
+                  "  pm.expect(data.productIds).to.be.an(\"array\").that.is.empty;",
+                  "  pm.expect(data.specificationFilters).to.be.an(\"array\").that.is.empty;",
+                  "});",
+                  "if (data && data._id) pm.collectionVariables.set(\"websiteImageId\", data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "description": "Creates a view-only website image. When viewOnly is true, the payload only needs imageBase64 or image; targeting fields are not required and are cleared by the backend.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Homepage banner\",\n  \"imageBase64\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==\",\n  \"viewOnly\": true,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/website-images",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-images"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Specifications For Selected Categories",
+          "request": {
+            "method": "GET",
+            "description": "Returns every selected category with its configured specifications and the available values collected from products in that category. categoryIds accepts repeated query parameters or a comma-separated list.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/website-images/specifications?categoryIds={{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-images",
+                "specifications"
+              ],
+              "query": [
+                {
+                  "key": "categoryIds",
+                  "value": "{{categoryId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Website Images",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/website-images",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-images"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Active Website Images",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/website-images/active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-images",
+                "active"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Active Website Images With Products",
+          "request": {
+            "method": "GET",
+            "description": "Returns active image targets with imageUrl and a resolvedProducts array. specification targets resolve products within their selected categories that match every selected specification filter. The large embedded imageBase64 value is omitted from this combined response.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/website-images/active-with-products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-images",
+                "active-with-products"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Website Image By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/website-images/{{websiteImageId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-images",
+                "{{websiteImageId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Website Image Asset",
+          "request": {
+            "method": "GET",
+            "description": "Returns the stored website image as a binary image response. This URL is exposed as imageUrl by active-with-products.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/website-images/{{websiteImageId}}/image",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-images",
+                "{{websiteImageId}}",
+                "image"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Website Image Resolved Products",
+          "request": {
+            "method": "GET",
+            "description": "Returns the deduplicated final product array resolved from the image targeting rules.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/website-images/{{websiteImageId}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-images",
+                "{{websiteImageId}}",
+                "products"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Website Image",
+          "request": {
+            "method": "PUT",
+            "description": "Partially updates the image. Changing targetType requires the fields required by the new target type.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated summer offer\",\n  \"targetType\": \"both\",\n  \"categoryIds\": [\"{{categoryId}}\"],\n  \"productIds\": [\"{{productId}}\"],\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/website-images/{{websiteImageId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-images",
+                "{{websiteImageId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Website Image",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/website-images/{{websiteImageId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-images",
+                "{{websiteImageId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "Checkout Cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Checkout creates a pending website order\", function () {",
+                  "  pm.expect(data).to.have.property(\"_id\");",
+                  "  pm.expect(data).to.have.property(\"orderId\");",
+                  "  pm.expect(data).to.have.property(\"status\", \"pending\");",
+                  "  pm.expect(data).to.have.property(\"items\");",
+                  "  pm.expect(data).to.have.property(\"government\");",
+                  "  pm.expect(data).to.have.property(\"shippingLocation\");",
+                  "  pm.expect(data).to.have.property(\"shippingFees\");",
+                  "  pm.expect(data).to.have.property(\"paymentMethod\", \"E_WALLET\");",
+                  "  pm.expect(data).to.have.property(\"paymentStatus\", \"PENDING\");",
+                  "  pm.expect(data).to.have.property(\"transferPhone\");",
+                  "  pm.expect(data).to.have.property(\"transferImage\");",
+                  "  pm.expect(data).to.have.nested.property(\"payment.transferPhone\");",
+                  "  pm.expect(data).to.have.nested.property(\"payment.transferImage\");",
+                  "  pm.expect(data).to.not.have.property(\"invoiceId\");",
+                  "});",
+                  "if (data && (data._id || data.orderId)) {",
+                  "  pm.collectionVariables.set(\"websiteOrderId\", data._id || data.orderId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "description": "Creates a pending website order from the storefront checkout form. Required fields: customerName, customerPhone, government, shippingLocation, paymentMethod, and products. paymentMethod accepts cash, wallet, or instapay. Wallet and InstaPay require transferPhone and transferImage. transferImage must be a base64 image string or data URI. The government must exist in Government Shipping Fees; the backend calculates shippingFees and applies the configured free-shipping threshold. Each product requires productId and price; quantity is optional and defaults to 1. Confirm the website order to create a selling invoice.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"{{customerName}}\",\n  \"customerPhone\": \"{{customerPhone}}\",\n  \"government\": \"Cairo\",\n  \"shippingLocation\": \"Cairo, Nasr City\",\n  \"paymentMethod\": \"wallet\",\n  \"transferPhone\": \"{{customerPhone}}\",\n  \"transferImage\": \"data:image/png;base64,iVBORw0KGgo=\",\n  \"products\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"price\": 15,\n      \"quantity\": 2\n    },\n    {\n      \"productId\": \"{{productId}}\",\n      \"price\": 30\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/checkout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "checkout"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Website Orders",
+      "item": [
+        {
+          "name": "Get Website Orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Website orders are paginated\", function () {",
+                  "  pm.expect(data).to.have.property(\"success\", true);",
+                  "  pm.expect(data).to.have.property(\"data\").that.is.an(\"array\");",
+                  "  pm.expect(data).to.have.property(\"pagination\");",
+                  "  if (data.data.length) {",
+                  "    pm.expect(data.data[0]).to.have.property(\"paymentMethod\");",
+                  "    pm.expect(data.data[0]).to.have.property(\"transferPhone\");",
+                  "    pm.expect(data.data[0]).to.have.property(\"transferImage\");",
+                  "    pm.expect(data.data[0]).to.have.nested.property(\"payment.transferPhone\");",
+                  "    pm.expect(data.data[0]).to.have.nested.property(\"payment.transferImage\");",
+                  "  }",
+                  "});",
+                  "if (data.data && data.data[0] && data.data[0]._id) {",
+                  "  pm.collectionVariables.set(\"websiteOrderId\", data.data[0]._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "description": "Returns all website orders with pagination. Orders can be pending, accepted, or refunded.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/website-orders?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-orders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Pending Website Orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Pending website orders are returned\", function () {",
+                  "  pm.expect(data).to.have.property(\"success\", true);",
+                  "  pm.expect(data).to.have.property(\"data\").that.is.an(\"array\");",
+                  "  pm.expect(data).to.have.property(\"pagination\");",
+                  "});",
+                  "if (data.data && data.data[0] && data.data[0]._id) {",
+                  "  pm.collectionVariables.set(\"websiteOrderId\", data.data[0]._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "description": "Returns pending website orders that have not yet been confirmed or refunded.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/website-orders/pending?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-orders",
+                "pending"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Accepted Website Orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Accepted website orders are returned\", function () {",
+                  "  pm.expect(data).to.have.property(\"success\", true);",
+                  "  pm.expect(data).to.have.property(\"data\").that.is.an(\"array\");",
+                  "  pm.expect(data).to.have.property(\"pagination\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "description": "Returns confirmed website orders. These orders have a linked selling invoice.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/website-orders/accepted?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-orders",
+                "accepted"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Refunded Website Orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Refunded website orders are returned\", function () {",
+                  "  pm.expect(data).to.have.property(\"success\", true);",
+                  "  pm.expect(data).to.have.property(\"data\").that.is.an(\"array\");",
+                  "  pm.expect(data).to.have.property(\"pagination\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "description": "Returns website orders that were refunded directly or moved to refunded when their linked selling invoice was refunded.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/website-orders/refunded?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-orders",
+                "refunded"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Website Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Website order confirmation creates a selling invoice\", function () {",
+                  "  pm.expect(data).to.have.property(\"success\", true);",
+                  "  pm.expect(data).to.have.nested.property(\"data.order.status\", \"accepted\");",
+                  "  pm.expect(data).to.have.nested.property(\"data.invoice._id\");",
+                  "  pm.expect(data).to.have.nested.property(\"data.invoice.items\");",
+                  "});",
+                  "if (data.data && data.data.order && data.data.order._id) {",
+                  "  pm.collectionVariables.set(\"websiteOrderId\", data.data.order._id);",
+                  "}",
+                  "if (data.data && data.data.invoice && (data.data.invoice._id || data.data.invoice.invoiceId)) {",
+                  "  pm.collectionVariables.set(\"sellingId\", data.data.invoice._id || data.data.invoice.invoiceId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "description": "Confirms a pending website order and creates the linked selling invoice. Send confirmInsufficientInventory=true to auto-restock shortages, matching selling invoice behavior.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirmInsufficientInventory\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/website-orders/{{websiteOrderId}}/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-orders",
+                "{{websiteOrderId}}",
+                "confirm"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refund Website Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.test(\"Website order is refunded\", function () {",
+                  "  pm.expect(data).to.have.property(\"success\", true);",
+                  "  pm.expect(data).to.have.nested.property(\"data.status\", \"refunded\");",
+                  "  pm.expect(data).to.have.nested.property(\"data.refundedAt\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "description": "Marks a website order as refunded. Accepted orders can also move to refunded when the linked selling invoice is refunded through POST /api/returns.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Customer cancelled website order\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/website-orders/{{websiteOrderId}}/refund",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "website-orders",
+                "{{websiteOrderId}}",
+                "refund"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SEO and Localized Public APIs",
+      "item": [
+        {
+          "name": "Check Arabic Category Slug Availability",
+          "request": {
+            "method": "GET",
+            "description": "Returns { available: true } when the localized category slug is not used by another category.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/seo/slug-availability?entityType=category&language=ar&slug=قطع غيار فتيس&excludeId={{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "seo",
+                "slug-availability"
+              ],
+              "query": [
+                {
+                  "key": "entityType",
+                  "value": "category"
+                },
+                {
+                  "key": "language",
+                  "value": "ar"
+                },
+                {
+                  "key": "slug",
+                  "value": "قطع غيار فتيس"
+                },
+                {
+                  "key": "excludeId",
+                  "value": "{{categoryId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check English Product Slug Availability",
+          "request": {
+            "method": "GET",
+            "description": "Returns { available: true } when the localized product slug is not used by another product.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/seo/slug-availability?entityType=product&language=en&slug=transmission-filter&excludeId={{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "seo",
+                "slug-availability"
+              ],
+              "query": [
+                {
+                  "key": "entityType",
+                  "value": "product"
+                },
+                {
+                  "key": "language",
+                  "value": "en"
+                },
+                {
+                  "key": "slug",
+                  "value": "transmission-filter"
+                },
+                {
+                  "key": "excludeId",
+                  "value": "{{productId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Arabic Home Categories",
+          "request": {
+            "method": "GET",
+            "description": "Public endpoint for the storefront Browse Categories section. Replace ar with en for English. lang accepts ar or en. limit is optional (default 12), must be a positive integer, and is capped at 50. Categories must be in the ordered Home configuration, have showOnWebsite=true, and have a stored name and slug for the requested language. Zero-product Categories remain visible when intentionally configured. productsCount includes only direct-category Products selected in that Category's visible EcommerceSetting; deleted or unselected Products are excluded. Base64 images resolve through the public Category image endpoint, valid absolute URLs are preserved, and missing/invalid images return null. No authentication is required. Invalid language/limit returns 400; database failures return 500 with a generic message.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/ar/categories/home?limit=12",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "ar",
+                "categories",
+                "home"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "12",
+                  "description": "Optional positive integer; defaults to 12 and is capped at 50."
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 - Arabic Home Categories",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/public/ar/categories/home?limit=12",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "public",
+                    "ar",
+                    "categories",
+                    "home"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "12"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"categories\": [\n      {\n        \"id\": \"66b0b7b5a8c197aa0adf1234\",\n        \"name\": \"قطع غيار ناقل الحركة\",\n        \"slug\": \"قطع-غيار-ناقل-الحركة\",\n        \"localizedSlugs\": {\n          \"ar\": \"قطع-غيار-ناقل-الحركة\",\n          \"en\": \"transmission-parts\"\n        },\n        \"image\": {\n          \"url\": \"https://api.kapomatic.com/api/public/images/categories/66b0b7b5a8c197aa0adf1234\",\n          \"alt\": \"قطع غيار ناقل الحركة\"\n        },\n        \"productsCount\": 24\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Arabic Category By Slug",
+          "request": {
+            "method": "GET",
+            "description": "Returns a visible storefront category and SEO payload by Arabic slug.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/ar/categories/{{categorySlugAr}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "ar",
+                "categories",
+                "{{categorySlugAr}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get English Category By Slug",
+          "request": {
+            "method": "GET",
+            "description": "Returns a visible storefront category and SEO payload by English slug.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/en/categories/{{categorySlugEn}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "en",
+                "categories",
+                "{{categorySlugEn}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Arabic Category Products By Slug",
+          "request": {
+            "method": "GET",
+            "description": "Returns all products in a visible category, localized in Arabic and paginated.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/ar/categories/{{categorySlugAr}}/products?page=1&limit=10&sort=price_asc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "ar",
+                "categories",
+                "{{categorySlugAr}}",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "price_asc"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get English Category Products By Slug",
+          "request": {
+            "method": "GET",
+            "description": "Returns all products in a visible category, localized in English and paginated.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/en/categories/{{categorySlugEn}}/products?page=1&limit=10&sort=price_desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "en",
+                "categories",
+                "{{categorySlugEn}}",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "price_desc"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Arabic Product By Slug",
+          "request": {
+            "method": "GET",
+            "description": "Returns a storefront-available product, public image URL, pricing, availability, alternates, and SEO payload.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/ar/products/{{productSlugAr}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "ar",
+                "products",
+                "{{productSlugAr}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get English Product By Slug",
+          "request": {
+            "method": "GET",
+            "description": "Returns a storefront-available product, public image URL, pricing, availability, alternates, and SEO payload.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/en/products/{{productSlugEn}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "en",
+                "products",
+                "{{productSlugEn}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Public Products - Arabic Query",
+          "request": {
+            "method": "GET",
+            "description": "Language-independent public storefront product search. Searches active storefront products across Arabic and English names, descriptions, short descriptions, legacy name, code, keywords, and slug aliases when present.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/products/search?q=فلتر&page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "products",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "فلتر"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Public Products - English Query",
+          "request": {
+            "method": "GET",
+            "description": "Language-independent public storefront product search. English matching is case-insensitive and does not depend on browser or website language.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/products/search?q=filter&page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "products",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "filter"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Public Products - Partial Arabic Query",
+          "request": {
+            "method": "GET",
+            "description": "Partial Arabic matching example. A query such as فور can match a product field containing فورد.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/products/search?q=فور&page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "products",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "فور"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Resolve Arabic Category Slug Alias",
+          "request": {
+            "method": "GET",
+            "description": "Returns a 301 redirect payload for an old category slug when the category is still available.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/ar/slug-aliases/category/{{oldCategorySlugAr}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "ar",
+                "slug-aliases",
+                "category",
+                "{{oldCategorySlugAr}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Resolve English Product Slug Alias",
+          "request": {
+            "method": "GET",
+            "description": "Returns a 301 redirect payload for an old product slug when the product is still available.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/en/slug-aliases/product/{{oldProductSlugEn}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "en",
+                "slug-aliases",
+                "product",
+                "{{oldProductSlugEn}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Public Category Image",
+          "request": {
+            "method": "GET",
+            "description": "Serves the category base64 image as a crawlable public image response with content type and cache headers.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/images/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "images",
+                "categories",
+                "{{categoryId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Public Product Image",
+          "request": {
+            "method": "GET",
+            "description": "Serves the product base64 image as a crawlable public image response with content type and cache headers.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/images/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "images",
+                "products",
+                "{{productId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sitemap Pages Feed",
+          "request": {
+            "method": "GET",
+            "description": "Base sitemap page feed for Angular SSR sitemap generation.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/seo/sitemap/pages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "seo",
+                "sitemap",
+                "pages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sitemap Categories Feed",
+          "request": {
+            "method": "GET",
+            "description": "Paginated localized category sitemap rows. Hidden, noindex, and missing-slug records are excluded.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/seo/sitemap/categories?page=1&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "seo",
+                "sitemap",
+                "categories"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sitemap Products Feed",
+          "request": {
+            "method": "GET",
+            "description": "Paginated localized product sitemap rows. Hidden, noindex, and missing-slug records are excluded.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/seo/sitemap/products?page=1&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "seo",
+                "sitemap",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sitemap Images Feed",
+          "request": {
+            "method": "GET",
+            "description": "Paginated image sitemap rows using crawlable public image URLs.",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/seo/sitemap/images?page=1&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "seo",
+                "sitemap",
+                "images"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Optimized Public Home and Header",
+      "item": [
+        {
+          "name": "Get Arabic Desktop Home",
+          "request": {
+            "method": "GET",
+            "description": "Returns the configured Home sections in exact order with at most 10 projected products per category and URL-only images.",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/home-page?device=desktop&locale=ar"
+          },
+          "response": [
+            {
+              "name": "200 - Arabic Desktop Home",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/public/home-page?device=desktop&locale=ar"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Cache-Control",
+                  "value": "public, max-age=60, stale-while-revalidate=300"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"sections\": [\n      {\n        \"id\": \"legacy-products-66b0b7b5a8c197aa0adf1234\",\n        \"type\": \"products\",\n        \"title\": \"زيوت ناقل الحركة\",\n        \"settings\": {\n          \"products\": [\n            {\n              \"id\": \"67b0b7b5a8c197aa0adf1234\",\n              \"categoryId\": \"66b0b7b5a8c197aa0adf1234\",\n              \"name\": \"زيت فتيس\",\n              \"slug\": \"زيت-فتيس\",\n              \"imageUrl\": \"https://api.kapomatic.com/api/public/images/products/67b0b7b5a8c197aa0adf1234\",\n              \"retailPrice\": 1000,\n              \"discountPercentage\": 10,\n              \"priceAfterDiscount\": 900,\n              \"inventoryCount\": 4\n            }\n          ]\n        }\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get English Desktop Home",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/home-page?device=desktop&locale=en"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Arabic Mobile Home",
+          "request": {
+            "method": "GET",
+            "description": "Mobile mode limits each configured category to at most 6 products at query level.",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/home-page?device=mobile&locale=ar"
+          },
+          "response": []
+        },
+        {
+          "name": "Get English Mobile Home",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/home-page?device=mobile&locale=en"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Arabic Header",
+          "request": {
+            "method": "GET",
+            "description": "Returns projected active category navigation and a URL-based logo using the Angular HeaderStore envelope.",
+            "header": [],
+            "url": "{{baseUrl}}/api/header?locale=ar"
+          },
+          "response": [
+            {
+              "name": "200 - Arabic Header",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/header?locale=ar"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"settings\": {\n      \"isEnabled\": true,\n      \"isSticky\": true,\n      \"showSearch\": true,\n      \"showCart\": true,\n      \"showLanguageSwitcher\": true,\n      \"showMobileMenu\": true,\n      \"logoUrl\": \"https://api.kapomatic.com/api/header/logo\"\n    },\n    \"navigation\": [\n      {\n        \"id\": \"category-66b0b7b5a8c197aa0adf1234\",\n        \"label\": \"زيوت ناقل الحركة\",\n        \"slug\": \"زيوت-ناقل-الحركة\",\n        \"url\": \"/ar/categories/زيوت-ناقل-الحركة\",\n        \"external\": false,\n        \"openInNewTab\": false,\n        \"children\": []\n      }\n    ],\n    \"actions\": []\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get English Header",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/header?locale=en"
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Home Locale",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/home-page?device=desktop&locale=fr"
+          },
+          "response": [
+            {
+              "name": "400 - Invalid Locale",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/public/home-page?device=desktop&locale=fr"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"message\": \"قيمة locale غير صالحة\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Invalid Home Device",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/home-page?device=tablet&locale=ar"
+          },
+          "response": [
+            {
+              "name": "400 - Invalid Device",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/public/home-page?device=tablet&locale=ar"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"message\": \"قيمة device غير صالحة\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Empty Home Response Example",
+          "request": {
+            "method": "GET",
+            "description": "A valid empty response is returned when there are no active configured Home sections.",
+            "header": [],
+            "url": "{{baseUrl}}/api/public/home-page?device=desktop&locale=ar"
+          },
+          "response": [
+            {
+              "name": "200 - Empty Home",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/public/home-page?device=desktop&locale=ar"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"sections\": []\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Optimized Active Categories",
+          "request": {
+            "method": "GET",
+            "description": "Optional storefront projection. Products are sliced before lookup, filters are not calculated, ordering is preserved, and list images are public URLs.",
+            "header": [],
+            "url": "{{baseUrl}}/api/ecommerce-settings/categories/active?projection=storefront&productLimit=10&locale=ar"
+          },
+          "response": [
+            {
+              "name": "200 - Bounded Active Categories",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/ecommerce-settings/categories/active?projection=storefront&productLimit=10&locale=ar"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "[\n  {\n    \"category\": {\n      \"_id\": \"66b0b7b5a8c197aa0adf1234\",\n      \"name\": \"زيوت ناقل الحركة\",\n      \"image\": \"https://api.kapomatic.com/api/public/images/categories/66b0b7b5a8c197aa0adf1234\"\n    },\n    \"products\": [\n      {\n        \"_id\": \"67b0b7b5a8c197aa0adf1234\",\n        \"name\": \"زيت فتيس\",\n        \"image\": \"https://api.kapomatic.com/api/public/images/products/67b0b7b5a8c197aa0adf1234\",\n        \"retailPrice\": 1000,\n        \"priceAfterDiscount\": 900\n      }\n    ],\n    \"setting\": {\n      \"category\": \"66b0b7b5a8c197aa0adf1234\",\n      \"showOnWebsite\": true,\n      \"selectedProducts\": [\"67b0b7b5a8c197aa0adf1234\"]\n    }\n  }\n]"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "websiteImageId",
+      "value": ""
+    },
+    {
+      "key": "categoryId",
+      "value": ""
+    },
+    {
+      "key": "customerId",
+      "value": ""
+    },
+    {
+      "key": "customerName",
+      "value": "Ahmed Ali"
+    },
+    {
+      "key": "customerSearchTerm",
+      "value": ""
+    },
+    {
+      "key": "customerSearchName",
+      "value": "Ahmed"
+    },
+    {
+      "key": "customerSearchPhone",
+      "value": "01000000000"
+    },
+    {
+      "key": "restoreCreditInvoices",
+      "value": "true"
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
+      "key": "productCode",
+      "value": ""
+    },
+    {
+      "key": "productInventoryCount",
+      "value": "0"
+    },
+    {
+      "key": "productSearchTerm",
+      "value": ""
+    },
+    {
+      "key": "productSearchName",
+      "value": "Wireless"
+    },
+    {
+      "key": "productSearchCode",
+      "value": "WM-001"
+    },
+    {
+      "key": "profitDateFrom",
+      "value": "2026-03-01"
+    },
+    {
+      "key": "profitDateTo",
+      "value": "2026-03-31"
+    },
+    {
+      "key": "profitYear",
+      "value": "2026"
+    },
+    {
+      "key": "creditSaleId",
+      "value": ""
+    },
+    {
+      "key": "creditSaleStatus",
+      "value": "pending"
+    },
+    {
+      "key": "creditSellingDate",
+      "value": "2026-03-14"
+    },
+    {
+      "key": "creditDueDate",
+      "value": "2026-04-14"
+    },
+    {
+      "key": "creditPaymentDate",
+      "value": "2026-03-20"
+    },
+    {
+      "key": "creditRefundDate",
+      "value": "2026-03-21"
+    },
+    {
+      "key": "sellingId",
+      "value": ""
+    },
+    {
+      "key": "customerPhone",
+      "value": "+201234567890"
+    },
+    {
+      "key": "shippingLocation",
+      "value": "Cairo, Nasr City"
+    },
+    {
+      "key": "cairoShippingFees",
+      "value": "50"
+    },
+    {
+      "key": "gizaShippingFees",
+      "value": "60"
+    },
+    {
+      "key": "freeShippingMinimumAmount",
+      "value": "1000"
+    },
+    {
+      "key": "websiteOrderId",
+      "value": ""
+    },
+    {
+      "key": "categorySlugAr",
+      "value": "قطع-غيار-فتيس",
+      "type": "string"
+    },
+    {
+      "key": "categorySlugEn",
+      "value": "transmission-parts",
+      "type": "string"
+    },
+    {
+      "key": "productSlugAr",
+      "value": "فلتر-فتيس",
+      "type": "string"
+    },
+    {
+      "key": "productSlugEn",
+      "value": "transmission-filter",
+      "type": "string"
+    },
+    {
+      "key": "oldCategorySlugAr",
+      "value": "قطع-غيار-فتيس-قديم",
+      "type": "string"
+    },
+    {
+      "key": "oldProductSlugEn",
+      "value": "old-transmission-filter",
+      "type": "string"
+    }
+  ]
+}

@@ -1,0 +1,142 @@
+{
+  "ProductTitle": "قائمة المنتجات",
+  "searchPlaceholder": "بحث ...",
+  "sidebarTitles": {
+    "mainitems": "العناصر الرئيسية",
+    "admins": "المشرفون",
+    "addAdmins": "إضافة مشرفين",
+    "showAdmins": "عرض المشرفين",
+    "products": "المنتجات",
+    "returns": "المرتجعات",
+    "addProducts": "إضافة منتجات",
+    "showProducts": "عرض المنتجات",
+    "warranties": "الضمانات"
+  },
+  "addProduct": "إضافة منتج",
+  "tableHeaders": {
+    "name": "الاسم",
+    "type": "النوع",
+    "description": "الوصف",
+    "warranty": "الضمان",
+    "expiryDate": "تاريخ الانتهاء",
+    "actions": "إجراءات"
+  },
+  "showQR": "عرض QR",
+  "delete": "حذف",
+  "qrCodesForProduct": "رموز QR للمنتج",
+  "printQRCode": "🖨️ طباعة رمز QR",
+  "copies": "نسخ",
+  "errors": {
+    "invalidProductId": "تم استلام معرف منتج غير صالح.",
+    "uniqueNameRequired": "يجب إدخال اسم فريد",
+    "errorMsgToShowProducts": "فشل تحميل المنتجات",
+    "genericError": "حدث خطأ ما.",
+    "fetchError": "خطأ في جلب بيانات المشرفين",
+    "notFound": "المشرف غير موجود",
+    "deleteError": "خطأ في حذف المشرف"
+  },
+  "product": {
+    "product": "المنتج",
+    "noDescription": "لا يوجد وصف متاح",
+    "newProduct": "منتج جديد",
+    "createNewProduct": "إنشاء منتج جديد",
+    "form": {
+      "name": "اسم المنتج",
+      "type": "نوع المنتج",
+      "warranty": "فترة الضمان",
+      "description": "وصف المنتج"
+    },
+    "actions": {
+      "creationSuccess": "تم إنشاء المنتج بنجاح!",
+      "backToList": "العودة إلى القائمة",
+      "saving": "جاري الحفظ...",
+      "saveButton": "حفظ المنتج"
+    }
+  },
+  "admin": {
+    "createNewAdmin": "إنشاء مشرف جديد",
+    "form": {
+      "username": "اسم المستخدم",
+      "phone": "رقم الهاتف",
+      "email": "البريد الإلكتروني",
+      "password": "كلمة المرور",
+      "role": "الدور"
+    },
+    "roles": {
+      "admin": "مشرف",
+      "moderator": "مراقب"
+    },
+    "actions": {
+      "creating": "جاري الإنشاء...",
+      "createAdmin": "إنشاء مشرف",
+      "deleteSuccess": "تم حذف المشرف بنجاح"
+    },
+    "list_Title": "قائمة المشرفين",
+    "add_Button": "إضافة مشرف"
+  },
+  "validationForm": {
+    "name": "الاسم",
+    "phone": "الهاتف",
+    "shopName": "اسم المتجر",
+    "shopNumber": "رقم المتجر",
+    "purchaseDate": "تاريخ الشراء",
+    "invoicePhoto": "صورة الفاتورة",
+    "userInfo": "معلومات المستخدم",
+    "invoiceInfo": "معلومات الفاتورة",
+    "browsePhoto": "تصفح الصورة"
+  },
+  "warrant": {
+    "oklandWarranty": "ضمان شركة أوكلاند",
+    "expiresOn": "ينتهي الضمان في",
+    "activate": "تفعيل الضمان",
+    "success": "تم تفعيل الضمان بنجاح!",
+    "failure": "فشل تفعيل الضمان",
+    "validation": "يجب رفع صورة الفاتورة مع إظهار التاريخ لتفعيل الضمان"
+  },
+  "upload": {
+    "uploading": "جاري الرفع...",
+    "complete": "تم الرفع بنجاح"
+  },
+  "showWarranty": "عرض الضمان",
+  "viewAllWarranties": "عرض جميع الضمانات",
+  "warranty": {
+    "invoicePhoto": "صورة الفاتورة"
+  },
+  "sellingPage": {
+    "fields": {
+      "searchProduct": "بحث عن كود المنتج",
+      "selectProduct": "اختيار المنتج",
+      "productName": "اسم المنتج",
+      "categoryName": "اسم الفئة",
+      "priceType": "نوع السعر",
+      "price": "السعر",
+      "customerName": "اسم العميل",
+      "sellingDate": "تاريخ البيع",
+      "productQuantity": "كمية المنتج",
+      "totalInvoicePrice": "إجمالي قيمة الفاتورة"
+    },
+    "priceTypeOptions": {
+      "wholesalePrice": "سعر الجملة",
+      "retailPrice": "سعر التجزئة",
+      "custom": "مخصص"
+    },
+    "placeholders": {
+      "searchProduct": "أدخل كود المنتج (مثل WM-001)",
+      "selectProduct": "اختر المنتج من النتائج",
+      "selectPriceType": "اختر نوع السعر"
+    },
+    "actions": {
+      "search": "بحث",
+      "searching": "جاري البحث...",
+      "createSelling": "إنشاء عملية بيع",
+      "saving": "جاري الحفظ..."
+    },
+    "messages": {
+      "noProductFound": "لم يتم العثور على منتج بهذا الكود.",
+      "searchFailed": "فشل البحث عن المنتج.",
+      "createdSuccess": "تم إنشاء عملية البيع بنجاح.",
+      "createFailed": "فشل إنشاء عملية البيع."
+    }
+  },
+  "logout": "تسجيل الخروج"
+}

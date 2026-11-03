@@ -1,0 +1,18 @@
+<app-header #headerRef (collapsedSidenav)="toggleSidenav($event)"></app-header>
+
+<mat-sidenav-container [attr.dir]="direction()" [ngStyle]="{ height: sidenavHeight }">
+  <mat-sidenav #sidenav mode="side" opened="true" position="start" [style.overflow]="'hidden'" [style.width]="sidenavWidth()" [ngStyle]="{
+      'background-color': (isDarkMode$ | async) ? '#151515' : '#f5f5f5'
+    }">
+    <app-custom-sidenav #customSidenav (collapsedSidenav)="toggleSidenav($event)"></app-custom-sidenav>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="p-6"
+    [style.margin-left]="direction() === 'ltr' ? sidenavWidth() : null"
+    [style.margin-right]="direction() === 'rtl' ? sidenavWidth() : null"
+    [ngStyle]="{
+      'background-color': (isDarkMode$ | async) ? '#1f1f1f' : '#ffffff'
+    }">
+    <ng-content></ng-content>
+  </mat-sidenav-content>
+</mat-sidenav-container>

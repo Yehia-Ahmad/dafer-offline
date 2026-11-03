@@ -1,0 +1,267 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.selling-form-shell {
+  background:
+    radial-gradient(circle at top right, rgba(244, 216, 10, 0.12), transparent 22rem),
+    linear-gradient(180deg, #3b3b3f 0%, #2f2f33 100%);
+  border: 1px solid #4a4a4f;
+  border-radius: 20px;
+  font-family: 'Roboto', sans-serif;
+}
+
+.invoice-section,
+.invoice-summary-card,
+.invoice-item-card {
+  border: 1px solid rgba(244, 222, 198, 0.1);
+  border-radius: 18px;
+  background: rgba(29, 29, 32, 0.72);
+}
+
+.invoice-section,
+.invoice-summary-card {
+  padding: 1.35rem;
+}
+
+.invoice-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.invoice-item-card {
+  padding: 1.1rem;
+}
+
+.invoice-section__header,
+.invoice-item-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.15rem;
+}
+
+.invoice-eyebrow {
+  color: #f4d80a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.invoice-section__title {
+  color: #f3dec6;
+  font-size: 1.45rem;
+  font-weight: 700;
+}
+
+.invoice-item-card__index {
+  color: #f3dec6;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.invoice-item-card__meta {
+  color: #b8b8bd;
+}
+
+.invoice-add-button,
+.invoice-remove-button {
+  min-height: 2.7rem;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.invoice-add-button {
+  background: #f4d80a;
+  color: #232327;
+}
+
+.invoice-remove-button {
+  background: transparent;
+  color: #f3dec6;
+  border-color: rgba(243, 222, 198, 0.18);
+}
+
+.invoice-add-button:hover,
+.invoice-remove-button:hover {
+  opacity: 0.92;
+}
+
+.invoice-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.invoice-stat {
+  padding: 1rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+}
+
+.invoice-stat__label {
+  color: #b8b8bd;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.invoice-stat__value {
+  color: #f3dec6;
+  font-size: 1.45rem;
+  font-weight: 700;
+}
+
+.invoice-total-panel {
+  padding: 1.1rem 1.2rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(244, 216, 10, 0.16), rgba(244, 216, 10, 0.04));
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.invoice-total-panel__label {
+  color: rgba(243, 222, 198, 0.82);
+  font-size: 0.92rem;
+}
+
+.invoice-total-panel__value {
+  color: #f4d80a;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.selling-label {
+  color: #f3dec6;
+  font-size: 0.96rem;
+  font-weight: 600;
+}
+
+.selling-control-input {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.72rem 1rem;
+  border: 1px solid #6a6a6f;
+  border-radius: 10px;
+  background: rgba(10, 10, 12, 0.18);
+  color: #f3dec6;
+  outline: none;
+}
+
+.selling-control-input::placeholder {
+  color: #b8b8bd;
+}
+
+.selling-control-input:focus {
+  border-color: #909096;
+}
+
+:host ::ng-deep .selling-control.p-select,
+:host ::ng-deep .selling-control.p-datepicker,
+:host ::ng-deep .selling-control.p-inputnumber {
+  width: 100%;
+}
+
+.native-autocomplete {
+  position: relative;
+}
+
+.native-autocomplete-loading {
+  margin-top: 0.35rem;
+  color: #b8b8bd;
+}
+
+.native-autocomplete-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  border: 1px solid #6a6a6f;
+  border-radius: 10px;
+  background: #343439;
+  z-index: 30;
+}
+
+.native-autocomplete-item {
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  color: #f3dec6;
+  cursor: pointer;
+}
+
+.native-autocomplete-item:hover {
+  background: #4b4b52;
+}
+
+:host ::ng-deep .selling-control.p-select {
+  min-height: 3rem;
+  border: 1px solid #6a6a6f;
+  border-radius: 10px;
+  background: rgba(10, 10, 12, 0.18);
+}
+
+:host ::ng-deep .selling-control.p-select .p-select-label {
+  color: #f3dec6;
+  padding: 0.72rem 1rem;
+}
+
+:host ::ng-deep .selling-control.p-select .p-select-dropdown {
+  color: #f3dec6;
+}
+
+:host ::ng-deep .selling-control.p-inputnumber input,
+:host ::ng-deep .selling-control.p-datepicker input {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.72rem 1rem;
+  border: 1px solid #6a6a6f;
+  border-radius: 10px;
+  background: rgba(10, 10, 12, 0.18);
+  color: #f3dec6;
+  outline: none;
+  box-shadow: none;
+}
+
+:host ::ng-deep .selling-control.p-datepicker .p-datepicker-dropdown {
+  color: #f3dec6;
+}
+
+:host ::ng-deep .selling-control.p-inputnumber input::placeholder,
+:host ::ng-deep .selling-control.p-datepicker input::placeholder {
+  color: #b8b8bd;
+}
+
+@media (max-width: 767px) {
+  .invoice-section,
+  .invoice-summary-card,
+  .invoice-item-card {
+    padding: 1rem;
+  }
+
+  .invoice-section__header,
+  .invoice-item-card__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .invoice-stat-grid {
+    grid-template-columns: 1fr;
+  }
+}

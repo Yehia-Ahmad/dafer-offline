@@ -1,0 +1,9 @@
+node_modules
+.env
+npm-debug.log*
+.mongo-data
+.codex
+# Firebase service-account credentials
+*firebase-adminsdk*.json
+firebase-service-account*.json
+secrets/

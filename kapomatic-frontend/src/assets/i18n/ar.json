@@ -1,0 +1,1304 @@
+{
+  "ProductTitle": "قائمة المنتجات",
+  "searchPlaceholder": "بحث ...",
+  "sidebarTitles": {
+    "mainitems": "العناصر الرئيسية",
+    "admins": "المشرفون",
+    "addAdmins": "إضافة مشرفين",
+    "showAdmins": "عرض المشرفين",
+    "products": "المنتجات",
+    "customers": "العملاء",
+    "selling": "البيع",
+    "credit_sales": "البيع الآجل",
+    "invoice_history": "سجل الفواتير",
+    "returns": "المرتجعات",
+    "profit_report": "تقرير الأرباح",
+    "ecommerce_settings": "إعدادات المتجر",
+    "website_images": "صور الموقع",
+    "export_products": "تصدير المنتجات",
+    "addProducts": "إضافة منتجات",
+    "showProducts": "عرض المنتجات",
+    "warranties": "الضمانات",
+    "categories": "الفئات",
+    "add_new_category": "اضافة فئة جديدة",
+    "backup": "النسخ الاحتياطي"
+
+  },
+  "actions": {
+    "save": "حفظ",
+    "creating": "جاري الإنشاء...",
+    "loading": "جاري التحميل...",
+    "cancelButton": "لا، إلغاء",
+    "deleteButton": "نعم، حذف"
+  },
+  "addProduct": "إضافة منتج",
+  "tableHeaders": {
+    "name": "الاسم",
+    "username": "اسم المستخدم",
+    "number": "الرقم",
+    "email": "البريد الإلكتروني",
+    "role": "الدور",
+    "product": "المنتج",
+    "model": "النموذج",
+    "invoice": "الفاتورة",
+    "remining": "المتبقي",
+    "expiry": "الانتهاء",
+    "type": "النوع",
+    "description": "الوصف",
+    "warranty": "الضمان",
+    "expiryDate": "تاريخ الانتهاء",
+    "actions": "الإجراءات"
+  },
+  "showQR": "عرض QR",
+  "delete": "حذف",
+  "qrCodesForProduct": "رموز QR للمنتج",
+  "printQRCode": "🖨️ طباعة رمز QR",
+  "copies": "نسخ",
+  "errors": {
+    "invalidProductId": "تم استلام معرف منتج غير صالح.",
+    "uniqueNameRequired": "يجب إدخال اسم فريد",
+    "errorMsgToShowProducts": "فشل تحميل المنتجات",
+    "genericError": "حدث خطأ ما.",
+    "fetchError": "خطأ في جلب بيانات المشرفين",
+    "notFound": "المشرف غير موجود",
+    "deleteError": "خطأ في حذف المشرف"
+  },
+  "product": {
+    "product": "المنتج",
+    "noDescription": "لا يوجد وصف متاح",
+    "newProduct": "منتج جديد",
+    "createNewProduct": "إنشاء منتج جديد",
+    "form": {
+      "name": "اسم المنتج",
+      "type": "نوع المنتج",
+      "warranty": "فترة الضمان",
+      "description": "وصف المنتج"
+    },
+    "actions": {
+      "creationSuccess": "تم إنشاء المنتج بنجاح!",
+      "backToList": "العودة إلى القائمة",
+      "saving": "جاري الحفظ...",
+      "saveButton": "حفظ المنتج"
+    }
+  },
+  "admin": {
+    "title": "المشرفون",
+    "createNewAdmin": "إنشاء مشرف جديد",
+    "form": {
+      "username": "اسم المستخدم",
+      "phone": "رقم الهاتف",
+      "email": "البريد الإلكتروني",
+      "password": "كلمة المرور",
+      "role": "الدور"
+    },
+    "roles": {
+      "admin": "مشرف",
+      "moderator": "مراقب"
+    },
+    "actions": {
+      "creating": "جاري الإنشاء...",
+      "createAdmin": "إنشاء مشرف",
+      "deleteSuccess": "تم حذف المشرف بنجاح"
+    },
+    "change_Button": "تغيير",
+    "remove_Button": "حذف",
+    "list_Title": "قائمة المشرفين",
+    "add_Button": "إضافة مشرف"
+  },
+  "category": {
+    "importExport": {
+      "toolsTitle": "أدوات الفئات",
+      "export": "تصدير الفئات",
+      "exporting": "جاري التصدير...",
+      "import": "استيراد الفئات",
+      "importing": "جاري الاستيراد...",
+      "template": "تنزيل القالب",
+      "generating": "جاري الإنشاء...",
+      "resultTitle": "نتيجة استيراد الفئات",
+      "importedCount": "تم الاستيراد",
+      "skippedCount": "تم التخطي",
+      "errors": "أخطاء الاستيراد",
+      "noErrors": "لا توجد أخطاء في الاستيراد"
+    },
+    "products": {
+      "loading": "جاري تحميل المزيد من المنتجات...",
+      "noMore": "لا توجد منتجات أخرى",
+      "retry": "إعادة المحاولة"
+    },
+    "add_new_category": "إضافة فئة جديدة",
+    "pressAddModel": "اضغط على إضافة نموذج",
+    "printQr": "لطباعة رموز الاستجابة السريعة",
+    "info": "لكل منتج. قم بتحرير المنتج فقط عندما يتم ترقيته لتغيير مواصفاته.",
+    "name": "اسم الفئة",
+    "namePlaceholder": "اسم الفئة",
+    "description": "وصف الفئة",
+    "descriptionPlaceholder": "وصف الفئة",
+    "specifications": {
+      "title": "المواصفات",
+      "addButton": "إضافة",
+      "rowNamePlaceholder": "اسم الوصف",
+      "valuePlaceholder": "ادخل القيمة",
+      "removeButton": "حذف"
+    },
+    "addProduct": {
+      "title": "إضافة منتج",
+      "productName": "اسم المنتج",
+      "code": "كود المنتج",
+      "inventoryCount": "عدد المخزون",
+      "wholesalePrice": "سعر الوحدة بالجملة",
+      "purchasePrice": "سعر الشراء",
+      "retailPrice": "سعر الوحدة بالتجزئة",
+      "soldItemCount": "عدد المبيعات",
+      "description":"وصف المنتج",
+      "category": "فئة المنتج",
+      "uploadImage": "تحميل صورة",
+      "changeImage": "تغيير صورة",
+      "actions": {
+        "save": "حفظ المنتج",
+        "creating": "جاري الإنشاء..."
+      }
+    },
+    "editProduct": {
+      "info": "تعديل تفاصيل المنتج",
+      "title": "تعديل المنتج",
+      "productName": "اسم المنتج",
+      "code": "كود المنتج",
+      "watt": "وات",
+      "lumen": "لومن",
+      "inventoryCount": "عدد المخزون",
+      "newInventory": "المخزون الجديد",
+      "wholesalePrice": "سعر الوحدة بالجملة",
+      "purchasePrice": "سعر الشراء",
+      "retailPrice": "سعر الوحدة بالتجزئة",
+      "discountPercentage": "نسبة الخصم",
+      "soldItemCount": "عدد المبيعات",
+      "description":"وصف المنتج",
+      "category": "فئة المنتج",
+      "uploadImage": "تحميل صورة",
+      "changeImage": "تغيير صورة",
+      "actions": {
+        "save": "حفظ المنتج",
+        "syncPurchasePrice": "تعديل سعر البيع",
+        "creating": "جاري الإنشاء...",
+        "deleteButton": "حذف المنتج"
+      },
+      "syncPurchasePrice": {
+        "title": "تعديل سعر البيع",
+        "dateFrom": "من تاريخ",
+        "dateTo": "إلى تاريخ",
+        "cancel": "إلغاء",
+        "save": "حفظ"
+      }
+    },
+    "deleteProduct": {
+      "title": "حذف المنتج",
+      "deleteMessage": "هل تريد حذف المنتج؟",
+      "actions": {
+        "deleteButton": "حذف المنتج",
+        "cancelButton": "إالغاء"
+      }
+    },
+    "addModel": {
+      "title": "إضافة نموذج",
+      "forProduct": "للمنتج",
+      "model": "نموذج",
+      "modelPlaceholder": "اسم النموذج",
+      "quantity": "الكمية",
+      "quantityPlaceholder": "الكمية",
+      "actions": {
+        "createQRs": "انشاء رموز QR",
+        "creating": "جاري الإنشاء...",
+        "createModel": "إنشاء نموذج",
+        "deleteSuccess": "تم حذف النموذج بنجاح"
+      }
+    },
+    "qrCodes": {
+      "title": "رموز QR للنماذج"
+    },
+    "actions": {
+      "creating": "جاري الإنشاء...",
+      "createCategory": "إنشاء فئة",
+      "deleteSuccess": "تم حذف الفئة بنجاح"
+    },
+    "addButton": "إضافة فئة",
+    "listTitle": "قائمة الفئات",
+    "edit_category_title": "تعديل الفئة",
+    "delete_category_title": "حذف الفئة",
+    "delete_category_message": "هل تريد حذف هذه الفئة؟",
+    "cancel_button": "لا، إلغاء",
+    "delete_button": "نعم، احذف",
+    "saveButton": "حفظ الفئة",
+    "updateButton": "تحديث الفئة",
+    "isSaving": "جاري الحفظ...",
+    "deleteButton": "حذف",
+    "changeButton": "تغيير"
+  },
+  "validationForm": {
+    "name": "الاسم",
+    "phone": "الهاتف",
+    "shopName": "اسم المتجر",
+    "shopNumber": "رقم المتجر",
+    "purchaseDate": "تاريخ الشراء",
+    "invoicePhoto": "صورة الفاتورة",
+    "userInfo": "معلومات المستخدم",
+    "invoiceInfo": "معلومات الفاتورة",
+    "browsePhoto": "تصفح الصورة"
+  },
+  "warrant": {
+    "oklandWarranty": "ضمان شركة أوكلاند",
+    "expiresOn": "ينتهي الضمان في",
+    "activate": "تفعيل الضمان",
+    "success": "تم تفعيل الضمان بنجاح!",
+    "failure": "فشل تفعيل الضمان",
+    "validation": "يجب رفع صورة الفاتورة مع إظهار التاريخ لتفعيل الضمان"
+  },
+  "upload": {
+    "uploading": "جاري الرفع...",
+    "complete": "تم الرفع بنجاح"
+  },
+  "showWarranty": "عرض الضمان",
+  "viewAllWarranties": "عرض جميع الضمانات",
+  "warranty": {
+    "title": "لوحة تحكم الضمان",
+    "invoicePhoto": "صورة الفاتورة",
+    "productName": "اسم المنتج",
+    "modal": "نوع المنتج",
+    "expiresOn": "تاريخ انتهاء الضمان",
+    "deleteWarranty": {
+      "title": "حذف الضمان",
+      "deleteMessage": "هل تريد حذف هذا الضمان؟",
+      "warrantyExpiries": "ينتهي الضمان في",
+      "actions": {
+        "deleteButton": "نعم، احذف",
+        "cancelButton": "لا، إلغاء"
+      }
+    },
+    "activateWarranty": {
+      "userInformation": "معلومات المستخدم",
+      "fullName": "الاسم الكامل",
+      "phoneNumber": "رقم الهاتف",
+      "invoiceInformation": "معلومات الفاتورة",
+      "branchName": "اسم الفرع",
+      "branchNumber": "رقم الفرع",
+      "uploadPhoto": "تحميل الصورة",
+      "photoInfo": "يجب تحميل صورة الفاتورة ببيانات واضحة لتفعيل الضمان",
+      "actions": {
+        "activate": "تفعيل الضمان"
+      }
+    }
+  },
+  "home": {
+    "title": "نظام المخزون",
+    "subtitle": "اختر القسم الذي تريد المتابعة إليه",
+    "cards": {
+      "inventory": {
+        "title": "المخزون",
+        "description": "إدارة عمليات المخزون."
+      },
+      "products": {
+        "title": "المنتجات",
+        "description": "الانتقال إلى صفحات البيع وسجل الفواتير."
+      },
+      "customers": {
+        "title": "العملاء",
+        "description": "إنشاء وإدارة بيانات العملاء."
+      },
+      "ecommerceSettings": {
+        "title": "إعدادات المتجر",
+        "description": "تحكم في ظهور الفئات والمنتجات والفلاتر على الموقع."
+      },
+      "websiteOrders": {
+        "title": "طلبات الموقع",
+        "description": "مراجعة وتأكيد واسترجاع طلبات الموقع."
+      },
+      "selling": {
+        "title": "البيع",
+        "description": "فتح صفحة البيع."
+      },
+      "creditSales": {
+        "title": "البيع الآجل",
+        "description": "فتح مساحة عمل البيع بالتقسيط."
+      },
+      "invoiceHistory": {
+        "title": "سجل الفواتير",
+        "description": "فتح صفحة سجل الفواتير."
+      }
+    },
+    "pages": {
+      "inventoryReady": "صفحة المخزون جاهزة.",
+      "sellingReady": "صفحة البيع جاهزة.",
+      "invoiceHistoryReady": "صفحة سجل الفواتير جاهزة."
+    },
+    "actions": {
+      "back": "رجوع",
+      "resetView": "إعادة العرض"
+    }
+  },
+  "websiteOrders": {
+    "title": "طلبات الموقع",
+    "subtitle": "راجع طلبات الشراء من الموقع وحوّل الطلبات المعلقة إلى فواتير بيع.",
+    "tabs": {
+      "label": "تصفية طلبات الموقع حسب الحالة",
+      "all": "كل الطلبات",
+      "pending": "المعلقة",
+      "accepted": "المقبولة",
+      "refunded": "المسترجعة"
+    },
+    "columns": {
+      "order": "الطلب",
+      "status": "الحالة",
+      "paymentMethod": "طريقة الدفع",
+      "customer": "العميل",
+      "phone": "الهاتف",
+      "location": "الموقع",
+      "date": "التاريخ",
+      "quantity": "الكمية",
+      "total": "الإجمالي",
+      "invoice": "الفاتورة",
+      "actions": "الإجراءات"
+    },
+    "status": {
+      "pending": "معلق",
+      "accepted": "مقبول",
+      "refunded": "مسترجع"
+    },
+    "paymentMethods": {
+      "cash": "كاش",
+      "wallet": "محفظة إلكترونية",
+      "e_wallet": "محفظة إلكترونية",
+      "instapay": "إنستا باي"
+    },
+    "actions": {
+      "refresh": "تحديث",
+      "confirm": "تأكيد",
+      "refund": "استرجاع",
+      "viewTransfer": "عرض التحويل",
+      "showItems": "عرض المنتجات",
+      "hideItems": "إخفاء المنتجات"
+    },
+    "itemLabels": {
+      "quantity": "الكمية",
+      "unitPrice": "الوحدة",
+      "total": "الإجمالي"
+    },
+    "pagination": {
+      "range": "{{start}}-{{end}} من {{total}}",
+      "previous": "السابق",
+      "next": "التالي"
+    },
+    "messages": {
+      "empty": "لا توجد طلبات من الموقع.",
+      "noItems": "لا توجد منتجات لهذا الطلب.",
+      "loadFailed": "فشل تحميل طلبات الموقع.",
+      "confirmFailed": "فشل تأكيد طلب الموقع.",
+      "refundFailed": "فشل استرجاع طلب الموقع."
+    },
+    "confirmDialog": {
+      "title": "تأكيد طلب الموقع",
+      "message": "سيتم إنشاء فاتورة بيع مرتبطة بطلب الموقع المحدد.",
+      "confirmInventory": "إضافة الكميات الناقصة تلقائياً إذا كان المخزون غير كافٍ."
+    },
+    "refundDialog": {
+      "title": "استرجاع طلب الموقع",
+      "message": "تغيير حالة طلب الموقع إلى مسترجع.",
+      "notePlaceholder": "أضف ملاحظة للاسترجاع"
+    },
+    "transferDialog": {
+      "title": "تفاصيل التحويل",
+      "phone": "هاتف التحويل",
+      "imageAlt": "صورة التحويل",
+      "noImage": "لا توجد صورة تحويل.",
+      "close": "إغلاق"
+    }
+  },
+  "websiteImages": {
+    "eyebrow": "محتوى الموقع",
+    "title": "صور الموقع",
+    "subtitle": "إدارة الصور الترويجية والمنتجات المستهدفة بها.",
+    "columns": {
+      "preview": "معاينة الصورة",
+      "title": "العنوان",
+      "targetType": "نوع الاستهداف",
+      "status": "الحالة",
+      "createdAt": "تاريخ الإنشاء",
+      "actions": "الإجراءات"
+    },
+    "targetTypes": {
+      "category": "فئة",
+      "product": "منتج",
+      "both": "الفئة والمنتج",
+      "price": "السعر",
+      "specification": "المواصفة",
+      "viewOnly": "عرض فقط"
+    },
+    "status": {
+      "active": "نشط",
+      "inactive": "غير نشط"
+    },
+    "actions": {
+      "add": "إضافة صورة للموقع",
+      "edit": "تعديل",
+      "delete": "حذف",
+      "previewProducts": "معاينة المنتجات",
+      "chooseImage": "اختيار صورة",
+      "changeImage": "تغيير الصورة",
+      "cancel": "إلغاء",
+      "save": "حفظ",
+      "saving": "جاري الحفظ...",
+      "deleting": "جاري الحذف...",
+      "addSpecification": "إضافة مواصفة",
+      "removeSpecification": "إزالة"
+    },
+    "form": {
+      "addTitle": "إضافة صورة للموقع",
+      "editTitle": "تعديل صورة الموقع",
+      "title": "العنوان",
+      "image": "الصورة",
+      "targetType": "نوع الاستهداف",
+      "categories": "الفئات",
+      "products": "المنتجات",
+      "maxPrice": "الحد الأقصى للسعر",
+      "specificationFilters": "فلاتر المواصفات",
+      "specificationName": "اسم المواصفة",
+      "specificationValues": "القيم",
+      "viewOnly": "عرض فقط",
+      "active": "نشط",
+      "optional": "اختياري",
+      "selectCategories": "اختر الفئات",
+      "selectProducts": "اختر المنتجات",
+      "selectSpecificationName": "اختر المواصفة",
+      "selectSpecificationValues": "اختر قيمة واحدة أو أكثر",
+      "selectCategoriesFirst": "اختر فئة واحدة أو أكثر لتحميل المنتجات.",
+      "selectCategoriesForSpecifications": "اختر فئة واحدة أو أكثر لتحميل مواصفاتها.",
+      "loadingSpecifications": "جاري تحميل المواصفات...",
+      "noSpecifications": "لا توجد مواصفات بقيم متاحة للفئات المحددة.",
+      "priceCategoryHint": "اترك الفئات فارغة لاستهداف المنتجات في جميع الفئات.",
+      "specificationHint": "يجب أن يتطابق كل صف، وتكفي مطابقة أي قيمة عند اختيار عدة قيم داخل الصف."
+    },
+    "validation": {
+      "titleRequired": "العنوان مطلوب.",
+      "imageRequired": "الصورة مطلوبة عند إنشاء صورة جديدة للموقع.",
+      "categoriesRequired": "اختر فئة واحدة على الأقل.",
+      "productsRequired": "اختر منتجًا واحدًا على الأقل.",
+      "maxPriceRequired": "أدخل حدًا أقصى للسعر يساوي صفرًا أو أكثر.",
+      "specificationFiltersRequired": "أضف فلتر مواصفة واحدًا على الأقل.",
+      "specificationNameRequired": "اختر اسم المواصفة.",
+      "specificationValuesRequired": "اختر قيمة واحدة على الأقل."
+    },
+    "delete": {
+      "title": "حذف صورة الموقع",
+      "message": "حذف"
+    },
+    "preview": {
+      "title": "المنتجات المطابقة",
+      "image": "صورة المنتج",
+      "name": "الاسم",
+      "code": "الكود",
+      "category": "الفئة",
+      "retailPrice": "سعر التجزئة",
+      "priceAfterDiscount": "السعر بعد الخصم",
+      "empty": "لا توجد منتجات مطابقة لقواعد استهداف هذه الصورة."
+    },
+    "messages": {
+      "empty": "لم تتم إضافة صور للموقع."
+    }
+  },
+  "ecommerceSettings": {
+    "eyebrow": "كتالوج الموقع",
+    "title": "إعدادات المتجر",
+    "subtitle": "اختر الفئات التي تظهر على الموقع وحدد المنتجات ومجموعات المنتجات الديناميكية داخل كل فلتر.",
+    "sections": {
+      "categories": "الفئات",
+      "shipping": "الشحن"
+    },
+    "categories": "الفئات",
+    "categorySettings": "إعدادات الفئة",
+    "showOnWebsite": "إظهار الفئة على الموقع",
+    "hiddenHint": "هذه الفئة مخفية من الموقع. قم بتفعيلها لاختيار المنتجات وحقول العرض والفلاتر.",
+    "status": {
+      "visible": "ظاهرة",
+      "hidden": "مخفية"
+    },
+    "products": {
+      "title": "المنتجات المعروضة داخل هذه الفئة",
+      "count": "منتجات",
+      "selectAll": "تحديد الكل"
+    },
+    "specifications": {
+      "title": "قيم فلاتر الفئة",
+      "subtitle": "القيم الفريدة المحسوبة من مواصفات منتجات هذه الفئة.",
+      "emptyValues": "لا توجد قيم بعد"
+    },
+    "filters": {
+      "title": "الفلاتر",
+      "add": "إضافة فلتر",
+      "itemTitle": "عنوان الفلتر",
+      "visible": "ظاهر",
+      "products": "المنتجات داخل هذا الفلتر",
+      "options": "خيارات الفلتر",
+      "optionsHint": "يتم إنشاء عناوين الفلاتر وخياراتها من فلاتر الفئة.",
+      "emptyOptions": "لا توجد خيارات بعد"
+    },
+    "shipping": {
+      "eyebrow": "إعدادات الشحن",
+      "navigationTitle": "صفحات الشحن",
+      "general": {
+        "title": "الإعدادات العامة",
+        "subtitle": "حدد قيمة السلة التي تؤهل الطلب للحصول على شحن مجاني.",
+        "freeShippingMinimumAmount": "الحد الأدنى للشحن المجاني",
+        "freeShippingMinimumAmountRequired": "الحد الأدنى للشحن المجاني يجب أن يكون صفر أو أكثر."
+      },
+      "governments": {
+        "title": "رسوم الشحن حسب المحافظة",
+        "subtitle": "أضف كل محافظة ورسوم الشحن الخاصة بها. الحفظ يستبدل قائمة رسوم المحافظات بالكامل.",
+        "addGovernment": "إضافة محافظة",
+        "government": "المحافظة",
+        "governmentPlaceholder": "القاهرة",
+        "shippingFees": "رسوم الشحن",
+        "governmentRequired": "اسم المحافظة مطلوب.",
+        "shippingFeesRequired": "رسوم الشحن يجب أن تكون صفر أو أكثر.",
+        "remove": "حذف"
+      }
+    },
+    "currency": {
+      "title": "عملة الموقع",
+      "subtitle": "حدد العملة المستخدمة لعرض الأسعار على الموقع.",
+      "label": "رمز العملة",
+      "placeholder": "EGP",
+      "invalid": "أدخل رمز عملة صحيحًا مكونًا من ثلاثة أحرف، مثل EGP أو USD."
+    },
+    "websiteGeneral": {
+      "eyebrow": "إعدادات الموقع",
+      "title": "هوية المتجر وبيانات التواصل",
+      "subtitle": "إدارة شعار الموقع واللون الرئيسي ومواقع الفروع وروابط التواصل الاجتماعي.",
+      "required": "هذا الحقل مطلوب.",
+      "validUrl": "أدخل رابطًا صحيحًا يبدأ بـ http:// أو https://.",
+      "remove": "حذف",
+      "logo": {
+        "label": "الشعار الرئيسي",
+        "choose": "اختيار الشعار",
+        "hint": "اختر صورة ليتم حفظها كشعار رئيسي للموقع.",
+        "previewAlt": "معاينة الشعار الرئيسي"
+      },
+      "mainColor": {
+        "label": "اللون الرئيسي",
+        "placeholder": "#F4D80A",
+        "invalid": "أدخل لونًا سداسيًا صحيحًا مكونًا من ست خانات."
+      },
+      "walletPhone": {
+        "label": "رقم المحفظة",
+        "placeholder": "+201234567890",
+        "invalid": "أدخل رقم محفظة صحيحًا."
+      },
+      "instapayLink": {
+        "label": "رابط إنستا باي",
+        "placeholder": "https://ipn.eg/S/example",
+        "invalid": "أدخل رابط إنستا باي صحيحًا يبدأ بـ http:// أو https://."
+      },
+      "locations": {
+        "title": "مواقع الفروع",
+        "subtitle": "أضف اسم وعنوان ورابط خريطة كل فرع.",
+        "add": "إضافة موقع فرع",
+        "name": "اسم الفرع",
+        "detailedLocation": "العنوان بالتفصيل",
+        "mapLink": "رابط الخريطة",
+        "empty": "لم تتم إضافة مواقع فروع."
+      },
+      "social": {
+        "title": "روابط التواصل الاجتماعي",
+        "subtitle": "أضف منصة التواصل ورابط الصفحة العامة الخاص بها. استخدم رقم هاتف لواتساب.",
+        "add": "إضافة رابط تواصل",
+        "name": "اسم المنصة",
+        "link": "رابط الصفحة",
+        "whatsappPhone": "رقم واتساب",
+        "validWhatsappPhone": "أدخل رقم واتساب صحيحًا أو رابط واتساب صحيحًا.",
+        "empty": "لم تتم إضافة روابط تواصل اجتماعي."
+      }
+    },
+    "homePageCategories": {
+      "tabTitle": "فئات الصفحة الرئيسية",
+      "eyebrow": "إعدادات الصفحة الرئيسية",
+      "title": "الفئات المعروضة",
+      "subtitle": "اختر الفئات النشطة المعروضة في الصفحة الرئيسية للموقع وحدد ترتيب ظهورها.",
+      "availableTitle": "الفئات النشطة",
+      "availableHint": "اختر فئة لإضافتها إلى الصفحة الرئيسية.",
+      "selectedTitle": "ترتيب الصفحة الرئيسية",
+      "orderHint": "استخدم أزرار الأسهم للتحكم في ترتيب العرض.",
+      "noActiveCategories": "لا توجد فئات نشطة متاحة.",
+      "emptySelection": "لم يتم اختيار فئات للصفحة الرئيسية.",
+      "moveUp": "نقل الفئة لأعلى",
+      "moveDown": "نقل الفئة لأسفل",
+      "remove": "إزالة الفئة"
+    },
+    "actions": {
+      "reset": "إعادة تعيين"
+    }
+  },
+  "sellingPage": {
+    "fields": {
+      "invoiceDetails": "تفاصيل الفاتورة",
+      "customerInformation": "بيانات العميل",
+      "invoiceProducts": "منتجات الفاتورة",
+      "invoiceProduct": "بند المنتج",
+      "searchProduct": "بحث عن كود المنتج",
+      "searchCustomer": "بحث عن العميل",
+      "selectProduct": "اختيار المنتج",
+      "productName": "اسم المنتج",
+      "categoryName": "اسم الفئة",
+      "priceType": "نوع السعر",
+      "price": "السعر",
+      "lineTotal": "إجمالي البند",
+      "customerName": "اسم العميل",
+      "customerPhone": "رقم هاتف العميل",
+      "sellingDate": "تاريخ البيع",
+      "productQuantity": "كمية المنتج",
+      "productsCount": "عدد المنتجات",
+      "totalQuantity": "إجمالي الكمية",
+      "subtotal": "الإجمالي الفرعي",
+      "discountPercentage": "نسبة الخصم",
+      "discountAmount": "قيمة الخصم",
+      "shippingFees": "رسوم الشحن",
+      "invoiceSummary": "ملخص الفاتورة",
+      "totalInvoicePrice": "إجمالي قيمة الفاتورة"
+    },
+    "priceTypeOptions": {
+      "wholesalePrice": "سعر الجملة",
+      "retailPrice": "سعر التجزئة",
+      "custom": "مخصص"
+    },
+    "placeholders": {
+      "searchProduct": "أدخل كود المنتج (مثل WM-001)",
+      "searchCustomer": "ابحث باسم العميل أو رقم الهاتف",
+      "selectProduct": "اختر المنتج من النتائج",
+      "selectPriceType": "اختر نوع السعر"
+    },
+    "actions": {
+      "search": "بحث",
+      "searching": "جاري البحث...",
+      "addProduct": "إضافة منتج",
+      "removeProduct": "حذف",
+      "clearProduct": "مسح",
+      "createSelling": "حفظ الفاتورة",
+      "saving": "جارٍ حفظ الفاتورة..."
+    },
+    "messages": {
+      "noProductFound": "لم يتم العثور على منتج بهذا الكود.",
+      "noCustomerFound": "لم يتم العثور على عميل بهذه البيانات.",
+      "searchFailed": "فشل البحث عن المنتج.",
+      "customerSearchFailed": "فشل البحث عن العميل.",
+      "createdSuccess": "تم حفظ الفاتورة بنجاح.",
+      "createFailed": "فشل حفظ الفاتورة."
+    },
+    "inventoryConfirmation": {
+      "title": "الكمية المتاحة غير كافية",
+      "message": "بعض المنتجات لا تحتوي على مخزون كافٍ. عند المتابعة ستتم إضافة الكميات الناقصة وإكمال عملية البيع.",
+      "requested": "المطلوب",
+      "available": "المتاح",
+      "missing": "الناقص",
+      "cancel": "إلغاء",
+      "proceed": "متابعة"
+    }
+  },
+  "creditSalePage": {
+    "title": "البيع الآجل",
+    "subtitle": "جهز فاتورة البيع الآجل للعميل وأضف الأصناف وسجل الدفعة المقدمة قبل الحفظ.",
+    "fields": {
+      "accountProfile": "ملف الحساب",
+      "customerInformation": "بيانات العميل",
+      "searchCustomer": "بحث عن العميل",
+      "customerName": "اسم العميل",
+      "customerPhone": "رقم هاتف العميل",
+      "customerAddress": "عنوان العميل",
+      "nationalId": "الرقم القومي",
+      "saleDate": "تاريخ البيع",
+      "guarantorName": "اسم الضامن",
+      "guarantorPhone": "هاتف الضامن",
+      "notes": "ملاحظات داخلية",
+      "termsEyebrow": "شروط الائتمان",
+      "creditTerms": "شروط السداد",
+      "repaymentPlan": "خطة السداد",
+      "installmentsCount": "عدد الأقساط",
+      "firstInstallmentDate": "تاريخ أول قسط",
+      "downPayment": "الدفعة المقدمة",
+      "markupRate": "نسبة الزيادة",
+      "creditLimit": "حد الائتمان",
+      "approvalStatus": "حالة الاعتماد",
+      "basketEyebrow": "سلة الائتمان",
+      "creditItems": "أصناف البيع الآجل",
+      "basketItem": "بند",
+      "searchProduct": "بحث عن المنتج",
+      "productName": "اسم المنتج",
+      "itemName": "اسم الصنف",
+      "itemCode": "كود الصنف",
+      "categoryName": "الفئة",
+      "unitPrice": "سعر الوحدة",
+      "quantity": "الكمية",
+      "lineTotal": "إجمالي البند",
+      "snapshotEyebrow": "ملخص السداد",
+      "repaymentSnapshot": "ملخص العملية",
+      "productsCount": "عدد الأصناف",
+      "totalQuantity": "إجمالي الكمية",
+      "subtotal": "الإجمالي الفرعي",
+      "discountPercentage": "نسبة الخصم",
+      "discountAmount": "قيمة الخصم",
+      "shippingFees": "رسوم الشحن",
+      "financedAmount": "المبلغ المتبقي",
+      "markupValue": "قيمة الزيادة",
+      "totalReceivable": "إجمالي المستحق",
+      "installmentAmount": "قيمة القسط",
+      "remainingLimit": "المتبقي من الحد",
+      "schedulePreview": "جدول الأقساط",
+      "perInstallment": "لكل قسط:",
+      "installment": "القسط",
+      "dueDate": "تاريخ آخر استحقاق"
+    },
+    "planOptions": {
+      "weekly": "أسبوعي",
+      "biweekly": "كل أسبوعين",
+      "monthly": "شهري"
+    },
+    "approvalStatusOptions": {
+      "pending": "بانتظار الاعتماد",
+      "review": "قيد المراجعة",
+      "approved": "معتمد"
+    },
+    "placeholders": {
+      "searchCustomer": "ابحث باسم العميل أو رقم الهاتف",
+      "customerAddress": "اكتب عنوان العميل وملاحظات التسليم",
+      "nationalId": "أدخل الرقم القومي أو الرقم الضريبي",
+      "guarantorName": "أدخل الاسم الكامل للضامن",
+      "guarantorPhone": "أدخل رقم هاتف الضامن",
+      "notes": "أضف ملاحظات التحصيل أو الضمانات أو تعليقات الاعتماد",
+      "searchProduct": "ابحث بكود المنتج أو الاسم",
+      "itemName": "أدخل اسم المنتج أو الباقة",
+      "itemCode": "كود داخلي / SKU"
+    },
+    "actions": {
+      "searching": "جاري البحث...",
+      "addItem": "إضافة بند",
+      "removeItem": "حذف البند",
+      "clearItem": "مسح البند",
+      "createCreditSale": "حفظ البيع الآجل",
+      "savingCreditSale": "جارٍ حفظ البيع الآجل...",
+      "reviewCreditSale": "مراجعة العملية",
+      "resetDraft": "إعادة تعيين"
+    },
+    "messages": {
+      "limitExceeded": "هذه العملية تتجاوز حد الائتمان المحدد وتحتاج إلى اعتماد يدوي.",
+      "completeRequired": "أكمل بيانات العميل والأصناف المطلوبة قبل مراجعة عملية البيع الآجل.",
+      "downPaymentExceeded": "لا يمكن أن تكون الدفعة المقدمة أكبر من إجمالي المستحق.",
+      "noProductFound": "لم يتم العثور على منتج لهذا البحث.",
+      "noCustomerFound": "لم يتم العثور على عميل لهذا البحث.",
+      "searchFailed": "فشل البحث عن المنتج.",
+      "customerSearchFailed": "فشل البحث عن العميل.",
+      "createdSuccess": "تم حفظ عملية البيع الآجل بنجاح.",
+      "createFailed": "فشل حفظ عملية البيع الآجل."
+    },
+    "dialog": {
+      "eyebrow": "مراجعة",
+      "title": "ملف الائتمان جاهز",
+      "subtitle": "استخدم هذا الملخص لتأكيد بيانات العميل وتاريخ البيع والمبلغ المتبقي قبل الحفظ.",
+      "close": "إغلاق المراجعة"
+    }
+  },
+  "invoiceHistoryPage": {
+    "filters": {
+      "categoryId": "معرف الفئة",
+      "productId": "معرف المنتج",
+      "customerName": "اسم العميل",
+      "customerPhone": "رقم هاتف العميل",
+      "sellingDate": "تاريخ البيع",
+      "placeholders": {
+        "categoryId": "اختر الفئة",
+        "productId": "اختر المنتج",
+        "customerName": "أدخل اسم العميل",
+        "customerPhone": "أدخل رقم هاتف العميل"
+      },
+      "actions": {
+        "apply": "تطبيق",
+        "reset": "إعادة تعيين"
+      }
+    },
+    "tableHeaders": {
+      "index": "#",
+      "invoiceNumber": "رقم الفاتورة",
+      "product": "اسم المنتج",
+      "items": "الأصناف",
+      "itemCount": "عدد الأصناف",
+      "category": "اسم الفئة",
+      "customer": "اسم العميل",
+      "customerPhone": "رقم هاتف العميل",
+      "date": "التاريخ",
+      "quantity": "الكمية",
+      "totalQuantity": "إجمالي الكمية",
+      "discountAmount": "قيمة الخصم",
+      "discountPercentage": "نسبة الخصم",
+      "shippingFees": "رسوم الشحن",
+      "unitPrice": "سعر القطعة",
+      "totalPrice": "إجمالي الفاتورة",
+      "action": "إجراء"
+    },
+    "actions": {
+      "downloadInvoice": "تنزيل الفاتورة",
+      "createReturn": "إرجاع أصناف"
+    },
+    "returnDialog": {
+      "title": "إنشاء مرتجع نقدي",
+      "subtitle": "حدد الكميات المرتجعة. ستتم إعادة المخزون دون حذف الفاتورة.",
+      "returnDate": "تاريخ المرتجع",
+      "note": "ملاحظة",
+      "notePlaceholder": "أضف ملاحظة اختيارية للمرتجع",
+      "items": "الأصناف المرتجعة",
+      "available": "المتاح",
+      "reason": "سبب المرتجع",
+      "returnAll": "إرجاع الكل",
+      "clear": "مسح",
+      "selectionRequired": "اختر كمية لصنف واحد على الأقل."
+    },
+    "messages": {
+      "deleteConfirm": "هل تريد حذف هذه الفاتورة؟",
+      "deleteInventoryWarning": "سيتم حذف سجل الفاتورة فقط. استخدم إرجاع الأصناف لإعادة الكميات إلى المخزون.",
+      "deleteFailed": "فشل حذف الفاتورة.",
+      "empty": "لا توجد فواتير.",
+      "invoiceWindowBlocked": "يرجى السماح بالنوافذ المنبثقة لفتح الفاتورة وحفظها.",
+      "invoiceDownloadFailed": "فشل فتح الفاتورة.",
+      "returnFailed": "فشل إنشاء المرتجع."
+    }
+  },
+  "profitReportPage": {
+    "title": "تقرير أرباح المنتجات",
+    "subtitle": "راجع أرباح جميع المنتجات وافتح تفاصيل الفواتير عند اختيار أي صف.",
+    "filters": {
+      "categoryId": "الفئة",
+      "productId": "المنتج",
+      "dateFrom": "من تاريخ",
+      "dateTo": "إلى تاريخ",
+      "placeholders": {
+        "categoryId": "اختر الفئة",
+        "productId": "اختر المنتج"
+      },
+      "actions": {
+        "apply": "تطبيق",
+        "reset": "إعادة تعيين"
+      }
+    },
+    "export": {
+      "year": "السنة",
+      "yearPlaceholder": "أدخل السنة",
+      "action": "تصدير PDF"
+    },
+    "tableHeaders": {
+      "index": "#",
+      "productName": "اسم المنتج",
+      "categoryName": "اسم الفئة",
+      "totalProfit": "قيمة الربح",
+      "lastSellingDate": "آخر تاريخ بيع",
+      "lastSellingPrice": "آخر سعر بيع",
+      "invoices": "الفواتير"
+    },
+    "invoiceTypes": {
+      "selling": "بيع نقدي",
+      "creditSale": "بيع آجل",
+      "unknown": "غير معروف"
+    },
+    "dialog": {
+      "title": "تفاصيل الفواتير",
+      "sellingPrice": "سعر البيع",
+      "purchasePrice": "سعر الشراء",
+      "quantity": "الكمية",
+      "profit": "الربح",
+      "customerName": "العميل"
+    },
+    "messages": {
+      "empty": "لا توجد صفوف أرباح للمنتجات.",
+      "noInvoices": "لا توجد فواتير مرتبطة.",
+      "loadFailed": "فشل تحميل تقرير أرباح المنتجات."
+    }
+  },
+  "customerPage": {
+    "title": "العملاء",
+    "subtitle": "حفظ وإدارة أسماء العملاء وأرقام هواتفهم.",
+    "searchPlaceholder": "ابحث باسم العميل أو رقم الهاتف",
+    "listTitle": "قائمة العملاء",
+    "count": "عميل",
+    "loading": "جارٍ تحميل العملاء...",
+    "empty": "لا يوجد عملاء.",
+    "form": {
+      "addTitle": "إضافة عميل",
+      "editTitle": "تعديل العميل",
+      "name": "اسم العميل",
+      "phone": "رقم الهاتف",
+      "placeholders": {
+        "name": "أدخل اسم العميل",
+        "phone": "أدخل رقم هاتف العميل"
+      },
+      "validation": {
+        "name": "اسم العميل مطلوب.",
+        "phone": "رقم هاتف العميل مطلوب."
+      }
+    },
+    "actions": {
+      "search": "بحث",
+      "reset": "إعادة تعيين",
+      "create": "حفظ العميل",
+      "update": "تحديث العميل",
+      "cancelEdit": "إلغاء التعديل",
+      "viewDetails": "التفاصيل",
+      "edit": "تغيير",
+      "delete": "حذف",
+      "deleteWithRestore": "حذف واسترجاع المنتجات",
+      "deleteWithoutRestore": "حذف بيانات العميل فقط"
+    },
+    "messages": {
+      "deleteTitle": "حذف العميل",
+      "deleteConfirm": "هل تريد حذف هذا العميل؟",
+      "restoreCreditInvoicesTitle": "استرجاع فواتير الآجل؟",
+      "restoreCreditInvoicesConfirm": "هذا العميل لديه فواتير بيع آجل مدفوعة بالكامل فقط. اختر هل تريد استرجاع منتجات الفواتير إلى المخزون قبل حذف بيانات العميل.",
+      "relatedCreditInvoices": "فواتير الآجل المرتبطة"
+    }
+  },
+  "customerDetailsPage": {
+    "title": "تفاصيل العميل",
+    "subtitle": "مراجعة بيانات العميل وجميع فواتير البيع الآجل الخاصة به.",
+    "labels": {
+      "profile": "بيانات العميل",
+      "customerId": "معرّف العميل",
+      "createdAt": "تاريخ الإنشاء",
+      "updatedAt": "تاريخ التحديث",
+      "lastCashSaleDate": "آخر بيع نقدي",
+      "lastCreditSaleDate": "آخر بيع آجل",
+      "lastCreditSalePaymentDate": "آخر دفعة بيع آجل",
+      "statusBreakdown": "ملخص حالات المديونية",
+      "notAvailable": "غير متوفر",
+      "overdue": "متأخر"
+    },
+    "summary": {
+      "totalInvoices": "إجمالي الفواتير",
+      "openInvoices": "الفواتير المفتوحة",
+      "totalCredit": "إجمالي المديونية",
+      "paidAmount": "المبلغ المدفوع",
+      "remainingAmount": "المبلغ المتبقي",
+      "pendingInvoices": "فواتير معلقة",
+      "partiallyPaidInvoices": "مدفوع جزئياً",
+      "paidInvoices": "فواتير مسددة",
+      "overdueInvoices": "فواتير متأخرة",
+      "dueSoonInvoices": "مستحقة قريباً"
+    },
+    "history": {
+      "title": "سجل البيع الآجل",
+      "subtitle": "جميع فواتير البيع الآجل المرتبطة بهذا العميل.",
+      "count": "فاتورة",
+      "empty": "لا توجد فواتير بيع آجل لهذا العميل.",
+      "sellingDate": "تاريخ البيع",
+      "dueDate": "تاريخ الاستحقاق",
+      "items": "الأصناف / الكمية",
+      "products": "الأصناف",
+      "payments": "الدفعات",
+      "paymentsCount": "عدد الدفعات",
+      "paymentDate": "تاريخ الدفع",
+      "quantity": "الكمية",
+      "unitPrice": "سعر الوحدة",
+      "totalPrice": "إجمالي الفاتورة",
+      "discountAmount": "قيمة الخصم",
+      "discountPercentage": "نسبة الخصم",
+      "shippingFees": "رسوم الشحن",
+      "paidAmount": "المدفوع",
+      "remainingAmount": "المتبقي",
+      "notes": "ملاحظات"
+    },
+    "status": {
+      "pending": "معلق",
+      "partially_paid": "مدفوع جزئياً",
+      "paid": "مسدد",
+      "reactionary": "مرتجع",
+      "unknown": "غير معروف"
+    },
+    "actions": {
+      "addPayment": "إضافة دفعة",
+      "addRefund": "إرجاع أصناف",
+      "printInvoice": "طباعة الفاتورة",
+      "deleteInvoice": "حذف الفاتورة"
+    },
+    "deleteDialog": {
+      "title": "حذف فاتورة آجل",
+      "confirm": "هل تريد حذف فاتورة البيع الآجل هذه؟",
+      "inventoryWarning": "سيتم حذف سجل الفاتورة فقط. استخدم إرجاع الأصناف لإعادة الكميات إلى المخزون."
+    },
+    "print": {
+      "status": "الحالة",
+      "footerNote": "تم إنشاء فاتورة البيع الآجل هذه إلكترونيًا من نظام كابوماتيك."
+    },
+    "paymentDialog": {
+      "eyebrow": "دفعة",
+      "title": "تسجيل دفعة",
+      "subtitle": "أضف دفعة جديدة لهذه الفاتورة وسيتم تحديث رصيد العميل بعد الحفظ.",
+      "invoiceTarget": "تطبيق الدفعة على",
+      "firstInvoice": "أول فاتورة",
+      "lastInvoice": "آخر فاتورة",
+      "targetRequired": "اختر أول فاتورة أو آخر فاتورة قبل الحفظ.",
+      "amount": "قيمة الدفعة",
+      "amountRequired": "أدخل قيمة دفعة أكبر من صفر.",
+      "amountExceeded": "لا يمكن أن تكون قيمة الدفعة أكبر من المبلغ المتبقي.",
+      "paymentDate": "تاريخ الدفع",
+      "note": "ملاحظة",
+      "notePlaceholder": "أضف ملاحظة اختيارية للدفعة",
+      "cancel": "إلغاء",
+      "save": "حفظ الدفعة",
+      "saving": "جارٍ الحفظ..."
+    },
+    "refundDialog": {
+      "eyebrow": "مرتجع",
+      "title": "تسجيل مرتجع",
+      "subtitle": "يمكنك إرجاع جميع أصناف الفاتورة أو تحديد كميات جزئية للأصناف المطلوب إرجاعها.",
+      "refundDate": "تاريخ المرتجع",
+      "note": "ملاحظة المرتجع",
+      "notePlaceholder": "أضف ملاحظة للمرتجع",
+      "itemsTitle": "أصناف المرتجع",
+      "availableQuantity": "الكمية المتاحة",
+      "returnQuantity": "الكمية المرتجعة",
+      "selectionRequired": "اختر كمية مرتجعة لصنف واحد على الأقل.",
+      "quantityExceeded": "لا يمكن أن تكون الكمية المرتجعة أكبر من الكمية المتاحة.",
+      "returnAll": "إرجاع الكل",
+      "clear": "مسح",
+      "cancel": "إلغاء",
+      "save": "حفظ المرتجع",
+      "saving": "جارٍ الحفظ..."
+    },
+    "messages": {
+      "loading": "جارٍ تحميل تفاصيل العميل...",
+      "loadFailed": "فشل تحميل تفاصيل العميل.",
+      "notFound": "لم يتم العثور على بيانات العميل.",
+      "paymentFailed": "فشل تسجيل الدفعة.",
+      "refundFailed": "فشل تسجيل المرتجع.",
+      "deleteInvoiceFailed": "فشل حذف فاتورة البيع الآجل."
+    }
+  },
+  "returnsPage": {
+    "title": "سجل المرتجعات",
+    "subtitle": "راجع مرتجعات المبيعات النقدية والآجلة وقم بتصديرها.",
+    "summary": {
+      "label": "ملخص المرتجعات",
+      "cash": "إجمالي المرتجعات النقدية",
+      "credit": "إجمالي مرتجعات البيع الآجل",
+      "amount": "إجمالي المبلغ المرتجع",
+      "items": "إجمالي الأصناف المرتجعة"
+    },
+    "types": {
+      "all": "الكل",
+      "cash": "نقدي",
+      "credit": "آجل"
+    },
+    "fields": {
+      "returnDate": "تاريخ المرتجع",
+      "returnType": "نوع المرتجع",
+      "type": "النوع",
+      "invoiceNumber": "رقم الفاتورة",
+      "invoiceId": "معرّف الفاتورة",
+      "customerName": "اسم العميل",
+      "customerPhone": "هاتف العميل",
+      "productName": "اسم المنتج",
+      "productCode": "كود المنتج",
+      "itemsCount": "عدد الأصناف",
+      "quantity": "الكمية",
+      "price": "السعر",
+      "total": "الإجمالي",
+      "returnReason": "سبب الإرجاع",
+      "dateFrom": "التاريخ من",
+      "dateTo": "التاريخ إلى",
+      "note": "ملاحظة",
+      "subtotalReturnedAmount": "إجمالي المرتجع قبل الخصم",
+      "discountAmount": "قيمة الخصم",
+      "shippingFees": "رسوم الشحن",
+      "finalReturnedAmount": "صافي المبلغ المرتجع",
+      "actions": "الإجراءات"
+    },
+    "actions": {
+      "search": "بحث",
+      "reset": "إعادة ضبط",
+      "export": "تصدير إلى Excel",
+      "exporting": "جارٍ التصدير…",
+      "viewDetails": "عرض التفاصيل",
+      "tryAgain": "إعادة المحاولة",
+      "close": "إغلاق"
+    },
+    "dialog": {
+      "title": "تفاصيل المرتجع",
+      "invoice": "الفاتورة",
+      "returnedItems": "الأصناف المرتجعة",
+      "closeAria": "إغلاق تفاصيل المرتجع"
+    },
+    "messages": {
+      "loading": "جارٍ تحميل المرتجعات…",
+      "loadingDetails": "جارٍ تحميل التفاصيل…",
+      "empty": "لا توجد مرتجعات",
+      "noItems": "لا توجد أصناف مرتجعة",
+      "noNote": "لا توجد ملاحظة.",
+      "loadFailed": "تعذر تحميل المرتجعات. حاول مرة أخرى.",
+      "detailsLoadFailed": "تعذر تحميل تفاصيل المرتجع.",
+      "exportSuccess": "تم تصدير المرتجعات بنجاح.",
+      "exportFailed": "تعذر تصدير المرتجعات.",
+      "invalidDateRange": "لا يمكن أن يكون تاريخ البداية بعد تاريخ النهاية."
+    },
+    "pagination": {
+      "label": "ترقيم صفحات المرتجعات",
+      "itemsPerPage": "عدد العناصر في الصفحة:",
+      "next": "الصفحة التالية",
+      "previous": "الصفحة السابقة",
+      "first": "الصفحة الأولى",
+      "last": "الصفحة الأخيرة",
+      "range": "{{start}} – {{end}} من {{total}}"
+    }
+  },
+  "seo": {
+    "tabs": {
+      "basic": "المحتوى الأساسي",
+      "ar": "المحتوى والسيو بالعربية",
+      "en": "المحتوى والسيو بالإنجليزية",
+      "social": "المشاركة الاجتماعية",
+      "preview": "معاينة البحث",
+      "advanced": "إعدادات SEO المتقدمة"
+    },
+    "basicNotice": "إدارة محتوى وسيو اختياري لموقع العملاء. تطبيق سطح المكتب هذا لا يعرض وسوم SEO.",
+    "fields": {
+      "arName": "الاسم بالعربية",
+      "enName": "الاسم بالإنجليزية",
+      "description": "الوصف",
+      "shortDescription": "الوصف المختصر",
+      "arSlug": "الرابط بالعربية",
+      "enSlug": "الرابط بالإنجليزية",
+      "imageAlt": "النص البديل للصورة",
+      "metaTitle": "عنوان الميتا",
+      "metaDescription": "وصف الميتا",
+      "keywords": "الكلمات المفتاحية",
+      "ogTitle": "عنوان المشاركة",
+      "ogDescription": "وصف المشاركة",
+      "canonicalOverride": "رابط Canonical مخصص",
+      "ogImage": "صورة المشاركة",
+      "useEntityImageFallback": "استخدام صورة العنصر الأساسية كبديل",
+      "robotsIndex": "السماح بالفهرسة",
+      "robotsFollow": "السماح بتتبع الروابط",
+      "includeInSitemap": "الإدراج في خريطة الموقع",
+      "sitemapPriority": "أولوية خريطة الموقع",
+      "sitemapChangeFrequency": "معدل التغيير"
+    },
+    "actions": {
+      "generateFromContent": "توليد SEO من المحتوى",
+      "generateSlug": "توليد الرابط"
+    },
+    "messages": {
+      "checkingSlug": "جارٍ التحقق من توفر الرابط...",
+      "regenerateSlugConfirm": "تم تعديل هذا الرابط يدويًا. هل تريد توليده من الاسم؟",
+      "overwriteConfirm": "بعض حقول SEO تحتوي على قيم. هل تريد استبدالها باقتراحات مولدة؟"
+    },
+    "hints": {
+      "keywords": "افصل الكلمات المفتاحية بفواصل. الحد الأقصى 20 كلمة."
+    },
+    "warnings": {
+      "metaTitle": "الطول الموصى به للعنوان حتى 60 حرفًا.",
+      "metaDescription": "الطول الموصى به للوصف من 120 إلى 160 حرفًا.",
+      "imageAlt": "توجد صورة. أضف نصًا بديلاً لتحسين الوصول وSEO.",
+      "canonical": "استخدمه فقط عند الحاجة إلى رابط Canonical مخصص. غالبًا يجب تركه فارغًا."
+    },
+    "validation": {
+      "required": "هذا الحقل مطلوب.",
+      "invalid": "القيمة غير صحيحة.",
+      "maxLength": "القيمة طويلة جدًا.",
+      "slugMaxLength": "يجب ألا يتجاوز الرابط 150 حرفًا.",
+      "slugSlash": "لا يمكن أن يحتوي الرابط على شرطة مائلة.",
+      "slugQuery": "لا يمكن أن يحتوي الرابط على علامة استفهام.",
+      "slugProtocol": "لا يمكن أن يحتوي الرابط على بروتوكول.",
+      "slugEdgeHyphen": "لا يمكن أن يبدأ أو ينتهي الرابط بشرطة.",
+      "slugRepeatedHyphen": "لا يمكن أن يحتوي الرابط على شرطتين متتاليتين.",
+      "slugDuplicate": "هذا الرابط مستخدم من قبل.",
+      "metaTitleHard": "يجب ألا يتجاوز عنوان الميتا 70 حرفًا.",
+      "metaDescriptionHard": "يجب ألا يتجاوز وصف الميتا 200 حرف.",
+      "canonicalUrl": "أدخل رابط HTTP أو HTTPS كامل.",
+      "keywordsCount": "استخدم 20 كلمة مفتاحية أو أقل.",
+      "keywordMaxLength": "يجب ألا تتجاوز كل كلمة مفتاحية 60 حرفًا.",
+      "sitemapPriority": "يجب أن تكون الأولوية بين 0 و 1."
+    },
+    "preview": {
+      "arabic": "العربية",
+      "english": "الإنجليزية",
+      "desktop": "سطح المكتب",
+      "mobile": "الهاتف"
+    },
+    "changeFrequency": {
+      "always": "دائمًا",
+      "hourly": "كل ساعة",
+      "daily": "يوميًا",
+      "weekly": "أسبوعيًا",
+      "monthly": "شهريًا",
+      "yearly": "سنويًا",
+      "never": "أبدًا"
+    }
+  },
+  "logout": {
+    "title":"تسجيل الخروج",
+    "logoutMessage":"هل تريد تسجيل الخروج؟",
+    "logoutButton":"نعم",
+    "cancelButton":"لا"
+  },
+  "backupPage": {
+    "title": "النسخ الاحتياطي والاستعادة",
+    "subtitle": "متاح على الجهاز الرئيسي فقط.",
+    "create": {
+      "title": "إنشاء نسخة احتياطية",
+      "description": "يحفظ كل بيانات البرنامج في ملف واحد. احفظ الملف على فلاشة أو جهاز آخر حتى لا تضيع البيانات إذا تعطل هذا الجهاز.",
+      "button": "إنشاء نسخة احتياطية الآن",
+      "working": "جاري إنشاء النسخة...",
+      "done": "تم حفظ النسخة الاحتياطية: {{collections}} مجموعة و{{documents}} سجل ({{size}} ميجابايت).",
+      "sameDrive": "هذه النسخة محفوظة على نفس قرص بيانات البرنامج ({{drive}})، لذلك لا تُحسب نسخة خارج الجهاز. انسخ الملف إلى فلاشة أو قرص خارجي أو قسم آخر."
+    },
+    "restore": {
+      "title": "الاستعادة من نسخة احتياطية",
+      "description": "تستبدل كل البيانات الحالية بمحتوى ملف النسخة. قبل البدء يحفظ البرنامج نسخة من البيانات الحالية تلقائياً، ويتوقف اتصال الأجهزة الفرعية حتى تنتهي الاستعادة.",
+      "button": "اختيار ملف واستعادة",
+      "working": "جاري الاستعادة...",
+      "done": "تمت الاستعادة: {{documents}} سجل في {{collections}} مجموعة.",
+      "safety": "نسخة البيانات التي كانت موجودة قبل الاستعادة محفوظة هنا:"
+    },
+    "safety": {
+      "title": "مجلد النسخ على هذا الجهاز",
+      "description": "يحفظ البرنامج النسخ اليومية (آخر 14 نسخة) ونسخة من البيانات قبل كل استعادة (آخر 5 نسخ) في مجلد النسخ الاحتياطية على هذا الجهاز.",
+      "openFolder": "فتح مجلد النسخ الاحتياطية"
+    },
+    "status": {
+      "title": "حالة النسخ الاحتياطي",
+      "lastBackup": "آخر نسخة احتياطية: {{date}}",
+      "kind": {
+        "auto": "(يومية تلقائية)",
+        "manual": "(يدوية)"
+      },
+      "none": "لا توجد نسخة احتياطية بعد.",
+      "daily": "يحفظ البرنامج نسخة تلقائية مرة كل يوم ويحتفظ بآخر {{keep}} نسخة. يتوقف الخادم لثوانٍ أثناء الحفظ.",
+      "autoError": "تعذر حفظ آخر نسخة يومية ({{date}}): {{message}} سيحاول البرنامج مرة أخرى لاحقاً."
+    },
+    "warning": {
+      "title": "ننصح بحفظ نسخة احتياطية على فلاشة أو قرص آخر",
+      "never": "لم يتم حفظ أي نسخة احتياطية على قرص غير قرص بيانات البرنامج بعد.",
+      "since": "آخر نسخة على قرص آخر كانت في {{date}}، منذ أكثر من {{days}} أيام.",
+      "advice": "إذا تعطل قرص بيانات البرنامج ({{drive}}) تضيع النسخ المحفوظة عليه. أنشئ نسخة واحفظها على فلاشة أو قرص خارجي أو قسم آخر، أو اختر بالأسفل مجلداً على قرص آخر."
+    },
+    "copy": {
+      "title": "نسخة إضافية على فلاشة أو قرص آخر",
+      "description": "ينسخ البرنامج كل نسخة يومية إلى هذا المجلد ويحتفظ فيه بآخر 14 نسخة. إذا لم يكن المجلد متاحاً وقت النسخ يتم تخطيه، ثم تُنسخ آخر نسخة عند توفره.",
+      "none": "لم يتم اختيار مجلد.",
+      "choose": "اختيار مجلد",
+      "change": "تغيير المجلد",
+      "clear": "إيقاف النسخ الإضافي",
+      "copied": "تم نسخ آخر نسخة يومية إلى هذا المجلد في {{date}}.",
+      "unavailable": "المجلد غير متاح الآن (ربما الفلاشة غير موصلة). سيتم النسخ تلقائياً عند توفره.",
+      "failed": "تعذر النسخ إلى هذا المجلد: {{message}}",
+      "waiting": "سيتم نسخ النسخة اليومية القادمة إلى هذا المجلد.",
+      "sameDrive": "هذا المجلد على نفس قرص بيانات البرنامج ({{drive}})، فلا يحمي البيانات إذا تعطل هذا القرص ولا يُحسب نسخة خارج الجهاز. اختر مجلداً على فلاشة أو قرص خارجي أو قسم آخر."
+    },
+    "progress": {
+      "backup": "جاري حفظ البيانات... {{done}} من {{total}}",
+      "safety-backup": "جاري حفظ نسخة من البيانات الحالية... {{done}} من {{total}}",
+      "restoring": "جاري استعادة البيانات... {{done}} من {{total}}",
+      "rolling-back": "فشلت الاستعادة، جاري إعادة البيانات السابقة..."
+    },
+    "showFile": "إظهار الملف"
+  }
+}

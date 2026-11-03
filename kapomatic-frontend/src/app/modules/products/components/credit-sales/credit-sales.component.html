@@ -1,0 +1,494 @@
+<app-side-nav>
+  <div class="w-full max-w-[1380px] mx-auto flex flex-col items-start gap-8">
+    <div class="w-full flex items-center justify-between gap-4">
+      <div class="flex flex-col gap-2">
+        <h1
+          class="text-2xl font-bold font-azonix"
+          [ngClass]="{
+            'text-gray_light': (isDarkMode$ | async),
+            'text-orange': !(isDarkMode$ | async)
+          }"
+        >
+          {{ 'creditSalePage.title' | translate }}
+        </h1>
+        <p
+          class="font-roboto text-[0.95rem]"
+          [ngClass]="{
+            'text-[#c8c8cc]': (isDarkMode$ | async),
+            'text-gray': !(isDarkMode$ | async)
+          }"
+        >
+          {{ 'creditSalePage.subtitle' | translate }}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        (click)="backToProducts()"
+        class="cursor-pointer rounded-[0.65rem] border border-transparent bg-[#f4d80a] px-4 py-2 font-roboto text-[0.95rem] font-bold text-gray_dark transition-opacity duration-200 hover:opacity-90"
+      >
+        {{ 'home.actions.back' | translate }}
+      </button>
+    </div>
+
+    <div class="w-full credit-sale-shell p-6 sm:p-8">
+      <form [formGroup]="creditSaleForm" class="w-full flex flex-col gap-8" [attr.dir]="direction">
+        <div class="credit-dashboard grid grid-cols-1 xl:grid-cols-[minmax(0,1.55fr)_minmax(330px,0.9fr)] gap-6">
+          <div class="flex flex-col gap-6">
+            <section class="credit-panel">
+              <div class="credit-panel__header">
+                <div class="flex flex-col gap-2">
+                  <p class="credit-eyebrow">{{ 'creditSalePage.fields.accountProfile' | translate }}</p>
+                  <h2 class="credit-panel__title">{{ 'creditSalePage.fields.customerInformation' | translate }}</h2>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="w-full flex flex-col gap-2 md:col-span-2">
+                  <label class="credit-label">{{ 'creditSalePage.fields.searchCustomer' | translate }}</label>
+                  <div class="native-autocomplete">
+                    <input
+                      type="text"
+                      [value]="customerSearchInputValue"
+                      [placeholder]="'creditSalePage.placeholders.searchCustomer' | translate"
+                      class="credit-control-input"
+                      (input)="onCustomerSearchInputChange($event)"
+                      (focus)="onCustomerSearchInputFocus()"
+                      (blur)="onCustomerSearchInputBlur()"
+                    />
+
+                    @if (isSearchingCustomers) {
+                      <div class="native-autocomplete-loading text-sm font-roboto">
+                        {{ 'creditSalePage.actions.searching' | translate }}
+                      </div>
+                    }
+
+                    @if (showCustomerSuggestionPanel && customerOptions.length > 0) {
+                      <ul class="native-autocomplete-panel">
+                        @for (customer of customerOptions; track customer.id) {
+                          <li class="native-autocomplete-item" (mousedown)="onCustomerOptionSelect(customer)">
+                            {{ customer.displayLabel }}
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </div>
+
+                  @if (customerSearchError) {
+                    <p class="text-sm font-roboto text-red">{{ customerSearchError }}</p>
+                  }
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <label class="credit-label">{{ 'creditSalePage.fields.customerName' | translate }}</label>
+                  <input
+                    pInputText
+                    formControlName="customerName"
+                    type="text"
+                    class="credit-control-input"
+                    (input)="clearSelectedCustomerIfEdited()"
+                  />
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <label class="credit-label">{{ 'creditSalePage.fields.customerPhone' | translate }}</label>
+                  <input
+                    pInputText
+                    formControlName="customerPhone"
+                    type="text"
+                    class="credit-control-input"
+                    (input)="clearSelectedCustomerIfEdited()"
+                  />
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <label class="credit-label">{{ 'creditSalePage.fields.saleDate' | translate }}</label>
+                  <p-datepicker
+                    formControlName="sellingDate"
+                    [showIcon]="true"
+                    [iconDisplay]="'input'"
+                    inputId="creditSaleDate"
+                    styleClass="credit-control"
+                    inputStyleClass="credit-control-input"
+                  />
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <label class="credit-label">{{ 'creditSalePage.fields.downPayment' | translate }}</label>
+                  <p-inputNumber
+                    formControlName="downPayment"
+                    [min]="0"
+                    [mode]="'decimal'"
+                    [useGrouping]="false"
+                    styleClass="credit-control"
+                    inputStyleClass="credit-control-input"
+                  />
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <label class="credit-label">{{ 'creditSalePage.fields.discountAmount' | translate }}</label>
+                  <p-inputNumber
+                    formControlName="discountAmount"
+                    [min]="0"
+                    [mode]="'decimal'"
+                    [useGrouping]="false"
+                    styleClass="credit-control"
+                    inputStyleClass="credit-control-input"
+                  />
+                  <p class="font-roboto text-xs text-gray">
+                    {{ 'creditSalePage.fields.discountPercentage' | translate }}:
+                    {{ discountPercentage | number:'1.0-2' }}%
+                  </p>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <label class="credit-label">{{ 'creditSalePage.fields.shippingFees' | translate }}</label>
+                  <p-inputNumber
+                    formControlName="shippingFees"
+                    [min]="0"
+                    [mode]="'decimal'"
+                    [useGrouping]="false"
+                    styleClass="credit-control"
+                    inputStyleClass="credit-control-input"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section class="credit-panel">
+              <div class="credit-panel__header">
+                <div class="flex flex-col gap-2">
+                  <p class="credit-eyebrow">{{ 'creditSalePage.fields.basketEyebrow' | translate }}</p>
+                  <h2 class="credit-panel__title">{{ 'creditSalePage.fields.creditItems' | translate }}</h2>
+                </div>
+
+                <button type="button" class="credit-add-button" (click)="addLineItem()">
+                  {{ 'creditSalePage.actions.addItem' | translate }}
+                </button>
+              </div>
+
+              <div formArrayName="items" class="flex flex-col gap-4">
+                @for (itemGroup of lineItemControls; track trackLineItem($index); let index = $index) {
+                  <div class="credit-item-card" [formGroupName]="index">
+                    <div class="credit-item-card__header">
+                      <div class="flex flex-col gap-1">
+                        <span class="credit-item-card__index">
+                          {{ 'creditSalePage.fields.basketItem' | translate }} {{ index + 1 }}
+                        </span>
+                        @if (getLineItemState(index).selectedProduct?.code) {
+                          <span class="credit-item-card__meta">
+                            {{ getLineItemState(index).selectedProduct?.code }}
+                          </span>
+                        }
+                      </div>
+
+                      <button type="button" class="credit-remove-button" (click)="removeLineItem(index)">
+                        {{
+                          lineItemControls.length === 1
+                            ? ('creditSalePage.actions.clearItem' | translate)
+                            : ('creditSalePage.actions.removeItem' | translate)
+                        }}
+                      </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                      <div class="w-full flex flex-col gap-2 xl:col-span-4">
+                        <label class="credit-label">{{ 'creditSalePage.fields.searchProduct' | translate }}</label>
+                        <div class="native-autocomplete">
+                          <input
+                            type="text"
+                            [value]="getLineItemState(index).searchInputValue"
+                            [placeholder]="'creditSalePage.placeholders.searchProduct' | translate"
+                            class="credit-control-input"
+                            (input)="onSearchInputChange(index, $event)"
+                            (focus)="onSearchInputFocus(index)"
+                            (blur)="onSearchInputBlur(index)"
+                          />
+
+                          @if (getLineItemState(index).isSearching) {
+                            <div class="native-autocomplete-loading text-sm font-roboto">
+                              {{ 'creditSalePage.actions.searching' | translate }}
+                            </div>
+                          }
+
+                          @if (getLineItemState(index).showSuggestionPanel && getLineItemState(index).productOptions.length > 0) {
+                            <ul class="native-autocomplete-panel">
+                              @for (item of getLineItemState(index).productOptions; track item.id) {
+                                <li class="native-autocomplete-item" (mousedown)="onNativeOptionSelect(index, item)">
+                                  {{ item.displayLabel }}
+                                </li>
+                              }
+                            </ul>
+                          }
+                        </div>
+                      </div>
+
+                      <div class="flex flex-col gap-2 xl:col-span-2">
+                        <label class="credit-label">{{ 'creditSalePage.fields.productName' | translate }}</label>
+                        <input
+                          pInputText
+                          formControlName="productName"
+                          readonly
+                          class="credit-control-input opacity-70 cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div class="flex flex-col gap-2">
+                        <label class="credit-label">{{ 'creditSalePage.fields.itemCode' | translate }}</label>
+                        <input
+                          pInputText
+                          formControlName="itemCode"
+                          readonly
+                          class="credit-control-input opacity-70 cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div class="flex flex-col gap-2">
+                        <label class="credit-label">{{ 'creditSalePage.fields.categoryName' | translate }}</label>
+                        <input
+                          pInputText
+                          formControlName="categoryName"
+                          readonly
+                          class="credit-control-input opacity-70 cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div class="flex flex-col gap-2">
+                        <label class="credit-label">{{ 'creditSalePage.fields.unitPrice' | translate }}</label>
+                        <p-inputNumber
+                          formControlName="price"
+                          [mode]="'decimal'"
+                          [min]="0"
+                          [useGrouping]="false"
+                          styleClass="credit-control"
+                          inputStyleClass="credit-control-input"
+                        />
+                      </div>
+
+                      <div class="flex flex-col gap-2">
+                        <label class="credit-label">{{ 'creditSalePage.fields.quantity' | translate }}</label>
+                        <p-inputNumber
+                          formControlName="quantity"
+                          [mode]="'decimal'"
+                          [min]="1"
+                          [useGrouping]="false"
+                          styleClass="credit-control"
+                          inputStyleClass="credit-control-input"
+                        />
+                      </div>
+
+                      <div class="flex flex-col gap-2 md:col-span-2">
+                        <label class="credit-label">{{ 'creditSalePage.fields.lineTotal' | translate }}</label>
+                        <input
+                          pInputText
+                          [value]="formatMoney(getLineTotal(index))"
+                          readonly
+                          class="credit-control-input opacity-70 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+
+                    @if (getLineItemState(index).searchError) {
+                      <p class="text-sm font-roboto text-red">{{ getLineItemState(index).searchError }}</p>
+                    }
+                  </div>
+                }
+              </div>
+            </section>
+          </div>
+
+          <aside class="credit-summary-card">
+            <div class="credit-summary-card__header">
+              <div class="flex flex-col gap-2">
+                <p class="credit-eyebrow">{{ 'creditSalePage.fields.snapshotEyebrow' | translate }}</p>
+                <h2 class="credit-panel__title">{{ 'creditSalePage.fields.repaymentSnapshot' | translate }}</h2>
+              </div>
+            </div>
+
+            <div class="credit-stat-grid">
+              <div class="credit-stat">
+                <span class="credit-stat__label">{{ 'creditSalePage.fields.productsCount' | translate }}</span>
+                <strong class="credit-stat__value">{{ productsCount }}</strong>
+              </div>
+              <div class="credit-stat">
+                <span class="credit-stat__label">{{ 'creditSalePage.fields.totalQuantity' | translate }}</span>
+                <strong class="credit-stat__value">{{ totalQuantity }}</strong>
+              </div>
+              <div class="credit-stat">
+                <span class="credit-stat__label">{{ 'creditSalePage.fields.saleDate' | translate }}</span>
+                <strong class="credit-stat__value credit-stat__value--sm">
+                  {{ formatDisplayDate(creditSaleForm.get('sellingDate')?.value) }}
+                </strong>
+              </div>
+              <div class="credit-stat">
+                <span class="credit-stat__label">{{ 'creditSalePage.fields.customerPhone' | translate }}</span>
+                <strong class="credit-stat__value credit-stat__value--sm">{{ creditSaleForm.get('customerPhone')?.value || '-' }}</strong>
+              </div>
+            </div>
+
+            <div class="credit-totals-panel">
+              <div class="credit-totals-row">
+                <span>{{ 'creditSalePage.fields.subtotal' | translate }}</span>
+                <strong>{{ formatMoney(itemsSubtotal) }}</strong>
+              </div>
+              <div class="credit-totals-row">
+                <span>{{ 'creditSalePage.fields.discountAmount' | translate }}</span>
+                <strong>-{{ formatMoney(discountAmount) }}</strong>
+              </div>
+              <div class="credit-totals-row">
+                <span>{{ 'creditSalePage.fields.shippingFees' | translate }}</span>
+                <strong>{{ formatMoney(shippingFees) }}</strong>
+              </div>
+              <div class="credit-totals-row">
+                <span>{{ 'creditSalePage.fields.totalReceivable' | translate }}</span>
+                <strong>{{ formatMoney(totalReceivable) }}</strong>
+              </div>
+              <div class="credit-totals-row">
+                <span>{{ 'creditSalePage.fields.downPayment' | translate }}</span>
+                <strong>{{ formatMoney(creditSaleForm.get('downPayment')?.value || 0) }}</strong>
+              </div>
+              <div class="credit-totals-row credit-totals-row--accent">
+                <span>{{ 'creditSalePage.fields.financedAmount' | translate }}</span>
+                <strong>{{ formatMoney(financedAmount) }}</strong>
+              </div>
+            </div>
+
+            @if (submitAttempted && (creditSaleForm.invalid || itemsSubtotal <= 0)) {
+              <p class="credit-form-message credit-form-message--error">
+                {{ 'creditSalePage.messages.completeRequired' | translate }}
+              </p>
+            }
+
+            @if (isDownPaymentExceeded()) {
+              <p class="credit-form-message credit-form-message--error">
+                {{ 'creditSalePage.messages.downPaymentExceeded' | translate }}
+              </p>
+            }
+
+            @if (saveError && !errorDialogVisible) {
+              <p class="credit-form-message credit-form-message--error">{{ saveError }}</p>
+            }
+
+            <div class="credit-action-row">
+              <button type="button" class="credit-primary-button" (click)="openReviewDialog()">
+                {{ 'creditSalePage.actions.reviewCreditSale' | translate }}
+              </button>
+              <button type="button" class="credit-secondary-button" (click)="resetDraft()">
+                {{ 'creditSalePage.actions.resetDraft' | translate }}
+              </button>
+            </div>
+          </aside>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <p-dialog [(visible)]="reviewDialogVisible" [modal]="true" [style]="{ width: '460px' }" styleClass="credit-review-dialog">
+    <ng-template #headless>
+      <div class="credit-review-sheet" [attr.dir]="direction">
+        <p class="credit-eyebrow">{{ 'creditSalePage.dialog.eyebrow' | translate }}</p>
+        <h3 class="credit-review-sheet__title">{{ 'creditSalePage.dialog.title' | translate }}</h3>
+        <p class="credit-review-sheet__subtitle">{{ 'creditSalePage.dialog.subtitle' | translate }}</p>
+
+        <div class="credit-review-grid">
+          <div class="credit-review-stat">
+            <span>{{ 'creditSalePage.fields.customerName' | translate }}</span>
+            <strong>{{ creditSaleForm.get('customerName')?.value }}</strong>
+          </div>
+          <div class="credit-review-stat">
+            <span>{{ 'creditSalePage.fields.customerPhone' | translate }}</span>
+            <strong>{{ creditSaleForm.get('customerPhone')?.value || '-' }}</strong>
+          </div>
+          <div class="credit-review-stat">
+            <span>{{ 'creditSalePage.fields.saleDate' | translate }}</span>
+            <strong>{{ formatDisplayDate(creditSaleForm.get('sellingDate')?.value) }}</strong>
+          </div>
+          <div class="credit-review-stat">
+            <span>{{ 'creditSalePage.fields.subtotal' | translate }}</span>
+            <strong>{{ formatMoney(itemsSubtotal) }}</strong>
+          </div>
+          <div class="credit-review-stat">
+            <span>{{ 'creditSalePage.fields.discountPercentage' | translate }}</span>
+            <strong>{{ discountPercentage | number:'1.0-2' }}%</strong>
+          </div>
+          <div class="credit-review-stat">
+            <span>{{ 'creditSalePage.fields.shippingFees' | translate }}</span>
+            <strong>{{ formatMoney(shippingFees) }}</strong>
+          </div>
+          <div class="credit-review-stat">
+            <span>{{ 'creditSalePage.fields.totalReceivable' | translate }}</span>
+            <strong>{{ formatMoney(totalReceivable) }}</strong>
+          </div>
+          <div class="credit-review-stat">
+            <span>{{ 'creditSalePage.fields.downPayment' | translate }}</span>
+            <strong>{{ formatMoney(creditSaleForm.get('downPayment')?.value || 0) }}</strong>
+          </div>
+          <div class="credit-review-stat">
+            <span>{{ 'creditSalePage.fields.financedAmount' | translate }}</span>
+            <strong>{{ formatMoney(financedAmount) }}</strong>
+          </div>
+        </div>
+
+        <div class="credit-action-row">
+          <button type="button" class="credit-secondary-button flex-1 justify-center" (click)="closeReviewDialog()">
+            {{ 'creditSalePage.dialog.close' | translate }}
+          </button>
+          <button
+            type="button"
+            class="credit-primary-button flex-1 justify-center"
+            [disabled]="isSaving"
+            (click)="saveCreditSale()"
+          >
+            {{
+              isSaving
+                ? ('creditSalePage.actions.savingCreditSale' | translate)
+                : ('creditSalePage.actions.createCreditSale' | translate)
+            }}
+          </button>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog
+    [(visible)]="successDialogVisible"
+    [modal]="true"
+    [closable]="false"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '30rem' }"
+  >
+    <div class="flex flex-col items-center gap-5 py-2" [attr.dir]="direction">
+      <p class="text-center text-xl font-semibold font-roboto text-light_orange">
+        {{ 'creditSalePage.messages.createdSuccess' | translate }}
+      </p>
+      <p-button
+        type="button"
+        [label]="direction === 'rtl' ? 'موافق' : 'OK'"
+        (click)="closeSuccessPopup()"
+        styleClass="!px-5 !py-2 !bg-orange !border-none !text-gray_dark !font-semibold"
+      />
+    </div>
+  </p-dialog>
+
+  <p-dialog
+    [(visible)]="errorDialogVisible"
+    [modal]="true"
+    [closable]="false"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '30rem' }"
+  >
+    <div class="flex flex-col items-center gap-5 py-2" [attr.dir]="direction">
+      <p class="text-center text-xl font-semibold font-roboto text-red">
+        {{ saveError || ('creditSalePage.messages.createFailed' | translate) }}
+      </p>
+      <p-button
+        type="button"
+        [label]="direction === 'rtl' ? 'موافق' : 'OK'"
+        (click)="closeErrorPopup()"
+        styleClass="!px-5 !py-2 !bg-orange !border-none !text-gray_dark !font-semibold"
+      />
+    </div>
+  </p-dialog>
+</app-side-nav>

@@ -1,0 +1,189 @@
+<app-side-nav>
+  <div class="website-orders-page" [ngClass]="{
+    'website-orders-page--dark': (isDarkMode$ | async),
+    'website-orders-page--light': !(isDarkMode$ | async)
+  }">
+    <div class="page-header">
+      <div>
+        <h1>{{ 'websiteOrders.title' | translate }}</h1>
+        <p>{{ 'websiteOrders.subtitle' | translate }}</p>
+      </div>
+
+      <div class="header-actions">
+        <button type="button" class="secondary-action" (click)="refresh()" [disabled]="isLoading">
+          {{ 'websiteOrders.actions.refresh' | translate }}
+        </button>
+        <button type="button" class="primary-action" (click)="backToHome()">
+          {{ 'home.actions.back' | translate }}
+        </button>
+      </div>
+    </div>
+
+    <div class="scope-tabs" role="tablist" [attr.aria-label]="'websiteOrders.tabs.label' | translate">
+      @for (scope of scopes; track scope) {
+        <button
+          type="button"
+          role="tab"
+          [class.scope-tab--active]="activeScope === scope"
+          [attr.aria-selected]="activeScope === scope"
+          (click)="setScope(scope)"
+        >
+          {{ ('websiteOrders.tabs.' + scope) | translate }}
+        </button>
+      }
+    </div>
+
+    <div class="orders-shell">
+      @if (loadError) {
+        <p class="error-message">{{ loadError }}</p>
+      } @else {
+        <div class="orders-table-scroll" (scroll)="onOrdersViewportScroll($event)">
+          <p-table
+            [value]="orders"
+            [loading]="isLoading"
+            [tableStyle]="{ 'min-width': '1360px' }"
+            styleClass="website-orders-table"
+          >
+            <ng-template pTemplate="header">
+              <tr>
+                <th>{{ 'websiteOrders.columns.order' | translate }}</th>
+                <th>{{ 'websiteOrders.columns.status' | translate }}</th>
+                <th>{{ 'websiteOrders.columns.paymentMethod' | translate }}</th>
+                <th>{{ 'websiteOrders.columns.customer' | translate }}</th>
+                <th>{{ 'websiteOrders.columns.phone' | translate }}</th>
+                <th>{{ 'websiteOrders.columns.location' | translate }}</th>
+                <th>{{ 'websiteOrders.columns.date' | translate }}</th>
+                <th>{{ 'websiteOrders.columns.quantity' | translate }}</th>
+                <th>{{ 'websiteOrders.columns.total' | translate }}</th>
+                <th>{{ 'websiteOrders.columns.invoice' | translate }}</th>
+                <th>{{ 'websiteOrders.columns.actions' | translate }}</th>
+              </tr>
+            </ng-template>
+
+          <ng-template pTemplate="body" let-order>
+            <tr>
+              <td>
+                <strong>{{ order.orderNumber || order.id || '-' }}</strong>
+                <button type="button" class="items-toggle" (click)="toggleItems(order)">
+                  {{ isExpanded(order) ? ('websiteOrders.actions.hideItems' | translate) : ('websiteOrders.actions.showItems' | translate) }}
+                </button>
+              </td>
+              <td><span [class]="statusClass(order.status)">{{ statusLabel(order.status) }}</span></td>
+              <td>{{ paymentMethodLabel(order.paymentMethod) }}</td>
+              <td>{{ order.customerName || '-' }}</td>
+              <td>{{ order.customerPhone || '-' }}</td>
+              <td>{{ order.government || order.shippingLocation || '-' }}</td>
+              <td>{{ order.createdAt ? (order.createdAt | date: 'yyyy-MM-dd') : '-' }}</td>
+              <td>{{ order.totalQuantity ?? '-' }}</td>
+              <td>{{ (order.totalPrice ?? 0) | number:'1.2-2' }}</td>
+              <td>{{ order.sellingInvoiceId || '-' }}</td>
+              <td>
+                <div class="row-actions">
+                  <button type="button" class="accept-action" (click)="openConfirmDialog(order)" [disabled]="!canConfirm(order) || isConfirming || isRefunding">
+                    {{ 'websiteOrders.actions.confirm' | translate }}
+                  </button>
+                  <button type="button" class="refund-action" (click)="openRefundDialog(order)" [disabled]="!canRefund(order) || isConfirming || isRefunding">
+                    {{ 'websiteOrders.actions.refund' | translate }}
+                  </button>
+                  <button type="button" class="secondary-action" (click)="openTransferDialog(order)" [disabled]="!hasTransferDetails(order)">
+                    {{ 'websiteOrders.actions.viewTransfer' | translate }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            @if (isExpanded(order)) {
+              <tr class="items-row">
+                <td colspan="11">
+                  <div class="items-grid">
+                    @for (item of order.items; track item.id) {
+                      <div class="item-card">
+                        <div>
+                          <strong>{{ item.productName || '-' }}</strong>
+                          <span>{{ item.productCode || '-' }} · {{ item.categoryName || '-' }}</span>
+                        </div>
+                        <div class="item-metrics">
+                          <span>{{ 'websiteOrders.itemLabels.quantity' | translate }}: {{ item.quantity ?? '-' }}</span>
+                          <span>{{ 'websiteOrders.itemLabels.unitPrice' | translate }}: {{ item.unitPrice ?? '-' }}</span>
+                          <span>{{ 'websiteOrders.itemLabels.total' | translate }}: {{ item.totalPrice ?? '-' }}</span>
+                        </div>
+                      </div>
+                    } @empty {
+                      <p class="empty-items">{{ 'websiteOrders.messages.noItems' | translate }}</p>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </ng-template>
+
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="11" class="empty-state">{{ 'websiteOrders.messages.empty' | translate }}</td>
+            </tr>
+          </ng-template>
+          </p-table>
+        </div>
+
+        <div class="pagination-bar">
+          <span>{{ pageRangeLabel() }}</span>
+          @if (isLoadingMore) {
+            <span>{{ 'actions.loading' | translate }}</span>
+          }
+        </div>
+        @if (loadMoreError) {
+          <p class="error-message">{{ loadMoreError }}</p>
+        }
+      }
+    </div>
+  </div>
+
+  <p-dialog [(visible)]="confirmDialogVisible" [modal]="true" [style]="{ width: 'min(34rem, 94vw)' }" styleClass="!border-0" (onHide)="closeConfirmDialog()">
+    <div class="dialog-content">
+      <h2>{{ 'websiteOrders.confirmDialog.title' | translate }}</h2>
+      <p>{{ 'websiteOrders.confirmDialog.message' | translate }}</p>
+      <label class="checkbox-row">
+        <input type="checkbox" [(ngModel)]="confirmInsufficientInventory" />
+        <span>{{ 'websiteOrders.confirmDialog.confirmInventory' | translate }}</span>
+      </label>
+      @if (actionError) { <p class="error-message">{{ actionError }}</p> }
+      <div class="dialog-actions">
+        <p-button type="button" [label]="'actions.cancelButton' | translate" (onClick)="closeConfirmDialog()" [disabled]="isConfirming" styleClass="!border-none !bg-[#b9b9b9] !text-gray_dark" />
+        <p-button type="button" [label]="isConfirming ? ('actions.loading' | translate) : ('websiteOrders.actions.confirm' | translate)" (onClick)="confirmOrder()" [disabled]="isConfirming" styleClass="!border-none !bg-orange !text-gray_dark" />
+      </div>
+    </div>
+  </p-dialog>
+
+  <p-dialog [(visible)]="refundDialogVisible" [modal]="true" [style]="{ width: 'min(34rem, 94vw)' }" styleClass="!border-0" (onHide)="closeRefundDialog()">
+    <div class="dialog-content">
+      <h2>{{ 'websiteOrders.refundDialog.title' | translate }}</h2>
+      <p>{{ 'websiteOrders.refundDialog.message' | translate }}</p>
+      <textarea [(ngModel)]="refundNote" rows="4" [placeholder]="'websiteOrders.refundDialog.notePlaceholder' | translate"></textarea>
+      @if (actionError) { <p class="error-message">{{ actionError }}</p> }
+      <div class="dialog-actions">
+        <p-button type="button" [label]="'actions.cancelButton' | translate" (onClick)="closeRefundDialog()" [disabled]="isRefunding" styleClass="!border-none !bg-[#b9b9b9] !text-gray_dark" />
+        <p-button type="button" [label]="isRefunding ? ('actions.loading' | translate) : ('websiteOrders.actions.refund' | translate)" (onClick)="refundOrder()" [disabled]="isRefunding" styleClass="!border-none !bg-red !text-white" />
+      </div>
+    </div>
+  </p-dialog>
+
+  <p-dialog [(visible)]="transferDialogVisible" [modal]="true" [style]="{ width: 'min(42rem, 94vw)' }" styleClass="!border-0" (onHide)="closeTransferDialog()">
+    <div class="dialog-content">
+      <h2>{{ 'websiteOrders.transferDialog.title' | translate }}</h2>
+      <div class="grid gap-4">
+        <div>
+          <span class="block text-sm text-[#d1d5db]">{{ 'websiteOrders.transferDialog.phone' | translate }}</span>
+          <strong class="text-white">{{ selectedTransferOrder?.transferPhone || '-' }}</strong>
+        </div>
+        @if (selectedTransferOrder?.transferImage) {
+          <img class="max-h-[70vh] max-w-full rounded-lg object-contain" [src]="selectedTransferOrder?.transferImage" [alt]="'websiteOrders.transferDialog.imageAlt' | translate" />
+        } @else {
+          <p>{{ 'websiteOrders.transferDialog.noImage' | translate }}</p>
+        }
+      </div>
+      <div class="dialog-actions">
+        <p-button type="button" [label]="'websiteOrders.transferDialog.close' | translate" (onClick)="closeTransferDialog()" styleClass="!border-none !bg-[#b9b9b9] !text-gray_dark" />
+      </div>
+    </div>
+  </p-dialog>
+</app-side-nav>

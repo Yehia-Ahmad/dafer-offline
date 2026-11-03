@@ -1,0 +1,21 @@
+<div class="mx-auto w-full flex justify-center items-center gap-4 mt-6 text-gray-300">
+    <!-- Previous Arrow -->
+    <button (click)="prevPage()" [disabled]="currentPage === 1" class="disabled:opacity-50">
+        <span class="text-lg text-orange">&lt;</span>
+    </button>
+
+    <!-- Page Numbers -->
+    <ng-container *ngFor="let page of pages">
+        <button (click)="goToPage(page)" [ngClass]="{
+        'bg-orange text-light_orange': currentPage === page,
+        'bg-transparent text-orange hover:text-orange': currentPage !== page
+      }" class="px-3 py-1 rounded-lg transition-all">
+            {{ page }}
+        </button>
+    </ng-container>
+
+    <!-- Next Arrow -->
+    <button (click)="nextPage()" [disabled]="currentPage === totalPages" class="disabled:opacity-50">
+        <span class="text-lg text-orange">&gt;</span>
+    </button>
+</div>
