@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectorRef, Component, DestroyRef, ViewChild, effect, EventEmitter, Inject, inject, Injector, OnInit, Output, PLATFORM_ID, runInInjectionContext, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, effect, EventEmitter, Inject, inject, Injector, OnInit, Output, PLATFORM_ID, runInInjectionContext, signal } from '@angular/core';
 import { MatListModule } from '@angular/material/list';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -20,10 +20,7 @@ import { HOME_DEFAULT_VIEW, HOME_VIEW_STORAGE_KEY } from '../constants/home-view
 import { filter } from 'rxjs';
 import { ProductsService } from '../../products/services/products.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { SeoFormComponent } from '../../seo/components/seo-form/seo-form.component';
-import { SeoEditorForm, SeoFormContext } from '../../seo/models/seo.models';
-import { buildSeoFormValue, normalizeSeoExtensionPayload } from '../../seo/utilities/seo.utils';
-import { isOfflineMainPc, isWebsiteEnabled } from '../../../core/runtime/app-features';
+import { isOfflineMainPc } from '../../../core/runtime/app-features';
 
 export type MenuItem = {
   label: string;
@@ -32,18 +29,14 @@ export type MenuItem = {
   children?: { label: string; route: string; id: string; category?: any }[];
 }
 
-// Sidebar entries hidden when website features are off (offline edition).
-const WEBSITE_ONLY_ROUTES = ['/ecommerce-settings', '/website-images'];
-
 @Component({
   selector: 'app-custom-sidenav',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, MatListModule, MatButtonModule, MatProgressSpinnerModule, MatSnackBarModule, RouterModule, DialogModule, ButtonModule, InputTextModule, WarnComponent, ErrorIconComponent, TranslatePipe, SeoFormComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, MatListModule, MatButtonModule, MatProgressSpinnerModule, MatSnackBarModule, RouterModule, DialogModule, ButtonModule, InputTextModule, WarnComponent, ErrorIconComponent, TranslatePipe],
   templateUrl: './custom-sidenav.component.html',
   styleUrl: './custom-sidenav.component.scss'
 })
 export class CustomSidenavComponent implements OnInit {
-  @ViewChild(SeoFormComponent) private seoFormComponent?: SeoFormComponent;
   private _injector = inject(Injector);
   private _languageService = inject(LanguageService);
   private readonly destroyRef = inject(DestroyRef);
@@ -58,9 +51,6 @@ export class CustomSidenavComponent implements OnInit {
   deleteCategoryVisible: boolean = false;
   categoryToDelete: any = null;
   addCategory: FormGroup;
-  categorySeoForm: SeoEditorForm;
-  categorySeoContext: SeoFormContext = { entityType: 'category' };
-  readonly websiteEnabled = isWebsiteEnabled();
   isDarkMode$;
   private isBrowser: boolean;
   direction = signal<'rtl' | 'ltr'>('ltr');
@@ -89,7 +79,6 @@ export class CustomSidenavComponent implements OnInit {
     @Inject(PLATFORM_ID) platformId: Object
   ) {
     this.initalizeAddCategory();
-    this.categorySeoForm = buildSeoFormValue(this.fb, 'category', {}, this.categorySeoContext);
     this.isDarkMode$ = this._themeService.isDarkMode$;
     this.isBrowser = isPlatformBrowser(platformId);
   }
@@ -310,28 +299,6 @@ export class CustomSidenavComponent implements OnInit {
       this.shopProfileMenuItem(),
       ...(isOfflineMainPc() ? [this.backupMenuItem()] : []),
       {
-        label: 'sidebarTitles.ecommerce_settings',
-        icon: this.sanitize(`
-        <span class="block w-8 h-8">
-          <svg width="100%" height="100%" viewBox="0 0 640 640" xmlns="http://www.w3.org/2000/svg">
-            <path d="M96 128C96 92.7 124.7 64 160 64L480 64C515.3 64 544 92.7 544 128L544 512C544 547.3 515.3 576 480 576L160 576C124.7 576 96 547.3 96 512L96 128zM160 128L160 192L480 192L480 128L160 128zM160 240L160 512L480 512L480 240L160 240zM224 288L416 288C429.3 288 440 298.7 440 312C440 325.3 429.3 336 416 336L224 336C210.7 336 200 325.3 200 312C200 298.7 210.7 288 224 288zM224 384L352 384C365.3 384 376 394.7 376 408C376 421.3 365.3 432 352 432L224 432C210.7 432 200 421.3 200 408C200 394.7 210.7 384 224 384z" style="fill:#2f2f2f;fill-rule:nonzero;" />
-          </svg>
-        </span>
-        `),
-        route: '/ecommerce-settings'
-      },
-      {
-        label: 'sidebarTitles.website_images',
-        icon: this.sanitize(`
-        <span class="block w-8 h-8">
-          <svg width="100%" height="100%" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M4 3h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h16V5H4zm3 2.5A1.5 1.5 0 1 1 7 10.5a1.5 1.5 0 0 1 0-3zM5 17l4-4 2.5 2.5L15 12l4 5H5z" style="fill:#2f2f2f;fill-rule:nonzero;" />
-          </svg>
-        </span>
-        `),
-        route: '/website-images'
-      },
-      {
         label: 'sidebarTitles.categories',
         icon: this.sanitize(`
         <span class="block w-8 h-8">
@@ -346,7 +313,7 @@ export class CustomSidenavComponent implements OnInit {
         `),
         children: this.categories,
       }
-    ] as MenuItem[]).filter((item) => this.websiteEnabled || !WEBSITE_ONLY_ROUTES.includes(item.route ?? '')));
+    ] as MenuItem[]));
   }
 
   // The shop's own details, printed on invoices.
@@ -380,8 +347,6 @@ export class CustomSidenavComponent implements OnInit {
   }
 
   isProductsContext(): boolean {
-    if (this._router.url.includes('/website-images')) return false;
-
     const isProductsRoute = this._router.url.includes('/selling')
       || this._router.url.includes('/credit-sales')
       || this._router.url.includes('/invoice-history')
@@ -566,8 +531,6 @@ export class CustomSidenavComponent implements OnInit {
     this.addCategory.reset();
     this.resetSpecificationControls();
     this.imagePreview = null;
-    this.categorySeoContext = { entityType: 'category', legacyName: '' };
-    this.categorySeoForm = buildSeoFormValue(this.fb, 'category', {}, this.categorySeoContext);
     this.visible = true;
     this.errorMessage.set('');
     this.errorVisible.set(false);
@@ -586,21 +549,6 @@ export class CustomSidenavComponent implements OnInit {
       imageBase64: null
     });
     this.imagePreview = category.category?.image || null;
-    this.categorySeoContext = {
-      entityType: 'category',
-      entityId: category.id,
-      legacyName: category.label || category.category?.name || '',
-      image: category.category?.image || ''
-    };
-    this.categorySeoForm = buildSeoFormValue(
-      this.fb,
-      'category',
-      {
-        translations: category.category?.translations,
-        seo: category.category?.seo
-      },
-      this.categorySeoContext
-    );
     this.visible = true;
     this.errorMessage.set('');
     this.errorVisible.set(false);
@@ -614,21 +562,6 @@ export class CustomSidenavComponent implements OnInit {
         });
         this.resetSpecificationControls(this.extractSpecifications(categoryDetails));
         this.imagePreview = categoryDetails?.image || this.imagePreview;
-        this.categorySeoContext = {
-          entityType: 'category',
-          entityId: category.id,
-          legacyName: categoryDetails?.name || category.label || '',
-          image: categoryDetails?.image || ''
-        };
-        this.categorySeoForm = buildSeoFormValue(
-          this.fb,
-          'category',
-          {
-            translations: categoryDetails?.translations,
-            seo: categoryDetails?.seo
-          },
-          this.categorySeoContext
-        );
         this.cdr.detectChanges();
       },
       error: () => this.cdr.detectChanges()
@@ -642,8 +575,6 @@ export class CustomSidenavComponent implements OnInit {
     this.addCategory.reset();
     this.resetSpecificationControls();
     this.imagePreview = null;
-    this.categorySeoContext = { entityType: 'category' };
-    this.categorySeoForm = buildSeoFormValue(this.fb, 'category', {}, this.categorySeoContext);
     this.errorMessage.set('');
     this.errorVisible.set(false);
     this.cdr.detectChanges();
@@ -673,7 +604,6 @@ export class CustomSidenavComponent implements OnInit {
         },
         error: (err: any) => {
           this.isSaving.set(false);
-          this.seoFormComponent?.applyDuplicateSlugError(err);
           this.errorMessage.set(this.extractErrorMessage(err, 'حدث خطأ أثناء تعديل الفئة'));
           this.errorVisible.set(true);
           console.error(err);
@@ -690,7 +620,6 @@ export class CustomSidenavComponent implements OnInit {
       },
       error: (err: any) => {
         this.isSaving.set(false);
-        this.seoFormComponent?.applyDuplicateSlugError(err);
         this.errorMessage.set(this.extractErrorMessage(err));
         this.errorVisible.set(true);
         console.error(err);
@@ -709,10 +638,6 @@ export class CustomSidenavComponent implements OnInit {
       .map((title: string) => ({ title }));
     if (!(payload['specifications'] as unknown[]).length) {
       delete payload['specifications'];
-    }
-    // Offline the SEO fields are hidden; leaving them out keeps stored SEO data untouched.
-    if (this.websiteEnabled) {
-      Object.assign(payload, normalizeSeoExtensionPayload(this.categorySeoForm));
     }
     return payload as CategoryPayload;
   }
@@ -737,20 +662,12 @@ export class CustomSidenavComponent implements OnInit {
       reader.onload = () => {
         const base64String = reader.result as string;
         this.imagePreview = base64String;
-        this.categorySeoContext = { ...this.categorySeoContext, image: base64String };
         this.addCategory.patchValue({ imageBase64: base64String });
         this.addCategory.get('imageBase64')!.updateValueAndValidity();
         this.cdr.detectChanges();
       };
       reader.readAsDataURL(file);
     }
-  }
-
-  updateCategorySeoContextFromName(): void {
-    this.categorySeoContext = {
-      ...this.categorySeoContext,
-      legacyName: String(this.addCategory.get('name')?.value || '').trim()
-    };
   }
 
   private extractErrorMessage(err: any, fallbackMessage: string = 'حدث خطأ أثناء إضافة الفئة'): string {

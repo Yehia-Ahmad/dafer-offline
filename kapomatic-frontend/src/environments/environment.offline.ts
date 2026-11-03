@@ -7,7 +7,4 @@ export const environment: AppEnvironment = {
     api_base_url: "",
     baseHREF: "./",
     offline: true,
-    features: {
-        website: false,
-    },
 };

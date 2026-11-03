@@ -23,7 +23,6 @@ import {
   InvoiceHistoryRow,
   InvoicePrintLanguage
 } from './invoice-history-print.util';
-import { isWebsiteEnabled } from '../../../../core/runtime/app-features';
 import { ShopProfileService } from '../../../shop-profile/services/shop-profile.service';
 import { InvoiceBranding, toPrintableShop } from '../../../shop-profile/utils/invoice-branding.util';
 
@@ -81,8 +80,6 @@ const DEFAULT_SELLINGS_PAGINATION: SellingsPagination = {
 })
 export class InvoiceHistoryComponent implements OnInit {
   isDarkMode$;
-  // WhatsApp links need the internet, so the offline edition hides them.
-  readonly websiteEnabled = isWebsiteEnabled();
   private isBrowser: boolean;
   isLoading = false;
   isLoadingMore = false;
@@ -445,16 +442,6 @@ export class InvoiceHistoryComponent implements OnInit {
     };
   }
 
-  openWhatsAppChat(phone: string): void {
-    const normalizedPhone = this.normalizePhoneForWhatsApp(phone);
-    if (!normalizedPhone || !this.isBrowser) return;
-    window.open(`https://wa.me/${normalizedPhone}`, '_blank');
-  }
-
-  canOpenWhatsApp(phone: string): boolean {
-    return Boolean(this.normalizePhoneForWhatsApp(phone));
-  }
-
   downloadInvoice(selling: InvoiceHistoryRow): void {
     if (!this.isBrowser || !selling?.id) {
       return;
@@ -634,32 +621,6 @@ export class InvoiceHistoryComponent implements OnInit {
 
   get isDeletingSelectedSelling(): boolean {
     return this.isDeletingSelling(this.selectedSellingToDelete?.id || '');
-  }
-
-  private normalizePhoneForWhatsApp(phone: string): string {
-    return this.normalizeEgyptPhone(phone);
-  }
-
-  private normalizeEgyptPhone(phone: string): string {
-    const rawPhone = String(phone || '').trim();
-    if (!rawPhone) return '';
-
-    const digitsOnly = rawPhone.replace(/\D/g, '');
-    if (!digitsOnly) return '';
-
-    if (digitsOnly.startsWith('0020')) {
-      return digitsOnly.slice(2);
-    }
-
-    if (digitsOnly.startsWith('+20')) {
-      return digitsOnly;
-    }
-
-    if (digitsOnly.startsWith('0')) {
-      return `+20${digitsOnly.slice(1)}`;
-    }
-
-    return `+20${digitsOnly}`;
   }
 
   private sumInvoiceMetric(

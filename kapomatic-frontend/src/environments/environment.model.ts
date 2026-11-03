@@ -5,8 +5,4 @@ export interface AppEnvironment {
     baseHREF: string;
     /** True only in the offline (LAN) desktop edition. */
     offline: boolean;
-    features: {
-        /** E-commerce settings, website images, website orders, SEO fields and WhatsApp links. */
-        website: boolean;
-    };
 }

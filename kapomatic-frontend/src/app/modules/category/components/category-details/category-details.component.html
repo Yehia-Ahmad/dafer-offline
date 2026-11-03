@@ -82,8 +82,7 @@
                 <label class="text-lg font-medium font-roboto text-light_orange" for="name">{{ 'category.addProduct.productName' | translate }}</label>
                 <input type="text"
                     class="w-full rounded-md p-2 bg-transparent text-light_orange border border-[#696969] focus:outline-none"
-                    formControlName="name"
-                    (input)="refreshProductSeoContext()" />
+                    formControlName="name" />
             </div>
 
             <div class="w-full flex flex-col gap-2 items-start">
@@ -120,8 +119,7 @@
                 <label class="text-lg font-medium font-roboto text-light_orange" for="retailPrice">{{ 'category.addProduct.retailPrice' | translate }}</label>
                 <input type="text"
                     class="w-full rounded-md p-2 bg-transparent text-light_orange border border-[#696969] focus:outline-none"
-                    formControlName="retailPrice"
-                    (input)="refreshProductSeoContext()" />
+                    formControlName="retailPrice" />
             </div>
 
             <div class="w-full flex flex-col gap-2 items-start">
@@ -142,7 +140,6 @@
                             <input type="text"
                                 class="w-full rounded-md p-2 bg-transparent text-light_orange border border-[#696969] focus:outline-none"
                                 formControlName="value"
-                                (input)="refreshProductSeoContext()"
                                 placeholder="{{ 'category.specifications.valuePlaceholder' | translate }}" />
                         </div>
                     }
@@ -159,13 +156,6 @@
                 <img [src]="imagePreview" class="w-40 h-40 object-cover rounded-md mx-auto mt-4" />
             }
 
-            @if (websiteEnabled) {
-                <app-seo-form
-                    [form]="productSeoForm"
-                    [context]="productSeoContext"
-                    entityType="product"
-                />
-            }
         </form>
 
         <div class="flex justify-center items-center">

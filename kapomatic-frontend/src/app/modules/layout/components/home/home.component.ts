@@ -6,7 +6,6 @@ import { HeaderComponent } from "../header/header.component";
 import { TranslatePipe } from '@ngx-translate/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HOME_DEFAULT_VIEW, HOME_VIEW_STORAGE_KEY, HOME_VIEWS, HomeView } from '../../constants/home-view.constants';
-import { isWebsiteEnabled } from '../../../../core/runtime/app-features';
 
 @Component({
   selector: 'app-home',
@@ -17,7 +16,6 @@ import { isWebsiteEnabled } from '../../../../core/runtime/app-features';
 })
 export class HomeComponent implements OnInit {
   currentView: HomeView = HOME_DEFAULT_VIEW;
-  readonly websiteEnabled = isWebsiteEnabled();
   isDarkMode$;
   private isBrowser: boolean;
 
@@ -46,14 +44,6 @@ export class HomeComponent implements OnInit {
 
   openCustomers(): void {
     this._router.navigate(['/customers']);
-  }
-
-  openEcommerceSettings(): void {
-    this._router.navigate(['/ecommerce-settings']);
-  }
-
-  openWebsiteOrders(): void {
-    this._router.navigate(['/website-orders']);
   }
 
   openSelling(): void {

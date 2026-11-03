@@ -319,7 +319,6 @@
           type="text"
           class="w-full rounded-md p-2 bg-transparent text-light_orange border border-[#696969] focus:outline-none"
           formControlName="name" placeholder="{{ 'category.namePlaceholder' | translate }}"
-          (input)="updateCategorySeoContextFromName()"
         />
       </div>
       <div class="w-full flex flex-col gap-3 items-start" formArrayName="specifications">
@@ -363,13 +362,6 @@
           <img [src]="imagePreview" class="w-40 h-40 object-cover rounded-md mx-auto mt-4" />
       }
 
-      @if (websiteEnabled) {
-        <app-seo-form
-          [form]="categorySeoForm"
-          [context]="categorySeoContext"
-          entityType="category"
-        />
-      }
     </form>
     <div class="flex justify-center items-center">
       <p-button label="{{ (editingCategory ? 'category.updateButton' : 'category.saveButton') | translate}}" severity="warn" styleClass="!px-4 !py-1 !bg-orange !text-dark" (click)="addNewCategory()" [disabled]="addCategory.invalid || isSaving()"

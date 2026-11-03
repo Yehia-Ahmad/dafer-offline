@@ -6,7 +6,4 @@ export const environment: AppEnvironment = {
     // api_base_url: "https://api.kapomatic.com/api/",
     baseHREF: "/",
     offline: false,
-    features: {
-        website: true,
-    },
 };

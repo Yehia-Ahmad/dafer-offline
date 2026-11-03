@@ -28,7 +28,7 @@
                             }">
                             <input id="name" type="text"
                                 class="w-full rounded-md p-2 bg-transparent border border-none focus:outline-none"
-                                [(ngModel)]="product.name" (ngModelChange)="refreshProductSeoContext()" [ngModelOptions]="{standalone: true}" [ngClass]="{
+                                [(ngModel)]="product.name" [ngModelOptions]="{standalone: true}" [ngClass]="{
                                     'text-orange': !(isDarkMode$ | async),
                                     'text-light_orange ': (isDarkMode$ | async)
                                 }" />
@@ -43,7 +43,7 @@
                             }">
                             <input id="code" type="text"
                                 class="w-full rounded-md p-2 bg-transparent border border-none focus:outline-none"
-                                [(ngModel)]="product.code" (ngModelChange)="refreshProductSeoContext()" [ngModelOptions]="{standalone: true}" [ngClass]="{
+                                [(ngModel)]="product.code" [ngModelOptions]="{standalone: true}" [ngClass]="{
                                     'text-orange': !(isDarkMode$ | async),
                                     'text-light_orange ': (isDarkMode$ | async)
                                 }" />
@@ -103,7 +103,7 @@
                             }">
                             <input id="retailPrice" type="text"
                                 class="w-full rounded-md p-2 bg-transparent border border-none focus:outline-none"
-                                [(ngModel)]="product.retailPrice" (ngModelChange)="refreshProductSeoContext()" [ngModelOptions]="{standalone: true}" [ngClass]="{
+                                [(ngModel)]="product.retailPrice" [ngModelOptions]="{standalone: true}" [ngClass]="{
                                     'text-orange': !(isDarkMode$ | async),
                                     'text-light_orange ': (isDarkMode$ | async)
                                 }" />
@@ -170,7 +170,7 @@
                                     }">
                                     <input [id]="'detail-' + $index" type="text"
                                         class="w-full rounded-md p-2 bg-transparent border border-none focus:outline-none"
-                                        [(ngModel)]="detail.value" (ngModelChange)="refreshProductSeoContext()" [ngModelOptions]="{standalone: true}"
+                                        [(ngModel)]="detail.value" [ngModelOptions]="{standalone: true}"
                                         [placeholder]="'category.specifications.valuePlaceholder' | translate"
                                         [ngClass]="{
                                             'text-orange': !(isDarkMode$ | async),
@@ -182,18 +182,6 @@
                 </div>
                 
             </div>
-            @if (websiteEnabled) {
-            <div class="w-full rounded-lg p-6" [ngClass]="{
-                'bg-gray_dark': isDarkMode$ | async,
-                'bg-light_card_bg': !(isDarkMode$ | async)
-            }">
-                <app-seo-form
-                    [form]="productSeoForm"
-                    [context]="productSeoContext"
-                    entityType="product"
-                />
-            </div>
-            }
         </div>
         <div class="edit-image-panel flex flex-col items-center justify-center gap-4 my-6 rounded-lg" [ngClass]="{
                 'bg-gray_dark': isDarkMode$ | async,

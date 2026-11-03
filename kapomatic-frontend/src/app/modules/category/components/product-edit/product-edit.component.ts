@@ -1,6 +1,6 @@
-import { ChangeDetectorRef, Component, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component } from '@angular/core';
 import { SideNavComponent } from "../../../layout/components/side-nav/side-nav.component";
-import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule, Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CateoryService } from '../../services/cateory.service';
@@ -12,19 +12,14 @@ import { ThemeService } from '../../../shared/services/theme.service';
 import { ErrorIconComponent } from "../../../assets/error/error-icon.component";
 import { DatePickerModule } from 'primeng/datepicker';
 import { format as formatDate } from 'date-fns';
-import { SeoFormComponent } from '../../../seo/components/seo-form/seo-form.component';
-import { SeoEditorForm, SeoFormContext } from '../../../seo/models/seo.models';
-import { buildSeoFormValue, normalizeSeoExtensionPayload } from '../../../seo/utilities/seo.utils';
-import { isWebsiteEnabled } from '../../../../core/runtime/app-features';
 
 @Component({
   selector: 'app-product-edit',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, DialogModule, ButtonModule, SideNavComponent, WarnComponent, TranslatePipe, ErrorIconComponent, DatePickerModule, SeoFormComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, DialogModule, ButtonModule, SideNavComponent, WarnComponent, TranslatePipe, ErrorIconComponent, DatePickerModule],
   templateUrl: './product-edit.component.html',
   styleUrl: './product-edit.component.scss'
 })
 export class ProductEditComponent {
-  @ViewChild(SeoFormComponent) private seoFormComponent?: SeoFormComponent;
   isLoading: boolean = false;
   productId: any;
   product: any = {};
@@ -42,16 +37,12 @@ export class ProductEditComponent {
   isDarkMode$;
   imagePreview: string | ArrayBuffer | null = null;
   productDetails: { title: string; value: string }[] = [];
-  productSeoForm: SeoEditorForm;
-  productSeoContext: SeoFormContext = { entityType: 'product' };
-  readonly websiteEnabled = isWebsiteEnabled();
   errorVisible = false;
   errorMessage = '';
 
-  constructor(private _themeService: ThemeService, private cdr: ChangeDetectorRef, private _router: Router, private _cateoryService: CateoryService, private _activatedRoute: ActivatedRoute, private location: Location, private fb: FormBuilder) {
+  constructor(private _themeService: ThemeService, private cdr: ChangeDetectorRef, private _router: Router, private _cateoryService: CateoryService, private _activatedRoute: ActivatedRoute, private location: Location) {
     this.isDarkMode$ = this._themeService.isDarkMode$;
     this.productId = this._activatedRoute.snapshot.params['id'];
-    this.productSeoForm = buildSeoFormValue(this.fb, 'product', {}, this.productSeoContext);
   }
 
   ngOnInit() {
@@ -68,7 +59,6 @@ export class ProductEditComponent {
         this.product = res;
         this.productDetails = this.buildProductDetails(this.product);
         this.newInventory = null;
-        this.refreshProductSeoForm();
         this.cdr.detectChanges();
       }, error: (err: any) => {
         this.loading = false;
@@ -114,10 +104,6 @@ export class ProductEditComponent {
       editProduct: newInventoryCount === 0,
       specifications: this.normalizeProductDetails(this.productDetails),
     };
-    // Offline the SEO fields are hidden; leaving them out keeps stored SEO data untouched.
-    if (this.websiteEnabled) {
-      Object.assign(payload, normalizeSeoExtensionPayload(this.productSeoForm));
-    }
     this._cateoryService.updateProduct(this.productId, payload).subscribe({
       next: (res: any) => {
         this.loading = false;
@@ -125,7 +111,6 @@ export class ProductEditComponent {
         this.location.back();
       }, error: (err: any) => {
         this.loading = false;
-        this.applySeoDuplicateError(err);
         this.errorVisible = true;
         this.errorMessage = err.error.message;
         this.cdr.detectChanges();
@@ -185,7 +170,6 @@ export class ProductEditComponent {
         this.imagePreview = base64String;
         // this.product.image = file;
         this.product.image = base64String;
-        this.refreshProductSeoContext();
         this.cdr.detectChanges();
       };
       reader.readAsDataURL(file);
@@ -247,35 +231,5 @@ export class ProductEditComponent {
         value: String(detail?.value || '').trim()
       }))
       .filter((detail: { title: string }) => Boolean(detail.title));
-  }
-
-  refreshProductSeoContext(): void {
-    this.productSeoContext = {
-      entityType: 'product',
-      entityId: String(this.productId || ''),
-      legacyName: String(this.product?.name || '').trim(),
-      categoryName: String(this.product?.category?.name || this.product?.categoryName || '').trim(),
-      code: String(this.product?.code || '').trim(),
-      image: String(this.product?.image || ''),
-      price: this.product?.retailPrice,
-      specifications: this.normalizeProductDetails(this.productDetails)
-    };
-  }
-
-  private refreshProductSeoForm(): void {
-    this.refreshProductSeoContext();
-    this.productSeoForm = buildSeoFormValue(
-      this.fb,
-      'product',
-      {
-        translations: this.product?.translations,
-        seo: this.product?.seo
-      },
-      this.productSeoContext
-    );
-  }
-
-  private applySeoDuplicateError(err: unknown): void {
-    this.seoFormComponent?.applyDuplicateSlugError(err);
   }
 }

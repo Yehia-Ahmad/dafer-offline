@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
-import { websiteFeatureGuard } from './core/guards/website-feature.guard';
 import { mainPcGuard } from './core/guards/main-pc.guard';
 import { HomeComponent } from './modules/layout/components/home/home.component';
 
@@ -59,31 +58,6 @@ export const routes: Routes = [
     {
         path: 'products/profit-report',
         loadComponent: () => import('./modules/products/components/product-profit-report/product-profit-report.component').then(m => m.ProductProfitReportComponent)
-    },
-    {
-        path: 'ecommerce-settings/shipping/general',
-        canMatch: [websiteFeatureGuard],
-        loadComponent: () => import('./modules/ecommerce-settings/components/ecommerce-settings/ecommerce-settings.component').then(m => m.EcommerceSettingsComponent)
-    },
-    {
-        path: 'ecommerce-settings/shipping/governments',
-        canMatch: [websiteFeatureGuard],
-        loadComponent: () => import('./modules/ecommerce-settings/components/ecommerce-settings/ecommerce-settings.component').then(m => m.EcommerceSettingsComponent)
-    },
-    {
-        path: 'ecommerce-settings',
-        canMatch: [websiteFeatureGuard],
-        loadComponent: () => import('./modules/ecommerce-settings/components/ecommerce-settings/ecommerce-settings.component').then(m => m.EcommerceSettingsComponent)
-    },
-    {
-        path: 'website-images',
-        canMatch: [websiteFeatureGuard],
-        loadComponent: () => import('./modules/website-images/components/website-images/website-images.component').then(m => m.WebsiteImagesComponent)
-    },
-    {
-        path: 'website-orders',
-        canMatch: [websiteFeatureGuard],
-        loadComponent: () => import('./modules/website-orders/components/website-orders/website-orders.component').then(m => m.WebsiteOrdersComponent)
     },
     {
         path: 'shop-profile',

@@ -83,45 +83,6 @@
             }">{{ 'home.cards.customers.description' | translate }}</p>
           </button>
 
-          @if (websiteEnabled) {
-          <button
-            type="button"
-            (click)="openEcommerceSettings()"
-            class="w-full rounded-[0.85rem] border p-[1.4rem] text-left transition duration-200 hover:-translate-y-0.5"
-            [ngClass]="{
-              'border-[#515151] bg-gray_dark hover:border-[#20c997] hover:shadow-[0_12px_24px_rgba(0,0,0,0.2)]': (isDarkMode$ | async),
-              'border-[#e2e2e2] bg-white hover:border-[#20c997] hover:shadow-[0_12px_24px_rgba(47,47,47,0.1)]': !(isDarkMode$ | async)
-            }"
-          >
-            <h2 class="mb-2 font-azonix text-azonix-card" [ngClass]="{
-              'text-light_orange': (isDarkMode$ | async),
-              'text-gray_dark': !(isDarkMode$ | async)
-            }">{{ 'home.cards.ecommerceSettings.title' | translate }}</h2>
-            <p class="font-roboto text-[0.95rem]" [ngClass]="{
-              'text-gray_light': (isDarkMode$ | async),
-              'text-gray': !(isDarkMode$ | async)
-            }">{{ 'home.cards.ecommerceSettings.description' | translate }}</p>
-          </button>
-
-          <button
-            type="button"
-            (click)="openWebsiteOrders()"
-            class="w-full rounded-[0.85rem] border p-[1.4rem] text-left transition duration-200 hover:-translate-y-0.5"
-            [ngClass]="{
-              'border-[#515151] bg-gray_dark hover:border-[#0d6efd] hover:shadow-[0_12px_24px_rgba(0,0,0,0.2)]': (isDarkMode$ | async),
-              'border-[#e2e2e2] bg-white hover:border-[#0d6efd] hover:shadow-[0_12px_24px_rgba(47,47,47,0.1)]': !(isDarkMode$ | async)
-            }"
-          >
-            <h2 class="mb-2 font-azonix text-azonix-card" [ngClass]="{
-              'text-light_orange': (isDarkMode$ | async),
-              'text-gray_dark': !(isDarkMode$ | async)
-            }">{{ 'home.cards.websiteOrders.title' | translate }}</h2>
-            <p class="font-roboto text-[0.95rem]" [ngClass]="{
-              'text-gray_light': (isDarkMode$ | async),
-              'text-gray': !(isDarkMode$ | async)
-            }">{{ 'home.cards.websiteOrders.description' | translate }}</p>
-          </button>
-          }
         </div>
       </div>
     </div>

@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
-import { SeoNormalizedExtension } from '../../seo/models/seo.models';
 
 export interface Product {
   _id: string;
@@ -15,13 +14,13 @@ export interface Product {
   [key: string]: unknown;
 }
 
-export interface CategoryPayload extends SeoNormalizedExtension {
+export interface CategoryPayload {
   name?: string;
   imageBase64?: string;
   specifications?: Array<{ title: string }>;
 }
 
-export interface ProductPayload extends SeoNormalizedExtension {
+export interface ProductPayload {
   name?: string;
   code?: string;
   inventoryCount?: number | string;
@@ -153,34 +152,6 @@ export class CateoryService {
 
   deleteProduct(id: number) {
     return this._http.delete(`${this._baseUrl}products/${id}`);
-  }
-
-  createModel(model: any) {
-    return this._http.post(`${this._baseUrl}models`, model);
-  }
-
-  getModelById(id: number) {
-    return this._http.get(`${this._baseUrl}models/${id}`);
-  }
-
-  updateModel(id: number, model: any) {
-    return this._http.patch(`${this._baseUrl}models/${id}`, model);
-  }
-
-  getAllModels() {
-    return this._http.get(`${this._baseUrl}models`);
-  }
-
-  deleteModel(id: number) {
-    return this._http.delete(`${this._baseUrl}models/${id}`);
-  }
-
-  veryQrCode(qr_id: number) {
-    return this._http.get(`${this._baseUrl}models/verify-qr/${qr_id}`);
-  }
-
-  printQrCodes(payload: any) {
-    return this._http.post(`${this._baseUrl}models/print-qr`, payload);
   }
 
   private normalizeProductsPage(

@@ -24,10 +24,6 @@ import { ErrorIconComponent } from "../../../assets/error/error-icon.component";
 import { LanguageService } from '../../../shared/services/translation.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { distinctUntilChanged, map } from 'rxjs';
-import { SeoFormComponent } from '../../../seo/components/seo-form/seo-form.component';
-import { SeoEditorForm, SeoFormContext } from '../../../seo/models/seo.models';
-import { buildSeoFormValue, normalizeSeoExtensionPayload } from '../../../seo/utilities/seo.utils';
-import { isWebsiteEnabled } from '../../../../core/runtime/app-features';
 
 @Component({
   selector: 'app-category-details',
@@ -42,13 +38,11 @@ import { isWebsiteEnabled } from '../../../../core/runtime/app-features';
     SelectModule,
     TranslatePipe,
     ErrorIconComponent,
-    SeoFormComponent,
 ],
   templateUrl: './category-details.component.html',
   styleUrl: './category-details.component.scss'
 })
 export class CategoryDetailsComponent implements OnInit, OnDestroy {
-  @ViewChild(SeoFormComponent) private seoFormComponent?: SeoFormComponent;
   private readonly destroyRef = inject(DestroyRef);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly pageSize = 10;
@@ -66,9 +60,6 @@ export class CategoryDetailsComponent implements OnInit, OnDestroy {
   visible: boolean = false;
   categories: any[] = [];
   addProductForm: FormGroup;
-  productSeoForm: SeoEditorForm;
-  productSeoContext: SeoFormContext = { entityType: 'product' };
-  readonly websiteEnabled = isWebsiteEnabled();
   products: Product[] = [];
   searchTerm = '';
   qrCodes: any[] = [];
@@ -103,7 +94,6 @@ export class CategoryDetailsComponent implements OnInit, OnDestroy {
   ) {
     this.isDarkMode$ = this._themeService.isDarkMode$;
     this.initlizeAddProduct(null);
-    this.productSeoForm = buildSeoFormValue(this.fb, 'product', {}, this.productSeoContext);
   }
 
   ngOnInit(): void {
@@ -250,8 +240,6 @@ export class CategoryDetailsComponent implements OnInit, OnDestroy {
       code: this.getNextProductCode(),
       categoryId: this.categoryId,
     });
-    this.refreshProductSeoContext();
-    this.productSeoForm = buildSeoFormValue(this.fb, 'product', {}, this.productSeoContext);
     this.visible = true;
   }
 
@@ -287,10 +275,6 @@ export class CategoryDetailsComponent implements OnInit, OnDestroy {
     if (!payload.specifications.length) {
       delete payload.specifications;
     }
-    // Offline the SEO fields are hidden and not sent.
-    if (this.websiteEnabled) {
-      Object.assign(payload, normalizeSeoExtensionPayload(this.productSeoForm));
-    }
     console.log('Adding product with payload:', this.addProductForm.value);
     console.log('Adding product with payload:', payload);
 
@@ -305,7 +289,6 @@ export class CategoryDetailsComponent implements OnInit, OnDestroy {
       },
       error: (err: any) => {
         this.isAddingProduct = false;
-        this.seoFormComponent?.applyDuplicateSlugError(err);
         this.errorVisible = true;
         this.errorMessage = err.error.message;
         this.cdr.detectChanges();
@@ -328,8 +311,6 @@ export class CategoryDetailsComponent implements OnInit, OnDestroy {
     });
     this.resetProductDetailsControls();
     this.imagePreview = null;
-    this.refreshProductSeoContext();
-    this.productSeoForm = buildSeoFormValue(this.fb, 'product', {}, this.productSeoContext);
   }
 
   navigateToProductDetails(product) {
@@ -353,7 +334,6 @@ export class CategoryDetailsComponent implements OnInit, OnDestroy {
       reader.onload = () => {
         const base64String = reader.result as string;
         this.imagePreview = base64String;
-        this.productSeoContext = { ...this.productSeoContext, image: base64String };
         this.addProductForm.patchValue({ imageBase64: base64String });
         this.addProductForm.get('imageBase64')!.updateValueAndValidity();
         this.cdr.detectChanges();
@@ -473,18 +453,5 @@ export class CategoryDetailsComponent implements OnInit, OnDestroy {
       ...current,
       ...incoming.filter((product) => !productIds.has(product._id))
     ];
-  }
-
-  refreshProductSeoContext(): void {
-    const raw = this.addProductForm?.getRawValue?.() ?? {};
-    this.productSeoContext = {
-      entityType: 'product',
-      legacyName: String(raw.name || '').trim(),
-      categoryName: String(this.categoryDetails?.name || this.categoryDetails?.categoryName || '').trim(),
-      code: String(raw.code || '').trim(),
-      image: typeof this.imagePreview === 'string' ? this.imagePreview : '',
-      price: raw.retailPrice,
-      specifications: this.normalizeProductDetails(raw.specifications || [])
-    };
   }
 }
