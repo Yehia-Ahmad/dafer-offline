@@ -7,8 +7,6 @@ offline-dev-home/
 release-offline/
 vendor/
 release/
-build/
-desktop/dist/
-desktop/electron/
-desktop/node_modules/
+build/*
+!build/icon.ico
 .codex

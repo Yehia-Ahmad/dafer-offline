@@ -129,7 +129,7 @@ Localization is Partial because the service registers `en`, `ar`, and `zh`, but 
 
 | Feature | What It Does | Who Uses It | Main Capabilities | Related Pages or Modules | Status |
 |---|---|---|---|---|---|
-| Electron desktop app | Packages the Angular build as a desktop application. | Business users on desktop | Loads built Angular output, sets window sizing, supports Windows build targets. | `electron/main.js`, `package.json`, `desktop/package.json` | Complete |
+| Electron desktop app | Packages the Angular build as a desktop application. | Business users on desktop | Loads built Angular output, sets window sizing, supports Windows build targets. | `electron-offline/main.js`, `electron-builder.offline.json`, `scripts/offline/` | Complete |
 
 ## 3. User Roles
 
@@ -272,14 +272,14 @@ Verified from: `src/app/modules/admin/components/admins/admins.component.ts`, `s
 - Authentication method: Bearer token support exists through local storage and an HTTP interceptor, but the interceptor is not currently registered.
 - Routing: `src/app/app.routes.ts` uses direct and lazy-loaded standalone components.
 - Guards and interceptors: Present but inactive in current routing/bootstrap configuration.
-- Server-side rendering: Dependencies for `@angular/ssr`, `@angular/platform-server`, and Express exist, and client hydration is configured. No server entry file was found in `src`, and `angular.json` uses the application builder without an explicit server target in the inspected file. SSR is therefore Partially Implemented / Needs Verification.
+- Server-side rendering: not used. The SSR dependencies were removed; `provideClientHydration` is still listed in `app.config.ts`.
 - Desktop: Electron wrapper loads built Angular files from `dist` and electron-builder is configured for Windows NSIS/zip/unpacked outputs.
 - Testing tools: Jasmine, Karma, Karma Chrome Launcher, and Angular test builder. Many component/service spec files exist.
 - Build/deployment: Angular CLI build scripts plus Electron build scripts in `package.json`. No CI/CD pipeline was found in the inspected files.
 
 ## 7. API Integrations
 
-Base API configuration is provided by `api_base_url` in `src/environments/environment.ts` and `src/environments/environment.prod.ts`. Actual URL values are intentionally not documented here.
+Base API configuration is provided by `api_base_url` in `src/environments/environment.ts` and `src/environments/environment.offline.ts`. Actual URL values are intentionally not documented here.
 
 | API Area | Purpose | Used By | Authentication Required |
 |---|---|---|---|
@@ -368,7 +368,7 @@ For e-commerce operators:
 
 - Authentication and authorization: guard/interceptors exist but are not active, and no login route is present.
 - Permission checks: local-storage permission support exists, but active component/route restrictions were not confirmed.
-- SSR: dependencies and hydration exist, but no server entry/explicit SSR build target was found.
+- SSR: not used (dependencies removed).
 - Custom/workshop sales: feature files and routes are implemented but currently appear as new/modified worktree changes, so this area should be treated as In Progress until merged and tested.
 - Model/QR workflows: service methods exist, but no complete dedicated page flow was confirmed.
 - Localization: English and Arabic assets exist; `zh` is registered in code but no Chinese translation asset was found.
@@ -400,7 +400,7 @@ For e-commerce operators:
 | `src/app/core/guards` | Route guard support. |
 | `src/app/core/interceptor` | HTTP interceptor support for authorization, logout, and offline retry behavior. |
 | `src/app/core/utilities` | Shared helper functions for params, FormData, parsing, and date formatting. |
-| `src/app/modules/layout` | Home shell, header, side navigation, splash, and home view constants. |
+| `src/app/modules/layout` | Home shell, header, side navigation, and home view constants. |
 | `src/app/modules/admin` | User/admin management components and service. |
 | `src/app/modules/category` | Category/product pages and category/product/model API service. |
 | `src/app/modules/products` | Selling, credit sales, invoice history, profit reports, and related services. |
@@ -413,11 +413,11 @@ For e-commerce operators:
 | `src/app/modules/shared` | Theme, translation, disk/local-storage services, and pagination component. |
 | `src/app/modules/assets` | Reusable visual components and icon wrappers. |
 | `src/assets` | App assets copied by Angular build: fonts, images, SVGs, translations. |
-| `public` | Public favicon, images, SVGs, fonts, and i18n assets used by build/test configuration. |
+| `public` | Public favicon used by build/test configuration. |
 | `src/environments` | Environment-specific configuration names, including `api_base_url` and `baseHREF`. |
-| `electron` | Electron main process and desktop app bootstrap. |
-| `desktop` | Prepared desktop package metadata and copied build output used by Electron packaging. |
-| `package.json` | Dependencies, Angular scripts, Electron scripts, and electron-builder configuration. |
+| `electron` | electron-builder beforeBuild hook used by the offline packaging. |
+| `electron-offline` | Electron main process and desktop app bootstrap for the offline edition. |
+| `package.json` | Dependencies, Angular scripts, and Electron scripts. |
 | `angular.json` | Angular CLI build, serve, and test configuration. |
 
 Generated/dependency folders such as `node_modules`, `dist`, `build`, `coverage`, cache folders, and `release` are intentionally excluded.
@@ -439,11 +439,10 @@ Generated/dependency folders such as `node_modules`, `dist`, `build`, `coverage`
 | Install dependencies | `npm install` |
 | Development server | `npm start` or `ng serve` |
 | Production build | `npm run build` |
-| Desktop Angular build | `npm run build:desktop` |
-| Run Electron desktop app | `npm run electron:start` |
-| Build Windows unpacked desktop folder | `npm run electron:build:win:dir` |
-| Build Windows zip | `npm run electron:build:win:zip` |
-| Build Windows installer | `npm run electron:build:win` |
+| Offline Angular build | `npm run build:offline` |
+| Run Electron desktop app | `npm run electron:start:offline` |
+| Build Windows unpacked desktop folder | `npm run electron:build:win:offline:dir` |
+| Build Windows installer | `npm run electron:build:win:offline` |
 | Unit tests | `npm test` or `ng test` |
 
 ### Required Environment Variables / Configuration Names

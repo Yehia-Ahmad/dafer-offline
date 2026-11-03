@@ -1,12 +1,6 @@
 {
-  "ProductTitle": "قائمة المنتجات",
   "searchPlaceholder": "بحث ...",
   "sidebarTitles": {
-    "mainitems": "العناصر الرئيسية",
-    "admins": "المشرفون",
-    "addAdmins": "إضافة مشرفين",
-    "showAdmins": "عرض المشرفين",
-    "products": "المنتجات",
     "customers": "العملاء",
     "selling": "البيع",
     "credit_sales": "البيع الآجل",
@@ -14,94 +8,31 @@
     "returns": "المرتجعات",
     "profit_report": "تقرير الأرباح",
     "export_products": "تصدير المنتجات",
-    "addProducts": "إضافة منتجات",
-    "showProducts": "عرض المنتجات",
-    "warranties": "الضمانات",
     "categories": "الفئات",
     "add_new_category": "اضافة فئة جديدة",
     "backup": "النسخ الاحتياطي",
     "shop_profile": "بيانات المتجر"
-
   },
   "actions": {
     "save": "حفظ",
-    "creating": "جاري الإنشاء...",
     "loading": "جاري التحميل...",
     "cancelButton": "لا، إلغاء",
     "deleteButton": "نعم، حذف"
   },
-  "addProduct": "إضافة منتج",
   "tableHeaders": {
     "name": "الاسم",
     "username": "اسم المستخدم",
     "number": "الرقم",
     "email": "البريد الإلكتروني",
     "role": "الدور",
-    "product": "المنتج",
-    "model": "النموذج",
     "invoice": "الفاتورة",
-    "remining": "المتبقي",
-    "expiry": "الانتهاء",
-    "type": "النوع",
-    "description": "الوصف",
-    "warranty": "الضمان",
-    "expiryDate": "تاريخ الانتهاء",
     "actions": "الإجراءات"
   },
-  "showQR": "عرض QR",
   "delete": "حذف",
-  "qrCodesForProduct": "رموز QR للمنتج",
-  "printQRCode": "🖨️ طباعة رمز QR",
-  "copies": "نسخ",
-  "errors": {
-    "invalidProductId": "تم استلام معرف منتج غير صالح.",
-    "uniqueNameRequired": "يجب إدخال اسم فريد",
-    "errorMsgToShowProducts": "فشل تحميل المنتجات",
-    "genericError": "حدث خطأ ما.",
-    "fetchError": "خطأ في جلب بيانات المشرفين",
-    "notFound": "المشرف غير موجود",
-    "deleteError": "خطأ في حذف المشرف"
-  },
-  "product": {
-    "product": "المنتج",
-    "noDescription": "لا يوجد وصف متاح",
-    "newProduct": "منتج جديد",
-    "createNewProduct": "إنشاء منتج جديد",
-    "form": {
-      "name": "اسم المنتج",
-      "type": "نوع المنتج",
-      "warranty": "فترة الضمان",
-      "description": "وصف المنتج"
-    },
-    "actions": {
-      "creationSuccess": "تم إنشاء المنتج بنجاح!",
-      "backToList": "العودة إلى القائمة",
-      "saving": "جاري الحفظ...",
-      "saveButton": "حفظ المنتج"
-    }
-  },
   "admin": {
     "title": "المشرفون",
-    "createNewAdmin": "إنشاء مشرف جديد",
-    "form": {
-      "username": "اسم المستخدم",
-      "phone": "رقم الهاتف",
-      "email": "البريد الإلكتروني",
-      "password": "كلمة المرور",
-      "role": "الدور"
-    },
-    "roles": {
-      "admin": "مشرف",
-      "moderator": "مراقب"
-    },
-    "actions": {
-      "creating": "جاري الإنشاء...",
-      "createAdmin": "إنشاء مشرف",
-      "deleteSuccess": "تم حذف المشرف بنجاح"
-    },
     "change_Button": "تغيير",
     "remove_Button": "حذف",
-    "list_Title": "قائمة المشرفين",
     "add_Button": "إضافة مشرف"
   },
   "category": {
@@ -125,13 +56,8 @@
       "retry": "إعادة المحاولة"
     },
     "add_new_category": "إضافة فئة جديدة",
-    "pressAddModel": "اضغط على إضافة نموذج",
-    "printQr": "لطباعة رموز الاستجابة السريعة",
-    "info": "لكل منتج. قم بتحرير المنتج فقط عندما يتم ترقيته لتغيير مواصفاته.",
     "name": "اسم الفئة",
     "namePlaceholder": "اسم الفئة",
-    "description": "وصف الفئة",
-    "descriptionPlaceholder": "وصف الفئة",
     "specifications": {
       "title": "المواصفات",
       "addButton": "إضافة",
@@ -148,8 +74,6 @@
       "purchasePrice": "سعر الشراء",
       "retailPrice": "سعر الوحدة بالتجزئة",
       "soldItemCount": "عدد المبيعات",
-      "description":"وصف المنتج",
-      "category": "فئة المنتج",
       "uploadImage": "تحميل صورة",
       "changeImage": "تغيير صورة",
       "actions": {
@@ -162,8 +86,6 @@
       "title": "تعديل المنتج",
       "productName": "اسم المنتج",
       "code": "كود المنتج",
-      "watt": "وات",
-      "lumen": "لومن",
       "inventoryCount": "عدد المخزون",
       "newInventory": "المخزون الجديد",
       "wholesalePrice": "سعر الوحدة بالجملة",
@@ -171,15 +93,9 @@
       "retailPrice": "سعر الوحدة بالتجزئة",
       "discountPercentage": "نسبة الخصم",
       "soldItemCount": "عدد المبيعات",
-      "description":"وصف المنتج",
-      "category": "فئة المنتج",
-      "uploadImage": "تحميل صورة",
-      "changeImage": "تغيير صورة",
       "actions": {
         "save": "حفظ المنتج",
-        "syncPurchasePrice": "تعديل سعر البيع",
-        "creating": "جاري الإنشاء...",
-        "deleteButton": "حذف المنتج"
+        "syncPurchasePrice": "تعديل سعر البيع"
       },
       "syncPurchasePrice": {
         "title": "تعديل سعر البيع",
@@ -197,30 +113,6 @@
         "cancelButton": "إالغاء"
       }
     },
-    "addModel": {
-      "title": "إضافة نموذج",
-      "forProduct": "للمنتج",
-      "model": "نموذج",
-      "modelPlaceholder": "اسم النموذج",
-      "quantity": "الكمية",
-      "quantityPlaceholder": "الكمية",
-      "actions": {
-        "createQRs": "انشاء رموز QR",
-        "creating": "جاري الإنشاء...",
-        "createModel": "إنشاء نموذج",
-        "deleteSuccess": "تم حذف النموذج بنجاح"
-      }
-    },
-    "qrCodes": {
-      "title": "رموز QR للنماذج"
-    },
-    "actions": {
-      "creating": "جاري الإنشاء...",
-      "createCategory": "إنشاء فئة",
-      "deleteSuccess": "تم حذف الفئة بنجاح"
-    },
-    "addButton": "إضافة فئة",
-    "listTitle": "قائمة الفئات",
     "edit_category_title": "تعديل الفئة",
     "delete_category_title": "حذف الفئة",
     "delete_category_message": "هل تريد حذف هذه الفئة؟",
@@ -228,63 +120,7 @@
     "delete_button": "نعم، احذف",
     "saveButton": "حفظ الفئة",
     "updateButton": "تحديث الفئة",
-    "isSaving": "جاري الحفظ...",
-    "deleteButton": "حذف",
     "changeButton": "تغيير"
-  },
-  "validationForm": {
-    "name": "الاسم",
-    "phone": "الهاتف",
-    "shopName": "اسم المتجر",
-    "shopNumber": "رقم المتجر",
-    "purchaseDate": "تاريخ الشراء",
-    "invoicePhoto": "صورة الفاتورة",
-    "userInfo": "معلومات المستخدم",
-    "invoiceInfo": "معلومات الفاتورة",
-    "browsePhoto": "تصفح الصورة"
-  },
-  "warrant": {
-    "oklandWarranty": "ضمان شركة أوكلاند",
-    "expiresOn": "ينتهي الضمان في",
-    "activate": "تفعيل الضمان",
-    "success": "تم تفعيل الضمان بنجاح!",
-    "failure": "فشل تفعيل الضمان",
-    "validation": "يجب رفع صورة الفاتورة مع إظهار التاريخ لتفعيل الضمان"
-  },
-  "upload": {
-    "uploading": "جاري الرفع...",
-    "complete": "تم الرفع بنجاح"
-  },
-  "showWarranty": "عرض الضمان",
-  "viewAllWarranties": "عرض جميع الضمانات",
-  "warranty": {
-    "title": "لوحة تحكم الضمان",
-    "invoicePhoto": "صورة الفاتورة",
-    "productName": "اسم المنتج",
-    "modal": "نوع المنتج",
-    "expiresOn": "تاريخ انتهاء الضمان",
-    "deleteWarranty": {
-      "title": "حذف الضمان",
-      "deleteMessage": "هل تريد حذف هذا الضمان؟",
-      "warrantyExpiries": "ينتهي الضمان في",
-      "actions": {
-        "deleteButton": "نعم، احذف",
-        "cancelButton": "لا، إلغاء"
-      }
-    },
-    "activateWarranty": {
-      "userInformation": "معلومات المستخدم",
-      "fullName": "الاسم الكامل",
-      "phoneNumber": "رقم الهاتف",
-      "invoiceInformation": "معلومات الفاتورة",
-      "branchName": "اسم الفرع",
-      "branchNumber": "رقم الفرع",
-      "uploadPhoto": "تحميل الصورة",
-      "photoInfo": "يجب تحميل صورة الفاتورة ببيانات واضحة لتفعيل الضمان",
-      "actions": {
-        "activate": "تفعيل الضمان"
-      }
-    }
   },
   "home": {
     "title": "نظام المخزون",
@@ -333,7 +169,6 @@
       "invoiceProduct": "بند المنتج",
       "searchProduct": "بحث عن كود المنتج",
       "searchCustomer": "بحث عن العميل",
-      "selectProduct": "اختيار المنتج",
       "productName": "اسم المنتج",
       "categoryName": "اسم الفئة",
       "priceType": "نوع السعر",
@@ -360,11 +195,9 @@
     "placeholders": {
       "searchProduct": "أدخل كود المنتج (مثل WM-001)",
       "searchCustomer": "ابحث باسم العميل أو رقم الهاتف",
-      "selectProduct": "اختر المنتج من النتائج",
       "selectPriceType": "اختر نوع السعر"
     },
     "actions": {
-      "search": "بحث",
       "searching": "جاري البحث...",
       "addProduct": "إضافة منتج",
       "removeProduct": "حذف",
@@ -399,27 +232,13 @@
       "searchCustomer": "بحث عن العميل",
       "customerName": "اسم العميل",
       "customerPhone": "رقم هاتف العميل",
-      "customerAddress": "عنوان العميل",
-      "nationalId": "الرقم القومي",
       "saleDate": "تاريخ البيع",
-      "guarantorName": "اسم الضامن",
-      "guarantorPhone": "هاتف الضامن",
-      "notes": "ملاحظات داخلية",
-      "termsEyebrow": "شروط الائتمان",
-      "creditTerms": "شروط السداد",
-      "repaymentPlan": "خطة السداد",
-      "installmentsCount": "عدد الأقساط",
-      "firstInstallmentDate": "تاريخ أول قسط",
       "downPayment": "الدفعة المقدمة",
-      "markupRate": "نسبة الزيادة",
-      "creditLimit": "حد الائتمان",
-      "approvalStatus": "حالة الاعتماد",
       "basketEyebrow": "سلة الائتمان",
       "creditItems": "أصناف البيع الآجل",
       "basketItem": "بند",
       "searchProduct": "بحث عن المنتج",
       "productName": "اسم المنتج",
-      "itemName": "اسم الصنف",
       "itemCode": "كود الصنف",
       "categoryName": "الفئة",
       "unitPrice": "سعر الوحدة",
@@ -434,35 +253,11 @@
       "discountAmount": "قيمة الخصم",
       "shippingFees": "رسوم الشحن",
       "financedAmount": "المبلغ المتبقي",
-      "markupValue": "قيمة الزيادة",
-      "totalReceivable": "إجمالي المستحق",
-      "installmentAmount": "قيمة القسط",
-      "remainingLimit": "المتبقي من الحد",
-      "schedulePreview": "جدول الأقساط",
-      "perInstallment": "لكل قسط:",
-      "installment": "القسط",
-      "dueDate": "تاريخ آخر استحقاق"
-    },
-    "planOptions": {
-      "weekly": "أسبوعي",
-      "biweekly": "كل أسبوعين",
-      "monthly": "شهري"
-    },
-    "approvalStatusOptions": {
-      "pending": "بانتظار الاعتماد",
-      "review": "قيد المراجعة",
-      "approved": "معتمد"
+      "totalReceivable": "إجمالي المستحق"
     },
     "placeholders": {
       "searchCustomer": "ابحث باسم العميل أو رقم الهاتف",
-      "customerAddress": "اكتب عنوان العميل وملاحظات التسليم",
-      "nationalId": "أدخل الرقم القومي أو الرقم الضريبي",
-      "guarantorName": "أدخل الاسم الكامل للضامن",
-      "guarantorPhone": "أدخل رقم هاتف الضامن",
-      "notes": "أضف ملاحظات التحصيل أو الضمانات أو تعليقات الاعتماد",
-      "searchProduct": "ابحث بكود المنتج أو الاسم",
-      "itemName": "أدخل اسم المنتج أو الباقة",
-      "itemCode": "كود داخلي / SKU"
+      "searchProduct": "ابحث بكود المنتج أو الاسم"
     },
     "actions": {
       "searching": "جاري البحث...",
@@ -475,7 +270,6 @@
       "resetDraft": "إعادة تعيين"
     },
     "messages": {
-      "limitExceeded": "هذه العملية تتجاوز حد الائتمان المحدد وتحتاج إلى اعتماد يدوي.",
       "completeRequired": "أكمل بيانات العميل والأصناف المطلوبة قبل مراجعة عملية البيع الآجل.",
       "downPaymentExceeded": "لا يمكن أن تكون الدفعة المقدمة أكبر من إجمالي المستحق.",
       "noProductFound": "لم يتم العثور على منتج لهذا البحث.",
@@ -513,10 +307,8 @@
     "tableHeaders": {
       "index": "#",
       "invoiceNumber": "رقم الفاتورة",
-      "product": "اسم المنتج",
       "items": "الأصناف",
       "itemCount": "عدد الأصناف",
-      "category": "اسم الفئة",
       "customer": "اسم العميل",
       "customerPhone": "رقم هاتف العميل",
       "date": "التاريخ",
@@ -584,8 +376,7 @@
       "categoryName": "اسم الفئة",
       "totalProfit": "قيمة الربح",
       "lastSellingDate": "آخر تاريخ بيع",
-      "lastSellingPrice": "آخر سعر بيع",
-      "invoices": "الفواتير"
+      "lastSellingPrice": "آخر سعر بيع"
     },
     "invoiceTypes": {
       "selling": "بيع نقدي",
@@ -672,8 +463,7 @@
       "pendingInvoices": "فواتير معلقة",
       "partiallyPaidInvoices": "مدفوع جزئياً",
       "paidInvoices": "فواتير مسددة",
-      "overdueInvoices": "فواتير متأخرة",
-      "dueSoonInvoices": "مستحقة قريباً"
+      "overdueInvoices": "فواتير متأخرة"
     },
     "history": {
       "title": "سجل البيع الآجل",
@@ -714,9 +504,6 @@
       "title": "حذف فاتورة آجل",
       "confirm": "هل تريد حذف فاتورة البيع الآجل هذه؟",
       "inventoryWarning": "سيتم حذف سجل الفاتورة فقط. استخدم إرجاع الأصناف لإعادة الكميات إلى المخزون."
-    },
-    "print": {
-      "status": "الحالة"
     },
     "paymentDialog": {
       "eyebrow": "دفعة",
@@ -838,12 +625,6 @@
       "last": "الصفحة الأخيرة",
       "range": "{{start}} – {{end}} من {{total}}"
     }
-  },
-  "logout": {
-    "title":"تسجيل الخروج",
-    "logoutMessage":"هل تريد تسجيل الخروج؟",
-    "logoutButton":"نعم",
-    "cancelButton":"لا"
   },
   "backupPage": {
     "title": "النسخ الاحتياطي والاستعادة",

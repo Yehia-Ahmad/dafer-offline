@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { TranslationService } from './translation.service';
 
@@ -6,7 +7,9 @@ describe('TranslationService', () => {
   let service: TranslationService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({
+      imports: [TranslateModule.forRoot()]
+    });
     service = TestBed.inject(TranslationService);
   });
 

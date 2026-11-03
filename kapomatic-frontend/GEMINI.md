@@ -30,9 +30,9 @@ The project follows a modular structure under `src/app/modules/`:
 | Command | Purpose |
 | :--- | :--- |
 | `npm start` | Launches the Angular development server (`http://localhost:4200`). |
-| `npm run electron:start` | Builds the Angular app and launches the Electron desktop application. |
-| `npm run build:desktop` | Compiles the Angular project with relative base href for Electron compatibility. |
-| `npm run electron:build:win` | Packages the application for Windows (generates NSIS installer). |
+| `npm run electron:start:offline` | Builds the offline Angular app and launches it in Electron. |
+| `npm run build:offline` | Compiles the Angular project with the offline configuration (relative base href). |
+| `npm run electron:build:win:offline` | Packages the offline edition for Windows (generates NSIS installer). |
 | `npm test` | Runs unit tests using Karma. |
 
 ## Development Conventions & Standards
@@ -40,10 +40,10 @@ The project follows a modular structure under `src/app/modules/`:
 - **Functional Patterns:** Use functional interceptors and guards (e.g., `httpconfigInterceptor`) instead of class-based ones.
 - **Styling:** Prefer **Tailwind CSS** for layout and utility-first styling. Use component-specific **SCSS** only for complex custom styling or theme overrides.
 - **State & Storage:** The `DiskService` (`src/app/modules/shared/services/disk.service.ts`) is the central point for managing persistent local state and authentication tokens.
-- **Internationalization:** Always use the `translate` pipe or service for user-facing strings. Translation files are located in `public/i18n/`.
+- **Internationalization:** Always use the `translate` pipe or service for user-facing strings. Translation files are located in `src/assets/i18n/`.
 - **Error Handling:** Global error handling is configured via `provideBrowserGlobalErrorListeners()` in `app.config.ts`.
 
 ## Deployment & Distribution
-- Build artifacts are stored in `dist/`.
-- Electron distribution packages (installers) are output to the `release/` directory.
-- The `electron/main.js` file handles the bootstrapping of the desktop window and points to the built Angular files in `dist/`.
+- Offline build artifacts are stored in `dist-offline/`.
+- Electron distribution packages (installers) are output to the `release-offline/` directory.
+- The `electron-offline/main.js` file handles the bootstrapping of the desktop window.

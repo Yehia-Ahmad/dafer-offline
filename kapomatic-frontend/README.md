@@ -45,25 +45,17 @@ Requirements:
 Commands:
 
 ```bash
-# Run desktop app from built Angular files
-npm run electron:start
+# Build the offline Angular app and run it in Electron
+npm run electron:start:offline
 
-# Build unpacked desktop output (for testing)
-npm run electron:build:dir
-
-# Build Windows unpacked app folder (works on Linux without Wine)
-npm run electron:build:win:dir
+# Build Windows unpacked app folder (for testing)
+npm run electron:build:win:offline:dir
 
 # Build Windows installer (.exe via NSIS)
-npm run electron:build:win
+npm run electron:build:win:offline
 ```
 
-Build artifacts are generated in the `release/` directory.
-
-Notes:
-
-- `npm run electron:build:win:dir` generates `release/win-unpacked/`, which already contains `Kapomatic Inventory System.exe`.
-- `npm run electron:build:win` generates an NSIS installer, but on Linux it requires `wine` to be installed.
+Build artifacts are generated in the `release-offline/` directory.
 
 ## Running unit tests
 
@@ -86,7 +78,3 @@ Angular CLI does not come with an end-to-end testing framework by default. You c
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
-
-generate electron desktop application and generate windows version
-
-zip -r win-unpacked.zip win-unpacked

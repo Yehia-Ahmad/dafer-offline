@@ -3,12 +3,10 @@
   "version": "0.0.0",
   "description": "Kapomatic Inventory System",
   "author": "Kapomatic",
-  "main": "electron/main.js",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
-    "build:desktop": "ng build --base-href ./",
     "build:offline": "ng build --configuration offline",
     "offline:vendor": "node scripts/offline/fetch-vendor.js",
     "offline:stage": "node scripts/offline/stage.js",
@@ -17,15 +15,8 @@
     "electron:start:offline": "npm run build:offline && npm run offline:vendor && electron electron-offline/main.js",
     "electron:build:win:offline:dir": "npm run build:offline && npm run offline:vendor && npm run offline:stage && electron-builder --win --dir --config electron-builder.offline.json",
     "electron:build:win:offline": "npm run build:offline && npm run offline:vendor && npm run offline:stage && electron-builder --win nsis --config electron-builder.offline.json",
-    "prepare:desktop": "node scripts/prepare-desktop.js",
-    "electron:start": "npm run build:desktop && electron .",
-    "electron:build:dir": "npm run build:desktop && electron-builder --dir",
-    "electron:build:win:dir": "npm run build:desktop && npm run prepare:desktop && node scripts/electron-builder-debug.js --win --dir",
-    "electron:build:win:zip": "npm run build:desktop && npm run prepare:desktop && node scripts/electron-builder-debug.js --win zip",
-    "electron:build:win": "npm run build:desktop && npm run prepare:desktop && node scripts/electron-builder-debug.js --win nsis",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "serve:ssr:okland-warranty-system": "node dist/okland-warranty-system/server/server.mjs",
     "clean": "node scripts/clean.js",
     "reinstall": "npm run clean && npm install"
   },
@@ -41,45 +32,6 @@
       }
     ]
   },
-  "build": {
-    "appId": "com.kapomatic.inventory",
-    "productName": "Kapomatic Inventory System",
-    "beforeBuild": "electron/before-build.js",
-    "nodeGypRebuild": false,
-    "extraMetadata": {
-      "dependencies": {}
-    },
-    "directories": {
-      "app": "desktop",
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "electron/**/*",
-      "package.json"
-    ],
-    "asar": true,
-    "icon": "build/icon.ico",
-    "win": {
-      "signAndEditExecutable": false,
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "build/icon.ico",
-      "artifactName": "${productName}-Setup-${version}.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
-    }
-  },
   "private": true,
   "dependencies": {
     "@angular/common": "^20.3.0",
@@ -88,9 +40,7 @@
     "@angular/forms": "^20.3.0",
     "@angular/material": "^20.2.8",
     "@angular/platform-browser": "^20.3.0",
-    "@angular/platform-server": "^20.3.0",
     "@angular/router": "^20.3.0",
-    "@angular/ssr": "^20.3.5",
     "@fortawesome/fontawesome-free": "^7.2.0",
     "@ngx-translate/core": "^17.0.0",
     "@ngx-translate/http-loader": "^17.0.0",
@@ -100,7 +50,6 @@
     "chart.js": "^4.5.0",
     "date-fns": "^4.1.0",
     "exceljs": "^4.4.0",
-    "express": "^5.1.0",
     "jspdf": "^3.0.2",
     "primeng": "^20.2.0",
     "rxjs": "~7.8.0",
@@ -111,7 +60,6 @@
     "@angular/build": "^20.3.5",
     "@angular/cli": "^20.3.5",
     "@angular/compiler-cli": "^20.3.0",
-    "@types/express": "^5.0.1",
     "@types/jasmine": "~5.1.0",
     "@types/node": "^20.17.19",
     "electron": "^35.7.5",
