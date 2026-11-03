@@ -86,6 +86,10 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/website-orders/components/website-orders/website-orders.component').then(m => m.WebsiteOrdersComponent)
     },
     {
+        path: 'shop-profile',
+        loadComponent: () => import('./modules/shop-profile/components/shop-profile/shop-profile.component').then(m => m.ShopProfileComponent)
+    },
+    {
         // Offline edition, main PC only.
         path: 'backup',
         canMatch: [mainPcGuard],

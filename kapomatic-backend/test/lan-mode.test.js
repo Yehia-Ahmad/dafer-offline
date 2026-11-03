@@ -81,19 +81,13 @@ test("online mode: no LAN secret is required and LAN routes are not mounted", as
     const lanInfo = await fetch(`${baseUrl}/api/lan/info`);
     assert.equal(lanInfo.status, 404);
 
-    // Notifications stay mounted online; without NOTIFICATIONS_API_KEY they answer 503.
-    const savedKey = process.env.NOTIFICATIONS_API_KEY;
-    delete process.env.NOTIFICATIONS_API_KEY;
-    try {
-      const notifications = await fetch(`${baseUrl}/api/notifications/devices`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: "abc" }),
-      });
-      assert.equal(notifications.status, 503);
-    } finally {
-      if (savedKey !== undefined) process.env.NOTIFICATIONS_API_KEY = savedKey;
-    }
+    // Push notifications were removed; the old route is gone in every mode.
+    const notifications = await fetch(`${baseUrl}/api/notifications/devices`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: "abc" }),
+    });
+    assert.equal(notifications.status, 404);
   });
 });
 

@@ -1,3 +1,10 @@
+import {
+  buildInvoiceFooterHtml,
+  buildInvoiceHeaderHtml,
+  INVOICE_BRANDING_STYLES,
+  InvoiceBranding
+} from '../../../shop-profile/utils/invoice-branding.util';
+
 export type InvoiceHistoryItem = {
   id: string;
   invoiceId: string;
@@ -36,9 +43,6 @@ export type InvoicePrintLanguage = 'ar' | 'en';
 type InvoiceDocumentLabels = {
   toolbarPrint: string;
   toolbarClose: string;
-  companyName: string;
-  companySubtitle: string;
-  companyMeta: string;
   customerSection: string;
   customerName: string;
   customerPhone: string;
@@ -60,16 +64,15 @@ type InvoiceDocumentLabels = {
   tableQuantity: string;
   tableUnitPrice: string;
   tableTotal: string;
-  invoiceNote: string;
 };
 
 export function buildInvoiceDocument(params: {
   selling: InvoiceHistoryRow;
   language: InvoicePrintLanguage;
-  logoUrl: string;
+  branding: InvoiceBranding;
   fontUrl: string;
 }): string {
-  const { selling, language, logoUrl, fontUrl } = params;
+  const { selling, language, branding, fontUrl } = params;
   const isArabic = language === 'ar';
   const direction = isArabic ? 'rtl' : 'ltr';
   const labels = getInvoiceLabels(language);
@@ -253,7 +256,7 @@ export function buildInvoiceDocument(params: {
       .company-meta {
         color: var(--invoice-muted);
       }
-
+${INVOICE_BRANDING_STYLES}
       .info-layout {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(320px, 1.08fr);
@@ -443,17 +446,7 @@ export function buildInvoiceDocument(params: {
 
     <main class="invoice-sheet">
       <section class="invoice-body">
-        <header class="invoice-header">
-          <div class="logo-box">
-            <img src="${logoUrl}" alt="Kapomatic logo" />
-          </div>
-
-          <div class="company-heading">
-            <h1 class="company-name">Kapomatic</h1>
-            <p class="company-subtitle">${labels.companySubtitle}</p>
-            <p class="company-meta">${labels.companyMeta}</p>
-          </div>
-        </header>
+        ${buildInvoiceHeaderHtml(branding)}
 
         <section class="info-layout">
           <article class="info-card info-card--customer">
@@ -532,7 +525,7 @@ export function buildInvoiceDocument(params: {
           </div>
         </div>
 
-        <p class="invoice-note">${labels.invoiceNote}</p>
+        ${buildInvoiceFooterHtml(branding)}
       </section>
     </main>
 
@@ -561,9 +554,6 @@ function getInvoiceLabels(language: InvoicePrintLanguage): InvoiceDocumentLabels
     return {
       toolbarPrint: 'طباعة / حفظ PDF',
       toolbarClose: 'إغلاق',
-      companyName: 'كابوماتيك',
-      companySubtitle: 'لتجارة وتوزيع قطع غيار وزيوت الفتيس الاوتوماتيك لجميع انواع السيارات',
-      companyMeta: 'سجل فاتورة مبيعات صادر من نظام Kapomatic',
       customerSection: 'بيانات العميل',
       customerName: 'الاسم',
       customerPhone: 'التليفون',
@@ -584,17 +574,13 @@ function getInvoiceLabels(language: InvoicePrintLanguage): InvoiceDocumentLabels
       tableUnit: 'الوحدة',
       tableQuantity: 'الكمية',
       tableUnitPrice: 'السعر',
-      tableTotal: 'الإجمالي',
-      invoiceNote: 'هذه الفاتورة تم إنشاؤها إلكترونيًا من نظام كابوماتيك.'
+      tableTotal: 'الإجمالي'
     };
   }
 
   return {
     toolbarPrint: 'Print / Save PDF',
     toolbarClose: 'Close',
-    companyName: 'Kapomatic',
-    companySubtitle: 'Auto spare parts trading and distribution',
-    companyMeta: 'Sales invoice generated from the Kapomatic system',
     customerSection: 'Customer Details',
     customerName: 'Name',
     customerPhone: 'Phone',
@@ -615,8 +601,7 @@ function getInvoiceLabels(language: InvoicePrintLanguage): InvoiceDocumentLabels
     tableUnit: 'Unit',
     tableQuantity: 'Qty',
     tableUnitPrice: 'Unit Price',
-    tableTotal: 'Total',
-    invoiceNote: 'This invoice was generated electronically from the Kapomatic system.'
+    tableTotal: 'Total'
   };
 }
 

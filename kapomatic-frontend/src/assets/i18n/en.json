@@ -21,7 +21,8 @@
         "categories": "Categories",
         "warranties": "Warranties",
         "add_new_category": "Add New Category",
-        "backup": "Backup"
+        "backup": "Backup",
+        "shop_profile": "Shop Profile"
     },
     "actions": {
         "save": "Save",
@@ -1022,8 +1023,7 @@
             "inventoryWarning": "This deletes only the invoice row. Use Return Items to restore inventory."
         },
         "print": {
-            "status": "Status",
-            "footerNote": "This credit invoice was generated electronically from the Kapomatic system."
+            "status": "Status"
         },
         "paymentDialog": {
             "eyebrow": "Payment",
@@ -1297,5 +1297,54 @@
             "rolling-back": "The restore failed; putting the previous data back..."
         },
         "showFile": "Show the file"
+    },
+    "invoicePrint": {
+        "salesTitle": "Sales Invoice",
+        "creditTitle": "Credit Sales Invoice",
+        "systemNote": "This invoice was generated electronically",
+        "taxNumber": "Tax No.",
+        "commercialRegister": "Commercial Reg."
+    },
+    "shopProfilePage": {
+        "title": "Shop Profile",
+        "subtitle": "These details appear in the header and footer of printed invoices.",
+        "loading": "Loading shop profile...",
+        "fields": {
+            "name": "Shop name",
+            "address": "Address",
+            "phones": "Phone numbers",
+            "phone": "Phone",
+            "taxNumber": "Tax number",
+            "commercialRegister": "Commercial register",
+            "invoiceFooter": "Invoice footer",
+            "logo": "Shop logo"
+        },
+        "hints": {
+            "invoiceFooter": "Text printed at the bottom of every invoice, such as a return policy or a thank-you note."
+        },
+        "validation": {
+            "nameRequired": "Shop name is required"
+        },
+        "logo": {
+            "none": "No logo",
+            "upload": "Upload logo",
+            "change": "Change logo",
+            "remove": "Remove logo",
+            "hint": "An image of 500 KB or less.",
+            "tooLarge": "The image is larger than 500 KB",
+            "invalidType": "Please choose an image file",
+            "readFailed": "Could not read the image file"
+        },
+        "actions": {
+            "addPhone": "Add phone number",
+            "removePhone": "Remove",
+            "save": "Save",
+            "saving": "Saving..."
+        },
+        "messages": {
+            "saved": "Shop profile saved",
+            "saveFailed": "Could not save the shop profile",
+            "loadFailed": "Could not load the shop profile. You can enter it and save it again."
+        }
     }
 }

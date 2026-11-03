@@ -11,7 +11,7 @@ const START_TIMEOUT_MS = 60000;
 const STOP_TIMEOUT_MS = 15000;
 
 // Only what the backend needs. Nothing else from this process's environment is passed on,
-// so stray variables such as Firebase settings can never reach it.
+// so stray variables from the user's environment can never reach it.
 const PASSTHROUGH_ENV = ['SystemRoot', 'windir', 'TEMP', 'TMP', 'PATH'];
 
 function buildBackendEnv({ port, mongoUri, secret, appVersion, instanceId, sourceEnv = process.env }) {

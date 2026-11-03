@@ -2,15 +2,11 @@ const mongoose = require("mongoose");
 const Customer = require("../models/customer.model");
 const Product = require("../models/product.model");
 const Selling = require("../models/selling.model");
-const ShippingSetting = require("../models/shippingSetting.model");
 const ReturnLog = require("../models/returnLog.model");
-const WebsiteOrder = require("../models/websiteOrder.model");
 const asyncHandler = require("../utils/asyncHandler");
 const { createReturnLog } = require("../services/returns.service");
-const { notifyNewWebsiteOrder } = require("../services/pushNotification.service");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { buildPaginatedResponse, getPaginationParams } = require("../utils/pagination");
-const { normalizeCheckoutPayment } = require("../utils/orderPayment");
 
 const getRawQuantity = (body) => {
   if (body.quantity !== undefined) return body.quantity;
@@ -759,59 +755,6 @@ const createSellingInvoice = async ({ body, res, options = {} }) => {
   return selling;
 };
 
-const normalizeCartCheckoutItems = (products, res) => {
-  if (!Array.isArray(products)) {
-    res.status(400);
-    throw new Error("يجب أن تكون products مصفوفة");
-  }
-
-  if (products.length === 0) {
-    res.status(400);
-    throw new Error("يجب أن تحتوي products على منتج واحد على الأقل");
-  }
-
-  return products.map((product, index) => {
-    const itemNumber = index + 1;
-    if (!product || typeof product !== "object" || Array.isArray(product)) {
-      res.status(400);
-      throw new Error(`المنتج رقم ${itemNumber} غير صالح`);
-    }
-
-    return {
-      productId: product.productId ?? product.id ?? product._id,
-      price: product.price,
-      quantity: product.quantity ?? product.quentity,
-    };
-  });
-};
-
-const buildWebsiteOrderItems = async (items, res) => {
-  const productIds = [...new Set(items.map((item) => item.productId.toString()))];
-  const products = await Product.find({ _id: { $in: productIds } }).populate("category", "name");
-  const productsById = new Map(products.map((product) => [product._id.toString(), product]));
-
-  if (products.length !== productIds.length) {
-    res.status(404);
-    throw new Error("تعذر العثور على أحد منتجات طلب الموقع");
-  }
-
-  return items.map((item) => {
-    const product = productsById.get(item.productId.toString());
-    const unitPrice = roundMoney(item.unitPrice);
-    const quantity = Number(item.quantity);
-
-    return {
-      product: product._id,
-      productName: product.name,
-      productCode: product.code,
-      categoryName: product.category?.name ?? "Uncategorized",
-      quantity,
-      unitPrice,
-      totalPrice: roundMoney(unitPrice * quantity),
-    };
-  });
-};
-
 const createSelling = asyncHandler(async (req, res) => {
   const selling = await createSellingInvoice({
     body: req.body,
@@ -819,117 +762,6 @@ const createSelling = asyncHandler(async (req, res) => {
   });
 
   res.status(201).json(toSellingInvoice(selling));
-});
-
-const checkoutCart = asyncHandler(async (req, res) => {
-  const government = normalizeRequiredString(
-    req.body.government ?? req.body.governorate,
-    "المحافظة",
-    res
-  );
-  const shippingSetting = await ShippingSetting.findOne({ key: "default" }).lean();
-  const governmentFee = shippingSetting?.governmentFees?.find(
-    (item) => item.government.trim().toLowerCase() === government.toLowerCase()
-  );
-
-  if (!governmentFee) {
-    res.status(400);
-    throw new Error("المحافظة المحددة غير موجودة في إعدادات مصاريف الشحن");
-  }
-
-  const cartItems =
-    req.body.products !== undefined
-      ? normalizeCartCheckoutItems(req.body.products, res)
-      : req.body.items;
-  const normalizedCartItems = normalizeSellingItems(
-    { items: cartItems },
-    res,
-    { defaultQuantity: 1 }
-  );
-  const cartSubtotal = roundMoney(
-    normalizedCartItems.reduce(
-      (total, item) => total + item.unitPrice * item.quantity,
-      0
-    )
-  );
-  const freeShippingMinimumAmount = Number(
-    shippingSetting.freeShippingMinimumAmount || 0
-  );
-  const qualifiesForFreeShipping =
-    freeShippingMinimumAmount > 0 && cartSubtotal >= freeShippingMinimumAmount;
-
-  const normalizedCustomerName = normalizeRequiredString(req.body.customerName, "اسم العميل", res);
-  const normalizedCustomerPhone = normalizeRequiredString(req.body.customerPhone, "رقم هاتف العميل", res);
-  const normalizedShippingLocation = normalizeRequiredString(
-    req.body.shippingLocation,
-    "عنوان الشحن",
-    res
-  );
-  const payment = normalizeCheckoutPayment(req.body, res);
-  const orderItems = await buildWebsiteOrderItems(normalizedCartItems, res);
-  const orderSubtotal = roundMoney(
-    orderItems.reduce((total, item) => total + Number(item.totalPrice || 0), 0)
-  );
-  const shippingFees = qualifiesForFreeShipping ? 0 : governmentFee.shippingFees;
-  const order = await WebsiteOrder.create({
-    customerName: normalizedCustomerName,
-    customerPhone: normalizedCustomerPhone,
-    shippingLocation: normalizedShippingLocation,
-    government: governmentFee.government,
-    orderDate:
-      req.body.sellingDate === undefined
-        ? new Date()
-        : normalizeSellingDate(req.body.sellingDate, res),
-    items: orderItems,
-    totalQuantity: orderItems.reduce((total, item) => total + Number(item.quantity || 0), 0),
-    discountAmount: 0,
-    shippingFees,
-    totalPrice: roundMoney(orderSubtotal + Number(shippingFees || 0)),
-    ...payment,
-  });
-
-  res.status(201).json({
-    _id: order._id,
-    orderId: order._id,
-    customerName: order.customerName,
-    customerPhone: order.customerPhone,
-    shippingLocation: order.shippingLocation,
-    government: order.government,
-    orderDate: order.orderDate,
-    itemCount: order.items.length,
-    totalQuantity: order.totalQuantity,
-    discountAmount: order.discountAmount,
-    shippingFees: order.shippingFees,
-    totalPrice: order.totalPrice,
-    status: order.status,
-    payment: {
-      method: order.paymentMethod,
-      status: order.paymentStatus,
-      transferPhone: order.transferPhone ?? null,
-      transferImage: order.transferImage ?? null,
-      reference: order.paymentReference ?? null,
-      notes: order.paymentNotes ?? null,
-    },
-    paymentMethod: order.paymentMethod,
-    paymentStatus: order.paymentStatus,
-    transferPhone: order.transferPhone ?? null,
-    transferImage: order.transferImage ?? null,
-    paymentReference: order.paymentReference ?? null,
-    paymentNotes: order.paymentNotes ?? null,
-    items: order.items.map((item) => ({
-      _id: item._id,
-      productId: item.product,
-      productName: item.productName,
-      productCode: item.productCode ?? null,
-      categoryName: item.categoryName ?? null,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      totalPrice: item.totalPrice,
-    })),
-  });
-
-  // Fire-and-forget: the push service never throws, and runs after the response is sent.
-  setImmediate(() => notifyNewWebsiteOrder(order));
 });
 
 const getSellings = asyncHandler(async (req, res) => {
@@ -1274,14 +1106,6 @@ const addSellingRefund = asyncHandler(async (req, res) => {
     selling.refundedAmount = roundMoney(previousRefundedAmount + finalReturnedAmount);
     selling.refundStatus = isFull ? "full" : "partial";
     await selling.save();
-    await WebsiteOrder.updateOne(
-      { selling: selling._id, status: "accepted" },
-      {
-        status: "refunded",
-        refundedAt: new Date(),
-        refundReason: note?.trim() || "Refunded from selling invoice",
-      }
-    );
     if (isFull) {
       await selling.deleteOne();
     }
@@ -1321,7 +1145,6 @@ const addSellingRefund = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  checkoutCart,
   createSellingInvoice,
   createSelling,
   getSellings,

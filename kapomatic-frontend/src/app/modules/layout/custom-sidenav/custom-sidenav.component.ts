@@ -307,6 +307,7 @@ export class CustomSidenavComponent implements OnInit {
         `),
         route: '/customers'
       },
+      this.shopProfileMenuItem(),
       ...(isOfflineMainPc() ? [this.backupMenuItem()] : []),
       {
         label: 'sidebarTitles.ecommerce_settings',
@@ -346,6 +347,21 @@ export class CustomSidenavComponent implements OnInit {
         children: this.categories,
       }
     ] as MenuItem[]).filter((item) => this.websiteEnabled || !WEBSITE_ONLY_ROUTES.includes(item.route ?? '')));
+  }
+
+  // The shop's own details, printed on invoices.
+  private shopProfileMenuItem(): MenuItem {
+    return {
+      label: 'sidebarTitles.shop_profile',
+      icon: this.sanitize(`
+        <span class="block w-8 h-8">
+          <svg width="100%" height="100%" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 4h16l1.5 5a3 3 0 0 1-2.5 3.4V20H5v-7.6A3 3 0 0 1 2.5 9L4 4zm2 8.6V18h4v-4h4v4h4v-5.4a3 3 0 0 1-3-1.1 3 3 0 0 1-3 1.2 3 3 0 0 1-3-1.2 3 3 0 0 1-3 1.1zM5.5 6l-1 3.4a1 1 0 0 0 1 1.1 1 1 0 0 0 1-.9L7 6H5.5zm3.6 0-.5 4a1 1 0 0 0 2 .1V6H9.1zm3.4 0v4.1a1 1 0 0 0 2-.1l-.5-4h-1.5zm3.5 0 .5 3.6a1 1 0 0 0 1 .9 1 1 0 0 0 1-1.1l-1-3.4H16z" style="fill:#2f2f2f;fill-rule:nonzero;" />
+          </svg>
+        </span>
+      `),
+      route: '/shop-profile',
+    };
   }
 
   // Offline edition, main PC only: backup and restore.

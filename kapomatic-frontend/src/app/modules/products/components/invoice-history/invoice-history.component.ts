@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID } from '@angular/core';
+import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Router } from '@angular/router';
 import { SideNavComponent } from '../../../layout/components/side-nav/side-nav.component';
@@ -24,6 +24,8 @@ import {
   InvoicePrintLanguage
 } from './invoice-history-print.util';
 import { isWebsiteEnabled } from '../../../../core/runtime/app-features';
+import { ShopProfileService } from '../../../shop-profile/services/shop-profile.service';
+import { InvoiceBranding, toPrintableShop } from '../../../shop-profile/utils/invoice-branding.util';
 
 type SelectOption = {
   label: string;
@@ -109,6 +111,8 @@ export class InvoiceHistoryComponent implements OnInit {
   returnError = '';
   returningSellingId = '';
 
+  private readonly _shopProfileService = inject(ShopProfileService);
+
   constructor(
     private _themeService: ThemeService,
     private _router: Router,
@@ -128,6 +132,8 @@ export class InvoiceHistoryComponent implements OnInit {
     localStorage.setItem(HOME_VIEW_STORAGE_KEY, 'products');
     this.loadCategories();
     this.loadSellings();
+    // Cached for printing; without it the invoice prints with a neutral header.
+    this._shopProfileService.refresh();
   }
 
   backToProducts(): void {
@@ -471,7 +477,7 @@ export class InvoiceHistoryComponent implements OnInit {
       invoiceWindow.document.write(buildInvoiceDocument({
         selling,
         language,
-        logoUrl: this.resolveAssetUrl('assets/img/Kapo.jpeg'),
+        branding: this.getInvoiceBranding(),
         fontUrl: this.resolveAssetUrl('assets/fonts/Montserrat-VariableFont_wght.ttf')
       }));
       invoiceWindow.document.close();
@@ -712,6 +718,18 @@ export class InvoiceHistoryComponent implements OnInit {
 
   private translateKey(key: string): string {
     return this._translate.instant(key);
+  }
+
+  private getInvoiceBranding(): InvoiceBranding {
+    return {
+      shop: toPrintableShop(this._shopProfileService.profile()),
+      texts: {
+        neutralTitle: this.translateKey('invoicePrint.salesTitle'),
+        systemNote: this.translateKey('invoicePrint.systemNote'),
+        taxNumberLabel: this.translateKey('invoicePrint.taxNumber'),
+        commercialRegisterLabel: this.translateKey('invoicePrint.commercialRegister')
+      }
+    };
   }
 
   private getInvoiceLanguage(): InvoicePrintLanguage {

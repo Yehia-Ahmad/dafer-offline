@@ -6,9 +6,6 @@ Backend API for a warehouse system with:
 - `customers`
 - `products` (each product belongs to one category)
 - `sellings` (selling history with inventory deduction)
-- `cart` (checkout endpoint that creates a selling invoice)
-- `shipping settings` (government shipping fees and free-shipping threshold)
-- `website image targeting` (category, product, combined, and price-based image placement)
 
 ## Data Model
 
@@ -38,8 +35,8 @@ Backend API for a warehouse system with:
 - `productId` (required, must exist in products)
 - `customerName` (required)
 - `customerPhone` (required)
-- `shippingLocation` (optional for selling invoices, required for cart checkout)
-- `government` (required for cart checkout and selected from the configured government shipping fees)
+- `shippingLocation` (optional)
+- `government` (optional)
 - `sellingDate` (required)
 - `quantity` (required, positive integer, can also be sent as `quentity`)
 - `price` (required, non-negative number, price per each sold item)
@@ -66,21 +63,14 @@ Backend API for a warehouse system with:
 - `payments` (array of recorded payments)
 - `notes` (optional)
 
-### Shipping Setting
-- `governmentFees` (array of `{ government, shippingFees }`)
-- `freeShippingMinimumAmount` (non-negative number, defaults to `0`)
-
-### General Setting
-
-- `mainLogo` (base64 image or data URI)
-- `mainColor` (six-digit hex color, for example `#1A73E8`)
-- `currencyCode` (three-letter ISO 4217 currency code, defaults to `EGP`)
-- `freeShippingMinimumAmount` (non-negative number, defaults to `0`)
-- `storeLocations` (array of `{ name, detailedLocation, mapLink }`)
-- `socialMediaLinks` (array of `{ name, link }`)
-- `walletPhone` (optional phone number displayed for wallet transfers)
-- `instapayLink` (optional HTTPS link displayed for InstaPay transfers)
-- `homePageCategoryIds` (ordered list of categories displayed on the website home page)
+### Shop Profile
+- `name` (required, up to 150 characters)
+- `address` (optional, up to 500 characters)
+- `phones` (optional, up to 3 phone numbers, each up to 30 characters)
+- `logo` (optional, base64 image string in raw or data URI format, up to 500 KB decoded)
+- `taxNumber` (optional, up to 50 characters)
+- `commercialRegister` (optional, up to 50 characters)
+- `invoiceFooter` (optional, up to 500 characters, printed at the bottom of invoices)
 
 ## Setup
 
@@ -119,115 +109,9 @@ The offline desktop edition of the admin app bundles this backend and starts it 
 In LAN mode:
 - Every `/api/*` request must send the secret in the `X-Kapomatic-Lan-Key` header. Otherwise the response is `401 { "message": "كلمة سر الشبكة غير صحيحة", "code": "LAN_KEY_INVALID" }`. CORS preflight `OPTIONS` requests are let through.
 - `GET /api/lan/info` returns `{ app, lanMode, appVersion, instanceId, backendVersion, serverTime }`, which clients use to check the connection, the secret and the version.
-- `/api/notifications` is not mounted, because the offline edition ships without Firebase.
 - When run as an Electron utility process, the backend posts `{ type: "ready", port }` once listening and `{ type: "error", code, message }` if listening fails. On `{ type: "shutdown" }` it stops accepting connections, gives in-flight requests up to 10 seconds, disconnects from MongoDB and exits.
 
 ## API Endpoints
-
-### Public SEO And Sitemaps
-
-JSON sitemap data remains available for API consumers:
-- `GET /api/public/seo/sitemap/pages`
-- `GET /api/public/seo/sitemap/categories`
-- `GET /api/public/seo/sitemap/products`
-- `GET /api/public/seo/sitemap/images`
-
-Production XML sitemap files:
-- `GET /api/public/seo/sitemaps/pages-ar.xml`
-- `GET /api/public/seo/sitemaps/pages-en.xml`
-- `GET /api/public/seo/sitemaps/categories-ar.xml`
-- `GET /api/public/seo/sitemaps/categories-en.xml`
-- `GET /api/public/seo/sitemaps/products-ar.xml`
-- `GET /api/public/seo/sitemaps/products-en.xml`
-- `GET /api/public/seo/sitemaps/images.xml`
-- `GET /api/public/seo/sitemaps/sitemap-index.xml`
-
-If a category, product, or image sitemap grows beyond 50,000 URLs, the sitemap index points crawlers at chunked files such as:
-- `GET /api/public/seo/sitemaps/products-ar-1.xml`
-- `GET /api/public/seo/sitemaps/products-ar-2.xml`
-- `GET /api/public/seo/sitemaps/images-1.xml`
-
-Required public URL environment variables:
-- `WEBSITE_ORIGIN`: canonical website origin, for example `https://kapomatic.com`.
-- `PUBLIC_API_ORIGIN`: public API origin used for image sitemap URLs, for example `https://api.kapomatic.com`.
-
-If `WEBSITE_ORIGIN` is missing or points to localhost, sitemap URL generation falls back to `https://kapomatic.com`. If `PUBLIC_API_ORIGIN` is missing or points to localhost, image URLs fall back to the public website origin. Sitemap XML responses use `application/xml; charset=utf-8`, the official sitemap namespace, `xhtml:link` alternates, and the Google image sitemap namespace for `images.xml`.
-
-### Public Home Categories
-
-- `GET /api/public/:lang/categories/home?limit=12`
-- `lang` is required and accepts only `ar` or `en`.
-- `limit` is optional, defaults to `12`, must be a positive integer, and is capped at `50`.
-- The endpoint is public and does not require an access token.
-
-Successful response:
-
-```json
-{
-  "success": true,
-  "data": {
-    "categories": [
-      {
-        "id": "66b0b7b5a8c197aa0adf1234",
-        "name": "قطع غيار ناقل الحركة",
-        "slug": "قطع-غيار-ناقل-الحركة",
-        "localizedSlugs": {
-          "ar": "قطع-غيار-ناقل-الحركة",
-          "en": "transmission-parts"
-        },
-        "image": {
-          "url": "https://api.kapomatic.com/api/public/images/categories/66b0b7b5a8c197aa0adf1234",
-          "alt": "قطع غيار ناقل الحركة"
-        },
-        "productsCount": 24
-      }
-    ]
-  }
-}
-```
-
-Eligibility and ordering rules:
-
-- Categories must be present in the ordered `GeneralSetting.homePageCategoryIds` Home configuration.
-- Categories must have an `EcommerceSetting` with `showOnWebsite: true`.
-- The requested language must have a stored, non-empty translation name and slug. Slugs are never generated or transliterated by this endpoint. A missing alternate slug is returned as `null`.
-- The Category and Product schemas do not define separate active, archive, or soft-delete fields. Deleted records are physically absent and therefore excluded by the aggregate joins.
-- Home order is exactly the order of `homePageCategoryIds`. Hidden, deleted, or untranslated entries are removed without changing the relative order of the remaining entries.
-- A configured and visible Category is retained when `productsCount` is `0`; its explicit Home configuration is treated as intentional.
-
-`productsCount` uses the existing storefront availability rule. A Product is counted only when its `_id` is in that visible Category setting's `selectedProducts` and its direct `Product.category` reference matches the Category. Products not selected for the Website and physically deleted Products are excluded. The data model has no subcategory or variant relation, so no descendants or variants are added to the count. One MongoDB aggregation performs the Category, visibility, and Product-count joins; the endpoint does not issue one Products query per Category.
-
-Category images are normally stored as validated base64 and are returned through the existing `/api/public/images/categories/:id` route. A valid stored absolute HTTP(S) URL is preserved. Missing or invalid images return `null`; server filesystem paths are never returned.
-
-Validation errors use HTTP `400`, for example:
-
-```json
-{
-  "message": "قيمة اللغة غير صالحة"
-}
-```
-
-Database/server failures use HTTP `500` with a generic message and are not converted to an empty successful response:
-
-```json
-{
-  "message": "تعذر تحميل فئات الصفحة الرئيسية"
-}
-```
-
-### Optimized Public Home and Header
-
-- `GET /api/public/home-page?device=desktop&locale=ar`
-- `GET /api/public/home-page?device=mobile&locale=en`
-- `GET /api/header?locale=ar`
-- `GET /api/header?locale=en`
-- `GET /api/header/logo`
-
-Home requires `locale=ar|en` and `device=desktop|mobile`. Its response uses the dynamic storefront envelope `{ "success": true, "data": { "sections": [] } }`. Section content is stored under `settings.categories`, `settings.products`, or `settings.slides`. Product selections retain their configured order and are sliced in MongoDB before Product lookup: 10 per Category on desktop and 6 on mobile. Category and Product cards contain localized storefront fields and public image URLs, never embedded Base64 values.
-
-Header locale is optional for compatibility and defaults to `DEFAULT_LOCALE` when that environment value is `ar` or `en`, otherwise Arabic. Navigation contains active e-commerce Categories in setting order. A stored Base64 logo is exposed through `/api/header/logo`.
-
-Successful public responses use a 60-second shared cache policy, Express ETags, and locale/device-specific application cache keys. Mutations to Categories, Products, e-commerce settings, general settings, or website promotions invalidate the established public cache.
 
 ### Categories
 - `GET /api/categories`
@@ -324,87 +208,38 @@ Profit is calculated from each product invoice item using the stored `purchasePr
 
 If `dateFrom` and `dateTo` are omitted, all invoices for that product are updated across the system.
 
-### E-commerce Website Settings
+### Shop Profile
+- `GET /api/shop-profile`
+- `PUT /api/shop-profile`
 
-- `GET /api/ecommerce-settings/general`
-- `PUT /api/ecommerce-settings/general`
-- `GET /api/ecommerce-settings/home-page/categories`
-- `PUT /api/ecommerce-settings/home-page/categories`
-- `GET /api/ecommerce-settings/currency`
-- `PUT /api/ecommerce-settings/currency`
-- `GET /api/ecommerce-settings/shipping/governments`
-- `PUT /api/ecommerce-settings/shipping/governments`
-- `PUT /api/ecommerce-settings/shipping/free-minimum`
+The shop's own details, printed on invoices. There is a single profile document.
 
-The existing `GET /api/ecommerce-settings/categories/active` array contract remains available. For a bounded URL-only storefront projection use `GET /api/ecommerce-settings/categories/active?projection=storefront&productLimit=10&locale=ar`; `productLimit` accepts `1` through `50`. The bounded response preserves the same Category/Product/setting row shape but does not calculate filters or return admin-only Product fields.
-
-Set or update the website currency using its three-letter ISO 4217 code:
+`GET` returns the saved profile. Before anything is saved it returns empty values and does not create a document:
 
 ```json
 {
-  "currency": "EGP"
+  "name": "",
+  "address": "",
+  "phones": [],
+  "logo": null,
+  "taxNumber": "",
+  "commercialRegister": "",
+  "invoiceFooter": ""
 }
 ```
 
-General settings updates are partial. Omitted fields keep their stored values; submitted arrays replace their stored arrays.
+`PUT` replaces the whole profile and returns it. Only the fields below are read; anything else in the body is ignored, and an optional field that is left out (or sent empty) is cleared. `name` is required. Validation errors return `400` with a `message`.
 
-Set the ordered categories displayed on the website home page:
-
+Sample shop profile payload:
 ```json
 {
-  "categoryIds": [
-    "66b0b7b5a8c197aa0adf1234",
-    "66b0b7b5a8c197aa0adf5678"
-  ]
-}
-```
-
-The response contains both `categoryIds` and populated `categories`. Populated category images are public URLs rather than embedded Base64. Send an empty array to clear the home page selection.
-
-```json
-{
-  "mainLogo": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==",
-  "mainColor": "#1A73E8",
-  "currencyCode": "EGP",
-  "freeShippingMinimumAmount": 1000,
-  "walletPhone": "+201234567890",
-  "instapayLink": "https://ipn.eg/S/example",
-  "storeLocations": [
-    {
-      "name": "Nasr City Store",
-      "detailedLocation": "10 Example Street, Nasr City, Cairo",
-      "mapLink": "https://maps.google.com/?q=30.05,31.33"
-    }
-  ],
-  "socialMediaLinks": [
-    {
-      "name": "Facebook",
-      "link": "https://www.facebook.com/example"
-    }
-  ]
-}
-```
-
-Sample government shipping fees payload:
-```json
-{
-  "governmentFees": [
-    {
-      "government": "Cairo",
-      "shippingFees": 50
-    },
-    {
-      "government": "Giza",
-      "shippingFees": 60
-    }
-  ]
-}
-```
-
-Sample free shipping minimum payload:
-```json
-{
-  "freeShippingMinimumAmount": 1000
+  "name": "Al Noor Auto Parts",
+  "address": "10 Example Street, Nasr City, Cairo",
+  "phones": ["+201234567890", "+201098765432"],
+  "logo": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA",
+  "taxNumber": "123-456-789",
+  "commercialRegister": "98765",
+  "invoiceFooter": "Items can be exchanged within 14 days with the invoice."
 }
 ```
 
@@ -467,119 +302,6 @@ Sample customer payment payload:
   "note": "Customer installment"
 }
 ```
-
-### Cart
-- `POST /api/cart/checkout`
-
-Creates a pending website order from the storefront checkout form. The selected government must exist in the configured government shipping fees. The backend calculates `shippingFees` from that setting and applies free shipping when the cart subtotal reaches a configured non-zero `freeShippingMinimumAmount`.
-
-`paymentMethod` is required. Accepted values are `cash`, `wallet`, and `instapay` (`CASH`, `E_WALLET`, and `INSTAPAY` are also accepted). Wallet and InstaPay orders require `transferPhone` and `transferImage`. `transferImage` must be a base64 image string or data URI. Cash orders ignore transfer phone/image fields.
-
-Sample checkout payload:
-```json
-{
-  "customerName": "Ahmed Ali",
-  "customerPhone": "+201234567890",
-  "government": "Cairo",
-  "shippingLocation": "Cairo, Nasr City",
-  "paymentMethod": "wallet",
-  "transferPhone": "+201234567890",
-  "transferImage": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB...",
-  "products": [
-    {
-      "productId": "66b0b7b5a8c197aa0adf1234",
-      "price": 15,
-      "quantity": 2
-    },
-    {
-      "productId": "66b0b7b5a8c197aa0adf5678",
-      "price": 30
-    }
-  ]
-}
-```
-
-`quantity` is optional for cart products and defaults to `1`.
-
-After the order is saved and the `201` response is sent, the backend sends a "new website order" push notification to every registered admin device (see Push Notifications). Sending is fire-and-forget: it never delays or fails the checkout.
-
-### Push Notifications
-- `POST /api/notifications/devices`
-- `DELETE /api/notifications/devices/:token`
-
-Both endpoints require the `X-Notifications-Key` header to equal `NOTIFICATIONS_API_KEY`. A missing or wrong key returns `401`. If `NOTIFICATIONS_API_KEY` is not configured on the server, both endpoints return `503`.
-
-`POST` registers or refreshes an admin device's FCM token (upsert by `token`). `platform` must be `android` or `ios`. Every call updates `lastSeenAt`.
-
-```json
-{ "token": "<fcm registration token>", "platform": "android" }
-```
-
-Response `200`:
-```json
-{ "token": "<fcm registration token>", "platform": "android", "createdAt": "2026-10-30T10:00:00.000Z", "lastSeenAt": "2026-10-30T10:00:00.000Z" }
-```
-
-`DELETE` removes the token and returns `204` (also when the token is not registered). URL-encode the token in the path.
-
-New website orders are sent with `sendEachForMulticast` on the Android channel `website_orders`. The message contains no customer data:
-
-```json
-{
-  "notification": { "title": "طلب جديد من الموقع", "body": "الإجمالي: 1,250 ج.م • عدد المنتجات: 3" },
-  "data": { "type": "website_order", "orderId": "<order id>", "totalPrice": "1250", "itemCount": "3", "route": "/website-orders" }
-}
-```
-
-Tokens that FCM rejects as `registration-token-not-registered` or `invalid-registration-token` are deleted. If `FIREBASE_SERVICE_ACCOUNT` is unset or unreadable, sending is skipped and a warning is logged once.
-
-Environment variables:
-- `FIREBASE_SERVICE_ACCOUNT`: path to the Firebase service-account JSON (never commit it). Windows paths work. In `.env`, write them unquoted, in single quotes, or with forward slashes, because dotenv turns `\n` inside double quotes into a newline.
-- `NOTIFICATIONS_API_KEY`: shared secret used by the mobile admin app.
-
-### Website Image Targeting
-
-- `POST /api/website-images`
-- `GET /api/website-images`
-- `GET /api/website-images/active`
-- `GET /api/website-images/active-with-products`
-- `GET /api/website-images/:id`
-- `GET /api/website-images/:id/image`
-- `PUT /api/website-images/:id`
-- `DELETE /api/website-images/:id`
-- `GET /api/website-images/:id/products`
-
-Example price-targeted image:
-
-```json
-{
-  "title": "Summer offer",
-  "imageBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==",
-  "targetType": "price",
-  "categoryIds": ["66b0b7b5a8c197aa0adf1234"],
-  "maxPrice": 500,
-  "isActive": true
-}
-```
-
-Example view-only image:
-
-```json
-{
-  "imageBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==",
-  "viewOnly": true
-}
-```
-
-Targeting rules:
-
-- `viewOnly: true` creates a display-only website image. It only requires `imageBase64`/`image` and does not require `targetType`, categories, products, price, or specifications.
-- `category` requires at least one `categoryIds` entry and resolves no products.
-- `product` requires at least one `productIds` entry.
-- `both` requires at least one category and one product.
-- `price` requires `maxPrice` and resolves products using `retailPrice`. Optional `categoryIds` restrict the price query to those categories.
-- Duplicate IDs are removed, and every referenced category and product must exist.
-- `active-with-products` returns `imageUrl` instead of repeating the large `imageBase64` value. Product targets are resolved in one deduplicated projected query, and the public result is cached until a related model mutation invalidates it. Use the returned image URL directly as the image source.
 
 ### Credit Sales
 - `GET /api/credit-sales`
@@ -847,11 +569,4 @@ Sample selling invoice from `GET /api/sellings`:
     }
   ]
 }
-```systemctl status mongod
-sudo systemctl start mongod
-
-uname -r  6.17.9-76061709-generic
-
-sudo systemctl restart mongod
-systemctl is-active mongod
-npm run dev
+```

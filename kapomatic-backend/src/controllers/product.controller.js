@@ -7,12 +7,6 @@ const Selling = require("../models/selling.model");
 const asyncHandler = require("../utils/asyncHandler");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { calculatePriceAfterDiscount } = require("../utils/productPricing");
-const {
-  addSlugAliasesForChangedSlugs,
-  checkDuplicateSlug,
-  clearPublicSeoCache,
-  normalizeSeoInput,
-} = require("../utils/seo");
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -658,25 +652,8 @@ const createProduct = asyncHandler(async (req, res) => {
     payload.soldItemCount = normalizedSoldItemCount;
   }
 
-  Object.assign(
-    payload,
-    normalizeSeoInput({
-      body: req.body,
-      legacyName: name,
-      entityType: "product",
-      res,
-    })
-  );
-  await checkDuplicateSlug({
-    Model: Product,
-    entityType: "product",
-    translations: payload.translations,
-    res,
-  });
-
   const product = await Product.create(payload);
   await product.populate("category", CATEGORY_PRODUCT_FIELDS);
-  clearPublicSeoCache();
 
   res.status(201).json(product);
 });
@@ -733,29 +710,6 @@ const updateProduct = asyncHandler(async (req, res) => {
   }
 
   if (req.body.name !== undefined) product.name = req.body.name;
-  const seoUpdate = normalizeSeoInput({
-    body: req.body,
-    legacyName: product.translations?.ar?.name
-      ? undefined
-      : req.body.name !== undefined
-        ? req.body.name
-        : product.name,
-    entityType: "product",
-    existing: product,
-    res,
-  });
-  await checkDuplicateSlug({
-    Model: Product,
-    entityType: "product",
-    translations: seoUpdate.translations,
-    excludeId: product._id,
-    res,
-  });
-  if (seoUpdate.translations) {
-    addSlugAliasesForChangedSlugs(product, seoUpdate.translations);
-    product.translations = seoUpdate.translations;
-  }
-  if (seoUpdate.seo) product.seo = seoUpdate.seo;
 
   if (req.body.code !== undefined) product.code = req.body.code;
   const currentInventoryCount = Number(product.inventoryCount || 0);
@@ -858,7 +812,6 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   const updatedProduct = await product.save();
   await updatedProduct.populate("category", CATEGORY_PRODUCT_FIELDS);
-  clearPublicSeoCache();
 
   res.json(updatedProduct);
 });
@@ -1025,7 +978,6 @@ const deleteProduct = asyncHandler(async (req, res) => {
   }
 
   await product.deleteOne();
-  clearPublicSeoCache();
   res.json({ message: "Product deleted successfully" });
 });
 

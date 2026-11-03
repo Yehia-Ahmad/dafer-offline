@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectorRef, Component, Inject, OnDestroy, OnInit, PLATFORM_ID } from '@angular/core';
+import { ChangeDetectorRef, Component, Inject, OnDestroy, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -16,6 +16,8 @@ import {
 import { CreditSalesService } from '../../../products/services/credit-sales.service';
 import { ReturnsService } from '../../../returns/services/returns.service';
 import { ThemeService } from '../../../shared/services/theme.service';
+import { ShopProfileService } from '../../../shop-profile/services/shop-profile.service';
+import { InvoiceBranding, toPrintableShop } from '../../../shop-profile/utils/invoice-branding.util';
 import {
   Customer,
   CustomerCreditHistoryEntry,
@@ -98,6 +100,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   private readonly isBrowser: boolean;
   private currentCustomerId: string | null = null;
   private readonly subscriptions = new Subscription();
+  private readonly shopProfileService = inject(ShopProfileService);
 
   constructor(
     private readonly themeService: ThemeService,
@@ -129,6 +132,10 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.updateDirection();
+    if (this.isBrowser) {
+      // Cached for printing; without it the invoice prints with a neutral header.
+      this.shopProfileService.refresh();
+    }
     this.subscriptions.add(
       this.translate.onLangChange.subscribe(() => {
         this.updateDirection();
@@ -210,7 +217,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
       invoiceWindow.document.write(buildCreditInvoiceDocument({
         invoice: printableInvoice,
         language,
-        logoUrl: this.resolveAssetUrl('assets/img/Kapo.jpeg'),
+        branding: this.getInvoiceBranding(),
         fontUrl: this.resolveAssetUrl('assets/fonts/Montserrat-VariableFont_wght.ttf'),
       }));
       invoiceWindow.document.close();
@@ -886,7 +893,6 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
       totalPrice: entry.totalPrice,
       paidAmount: entry.paidAmount,
       remainingAmount: entry.remainingAmount,
-      footerNote: this.translate.instant('customerDetailsPage.print.footerNote'),
       items: entry.items.map((item) => ({
         id: item.id,
         productCode: item.productCode,
@@ -980,6 +986,18 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     }
 
     return null;
+  }
+
+  private getInvoiceBranding(): InvoiceBranding {
+    return {
+      shop: toPrintableShop(this.shopProfileService.profile()),
+      texts: {
+        neutralTitle: this.translate.instant('invoicePrint.creditTitle'),
+        systemNote: this.translate.instant('invoicePrint.systemNote'),
+        taxNumberLabel: this.translate.instant('invoicePrint.taxNumber'),
+        commercialRegisterLabel: this.translate.instant('invoicePrint.commercialRegister')
+      }
+    };
   }
 
   private getInvoiceLanguage(): CreditInvoicePrintLanguage {

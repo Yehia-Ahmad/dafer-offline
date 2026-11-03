@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 const isBase64Image = require("../utils/isBase64Image");
 const { calculatePriceAfterDiscount } = require("../utils/productPricing");
-const attachPublicCacheInvalidation = require("../utils/publicCacheInvalidation");
 
 const productSchema = new mongoose.Schema(
   {
@@ -95,73 +94,11 @@ const productSchema = new mongoose.Schema(
       ],
       default: [],
     },
-    translations: {
-      ar: {
-        name: { type: String, trim: true, maxlength: 200 },
-        description: { type: String, trim: true, maxlength: 5000 },
-        shortDescription: { type: String, trim: true, maxlength: 500 },
-        slug: { type: String, trim: true, maxlength: 200 },
-        imageAlt: { type: String, trim: true, maxlength: 200 },
-      },
-      en: {
-        name: { type: String, trim: true, maxlength: 200 },
-        description: { type: String, trim: true, maxlength: 5000 },
-        shortDescription: { type: String, trim: true, maxlength: 500 },
-        slug: { type: String, trim: true, maxlength: 200 },
-        imageAlt: { type: String, trim: true, maxlength: 200 },
-      },
-    },
-    seo: {
-      ar: {
-        metaTitle: { type: String, trim: true, maxlength: 70 },
-        metaDescription: { type: String, trim: true, maxlength: 170 },
-        keywords: { type: [String], default: undefined },
-        ogTitle: { type: String, trim: true, maxlength: 70 },
-        ogDescription: { type: String, trim: true, maxlength: 170 },
-        canonicalOverride: { type: String, trim: true, maxlength: 2000 },
-      },
-      en: {
-        metaTitle: { type: String, trim: true, maxlength: 70 },
-        metaDescription: { type: String, trim: true, maxlength: 170 },
-        keywords: { type: [String], default: undefined },
-        ogTitle: { type: String, trim: true, maxlength: 70 },
-        ogDescription: { type: String, trim: true, maxlength: 170 },
-        canonicalOverride: { type: String, trim: true, maxlength: 2000 },
-      },
-      ogImage: { type: String, trim: true },
-      robotsIndex: { type: Boolean, default: true },
-      robotsFollow: { type: Boolean, default: true },
-      includeInSitemap: { type: Boolean, default: true },
-      sitemapPriority: { type: Number, default: 0.8, min: 0, max: 1 },
-      sitemapChangeFrequency: {
-        type: String,
-        default: "weekly",
-        enum: ["always", "hourly", "daily", "weekly", "monthly", "yearly", "never"],
-      },
-    },
-    slugAliases: {
-      type: [
-        {
-          language: { type: String, enum: ["ar", "en"], required: true },
-          slug: { type: String, required: true, trim: true },
-        },
-      ],
-      default: [],
-    },
   },
   { timestamps: true }
 );
 
-productSchema.index(
-  { "translations.ar.slug": 1 },
-  { unique: true, sparse: true, partialFilterExpression: { "translations.ar.slug": { $type: "string" } } }
-);
-productSchema.index(
-  { "translations.en.slug": 1 },
-  { unique: true, sparse: true, partialFilterExpression: { "translations.en.slug": { $type: "string" } } }
-);
 productSchema.index({ category: 1, createdAt: -1 });
-productSchema.index({ "slugAliases.language": 1, "slugAliases.slug": 1 });
 
 productSchema.virtual("priceAfterDiscount").get(function getPriceAfterDiscount() {
   return calculatePriceAfterDiscount(this.retailPrice, this.discountPercentage);
@@ -174,6 +111,5 @@ productSchema.set("toJSON", {
     return returnedObject;
   },
 });
-attachPublicCacheInvalidation(productSchema);
 
 module.exports = mongoose.model("Product", productSchema);

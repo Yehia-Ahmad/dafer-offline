@@ -1,3 +1,10 @@
+import {
+  buildInvoiceFooterHtml,
+  buildInvoiceHeaderHtml,
+  INVOICE_BRANDING_STYLES,
+  InvoiceBranding
+} from '../../../shop-profile/utils/invoice-branding.util';
+
 export type CreditInvoicePrintLanguage = 'ar' | 'en';
 
 export type CreditInvoicePrintItem = {
@@ -27,15 +34,12 @@ export type CreditInvoicePrintData = {
   totalPrice: number;
   paidAmount: number;
   remainingAmount: number;
-  footerNote?: string;
   items: CreditInvoicePrintItem[];
 };
 
 type CreditInvoiceDocumentLabels = {
   toolbarPrint: string;
   toolbarClose: string;
-  companySubtitle: string;
-  companyMeta: string;
   customerSection: string;
   customerName: string;
   customerPhone: string;
@@ -61,16 +65,15 @@ type CreditInvoiceDocumentLabels = {
   tableQuantity: string;
   tableUnitPrice: string;
   tableTotal: string;
-  footerNote: string;
 };
 
 export function buildCreditInvoiceDocument(params: {
   invoice: CreditInvoicePrintData;
   language: CreditInvoicePrintLanguage;
-  logoUrl: string;
+  branding: InvoiceBranding;
   fontUrl: string;
 }): string {
-  const { invoice, language, logoUrl, fontUrl } = params;
+  const { invoice, language, branding, fontUrl } = params;
   const isArabic = language === 'ar';
   const direction = isArabic ? 'rtl' : 'ltr';
   const labels = getCreditInvoiceLabels(language);
@@ -101,7 +104,6 @@ export function buildCreditInvoiceDocument(params: {
   const title = escapeHtml(
     isArabic ? `فاتورة آجل ${invoiceNumber}` : `Credit Invoice ${invoiceNumber}`
   );
-  const footerNote = escapeHtml(invoice.footerNote || labels.footerNote);
   const escapedFontUrl = escapeCssString(fontUrl);
   const tableRows = buildCreditInvoiceTableRows(invoice.items, language, unitLabel);
   const discountSummaryItem = hasDiscountPercentage
@@ -262,7 +264,7 @@ export function buildCreditInvoiceDocument(params: {
       .company-meta {
         color: var(--invoice-muted);
       }
-
+${INVOICE_BRANDING_STYLES}
       .info-layout {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(320px, 1.08fr);
@@ -448,17 +450,7 @@ export function buildCreditInvoiceDocument(params: {
 
     <main class="invoice-sheet">
       <section class="invoice-body">
-        <header class="invoice-header">
-          <div class="logo-box">
-            <img src="${logoUrl}" alt="Kapomatic logo" />
-          </div>
-
-          <div class="company-heading">
-            <h1 class="company-name">Kapomatic</h1>
-            <p class="company-subtitle">${labels.companySubtitle}</p>
-            <p class="company-meta">${labels.companyMeta}</p>
-          </div>
-        </header>
+        ${buildInvoiceHeaderHtml(branding)}
 
         <section class="info-layout">
           <article class="info-card">
@@ -561,7 +553,7 @@ export function buildCreditInvoiceDocument(params: {
           </div>
         </div>
 
-        <p class="invoice-note">${footerNote}</p>
+        ${buildInvoiceFooterHtml(branding)}
       </section>
     </main>
 
@@ -581,8 +573,6 @@ function getCreditInvoiceLabels(language: CreditInvoicePrintLanguage): CreditInv
     return {
       toolbarPrint: 'طباعة / حفظ PDF',
       toolbarClose: 'إغلاق',
-      companySubtitle: 'لتجارة وتوزيع قطع غيار وزيوت الفتيس الاوتوماتيك لجميع انواع السيارات',
-      companyMeta: 'سجل فاتورة بيع آجل صادر من نظام Kapomatic',
       customerSection: 'بيانات العميل',
       customerName: 'الاسم',
       customerPhone: 'التليفون',
@@ -607,16 +597,13 @@ function getCreditInvoiceLabels(language: CreditInvoicePrintLanguage): CreditInv
       tableUnit: 'الوحدة',
       tableQuantity: 'الكمية',
       tableUnitPrice: 'السعر',
-      tableTotal: 'الإجمالي',
-      footerNote: 'تم إنشاء فاتورة البيع الآجل هذه إلكترونيًا من نظام كابوماتيك.'
+      tableTotal: 'الإجمالي'
     };
   }
 
   return {
     toolbarPrint: 'Print / Save PDF',
     toolbarClose: 'Close',
-    companySubtitle: 'Auto spare parts trading and distribution',
-    companyMeta: 'Credit-sales invoice generated from the Kapomatic system',
     customerSection: 'Customer Details',
     customerName: 'Name',
     customerPhone: 'Phone',
@@ -641,8 +628,7 @@ function getCreditInvoiceLabels(language: CreditInvoicePrintLanguage): CreditInv
     tableUnit: 'Unit',
     tableQuantity: 'Qty',
     tableUnitPrice: 'Unit Price',
-    tableTotal: 'Total',
-    footerNote: 'This credit invoice was generated electronically from the Kapomatic system.'
+    tableTotal: 'Total'
   };
 }
 

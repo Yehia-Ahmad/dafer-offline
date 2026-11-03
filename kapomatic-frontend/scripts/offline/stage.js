@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Stages the offline edition for electron-builder (electron-builder.offline.json):
 //   offline-stage/app      Electron app folder: Angular offline build + electron-offline + package.json
-//   offline-stage/backend  kapomatic-backend with production dependencies only, without Firebase
+//   offline-stage/backend  kapomatic-backend with production dependencies only
 //
 // Inputs: dist-offline/ (npm run build:offline), vendor/ (npm run offline:vendor) and the
 // backend checkout next to this project, or the folder in KAPOMATIC_BACKEND_DIR.
@@ -21,8 +21,8 @@ const STAGE_APP = path.join(STAGE, 'app');
 const STAGE_BACKEND = path.join(STAGE, 'backend');
 const EDITION = require(path.join(ELECTRON_SOURCE, 'edition.json'));
 
-// Backend dependencies the offline edition must not ship.
-const BACKEND_EXCLUDED_DEPENDENCIES = ['firebase-admin'];
+// Backend dependencies the offline edition must not ship. Currently none.
+const BACKEND_EXCLUDED_DEPENDENCIES = [];
 
 // Nothing that looks like configuration or a credential may reach the installer.
 const FORBIDDEN_FILES = [
@@ -30,7 +30,7 @@ const FORBIDDEN_FILES = [
   { test: (name) => /\.(pem|key|p12|pfx)$/i.test(name), why: 'key or certificate' },
   { test: (name) => /firebase-adminsdk.*\.json$|service-?account.*\.json$/i.test(name), why: 'service account' },
 ];
-const FORBIDDEN_BACKEND_PATHS = ['test', '.mongo-data', '.git', 'node_modules/firebase-admin'];
+const FORBIDDEN_BACKEND_PATHS = ['test', '.mongo-data', '.git'];
 
 const log = (message) => console.log(`[offline:stage] ${message}`);
 

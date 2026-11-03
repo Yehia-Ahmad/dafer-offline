@@ -13,6 +13,7 @@
     "offline:vendor": "node scripts/offline/fetch-vendor.js",
     "offline:stage": "node scripts/offline/stage.js",
     "test:offline": "node scripts/offline/run-tests.js",
+    "smoke:offline": "node scripts/offline/smoke-test.js",
     "electron:start:offline": "npm run build:offline && npm run offline:vendor && electron electron-offline/main.js",
     "electron:build:win:offline:dir": "npm run build:offline && npm run offline:vendor && npm run offline:stage && electron-builder --win --dir --config electron-builder.offline.json",
     "electron:build:win:offline": "npm run build:offline && npm run offline:vendor && npm run offline:stage && electron-builder --win nsis --config electron-builder.offline.json",
