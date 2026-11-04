@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota add cash box</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.num{font-variant-numeric:tabular-nums}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+.hint{font-size:12px;color:#4A5856}
+.opt{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border-radius:12px;border:1px solid #CFCAC0;font-size:14px;cursor:pointer;min-height:44px}
+</style>
+</helmet>
+<div style="position: relative; min-height: 100vh; overflow: hidden; font-family: 'Alexandria', system-ui, sans-serif; color: #142321">
+  <dc-import name="CashBox" hint-size="100%,960px"></dc-import>
+  <div style="position: absolute; inset: 0; background: rgba(11,31,28,0.5); display: flex; align-items: center; justify-content: center; padding: 24px">
+    <div role="dialog" aria-modal="true" aria-labelledby="dlg-title" style="width: 100%; max-width: 560px; background: #FFFFFF; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); display: flex; flex-direction: column">
+      <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #F0EDE6">
+        <h2 id="dlg-title" style="margin: 0; font-size: 20px; font-weight: 800">خزنة جديدة</h2>
+        <button type="button" aria-label="إغلاق" class="btn" style="width: 44px; padding: 0">×</button>
+      </div>
+      <div style="padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+        <fieldset style="border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+          <legend style="font-size: 13px; color: #3B4A47; margin-bottom: 8px">النوع</legend>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+            <label class="opt" style="border: 2px solid #0E4D45; background: #F1F7F5; color: #0E4D45; font-weight: 700"><input type="radio" name="kind" checked style="accent-color: #0E4D45">درج كاشير / نقدي</label>
+            <label class="opt"><input type="radio" name="kind" style="accent-color: #0E4D45">محفظة إلكترونية</label>
+            <label class="opt"><input type="radio" name="kind" style="accent-color: #0E4D45">حساب بنك</label>
+          </div>
+        </fieldset>
+        <label class="lb">الاسم *<input type="text" class="in" value="درج الكاشير ٢"></label>
+        <label class="lb">الجهاز اللي بيستخدمها تلقائي
+          <select class="in"><option>جهاز الكاشير ٢ · 192.168.1.12</option><option>أي جهاز</option></select>
+          <span class="hint">أي فاتورة كاش من الجهاز ده هتدخل الدرج ده</span>
+        </label>
+        <label class="lb">رصيد البداية<input type="text" class="in num" value="٥٠٠"><span class="hint">الفكّة اللي هتتحط في الدرج. هتتحوّل من الخزنة الرئيسية.</span></label>
+      </div>
+      <div style="display: flex; flex-direction: row; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #F0EDE6; background: #FAF9F6; border-radius: 0 0 20px 20px">
+        <button type="button" class="btn">إلغاء</button>
+        <button type="button" class="btn btn-p">حفظ الخزنة</button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

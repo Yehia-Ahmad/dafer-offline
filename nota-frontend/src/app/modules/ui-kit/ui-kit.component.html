@@ -1,0 +1,252 @@
+<main class="ui-kit" [attr.dir]="dir()" [attr.lang]="lang()">
+  <nota-page-header [title]="t().title" [subtitle]="t().subtitle" backLink="/home" [backLabel]="t().back">
+    <div notaPageActions>
+      <button notaButton [class.nota-btn--primary]="lang() === 'ar'" (click)="setLanguage('ar')">العربية</button>
+      <button notaButton [class.nota-btn--primary]="lang() === 'en'" (click)="setLanguage('en')">English</button>
+      <button notaButton id="ui-kit-theme" (click)="toggleTheme()">
+        <i [class]="(isDark$ | async) ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" aria-hidden="true"></i>
+        {{ (isDark$ | async) ? t().light : t().dark }}
+      </button>
+    </div>
+  </nota-page-header>
+
+  <!-- Colors -->
+  <nota-card [title]="t().colors">
+    <div class="ui-kit__swatches">
+      @for (token of tokens; track token.name) {
+        <div class="ui-kit__swatch">
+          <span class="ui-kit__chip" [style.background]="'var(' + token.name + ')'"></span>
+          <div class="flex min-w-0 flex-col">
+            <code class="text-[13px] font-bold text-text" dir="ltr">{{ token.name }}</code>
+            <span class="text-xs text-muted num" dir="ltr">{{ token.light }} · {{ token.dark }}</span>
+            <span class="text-xs text-muted">{{ token.use }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  </nota-card>
+
+  <!-- Typography -->
+  <nota-card [title]="t().typography">
+    <div class="flex flex-col gap-3">
+      <span class="text-[28px] font-extrabold leading-tight">{{ t().typePageTitle }}</span>
+      <span class="text-lg font-bold">{{ t().typeSection }}</span>
+      <span class="text-[15px]">{{ t().typeBody }}</span>
+      <span class="nota-label">{{ t().typeLabel }}</span>
+      <span class="num text-[28px] font-extrabold">{{ 128450.5 | notaMoney }}</span>
+      <div class="flex flex-wrap items-baseline gap-4 text-[15px]">
+        <span class="font-normal">نوتة Nota 400</span>
+        <span class="font-medium">نوتة Nota 500</span>
+        <span class="font-bold">نوتة Nota 700</span>
+        <span class="font-extrabold">نوتة nota 800</span>
+        <span class="text-2xl font-extrabold text-brand">نوتة</span>
+        <span class="text-2xl font-bold lowercase text-brand">nota</span>
+      </div>
+    </div>
+  </nota-card>
+
+  <!-- Buttons -->
+  <nota-card [title]="t().buttons">
+    <div class="ui-kit__row">
+      <button notaButton="primary">{{ t().primary }}</button>
+      <button notaButton>{{ t().secondary }}</button>
+      <button notaButton="danger">{{ t().danger }}</button>
+      <button notaButton="primary" size="lg">+ {{ t().large }}</button>
+      <button notaButton="primary" disabled>{{ t().disabled }}</button>
+      <button notaButton icon [attr.aria-label]="t().close">×</button>
+    </div>
+  </nota-card>
+
+  <!-- Form fields -->
+  <nota-card [title]="t().forms">
+    <form class="ui-kit__form" [formGroup]="form" (submit)="$event.preventDefault()">
+      <nota-form-field [label]="t().name" forId="uk-name" [required]="true"
+        [error]="form.controls.name.invalid && form.controls.name.touched ? t().nameError : null">
+        <input id="uk-name" class="nota-input" formControlName="name" />
+      </nota-form-field>
+      <nota-form-field [label]="t().phone" forId="uk-phone" [hint]="t().phoneHint">
+        <input id="uk-phone" class="nota-input num" dir="ltr" formControlName="phone" inputmode="numeric" />
+      </nota-form-field>
+      <nota-form-field [label]="t().limit" forId="uk-limit" [hint]="t().limitHint">
+        <p-inputnumber inputId="uk-limit" formControlName="limit" [useGrouping]="true" locale="en-EG" styleClass="w-full" />
+      </nota-form-field>
+      <nota-form-field [label]="t().term" forId="uk-term">
+        <select id="uk-term" class="nota-select" formControlName="term">
+          <option value="15">{{ t().days((15 | notaNumber)) }}</option>
+          <option value="30">{{ t().days((30 | notaNumber)) }}</option>
+          <option value="60">{{ t().days((60 | notaNumber)) }}</option>
+        </select>
+      </nota-form-field>
+      <nota-form-field class="ui-kit__wide" [label]="t().notes" forId="uk-notes">
+        <textarea id="uk-notes" class="nota-textarea" rows="2" formControlName="notes" [placeholder]="t().optional"></textarea>
+      </nota-form-field>
+    </form>
+  </nota-card>
+
+  <!-- Library components -->
+  <nota-card [title]="t().libs">
+    <div class="ui-kit__grid2">
+      <div class="flex flex-col gap-3">
+        <span class="nota-label">{{ t().primeButtons }}</span>
+        <div class="ui-kit__row">
+          <p-button [label]="t().primary" />
+          <p-button [label]="t().secondary" severity="secondary" />
+          <p-button [label]="t().danger" severity="danger" />
+          <p-button [label]="t().secondary" severity="secondary" [outlined]="true" />
+        </div>
+        <input pInputText class="w-full" [placeholder]="t().search" />
+        <p-select [options]="[{ label: t().days((15 | notaNumber)), value: 15 }, { label: t().days((30 | notaNumber)), value: 30 }]"
+          optionLabel="label" optionValue="value" [placeholder]="t().term" styleClass="w-full" />
+      </div>
+      <div class="flex flex-col gap-3">
+        <span class="nota-label">{{ t().matButtons }}</span>
+        <div class="ui-kit__row">
+          <button mat-flat-button>{{ t().primary }}</button>
+          <button mat-stroked-button>{{ t().secondary }}</button>
+          <button mat-button>{{ t().seeAll }}</button>
+          <button mat-stroked-button (click)="showSnack()">{{ t().snackBtn }}</button>
+        </div>
+      </div>
+    </div>
+  </nota-card>
+
+  <!-- Cards & KPIs -->
+  <section class="flex flex-col gap-3">
+    <h2 class="nota-section-title">{{ t().cards }}</h2>
+    <div class="ui-kit__kpis">
+      <nota-kpi-card [label]="t().kpiSales" [value]="kpiValue(12480)" [note]="t().kpiSalesNote" noteTone="success" />
+      <nota-kpi-card [label]="t().kpiDue" [value]="kpiValue(48230.5)" [note]="t().kpiDueNote" noteTone="danger" />
+      <nota-kpi-card [label]="t().kpiCash" [value]="kpiValue(7350)" [note]="t().kpiCashNote" />
+      <nota-kpi-card [label]="t().kpiItems" [value]="(14 | notaNumber)" [note]="t().kpiItemsNote" noteTone="warning" />
+    </div>
+    <nota-card [title]="t().cardTitle">
+      <a notaCardActions class="text-[13px] text-brand-strong underline-offset-2 hover:underline" href="#">{{ t().seeAll }}</a>
+      <p class="text-[15px] text-muted">{{ t().cardBody }}</p>
+    </nota-card>
+  </section>
+
+  <!-- Pills -->
+  <nota-card [title]="t().pills">
+    <div class="ui-kit__row">
+      @for (v of pillVariants; track v) {
+        <nota-status-pill [variant]="v">{{ t().pillLabels[v] }}</nota-status-pill>
+      }
+    </div>
+  </nota-card>
+
+  <!-- Tables -->
+  <nota-card [title]="t().table">
+    <span class="nota-label">{{ t().plainTable }}</span>
+    <div class="nota-table-wrap">
+      <table class="nota-table">
+        <thead>
+          <tr>
+            <th>{{ t().colInvoice }}</th>
+            <th>{{ t().colCustomer }}</th>
+            <th>{{ t().colDate }}</th>
+            <th class="num">{{ t().colTotal }}</th>
+            <th class="num">{{ t().colPaid }}</th>
+            <th>{{ t().colStatus }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of t().rows; track row.no) {
+            <tr>
+              <td class="num">#{{ row.no }}</td>
+              <td>{{ row.customer }}</td>
+              <td>{{ row.date }}</td>
+              <td class="num">{{ row.total | notaMoney }}</td>
+              <td class="num">{{ row.paid | notaMoney }}</td>
+              <td><nota-status-pill [variant]="$any(row.status)">{{ t().pillLabels[$any(row.status)] }}</nota-status-pill></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <span class="nota-label mt-2">{{ t().primeTable }}</span>
+    <p-table [value]="t().rows" [tableStyle]="{ 'min-width': '40rem' }">
+      <ng-template #header>
+        <tr>
+          <th>{{ t().colInvoice }}</th>
+          <th>{{ t().colCustomer }}</th>
+          <th class="num">{{ t().colTotal }}</th>
+          <th>{{ t().colStatus }}</th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-row>
+        <tr>
+          <td class="num">#{{ row.no }}</td>
+          <td>{{ row.customer }}</td>
+          <td class="num">{{ row.total | notaMoney }}</td>
+          <td><nota-status-pill [variant]="row.status">{{ t().pillLabels[$any(row.status)] }}</nota-status-pill></td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </nota-card>
+
+  <!-- Dialog shell -->
+  <section class="ui-kit__grid2">
+    <nota-card [title]="t().dialog">
+      <button notaButton="primary" notaCardActions id="ui-kit-open-dialog" (click)="dialogOpen.set(true)">{{ t().openDialog }}</button>
+      <div class="ui-kit__dialog-preview">
+        <nota-dialog-shell [title]="t().dialogTitle" [closeLabel]="t().close">
+          <nota-form-field [label]="t().name" forId="uk-d-name">
+            <input id="uk-d-name" class="nota-input" value="أحمد الشافعي" />
+          </nota-form-field>
+          <ng-container notaDialogFooter>
+            <button notaButton>{{ t().secondary }}</button>
+            <button notaButton="primary">{{ t().save }}</button>
+          </ng-container>
+        </nota-dialog-shell>
+      </div>
+    </nota-card>
+
+    <!-- Empty state -->
+    <nota-card [title]="t().empty">
+      <nota-empty-state [title]="t().emptyTitle" [text]="t().emptyText" icon="fa-solid fa-receipt">
+        <button notaButton="primary">+ {{ t().emptyAction }}</button>
+      </nota-empty-state>
+    </nota-card>
+  </section>
+
+  <!-- Numbers -->
+  <nota-card [title]="t().numbers">
+    <div class="nota-table-wrap">
+      <table class="nota-table">
+        <thead>
+          <tr>
+            <th class="num">{{ t().value }}</th>
+            <th class="num">notaNumber</th>
+            <th class="num">notaMoney</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (n of pipeSamples; track n) {
+            <tr>
+              <td class="num" dir="ltr">{{ n }}</td>
+              <td class="num">{{ n | notaNumber }}</td>
+              <td class="num">{{ n | notaMoney }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </nota-card>
+
+  <p-dialog [visible]="dialogOpen()" (visibleChange)="dialogOpen.set($event)" [modal]="true" [showHeader]="false"
+    styleClass="nota-p-dialog" [dismissableMask]="true">
+    <nota-dialog-shell [title]="t().dialogTitle" [closeLabel]="t().close" (closed)="dialogOpen.set(false)" [attr.dir]="dir()">
+      <nota-form-field [label]="t().name" forId="uk-p-name" [required]="true">
+        <input id="uk-p-name" class="nota-input" />
+      </nota-form-field>
+      <nota-form-field [label]="t().phone" forId="uk-p-phone" [hint]="t().phoneHint">
+        <input id="uk-p-phone" class="nota-input num" dir="ltr" />
+      </nota-form-field>
+      <ng-container notaDialogFooter>
+        <button notaButton (click)="dialogOpen.set(false)">{{ t().secondary }}</button>
+        <button notaButton="primary" (click)="dialogOpen.set(false)">{{ t().save }}</button>
+      </ng-container>
+    </nota-dialog-shell>
+  </p-dialog>
+</main>

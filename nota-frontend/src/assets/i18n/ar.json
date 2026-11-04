@@ -1,0 +1,1032 @@
+{
+  "searchPlaceholder": "بحث ...",
+  "sidebarTitles": {
+    "export_products": "تصدير المنتجات",
+    "add_new_category": "اضافة فئة جديدة"
+  },
+  "actions": {
+    "save": "حفظ",
+    "loading": "جاري التحميل...",
+    "cancelButton": "لا، إلغاء",
+    "deleteButton": "نعم، حذف"
+  },
+  "tableHeaders": {
+    "username": "اسم المستخدم",
+    "number": "الرقم",
+    "email": "البريد الإلكتروني",
+    "role": "الدور",
+    "actions": "الإجراءات"
+  },
+  "delete": "حذف",
+  "admin": {
+    "title": "المشرفون",
+    "change_Button": "تغيير",
+    "remove_Button": "حذف",
+    "add_Button": "إضافة مشرف"
+  },
+  "category": {
+    "importExport": {
+      "export": "تصدير الفئات",
+      "exporting": "جاري التصدير...",
+      "import": "استيراد الفئات",
+      "importing": "جاري الاستيراد...",
+      "template": "تنزيل القالب",
+      "generating": "جاري الإنشاء...",
+      "resultTitle": "نتيجة استيراد الفئات",
+      "importedCount": "تم الاستيراد",
+      "skippedCount": "تم التخطي",
+      "errors": "أخطاء الاستيراد",
+      "noErrors": "لا توجد أخطاء في الاستيراد"
+    },
+    "products": {
+      "loading": "جاري تحميل المزيد من المنتجات...",
+      "noMore": "لا توجد منتجات أخرى",
+      "retry": "إعادة المحاولة"
+    },
+    "add_new_category": "إضافة فئة جديدة",
+    "name": "اسم الفئة",
+    "namePlaceholder": "اسم الفئة",
+    "specifications": {
+      "title": "المواصفات",
+      "rowNamePlaceholder": "اسم الوصف",
+      "valuePlaceholder": "ادخل القيمة",
+      "removeButton": "حذف"
+    },
+    "addProduct": {
+      "productName": "اسم المنتج",
+      "code": "كود المنتج",
+      "inventoryCount": "عدد المخزون",
+      "wholesalePrice": "سعر الوحدة بالجملة",
+      "purchasePrice": "سعر الشراء",
+      "retailPrice": "سعر الوحدة بالتجزئة",
+      "soldItemCount": "عدد المبيعات",
+      "uploadImage": "تحميل صورة",
+      "changeImage": "تغيير صورة",
+      "actions": {
+        "save": "حفظ المنتج",
+        "creating": "جاري الإنشاء..."
+      }
+    },
+    "editProduct": {
+      "title": "تعديل المنتج",
+      "productName": "اسم المنتج",
+      "code": "كود المنتج",
+      "inventoryCount": "عدد المخزون",
+      "newInventory": "المخزون الجديد",
+      "wholesalePrice": "سعر الوحدة بالجملة",
+      "purchasePrice": "سعر الشراء",
+      "retailPrice": "سعر الوحدة بالتجزئة",
+      "discountPercentage": "نسبة الخصم",
+      "soldItemCount": "عدد المبيعات",
+      "actions": {
+        "save": "حفظ المنتج",
+        "syncPurchasePrice": "تحديث سعر الشراء في الفواتير"
+      },
+      "syncPurchasePrice": {
+        "title": "تعديل سعر البيع",
+        "dateFrom": "من تاريخ",
+        "dateTo": "إلى تاريخ",
+        "cancel": "إلغاء",
+        "save": "حفظ"
+      }
+    },
+    "deleteProduct": {
+      "title": "حذف المنتج",
+      "deleteMessage": "هل تريد حذف المنتج؟",
+      "actions": {
+        "deleteButton": "حذف المنتج",
+        "cancelButton": "إالغاء"
+      }
+    },
+    "edit_category_title": "تعديل الفئة",
+    "delete_category_title": "حذف الفئة",
+    "delete_category_message": "هل تريد حذف هذه الفئة؟",
+    "cancel_button": "لا، إلغاء",
+    "delete_button": "نعم، احذف",
+    "saveButton": "حفظ الفئة",
+    "updateButton": "تحديث الفئة"
+  },
+  "home": {
+    "cards": {
+      "invoiceHistory": {
+        "title": "سجل الفواتير"
+      }
+    }
+  },
+  "sellingPage": {
+    "fields": {
+      "searchProduct": "بحث عن كود المنتج",
+      "searchCustomer": "بحث عن العميل",
+      "priceType": "نوع السعر",
+      "price": "السعر",
+      "lineTotal": "إجمالي البند",
+      "customerName": "اسم العميل",
+      "customerPhone": "رقم هاتف العميل",
+      "sellingDate": "تاريخ البيع",
+      "productQuantity": "كمية المنتج",
+      "productsCount": "عدد المنتجات",
+      "totalQuantity": "إجمالي الكمية",
+      "subtotal": "الإجمالي الفرعي",
+      "discountPercentage": "نسبة الخصم",
+      "discountAmount": "قيمة الخصم",
+      "shippingFees": "رسوم الشحن",
+      "totalInvoicePrice": "إجمالي قيمة الفاتورة"
+    },
+    "priceTypeOptions": {
+      "wholesalePrice": "سعر الجملة",
+      "retailPrice": "سعر التجزئة",
+      "custom": "مخصص"
+    },
+    "placeholders": {
+      "searchProduct": "أدخل كود المنتج (مثل WM-001)",
+      "searchCustomer": "ابحث باسم العميل أو رقم الهاتف",
+      "selectPriceType": "اختر نوع السعر"
+    },
+    "actions": {
+      "searching": "جاري البحث...",
+      "addProduct": "إضافة منتج",
+      "removeProduct": "حذف",
+      "clearProduct": "مسح",
+      "createSelling": "حفظ الفاتورة",
+      "saving": "جارٍ حفظ الفاتورة..."
+    },
+    "messages": {
+      "noProductFound": "لم يتم العثور على منتج بهذا الكود.",
+      "noCustomerFound": "لم يتم العثور على عميل بهذه البيانات.",
+      "searchFailed": "فشل البحث عن المنتج.",
+      "customerSearchFailed": "فشل البحث عن العميل.",
+      "createdSuccess": "تم حفظ الفاتورة بنجاح.",
+      "createFailed": "فشل حفظ الفاتورة."
+    },
+    "inventoryConfirmation": {
+      "title": "الكمية المتاحة غير كافية",
+      "message": "بعض المنتجات لا تحتوي على مخزون كافٍ. عند المتابعة ستتم إضافة الكميات الناقصة وإكمال عملية البيع.",
+      "requested": "المطلوب",
+      "available": "المتاح",
+      "missing": "الناقص",
+      "cancel": "إلغاء",
+      "proceed": "متابعة"
+    },
+    "pos": {
+      "catalog": "الأصناف",
+      "searchLabel": "بحث عن صنف",
+      "searchPlaceholder": "ابحث بالاسم أو الكود أو امسح الباركود (F2)",
+      "categories": "الفئات",
+      "allCategories": "الكل",
+      "gridHint": "اكتب اسم الصنف أو الكود، أو اختر فئة لعرض أصنافها.",
+      "available": "متاح",
+      "currentInvoice": "الفاتورة الحالية",
+      "changeProduct": "تغيير الصنف",
+      "increase": "زوّد",
+      "decrease": "قلّل",
+      "clearInvoice": "إلغاء الفاتورة",
+      "required": "مطلوب",
+      "ok": "موافق"
+    }
+  },
+  "creditSalePage": {
+    "title": "البيع الآجل",
+    "subtitle": "جهز فاتورة البيع الآجل للعميل وأضف الأصناف وسجل الدفعة المقدمة قبل الحفظ.",
+    "fields": {
+      "customerInformation": "بيانات العميل",
+      "searchCustomer": "بحث عن العميل",
+      "customerName": "اسم العميل",
+      "customerPhone": "رقم هاتف العميل",
+      "saleDate": "تاريخ البيع",
+      "downPayment": "الدفعة المقدمة",
+      "creditItems": "أصناف البيع الآجل",
+      "searchProduct": "بحث عن المنتج",
+      "unitPrice": "سعر الوحدة",
+      "quantity": "الكمية",
+      "lineTotal": "إجمالي البند",
+      "productsCount": "عدد الأصناف",
+      "totalQuantity": "إجمالي الكمية",
+      "subtotal": "الإجمالي الفرعي",
+      "discountPercentage": "نسبة الخصم",
+      "discountAmount": "قيمة الخصم",
+      "shippingFees": "رسوم الشحن",
+      "financedAmount": "المبلغ المتبقي",
+      "totalReceivable": "إجمالي المستحق"
+    },
+    "placeholders": {
+      "searchCustomer": "ابحث باسم العميل أو رقم الهاتف"
+    },
+    "actions": {
+      "searching": "جاري البحث...",
+      "addItem": "إضافة بند",
+      "removeItem": "حذف البند",
+      "clearItem": "مسح البند",
+      "createCreditSale": "حفظ البيع الآجل",
+      "savingCreditSale": "جارٍ حفظ البيع الآجل...",
+      "reviewCreditSale": "مراجعة العملية",
+      "resetDraft": "إعادة تعيين"
+    },
+    "messages": {
+      "completeRequired": "أكمل بيانات العميل والأصناف المطلوبة قبل مراجعة عملية البيع الآجل.",
+      "downPaymentExceeded": "لا يمكن أن تكون الدفعة المقدمة أكبر من إجمالي المستحق.",
+      "noProductFound": "لم يتم العثور على منتج لهذا البحث.",
+      "noCustomerFound": "لم يتم العثور على عميل لهذا البحث.",
+      "searchFailed": "فشل البحث عن المنتج.",
+      "customerSearchFailed": "فشل البحث عن العميل.",
+      "createdSuccess": "تم حفظ عملية البيع الآجل بنجاح.",
+      "createFailed": "فشل حفظ عملية البيع الآجل."
+    },
+    "dialog": {
+      "title": "ملف الائتمان جاهز",
+      "subtitle": "استخدم هذا الملخص لتأكيد بيانات العميل وتاريخ البيع والمبلغ المتبقي قبل الحفظ.",
+      "close": "إغلاق المراجعة"
+    },
+    "form": {
+      "title": "فاتورة آجل جديدة",
+      "customer": "العميل",
+      "newCustomer": "+ عميل جديد",
+      "items": "الأصناف",
+      "product": "الصنف",
+      "addItemPlaceholder": "+ ضيف صنف بالاسم أو الكود (F2)",
+      "netTotal": "صافي الفاتورة",
+      "required": "مطلوب",
+      "ok": "موافق",
+      "remove": "مسح",
+      "changeProduct": "تغيير الصنف",
+      "summary": "ملخص الفاتورة",
+      "dueDate": "ميعاد السداد",
+      "notes": "ملاحظة",
+      "optional": "اختياري"
+    },
+    "list": {
+      "subtitle": "الفواتير اللي لسه عليها فلوس، والدفعات اللي اتسددت منها.",
+      "new": "فاتورة آجل جديدة",
+      "kpiCount": "عدد الفواتير",
+      "kpiCountNote": "حسب البحث والحالة",
+      "kpiRemaining": "الباقي",
+      "kpiOverdue": "متأخرة عن ميعادها",
+      "onThisPage": "في الصفحة المعروضة",
+      "searchPlaceholder": "بحث باسم العميل أو رقم التليفون",
+      "statusLabel": "الحالة",
+      "filter": {
+        "all": "الكل",
+        "pending": "مستحقة",
+        "partially_paid": "مدفوعة جزئي",
+        "paid": "مدفوعة",
+        "Reactionary": "مرتجعة"
+      },
+      "number": "رقم",
+      "customer": "العميل",
+      "date": "التاريخ",
+      "total": "الإجمالي",
+      "paid": "المدفوع",
+      "remaining": "الباقي",
+      "due": "ميعاد السداد:",
+      "pay": "دفعة",
+      "empty": "لا توجد فواتير آجلة.",
+      "panelTitle": "تسجيل دفعة على فاتورة",
+      "nothingDue": "الفاتورة دي مفيش عليها فلوس.",
+      "paymentSaved": "تم حفظ الدفعة.",
+      "customerPage": "صفحة العميل (مرتجع / حذف)",
+      "previousPayments": "الدفعات السابقة",
+      "pick": "اختار فاتورة من الجدول.",
+      "loadFailed": "تعذر تحميل فواتير الآجل.",
+      "status": {
+        "pending": "مستحقة",
+        "partially_paid": "مدفوعة جزئي",
+        "paid": "مدفوعة",
+        "reactionary": "مرتجعة",
+        "unknown": "غير معروف",
+        "overdue": "متأخرة"
+      }
+    }
+  },
+  "invoiceHistoryPage": {
+    "filters": {
+      "categoryId": "معرف الفئة",
+      "productId": "معرف المنتج",
+      "customerName": "اسم العميل",
+      "customerPhone": "رقم هاتف العميل",
+      "sellingDate": "تاريخ البيع",
+      "placeholders": {
+        "categoryId": "اختر الفئة",
+        "productId": "اختر المنتج",
+        "customerName": "أدخل اسم العميل",
+        "customerPhone": "أدخل رقم هاتف العميل"
+      },
+      "actions": {
+        "apply": "تطبيق",
+        "reset": "إعادة تعيين"
+      }
+    },
+    "tableHeaders": {
+      "invoiceNumber": "رقم الفاتورة",
+      "itemCount": "عدد الأصناف",
+      "customer": "اسم العميل",
+      "date": "التاريخ",
+      "quantity": "الكمية",
+      "discountAmount": "قيمة الخصم",
+      "shippingFees": "رسوم الشحن",
+      "totalPrice": "إجمالي الفاتورة"
+    },
+    "actions": {
+      "createReturn": "إرجاع أصناف"
+    },
+    "returnDialog": {
+      "title": "إنشاء مرتجع نقدي",
+      "subtitle": "حدد الكميات المرتجعة. ستتم إعادة المخزون دون حذف الفاتورة.",
+      "returnDate": "تاريخ المرتجع",
+      "note": "ملاحظة",
+      "notePlaceholder": "أضف ملاحظة اختيارية للمرتجع",
+      "items": "الأصناف المرتجعة",
+      "available": "المتاح",
+      "reason": "سبب المرتجع",
+      "returnAll": "إرجاع الكل",
+      "clear": "مسح",
+      "selectionRequired": "اختر كمية لصنف واحد على الأقل."
+    },
+    "messages": {
+      "deleteConfirm": "هل تريد حذف هذه الفاتورة؟",
+      "deleteInventoryWarning": "سيتم حذف سجل الفاتورة فقط. استخدم إرجاع الأصناف لإعادة الكميات إلى المخزون.",
+      "deleteFailed": "فشل حذف الفاتورة.",
+      "empty": "لا توجد فواتير.",
+      "invoiceWindowBlocked": "يرجى السماح بالنوافذ المنبثقة لفتح الفاتورة وحفظها.",
+      "invoiceDownloadFailed": "فشل فتح الفاتورة.",
+      "returnFailed": "فشل إنشاء المرتجع."
+    },
+    "s10": {
+      "subtitle": "فواتير البيع الكاش، مع المرتجعات منها.",
+      "filters": "تصفية الفواتير",
+      "type": "النوع",
+      "status": "الحالة",
+      "cash": "كاش",
+      "refund": {
+        "none": "عادية",
+        "partial": "مرتجع جزئي",
+        "full": "مرتجع كامل"
+      },
+      "range": "عرض {{from}}–{{to}} من {{total}} فاتورة",
+      "pageTotal": "· إجمالي الصفحة",
+      "prev": "السابق",
+      "next": "التالي",
+      "detail": "تفاصيل الفاتورة",
+      "returned": "مرتجع",
+      "subtotal": "الإجمالي قبل الخصم",
+      "refundedAmount": "قيمة المرتجع",
+      "print": "طباعة",
+      "pick": "اختار فاتورة من الجدول.",
+      "product": "الصنف"
+    }
+  },
+  "profitReportPage": {
+    "title": "تقرير أرباح المنتجات",
+    "subtitle": "راجع أرباح جميع المنتجات وافتح تفاصيل الفواتير عند اختيار أي صف.",
+    "filters": {
+      "categoryId": "الفئة",
+      "productId": "المنتج",
+      "dateFrom": "من تاريخ",
+      "dateTo": "إلى تاريخ",
+      "placeholders": {
+        "categoryId": "اختر الفئة",
+        "productId": "اختر المنتج"
+      },
+      "actions": {
+        "apply": "تطبيق",
+        "reset": "إعادة تعيين"
+      }
+    },
+    "export": {
+      "year": "السنة",
+      "yearPlaceholder": "أدخل السنة",
+      "action": "تصدير PDF"
+    },
+    "tableHeaders": {
+      "index": "#",
+      "productName": "اسم المنتج",
+      "categoryName": "اسم الفئة",
+      "totalProfit": "قيمة الربح",
+      "lastSellingDate": "آخر تاريخ بيع",
+      "lastSellingPrice": "آخر سعر بيع"
+    },
+    "invoiceTypes": {
+      "selling": "بيع نقدي",
+      "creditSale": "بيع آجل",
+      "unknown": "غير معروف"
+    },
+    "dialog": {
+      "title": "تفاصيل الفواتير",
+      "sellingPrice": "سعر البيع",
+      "purchasePrice": "سعر الشراء",
+      "quantity": "الكمية",
+      "profit": "الربح",
+      "customerName": "العميل"
+    },
+    "messages": {
+      "empty": "لا توجد صفوف أرباح للمنتجات.",
+      "noInvoices": "لا توجد فواتير مرتبطة.",
+      "loadFailed": "فشل تحميل تقرير أرباح المنتجات."
+    },
+    "s11": {
+      "period": "الفترة",
+      "periods": {
+        "all": "كل الفترات",
+        "month": "الشهر ده",
+        "sixMonths": "آخر ٦ شهور",
+        "year": "السنة",
+        "custom": "فترة مخصصة"
+      },
+      "kpis": {
+        "sales": "المبيعات",
+        "salesNote": "بعد خصومات الفواتير",
+        "cost": "تكلفة البضاعة المباعة",
+        "costNote": "الكمية × سعر الشراء",
+        "profit": "مجمل الربح",
+        "profitNote": "قبل المصروفات",
+        "margin": "هامش الربح",
+        "marginNote": "الربح من كل ١٠٠ جنيه مبيعات"
+      },
+      "chart": {
+        "title": "الربح بالشهر",
+        "cash": "نقدي",
+        "credit": "آجل"
+      },
+      "table": {
+        "title": "الأصناف حسب الربح",
+        "quantity": "الكمية المباعة",
+        "sales": "المبيعات",
+        "margin": "الهامش"
+      }
+    }
+  },
+  "customerPage": {
+    "title": "العملاء",
+    "subtitle": "حفظ وإدارة أسماء العملاء وأرقام هواتفهم.",
+    "searchPlaceholder": "ابحث باسم العميل أو رقم الهاتف",
+    "count": "عميل",
+    "loading": "جارٍ تحميل العملاء...",
+    "empty": "لا يوجد عملاء.",
+    "form": {
+      "addTitle": "إضافة عميل",
+      "editTitle": "تعديل العميل",
+      "name": "اسم العميل",
+      "phone": "رقم الهاتف",
+      "placeholders": {
+        "name": "أدخل اسم العميل",
+        "phone": "أدخل رقم هاتف العميل"
+      },
+      "validation": {
+        "name": "اسم العميل مطلوب.",
+        "phone": "رقم هاتف العميل مطلوب."
+      }
+    },
+    "actions": {
+      "search": "بحث",
+      "reset": "إعادة تعيين",
+      "create": "حفظ العميل",
+      "update": "تحديث العميل",
+      "cancelEdit": "إلغاء التعديل",
+      "viewDetails": "التفاصيل",
+      "edit": "تغيير",
+      "delete": "حذف",
+      "deleteWithRestore": "حذف واسترجاع المنتجات",
+      "deleteWithoutRestore": "حذف بيانات العميل فقط"
+    },
+    "messages": {
+      "deleteTitle": "حذف العميل",
+      "deleteConfirm": "هل تريد حذف هذا العميل؟",
+      "restoreCreditInvoicesTitle": "استرجاع فواتير الآجل؟",
+      "restoreCreditInvoicesConfirm": "هذا العميل لديه فواتير بيع آجل مدفوعة بالكامل فقط. اختر هل تريد استرجاع منتجات الفواتير إلى المخزون قبل حذف بيانات العميل.",
+      "relatedCreditInvoices": "فواتير الآجل المرتبطة"
+    },
+    "s10": {
+      "allCustomers": "كل العملاء",
+      "indebted": "عليهم فلوس",
+      "filter": "تصفية",
+      "all": "الكل",
+      "balance": "الرصيد",
+      "since": "عميل من",
+      "owes": "عليه فلوس",
+      "settled": "خالص",
+      "phoneUnique": "ما ينفعش يتكرر مع عميل تاني",
+      "errorTitle": "حدث خطأ",
+      "ok": "موافق"
+    }
+  },
+  "customerDetailsPage": {
+    "title": "تفاصيل العميل",
+    "subtitle": "مراجعة بيانات العميل وجميع فواتير البيع الآجل الخاصة به.",
+    "labels": {
+      "customerId": "معرّف العميل",
+      "updatedAt": "تاريخ التحديث",
+      "lastCashSaleDate": "آخر بيع نقدي",
+      "lastCreditSaleDate": "آخر بيع آجل",
+      "lastCreditSalePaymentDate": "آخر دفعة بيع آجل",
+      "statusBreakdown": "ملخص حالات المديونية",
+      "notAvailable": "غير متوفر",
+      "overdue": "متأخر"
+    },
+    "summary": {
+      "totalInvoices": "إجمالي الفواتير",
+      "openInvoices": "الفواتير المفتوحة",
+      "totalCredit": "إجمالي المديونية",
+      "paidAmount": "المبلغ المدفوع",
+      "remainingAmount": "المبلغ المتبقي",
+      "pendingInvoices": "فواتير معلقة",
+      "partiallyPaidInvoices": "مدفوع جزئياً",
+      "paidInvoices": "فواتير مسددة",
+      "overdueInvoices": "فواتير متأخرة"
+    },
+    "history": {
+      "empty": "لا توجد فواتير بيع آجل لهذا العميل.",
+      "sellingDate": "تاريخ البيع",
+      "dueDate": "تاريخ الاستحقاق",
+      "items": "الأصناف / الكمية",
+      "products": "الأصناف",
+      "payments": "الدفعات",
+      "paymentsCount": "عدد الدفعات",
+      "paymentDate": "تاريخ الدفع",
+      "quantity": "الكمية",
+      "unitPrice": "سعر الوحدة",
+      "totalPrice": "إجمالي الفاتورة",
+      "discountAmount": "قيمة الخصم",
+      "discountPercentage": "نسبة الخصم",
+      "shippingFees": "رسوم الشحن",
+      "paidAmount": "المدفوع",
+      "remainingAmount": "المتبقي",
+      "notes": "ملاحظات"
+    },
+    "status": {
+      "pending": "معلق",
+      "partially_paid": "مدفوع جزئياً",
+      "paid": "مسدد",
+      "reactionary": "مرتجع",
+      "unknown": "غير معروف"
+    },
+    "actions": {
+      "addPayment": "إضافة دفعة",
+      "addRefund": "إرجاع أصناف",
+      "printInvoice": "طباعة الفاتورة",
+      "deleteInvoice": "حذف الفاتورة"
+    },
+    "deleteDialog": {
+      "title": "حذف فاتورة آجل",
+      "confirm": "هل تريد حذف فاتورة البيع الآجل هذه؟",
+      "inventoryWarning": "سيتم حذف سجل الفاتورة فقط. استخدم إرجاع الأصناف لإعادة الكميات إلى المخزون."
+    },
+    "paymentDialog": {
+      "title": "تسجيل دفعة",
+      "subtitle": "أضف دفعة جديدة لهذه الفاتورة وسيتم تحديث رصيد العميل بعد الحفظ.",
+      "invoiceTarget": "تطبيق الدفعة على",
+      "firstInvoice": "أول فاتورة",
+      "lastInvoice": "آخر فاتورة",
+      "targetRequired": "اختر أول فاتورة أو آخر فاتورة قبل الحفظ.",
+      "amount": "قيمة الدفعة",
+      "amountRequired": "أدخل قيمة دفعة أكبر من صفر.",
+      "paymentDate": "تاريخ الدفع",
+      "note": "ملاحظة",
+      "notePlaceholder": "أضف ملاحظة اختيارية للدفعة",
+      "cancel": "إلغاء",
+      "save": "حفظ الدفعة",
+      "saving": "جارٍ الحفظ..."
+    },
+    "refundDialog": {
+      "title": "تسجيل مرتجع",
+      "subtitle": "يمكنك إرجاع جميع أصناف الفاتورة أو تحديد كميات جزئية للأصناف المطلوب إرجاعها.",
+      "refundDate": "تاريخ المرتجع",
+      "note": "ملاحظة المرتجع",
+      "notePlaceholder": "أضف ملاحظة للمرتجع",
+      "itemsTitle": "أصناف المرتجع",
+      "availableQuantity": "الكمية المتاحة",
+      "returnQuantity": "الكمية المرتجعة",
+      "selectionRequired": "اختر كمية مرتجعة لصنف واحد على الأقل.",
+      "quantityExceeded": "لا يمكن أن تكون الكمية المرتجعة أكبر من الكمية المتاحة.",
+      "returnAll": "إرجاع الكل",
+      "clear": "مسح",
+      "cancel": "إلغاء",
+      "save": "حفظ المرتجع",
+      "saving": "جارٍ الحفظ..."
+    },
+    "messages": {
+      "loading": "جارٍ تحميل تفاصيل العميل...",
+      "loadFailed": "فشل تحميل تفاصيل العميل.",
+      "notFound": "لم يتم العثور على بيانات العميل.",
+      "paymentFailed": "فشل تسجيل الدفعة.",
+      "refundFailed": "فشل تسجيل المرتجع.",
+      "deleteInvoiceFailed": "فشل حذف فاتورة البيع الآجل."
+    },
+    "s10": {
+      "back": "كل العملاء",
+      "since": "عميل من",
+      "balanceDue": "الرصيد المستحق عليه",
+      "collect": "تحصيل دفعة",
+      "tabs": {
+        "statement": "كشف الحساب",
+        "invoices": "الفواتير",
+        "payments": "الدفعات",
+        "returns": "المرتجعات"
+      },
+      "statement": {
+        "legend": "مدين = عليه · دائن = دفعه",
+        "note": "محسوب من فواتير الآجل ودفعاتها ومرتجعاتها؛ المبيعات الكاش لا تؤثر على الرصيد.",
+        "date": "التاريخ",
+        "description": "البيان",
+        "document": "المستند",
+        "debit": "مدين",
+        "credit": "دائن",
+        "balance": "الرصيد",
+        "total": "الإجمالي",
+        "invoice": "فاتورة آجل",
+        "afterReturns": "(الصافي بعد المرتجعات)",
+        "payment": "دفعة",
+        "refund": "مرتجع",
+        "refundReleased": "مرتجع — رد مبلغ مدفوع",
+        "empty": "لا توجد حركات."
+      },
+      "invoice": "الفاتورة",
+      "amount": "المبلغ",
+      "items": "الأصناف",
+      "noPayments": "لا توجد دفعات.",
+      "noReturns": "لا توجد مرتجعات."
+    }
+  },
+  "returnsPage": {
+    "title": "سجل المرتجعات",
+    "subtitle": "راجع مرتجعات المبيعات النقدية والآجلة وقم بتصديرها.",
+    "summary": {
+      "label": "ملخص المرتجعات",
+      "cash": "إجمالي المرتجعات النقدية",
+      "credit": "إجمالي مرتجعات البيع الآجل",
+      "amount": "إجمالي المبلغ المرتجع",
+      "items": "إجمالي الأصناف المرتجعة"
+    },
+    "types": {
+      "all": "الكل",
+      "cash": "نقدي",
+      "credit": "آجل"
+    },
+    "fields": {
+      "returnDate": "تاريخ المرتجع",
+      "returnType": "نوع المرتجع",
+      "type": "النوع",
+      "invoiceNumber": "رقم الفاتورة",
+      "invoiceId": "معرّف الفاتورة",
+      "customerName": "اسم العميل",
+      "customerPhone": "هاتف العميل",
+      "productName": "اسم المنتج",
+      "productCode": "كود المنتج",
+      "itemsCount": "عدد الأصناف",
+      "quantity": "الكمية",
+      "price": "السعر",
+      "total": "الإجمالي",
+      "returnReason": "سبب الإرجاع",
+      "dateFrom": "التاريخ من",
+      "dateTo": "التاريخ إلى",
+      "note": "ملاحظة",
+      "subtotalReturnedAmount": "إجمالي المرتجع قبل الخصم",
+      "discountAmount": "قيمة الخصم",
+      "shippingFees": "رسوم الشحن",
+      "finalReturnedAmount": "صافي المبلغ المرتجع",
+      "actions": "الإجراءات"
+    },
+    "actions": {
+      "search": "بحث",
+      "reset": "إعادة ضبط",
+      "export": "تصدير إلى Excel",
+      "exporting": "جارٍ التصدير…",
+      "viewDetails": "عرض التفاصيل",
+      "tryAgain": "إعادة المحاولة",
+      "close": "إغلاق"
+    },
+    "dialog": {
+      "title": "تفاصيل المرتجع",
+      "invoice": "الفاتورة",
+      "returnedItems": "الأصناف المرتجعة",
+      "closeAria": "إغلاق تفاصيل المرتجع"
+    },
+    "messages": {
+      "loading": "جارٍ تحميل المرتجعات…",
+      "loadingDetails": "جارٍ تحميل التفاصيل…",
+      "empty": "لا توجد مرتجعات",
+      "noItems": "لا توجد أصناف مرتجعة",
+      "noNote": "لا توجد ملاحظة.",
+      "loadFailed": "تعذر تحميل المرتجعات. حاول مرة أخرى.",
+      "detailsLoadFailed": "تعذر تحميل تفاصيل المرتجع.",
+      "exportSuccess": "تم تصدير المرتجعات بنجاح.",
+      "exportFailed": "تعذر تصدير المرتجعات.",
+      "invalidDateRange": "لا يمكن أن يكون تاريخ البداية بعد تاريخ النهاية."
+    },
+    "pagination": {
+      "label": "ترقيم صفحات المرتجعات",
+      "itemsPerPage": "عدد العناصر في الصفحة:",
+      "next": "الصفحة التالية",
+      "previous": "الصفحة السابقة",
+      "first": "الصفحة الأولى",
+      "last": "الصفحة الأخيرة",
+      "range": "{{start}} – {{end}} من {{total}}"
+    },
+    "s10": {
+      "newReturn": "مرتجع جديد",
+      "wizard": {
+        "subtitle": "اختار الفاتورة، حدد الأصناف والكميات، وأكّد.",
+        "backToLog": "رجوع لسجل المرتجعات",
+        "steps": "خطوات المرتجع",
+        "step1": "اختار الفاتورة",
+        "step2": "حدد الأصناف والكميات",
+        "step3": "تأكيد ورد الفلوس",
+        "searchPlaceholder": "اسم العميل أو رقم التليفون",
+        "noInvoices": "لا توجد فواتير بهذا البحث.",
+        "remaining": "الباقي عليه",
+        "changeInvoice": "تغيير الفاتورة",
+        "sold": "اتباع",
+        "returnedBefore": "رجع قبل كده",
+        "returnNow": "يرجع دلوقتي",
+        "whereMoney": "الفلوس تروح فين؟",
+        "outcomeCash": "فاتورة كاش: قيمة المرتجع ترجع للعميل كاش.",
+        "outcomeCredit": "فاتورة آجل: القيمة تتخصم من الباقي عليه، وأي زيادة عن الباقي تتوزع على فواتيره المفتوحة التانية أو ترجع له كاش (البرنامج بيحددها تلقائيًا).",
+        "outcomeStock": "الكميات المرتجعة بترجع للمخزون تلقائيًا.",
+        "summary": "ملخص المرتجع",
+        "estimate": "قيمة المرتجع (تقديرية)",
+        "estimateNote": "قبل خصم الفاتورة؛ البرنامج يحسب القيمة النهائية عند الحفظ.",
+        "next": "التالي",
+        "confirm": "تأكيد المرتجع",
+        "back": "رجوع للأصناف",
+        "saved": "تم تسجيل المرتجع.",
+        "saveFailed": "فشل تسجيل المرتجع.",
+        "searchFailed": "فشل البحث عن الفواتير."
+      }
+    }
+  },
+  "backupPage": {
+    "title": "النسخ الاحتياطي والاستعادة",
+    "subtitle": "متاح على الجهاز الرئيسي فقط.",
+    "create": {
+      "description": "يحفظ كل بيانات البرنامج في ملف واحد. احفظ الملف على فلاشة أو جهاز آخر حتى لا تضيع البيانات إذا تعطل هذا الجهاز.",
+      "button": "إنشاء نسخة احتياطية الآن",
+      "working": "جاري إنشاء النسخة...",
+      "done": "تم حفظ النسخة الاحتياطية: {{collections}} مجموعة و{{documents}} سجل ({{size}} ميجابايت).",
+      "sameDrive": "هذه النسخة محفوظة على نفس قرص بيانات البرنامج ({{drive}})، لذلك لا تُحسب نسخة خارج الجهاز. انسخ الملف إلى فلاشة أو قرص خارجي أو قسم آخر."
+    },
+    "restore": {
+      "title": "الاستعادة من نسخة احتياطية",
+      "description": "تستبدل كل البيانات الحالية بمحتوى ملف النسخة. قبل البدء يحفظ البرنامج نسخة من البيانات الحالية تلقائياً، ويتوقف اتصال الأجهزة الفرعية حتى تنتهي الاستعادة.",
+      "button": "اختيار ملف واستعادة",
+      "working": "جاري الاستعادة...",
+      "done": "تمت الاستعادة: {{documents}} سجل في {{collections}} مجموعة.",
+      "safety": "نسخة البيانات التي كانت موجودة قبل الاستعادة محفوظة هنا:"
+    },
+    "safety": {
+      "title": "مجلد النسخ على هذا الجهاز",
+      "description": "يحفظ البرنامج النسخ اليومية (آخر 14 نسخة) ونسخة من البيانات قبل كل استعادة (آخر 5 نسخ) في مجلد النسخ الاحتياطية على هذا الجهاز.",
+      "openFolder": "فتح مجلد النسخ الاحتياطية"
+    },
+    "status": {
+      "title": "حالة النسخ الاحتياطي",
+      "lastBackup": "آخر نسخة احتياطية: {{date}}",
+      "kind": {
+        "auto": "(يومية تلقائية)",
+        "manual": "(يدوية)"
+      },
+      "none": "لا توجد نسخة احتياطية بعد.",
+      "daily": "يحفظ البرنامج نسخة تلقائية مرة كل يوم ويحتفظ بآخر {{keep}} نسخة. يتوقف الخادم لثوانٍ أثناء الحفظ.",
+      "autoError": "تعذر حفظ آخر نسخة يومية ({{date}}): {{message}} سيحاول البرنامج مرة أخرى لاحقاً."
+    },
+    "warning": {
+      "title": "ننصح بحفظ نسخة احتياطية على فلاشة أو قرص آخر",
+      "never": "لم يتم حفظ أي نسخة احتياطية على قرص غير قرص بيانات البرنامج بعد.",
+      "since": "آخر نسخة على قرص آخر كانت في {{date}}، منذ أكثر من {{days}} أيام.",
+      "advice": "إذا تعطل قرص بيانات البرنامج ({{drive}}) تضيع النسخ المحفوظة عليه. أنشئ نسخة واحفظها على فلاشة أو قرص خارجي أو قسم آخر، أو اختر بالأسفل مجلداً على قرص آخر."
+    },
+    "copy": {
+      "title": "نسخة إضافية على فلاشة أو قرص آخر",
+      "description": "ينسخ البرنامج كل نسخة يومية إلى هذا المجلد ويحتفظ فيه بآخر 14 نسخة. إذا لم يكن المجلد متاحاً وقت النسخ يتم تخطيه، ثم تُنسخ آخر نسخة عند توفره.",
+      "none": "لم يتم اختيار مجلد.",
+      "choose": "اختيار مجلد",
+      "change": "تغيير المجلد",
+      "clear": "إيقاف النسخ الإضافي",
+      "copied": "تم نسخ آخر نسخة يومية إلى هذا المجلد في {{date}}.",
+      "unavailable": "المجلد غير متاح الآن (ربما الفلاشة غير موصلة). سيتم النسخ تلقائياً عند توفره.",
+      "failed": "تعذر النسخ إلى هذا المجلد: {{message}}",
+      "waiting": "سيتم نسخ النسخة اليومية القادمة إلى هذا المجلد.",
+      "sameDrive": "هذا المجلد على نفس قرص بيانات البرنامج ({{drive}})، فلا يحمي البيانات إذا تعطل هذا القرص ولا يُحسب نسخة خارج الجهاز. اختر مجلداً على فلاشة أو قرص خارجي أو قسم آخر."
+    },
+    "progress": {
+      "backup": "جاري حفظ البيانات... {{done}} من {{total}}",
+      "safety-backup": "جاري حفظ نسخة من البيانات الحالية... {{done}} من {{total}}",
+      "restoring": "جاري استعادة البيانات... {{done}} من {{total}}",
+      "rolling-back": "فشلت الاستعادة، جاري إعادة البيانات السابقة..."
+    },
+    "showFile": "إظهار الملف",
+    "s11": {
+      "autoTitle": "النسخ التلقائي",
+      "autoOn": "مفعّل",
+      "autoCount": "عدد النسخ اليومية المحفوظة الآن: {{count}}",
+      "autoDir": "مكان النسخ اليومية",
+      "destination": "المجلد"
+    }
+  },
+  "invoicePrint": {
+    "salesTitle": "فاتورة بيع",
+    "creditTitle": "فاتورة بيع آجل",
+    "systemNote": "تم إنشاء هذه الفاتورة إلكترونيًا بواسطة {{appName}}",
+    "taxNumber": "الرقم الضريبي",
+    "commercialRegister": "السجل التجاري"
+  },
+  "shopProfilePage": {
+    "title": "بيانات المتجر",
+    "subtitle": "تظهر هذه البيانات في رأس وتذييل الفواتير المطبوعة.",
+    "loading": "جاري تحميل بيانات المتجر...",
+    "fields": {
+      "name": "اسم المتجر",
+      "address": "العنوان",
+      "phones": "أرقام الهواتف",
+      "phone": "رقم الهاتف",
+      "taxNumber": "الرقم الضريبي",
+      "commercialRegister": "السجل التجاري",
+      "invoiceFooter": "تذييل الفاتورة",
+      "logo": "شعار المتجر"
+    },
+    "hints": {
+      "invoiceFooter": "نص يظهر أسفل كل فاتورة مطبوعة، مثل سياسة الاستبدال أو رسالة شكر."
+    },
+    "validation": {
+      "nameRequired": "اسم المتجر مطلوب"
+    },
+    "logo": {
+      "none": "لا يوجد شعار",
+      "upload": "رفع شعار",
+      "change": "تغيير الشعار",
+      "remove": "إزالة الشعار",
+      "hint": "صورة بحجم 500 كيلوبايت على الأكثر.",
+      "tooLarge": "حجم الصورة أكبر من 500 كيلوبايت",
+      "invalidType": "يجب اختيار ملف صورة",
+      "readFailed": "تعذر قراءة ملف الصورة"
+    },
+    "actions": {
+      "addPhone": "إضافة رقم هاتف",
+      "removePhone": "حذف",
+      "save": "حفظ",
+      "saving": "جاري الحفظ..."
+    },
+    "messages": {
+      "saved": "تم حفظ بيانات المتجر",
+      "saveFailed": "تعذر حفظ بيانات المتجر",
+      "loadFailed": "تعذر تحميل بيانات المتجر. يمكنك إدخالها وحفظها من جديد."
+    },
+    "s11": {
+      "cancel": "إلغاء",
+      "previewTitle": "شكلها على الفاتورة",
+      "sampleItem": "صنف تجريبي",
+      "sampleItem2": "صنف تجريبي آخر",
+      "total": "الإجمالي",
+      "previewHint": "معاينة فقط: الأصناف والأرقام للتوضيح."
+    }
+  },
+  "nav": {
+    "label": "القائمة الرئيسية",
+    "groups": {
+      "sales": "المبيعات",
+      "inventory": "المخزون",
+      "treasury": "الخزنة",
+      "accounting": "الحسابات",
+      "admin": "الإدارة"
+    },
+    "items": {
+      "home": "الرئيسية",
+      "pos": "نقطة البيع",
+      "credit": "البيع الآجل",
+      "invoices": "سجل الفواتير",
+      "returns": "المرتجعات",
+      "customers": "العملاء",
+      "products": "الأصناف والفئات",
+      "purchases": "المشتريات",
+      "suppliers": "الموردين",
+      "cash": "الخزائن والوردية",
+      "expenses": "المصروفات",
+      "accounts": "دليل الحسابات والقيود",
+      "reports": "التقارير المالية",
+      "profit": "تقرير الأرباح",
+      "users": "المستخدمين والصلاحيات",
+      "shop": "بيانات المحل",
+      "backup": "النسخ الاحتياطي"
+    },
+    "collapse": "طي القائمة",
+    "expand": "توسيع القائمة",
+    "openMenu": "فتح القائمة",
+    "closeMenu": "إغلاق القائمة",
+    "back": "رجوع",
+    "language": "اللغة",
+    "theme": "المظهر",
+    "themeLight": "فاتح",
+    "themeDark": "داكن",
+    "deviceMain": "الجهاز الرئيسي",
+    "deviceClient": "جهاز فرعي",
+    "categories": {
+      "empty": "لا توجد فئات بعد",
+      "edit": "تعديل الفئة",
+      "delete": "حذف الفئة",
+      "imageAlt": "صورة الفئة",
+      "imagePlaceholder": "صورة",
+      "optional": "اختياري",
+      "specificationsHint": "الخانات دي هتظهر في فورم كل صنف في الفئة دي",
+      "specificationLabel": "مواصفة",
+      "addSpecification": "+ مواصفة",
+      "cancel": "إلغاء",
+      "close": "إغلاق",
+      "ok": "حسنًا",
+      "error": "حدث خطأ"
+    }
+  },
+  "productsPage": {
+    "title": "الأصناف والفئات",
+    "newProduct": "صنف جديد",
+    "categories": "الفئات",
+    "searchPlaceholder": "بحث بالاسم أو الكود",
+    "lowStockOnly": "التي قاربت على النفاد فقط",
+    "columns": {
+      "code": "الكود",
+      "name": "الصنف",
+      "stock": "المخزون",
+      "purchase": "سعر الشراء",
+      "retail": "قطاعي",
+      "wholesale": "جملة",
+      "discount": "خصم"
+    },
+    "percent": "{{value}}٪",
+    "empty": "لا توجد أصناف في هذه الفئة بعد.",
+    "noMatches": "لا توجد أصناف مطابقة.",
+    "allProducts": "كل الأصناف",
+    "thresholdTitle": "حد التنبيه: {{count}}"
+  },
+  "productForm": {
+    "newTitle": "صنف جديد",
+    "editTitle": "تعديل صنف",
+    "cancel": "إلغاء",
+    "saveAndAddAnother": "حفظ وإضافة غيره",
+    "basic": "البيانات الأساسية",
+    "category": "الفئة",
+    "categoryEditHint": "فئة الصنف لا تتغير من هنا.",
+    "codeHint": "يُقترح تلقائيًا بعد آخر كود في الفئة.",
+    "prices": "الأسعار",
+    "retailProfit": "ربح القطاعي: {{amount}} ({{percent}}٪)",
+    "wholesaleProfit": "ربح الجملة: {{amount}} ({{percent}}٪)",
+    "belowPurchaseHint": "البرنامج لا يقبل سعر شراء أكبر من سعر القطاعي أو الجملة.",
+    "specsOf": "مواصفات فئة \"{{name}}\"",
+    "image": "الصورة",
+    "dropImage": "اسحب صورة هنا أو اضغط للرفع",
+    "stock": "المخزون",
+    "optional": "اختياري",
+    "lowStockThreshold": "نبّهني لما المخزون يوصل لـ",
+    "lowStockThresholdHint": "اختياري. لو فاضي: ٥. بيظهر في \"أصناف قربت تخلص\"."
+  },
+  "dashboard": {
+    "greeting": {
+      "morning": "صباح الخير",
+      "evening": "مساء الخير"
+    },
+    "actions": {
+      "cash": "فاتورة كاش",
+      "credit": "فاتورة آجل",
+      "collect": "تحصيل من عميل"
+    },
+    "loading": "جاري تحميل ملخص اليوم...",
+    "loadFailed": "تعذر تحميل ملخص اليوم.",
+    "retry": "إعادة المحاولة",
+    "kpis": {
+      "salesToday": "مبيعات النهارده",
+      "upFromYesterday": "أعلى من امبارح بـ {{percent}}٪",
+      "downFromYesterday": "أقل من امبارح بـ {{percent}}٪",
+      "noYesterday": "مفيش مبيعات امبارح للمقارنة",
+      "invoicesToday": "عدد الفواتير",
+      "invoicesSplit": "{{cash}} كاش · {{credit}} آجل",
+      "outstanding": "آجل مستحق على العملاء",
+      "overdue": "{{count}} فواتير متأخرة ({{amount}})",
+      "customersWithBalance": "على {{count}} عميل"
+    },
+    "chart": {
+      "title": "مبيعات آخر ٧ أيام",
+      "cash": "كاش",
+      "credit": "آجل"
+    },
+    "lowStock": {
+      "title": "أصناف قربت تخلص",
+      "all": "كل الأصناف",
+      "threshold": "حد التنبيه: {{count}}"
+    },
+    "recent": {
+      "title": "آخر الفواتير",
+      "history": "سجل الفواتير",
+      "number": "رقم",
+      "customer": "العميل",
+      "type": "النوع",
+      "total": "الإجمالي",
+      "time": "الوقت",
+      "cash": "كاش",
+      "credit": "آجل"
+    },
+    "empty": {
+      "welcomeTitle": "أهلاً بيك في نوتة",
+      "welcomeText": "ابدأ بإضافة الأصناف وبيانات المحل، وبعدها اعمل أول فاتورة.",
+      "addProducts": "إضافة الأصناف",
+      "shopProfile": "بيانات المحل",
+      "noWeekSales": "مفيش مبيعات في آخر ٧ أيام",
+      "noWeekSalesText": "الرسم هيظهر مع أول فاتورة.",
+      "noLowStock": "كل الأصناف فوق حد التنبيه",
+      "noInvoices": "مفيش فواتير لسه"
+    }
+  }
+}

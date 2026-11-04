@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
+  <title>إعداد نوتة</title>
+  <link rel="stylesheet" href="status.css">
+  <link rel="stylesheet" href="setup.css">
+</head>
+<body>
+  <main class="card wide">
+    <h1 class="brand"><img class="logo" src="nota-icon.svg" alt=""><span>نوتة</span></h1>
+
+    <!-- 1. Role -->
+    <section id="step-role">
+      <p class="lead">كيف سيُستخدم هذا الجهاز؟</p>
+      <div class="choices">
+        <button type="button" id="choose-main" class="choice">
+          <strong>جهاز رئيسي</strong>
+          <span>يحفظ البيانات ويشغّل الخادم. جهاز واحد فقط في المحل، ويجب أن يبقى يعمل حتى تتصل به الأجهزة الأخرى.</span>
+        </button>
+        <button type="button" id="choose-client" class="choice">
+          <strong>جهاز فرعي</strong>
+          <span>يستخدم البرنامج ويتصل بالجهاز الرئيسي عبر الشبكة المحلية.</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 2a. Main PC -->
+    <form id="step-main" hidden novalidate>
+      <h2>إعداد الجهاز الرئيسي</h2>
+
+      <label for="shop-name">اسم المحل أو الجهاز</label>
+      <input id="shop-name" maxlength="60" autocomplete="off">
+      <p class="hint">يظهر للأجهزة الفرعية عند البحث عن الجهاز الرئيسي.</p>
+
+      <label for="secret">كلمة سر الشبكة</label>
+      <div class="row">
+        <input id="secret" class="ltr" maxlength="100" autocomplete="off" spellcheck="false">
+        <button type="button" id="new-secret" class="secondary">كلمة جديدة</button>
+        <button type="button" id="copy-secret" class="secondary">نسخ</button>
+      </div>
+      <p class="hint">اكتبها في مكان آمن: ستُطلب مرة واحدة على كل جهاز فرعي. 8 أحرف على الأقل.</p>
+
+      <fieldset id="data-choice">
+        <legend>البيانات</legend>
+        <label class="radio" id="choice-empty-row"><input type="radio" name="data" value="empty"> البدء بقاعدة بيانات فارغة</label>
+        <label class="radio" id="choice-existing-row"><input type="radio" name="data" value="existing"> الاحتفاظ بالبيانات الموجودة على هذا الجهاز</label>
+        <label class="radio"><input type="radio" name="data" value="restore"> استعادة البيانات من نسخة احتياطية</label>
+        <div id="backup-picker" hidden>
+          <button type="button" id="pick-backup" class="secondary">اختيار ملف النسخة الاحتياطية</button>
+          <p id="backup-summary" class="hint"></p>
+        </div>
+      </fieldset>
+
+      <details>
+        <summary>إعدادات متقدمة</summary>
+        <label for="port">منفذ الخادم</label>
+        <input id="port" class="ltr short" type="number" min="1024" max="65535">
+        <p class="hint">غيّره فقط إذا كان المنفذ مستخدماً من برنامج آخر، واستخدم نفس الرقم على الأجهزة الفرعية.</p>
+      </details>
+
+      <label class="checkbox"><input type="checkbox" id="start-with-windows" checked> تشغيل الخادم تلقائياً عند تشغيل Windows</label>
+
+      <div id="main-progress" class="progress" hidden>
+        <span class="spinner"></span>
+        <p id="main-progress-text"></p>
+      </div>
+
+      <div class="actions">
+        <button type="submit" id="save-main">حفظ وتشغيل الخادم</button>
+        <button type="button" class="secondary back">رجوع</button>
+      </div>
+    </form>
+
+    <!-- 2b. Client PC -->
+    <form id="step-client" hidden novalidate>
+      <h2>الاتصال بالجهاز الرئيسي</h2>
+
+      <div class="row spread">
+        <p class="lead">الأجهزة الرئيسية على الشبكة:</p>
+        <button type="button" id="search-again" class="secondary">بحث مرة أخرى</button>
+      </div>
+      <div id="search-progress" class="progress" hidden><span class="spinner"></span><p>جاري البحث...</p></div>
+      <ul id="servers" class="servers"></ul>
+      <p id="no-servers" class="hint" hidden>لم يتم العثور على جهاز رئيسي. تأكد أن البرنامج يعمل على الجهاز الرئيسي، أو أدخل العنوان يدوياً.</p>
+
+      <div class="row">
+        <div class="grow">
+          <label for="host">عنوان الجهاز الرئيسي</label>
+          <input id="host" class="ltr" placeholder="192.168.1.10" autocomplete="off" spellcheck="false">
+        </div>
+        <div>
+          <label for="client-port">المنفذ</label>
+          <input id="client-port" class="ltr short" type="number" min="1024" max="65535">
+        </div>
+      </div>
+
+      <label for="client-secret">كلمة سر الشبكة</label>
+      <input id="client-secret" class="ltr" maxlength="100" autocomplete="off" spellcheck="false">
+
+      <div id="client-progress" class="progress" hidden><span class="spinner"></span><p>جاري الاتصال...</p></div>
+
+      <div class="actions">
+        <button type="submit" id="connect">اتصال</button>
+        <button type="button" class="secondary back">رجوع</button>
+      </div>
+    </form>
+
+    <p id="form-error" class="error" role="alert" hidden></p>
+    <footer>الإصدار <span id="version"></span></footer>
+  </main>
+  <script src="setup.js"></script>
+</body>
+</html>

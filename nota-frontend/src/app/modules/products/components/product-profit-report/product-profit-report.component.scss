@@ -1,0 +1,55 @@
+// Profit report (Profit.dc.html). Tokens only.
+:host { display: block; }
+.pr { display: flex; flex-direction: column; gap: var(--space-gap); }
+.pr__periods { display: flex; flex-wrap: wrap; gap: 6px; }
+.pr__pill { min-height: var(--touch-target); padding: 0 16px; border-radius: var(--radius-control); border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text); font: inherit; font-size: 14px; cursor: pointer;
+  &.is-on { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 700; } }
+.pr__filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: end; }
+.pr__filter-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.pr__kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+:host ::ng-deep .pr__kpi--brand { background: var(--brand); border-color: var(--brand); color: var(--on-brand);
+  .nota-kpi__label, .nota-kpi__note { color: var(--on-brand); opacity: 0.85; } }
+.pr__row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.pr__chart-card { flex: 1 1 100%; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+// Full row: the table keeps the old columns plus quantity, sales and margin.
+.pr__table-card { flex: 1 1 100%; min-width: 0; padding: 0; overflow: hidden; }
+.pr__table-card .pr__card-head, .pr__table-card > .pr__error { padding: 16px 18px; }
+.pr__card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.pr__h2 { margin: 0; }
+.pr__legend { display: flex; gap: 14px; font-size: 13px; color: var(--text-muted);
+  span { display: flex; align-items: center; gap: 6px; } }
+.pr__swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+  &--cash { background: var(--brand); }
+  &--credit { background: color-mix(in srgb, var(--brand) 35%, var(--surface)); } }
+.pr__chart { display: flex; align-items: flex-end; gap: 12px; height: 240px; }
+.pr__bar-col { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 8px; }
+.pr__bar-stack { width: 100%; max-width: 40px; height: 190px; display: flex; flex-direction: column; justify-content: flex-end; }
+.pr__bar { width: 100%; }
+.pr__bar--credit { background: color-mix(in srgb, var(--brand) 35%, var(--surface)); border-radius: 6px 6px 0 0; }
+.pr__bar--cash { background: var(--brand); }
+.pr__bar--credit + .pr__bar--cash { border-radius: 0; }
+.pr__bar-stack > .pr__bar--credit[style*='height: 0%'] + .pr__bar--cash { border-radius: 6px 6px 0 0; }
+.pr__bar-label { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.pr__export { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.pr__year { width: 140px; font-variant-numeric: tabular-nums; }
+.pr__table { min-width: 860px; }
+.pr__row-link { cursor: pointer; &:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; } }
+.pr__strong { font-weight: 500; }
+.pr__profit { font-weight: 700; color: var(--success); &.is-loss { color: var(--danger); } }
+.pr__muted, .pr__muted-cell { color: var(--text-muted); }
+.pr__muted { margin: 0; font-size: 13px; }
+.pr__center { text-align: center; }
+.pr__error { margin: 0; color: var(--danger); font-size: 14px; }
+.pr__empty { text-align: center; color: var(--text-muted); padding: 24px; }
+.pr__invoices { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 12px; }
+.pr__invoice { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+.pr__invoice-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.pr__invoice-no { margin: 0; font-size: 15px; font-weight: 700; }
+.pr__metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0;
+  dt { font-size: 12px; color: var(--text-muted); } dd { margin: 0; font-weight: 700; text-align: start; } }
+
+@media (max-width: 640px) {
+  .pr__chart { gap: 3px; }
+  .pr__bar-label { font-size: 10px; }
+}

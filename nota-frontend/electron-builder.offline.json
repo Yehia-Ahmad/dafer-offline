@@ -1,0 +1,47 @@
+{
+  "appId": "app.nota.offline",
+  "productName": "Nota",
+  "beforeBuild": "electron/before-build.js",
+  "afterPack": "scripts/offline/after-pack.js",
+  "npmRebuild": false,
+  "nodeGypRebuild": false,
+  "extraMetadata": {
+    "dependencies": {}
+  },
+  "directories": {
+    "app": "offline-stage/app",
+    "output": "release-offline"
+  },
+  "files": [
+    "dist/**/*",
+    "electron-offline/**/*",
+    "!electron-offline/test/**/*",
+    "package.json",
+    "!**/node_modules/**/*"
+  ],
+  "asar": true,
+  "icon": "build/icon.ico",
+  "win": {
+    "signAndEditExecutable": false,
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "build/icon.ico",
+    "artifactName": "Nota-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": true,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Nota",
+    "deleteAppDataOnUninstall": false,
+    "include": "installer-offline/installer.nsh"
+  }
+}

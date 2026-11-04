@@ -1,0 +1,140 @@
+<!-- Dashboard (docs/design/screens/Dashboard.dc.html, DashboardDark.dc.html). Stage 12: GET dashboard/summary only. -->
+<div class="db">
+  <header class="db__head">
+    <div class="db__title">
+      <h1 class="db__h1">{{ greetingKey() | translate }}</h1>
+      <span class="db__date">{{ dateLabel() }}</span>
+    </div>
+    <div class="db__actions">
+      <a notaButton="primary" size="lg" routerLink="/selling" data-action="new-cash">+ {{ 'dashboard.actions.cash' | translate }}</a>
+      <a notaButton size="lg" routerLink="/credit-sales/new" data-action="new-credit">{{ 'dashboard.actions.credit' | translate }}</a>
+      <a notaButton size="lg" routerLink="/credit-sales" data-action="collect">{{ 'dashboard.actions.collect' | translate }}</a>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <p class="db__muted" role="status">{{ 'dashboard.loading' | translate }}</p>
+  } @else if (failed()) {
+    <div class="nota-card db__error" role="alert">
+      <span>{{ 'dashboard.loadFailed' | translate }}</span>
+      <button type="button" notaButton (click)="load()">{{ 'dashboard.retry' | translate }}</button>
+    </div>
+  } @else {
+    @if (isNewShop()) {
+      <section class="nota-card db__welcome" data-test="new-shop">
+        <nota-empty-state icon="fa-solid fa-store" [title]="'dashboard.empty.welcomeTitle' | translate" [text]="'dashboard.empty.welcomeText' | translate">
+          <div class="db__welcome-actions">
+            <a notaButton="primary" routerLink="/products">{{ 'dashboard.empty.addProducts' | translate }}</a>
+            <a notaButton routerLink="/shop-profile">{{ 'dashboard.empty.shopProfile' | translate }}</a>
+          </div>
+        </nota-empty-state>
+      </section>
+    }
+
+    <section class="db__kpis">
+      @for (kpi of kpis(); track kpi.key) {
+        <div class="nota-kpi db__kpi" [attr.data-kpi]="kpi.key">
+          <span class="nota-kpi__label">{{ kpi.labelKey | translate }}</span>
+          <span class="nota-kpi__value nota-num db__kpi-value">{{ kpi.value }}</span>
+          <span [class]="'nota-kpi__note nota-kpi__note--' + kpi.tone">{{ kpi.note | translate: kpi.noteParams }}</span>
+        </div>
+      }
+    </section>
+
+    <div class="db__row">
+      <section class="nota-card db__chart-card">
+        <div class="db__card-head">
+          <h2 class="nota-section-title db__h2">{{ 'dashboard.chart.title' | translate }}</h2>
+          <div class="db__legend">
+            <span><i class="db__swatch db__swatch--cash"></i>{{ 'dashboard.chart.cash' | translate }}</span>
+            <span><i class="db__swatch db__swatch--credit"></i>{{ 'dashboard.chart.credit' | translate }}</span>
+          </div>
+        </div>
+        @if (hasWeekSales()) {
+          <div class="db__chart" role="img" [attr.aria-label]="'dashboard.chart.title' | translate">
+            @for (bar of bars(); track bar.date) {
+              <div class="db__bar-col" [class.is-today]="bar.isToday">
+                <span class="db__bar-value nota-num">{{ bar.total | notaMoney }}</span>
+                <div class="db__bar-stack">
+                  <div class="db__bar db__bar--credit" [style.height.%]="bar.creditPct"></div>
+                  <div class="db__bar db__bar--cash" [style.height.%]="bar.cashPct"></div>
+                </div>
+                <span class="db__bar-label">{{ bar.label }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <nota-empty-state icon="fa-solid fa-chart-column" [title]="'dashboard.empty.noWeekSales' | translate" [text]="'dashboard.empty.noWeekSalesText' | translate" />
+        }
+      </section>
+
+      <section class="nota-card db__low-card">
+        <div class="db__card-head">
+          <h2 class="nota-section-title db__h2">{{ 'dashboard.lowStock.title' | translate }}</h2>
+          <a class="db__link" routerLink="/products">{{ 'dashboard.lowStock.all' | translate }}</a>
+        </div>
+        @if (summary()!.lowStock.length) {
+          <ul class="db__low">
+            @for (row of summary()!.lowStock; track row.id) {
+              <li>
+                <a class="db__low-row" [routerLink]="['/products/edit', row.id]">
+                  <span class="db__low-name">{{ row.name }}<span class="db__muted db__low-code" dir="ltr">{{ row.code }}</span></span>
+                  <span [class]="'nota-pill nota-num nota-pill--' + stockVariant(row)" [title]="'dashboard.lowStock.threshold' | translate: { count: (row.threshold | notaNumber) }">{{ row.inventoryCount | notaNumber }}</span>
+                </a>
+              </li>
+            }
+          </ul>
+        } @else {
+          <nota-empty-state icon="fa-solid fa-box" [title]="'dashboard.empty.noLowStock' | translate" />
+        }
+      </section>
+    </div>
+
+    <section class="nota-card db__recent">
+      <div class="db__card-head db__card-head--pad">
+        <h2 class="nota-section-title db__h2">{{ 'dashboard.recent.title' | translate }}</h2>
+        <a class="db__link" routerLink="/invoice-history">{{ 'dashboard.recent.history' | translate }}</a>
+      </div>
+      @if (summary()!.recentInvoices.length) {
+        <div class="nota-table-wrap">
+          <table class="nota-table db__table">
+            <thead><tr>
+              <th>{{ 'dashboard.recent.number' | translate }}</th>
+              <th>{{ 'dashboard.recent.customer' | translate }}</th>
+              <th>{{ 'dashboard.recent.type' | translate }}</th>
+              <th class="num">{{ 'dashboard.recent.total' | translate }}</th>
+              <th class="num">{{ 'dashboard.recent.time' | translate }}</th>
+            </tr></thead>
+            <tbody>
+              @for (row of summary()!.recentInvoices; track row.id) {
+                <tr>
+                  <td class="nota-num db__ref" dir="ltr">
+                    @if (row.type === 'credit' && row.customerId) {
+                      <a class="db__link" [routerLink]="['/customers', row.customerId]">{{ shortRef(row.reference) }}</a>
+                    } @else {
+                      <a class="db__link" routerLink="/invoice-history">{{ shortRef(row.reference) }}</a>
+                    }
+                  </td>
+                  <td>
+                    @if (row.customerId) {
+                      <a class="db__link db__link--plain" [routerLink]="['/customers', row.customerId]">{{ row.customerName }}</a>
+                    } @else {
+                      {{ row.customerName }}
+                    }
+                  </td>
+                  <td><span [class]="'nota-pill nota-pill--' + (row.type === 'cash' ? 'ok' : 'due')">{{ 'dashboard.recent.' + row.type | translate }}</span></td>
+                  <td class="nota-num">{{ row.total | notaMoney }}</td>
+                  <td class="nota-num db__muted">{{ invoiceTime(row) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <nota-empty-state icon="fa-solid fa-receipt" [title]="'dashboard.empty.noInvoices' | translate">
+          <a notaButton="primary" routerLink="/selling">+ {{ 'dashboard.actions.cash' | translate }}</a>
+        </nota-empty-state>
+      }
+    </section>
+  }
+</div>

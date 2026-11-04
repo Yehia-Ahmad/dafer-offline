@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota dashboard</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: {{t.bg}}; color: {{t.text}}; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="home" dark="{{t.dark}}" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 22px">
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; font-size: 28px; font-weight: 800">صباح الخير يا أحمد</h1>
+        <span style="font-size: 14px; color: {{t.muted}}">الثلاثاء ٣ نوفمبر · الوردية مفتوحة من ٩:٠٠ ص</span>
+      </div>
+      <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px">
+        <button type="button" style="font-family: inherit; font-size: 15px; font-weight: 700; color: #FFFFFF; background: {{t.brand}}; border: none; border-radius: 12px; min-height: 48px; padding: 0 22px; cursor: pointer">+ فاتورة كاش</button>
+        <button type="button" style="font-family: inherit; font-size: 15px; font-weight: 500; color: {{t.text}}; background: {{t.card}}; border: 1px solid {{t.border}}; border-radius: 12px; min-height: 48px; padding: 0 18px; cursor: pointer">فاتورة آجل</button>
+        <button type="button" style="font-family: inherit; font-size: 15px; font-weight: 500; color: {{t.text}}; background: {{t.card}}; border: 1px solid {{t.border}}; border-radius: 12px; min-height: 48px; padding: 0 18px; cursor: pointer">تحصيل من عميل</button>
+        <button type="button" style="font-family: inherit; font-size: 15px; font-weight: 500; color: {{t.text}}; background: {{t.card}}; border: 1px solid {{t.border}}; border-radius: 12px; min-height: 48px; padding: 0 18px; cursor: pointer">تسجيل مصروف</button>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+        <div style="background: {{t.card}}; border: 1px solid {{t.border}}; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px">
+          <span style="font-size: 14px; color: {{t.muted}}">{{k.label}}</span>
+          <span class="num" style="font-size: 30px; font-weight: 800">{{k.value}}</span>
+          <span style="font-size: 13px; color: {{k.noteColor}}">{{k.note}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px">
+      <section style="flex: 2 1 420px; min-width: 0; background: {{t.card}}; border: 1px solid {{t.border}}; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; flex-direction: row; align-items: center; justify-content: space-between">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">مبيعات آخر ٧ أيام</h2>
+          <span style="font-size: 13px; color: {{t.muted}}">بالجنيه</span>
+        </div>
+        <div style="display: flex; flex-direction: row; align-items: flex-end; gap: 14px; height: 200px; padding-top: 8px">
+          <sc-for list="{{bars}}" as="b" hint-placeholder-count="7">
+            <div style="flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; justify-content: flex-end">
+              <span class="num" style="font-size: 12px; color: {{t.muted}}">{{b.v}}</span>
+              <div style="width: 100%; max-width: 48px; height: {{b.h}}; background: {{b.c}}; border-radius: 8px 8px 0 0"></div>
+              <span style="font-size: 13px; color: {{t.muted}}">{{b.d}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+      <section style="flex: 1 1 300px; min-width: 0; background: {{t.card}}; border: 1px solid {{t.border}}; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; flex-direction: row; align-items: center; justify-content: space-between">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">أصناف قربت تخلص</h2>
+          <a href="#" style="font-size: 13px; color: {{t.link}}">كل الأصناف</a>
+        </div>
+        <sc-for list="{{low}}" as="p" hint-placeholder-count="5">
+          <div style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid {{t.line}}">
+            <span style="font-size: 14px">{{p.name}}</span>
+            <span class="num" style="font-size: 13px; font-weight: 700; color: {{p.c}}; background: {{p.bgc}}; padding: 4px 10px; border-radius: 999px">{{p.qty}}</span>
+          </div>
+        </sc-for>
+      </section>
+    </div>
+
+    <section style="background: {{t.card}}; border: 1px solid {{t.border}}; border-radius: 16px; overflow: hidden">
+      <div style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 16px 20px">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700">آخر الفواتير</h2>
+        <a href="#" style="font-size: 13px; color: {{t.link}}">سجل الفواتير</a>
+      </div>
+      <div style="overflow-x: auto">
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px">
+          <thead>
+            <tr style="background: {{t.head}}; color: {{t.muted}}; font-size: 13px">
+              <th style="text-align: right; padding: 12px 20px; font-weight: 700">رقم</th>
+              <th style="text-align: right; padding: 12px 20px; font-weight: 700">العميل</th>
+              <th style="text-align: right; padding: 12px 20px; font-weight: 700">النوع</th>
+              <th style="text-align: right; padding: 12px 20px; font-weight: 700">الإجمالي</th>
+              <th style="text-align: right; padding: 12px 20px; font-weight: 700">الكاشير</th>
+              <th style="text-align: right; padding: 12px 20px; font-weight: 700">الوقت</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{recent}}" as="r" hint-placeholder-count="5">
+              <tr style="border-top: 1px solid {{t.line}}">
+                <td class="num" style="padding: 12px 20px; font-weight: 700">{{r.no}}</td>
+                <td style="padding: 12px 20px">{{r.cust}}</td>
+                <td style="padding: 12px 20px"><span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; color: {{r.tc}}; background: {{r.tb}}">{{r.type}}</span></td>
+                <td class="num" style="padding: 12px 20px">{{r.total}}</td>
+                <td style="padding: 12px 20px; color: {{t.muted}}">{{r.by}}</td>
+                <td class="num" style="padding: 12px 20px; color: {{t.muted}}">{{r.time}}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = !!this.props.dark;
+    const t = dark
+      ? { dark: true, bg: '#0B1F1C', card: '#122B27', border: '#1F3D38', line: '#1A3631', head: '#0F2522', text: '#E8F0EE', muted: '#9DB5B0', brand: '#2E8C7A', link: '#7FD1BE', pos: '#7FD1BE', warn: '#F4A58A' }
+      : { dark: false, bg: '#F5F3EE', card: '#FFFFFF', border: '#E6E2D9', line: '#F0EDE6', head: '#FAF9F6', text: '#142321', muted: '#4A5856', brand: '#0E4D45', link: '#0E4D45', pos: '#11795F', warn: '#B4401F' };
+    const kpis = [
+      { label: 'مبيعات النهارده', value: '٨٬٤٥٠ ج.م', note: '+١٢٪ عن امبارح', noteColor: t.pos },
+      { label: 'عدد الفواتير', value: '٣٧', note: '٣١ كاش · ٦ آجل', noteColor: t.muted },
+      { label: 'في الخزنة دلوقتي', value: '٥٬٢٠٠ ج.م', note: 'الخزنة الرئيسية + الدرج', noteColor: t.muted },
+      { label: 'آجل مستحق على العملاء', value: '١٢٬٩٠٠ ج.م', note: '٤ فواتير متأخرة', noteColor: t.warn }
+    ];
+    const raw = [['السبت', 6200], ['الأحد', 7400], ['الاثنين', 5100], ['الثلاثاء', 8450], ['الأربعاء', 6900], ['الخميس', 9800], ['الجمعة', 4300]];
+    const max = 9800;
+    const fmt = (n) => n.toLocaleString('ar-EG');
+    const bars = raw.map(([d, v], i) => ({ d, v: fmt(v), h: Math.round((v / max) * 150) + 'px', c: i === 3 ? '#E4572E' : (dark ? '#2E8C7A' : '#0E4D45') }));
+    const lowRow = (name, qty, crit) => ({ name, qty, c: crit ? (dark ? '#0B1F1C' : '#FFFFFF') : t.warn, bgc: crit ? (dark ? '#F4A58A' : '#B4401F') : (dark ? '#3A2620' : '#FBE9E3') });
+    const low = [lowRow('لمبة LED ١٢ وات', '٢', true), lowRow('شاحن تايب سي ٢٥ وات', '٣', true), lowRow('سلك كهرباء ٢ مم (لفة)', '٥', false), lowRow('بريزة ثلاثية', '٦', false), lowRow('كشاف طوارئ', '٧', false)];
+    const cash = { tc: dark ? '#7FD1BE' : '#0E4D45', tb: dark ? '#173A34' : '#E6EFEC' };
+    const credit = { tc: dark ? '#F4A58A' : '#9A3412', tb: dark ? '#3A2620' : '#FBE9E3' };
+    const recent = [
+      { no: '#١٢٤', cust: 'زبون نقدي', type: 'كاش', total: '٣٥٠ ج.م', by: 'محمود', time: '١٢:٤٠', ...cash },
+      { no: '#١٢٣', cust: 'م. سامي للمقاولات', type: 'آجل', total: '٢٬١٠٠ ج.م', by: 'أحمد', time: '١٢:١٥', ...credit },
+      { no: '#١٢٢', cust: 'زبون نقدي', type: 'كاش', total: '٨٥ ج.م', by: 'محمود', time: '١١:٥٢', ...cash },
+      { no: '#١٢١', cust: 'هاني عبد الله', type: 'كاش', total: '٦٢٠ ج.م', by: 'محمود', time: '١١:٢٠', ...cash },
+      { no: '#١٢٠', cust: 'ورشة النور', type: 'آجل', total: '١٬٤٥٠ ج.م', by: 'أحمد', time: '١٠:٤٨', ...credit }
+    ];
+    return { t, kpis, bars, low, recent };
+  }
+}
+</script>
+</body>
+</html>

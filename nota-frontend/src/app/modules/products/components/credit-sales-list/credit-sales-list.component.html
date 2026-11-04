@@ -1,0 +1,144 @@
+<!-- Credit sales list (docs/design/screens/CreditSales.dc.html). Stage 10. -->
+<div class="cl">
+  <nota-page-header [title]="'creditSalePage.title' | translate" [subtitle]="'creditSalePage.list.subtitle' | translate">
+    <div notaPageActions>
+      <a notaButton="primary" routerLink="/credit-sales/new">+ {{ 'creditSalePage.list.new' | translate }}</a>
+    </div>
+  </nota-page-header>
+
+  <section class="cl__kpis">
+    <div class="nota-kpi"><span class="nota-kpi__label">{{ 'creditSalePage.list.kpiCount' | translate }}</span><span class="nota-kpi__value nota-num">{{ pagination.totalItems | notaNumber }}</span>
+      <span class="nota-kpi__note">{{ 'creditSalePage.list.kpiCountNote' | translate }}</span></div>
+    <div class="nota-kpi"><span class="nota-kpi__label">{{ 'creditSalePage.list.kpiRemaining' | translate }}</span><span class="nota-kpi__value nota-num cl__due">{{ pageRemaining | notaMoney }}</span>
+      <span class="nota-kpi__note">{{ 'creditSalePage.list.onThisPage' | translate }}</span></div>
+    <div class="nota-kpi"><span class="nota-kpi__label">{{ 'creditSalePage.list.kpiOverdue' | translate }}</span><span class="nota-kpi__value nota-num">{{ pageOverdue | notaNumber }}</span>
+      <span class="nota-kpi__note">{{ 'creditSalePage.list.onThisPage' | translate }}</span></div>
+  </section>
+
+  <div class="cl__layout">
+    <section class="nota-card cl__list">
+      <div class="cl__toolbar">
+        <div class="cl__search">
+          <input type="text" class="nota-input" [(ngModel)]="query" (keyup.enter)="search()" [placeholder]="'creditSalePage.list.searchPlaceholder' | translate"
+            [attr.aria-label]="'creditSalePage.list.searchPlaceholder' | translate" />
+          <button type="button" notaButton="primary" (click)="search()" [disabled]="isLoading">{{ 'returnsPage.actions.search' | translate }}</button>
+          @if (query) {<button type="button" notaButton (click)="clearSearch()" [disabled]="isLoading">{{ 'returnsPage.actions.reset' | translate }}</button>}
+        </div>
+        <div class="cl__pills" role="group" [attr.aria-label]="'creditSalePage.list.statusLabel' | translate">
+          @for (filter of statusFilters; track filter) {
+            <button type="button" class="cl__pill" [class.is-on]="status === filter" [attr.aria-pressed]="status === filter" (click)="setStatus(filter)">
+              {{ ('creditSalePage.list.filter.' + (filter || 'all')) | translate }}
+            </button>
+          }
+        </div>
+      </div>
+
+      @if (loadError) {<p class="cl__msg" role="alert">{{ loadError }}</p>}
+      <div class="nota-table-wrap">
+        <table class="nota-table cl__table">
+          <thead><tr>
+            <th>{{ 'creditSalePage.list.number' | translate }}</th>
+            <th>{{ 'creditSalePage.list.customer' | translate }}</th>
+            <th>{{ 'creditSalePage.list.date' | translate }}</th>
+            <th class="num">{{ 'creditSalePage.list.total' | translate }}</th>
+            <th class="num">{{ 'creditSalePage.list.paid' | translate }}</th>
+            <th class="num">{{ 'creditSalePage.list.remaining' | translate }}</th>
+            <th>{{ 'creditSalePage.list.statusLabel' | translate }}</th>
+            <th><span class="cl__sr">{{ 'tableHeaders.actions' | translate }}</span></th>
+          </tr></thead>
+          <tbody>
+            @if (isLoading) {
+              <tr><td colspan="8" class="cl__empty" role="status">{{ 'actions.loading' | translate }}</td></tr>
+            } @else {
+              @for (row of rows; track row.id) {
+                <tr class="cl__row" [class.is-selected]="selected?.id === row.id" tabindex="0" (click)="select(row)" (keydown.enter)="select(row)"
+                  [attr.aria-selected]="selected?.id === row.id">
+                  <td class="nota-num" dir="ltr">{{ shortRef(row.invoiceId) }}</td>
+                  <td><span class="cl__cust" dir="auto">{{ row.customerName || '—' }}</span><span class="cl__muted" dir="ltr">{{ row.customerPhone }}</span></td>
+                  <td class="nota-num">{{ formatDate(row.sellingDate) }}
+                    @if (row.dueDate) {<span class="cl__muted">{{ 'creditSalePage.list.due' | translate }} {{ formatDate(row.dueDate) }}</span>}</td>
+                  <td class="num">{{ row.totalPrice | notaMoney }}</td>
+                  <td class="num cl__in">{{ row.paidAmount | notaMoney }}</td>
+                  <td class="num cl__strong">{{ row.remainingAmount | notaMoney }}</td>
+                  <td><span [class]="statusPill(row)">{{ statusKey(row) | translate }}</span></td>
+                  <td>
+                    @if (canPay(row)) {
+                      <button type="button" notaButton (click)="select(row); $event.stopPropagation()">{{ 'creditSalePage.list.pay' | translate }}</button>
+                    }
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="8" class="cl__empty">{{ 'creditSalePage.list.empty' | translate }}</td></tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="cl__pager">
+        <span class="cl__muted nota-num">{{ 'invoiceHistoryPage.s10.range' | translate: { from: (pageRangeFrom | notaNumber), to: ((pageRangeFrom ? pageRangeFrom + rows.length - 1 : 0) | notaNumber), total: (pagination.totalItems | notaNumber) } }}</span>
+        <span class="cl__pager-btns">
+          <button type="button" notaButton (click)="goToPage(pagination.page - 1)" [disabled]="isLoading || !pagination.hasPrevPage">{{ 'invoiceHistoryPage.s10.prev' | translate }}</button>
+          <span class="nota-num cl__muted">{{ pagination.page | notaNumber }} / {{ (pagination.totalPages || 1) | notaNumber }}</span>
+          <button type="button" notaButton (click)="goToPage(pagination.page + 1)" [disabled]="isLoading || !pagination.hasNextPage">{{ 'invoiceHistoryPage.s10.next' | translate }}</button>
+        </span>
+      </div>
+    </section>
+
+    <!-- Payment panel for the selected invoice -->
+    <aside class="nota-card cl__panel" [attr.aria-label]="'creditSalePage.list.panelTitle' | translate">
+      @if (selected; as invoice) {
+        <div>
+          <span class="cl__muted">{{ 'creditSalePage.list.panelTitle' | translate }}</span>
+          <h2 class="cl__panel-title"><span class="nota-num" dir="ltr">{{ shortRef(invoice.invoiceId) }}</span> · <span dir="auto">{{ invoice.customerName }}</span></h2>
+          <span [class]="statusPill(invoice)">{{ statusKey(invoice) | translate }}</span>
+        </div>
+        <div class="cl__figures">
+          <div><span>{{ 'creditSalePage.list.total' | translate }}</span><strong class="nota-num">{{ invoice.totalPrice | notaMoney }}</strong></div>
+          <div><span>{{ 'creditSalePage.list.paid' | translate }}</span><strong class="nota-num cl__in">{{ invoice.paidAmount | notaMoney }}</strong></div>
+          <div><span>{{ 'creditSalePage.list.remaining' | translate }}</span><strong class="nota-num cl__due">{{ invoice.remainingAmount | notaMoney }}</strong></div>
+        </div>
+
+        @if (canPay(invoice)) {
+          <form [formGroup]="paymentForm" class="cl__form" (ngSubmit)="savePayment()" novalidate>
+            <nota-form-field [label]="'customerDetailsPage.paymentDialog.amount' | translate" forId="clAmount" [required]="true"
+              [error]="paymentForm.get('amount')?.invalid && (paymentForm.get('amount')?.touched || paymentSubmitAttempted) ? ('customerDetailsPage.paymentDialog.amountRequired' | translate) : null">
+              <p-inputNumber inputId="clAmount" formControlName="amount" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cl__control" inputStyleClass="cl__num-input" />
+            </nota-form-field>
+            <nota-form-field [label]="'customerDetailsPage.paymentDialog.paymentDate' | translate" forId="clDate" [required]="true">
+              <p-datepicker inputId="clDate" formControlName="paymentDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" styleClass="cl__control" />
+            </nota-form-field>
+            <nota-form-field [label]="'customerDetailsPage.paymentDialog.note' | translate" forId="clNote">
+              <input id="clNote" type="text" class="nota-input" formControlName="note" [placeholder]="'customerDetailsPage.paymentDialog.notePlaceholder' | translate" />
+            </nota-form-field>
+            @if (paymentError) {<p class="cl__msg" role="alert">{{ paymentError }}</p>}
+            <button type="submit" notaButton="primary" [disabled]="isSavingPayment">
+              {{ (isSavingPayment ? 'customerDetailsPage.paymentDialog.saving' : 'customerDetailsPage.paymentDialog.save') | translate }}
+            </button>
+          </form>
+        } @else {
+          <p class="cl__muted">{{ 'creditSalePage.list.nothingDue' | translate }}</p>
+        }
+        @if (paymentSaved) {<p class="cl__ok" role="status">{{ 'creditSalePage.list.paymentSaved' | translate }}</p>}
+
+        <div class="cl__panel-actions">
+          <button type="button" notaButton (click)="print(invoice)" [disabled]="printingId === invoice.id">{{ 'customerDetailsPage.actions.printInvoice' | translate }}</button>
+          @if (invoice.customerId) {
+            <a notaButton [routerLink]="['/customers', invoice.customerId]">{{ 'creditSalePage.list.customerPage' | translate }}</a>
+          }
+        </div>
+        @if (printError) {<p class="cl__msg" role="alert">{{ printError }}</p>}
+
+        <div class="cl__prev">
+          <span class="cl__muted">{{ 'creditSalePage.list.previousPayments' | translate }}</span>
+          @for (payment of invoice.payments; track payment.id) {
+            <div class="cl__prev-row"><span class="nota-num">{{ formatDate(payment.paymentDate) }}</span><strong class="nota-num">{{ payment.amount | notaMoney }}</strong></div>
+          } @empty {
+            <p class="cl__muted">{{ 'customerDetailsPage.s10.noPayments' | translate }}</p>
+          }
+        </div>
+      } @else {
+        <p class="cl__empty">{{ 'creditSalePage.list.pick' | translate }}</p>
+      }
+    </aside>
+  </div>
+</div>

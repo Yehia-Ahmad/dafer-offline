@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota financial reports</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.r{display:flex;flex-direction:row;justify-content:space-between;align-items:center;padding:10px 0;font-size:15px;border-bottom:1px solid #F0EDE6}
+.sub{padding-inline-start:20px;color:#3B4A47;font-size:14px}
+.tot{font-weight:800;border-bottom:none;border-top:2px solid #142321;padding-top:12px}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="reports" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800">التقارير المالية</h1>
+      <div style="display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap">
+        <select class="btn" aria-label="الفترة"><option>أكتوبر ٢٠٢٦</option><option>سبتمبر ٢٠٢٦</option></select>
+        <button type="button" class="btn">طباعة</button>
+        <button type="button" class="btn">Excel للمحاسب</button>
+      </div>
+    </div>
+    <div role="tablist" aria-label="التقارير" style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #E6E2D9">
+      <button type="button" role="tab" aria-selected="true" style="font-family: inherit; font-size: 15px; font-weight: 700; padding: 12px 18px; min-height: 44px; border: none; border-bottom: 3px solid #0E4D45; background: transparent; color: #0E4D45">قائمة الدخل</button>
+      <button type="button" role="tab" aria-selected="false" style="font-family: inherit; font-size: 15px; padding: 12px 18px; min-height: 44px; border: none; background: transparent; color: #4A5856">الميزانية</button>
+      <button type="button" role="tab" aria-selected="false" style="font-family: inherit; font-size: 15px; padding: 12px 18px; min-height: 44px; border: none; background: transparent; color: #4A5856">ميزان المراجعة</button>
+      <button type="button" role="tab" aria-selected="false" style="font-family: inherit; font-size: 15px; padding: 12px 18px; min-height: 44px; border: none; background: transparent; color: #4A5856">حركة الخزائن</button>
+      <button type="button" role="tab" aria-selected="false" style="font-family: inherit; font-size: 15px; padding: 12px 18px; min-height: 44px; border: none; background: transparent; color: #4A5856">أرصدة العملاء والموردين</button>
+    </div>
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 480px; min-width: 0; padding: 24px 28px; display: flex; flex-direction: column">
+        <div style="display: flex; flex-direction: column; gap: 2px; padding-bottom: 12px; text-align: center">
+          <span style="font-size: 18px; font-weight: 800">قائمة الدخل</span>
+          <span style="font-size: 13px; color: #4A5856">النور للأدوات الكهربائية · عن شهر أكتوبر ٢٠٢٦ · بالجنيه</span>
+        </div>
+        <div class="r"><span>المبيعات</span><span class="num">٣٧٬٤٥٠</span></div>
+        <div class="r sub"><span>(−) خصم مسموح به</span><span class="num">(٦٥٠)</span></div>
+        <div class="r" style="font-weight: 700"><span>صافي المبيعات</span><span class="num">٣٦٬٨٠٠</span></div>
+        <div class="r sub"><span>(−) تكلفة البضاعة المباعة</span><span class="num">(٢٥٬٣٠٠)</span></div>
+        <div class="r" style="font-weight: 800; background: #F1F7F5; padding-inline: 10px; border-radius: 8px"><span>مجمل الربح</span><span class="num">١١٬٥٠٠</span></div>
+        <div class="r" style="font-weight: 700; padding-top: 16px"><span>المصروفات</span><span></span></div>
+        <div class="r sub"><span>مرتبات</span><span class="num">٤٬٥٠٠</span></div>
+        <div class="r sub"><span>إيجار</span><span class="num">٣٬٥٠٠</span></div>
+        <div class="r sub"><span>كهرباء</span><span class="num">٦٥٠</span></div>
+        <div class="r sub"><span>نقل ومشاوير</span><span class="num">٤٢٠</span></div>
+        <div class="r sub"><span>متنوع</span><span class="num">٣٣٠</span></div>
+        <div class="r" style="font-weight: 700"><span>إجمالي المصروفات</span><span class="num">(٩٬٤٠٠)</span></div>
+        <div class="r tot" style="font-size: 20px; color: #0E4D45"><span>صافي الربح</span><span class="num">٢٬١٠٠</span></div>
+      </section>
+      <aside style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+        <section class="card" style="padding: 20px; display: flex; flex-direction: column">
+          <span style="font-size: 16px; font-weight: 800; padding-bottom: 6px">الميزانية باختصار</span>
+          <span style="font-size: 12px; color: #4A5856; padding-bottom: 8px">في ٣١ / ١٠ / ٢٠٢٦</span>
+          <div class="r" style="font-size: 14px"><span>الخزائن والبنوك</span><span class="num">٦٩٬٢٥٠</span></div>
+          <div class="r" style="font-size: 14px"><span>العملاء</span><span class="num">١٢٬٩٠٠</span></div>
+          <div class="r" style="font-size: 14px"><span>المخزون</span><span class="num">٩٦٬٣٠٠</span></div>
+          <div class="r" style="font-size: 14px; font-weight: 800"><span>إجمالي الأصول</span><span class="num">١٧٨٬٤٥٠</span></div>
+          <div class="r" style="font-size: 14px; padding-top: 14px"><span>الموردين</span><span class="num">١٤٬٦٥٠</span></div>
+          <div class="r" style="font-size: 14px"><span>رأس المال</span><span class="num">١٥٠٬٠٠٠</span></div>
+          <div class="r" style="font-size: 14px"><span>الأرباح المحتجزة وأرباح الفترة</span><span class="num">١٣٬٨٠٠</span></div>
+          <div class="r" style="font-size: 14px; font-weight: 800; border-bottom: none"><span>الخصوم + حقوق الملكية</span><span class="num">١٧٨٬٤٥٠</span></div>
+        </section>
+        <div style="display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 12px; background: #E6EFEC; color: #0E4D45; font-size: 14px; font-weight: 700">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+          ميزان المراجعة متوازن: المدين = الدائن
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

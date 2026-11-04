@@ -1,0 +1,42 @@
+// Invoice history (Invoices.dc.html). Tokens only.
+:host { display: block; }
+.ih { display: flex; flex-direction: column; gap: var(--space-gap); container-type: inline-size; }
+.ih__filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+.ih__filter-actions { display: flex; gap: 8px; }
+.ih__layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--space-gap); align-items: start; }
+.ih__list { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ih__table { th, td { padding: 10px 8px; } th { white-space: normal; } }
+.ih__row { cursor: pointer;
+  &.is-selected td { background: var(--brand-soft); }
+  &:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; } }
+.ih__cust { display: block; font-weight: 500; }
+.ih__muted { font-size: 13px; color: var(--text-muted); }
+.ih__strong { font-weight: 700; }
+.ih__due { color: var(--danger); }
+.ih__empty { text-align: center; color: var(--text-muted); padding: 24px; }
+.ih__msg { margin: 0; font-size: 14px; font-weight: 500; color: var(--danger); }
+.ih__pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.ih__pager-btns { display: flex; align-items: center; gap: 8px; }
+.ih__detail { position: sticky; top: 0; display: flex; flex-direction: column; gap: 14px; }
+.ih__detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.ih__detail-title { margin: 0 0 4px; font-size: 20px; font-weight: 800; text-align: start; }
+.ih__detail-cust { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius-control); background: var(--surface-2); }
+.ih__lines { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column;
+  li { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  small { margin-inline-start: 6px; } }
+.ih__line-meta { display: block; margin-inline-start: 0 !important; }
+.ih__refund-line { color: var(--info-text); }
+.ih__totals { margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px;
+  div { display: flex; justify-content: space-between; gap: 8px; } dt { color: var(--text-muted); } dd { margin: 0; } }
+.ih__grand { padding-top: 8px; border-top: 1px dashed var(--border-strong);
+  dt { color: var(--text); font-weight: 700; } dd { font-size: 22px; font-weight: 800; color: var(--brand-strong-text); } }
+.ih__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ih__delete { grid-column: 1 / -1; }
+.ih__note { margin: 0; font-size: 12px; }
+.ih__form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.ih__items-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.ih__items-tools { display: flex; gap: 8px; }
+.ih__qty-cell { width: 130px; }
+:host ::ng-deep { .ih__control { width: 100%; } .ih__num-input { width: 100%; font-variant-numeric: tabular-nums; } }
+::ng-deep .p-dialog.nota-p-dialog.ih-wide { width: min(760px, calc(100vw - 32px)); max-width: 760px; }
+@container (max-width: 980px) { .ih__layout { grid-template-columns: minmax(0, 1fr); } .ih__detail { position: static; } }

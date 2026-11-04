@@ -1,0 +1,60 @@
+// Dashboard (Dashboard.dc.html / DashboardDark.dc.html). Tokens only.
+:host { display: block; }
+.db { display: flex; flex-direction: column; gap: 22px; }
+.db__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.db__title { display: flex; flex-direction: column; gap: 4px; }
+.db__h1 { margin: 0; font-size: 28px; font-weight: 800; }
+.db__date { font-size: 14px; color: var(--text-muted); }
+.db__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.db__muted { color: var(--text-muted); }
+.db__error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; color: var(--danger); }
+.db__welcome-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
+.db__kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.db__kpi-value { font-size: 30px; text-align: start; }
+
+.db__row { display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch; }
+.db__chart-card { flex: 2 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.db__low-card { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.db__card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.db__card-head--pad { padding: 16px 20px; }
+.db__h2 { margin: 0; }
+.db__link { color: var(--brand-strong-text); font-size: 13px; text-decoration: none; font-weight: 500;
+  &:hover { text-decoration: underline; }
+  &--plain { color: var(--text); font-size: inherit; font-weight: inherit; } }
+
+.db__legend { display: flex; gap: 14px; font-size: 13px; color: var(--text-muted);
+  span { display: flex; align-items: center; gap: 6px; } }
+.db__swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+  &--cash { background: var(--brand); }
+  &--credit { background: color-mix(in srgb, var(--brand) 35%, var(--surface)); } }
+.db__chart { display: flex; align-items: flex-end; gap: 14px; height: 220px; padding-top: 8px; }
+.db__bar-col { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 8px; }
+.db__bar-value { font-size: 12px; color: var(--text-muted); text-align: center; }
+.db__bar-stack { width: 100%; max-width: 48px; height: 150px; display: flex; flex-direction: column; justify-content: flex-end;
+  border-radius: 8px 8px 0 0; overflow: hidden; }
+.db__bar--cash { background: var(--brand); }
+.db__bar--credit { background: color-mix(in srgb, var(--brand) 35%, var(--surface)); }
+// Today: the accent coin colour, a tiny highlight (design system: accent for highlights only).
+.db__bar-col.is-today .db__bar--cash { background: var(--accent); }
+.db__bar-col.is-today .db__bar--credit { background: color-mix(in srgb, var(--accent) 40%, var(--surface)); }
+.db__bar-col.is-today .db__bar-label { color: var(--text); font-weight: 700; }
+.db__bar-label { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+.db__low { list-style: none; margin: 0; padding: 0; }
+.db__low-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line);
+  color: var(--text); text-decoration: none; min-height: var(--touch-target);
+  &:hover .db__low-name { text-decoration: underline; } }
+.db__low li:last-child .db__low-row { border-bottom: 0; }
+.db__low-name { display: flex; flex-direction: column; font-size: 14px; }
+.db__low-code { font-size: 12px; text-align: start; }
+
+.db__recent { padding: 0; overflow: hidden; }
+.db__table { min-width: 560px; }
+.db__ref { text-align: start; font-weight: 700; }
+
+@media (max-width: 640px) {
+  .db__chart { gap: 6px; }
+  .db__bar-value { font-size: 10px; }
+  .db__bar-label { font-size: 11px; }
+}

@@ -1,0 +1,521 @@
+// Nota app shell (Stage 8): frame, sidebar (docs/design/screens/Sidebar.dc.html), temporary category tools.
+// Global because the category dialogs are appended to <body>. Uses logical properties only, so the same rules
+// serve RTL (sidebar on the right) and LTR (sidebar on the left) from <html dir>.
+
+// ---------- Frame ----------
+.nota-shell {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.nota-shell__sidebar {
+  flex: none;
+  width: 248px;
+  transition: width 0.2s ease;
+}
+
+.nota-shell.is-rail .nota-shell__sidebar {
+  width: 72px;
+}
+
+.nota-shell__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.nota-shell__topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px var(--space-page-x) 0;
+}
+
+.nota-shell__back {
+  padding-inline: 12px 16px;
+}
+
+[dir='rtl'] .nota-shell__back-icon {
+  transform: scaleX(-1);
+}
+
+.nota-shell__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-page-y) var(--space-page-x);
+  background: var(--bg);
+}
+
+.nota-shell__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: var(--overlay);
+}
+
+// Drawer (< 768px): the sidebar slides over the page from the inline-start edge.
+.nota-shell.is-drawer {
+  .nota-shell__sidebar {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: 1000;
+    width: min(248px, 85vw);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
+    box-shadow: var(--shadow-dialog);
+  }
+
+  .nota-shell__topbar {
+    padding: 12px 16px 0;
+  }
+
+  .nota-shell__content {
+    padding: 16px;
+  }
+}
+
+[dir='rtl'] .nota-shell.is-drawer .nota-shell__sidebar {
+  transform: translateX(100%);
+}
+
+.nota-shell.is-drawer.is-drawer-open .nota-shell__sidebar {
+  transform: none;
+  visibility: visible;
+  transition: transform 0.2s ease;
+}
+
+// ---------- Sidebar ----------
+.nota-sidebar {
+  display: block;
+  height: 100%;
+  overflow: hidden;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  font-family: var(--font-sans);
+}
+
+.nota-sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+  padding: 20px 14px;
+}
+
+.nota-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 14px;
+}
+
+.nota-sidebar__logo {
+  flex: none;
+}
+
+.nota-sidebar__wordmark {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+
+  &.is-latin {
+    font-weight: 700;
+    text-transform: lowercase;
+  }
+}
+
+.nota-sidebar__icon-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--sidebar-text);
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--sidebar-hover);
+  }
+}
+
+.nota-sidebar__collapse {
+  margin-inline-start: auto;
+  margin-inline-end: -8px;
+}
+
+// The icon's arrow points at the sidebar's outer edge to collapse, inward to expand.
+.nota-sidebar__collapse-icon {
+  transition: transform 0.2s ease;
+}
+
+[dir='rtl'] .nota-sidebar__collapse-icon,
+.nota-sidebar.is-rail .nota-sidebar__collapse-icon {
+  transform: scaleX(-1);
+}
+
+[dir='rtl'] .nota-sidebar.is-rail .nota-sidebar__collapse-icon {
+  transform: none;
+}
+
+.nota-sidebar__menu {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.nota-nav__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 6px;
+}
+
+.nota-nav__group-label {
+  padding: 6px 12px 2px;
+  color: var(--sidebar-group);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.nota-nav__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--sidebar-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--sidebar-hover);
+  }
+
+  &.is-active {
+    background: var(--sidebar-active-bg);
+    color: var(--sidebar-active-text);
+    font-weight: 700;
+  }
+}
+
+.nota-nav__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Focus ring drawn inside the element so the scrolling menu never clips it.
+.nota-sidebar {
+  a,
+  button {
+    &:focus-visible {
+      outline: 2px solid var(--sidebar-focus);
+      outline-offset: -2px;
+    }
+  }
+}
+
+// ---------- Sidebar footer ----------
+.nota-sidebar__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.nota-sidebar__segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 255, 0.08);
+
+  button {
+    min-height: 36px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--sidebar-text);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+
+    &:hover:not(.is-on) {
+      background: var(--sidebar-hover);
+    }
+
+    &.is-on {
+      background: var(--sidebar-active-bg);
+      color: var(--sidebar-active-text);
+      font-weight: 700;
+    }
+  }
+}
+
+.nota-sidebar__lang-short {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.nota-sidebar__footer-btn {
+  @extend .nota-nav__link;
+  font-size: 13px;
+}
+
+.nota-sidebar__device {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 12px 0;
+  color: var(--sidebar-group);
+  font-size: 12px;
+}
+
+// ---------- Rail (collapsed, 72px) ----------
+.nota-sidebar.is-rail {
+  .nota-sidebar__nav {
+    padding: 20px 12px;
+  }
+
+  .nota-sidebar__brand {
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 0 10px;
+  }
+
+  .nota-sidebar__collapse {
+    margin: 0;
+  }
+
+  .nota-sidebar__wordmark,
+  .nota-nav__label,
+  .nota-nav__group-label {
+    display: none;
+  }
+
+  .nota-nav__group + .nota-nav__group {
+    margin-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .nota-nav__link,
+  .nota-sidebar__footer-btn,
+  .nota-sidebar__device {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .nota-sidebar__footer {
+    align-items: center;
+  }
+
+  .nota-sidebar__footer-btn {
+    width: var(--touch-target);
+    min-height: var(--touch-target);
+  }
+}
+
+.nota-cat-dialog .mat-mdc-progress-spinner {
+  --mdc-circular-progress-active-indicator-color: currentColor;
+  --mat-progress-spinner-active-indicator-color: currentColor;
+}
+
+// ---------- Category dialogs (products page, Stage 11) ----------
+.p-dialog.nota-p-dialog.nota-cat-dialog {
+  width: min(540px, calc(100vw - 32px));
+}
+
+.p-dialog.nota-p-dialog.nota-p-dialog--sm {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.nota-cat-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.nota-cat-form__image {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.nota-cat-form__thumb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 80px;
+  height: 80px;
+  overflow: hidden;
+  border: 2px dashed var(--border-strong);
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 12px;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.nota-cat-form__image-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.nota-cat-form__specs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nota-cat-form__specs-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nota-cat-form__specs-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.nota-cat-form__spec-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nota-cat-form__add-spec {
+  align-self: flex-start;
+}
+
+.nota-cat-message {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.nota-cat-result {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.nota-cat-result__counts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.nota-cat-result__count {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 13px;
+
+  strong {
+    color: var(--text);
+    font-size: 24px;
+    font-weight: 800;
+  }
+}
+
+.nota-cat-result .nota-cat-result__ok {
+  color: var(--success);
+}
+
+.nota-cat-result__count .nota-cat-result__skip {
+  color: var(--warning-text);
+}
+
+.nota-cat-result__errors-title {
+  margin: 0 0 8px;
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.nota-cat-result__errors {
+  max-height: 14rem;
+  margin: 0;
+  padding-inline-start: 20px;
+  overflow-y: auto;
+  list-style: disc;
+
+  li + li {
+    margin-top: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nota-shell__sidebar,
+  .nota-shell.is-drawer .nota-shell__sidebar,
+  .nota-sidebar__collapse-icon,
+  .nota-nav__chevron {
+    transition: none;
+  }
+}
+
+// ---------- Version label (offline edition, VersionNoticeComponent) ----------
+// Bottom corner opposite the sidebar: left in RTL (sidebar on the right), right in LTR, so it never covers the
+// sidebar footer. Physical sides from <html dir> because the label itself is dir="ltr".
+.nota-version-label {
+  position: fixed;
+  bottom: 4px;
+  right: 10px;
+  z-index: 9998;
+  pointer-events: none;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+html[dir='rtl'] .nota-version-label {
+  right: auto;
+  left: 10px;
+}

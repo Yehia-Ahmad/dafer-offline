@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota invoice history</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:right;font-size:13px;font-weight:700;color:#4A5856;background:#FAF9F6;padding:12px 16px}
+.tbl td{padding:12px 16px;border-top:1px solid #F0EDE6}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="invoices" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800">سجل الفواتير</h1>
+      <div style="display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap">
+        <button type="button" class="btn">تصدير Excel</button>
+        <button type="button" class="btn btn-p">+ فاتورة جديدة</button>
+      </div>
+    </div>
+    <div class="card" style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px; padding: 14px 16px; align-items: flex-end">
+      <label class="lb" style="flex: 2 1 240px">بحث
+        <input type="text" class="in" placeholder="رقم الفاتورة، العميل، التليفون">
+      </label>
+      <label class="lb" style="flex: 1 1 150px">من
+        <input type="text" class="in num" value="١ / ١١ / ٢٠٢٦">
+      </label>
+      <label class="lb" style="flex: 1 1 150px">إلى
+        <input type="text" class="in num" value="٣ / ١١ / ٢٠٢٦">
+      </label>
+      <label class="lb" style="flex: 1 1 140px">النوع
+        <select class="in"><option>الكل</option><option>كاش</option><option>آجل</option></select>
+      </label>
+      <label class="lb" style="flex: 1 1 160px">الحالة
+        <select class="in"><option>الكل</option><option>عادية</option><option>مرتجع جزئي</option><option>مرتجع كامل</option><option>ملغاة</option></select>
+      </label>
+      <label class="lb" style="flex: 1 1 140px">الكاشير
+        <select class="in"><option>الكل</option><option>محمود</option><option>أحمد</option></select>
+      </label>
+    </div>
+
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 520px; min-width: 0; overflow: hidden">
+        <div style="overflow-x: auto">
+          <table class="tbl" style="min-width: 720px">
+            <thead><tr><th>رقم</th><th>التاريخ</th><th>العميل</th><th>النوع</th><th>الأصناف</th><th>الإجمالي</th><th>الحالة</th></tr></thead>
+            <tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="9">
+                <tr style="background: {{r.bg}}">
+                  <td class="num" style="font-weight: 700">{{r.no}}</td>
+                  <td class="num" style="color: #4A5856">{{r.date}}</td>
+                  <td>{{r.cust}}</td>
+                  <td><span class="pill" style="color: {{r.tc}}; background: {{r.tb}}">{{r.type}}</span></td>
+                  <td class="num" style="color: #4A5856">{{r.items}}</td>
+                  <td class="num" style="font-weight: 700; text-decoration: {{r.strike}}">{{r.total}}</td>
+                  <td><span class="pill" style="color: {{r.sc}}; background: {{r.sb}}">{{r.status}}</span></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid #F0EDE6; font-size: 13px; color: #4A5856">
+          <span>عرض ٩ من ١٢٥ فاتورة · إجمالي الفترة ٢٤٬٨٦٠ ج.م</span>
+          <div style="display: flex; flex-direction: row; gap: 6px">
+            <button type="button" class="btn" style="min-height: 36px; padding: 0 12px">السابق</button>
+            <button type="button" class="btn" style="min-height: 36px; padding: 0 12px">التالي</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card" aria-label="تفاصيل الفاتورة" style="flex: 1 1 340px; min-width: 0; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start">
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <h2 style="margin: 0; font-size: 22px; font-weight: 800">فاتورة #١٢١</h2>
+            <span class="num" style="font-size: 13px; color: #4A5856">٣ / ١١ / ٢٠٢٦ · ١١:٢٠ ص · محمود</span>
+          </div>
+          <span class="pill" style="color: #1F4E79; background: #E3EDF7">مرتجع جزئي</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+          <span style="font-weight: 500">هاني عبد الله</span>
+          <span class="num" style="color: #4A5856; direction: ltr; text-align: right">0109 334 5512</span>
+        </div>
+        <div style="display: flex; flex-direction: column">
+          <div style="display: flex; flex-direction: row; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #F0EDE6; font-size: 14px"><span>بانل سقف ٢٤ وات × ١</span><span class="num">٣٢٠</span></div>
+          <div style="display: flex; flex-direction: row; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #F0EDE6; font-size: 14px"><span>لمبة LED ١٨ وات × ٥</span><span class="num">٣٠٠</span></div>
+          <div style="display: flex; flex-direction: row; justify-content: space-between; padding: 10px 0; font-size: 14px; color: #1F4E79"><span>مرتجع: لمبة LED ١٨ وات × ١</span><span class="num">− ٦٠</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; padding-top: 10px; border-top: 1px dashed #CFCAC0">
+          <div style="display: flex; flex-direction: row; justify-content: space-between"><span style="color: #4A5856">الإجمالي</span><span class="num">٦٢٠ ج.م</span></div>
+          <div style="display: flex; flex-direction: row; justify-content: space-between"><span style="color: #4A5856">المرتجع</span><span class="num">− ٦٠ ج.م</span></div>
+          <div style="display: flex; flex-direction: row; justify-content: space-between; font-size: 18px; font-weight: 800"><span>الصافي</span><span class="num">٥٦٠ ج.م</span></div>
+          <div style="display: flex; flex-direction: row; justify-content: space-between"><span style="color: #4A5856">الدفع</span><span>كاش · الخزنة الرئيسية</span></div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+          <button type="button" class="btn btn-p">طباعة</button>
+          <button type="button" class="btn">مرتجع</button>
+          <button type="button" class="btn">تعديل</button>
+          <button type="button" class="btn" style="color: #9A3412; display: flex; align-items: center; justify-content: center; gap: 6px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 11h12v9H6zM9 11V8a3 3 0 0 1 6 0v3"></path></svg>
+            إلغاء الفاتورة
+          </button>
+        </div>
+        <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #4A5856; background: #FAF9F6; border-radius: 10px; padding: 10px 12px">الإلغاء محتاج صلاحية مدير. الفاتورة الملغاة بتفضل في السجل، وبيتعمل لها قيد عكسي وترجع كمياتها للمخزون.</p>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const cash = { type: 'كاش', tc: '#0E4D45', tb: '#E6EFEC' };
+    const credit = { type: 'آجل', tc: '#9A3412', tb: '#FBE9E3' };
+    const S = {
+      ok: { status: 'عادية', sc: '#4A5856', sb: '#EFEDE8', strike: 'none' },
+      part: { status: 'مرتجع جزئي', sc: '#1F4E79', sb: '#E3EDF7', strike: 'none' },
+      full: { status: 'مرتجع كامل', sc: '#5B2A86', sb: '#EFE6F7', strike: 'none' },
+      cancel: { status: 'ملغاة', sc: '#9A3412', sb: '#FBE9E3', strike: 'line-through' }
+    };
+    const r = (no, date, cust, ty, items, total, s, sel) => ({ no, date, cust, items, total, ...(ty === 'c' ? cash : credit), ...S[s], bg: sel ? '#F1F7F5' : 'transparent' });
+    const rows = [
+      r('#١٢٤', '٣ / ١١ · ١٢:٤٠', 'زبون نقدي', 'c', '٤', '٣٥٠', 'ok', false),
+      r('#١٢٣', '٣ / ١١ · ١٢:١٥', 'م. سامي للمقاولات', 'a', '٩', '٢٬١٠٠', 'ok', false),
+      r('#١٢٢', '٣ / ١١ · ١١:٥٢', 'زبون نقدي', 'c', '٢', '٨٥', 'ok', false),
+      r('#١٢١', '٣ / ١١ · ١١:٢٠', 'هاني عبد الله', 'c', '٦', '٦٢٠', 'part', true),
+      r('#١٢٠', '٣ / ١١ · ١٠:٤٨', 'ورشة النور', 'a', '٧', '١٬٤٥٠', 'ok', false),
+      r('#١١٩', '٢ / ١١ · ٨:١٠ م', 'زبون نقدي', 'c', '١', '٤٥', 'cancel', false),
+      r('#١١٨', '٢ / ١١ · ٧:٣٠ م', 'كريم السيد', 'c', '٣', '٤١٠', 'full', false),
+      r('#١١٧', '٢ / ١١ · ٦:٠٥ م', 'زبون نقدي', 'c', '٥', '٢٩٥', 'ok', false),
+      r('#١١٦', '٢ / ١١ · ٥:٤٠ م', 'عم صبحي', 'a', '٢', '٥٤٠', 'ok', false)
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

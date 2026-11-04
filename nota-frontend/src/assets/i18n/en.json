@@ -1,0 +1,1032 @@
+{
+    "searchPlaceholder": "Search ...",
+    "sidebarTitles": {
+        "export_products": "Export Products",
+        "add_new_category": "Add New Category"
+    },
+    "actions": {
+        "save": "Save",
+        "loading": "Loading...",
+        "cancelButton": "No Cancel",
+        "deleteButton": "Yes Delete"
+    },
+    "tableHeaders": {
+        "username": "Username",
+        "number": "Number",
+        "email": "Email",
+        "role": "Role",
+        "actions": "Actions"
+    },
+    "delete": "Delete",
+    "admin": {
+        "title": "system admins",
+        "change_Button": "Change",
+        "remove_Button": "Delete",
+        "add_Button": "Add Admin"
+    },
+    "category": {
+        "importExport": {
+            "export": "Export Categories",
+            "exporting": "Exporting...",
+            "import": "Import Categories",
+            "importing": "Importing...",
+            "template": "Download Template",
+            "generating": "Generating...",
+            "resultTitle": "Category Import Result",
+            "importedCount": "Imported",
+            "skippedCount": "Skipped",
+            "errors": "Import errors",
+            "noErrors": "No import errors"
+        },
+        "products": {
+            "loading": "Loading more products...",
+            "noMore": "No more products",
+            "retry": "Retry"
+        },
+        "add_new_category": "Add New Category",
+        "name": "Name",
+        "namePlaceholder": "Enter Category Name",
+        "specifications": {
+            "title": "Specifications",
+            "rowNamePlaceholder": "Enter row name",
+            "valuePlaceholder": "Enter value",
+            "removeButton": "Remove"
+        },
+        "addProduct": {
+            "productName": "Product Name",
+            "code": "Product Code",
+            "inventoryCount": "Inventory Count",
+            "wholesalePrice": "Wholesale Price",
+            "purchasePrice": "Purchase Price",
+            "retailPrice": "Retail Price",
+            "soldItemCount": "Sold Item Count",
+            "uploadImage": "Upload Image",
+            "changeImage": "Change Image",
+            "actions": {
+                "save": "Save Product",
+                "creating": "Creating..."
+            }
+        },
+        "editProduct": {
+            "title": "Edit Product",
+            "productName": "Product Name",
+            "code": "Product Code",
+            "inventoryCount": "Inventory Count",
+            "newInventory": "New Inventory",
+            "wholesalePrice": "Wholesale Price",
+            "purchasePrice": "Purchase Price",
+            "retailPrice": "Retail Price",
+            "discountPercentage": "Discount Percentage",
+            "soldItemCount": "Sold Item Count",
+            "actions": {
+                "save": "Save & Exit",
+                "syncPurchasePrice": "Update purchase price on invoices"
+            },
+            "syncPurchasePrice": {
+                "title": "Sync Selling Price",
+                "dateFrom": "Date From",
+                "dateTo": "Date To",
+                "cancel": "Cancel",
+                "save": "Save"
+            }
+        },
+        "deleteProduct": {
+            "title": "Delete Product",
+            "deleteMessage": "Do you want to delete this product?",
+            "actions": {
+                "deleteButton": "Delete Product",
+                "cancelButton": "No Cancel"
+            }
+        },
+        "saveButton": "Save Category",
+        "updateButton": "Update Category",
+        "edit_category_title": "Edit Category",
+        "delete_category_title": "Delete Category",
+        "delete_category_message": "Do you want to delete this category?",
+        "cancel_button": "No Cancel",
+        "delete_button": "Yes Delete"
+    },
+    "home": {
+        "cards": {
+            "invoiceHistory": {
+                "title": "Invoice History"
+            }
+        }
+    },
+    "sellingPage": {
+        "fields": {
+            "searchProduct": "Search Product Code",
+            "searchCustomer": "Search Customer",
+            "priceType": "Price Type",
+            "price": "Price",
+            "lineTotal": "Line Total",
+            "customerName": "Customer Name",
+            "customerPhone": "Customer Phone",
+            "sellingDate": "Selling Date",
+            "productQuantity": "Product Quantity",
+            "productsCount": "Products Count",
+            "totalQuantity": "Total Quantity",
+            "subtotal": "Subtotal",
+            "discountPercentage": "Discount Percentage",
+            "discountAmount": "Discount Amount",
+            "shippingFees": "Shipping Fees",
+            "totalInvoicePrice": "Total Invoice Price"
+        },
+        "priceTypeOptions": {
+            "wholesalePrice": "Wholesale Price",
+            "retailPrice": "Retail Price",
+            "custom": "Custom"
+        },
+        "placeholders": {
+            "searchProduct": "Enter product code (e.g. WM-001)",
+            "searchCustomer": "Search customer by name or phone",
+            "selectPriceType": "Select Price Type"
+        },
+        "actions": {
+            "searching": "Searching...",
+            "addProduct": "Add Product",
+            "removeProduct": "Remove",
+            "clearProduct": "Clear",
+            "createSelling": "Save Invoice",
+            "saving": "Saving Invoice..."
+        },
+        "messages": {
+            "noProductFound": "No product found for this code.",
+            "noCustomerFound": "No customer found for this search.",
+            "searchFailed": "Failed to search product.",
+            "customerSearchFailed": "Failed to search customer.",
+            "createdSuccess": "Invoice saved successfully.",
+            "createFailed": "Failed to save invoice."
+        },
+        "inventoryConfirmation": {
+            "title": "Insufficient inventory",
+            "message": "Some products do not have enough stock. Proceeding will add the missing quantities and complete the sale.",
+            "requested": "Requested",
+            "available": "Available",
+            "missing": "Missing",
+            "cancel": "Cancel",
+            "proceed": "Proceed"
+        },
+        "pos": {
+            "catalog": "Products",
+            "searchLabel": "Search products",
+            "searchPlaceholder": "Search by name or code, or scan a barcode (F2)",
+            "categories": "Categories",
+            "allCategories": "All",
+            "gridHint": "Type a product name or code, or pick a category to see its products.",
+            "available": "In stock",
+            "currentInvoice": "Current invoice",
+            "changeProduct": "Change product",
+            "increase": "Increase",
+            "decrease": "Decrease",
+            "clearInvoice": "Clear invoice",
+            "required": "Required",
+            "ok": "OK"
+        }
+    },
+    "creditSalePage": {
+        "title": "Sale On Credit",
+        "subtitle": "Prepare a customer credit invoice, add items, and record the upfront payment before saving.",
+        "fields": {
+            "customerInformation": "Customer Information",
+            "searchCustomer": "Search Customer",
+            "customerName": "Customer Name",
+            "customerPhone": "Customer Phone",
+            "saleDate": "Sale Date",
+            "downPayment": "Down Payment",
+            "creditItems": "Credit Sale Items",
+            "searchProduct": "Search Product",
+            "unitPrice": "Unit Price",
+            "quantity": "Quantity",
+            "lineTotal": "Line Total",
+            "productsCount": "Products Count",
+            "totalQuantity": "Total Quantity",
+            "subtotal": "Subtotal",
+            "discountPercentage": "Discount Percentage",
+            "discountAmount": "Discount Amount",
+            "shippingFees": "Shipping Fees",
+            "financedAmount": "Remaining Amount",
+            "totalReceivable": "Total Receivable"
+        },
+        "placeholders": {
+            "searchCustomer": "Search customer by name or phone"
+        },
+        "actions": {
+            "searching": "Searching...",
+            "addItem": "Add Item",
+            "removeItem": "Remove Item",
+            "clearItem": "Clear Item",
+            "createCreditSale": "Save Credit Sale",
+            "savingCreditSale": "Saving Credit Sale...",
+            "reviewCreditSale": "Review Credit Sale",
+            "resetDraft": "Reset Draft"
+        },
+        "messages": {
+            "completeRequired": "Complete the required customer and item details before reviewing the credit sale.",
+            "downPaymentExceeded": "Down payment cannot be greater than the total receivable amount.",
+            "noProductFound": "No product found for this search.",
+            "noCustomerFound": "No customer found for this search.",
+            "searchFailed": "Failed to search product.",
+            "customerSearchFailed": "Failed to search customer.",
+            "createdSuccess": "Credit sale saved successfully.",
+            "createFailed": "Failed to save credit sale."
+        },
+        "dialog": {
+            "title": "Credit File Ready",
+            "subtitle": "Use this snapshot to confirm the customer, sale date, and remaining balance before saving.",
+            "close": "Close Review"
+        },
+        "form": {
+            "title": "New credit invoice",
+            "customer": "Customer",
+            "newCustomer": "+ New customer",
+            "items": "Items",
+            "product": "Product",
+            "addItemPlaceholder": "+ Add an item by name or code (F2)",
+            "netTotal": "Invoice net total",
+            "required": "Required",
+            "ok": "OK",
+            "remove": "Remove",
+            "changeProduct": "Change product",
+            "summary": "Invoice summary",
+            "dueDate": "Due date",
+            "notes": "Note",
+            "optional": "Optional"
+        },
+        "list": {
+            "subtitle": "Invoices that still have money due, and the payments made on them.",
+            "new": "New credit invoice",
+            "kpiCount": "Invoices",
+            "kpiCountNote": "Matching the search and status",
+            "kpiRemaining": "Remaining",
+            "kpiOverdue": "Overdue",
+            "onThisPage": "On the shown page",
+            "searchPlaceholder": "Search by customer name or phone",
+            "statusLabel": "Status",
+            "filter": {
+                "all": "All",
+                "pending": "Due",
+                "partially_paid": "Partly paid",
+                "paid": "Paid",
+                "Reactionary": "Returned"
+            },
+            "number": "No.",
+            "customer": "Customer",
+            "date": "Date",
+            "total": "Total",
+            "paid": "Paid",
+            "remaining": "Remaining",
+            "due": "Due:",
+            "pay": "Payment",
+            "empty": "No credit invoices.",
+            "panelTitle": "Record a payment on an invoice",
+            "nothingDue": "Nothing is due on this invoice.",
+            "paymentSaved": "Payment saved.",
+            "customerPage": "Customer page (return / delete)",
+            "previousPayments": "Previous payments",
+            "pick": "Pick an invoice from the table.",
+            "loadFailed": "Could not load credit invoices.",
+            "status": {
+                "pending": "Due",
+                "partially_paid": "Partly paid",
+                "paid": "Paid",
+                "reactionary": "Returned",
+                "unknown": "Unknown",
+                "overdue": "Overdue"
+            }
+        }
+    },
+    "invoiceHistoryPage": {
+        "filters": {
+            "categoryId": "Category ID",
+            "productId": "Product ID",
+            "customerName": "Customer Name",
+            "customerPhone": "Customer Phone",
+            "sellingDate": "Selling Date",
+            "placeholders": {
+                "categoryId": "Select category",
+                "productId": "Select product",
+                "customerName": "Enter customer name",
+                "customerPhone": "Enter customer phone"
+            },
+            "actions": {
+                "apply": "Apply",
+                "reset": "Reset"
+            }
+        },
+        "tableHeaders": {
+            "invoiceNumber": "Invoice Number",
+            "itemCount": "Items Count",
+            "customer": "Customer",
+            "date": "Date",
+            "quantity": "Quantity",
+            "discountAmount": "Discount Amount",
+            "shippingFees": "Shipping Fees",
+            "totalPrice": "Total Price"
+        },
+        "actions": {
+            "createReturn": "Return Items"
+        },
+        "returnDialog": {
+            "title": "Create Cash Return",
+            "subtitle": "Choose the returned quantities. This restores inventory without deleting the invoice.",
+            "returnDate": "Return Date",
+            "note": "Note",
+            "notePlaceholder": "Add an optional return note",
+            "items": "Returned Items",
+            "available": "Available",
+            "reason": "Return reason",
+            "returnAll": "Return All",
+            "clear": "Clear",
+            "selectionRequired": "Choose at least one item quantity to return."
+        },
+        "messages": {
+            "deleteConfirm": "Do you want to delete this invoice?",
+            "deleteInventoryWarning": "This deletes only the invoice row. Use Return Items to restore inventory.",
+            "deleteFailed": "Failed to delete invoice.",
+            "empty": "No invoices found.",
+            "invoiceWindowBlocked": "Allow pop-ups to open and save the invoice.",
+            "invoiceDownloadFailed": "Failed to open the invoice.",
+            "returnFailed": "Failed to create the return."
+        },
+        "s10": {
+            "subtitle": "Cash sale invoices, with their returns.",
+            "filters": "Invoice filters",
+            "type": "Type",
+            "status": "Status",
+            "cash": "Cash",
+            "refund": {
+                "none": "Normal",
+                "partial": "Partly returned",
+                "full": "Fully returned"
+            },
+            "range": "Showing {{from}}–{{to}} of {{total}} invoices",
+            "pageTotal": "· page total",
+            "prev": "Previous",
+            "next": "Next",
+            "detail": "Invoice details",
+            "returned": "Returned",
+            "subtotal": "Subtotal",
+            "refundedAmount": "Returned amount",
+            "print": "Print",
+            "pick": "Pick an invoice from the table.",
+            "product": "Product"
+        }
+    },
+    "profitReportPage": {
+        "title": "Products Profit Report",
+        "subtitle": "Review profit across all products and open invoice details by selecting a row.",
+        "filters": {
+            "categoryId": "Category",
+            "productId": "Product",
+            "dateFrom": "Date From",
+            "dateTo": "Date To",
+            "placeholders": {
+                "categoryId": "Select category",
+                "productId": "Select product"
+            },
+            "actions": {
+                "apply": "Apply",
+                "reset": "Reset"
+            }
+        },
+        "export": {
+            "year": "Year",
+            "yearPlaceholder": "Enter year",
+            "action": "Export PDF"
+        },
+        "tableHeaders": {
+            "index": "#",
+            "productName": "Product Name",
+            "categoryName": "Category Name",
+            "totalProfit": "Profit Value",
+            "lastSellingDate": "Last Selling Date",
+            "lastSellingPrice": "Last Selling Price"
+        },
+        "invoiceTypes": {
+            "selling": "Selling",
+            "creditSale": "Credit Sale",
+            "unknown": "Unknown"
+        },
+        "dialog": {
+            "title": "Invoice Details",
+            "sellingPrice": "Selling Price",
+            "purchasePrice": "Purchase Price",
+            "quantity": "Quantity",
+            "profit": "Profit",
+            "customerName": "Customer"
+        },
+        "messages": {
+            "empty": "No product profit rows found.",
+            "noInvoices": "No related invoices.",
+            "loadFailed": "Failed to load products profit report."
+        },
+        "s11": {
+            "period": "Period",
+            "periods": {
+                "all": "All time",
+                "month": "This month",
+                "sixMonths": "Last 6 months",
+                "year": "This year",
+                "custom": "Custom"
+            },
+            "kpis": {
+                "sales": "Sales",
+                "salesNote": "After invoice discounts",
+                "cost": "Cost of goods sold",
+                "costNote": "Quantity × purchase price",
+                "profit": "Gross profit",
+                "profitNote": "Before expenses",
+                "margin": "Profit margin",
+                "marginNote": "Profit per 100 of sales"
+            },
+            "chart": {
+                "title": "Profit by month",
+                "cash": "Cash",
+                "credit": "Credit"
+            },
+            "table": {
+                "title": "Products by profit",
+                "quantity": "Qty sold",
+                "sales": "Sales",
+                "margin": "Margin"
+            }
+        }
+    },
+    "customerPage": {
+        "title": "Customers",
+        "subtitle": "Store and manage customer names and phone numbers.",
+        "searchPlaceholder": "Search by customer name or phone",
+        "count": "customers",
+        "loading": "Loading customers...",
+        "empty": "No customers found.",
+        "form": {
+            "addTitle": "Add Customer",
+            "editTitle": "Edit Customer",
+            "name": "Customer Name",
+            "phone": "Phone Number",
+            "placeholders": {
+                "name": "Enter customer name",
+                "phone": "Enter customer phone"
+            },
+            "validation": {
+                "name": "Customer name is required.",
+                "phone": "Customer phone is required."
+            }
+        },
+        "actions": {
+            "search": "Search",
+            "reset": "Reset",
+            "create": "Save Customer",
+            "update": "Update Customer",
+            "cancelEdit": "Cancel Edit",
+            "viewDetails": "View Details",
+            "edit": "Change",
+            "delete": "Delete",
+            "deleteWithRestore": "Delete and Restore Products",
+            "deleteWithoutRestore": "Delete Customer Only"
+        },
+        "messages": {
+            "deleteTitle": "Delete Customer",
+            "deleteConfirm": "Do you want to delete this customer?",
+            "restoreCreditInvoicesTitle": "Restore Credit Invoices?",
+            "restoreCreditInvoicesConfirm": "This customer only has fully paid credit invoices. Choose whether to restore the invoice products to inventory before deleting the customer data.",
+            "relatedCreditInvoices": "Related credit invoices"
+        },
+        "s10": {
+            "allCustomers": "All customers",
+            "indebted": "Owe money",
+            "filter": "Filter",
+            "all": "All",
+            "balance": "Balance",
+            "since": "Customer since",
+            "owes": "Owes",
+            "settled": "Settled",
+            "phoneUnique": "Must not repeat another customer's phone",
+            "errorTitle": "Something went wrong",
+            "ok": "OK"
+        }
+    },
+    "customerDetailsPage": {
+        "title": "Customer Details",
+        "subtitle": "Review customer profile and all credit-sale invoices.",
+        "labels": {
+            "customerId": "Customer ID",
+            "updatedAt": "Updated At",
+            "lastCashSaleDate": "Last Cash Sale",
+            "lastCreditSaleDate": "Last Credit Sale",
+            "lastCreditSalePaymentDate": "Last Credit Payment",
+            "statusBreakdown": "Credit Status Breakdown",
+            "notAvailable": "N/A",
+            "overdue": "Overdue"
+        },
+        "summary": {
+            "totalInvoices": "Total Invoices",
+            "openInvoices": "Open Invoices",
+            "totalCredit": "Total Credit",
+            "paidAmount": "Paid Amount",
+            "remainingAmount": "Remaining Amount",
+            "pendingInvoices": "Pending Invoices",
+            "partiallyPaidInvoices": "Partially Paid",
+            "paidInvoices": "Paid Invoices",
+            "overdueInvoices": "Overdue Invoices"
+        },
+        "history": {
+            "empty": "No credit-sale invoices found for this customer.",
+            "sellingDate": "Selling Date",
+            "dueDate": "Due Date",
+            "items": "Items / Qty",
+            "products": "Products",
+            "payments": "Payments",
+            "paymentsCount": "Payments",
+            "paymentDate": "Payment Date",
+            "quantity": "Quantity",
+            "unitPrice": "Unit Price",
+            "totalPrice": "Total Price",
+            "discountAmount": "Discount Amount",
+            "discountPercentage": "Discount %",
+            "shippingFees": "Shipping Fees",
+            "paidAmount": "Paid",
+            "remainingAmount": "Remaining",
+            "notes": "Notes"
+        },
+        "status": {
+            "pending": "Pending",
+            "partially_paid": "Partially Paid",
+            "paid": "Paid",
+            "reactionary": "Reactionary",
+            "unknown": "Unknown"
+        },
+        "actions": {
+            "addPayment": "Add Payment",
+            "addRefund": "Return Items",
+            "printInvoice": "Print Invoice",
+            "deleteInvoice": "Delete Invoice"
+        },
+        "deleteDialog": {
+            "title": "Delete Credit Invoice",
+            "confirm": "Do you want to delete this credit invoice?",
+            "inventoryWarning": "This deletes only the invoice row. Use Return Items to restore inventory."
+        },
+        "paymentDialog": {
+            "title": "Record Payment",
+            "subtitle": "Add a new payment for this credit invoice and refresh the customer balance.",
+            "invoiceTarget": "Apply Payment To",
+            "firstInvoice": "First Invoice",
+            "lastInvoice": "Last Invoice",
+            "targetRequired": "Select either the first invoice or the last invoice.",
+            "amount": "Payment Amount",
+            "amountRequired": "Enter a payment amount greater than zero.",
+            "paymentDate": "Payment Date",
+            "note": "Note",
+            "notePlaceholder": "Add an optional payment note",
+            "cancel": "Cancel",
+            "save": "Save Payment",
+            "saving": "Saving..."
+        },
+        "refundDialog": {
+            "title": "Record Refund",
+            "subtitle": "Return all items in this invoice or enter partial quantities for the products being refunded.",
+            "refundDate": "Refund Date",
+            "note": "Refund Note",
+            "notePlaceholder": "Add a refund note",
+            "itemsTitle": "Refund Items",
+            "availableQuantity": "Available Quantity",
+            "returnQuantity": "Return Quantity",
+            "selectionRequired": "Choose at least one item quantity to refund.",
+            "quantityExceeded": "Return quantity cannot be greater than the available quantity.",
+            "returnAll": "Return All",
+            "clear": "Clear",
+            "cancel": "Cancel",
+            "save": "Save Refund",
+            "saving": "Saving..."
+        },
+        "messages": {
+            "loading": "Loading customer details...",
+            "loadFailed": "Failed to load customer details.",
+            "notFound": "Customer details were not found.",
+            "paymentFailed": "Failed to record payment.",
+            "refundFailed": "Failed to record refund.",
+            "deleteInvoiceFailed": "Failed to delete credit invoice."
+        },
+        "s10": {
+            "back": "All customers",
+            "since": "Customer since",
+            "balanceDue": "Balance due",
+            "collect": "Collect payment",
+            "tabs": {
+                "statement": "Statement",
+                "invoices": "Invoices",
+                "payments": "Payments",
+                "returns": "Returns"
+            },
+            "statement": {
+                "legend": "Debit = owes · Credit = paid",
+                "note": "Built from credit invoices, their payments and returns; cash sales do not affect the balance.",
+                "date": "Date",
+                "description": "Description",
+                "document": "Document",
+                "debit": "Debit",
+                "credit": "Credit",
+                "balance": "Balance",
+                "total": "Total",
+                "invoice": "Credit invoice",
+                "afterReturns": "(net after returns)",
+                "payment": "Payment",
+                "refund": "Return",
+                "refundReleased": "Return — paid money released",
+                "empty": "No transactions."
+            },
+            "invoice": "Invoice",
+            "amount": "Amount",
+            "items": "Items",
+            "noPayments": "No payments.",
+            "noReturns": "No returns."
+        }
+    },
+    "returnsPage": {
+        "title": "Returns Log",
+        "subtitle": "Review and export cash and credit returns.",
+        "summary": {
+            "label": "Returns summary",
+            "cash": "Total Cash Returns",
+            "credit": "Total Credit Returns",
+            "amount": "Total Returned Amount",
+            "items": "Total Returned Items"
+        },
+        "types": {
+            "all": "All",
+            "cash": "Cash",
+            "credit": "Credit"
+        },
+        "fields": {
+            "returnDate": "Return Date",
+            "returnType": "Return Type",
+            "type": "Type",
+            "invoiceNumber": "Invoice Number",
+            "invoiceId": "Invoice ID",
+            "customerName": "Customer Name",
+            "customerPhone": "Customer Phone",
+            "productName": "Product Name",
+            "productCode": "Product Code",
+            "itemsCount": "Items Count",
+            "quantity": "Quantity",
+            "price": "Price",
+            "total": "Total",
+            "returnReason": "Return Reason",
+            "dateFrom": "Date From",
+            "dateTo": "Date To",
+            "note": "Note",
+            "subtotalReturnedAmount": "Subtotal Returned Amount",
+            "discountAmount": "Discount Amount",
+            "shippingFees": "Shipping Fees",
+            "finalReturnedAmount": "Final Returned Amount",
+            "actions": "Actions"
+        },
+        "actions": {
+            "search": "Search",
+            "reset": "Reset",
+            "export": "Export Excel",
+            "exporting": "Exporting…",
+            "viewDetails": "View Details",
+            "tryAgain": "Try Again",
+            "close": "Close"
+        },
+        "dialog": {
+            "title": "Return Details",
+            "invoice": "Invoice",
+            "returnedItems": "Returned Items",
+            "closeAria": "Close return details"
+        },
+        "messages": {
+            "loading": "Loading returns…",
+            "loadingDetails": "Loading details…",
+            "empty": "No returns found",
+            "noItems": "No returned items",
+            "noNote": "No note provided.",
+            "loadFailed": "Failed to load returns. Please try again.",
+            "detailsLoadFailed": "Failed to load return details.",
+            "exportSuccess": "Returns exported successfully.",
+            "exportFailed": "Failed to export returns.",
+            "invalidDateRange": "Date From cannot be later than Date To."
+        },
+        "pagination": {
+            "label": "Returns pagination",
+            "itemsPerPage": "Items per page:",
+            "next": "Next page",
+            "previous": "Previous page",
+            "first": "First page",
+            "last": "Last page",
+            "range": "{{start}} – {{end}} of {{total}}"
+        },
+        "s10": {
+            "newReturn": "New return",
+            "wizard": {
+                "subtitle": "Pick the invoice, choose items and quantities, then confirm.",
+                "backToLog": "Back to the returns log",
+                "steps": "Return steps",
+                "step1": "Choose invoice",
+                "step2": "Items and quantities",
+                "step3": "Confirm and refund",
+                "searchPlaceholder": "Customer name or phone",
+                "noInvoices": "No invoices match this search.",
+                "remaining": "Remaining",
+                "changeInvoice": "Change invoice",
+                "sold": "Sold",
+                "returnedBefore": "Returned before",
+                "returnNow": "Return now",
+                "whereMoney": "Where does the money go?",
+                "outcomeCash": "Cash invoice: the returned amount is given back to the customer in cash.",
+                "outcomeCredit": "Credit invoice: the amount is deducted from what the customer owes; anything above that goes to their other open invoices or back in cash (decided automatically).",
+                "outcomeStock": "Returned quantities go back to stock automatically.",
+                "summary": "Return summary",
+                "estimate": "Return value (estimate)",
+                "estimateNote": "Before the invoice discount; the final amount is calculated on save.",
+                "next": "Next",
+                "confirm": "Confirm return",
+                "back": "Back to items",
+                "saved": "Return recorded.",
+                "saveFailed": "Failed to record the return.",
+                "searchFailed": "Failed to search invoices."
+            }
+        }
+    },
+    "backupPage": {
+        "title": "Backup and restore",
+        "subtitle": "Available on the main PC only.",
+        "create": {
+            "description": "Saves all of the program's data in one file. Keep the file on a USB drive or another computer so the data survives if this PC fails.",
+            "button": "Create a backup now",
+            "working": "Creating the backup...",
+            "done": "Backup saved: {{collections}} collections, {{documents}} records ({{size}} MB).",
+            "sameDrive": "This backup is on the same drive as the program's data ({{drive}}), so it does not count as a copy outside this PC. Copy the file to a USB drive, an external disk or another partition."
+        },
+        "restore": {
+            "title": "Restore from a backup",
+            "description": "Replaces all current data with the contents of the backup file. Before it starts, the program saves a copy of the current data automatically, and client PCs are disconnected until the restore finishes.",
+            "button": "Choose a file and restore",
+            "working": "Restoring...",
+            "done": "Restore finished: {{documents}} records in {{collections}} collections.",
+            "safety": "The data from before the restore is saved here:"
+        },
+        "safety": {
+            "title": "Backups folder on this PC",
+            "description": "The program keeps the daily backups (the last 14) and a copy of the data from before each restore (the last 5) in the backups folder on this PC.",
+            "openFolder": "Open the backups folder"
+        },
+        "status": {
+            "title": "Backup status",
+            "lastBackup": "Last backup: {{date}}",
+            "kind": {
+                "auto": "(daily, automatic)",
+                "manual": "(manual)"
+            },
+            "none": "There is no backup yet.",
+            "daily": "The program saves an automatic backup once a day and keeps the last {{keep}}. The server pauses for a few seconds while it saves.",
+            "autoError": "The last daily backup failed ({{date}}): {{message}} The program will try again later."
+        },
+        "warning": {
+            "title": "We recommend keeping a backup on a USB drive or another disk",
+            "never": "No backup has been saved on a drive other than the program's data drive yet.",
+            "since": "The last backup on another drive was on {{date}}, more than {{days}} days ago.",
+            "advice": "If the program's data drive ({{drive}}) fails, the backups on it are lost too. Create a backup and save it on a USB drive, an external disk or another partition, or choose a folder on another drive below."
+        },
+        "copy": {
+            "title": "Extra copy on a USB drive or another disk",
+            "description": "The program copies every daily backup to this folder and keeps the last 14 there. If the folder is not available at that time it is skipped, and the latest backup is copied once it is.",
+            "none": "No folder chosen.",
+            "choose": "Choose a folder",
+            "change": "Change folder",
+            "clear": "Stop the extra copy",
+            "copied": "The latest daily backup was copied to this folder on {{date}}.",
+            "unavailable": "The folder is not available right now (is the USB drive plugged in?). The copy happens automatically once it is.",
+            "failed": "Could not copy to this folder: {{message}}",
+            "waiting": "The next daily backup will be copied to this folder.",
+            "sameDrive": "This folder is on the same drive as the program's data ({{drive}}), so it does not protect the data if that drive fails and does not count as a copy outside this PC. Choose a folder on a USB drive, an external disk or another partition."
+        },
+        "progress": {
+            "backup": "Saving data... {{done}} of {{total}}",
+            "safety-backup": "Saving a copy of the current data... {{done}} of {{total}}",
+            "restoring": "Restoring data... {{done}} of {{total}}",
+            "rolling-back": "The restore failed; putting the previous data back..."
+        },
+        "showFile": "Show the file",
+        "s11": {
+            "autoTitle": "Automatic backup",
+            "autoOn": "On",
+            "autoCount": "Daily backups saved now: {{count}}",
+            "autoDir": "Daily backups folder",
+            "destination": "Folder"
+        }
+    },
+    "invoicePrint": {
+        "salesTitle": "Sales Invoice",
+        "creditTitle": "Credit Sales Invoice",
+        "systemNote": "This invoice was generated electronically by {{appName}}",
+        "taxNumber": "Tax No.",
+        "commercialRegister": "Commercial Reg."
+    },
+    "shopProfilePage": {
+        "title": "Shop Profile",
+        "subtitle": "These details appear in the header and footer of printed invoices.",
+        "loading": "Loading shop profile...",
+        "fields": {
+            "name": "Shop name",
+            "address": "Address",
+            "phones": "Phone numbers",
+            "phone": "Phone",
+            "taxNumber": "Tax number",
+            "commercialRegister": "Commercial register",
+            "invoiceFooter": "Invoice footer",
+            "logo": "Shop logo"
+        },
+        "hints": {
+            "invoiceFooter": "Text printed at the bottom of every invoice, such as a return policy or a thank-you note."
+        },
+        "validation": {
+            "nameRequired": "Shop name is required"
+        },
+        "logo": {
+            "none": "No logo",
+            "upload": "Upload logo",
+            "change": "Change logo",
+            "remove": "Remove logo",
+            "hint": "An image of 500 KB or less.",
+            "tooLarge": "The image is larger than 500 KB",
+            "invalidType": "Please choose an image file",
+            "readFailed": "Could not read the image file"
+        },
+        "actions": {
+            "addPhone": "Add phone number",
+            "removePhone": "Remove",
+            "save": "Save",
+            "saving": "Saving..."
+        },
+        "messages": {
+            "saved": "Shop profile saved",
+            "saveFailed": "Could not save the shop profile",
+            "loadFailed": "Could not load the shop profile. You can enter it and save it again."
+        },
+        "s11": {
+            "cancel": "Cancel",
+            "previewTitle": "On the invoice",
+            "sampleItem": "Sample item",
+            "sampleItem2": "Another sample item",
+            "total": "Total",
+            "previewHint": "Preview only: items and numbers are examples."
+        }
+    },
+    "nav": {
+        "label": "Main menu",
+        "groups": {
+            "sales": "Sales",
+            "inventory": "Inventory",
+            "treasury": "Treasury",
+            "accounting": "Accounting",
+            "admin": "Administration"
+        },
+        "items": {
+            "home": "Home",
+            "pos": "Point of sale",
+            "credit": "Credit sales",
+            "invoices": "Invoice history",
+            "returns": "Returns",
+            "customers": "Customers",
+            "products": "Products & categories",
+            "purchases": "Purchases",
+            "suppliers": "Suppliers",
+            "cash": "Cash boxes & shift",
+            "expenses": "Expenses",
+            "accounts": "Accounts & entries",
+            "reports": "Financial reports",
+            "profit": "Profit report",
+            "users": "Users & permissions",
+            "shop": "Shop profile",
+            "backup": "Backup"
+        },
+        "collapse": "Collapse menu",
+        "expand": "Expand menu",
+        "openMenu": "Open menu",
+        "closeMenu": "Close menu",
+        "back": "Back",
+        "language": "Language",
+        "theme": "Theme",
+        "themeLight": "Light",
+        "themeDark": "Dark",
+        "deviceMain": "Main PC",
+        "deviceClient": "Client PC",
+        "categories": {
+            "empty": "No categories yet",
+            "edit": "Edit category",
+            "delete": "Delete category",
+            "imageAlt": "Category image",
+            "imagePlaceholder": "Image",
+            "optional": "Optional",
+            "specificationsHint": "These fields appear in the form of every product in this category",
+            "specificationLabel": "Specification",
+            "addSpecification": "+ Specification",
+            "cancel": "Cancel",
+            "close": "Close",
+            "ok": "OK",
+            "error": "Something went wrong"
+        }
+    },
+    "productsPage": {
+        "title": "Products & categories",
+        "newProduct": "New product",
+        "categories": "Categories",
+        "searchPlaceholder": "Search by name or code",
+        "lowStockOnly": "Low stock only",
+        "columns": {
+            "code": "Code",
+            "name": "Product",
+            "stock": "Stock",
+            "purchase": "Purchase price",
+            "retail": "Retail",
+            "wholesale": "Wholesale",
+            "discount": "Discount"
+        },
+        "percent": "{{value}}%",
+        "empty": "No products in this category yet.",
+        "noMatches": "No matching products.",
+        "allProducts": "All products",
+        "thresholdTitle": "Alert at {{count}}"
+    },
+    "productForm": {
+        "newTitle": "New product",
+        "editTitle": "Edit product",
+        "cancel": "Cancel",
+        "saveAndAddAnother": "Save and add another",
+        "basic": "Basic details",
+        "category": "Category",
+        "categoryEditHint": "A saved product's category is not changed here.",
+        "codeHint": "Suggested after the category's last code.",
+        "prices": "Prices",
+        "retailProfit": "Retail profit: {{amount}} ({{percent}}%)",
+        "wholesaleProfit": "Wholesale profit: {{amount}} ({{percent}}%)",
+        "belowPurchaseHint": "A purchase price above the retail or wholesale price is not accepted.",
+        "specsOf": "\"{{name}}\" specifications",
+        "image": "Image",
+        "dropImage": "Drop an image here or click to upload",
+        "stock": "Stock",
+        "optional": "Optional",
+        "lowStockThreshold": "Alert me when stock reaches",
+        "lowStockThresholdHint": "Optional. Empty = 5. Shows in \"Running low\"."
+    },
+    "dashboard": {
+        "greeting": {
+            "morning": "Good morning",
+            "evening": "Good evening"
+        },
+        "actions": {
+            "cash": "Cash invoice",
+            "credit": "Credit invoice",
+            "collect": "Collect payment"
+        },
+        "loading": "Loading today's summary...",
+        "loadFailed": "Could not load today's summary.",
+        "retry": "Retry",
+        "kpis": {
+            "salesToday": "Today's sales",
+            "upFromYesterday": "+{{percent}}% vs yesterday",
+            "downFromYesterday": "−{{percent}}% vs yesterday",
+            "noYesterday": "No sales yesterday to compare",
+            "invoicesToday": "Invoices today",
+            "invoicesSplit": "{{cash}} cash · {{credit}} credit",
+            "outstanding": "Credit owed by customers",
+            "overdue": "{{count}} overdue invoices ({{amount}})",
+            "customersWithBalance": "From {{count}} customers"
+        },
+        "chart": {
+            "title": "Sales, last 7 days",
+            "cash": "Cash",
+            "credit": "Credit"
+        },
+        "lowStock": {
+            "title": "Running low",
+            "all": "All products",
+            "threshold": "Alert at {{count}}"
+        },
+        "recent": {
+            "title": "Latest invoices",
+            "history": "Invoice history",
+            "number": "No.",
+            "customer": "Customer",
+            "type": "Type",
+            "total": "Total",
+            "time": "Time",
+            "cash": "Cash",
+            "credit": "Credit"
+        },
+        "empty": {
+            "welcomeTitle": "Welcome to Nota",
+            "welcomeText": "Start by adding your products and shop details, then make your first invoice.",
+            "addProducts": "Add products",
+            "shopProfile": "Shop profile",
+            "noWeekSales": "No sales in the last 7 days",
+            "noWeekSalesText": "The chart appears with the first invoice.",
+            "noLowStock": "Every product is above its alert level",
+            "noInvoices": "No invoices yet"
+        }
+    }
+}

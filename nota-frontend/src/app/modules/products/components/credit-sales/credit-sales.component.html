@@ -1,0 +1,230 @@
+<!-- New credit invoice (docs/design/screens/NewCreditSale.dc.html). Stage 9: layout only; payload and validation unchanged. -->
+<div class="cs">
+  <nota-page-header [title]="'creditSalePage.form.title' | translate" [subtitle]="'creditSalePage.subtitle' | translate"
+    backLink="/credit-sales" [backLabel]="'nav.items.credit' | translate" />
+
+  <form [formGroup]="creditSaleForm" class="cs__form" novalidate>
+    <!-- Customer -->
+    <section class="nota-card cs__customer" [attr.aria-label]="'creditSalePage.form.customer' | translate">
+      <div class="cs__card-head">
+        <h2 class="nota-section-title">{{ 'creditSalePage.fields.customerInformation' | translate }}</h2>
+        <button type="button" notaButton (click)="startNewCustomer()">{{ 'creditSalePage.form.newCustomer' | translate }}</button>
+      </div>
+
+      <div class="cs__fields">
+        <nota-form-field class="cs__span" [label]="'creditSalePage.fields.searchCustomer' | translate" forId="csCustomerSearch"
+          [error]="customerSearchError">
+          <div class="nota-ac">
+            <input id="csCustomerSearch" type="text" class="nota-input" autocomplete="off" [value]="customerSearchInputValue"
+              [placeholder]="'creditSalePage.placeholders.searchCustomer' | translate"
+              (input)="onCustomerSearchInputChange($event)" (focus)="onCustomerSearchInputFocus()" (blur)="onCustomerSearchInputBlur()" />
+            @if (isSearchingCustomers) {
+              <div class="nota-ac__loading" role="status">{{ 'creditSalePage.actions.searching' | translate }}</div>
+            }
+            @if (showCustomerSuggestionPanel && customerOptions.length > 0) {
+              <ul class="nota-ac__panel" role="listbox">
+                @for (customer of customerOptions; track customer.id) {
+                  <li class="nota-ac__item" role="option" (mousedown)="onCustomerOptionSelect(customer)">{{ customer.displayLabel }}</li>
+                }
+              </ul>
+            }
+          </div>
+        </nota-form-field>
+
+        <nota-form-field [label]="'creditSalePage.fields.customerName' | translate" forId="csCustomerName" [required]="true"
+          [error]="isFieldInvalid('customerName') ? ('creditSalePage.form.required' | translate) : null">
+          <input id="csCustomerName" type="text" class="nota-input" formControlName="customerName" (input)="clearSelectedCustomerIfEdited()" />
+        </nota-form-field>
+
+        <nota-form-field [label]="'creditSalePage.fields.customerPhone' | translate" forId="csCustomerPhone" [required]="true"
+          [error]="isFieldInvalid('customerPhone') ? ('creditSalePage.form.required' | translate) : null">
+          <input id="csCustomerPhone" type="text" class="nota-input" dir="ltr" formControlName="customerPhone" (input)="clearSelectedCustomerIfEdited()" />
+        </nota-form-field>
+
+        <nota-form-field [label]="'creditSalePage.fields.saleDate' | translate" forId="creditSaleDate" [required]="true">
+          <p-datepicker formControlName="sellingDate" [showIcon]="true" [iconDisplay]="'input'" inputId="creditSaleDate"
+            appendTo="body" styleClass="cs__control" />
+        </nota-form-field>
+      </div>
+    </section>
+
+    <div class="cs__layout">
+      <!-- Items -->
+      <section class="nota-card cs__items" [attr.aria-label]="'creditSalePage.form.items' | translate">
+        <h2 class="nota-section-title">{{ 'creditSalePage.fields.creditItems' | translate }}</h2>
+        <div class="nota-table-wrap">
+          <table class="nota-table cs__table" formArrayName="items">
+            <thead>
+              <tr>
+                <th>{{ 'creditSalePage.form.product' | translate }}</th>
+                <th class="num">{{ 'creditSalePage.fields.quantity' | translate }}</th>
+                <th class="num">{{ 'creditSalePage.fields.unitPrice' | translate }}</th>
+                <th class="num">{{ 'creditSalePage.fields.lineTotal' | translate }}</th>
+                <th><span class="nota-sr-only">{{ 'creditSalePage.form.remove' | translate }}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (itemGroup of lineItemControls; track trackLineItem($index); let index = $index) {
+                @let state = getLineItemState(index);
+                <tr [formGroupName]="index">
+                  <td class="cs__product">
+                    @if (state.selectedProduct) {
+                      <div class="cs__product-name" dir="auto">{{ state.selectedProduct.name }}</div>
+                      <div class="cs__product-meta">
+                        @if (state.selectedProduct.code) {<span dir="ltr">{{ state.selectedProduct.code }}</span>}
+                        @if (state.selectedProduct.categoryName) {<span>· {{ state.selectedProduct.categoryName }}</span>}
+                        <button type="button" class="cs__link" (click)="changeLineProduct(index)">{{ 'creditSalePage.form.changeProduct' | translate }}</button>
+                      </div>
+                    } @else {
+                      <div class="nota-ac">
+                        <input #lineSearch type="text" class="nota-input" autocomplete="off" [value]="state.searchInputValue"
+                          [attr.aria-label]="('creditSalePage.fields.searchProduct' | translate) + ' ' + (index + 1)"
+                          [placeholder]="'creditSalePage.form.addItemPlaceholder' | translate"
+                          (input)="onSearchInputChange(index, $event)" (focus)="onSearchInputFocus(index)" (blur)="onSearchInputBlur(index)" />
+                        @if (state.isSearching) {
+                          <div class="nota-ac__loading" role="status">{{ 'creditSalePage.actions.searching' | translate }}</div>
+                        }
+                        @if (state.showSuggestionPanel && state.productOptions.length > 0) {
+                          <ul class="nota-ac__panel" role="listbox">
+                            @for (item of state.productOptions; track item.id) {
+                              <li class="nota-ac__item" role="option" (mousedown)="onNativeOptionSelect(index, item)">{{ item.displayLabel }}</li>
+                            }
+                          </ul>
+                        }
+                      </div>
+                    }
+                    @if (state.searchError) {
+                      <p class="cs__msg" role="alert">{{ state.searchError }}</p>
+                    }
+                  </td>
+                  <td class="num cs__cell-input">
+                    <p-inputNumber formControlName="quantity" [mode]="'decimal'" [min]="1" [useGrouping]="false"
+                      [ariaLabel]="'creditSalePage.fields.quantity' | translate" styleClass="cs__control" inputStyleClass="cs__num-input" />
+                  </td>
+                  <td class="num cs__cell-input">
+                    <p-inputNumber formControlName="price" [mode]="'decimal'" [min]="0" [useGrouping]="false"
+                      [ariaLabel]="'creditSalePage.fields.unitPrice' | translate" styleClass="cs__control" inputStyleClass="cs__num-input" />
+                  </td>
+                  <td class="num cs__line-total">{{ getLineTotal(index) | notaMoney }}</td>
+                  <td>
+                    <button type="button" notaButton icon (click)="removeLineItem(index)"
+                      [attr.aria-label]="(lineItemControls.length === 1 ? 'creditSalePage.actions.clearItem' : 'creditSalePage.actions.removeItem') | translate"
+                      [title]="(lineItemControls.length === 1 ? 'creditSalePage.actions.clearItem' : 'creditSalePage.actions.removeItem') | translate">×</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <button type="button" notaButton class="cs__add" (click)="addItemAndFocus()">+ {{ 'creditSalePage.actions.addItem' | translate }}</button>
+      </section>
+
+      <!-- Totals -->
+      <aside class="nota-card cs__summary" [attr.aria-label]="'creditSalePage.form.summary' | translate">
+        <dl class="cs__rows">
+          <div><dt>{{ 'creditSalePage.fields.subtotal' | translate }}</dt><dd class="nota-num">{{ itemsSubtotal | notaMoney }}</dd></div>
+        </dl>
+        <div class="cs__fields">
+          <nota-form-field [label]="'creditSalePage.fields.discountAmount' | translate" forId="csDiscount"
+            [hint]="('creditSalePage.fields.discountPercentage' | translate) + ': ' + (discountPercentage | notaNumber) + '%'">
+            <p-inputNumber inputId="csDiscount" formControlName="discountAmount" [min]="0" [mode]="'decimal'" [useGrouping]="false"
+              styleClass="cs__control" inputStyleClass="cs__num-input" />
+          </nota-form-field>
+          <nota-form-field [label]="'creditSalePage.fields.shippingFees' | translate" forId="csShipping">
+            <p-inputNumber inputId="csShipping" formControlName="shippingFees" [min]="0" [mode]="'decimal'" [useGrouping]="false"
+              styleClass="cs__control" inputStyleClass="cs__num-input" />
+          </nota-form-field>
+        </div>
+        <dl class="cs__rows">
+          <div class="cs__net"><dt>{{ 'creditSalePage.form.netTotal' | translate }}</dt><dd class="nota-num">{{ totalReceivable | notaMoney }}</dd></div>
+        </dl>
+        <nota-form-field [label]="'creditSalePage.fields.downPayment' | translate" forId="csDownPayment"
+          [error]="isDownPaymentExceeded() ? ('creditSalePage.messages.downPaymentExceeded' | translate) : null">
+          <p-inputNumber inputId="csDownPayment" formControlName="downPayment" [min]="0" [mode]="'decimal'" [useGrouping]="false"
+            styleClass="cs__control" inputStyleClass="cs__num-input" />
+        </nota-form-field>
+        <div class="cs__fields">
+          <nota-form-field [label]="'creditSalePage.form.dueDate' | translate" forId="csDueDate" [hint]="'creditSalePage.form.optional' | translate">
+            <p-datepicker formControlName="dueDate" [showIcon]="true" [iconDisplay]="'input'" inputId="csDueDate" appendTo="body"
+              [showClear]="true" styleClass="cs__control" />
+          </nota-form-field>
+          <nota-form-field [label]="'creditSalePage.form.notes' | translate" forId="csNotes" [hint]="'creditSalePage.form.optional' | translate">
+            <input id="csNotes" type="text" class="nota-input" formControlName="notes" maxlength="1000" />
+          </nota-form-field>
+        </div>
+        <dl class="cs__rows">
+          <div class="cs__remaining"><dt>{{ 'creditSalePage.fields.financedAmount' | translate }}</dt><dd class="nota-num">{{ financedAmount | notaMoney }}</dd></div>
+          <div><dt>{{ 'creditSalePage.fields.productsCount' | translate }}</dt><dd class="nota-num">{{ productsCount | notaNumber }}</dd></div>
+          <div><dt>{{ 'creditSalePage.fields.totalQuantity' | translate }}</dt><dd class="nota-num">{{ totalQuantity | notaNumber }}</dd></div>
+        </dl>
+
+        @if (submitAttempted && (creditSaleForm.invalid || itemsSubtotal <= 0)) {
+          <p class="cs__msg" role="alert">{{ 'creditSalePage.messages.completeRequired' | translate }}</p>
+        }
+        @if (saveError && !errorDialogVisible) {
+          <p class="cs__msg" role="alert">{{ saveError }}</p>
+        }
+
+        <button type="button" notaButton="primary" size="lg" class="cs__primary" (click)="openReviewDialog()">
+          {{ 'creditSalePage.actions.reviewCreditSale' | translate }} <span class="cs__kbd" aria-hidden="true">(F9)</span>
+        </button>
+        <button type="button" notaButton (click)="resetDraft()">{{ 'creditSalePage.actions.resetDraft' | translate }}</button>
+      </aside>
+    </div>
+  </form>
+</div>
+
+<!-- Review -->
+<p-dialog [(visible)]="reviewDialogVisible" [modal]="true" [showHeader]="false" [draggable]="false" [resizable]="false"
+  styleClass="nota-p-dialog">
+  <nota-dialog-shell [title]="'creditSalePage.dialog.title' | translate" [closeLabel]="'creditSalePage.dialog.close' | translate"
+    (closed)="closeReviewDialog()">
+    <p class="cs__dialog-text">{{ 'creditSalePage.dialog.subtitle' | translate }}</p>
+    <dl class="cs__review">
+      <div><dt>{{ 'creditSalePage.fields.customerName' | translate }}</dt><dd>{{ creditSaleForm.get('customerName')?.value }}</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.customerPhone' | translate }}</dt><dd dir="ltr">{{ creditSaleForm.get('customerPhone')?.value || '-' }}</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.saleDate' | translate }}</dt><dd>{{ formatDisplayDate(creditSaleForm.get('sellingDate')?.value) }}</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.subtotal' | translate }}</dt><dd class="nota-num">{{ itemsSubtotal | notaMoney }}</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.discountPercentage' | translate }}</dt><dd class="nota-num">{{ discountPercentage | notaNumber }}%</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.shippingFees' | translate }}</dt><dd class="nota-num">{{ shippingFees | notaMoney }}</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.totalReceivable' | translate }}</dt><dd class="nota-num">{{ totalReceivable | notaMoney }}</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.downPayment' | translate }}</dt><dd class="nota-num">{{ creditSaleForm.get('downPayment')?.value || 0 | notaMoney }}</dd></div>
+      <div class="cs__remaining"><dt>{{ 'creditSalePage.fields.financedAmount' | translate }}</dt><dd class="nota-num">{{ financedAmount | notaMoney }}</dd></div>
+      @if (creditSaleForm.get('dueDate')?.value) {
+        <div><dt>{{ 'creditSalePage.form.dueDate' | translate }}</dt><dd>{{ formatDisplayDate(creditSaleForm.get('dueDate')?.value) }}</dd></div>
+      }
+      @if (creditSaleForm.get('notes')?.value?.trim()) {
+        <div><dt>{{ 'creditSalePage.form.notes' | translate }}</dt><dd>{{ creditSaleForm.get('notes')?.value }}</dd></div>
+      }
+    </dl>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="closeReviewDialog()">{{ 'creditSalePage.dialog.close' | translate }}</button>
+      <button type="button" notaButton="primary" [disabled]="isSaving" (click)="saveCreditSale()">
+        {{ (isSaving ? 'creditSalePage.actions.savingCreditSale' : 'creditSalePage.actions.createCreditSale') | translate }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Success -->
+<p-dialog [(visible)]="successDialogVisible" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false"
+  [resizable]="false" styleClass="nota-p-dialog">
+  <nota-dialog-shell [title]="'creditSalePage.messages.createdSuccess' | translate" [closeLabel]="'creditSalePage.form.ok' | translate"
+    (closed)="closeSuccessPopup()">
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton="primary" (click)="closeSuccessPopup()">{{ 'creditSalePage.form.ok' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Error -->
+<p-dialog [(visible)]="errorDialogVisible" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false"
+  [resizable]="false" styleClass="nota-p-dialog">
+  <nota-dialog-shell [title]="'creditSalePage.messages.createFailed' | translate" [closeLabel]="'creditSalePage.form.ok' | translate"
+    (closed)="closeErrorPopup()">
+    <p class="cs__dialog-text cs__msg" role="alert">{{ saveError || ('creditSalePage.messages.createFailed' | translate) }}</p>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton="primary" (click)="closeErrorPopup()">{{ 'creditSalePage.form.ok' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>

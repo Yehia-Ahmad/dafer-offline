@@ -1,0 +1,132 @@
+<!-- Shop profile (docs/design/screens/ShopProfile.dc.html). Stage 11: same GET / PUT shop-profile. -->
+<div class="sp">
+  <nota-page-header [title]="'shopProfilePage.title' | translate" [subtitle]="'shopProfilePage.subtitle' | translate" />
+
+  @if (loading()) {
+    <p class="sp__muted" role="status">{{ 'shopProfilePage.loading' | translate }}</p>
+  } @else {
+    @if (loadError()) {
+      <div class="sp__alert sp__alert--error" role="alert">{{ 'shopProfilePage.messages.loadFailed' | translate }}</div>
+    }
+
+    <div class="sp__layout">
+      <form class="nota-card sp__form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+        <div class="sp__logo">
+          <div class="sp__logo-box">
+            @if (logo(); as src) {
+              <img [src]="src" [alt]="'shopProfilePage.fields.logo' | translate" />
+            } @else {
+              <span>{{ 'shopProfilePage.logo.none' | translate }}</span>
+            }
+          </div>
+          <div class="sp__logo-actions">
+            <div class="sp__row">
+              <label class="nota-btn nota-btn--secondary sp__file">
+                {{ (logo() ? 'shopProfilePage.logo.change' : 'shopProfilePage.logo.upload') | translate }}
+                <input type="file" accept="image/*" hidden (change)="onLogoSelected($event)" />
+              </label>
+              @if (logo()) {
+                <button type="button" notaButton="danger" (click)="removeLogo()">{{ 'shopProfilePage.logo.remove' | translate }}</button>
+              }
+            </div>
+            <span class="nota-hint">{{ 'shopProfilePage.logo.hint' | translate }}</span>
+            @if (logoError(); as key) {
+              <span class="nota-error" role="alert">{{ key | translate }}</span>
+            }
+          </div>
+        </div>
+
+        <nota-form-field [label]="'shopProfilePage.fields.name' | translate" forId="sp-name" [required]="true"
+          [error]="showError('name') ? ('shopProfilePage.validation.nameRequired' | translate) : null">
+          <input id="sp-name" type="text" class="nota-input" formControlName="name" [maxLength]="limits.name" />
+        </nota-form-field>
+
+        <nota-form-field [label]="'shopProfilePage.fields.address' | translate" forId="sp-address">
+          <textarea id="sp-address" rows="2" class="nota-textarea" formControlName="address" [maxLength]="limits.address"></textarea>
+        </nota-form-field>
+
+        <div class="sp__phones">
+          <span class="nota-label">{{ 'shopProfilePage.fields.phones' | translate }}</span>
+          <div class="sp__phone-grid">
+            @for (phone of phones.controls; track $index; let i = $index) {
+              <div class="sp__phone">
+                <input type="tel" dir="ltr" class="nota-input sp__num sp__ltr" [formControl]="phone" [maxLength]="limits.phone"
+                  [attr.aria-label]="('shopProfilePage.fields.phone' | translate) + ' ' + (i + 1)" />
+                <button type="button" notaButton="danger" icon (click)="removePhone(i)"
+                  [attr.aria-label]="('shopProfilePage.actions.removePhone' | translate) + ' ' + (i + 1)"
+                  [title]="'shopProfilePage.actions.removePhone' | translate">×</button>
+              </div>
+            }
+          </div>
+          @if (phones.length < limits.phones) {
+            <button type="button" notaButton class="sp__add" (click)="addPhone()">+ {{ 'shopProfilePage.actions.addPhone' | translate }}</button>
+          }
+        </div>
+
+        <div class="sp__grid">
+          <nota-form-field [label]="'shopProfilePage.fields.taxNumber' | translate" forId="sp-tax">
+            <input id="sp-tax" type="text" dir="ltr" class="nota-input sp__num sp__ltr" formControlName="taxNumber" [maxLength]="limits.taxNumber" />
+          </nota-form-field>
+          <nota-form-field [label]="'shopProfilePage.fields.commercialRegister' | translate" forId="sp-cr">
+            <input id="sp-cr" type="text" dir="ltr" class="nota-input sp__num sp__ltr" formControlName="commercialRegister" [maxLength]="limits.commercialRegister" />
+          </nota-form-field>
+        </div>
+
+        <nota-form-field [label]="'shopProfilePage.fields.invoiceFooter' | translate" forId="sp-footer" [hint]="'shopProfilePage.hints.invoiceFooter' | translate">
+          <textarea id="sp-footer" rows="2" class="nota-textarea" formControlName="invoiceFooter" [maxLength]="limits.invoiceFooter"></textarea>
+        </nota-form-field>
+
+        <div class="sp__footer">
+          @if (outcome(); as result) {
+            <span class="sp__status" role="status" [class.is-error]="result.kind === 'error'">
+              @if (result.kind === 'saved') {
+                {{ 'shopProfilePage.messages.saved' | translate }}
+              } @else if (result.message) {
+                {{ result.message }}
+              } @else {
+                {{ 'shopProfilePage.messages.saveFailed' | translate }}
+              }
+            </span>
+          }
+          <button type="button" notaButton data-action="cancel" (click)="cancel()" [disabled]="saving()">{{ 'shopProfilePage.s11.cancel' | translate }}</button>
+          <button type="submit" notaButton="primary" data-action="save" [disabled]="saving()">
+            {{ (saving() ? 'shopProfilePage.actions.saving' : 'shopProfilePage.actions.save') | translate }}
+          </button>
+        </div>
+      </form>
+
+      <aside class="sp__preview-col" [attr.aria-label]="'shopProfilePage.s11.previewTitle' | translate">
+        <span class="sp__preview-title">{{ 'shopProfilePage.s11.previewTitle' | translate }}</span>
+        <div class="sp__paper" data-test="invoice-preview">
+          <div class="sp__paper-head">
+            @if (logo(); as src) {
+              <img class="sp__paper-logo" [src]="src" alt="" />
+            }
+            <strong class="sp__paper-name">{{ preview().name?.trim() || ('invoicePrint.salesTitle' | translate) }}</strong>
+            @if (preview().address?.trim()) {
+              <span>{{ preview().address.trim() }}</span>
+            }
+            @if (previewPhones()) {
+              <span class="nota-num" dir="ltr">{{ previewPhones() }}</span>
+            }
+            @if (preview().taxNumber?.trim()) {
+              <span>{{ 'invoicePrint.taxNumber' | translate }}: <span class="nota-num">{{ preview().taxNumber.trim() }}</span></span>
+            }
+            @if (preview().commercialRegister?.trim()) {
+              <span>{{ 'invoicePrint.commercialRegister' | translate }}: <span class="nota-num">{{ preview().commercialRegister.trim() }}</span></span>
+            }
+          </div>
+          <div class="sp__paper-line"><span>{{ 'invoicePrint.salesTitle' | translate }}</span><span class="nota-num">#125</span></div>
+          <div class="sp__paper-line"><span>{{ 'shopProfilePage.s11.sampleItem' | translate }} × 3</span><span class="nota-num">180</span></div>
+          <div class="sp__paper-line"><span>{{ 'shopProfilePage.s11.sampleItem2' | translate }} × 1</span><span class="nota-num">150</span></div>
+          <div class="sp__paper-total"><span>{{ 'shopProfilePage.s11.total' | translate }}</span><span class="nota-num">330</span></div>
+          @if (preview().invoiceFooter?.trim()) {
+            <span class="sp__paper-footer">{{ preview().invoiceFooter.trim() }}</span>
+          }
+          <span class="sp__paper-note">{{ 'invoicePrint.systemNote' | translate: { appName: appName() } }}</span>
+        </div>
+        <span class="nota-hint">{{ 'shopProfilePage.s11.previewHint' | translate }}</span>
+      </aside>
+    </div>
+  }
+</div>

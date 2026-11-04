@@ -1,0 +1,460 @@
+// Nota shared UI classes (docs/design/NOTA_DESIGN_SYSTEM.md › Components).
+// Imported before Tailwind utilities, so utilities can still adjust them.
+// The Angular building blocks in src/app/modules/shared/ui/ use these classes.
+
+// ---------- Buttons ----------
+.nota-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--touch-target);
+  padding: 0 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.nota-btn--primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--on-brand);
+  font-weight: 700;
+
+  &:hover:not(:disabled) {
+    background: var(--brand-hover);
+    border-color: var(--brand-hover);
+  }
+}
+
+.nota-btn--danger {
+  color: var(--danger);
+
+  &:hover:not(:disabled) {
+    background: var(--danger-soft);
+  }
+}
+
+.nota-btn--lg {
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: var(--radius-control-lg);
+  font-size: 15px;
+}
+
+.nota-btn--icon {
+  width: var(--touch-target);
+  padding: 0;
+  font-size: 20px;
+  font-weight: 400;
+}
+
+// ---------- Form fields ----------
+.nota-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nota-label {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.nota-input,
+.nota-select,
+.nota-textarea {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: 11px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+
+  &::placeholder {
+    color: var(--text-muted);
+    opacity: 0.8;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent);
+  }
+
+  &:disabled {
+    background: var(--surface-2);
+    color: var(--text-muted);
+  }
+}
+
+.nota-textarea {
+  resize: vertical;
+}
+
+.nota-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.nota-error {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--danger);
+}
+
+.nota-field--invalid {
+  .nota-input,
+  .nota-select,
+  .nota-textarea,
+  .p-inputtext,
+  .p-select,
+  .p-inputnumber-input {
+    border-color: var(--danger);
+  }
+}
+
+// PrimeNG inputs placed inside a Nota field fill the width.
+.nota-field .p-inputtext,
+.nota-field .p-select,
+.nota-field .p-inputnumber,
+.nota-field .p-datepicker {
+  width: 100%;
+}
+
+// ---------- Card ----------
+.nota-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
+  color: var(--text);
+}
+
+.nota-section-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+// ---------- Page header ----------
+.nota-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.nota-page-header__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.nota-page-header__title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.nota-page-header__subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.nota-page-header__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--brand-strong-text);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// Back arrow points toward the start side: ← in LTR, → in RTL.
+.nota-page-header__back-icon {
+  display: inline-block;
+
+  &:dir(rtl) {
+    transform: scaleX(-1);
+  }
+}
+
+.nota-page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+// ---------- KPI card ----------
+.nota-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.nota-kpi__label {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.nota-kpi__value {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.nota-kpi__note {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.nota-kpi__note--success { color: var(--success); }
+.nota-kpi__note--danger { color: var(--danger); }
+.nota-kpi__note--warning { color: var(--warning-text); }
+
+// ---------- Status pill ----------
+.nota-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.nota-pill--ok { background: var(--brand-soft); color: var(--brand-strong-text); }
+.nota-pill--due { background: var(--warning-soft); color: var(--warning-text); }
+.nota-pill--overdue { background: var(--danger-soft); color: var(--danger-text); }
+.nota-pill--info { background: var(--info-soft); color: var(--info-text); }
+.nota-pill--neutral { background: var(--neutral-soft); color: var(--neutral-text); }
+
+// ---------- Tables ----------
+.nota-table-wrap {
+  // Stage 12: contains absolutely positioned children (e.g. .nota-sr-only header labels) so a wide
+  // table scrolls inside its wrapper instead of widening the page on phones.
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nota-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  color: var(--text);
+
+  th {
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 700;
+    text-align: start;
+    white-space: nowrap;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  tbody tr:hover td {
+    background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  }
+}
+
+.nota-table th.num,
+.nota-table td.num,
+.nota-num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+// mat-table / p-table numeric cells
+.mat-mdc-cell.num,
+.mat-mdc-header-cell.num,
+.p-datatable td.num,
+.p-datatable th.num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+// ---------- Dialog shell ----------
+.nota-dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-dialog);
+}
+
+.nota-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.nota-dialog__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.nota-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 24px;
+  overflow-y: auto;
+}
+
+.nota-dialog__footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  border-radius: 0 0 var(--radius-dialog) var(--radius-dialog);
+}
+
+// p-dialog that hosts a <nota-dialog-shell> (use styleClass="nota-p-dialog").
+.p-dialog.nota-p-dialog {
+  width: min(600px, calc(100vw - 32px));
+  max-width: 640px;
+  overflow: hidden;
+
+  .p-dialog-content {
+    padding: 0;
+  }
+}
+
+// ---------- Empty state ----------
+.nota-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.nota-empty__icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-soft);
+  color: var(--brand-strong-text);
+  font-size: 22px;
+}
+
+.nota-empty__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.nota-empty__text {
+  margin: 0;
+  max-width: 420px;
+  font-size: 14px;
+}
+
+// ---------- Autocomplete (search box + suggestion list; POS, credit sale) ----------
+.nota-ac { position: relative; }
+.nota-ac__loading { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
+.nota-ac__panel {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 240px;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+}
+.nota-ac__item {
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  &:hover { background: var(--brand-soft); }
+}
+
+// Visually hidden, still read by screen readers.
+.nota-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

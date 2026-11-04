@@ -1,0 +1,350 @@
+<!-- Customer page (docs/design/screens/Customer.dc.html). Stage 10: layout only; requests unchanged. -->
+<div class="cd">
+  <nota-page-header [title]="customer?.name || ('customerDetailsPage.title' | translate)" [subtitle]="'customerDetailsPage.subtitle' | translate"
+    backLink="/customers" [backLabel]="'customerDetailsPage.s10.back' | translate" />
+
+  @if (isLoading) {
+    <div class="nota-card cd__state" role="status">{{ 'customerDetailsPage.messages.loading' | translate }}</div>
+  } @else if (errorMessage) {
+    <div class="nota-card cd__state cd__state--error" role="alert">{{ errorMessage }}</div>
+  } @else if (!customer) {
+    <div class="nota-card cd__state">{{ 'customerDetailsPage.messages.notFound' | translate }}</div>
+  } @else {
+    <!-- Header card -->
+    <section class="nota-card cd__head">
+      <div class="cd__who">
+        <span class="cd__avatar" aria-hidden="true">{{ (customer.name || '?').charAt(0) }}</span>
+        <div class="cd__who-text">
+          <strong class="cd__name" dir="auto">{{ customer.name }}</strong>
+          <span class="cd__meta"><span dir="ltr">{{ customer.phone }}</span> · {{ 'customerDetailsPage.s10.since' | translate }} {{ formatDate(customer.createdAt) }}</span>
+        </div>
+      </div>
+      <div class="cd__balance">
+        <span class="cd__balance-label">{{ 'customerDetailsPage.s10.balanceDue' | translate }}</span>
+        <strong class="cd__balance-value nota-num">{{ customer.creditSummary.remainingAmount | notaMoney }}</strong>
+      </div>
+      <div class="cd__head-actions">
+        @if (hasAvailablePaymentTargets()) {
+          <button type="button" notaButton="primary" (click)="openCustomerPaymentDialog()">{{ 'customerDetailsPage.s10.collect' | translate }}</button>
+        }
+      </div>
+      <dl class="cd__facts">
+        <div><dt>{{ 'customerDetailsPage.labels.customerId' | translate }}</dt><dd dir="ltr">{{ customer._id || ('customerDetailsPage.labels.notAvailable' | translate) }}</dd></div>
+        <div><dt>{{ 'customerDetailsPage.labels.updatedAt' | translate }}</dt><dd>{{ formatDate(customer.updatedAt) }}</dd></div>
+        <div><dt>{{ 'customerDetailsPage.labels.lastCashSaleDate' | translate }}</dt><dd>{{ formatDate(customer.lastCashSaleDate) }}</dd></div>
+        <div><dt>{{ 'customerDetailsPage.labels.lastCreditSaleDate' | translate }}</dt><dd>{{ formatDate(customer.lastCreditSaleDate) }}</dd></div>
+        <div><dt>{{ 'customerDetailsPage.labels.lastCreditSalePaymentDate' | translate }}</dt><dd>{{ formatDate(customer.lastCreditSalePaymentDate) }}</dd></div>
+      </dl>
+    </section>
+
+    <!-- Summary -->
+    <section class="cd__kpis" [attr.aria-label]="'customerDetailsPage.labels.statusBreakdown' | translate">
+      <div class="nota-kpi"><span class="nota-kpi__label">{{ 'customerDetailsPage.summary.totalInvoices' | translate }}</span><span class="nota-kpi__value nota-num">{{ customer.creditSummary.totalInvoices | notaNumber }}</span>
+        <span class="nota-kpi__note">{{ 'customerDetailsPage.summary.openInvoices' | translate }}: {{ customer.creditSummary.openInvoices | notaNumber }}</span></div>
+      <div class="nota-kpi"><span class="nota-kpi__label">{{ 'customerDetailsPage.summary.totalCredit' | translate }}</span><span class="nota-kpi__value nota-num">{{ customer.creditSummary.totalCredit | notaMoney }}</span></div>
+      <div class="nota-kpi"><span class="nota-kpi__label">{{ 'customerDetailsPage.summary.paidAmount' | translate }}</span><span class="nota-kpi__value nota-num cd__in">{{ customer.creditSummary.paidAmount | notaMoney }}</span></div>
+      <div class="nota-kpi"><span class="nota-kpi__label">{{ 'customerDetailsPage.summary.remainingAmount' | translate }}</span><span class="nota-kpi__value nota-num cd__due">{{ customer.creditSummary.remainingAmount | notaMoney }}</span></div>
+      <div class="nota-kpi cd__breakdown">
+        <span class="nota-kpi__label">{{ 'customerDetailsPage.labels.statusBreakdown' | translate }}</span>
+        <span class="cd__pills">
+          <span class="nota-pill nota-pill--due">{{ 'customerDetailsPage.summary.pendingInvoices' | translate }} {{ customer.creditSummary.pendingInvoices | notaNumber }}</span>
+          <span class="nota-pill nota-pill--info">{{ 'customerDetailsPage.summary.partiallyPaidInvoices' | translate }} {{ customer.creditSummary.partiallyPaidInvoices | notaNumber }}</span>
+          <span class="nota-pill nota-pill--ok">{{ 'customerDetailsPage.summary.paidInvoices' | translate }} {{ customer.creditSummary.paidInvoices | notaNumber }}</span>
+          <span class="nota-pill nota-pill--overdue">{{ 'customerDetailsPage.summary.overdueInvoices' | translate }} {{ customer.creditSummary.overdueInvoices | notaNumber }}</span>
+        </span>
+      </div>
+    </section>
+
+    <!-- Tabs -->
+    <section class="nota-card cd__tabs-card">
+      <div class="cd__tabs" role="tablist">
+        <button type="button" role="tab" class="cd__tab" [class.is-on]="activeTab === 'statement'" [attr.aria-selected]="activeTab === 'statement'" (click)="setTab('statement')">{{ 'customerDetailsPage.s10.tabs.statement' | translate }}</button>
+        <button type="button" role="tab" class="cd__tab" [class.is-on]="activeTab === 'invoices'" [attr.aria-selected]="activeTab === 'invoices'" (click)="setTab('invoices')">{{ 'customerDetailsPage.s10.tabs.invoices' | translate }} ({{ customer.creditHistory.length | notaNumber }})</button>
+        <button type="button" role="tab" class="cd__tab" [class.is-on]="activeTab === 'payments'" [attr.aria-selected]="activeTab === 'payments'" (click)="setTab('payments')">{{ 'customerDetailsPage.s10.tabs.payments' | translate }} ({{ allPayments.length | notaNumber }})</button>
+        <button type="button" role="tab" class="cd__tab" [class.is-on]="activeTab === 'returns'" [attr.aria-selected]="activeTab === 'returns'" (click)="setTab('returns')">{{ 'customerDetailsPage.s10.tabs.returns' | translate }} ({{ allRefunds.length | notaNumber }})</button>
+      </div>
+
+      @if (historyActionError) {
+        <p class="cd__msg" role="alert">{{ historyActionError }}</p>
+      }
+
+      @switch (activeTab) {
+        @case ('statement') {
+          <p class="cd__legend">{{ 'customerDetailsPage.s10.statement.legend' | translate }} · {{ 'customerDetailsPage.s10.statement.note' | translate }}</p>
+          <div class="nota-table-wrap">
+            <table class="nota-table">
+              <thead><tr>
+                <th>{{ 'customerDetailsPage.s10.statement.date' | translate }}</th>
+                <th>{{ 'customerDetailsPage.s10.statement.description' | translate }}</th>
+                <th>{{ 'customerDetailsPage.s10.statement.document' | translate }}</th>
+                <th class="num">{{ 'customerDetailsPage.s10.statement.debit' | translate }}</th>
+                <th class="num">{{ 'customerDetailsPage.s10.statement.credit' | translate }}</th>
+                <th class="num">{{ 'customerDetailsPage.s10.statement.balance' | translate }}</th>
+              </tr></thead>
+              <tbody>
+                @for (row of statement.rows; track $index) {
+                  <tr>
+                    <td class="nota-num">{{ formatDate(row.date) }}</td>
+                    <td>
+                      @switch (row.kind) {
+                        @case ('invoice') { {{ 'customerDetailsPage.s10.statement.invoice' | translate }} @if (row.afterReturns) {<span class="cd__muted">{{ 'customerDetailsPage.s10.statement.afterReturns' | translate }}</span>} }
+                        @case ('payment') { {{ 'customerDetailsPage.s10.statement.payment' | translate }} @if (row.detail) {<span class="cd__muted">— {{ row.detail }}</span>} }
+                        @case ('refund') { {{ (row.debit ? 'customerDetailsPage.s10.statement.refundReleased' : 'customerDetailsPage.s10.statement.refund') | translate }} <span class="cd__muted" dir="auto">{{ row.detail }}</span> }
+                      }
+                    </td>
+                    <td class="nota-num" dir="ltr">{{ shortRef(row.invoiceId) }}</td>
+                    <td class="num">{{ row.debit ? (row.debit | notaMoney) : '—' }}</td>
+                    <td class="num cd__in">{{ row.credit ? (row.credit | notaMoney) : '—' }}</td>
+                    <td class="num cd__strong">{{ row.balance | notaMoney }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="6" class="cd__empty">{{ 'customerDetailsPage.s10.statement.empty' | translate }}</td></tr>
+                }
+              </tbody>
+              @if (statement.rows.length) {
+                <tfoot><tr class="cd__total">
+                  <td colspan="3">{{ 'customerDetailsPage.s10.statement.total' | translate }}</td>
+                  <td class="num">{{ statement.totalDebit | notaMoney }}</td>
+                  <td class="num">{{ statement.totalCredit | notaMoney }}</td>
+                  <td class="num">{{ statement.balance | notaMoney }}</td>
+                </tr></tfoot>
+              }
+            </table>
+          </div>
+        }
+
+        @case ('invoices') {
+          @if (!customer.creditHistory.length) {
+            <p class="cd__empty">{{ 'customerDetailsPage.history.empty' | translate }}</p>
+          }
+          <div class="cd__invoices">
+            @for (entry of customer.creditHistory; track trackHistory($index, entry)) {
+              <article class="cd__invoice">
+                <header class="cd__invoice-head">
+                  <div class="cd__invoice-id">
+                    <strong class="nota-num" dir="ltr">{{ shortRef(entry.invoiceId) }}</strong>
+                    <span [class]="statusPill(entry)">{{ (isInvoiceOverdue(entry) ? 'customerDetailsPage.labels.overdue' : 'customerDetailsPage.status.' + entry.status) | translate }}</span>
+                    @if (isInvoiceOverdue(entry)) {<span class="nota-pill nota-pill--neutral">{{ getStatusLabel(entry.status) }}</span>}
+                  </div>
+                  <div class="cd__invoice-actions">
+                    @if (canAddPayment(entry)) {
+                      <!-- Stage 11: per-invoice payment, same POST credit-sales/:id/payments as the credit list. -->
+                      <button type="button" notaButton="primary" data-action="invoice-payment" (click)="openPaymentDialog(entry)">{{ 'customerDetailsPage.actions.addPayment' | translate }}</button>
+                    }
+                    <button type="button" notaButton (click)="printCreditInvoice(entry)" [disabled]="isPrintingInvoice(entry.id)">
+                      {{ (isPrintingInvoice(entry.id) ? 'actions.loading' : 'customerDetailsPage.actions.printInvoice') | translate }}
+                    </button>
+                    @if (canAddRefund(entry)) {
+                      <button type="button" notaButton (click)="openRefundDialog(entry)" [disabled]="isDeletingCreditSale">{{ 'customerDetailsPage.actions.addRefund' | translate }}</button>
+                    }
+                    <button type="button" notaButton="danger" (click)="openDeleteCreditDialog(entry)" [disabled]="isDeletingCreditSale">{{ 'customerDetailsPage.actions.deleteInvoice' | translate }}</button>
+                  </div>
+                </header>
+                <dl class="cd__invoice-facts">
+                  <div><dt>{{ 'customerDetailsPage.history.sellingDate' | translate }}</dt><dd>{{ formatDate(entry.sellingDate) }}</dd></div>
+                  <div><dt>{{ 'customerDetailsPage.history.dueDate' | translate }}</dt><dd>{{ formatDate(entry.dueDate) }}</dd></div>
+                  <div><dt>{{ 'customerDetailsPage.history.items' | translate }}</dt><dd class="nota-num">{{ entry.itemCount | notaNumber }} / {{ entry.totalQuantity | notaNumber }}</dd></div>
+                  <div><dt>{{ 'customerDetailsPage.history.paymentsCount' | translate }}</dt><dd class="nota-num">{{ entry.paymentsCount | notaNumber }}</dd></div>
+                  <div><dt>{{ 'customerDetailsPage.history.totalPrice' | translate }}</dt><dd class="nota-num">{{ entry.totalPrice | notaMoney }}</dd></div>
+                  <div><dt>{{ 'customerDetailsPage.history.paidAmount' | translate }}</dt><dd class="nota-num cd__in">{{ entry.paidAmount | notaMoney }}</dd></div>
+                  <div><dt>{{ 'customerDetailsPage.history.remainingAmount' | translate }}</dt><dd class="nota-num cd__due">{{ entry.remainingAmount | notaMoney }}</dd></div>
+                  <div><dt>{{ 'customerDetailsPage.history.discountAmount' | translate }}</dt><dd class="nota-num">{{ entry.discountAmount | notaMoney }}</dd></div>
+                  <div><dt>{{ 'customerDetailsPage.history.discountPercentage' | translate }}</dt><dd class="nota-num">{{ entry.discountPercentage ?? 0 | notaNumber }}%</dd></div>
+                  <div><dt>{{ 'customerDetailsPage.history.shippingFees' | translate }}</dt><dd class="nota-num">{{ entry.shippingFees ?? 0 | notaMoney }}</dd></div>
+                </dl>
+                @if (entry.notes) {
+                  <p class="cd__notes"><strong>{{ 'customerDetailsPage.history.notes' | translate }}:</strong> {{ entry.notes }}</p>
+                }
+                @if (entry.items.length) {
+                  <div class="nota-table-wrap">
+                    <table class="nota-table cd__lines">
+                      <thead><tr>
+                        <th>{{ 'customerDetailsPage.history.products' | translate }}</th>
+                        <th class="num">{{ 'customerDetailsPage.history.quantity' | translate }}</th>
+                        <th class="num">{{ 'customerDetailsPage.history.unitPrice' | translate }}</th>
+                        <th class="num">{{ 'customerDetailsPage.history.totalPrice' | translate }}</th>
+                      </tr></thead>
+                      <tbody>
+                        @for (item of entry.items; track trackHistoryItem($index, item)) {
+                          <tr>
+                            <td><span dir="auto">{{ item.productName || ('customerDetailsPage.labels.notAvailable' | translate) }}</span>
+                              <span class="cd__muted" dir="ltr">{{ item.productCode }}</span>@if (item.categoryName) {<span class="cd__muted"> · {{ item.categoryName }}</span>}</td>
+                            <td class="num">{{ item.quantity | notaNumber }}</td>
+                            <td class="num">{{ item.pricePerEach | notaMoney }}</td>
+                            <td class="num">{{ item.totalPrice | notaMoney }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+                @if (entry.payments.length) {
+                  <div class="cd__pays">
+                    <span class="cd__muted">{{ 'customerDetailsPage.history.payments' | translate }}</span>
+                    @for (payment of entry.payments; track trackPayment($index, payment)) {
+                      <span class="cd__pay"><span class="nota-num">{{ formatDate(payment.paymentDate) }}</span><strong class="nota-num">{{ payment.amount | notaMoney }}</strong>@if (payment.note) {<span class="cd__muted">{{ payment.note }}</span>}</span>
+                    }
+                  </div>
+                }
+              </article>
+            }
+          </div>
+        }
+
+        @case ('payments') {
+          <div class="nota-table-wrap">
+            <table class="nota-table">
+              <thead><tr>
+                <th>{{ 'customerDetailsPage.history.paymentDate' | translate }}</th>
+                <th>{{ 'customerDetailsPage.s10.invoice' | translate }}</th>
+                <th class="num">{{ 'customerDetailsPage.s10.amount' | translate }}</th>
+                <th>{{ 'customerDetailsPage.paymentDialog.note' | translate }}</th>
+              </tr></thead>
+              <tbody>
+                @for (payment of allPayments; track $index) {
+                  <tr><td class="nota-num">{{ formatDate(payment.paymentDate) }}</td><td class="nota-num" dir="ltr">{{ shortRef(payment.invoiceId) }}</td>
+                    <td class="num cd__in">{{ payment.amount | notaMoney }}</td><td>{{ payment.note || '—' }}</td></tr>
+                } @empty {
+                  <tr><td colspan="4" class="cd__empty">{{ 'customerDetailsPage.s10.noPayments' | translate }}</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        @case ('returns') {
+          <div class="nota-table-wrap">
+            <table class="nota-table">
+              <thead><tr>
+                <th>{{ 'customerDetailsPage.refundDialog.refundDate' | translate }}</th>
+                <th>{{ 'customerDetailsPage.s10.invoice' | translate }}</th>
+                <th>{{ 'customerDetailsPage.s10.items' | translate }}</th>
+                <th class="num">{{ 'customerDetailsPage.s10.amount' | translate }}</th>
+                <th>{{ 'customerDetailsPage.refundDialog.note' | translate }}</th>
+              </tr></thead>
+              <tbody>
+                @for (refund of allRefunds; track $index) {
+                  <tr><td class="nota-num">{{ formatDate(refund.refundDate) }}</td><td class="nota-num" dir="ltr">{{ shortRef(refund.invoiceId) }}</td>
+                    <td dir="auto">@for (item of refund.items; track $index) {<span class="cd__chip">{{ item.productName }} × {{ item.quantity | notaNumber }}</span>}</td>
+                    <td class="num">{{ refund.totalAmount | notaMoney }}</td><td>{{ refund.note || '—' }}</td></tr>
+                } @empty {
+                  <tr><td colspan="5" class="cd__empty">{{ 'customerDetailsPage.s10.noReturns' | translate }}</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      }
+    </section>
+  }
+</div>
+
+<!-- Payment (customer mode targets the open invoice exactly as before) -->
+<p-dialog [(visible)]="paymentDialogVisible" [modal]="true" [showHeader]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+  <nota-dialog-shell [title]="'customerDetailsPage.paymentDialog.title' | translate" [closeLabel]="'customerDetailsPage.paymentDialog.cancel' | translate"
+    (closed)="closePaymentDialog()">
+    <p class="cd__dialog-text">{{ 'customerDetailsPage.paymentDialog.subtitle' | translate }}</p>
+    <form [formGroup]="paymentForm" class="cd__form" (ngSubmit)="savePayment()" novalidate>
+      @if (paymentDialogMode === 'customer' && hasPaymentTargetSelectionError()) {
+        <p class="cd__msg" role="alert">{{ 'customerDetailsPage.paymentDialog.targetRequired' | translate }}</p>
+      }
+      <nota-form-field [label]="'customerDetailsPage.paymentDialog.amount' | translate" forId="cdPayAmount" [required]="true"
+        [error]="paymentForm.get('amount')?.invalid && (paymentForm.get('amount')?.touched || paymentSubmitAttempted) ? ('customerDetailsPage.paymentDialog.amountRequired' | translate) : null">
+        <p-inputNumber inputId="cdPayAmount" formControlName="amount" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cd__control" inputStyleClass="cd__num-input" />
+      </nota-form-field>
+      <nota-form-field [label]="'customerDetailsPage.paymentDialog.paymentDate' | translate" forId="cdPayDate" [required]="true">
+        <p-datepicker inputId="cdPayDate" formControlName="paymentDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" styleClass="cd__control" />
+      </nota-form-field>
+      <nota-form-field [label]="'customerDetailsPage.paymentDialog.note' | translate" forId="cdPayNote">
+        <input id="cdPayNote" type="text" class="nota-input" formControlName="note" [placeholder]="'customerDetailsPage.paymentDialog.notePlaceholder' | translate" />
+      </nota-form-field>
+      @if (paymentErrorMessage) {<p class="cd__msg" role="alert">{{ paymentErrorMessage }}</p>}
+    </form>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="closePaymentDialog()">{{ 'customerDetailsPage.paymentDialog.cancel' | translate }}</button>
+      <button type="button" notaButton="primary" [disabled]="isSavingPayment" (click)="savePayment()">
+        {{ (isSavingPayment ? 'customerDetailsPage.paymentDialog.saving' : 'customerDetailsPage.paymentDialog.save') | translate }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Credit return -->
+<p-dialog [(visible)]="refundDialogVisible" [modal]="true" [showHeader]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog cd-wide">
+  <nota-dialog-shell [title]="'customerDetailsPage.refundDialog.title' | translate" [closeLabel]="'customerDetailsPage.refundDialog.cancel' | translate"
+    (closed)="closeRefundDialog()">
+    <p class="cd__dialog-text">{{ 'customerDetailsPage.refundDialog.subtitle' | translate }}</p>
+    <dl class="cd__invoice-facts">
+      <div><dt>{{ 'customerDetailsPage.s10.invoice' | translate }}</dt><dd class="nota-num" dir="ltr">{{ selectedInvoiceForRefund?.invoiceId || '-' }}</dd></div>
+      <div><dt>{{ 'customerDetailsPage.history.totalPrice' | translate }}</dt><dd class="nota-num">{{ selectedInvoiceForRefund?.totalPrice || 0 | notaMoney }}</dd></div>
+    </dl>
+    <form [formGroup]="refundForm" class="cd__form" (ngSubmit)="saveRefund()" novalidate>
+      <div class="cd__form-row">
+        <nota-form-field [label]="'customerDetailsPage.refundDialog.refundDate' | translate" forId="cdRefundDate" [required]="true">
+          <p-datepicker inputId="cdRefundDate" formControlName="refundDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" styleClass="cd__control" />
+        </nota-form-field>
+        <nota-form-field [label]="'customerDetailsPage.refundDialog.note' | translate" forId="cdRefundNote">
+          <input id="cdRefundNote" type="text" class="nota-input" formControlName="note" [placeholder]="'customerDetailsPage.refundDialog.notePlaceholder' | translate" />
+        </nota-form-field>
+      </div>
+      <div class="cd__items-head">
+        <strong>{{ 'customerDetailsPage.refundDialog.itemsTitle' | translate }}</strong>
+        <span class="cd__items-tools">
+          <button type="button" notaButton (click)="fillRefundWithAllItems()">{{ 'customerDetailsPage.refundDialog.returnAll' | translate }}</button>
+          <button type="button" notaButton (click)="clearRefundQuantities()">{{ 'customerDetailsPage.refundDialog.clear' | translate }}</button>
+        </span>
+      </div>
+      <div formArrayName="items" class="nota-table-wrap">
+        <table class="nota-table">
+          <thead><tr>
+            <th>{{ 'customerDetailsPage.history.products' | translate }}</th>
+            <th class="num">{{ 'customerDetailsPage.refundDialog.availableQuantity' | translate }}</th>
+            <th class="num">{{ 'customerDetailsPage.refundDialog.returnQuantity' | translate }}</th>
+          </tr></thead>
+          <tbody>
+            @for (refundItem of refundItems.controls; track trackRefundItem($index)) {
+              <tr [formGroupName]="$index">
+                <td><span dir="auto">{{ refundItem.get('productName')?.value || ('customerDetailsPage.labels.notAvailable' | translate) }}</span>
+                  <span class="cd__muted" dir="ltr">{{ refundItem.get('productCode')?.value }}</span>@if (refundItem.get('categoryName')?.value) {<span class="cd__muted"> · {{ refundItem.get('categoryName')?.value }}</span>}</td>
+                <td class="num">{{ refundItem.get('availableQuantity')?.value || 0 | notaNumber }}</td>
+                <td class="num cd__qty-cell">
+                  <p-inputNumber formControlName="quantity" [min]="0" [max]="refundItem.get('availableQuantity')?.value || 0" [useGrouping]="false"
+                    [ariaLabel]="'customerDetailsPage.refundDialog.returnQuantity' | translate" styleClass="cd__control" inputStyleClass="cd__num-input" />
+                  @if (isRefundQuantityExceeded($index) || (refundSubmitAttempted && refundItem.get('quantity')?.hasError('max'))) {
+                    <span class="nota-error" role="alert">{{ 'customerDetailsPage.refundDialog.quantityExceeded' | translate }}</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (refundSubmitAttempted && !hasRefundSelection()) {
+        <p class="cd__msg" role="alert">{{ 'customerDetailsPage.refundDialog.selectionRequired' | translate }}</p>
+      }
+      @if (refundErrorMessage) {<p class="cd__msg" role="alert">{{ refundErrorMessage }}</p>}
+    </form>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="closeRefundDialog()">{{ 'customerDetailsPage.refundDialog.cancel' | translate }}</button>
+      <button type="button" notaButton="primary" [disabled]="isSavingRefund" (click)="saveRefund()">
+        {{ (isSavingRefund ? 'customerDetailsPage.refundDialog.saving' : 'customerDetailsPage.refundDialog.save') | translate }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Delete credit invoice (warning text about stock unchanged) -->
+<p-dialog [(visible)]="deleteCreditDialogVisible" [modal]="true" [showHeader]="false" [closable]="!isDeletingCreditSale" [dismissableMask]="!isDeletingCreditSale"
+  [draggable]="false" [resizable]="false" styleClass="nota-p-dialog" (onHide)="closeDeleteCreditDialog()">
+  <nota-dialog-shell [title]="'customerDetailsPage.deleteDialog.title' | translate" [closeLabel]="'actions.cancelButton' | translate" (closed)="closeDeleteCreditDialog()">
+    <p>{{ 'customerDetailsPage.deleteDialog.confirm' | translate }}</p>
+    <p class="cd__dialog-text">{{ 'customerDetailsPage.deleteDialog.inventoryWarning' | translate }}</p>
+    @if (deleteCreditErrorMessage) {<p class="cd__msg" role="alert">{{ deleteCreditErrorMessage }}</p>}
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="closeDeleteCreditDialog()" [disabled]="isDeletingCreditSale">{{ 'actions.cancelButton' | translate }}</button>
+      <button type="button" notaButton="danger" (click)="deleteCreditInvoice()" [disabled]="isDeletingCreditSale">
+        {{ (isDeletingCreditSale ? 'actions.loading' : 'customerDetailsPage.actions.deleteInvoice') | translate }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>

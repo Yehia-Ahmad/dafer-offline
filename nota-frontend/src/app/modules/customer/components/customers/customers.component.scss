@@ -1,0 +1,20 @@
+// Customers (Customers.dc.html). Tokens only.
+:host { display: block; }
+.cu { display: flex; flex-direction: column; gap: var(--space-gap); }
+.cu__kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.cu__due { color: var(--danger); }
+.cu__list { display: flex; flex-direction: column; gap: 14px; }
+.cu__toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.cu__search { display: flex; flex: 1 1 420px; gap: 8px; .nota-input { flex: 1; min-width: 0; } }
+.cu__pills { display: flex; gap: 6px; }
+.cu__pill { min-height: 40px; padding: 0 16px; border-radius: var(--radius-pill); border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; cursor: pointer;
+  &.is-on { background: var(--brand); border-color: var(--brand); color: var(--on-brand); } }
+.cu__name { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--text); cursor: pointer; text-align: start;
+  &:hover { color: var(--brand-strong-text); text-decoration: underline; } }
+.cu__actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.cu__empty { text-align: center; color: var(--text-muted); padding: 24px; }
+.cu__count, .cu__muted { margin: 0; font-size: 13px; color: var(--text-muted); }
+.cu__strong { margin: 0; font-weight: 700; }
+.cu__error { margin: 0; font-size: 14px; font-weight: 500; color: var(--danger); }
+.cu__form { display: flex; flex-direction: column; gap: 14px; }
+.cu__sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

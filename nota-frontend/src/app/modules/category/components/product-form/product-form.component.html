@@ -1,0 +1,244 @@
+<!-- Product form (docs/design/screens/ProductForm.dc.html). Stage 11: new + edit; request bodies unchanged. -->
+<div class="pf">
+  <nota-page-header
+    [title]="(mode === 'edit' ? 'productForm.editTitle' : 'productForm.newTitle') | translate"
+    [subtitle]="mode === 'edit' ? (product?.name || '') : ''"
+    [backLink]="['/products']"
+    [backQueryParams]="listCategoryId ? { category: listCategoryId } : null"
+    [backLabel]="categoryLabel || ('nav.items.products' | translate)">
+    <div notaPageActions class="pf__actions">
+      <button type="button" notaButton (click)="cancel()">{{ 'productForm.cancel' | translate }}</button>
+      @if (mode === 'new') {
+        <button type="button" notaButton data-action="save-add-another" (click)="addNewProduct(true)" [disabled]="isAddingProduct || !categoryId">
+          {{ 'productForm.saveAndAddAnother' | translate }}
+        </button>
+        <button type="button" notaButton="primary" data-action="save-product" (click)="addNewProduct()" [disabled]="isAddingProduct || !categoryId">
+          {{ (isAddingProduct ? 'category.addProduct.actions.creating' : 'category.addProduct.actions.save') | translate }}
+        </button>
+      } @else {
+        <button type="button" notaButton="danger" data-action="delete-product" (click)="showDeleteDialog()">{{ 'category.deleteProduct.title' | translate }}</button>
+        <button type="button" notaButton data-action="sync-purchase-price" (click)="showSyncDialog()">{{ 'category.editProduct.actions.syncPurchasePrice' | translate }}</button>
+        <button type="button" notaButton="primary" data-action="save-product" [disabled]="loading" (click)="updateProduct()">
+          {{ !isLoading ? ('category.editProduct.actions.save' | translate) : ('actions.loading' | translate) }}
+        </button>
+      }
+    </div>
+  </nota-page-header>
+
+  <div class="pf__layout">
+    <div class="pf__main">
+      <!-- Basic data -->
+      <section class="nota-card pf__card">
+        <h2 class="pf__title">{{ 'productForm.basic' | translate }}</h2>
+        @if (mode === 'new') {
+          <div class="pf__grid" [formGroup]="addProductForm">
+            <nota-form-field [label]="'category.addProduct.productName' | translate" forId="pf-name" [required]="true">
+              <input id="pf-name" type="text" class="nota-input" formControlName="name" />
+            </nota-form-field>
+            <nota-form-field [label]="'category.addProduct.code' | translate" forId="pf-code" [hint]="'productForm.codeHint' | translate">
+              <input id="pf-code" type="text" class="nota-input pf__num pf__ltr" dir="ltr" formControlName="code" readonly aria-readonly="true" />
+            </nota-form-field>
+            <nota-form-field [label]="'productForm.category' | translate" forId="pf-category" [required]="true">
+              <select id="pf-category" class="nota-select" [value]="categoryId" (change)="onCategoryChange($any($event.target).value)">
+                @for (category of categories(); track category.id) {
+                  <option [value]="category.id" [selected]="category.id === categoryId">{{ category.label }}</option>
+                }
+              </select>
+            </nota-form-field>
+          </div>
+        } @else {
+          <div class="pf__grid">
+            <nota-form-field [label]="'category.editProduct.productName' | translate" forId="name">
+              <input id="name" type="text" class="nota-input" [class.pf__out]="isOutOfStock(product?.inventoryCount)"
+                [(ngModel)]="product.name" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
+            <nota-form-field [label]="'category.editProduct.code' | translate" forId="code">
+              <input id="code" type="text" class="nota-input pf__num pf__ltr" dir="ltr" [(ngModel)]="product.code" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
+            <nota-form-field [label]="'productForm.category' | translate" [hint]="'productForm.categoryEditHint' | translate">
+              <span class="pf__readonly">{{ categoryLabel || '—' }}</span>
+            </nota-form-field>
+          </div>
+        }
+      </section>
+
+      <!-- Prices -->
+      <section class="nota-card pf__card">
+        <h2 class="pf__title">{{ 'productForm.prices' | translate }}</h2>
+        @if (mode === 'new') {
+          <div class="pf__grid pf__grid--sm" [formGroup]="addProductForm">
+            <nota-form-field [label]="'category.addProduct.purchasePrice' | translate" forId="pf-purchase">
+              <input id="pf-purchase" type="text" inputmode="decimal" class="nota-input pf__num" formControlName="purchasePrice" />
+            </nota-form-field>
+            <nota-form-field [label]="'category.addProduct.retailPrice' | translate" forId="pf-retail" [required]="true">
+              <input id="pf-retail" type="text" inputmode="decimal" class="nota-input pf__num" formControlName="retailPrice" />
+            </nota-form-field>
+            <nota-form-field [label]="'category.addProduct.wholesalePrice' | translate" forId="pf-wholesale" [required]="true">
+              <input id="pf-wholesale" type="text" inputmode="decimal" class="nota-input pf__num" formControlName="wholesalePrice" />
+            </nota-form-field>
+            <!-- Stage 12: optional; sent only when filled. -->
+            <nota-form-field [label]="'category.editProduct.discountPercentage' | translate" forId="pf-discount" [hint]="'productForm.optional' | translate">
+              <input id="pf-discount" type="number" min="0" max="100" step="0.01" class="nota-input pf__num"
+                [(ngModel)]="newDiscountPercentage" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
+          </div>
+        } @else {
+          <div class="pf__grid pf__grid--sm">
+            <nota-form-field [label]="'category.editProduct.purchasePrice' | translate" forId="purchasePrice">
+              <input id="purchasePrice" type="text" inputmode="decimal" class="nota-input pf__num" [(ngModel)]="product.purchasePrice" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
+            <nota-form-field [label]="'category.editProduct.retailPrice' | translate" forId="retailPrice">
+              <input id="retailPrice" type="text" inputmode="decimal" class="nota-input pf__num" [(ngModel)]="product.retailPrice" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
+            <nota-form-field [label]="'category.editProduct.wholesalePrice' | translate" forId="wholesalePrice">
+              <input id="wholesalePrice" type="text" inputmode="decimal" class="nota-input pf__num" [(ngModel)]="product.wholesalePrice" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
+            <nota-form-field [label]="'category.editProduct.discountPercentage' | translate" forId="discountPercentage">
+              <input id="discountPercentage" type="number" min="0" max="100" step="0.01" class="nota-input pf__num"
+                [(ngModel)]="product.discountPercentage" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
+          </div>
+        }
+        <div class="pf__hints">
+          @if (profitHint(prices.retail, prices.purchase); as hint) {
+            <span class="pf__hint" [class.is-bad]="hint.amount < 0">{{ 'productForm.retailProfit' | translate: { amount: (hint.amount | notaMoney), percent: (hint.percent | notaNumber) } }}</span>
+          }
+          @if (profitHint(prices.wholesale, prices.purchase); as hint) {
+            <span class="pf__hint" [class.is-bad]="hint.amount < 0">{{ 'productForm.wholesaleProfit' | translate: { amount: (hint.amount | notaMoney), percent: (hint.percent | notaNumber) } }}</span>
+          }
+        </div>
+        <span class="nota-hint">{{ 'productForm.belowPurchaseHint' | translate }}</span>
+      </section>
+
+      <!-- Category specifications -->
+      @if (mode === 'new' ? newProductDetails.controls.length : productDetails.length) {
+        <section class="nota-card pf__card">
+          <h2 class="pf__title">{{ 'productForm.specsOf' | translate: { name: categoryLabel } }}</h2>
+          @if (mode === 'new') {
+            <div class="pf__grid pf__grid--sm" [formGroup]="addProductForm">
+              <ng-container formArrayName="specifications">
+                @for (detail of newProductDetails.controls; track $index) {
+                  <nota-form-field [label]="detail.get('title')?.value" [forId]="'pf-spec-' + $index" [formGroupName]="$index">
+                    <input [id]="'pf-spec-' + $index" type="text" class="nota-input" formControlName="value"
+                      [placeholder]="'category.specifications.valuePlaceholder' | translate" />
+                  </nota-form-field>
+                }
+              </ng-container>
+            </div>
+          } @else {
+            <div class="pf__grid pf__grid--sm">
+              @for (detail of productDetails; track detail.title) {
+                <nota-form-field [label]="detail.title" [forId]="'detail-' + $index">
+                  <input [id]="'detail-' + $index" type="text" class="nota-input" [(ngModel)]="detail.value" [ngModelOptions]="{ standalone: true }"
+                    [placeholder]="'category.specifications.valuePlaceholder' | translate" />
+                </nota-form-field>
+              }
+            </div>
+          }
+        </section>
+      }
+    </div>
+
+    <aside class="pf__side">
+      <!-- Image -->
+      <section class="nota-card pf__card">
+        <h2 class="pf__title">{{ 'productForm.image' | translate }}</h2>
+        <input #fileInput type="file" accept="image/*" hidden
+          (change)="mode === 'edit' ? onEditImageSelected($event) : onNewImageSelected($event)" />
+        <button type="button" class="pf__drop" [class.is-over]="isDragging" (click)="fileInput.click()"
+          (dragover)="onImageDragOver($event)" (dragleave)="isDragging = false" (drop)="onImageDrop($event)">
+          @if (imageSrc; as src) {
+            <img [src]="src" [alt]="'productForm.image' | translate" />
+          } @else {
+            <span>{{ 'productForm.dropImage' | translate }}</span>
+          }
+        </button>
+        <button type="button" notaButton (click)="fileInput.click()">
+          {{ (imageSrc ? 'category.addProduct.changeImage' : 'category.addProduct.uploadImage') | translate }}
+        </button>
+      </section>
+
+      <!-- Stock -->
+      <section class="nota-card pf__card">
+        <h2 class="pf__title">{{ 'productForm.stock' | translate }}</h2>
+        @if (mode === 'new') {
+          <div class="pf__stack" [formGroup]="addProductForm">
+            <nota-form-field [label]="'category.addProduct.inventoryCount' | translate" forId="pf-stock" [required]="true">
+              <input id="pf-stock" type="text" inputmode="numeric" class="nota-input pf__num" formControlName="inventoryCount" />
+            </nota-form-field>
+            <nota-form-field [label]="'category.addProduct.soldItemCount' | translate" forId="pf-sold">
+              <input id="pf-sold" type="text" inputmode="numeric" class="nota-input pf__num" formControlName="soldItemCount" />
+            </nota-form-field>
+            <nota-form-field [label]="'productForm.lowStockThreshold' | translate" forId="pf-threshold" [hint]="'productForm.lowStockThresholdHint' | translate">
+              <input id="pf-threshold" type="number" min="0" step="1" class="nota-input pf__num" [placeholder]="'5'"
+                [(ngModel)]="newLowStockThreshold" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
+          </div>
+        } @else {
+          <div class="pf__stack">
+            <nota-form-field [label]="'category.editProduct.inventoryCount' | translate" forId="inventoryCount">
+              <input id="inventoryCount" type="text" inputmode="numeric" class="nota-input pf__num" [(ngModel)]="product.inventoryCount" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
+            <nota-form-field [label]="'category.editProduct.newInventory' | translate" forId="newInventory">
+              <input id="newInventory" type="number" min="0" step="1" class="nota-input pf__num" [(ngModel)]="newInventory" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
+            <nota-form-field [label]="'category.editProduct.soldItemCount' | translate" forId="soldItemCount">
+              <input id="soldItemCount" type="text" inputmode="numeric" class="nota-input pf__num" [(ngModel)]="product.soldItemCount" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
+            <nota-form-field [label]="'productForm.lowStockThreshold' | translate" forId="lowStockThreshold" [hint]="'productForm.lowStockThresholdHint' | translate">
+              <input id="lowStockThreshold" type="number" min="0" step="1" class="nota-input pf__num" [placeholder]="'5'"
+                [(ngModel)]="editLowStockThreshold" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
+          </div>
+        }
+      </section>
+    </aside>
+  </div>
+</div>
+
+<!-- Delete product -->
+<p-dialog [(visible)]="deleteVisible" [modal]="true" [showHeader]="false" styleClass="nota-p-dialog nota-p-dialog--sm" appendTo="body">
+  <nota-dialog-shell [title]="'category.deleteProduct.title' | translate" [closeLabel]="'nav.categories.close' | translate" (closed)="closeDialog()">
+    <p class="pf__message">{{ 'category.deleteProduct.deleteMessage' | translate }} <strong>{{ product?.name }}</strong></p>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="closeDialog()">{{ 'category.deleteProduct.actions.cancelButton' | translate }}</button>
+      <button type="button" notaButton="danger" data-action="confirm-delete-product" (click)="deleteProduct()" [disabled]="isLoading">
+        {{ !isLoading ? ('category.deleteProduct.actions.deleteButton' | translate) : ('actions.loading' | translate) }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Sync purchase price to invoices -->
+<p-dialog [(visible)]="syncVisible" [modal]="true" [showHeader]="false" [closable]="!syncLoading" [dismissableMask]="!syncLoading"
+  styleClass="nota-p-dialog nota-p-dialog--sm" appendTo="body" (onHide)="closeSyncDialog()">
+  <nota-dialog-shell [title]="'category.editProduct.syncPurchasePrice.title' | translate" [closeLabel]="'nav.categories.close' | translate" (closed)="closeSyncDialog()">
+    <div class="pf__stack">
+      <nota-form-field [label]="'category.editProduct.syncPurchasePrice.dateFrom' | translate" forId="syncDateFrom">
+        <p-datepicker [(ngModel)]="syncDateFrom" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" inputId="syncDateFrom"
+          styleClass="w-full" inputStyleClass="w-full" />
+      </nota-form-field>
+      <nota-form-field [label]="'category.editProduct.syncPurchasePrice.dateTo' | translate" forId="syncDateTo">
+        <p-datepicker [(ngModel)]="syncDateTo" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" inputId="syncDateTo"
+          styleClass="w-full" inputStyleClass="w-full" />
+      </nota-form-field>
+    </div>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton [disabled]="syncLoading" (click)="closeSyncDialog()">{{ 'category.editProduct.syncPurchasePrice.cancel' | translate }}</button>
+      <button type="button" notaButton="primary" data-action="confirm-sync" [disabled]="syncLoading" (click)="syncPurchasePriceToInvoices()">
+        {{ syncLoading ? ('actions.loading' | translate) : ('category.editProduct.syncPurchasePrice.save' | translate) }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Error -->
+<p-dialog [(visible)]="errorVisible" [modal]="true" [showHeader]="false" [dismissableMask]="true"
+  styleClass="nota-p-dialog nota-p-dialog--sm" appendTo="body">
+  <nota-dialog-shell [title]="'nav.categories.error' | translate" [closeLabel]="'nav.categories.close' | translate" (closed)="errorVisible = false">
+    <p class="pf__message" role="alert">{{ errorMessage }}</p>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton="primary" (click)="errorVisible = false">{{ 'nav.categories.ok' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>

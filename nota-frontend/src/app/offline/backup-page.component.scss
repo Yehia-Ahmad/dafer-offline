@@ -1,0 +1,38 @@
+// Backup (Backup.dc.html). Tokens only.
+:host { display: block; }
+.bk { display: flex; flex-direction: column; gap: var(--space-gap); }
+.bk__row { display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch; }
+.bk__grow { flex: 1 1 300px; min-width: 0; }
+.bk__status { flex: 2 1 420px; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
+.bk__badge { flex: none; width: 64px; height: 64px; border-radius: var(--radius-pill); display: grid; place-items: center;
+  background: var(--brand-soft); color: var(--brand-strong-text);
+  &.is-warn { background: var(--warning-soft); color: var(--warning-text); } }
+.bk__status-text { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.bk__status-title { margin: 0; font-size: 20px; font-weight: 800; }
+.bk__primary { min-height: 52px; font-size: 16px; }
+.bk__auto { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.bk__card { display: flex; flex-direction: column; gap: 12px; }
+.bk__h2 { margin: 0; }
+.bk__line { margin: 0; }
+.bk__dest { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.bk__path-box { display: flex; flex-direction: column; gap: 6px; }
+.bk__path { display: block; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--surface-2);
+  font-family: ui-monospace, Consolas, monospace; font-size: 13px; word-break: break-all; text-align: start; }
+.bk__muted, .bk__ok, .bk__danger, .bk__warn-text { margin: 0; font-size: 14px; line-height: 1.7; }
+.bk__muted { color: var(--text-muted); }
+.bk__ok { color: var(--success); }
+.bk__danger { color: var(--danger); }
+.bk__warn-text { color: var(--warning-text); }
+.bk__strong { font-weight: 700; }
+.bk__progress { display: flex; align-items: center; gap: 12px; }
+.bk__spinner { width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--border-strong); border-top-color: var(--brand);
+  animation: bk-spin 0.8s linear infinite; }
+@keyframes bk-spin { to { transform: rotate(360deg); } }
+.bk__alert { margin: 0; padding: 14px 16px; border-radius: 12px; line-height: 1.7; display: flex; flex-direction: column; gap: 6px;
+  p { margin: 0; }
+  &--ok { background: var(--brand-soft); color: var(--brand-strong-text); }
+  &--error { background: var(--danger-soft); color: var(--danger-text); }
+  &--warn { background: var(--warning-soft); color: var(--warning-text); } }
+.bk__alert .bk__path { background: var(--surface); color: var(--text); }
+.bk__inline-btn { align-self: flex-start; }
+.bk__detail { margin: 0; white-space: pre-wrap; font-size: 12px; text-align: start; }

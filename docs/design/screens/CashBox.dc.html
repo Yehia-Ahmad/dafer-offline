@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota cash boxes and shift close</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+.row{display:flex;flex-direction:row;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F0EDE6;font-size:15px}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="cash" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800">الخزائن والوردية</h1>
+      <div style="display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap">
+        <button type="button" class="btn">تحويل بين الخزائن</button>
+        <button type="button" class="btn">+ خزنة جديدة</button>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px">
+      <sc-for list="{{boxes}}" as="b" hint-placeholder-count="4">
+        <div class="card" style="padding: 18px; display: flex; flex-direction: column; gap: 10px; border-color: {{b.bd}}">
+          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center">
+            <span style="font-size: 15px; font-weight: 700">{{b.name}}</span>
+            <span style="font-size: 12px; color: #4A5856">{{b.kind}}</span>
+          </div>
+          <span class="num" style="font-size: 26px; font-weight: 800">{{b.bal}}</span>
+          <span style="font-size: 12px; color: #4A5856">{{b.note}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 460px; min-width: 0; padding: 22px; display: flex; flex-direction: column; gap: 6px">
+        <div style="display: flex; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding-bottom: 8px">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <h2 style="margin: 0; font-size: 20px; font-weight: 800">إقفال الوردية · درج الكاشير ١</h2>
+            <span class="num" style="font-size: 13px; color: #4A5856">محمود · من ٩:٠٠ ص لـ ٥:٠٠ م · ٣٧ فاتورة</span>
+          </div>
+          <span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; color: #7A5B00; background: #FBF1D6">مفتوحة</span>
+        </div>
+        <div class="row"><span style="color: #4A5856">رصيد أول الوردية</span><span class="num">٥٠٠</span></div>
+        <div class="row"><span style="color: #4A5856">+ مبيعات كاش</span><span class="num" style="color: #11795F">٦٬٨٢٠</span></div>
+        <div class="row"><span style="color: #4A5856">+ تحصيل من عملاء</span><span class="num" style="color: #11795F">٦٠٠</span></div>
+        <div class="row"><span style="color: #4A5856">− مرتجعات اترجعت كاش</span><span class="num" style="color: #9A3412">١٢٠</span></div>
+        <div class="row"><span style="color: #4A5856">− مصروفات من الدرج</span><span class="num" style="color: #9A3412">٢٥٠</span></div>
+        <div class="row" style="font-weight: 800; font-size: 17px; border-bottom: none; padding-top: 14px"><span>المفروض يكون في الدرج</span><span class="num">٧٬٥٥٠ ج.م</span></div>
+      </section>
+      <aside class="card" style="flex: 1 1 320px; min-width: 0; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+        <label class="lb">اللي اتعدّ فعلًا
+          <input type="text" class="in num" value="٧٬٥٠٠" style="font-size: 24px; font-weight: 800; padding: 14px">
+        </label>
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; padding: 14px 16px; border-radius: 12px; background: #FBE9E3">
+          <span style="font-size: 15px; font-weight: 700; color: #9A3412">عجز</span>
+          <span class="num" style="font-size: 22px; font-weight: 800; color: #9A3412">٥٠ ج.م</span>
+        </div>
+        <label class="lb">ملاحظة على الفرق
+          <input type="text" class="in" placeholder="مثلًا: فكّة ناقصة">
+        </label>
+        <label class="lb">توريد للخزنة الرئيسية
+          <input type="text" class="in num" value="٧٬٠٠٠">
+        </label>
+        <span style="font-size: 13px; color: #4A5856">الباقي (٥٠٠) يفضل في الدرج رصيد للوردية الجاية.</span>
+        <button type="button" class="btn btn-p" style="min-height: 52px; font-size: 16px">إقفال الوردية وطباعة التقرير</button>
+        <p style="margin: 0; font-size: 12px; color: #4A5856; line-height: 1.7">العجز بيتسجل في حساب "عجز وزيادة الخزنة"، فبيظهر في التقارير المالية ومش بيضيع.</p>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const boxes = [
+      { name: 'الخزنة الرئيسية', kind: 'نقدي', bal: '١٨٬٤٠٠ ج.م', note: 'مع صاحب المحل', bd: '#E6E2D9' },
+      { name: 'درج الكاشير ١', kind: 'نقدي', bal: '٧٬٥٥٠ ج.م', note: 'وردية مفتوحة · محمود', bd: '#0E4D45' },
+      { name: 'فودافون كاش', kind: 'محفظة', bal: '٢٬٣٠٠ ج.م', note: '0100 222 3344', bd: '#E6E2D9' },
+      { name: 'بنك مصر', kind: 'بنك', bal: '٤١٬٠٠٠ ج.م', note: 'حساب جاري', bd: '#E6E2D9' }
+    ];
+    return { boxes };
+  }
+}
+</script>
+</body>
+</html>

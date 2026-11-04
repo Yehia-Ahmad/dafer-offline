@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota manual journal entry</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:10px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:right;font-size:13px;font-weight:700;color:#4A5856;background:#FAF9F6;padding:12px 14px}
+.tbl td{padding:8px 14px;border-top:1px solid #F0EDE6}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="accounts" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <a href="#" style="font-size: 14px; text-decoration: none">→ دليل الحسابات والقيود</a>
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; font-size: 28px; font-weight: 800">قيد يدوي جديد</h1>
+        <span style="font-size: 14px; color: #4A5856">للتسويات والحاجات اللي مالهاش شاشة، زي مسحوبات المالك أو فرق الجرد</span>
+      </div>
+      <span style="font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; color: #5B2A86; background: #EFE6F7">صلاحية محاسب</span>
+    </div>
+    <section class="card" style="padding: 18px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px">
+      <label class="lb">رقم القيد<input type="text" class="in num" value="٠٤١٣" style="background: #FAF9F6"></label>
+      <label class="lb">التاريخ *<input type="text" class="in num" value="٣ / ١١ / ٢٠٢٦"></label>
+      <label class="lb" style="grid-column: span 2">البيان *<input type="text" class="in" value="مسحوبات شخصية للمالك من الخزنة"></label>
+    </section>
+    <section class="card" style="overflow: hidden">
+      <div style="overflow-x: auto">
+        <table class="tbl" style="min-width: 760px">
+          <thead><tr><th style="width: 34%">الحساب</th><th>البيان</th><th style="width: 150px">مدين</th><th style="width: 150px">دائن</th><th style="width: 60px"></th></tr></thead>
+          <tbody>
+            <tr><td><select class="in" aria-label="الحساب"><option>٣٢ · جاري المالك</option></select></td><td><input type="text" class="in" aria-label="البيان" value="مسحوبات نوفمبر"></td><td><input type="text" class="in num" aria-label="مدين" value="٢٬٠٠٠"></td><td><input type="text" class="in num" aria-label="دائن" value=""></td><td><button type="button" aria-label="مسح السطر" class="btn" style="width: 36px; min-height: 36px; padding: 0; color: #9A3412">×</button></td></tr>
+            <tr><td><select class="in" aria-label="الحساب"><option>١١١١ · الخزنة الرئيسية</option></select></td><td><input type="text" class="in" aria-label="البيان" value=""></td><td><input type="text" class="in num" aria-label="مدين" value=""></td><td><input type="text" class="in num" aria-label="دائن" value="٢٬٠٠٠"></td><td><button type="button" aria-label="مسح السطر" class="btn" style="width: 36px; min-height: 36px; padding: 0; color: #9A3412">×</button></td></tr>
+          </tbody>
+          <tfoot>
+            <tr style="background: #FAF9F6; font-weight: 800"><td colspan="2" style="padding: 14px"><button type="button" class="btn">+ سطر</button></td><td class="num" style="padding: 14px">٢٬٠٠٠</td><td class="num" style="padding: 14px">٢٬٠٠٠</td><td></td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <div style="display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px; background: #E6EFEC; color: #0E4D45; font-size: 14px; font-weight: 700">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+        القيد متوازن: المدين = الدائن. الحفظ مش هيشتغل غير لما يتوازن.
+      </div>
+      <div style="display: flex; flex-direction: row; gap: 10px">
+        <button type="button" class="btn">حفظ كمسودة</button>
+        <button type="button" class="btn btn-p">ترحيل القيد</button>
+      </div>
+    </div>
+    <p style="margin: 0; font-size: 13px; color: #4A5856">بعد الترحيل القيد ما يتعدّلش. لو فيه غلط، اعمل قيد عكسي من شاشة القيود.</p>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

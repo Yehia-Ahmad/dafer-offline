@@ -1,0 +1,272 @@
+<!-- Returns (docs/design/screens/Returns.dc.html). Stage 10: the log (default) + a new-return wizard; requests unchanged. -->
+<div class="rt">
+  @if (view === 'log') {
+    <nota-page-header [title]="'returnsPage.title' | translate" [subtitle]="'returnsPage.subtitle' | translate">
+      <div notaPageActions>
+        <button type="button" notaButton [disabled]="isExporting || returns.length === 0 || isLoading" (click)="exportToExcel()">
+          {{ (isExporting ? 'returnsPage.actions.exporting' : 'returnsPage.actions.export') | translate }}
+        </button>
+        <button type="button" notaButton="primary" (click)="openWizard()">+ {{ 'returnsPage.s10.newReturn' | translate }}</button>
+      </div>
+    </nota-page-header>
+
+    <section class="rt__kpis" [attr.aria-label]="'returnsPage.summary.label' | translate">
+      <div class="nota-kpi"><span class="nota-kpi__label">{{ 'returnsPage.summary.cash' | translate }}</span><span class="nota-kpi__value nota-num">{{ summary.totalCashReturns | notaNumber }}</span></div>
+      <div class="nota-kpi"><span class="nota-kpi__label">{{ 'returnsPage.summary.credit' | translate }}</span><span class="nota-kpi__value nota-num">{{ summary.totalCreditReturns | notaNumber }}</span></div>
+      <div class="nota-kpi"><span class="nota-kpi__label">{{ 'returnsPage.summary.amount' | translate }}</span><span class="nota-kpi__value nota-num">{{ summary.totalReturnedAmount | notaMoney }}</span></div>
+      <div class="nota-kpi"><span class="nota-kpi__label">{{ 'returnsPage.summary.items' | translate }}</span><span class="nota-kpi__value nota-num">{{ summary.totalReturnedItems | notaNumber }}</span></div>
+    </section>
+
+    <form class="nota-card rt__filters" [formGroup]="filtersForm" (ngSubmit)="search()">
+      <nota-form-field [label]="'returnsPage.fields.returnType' | translate" forId="returnType">
+        <p-select inputId="returnType" [options]="returnTypeOptions" optionLabel="label" optionValue="value" formControlName="returnType" appendTo="body" styleClass="rt__control" />
+      </nota-form-field>
+      <nota-form-field [label]="'returnsPage.fields.customerName' | translate" forId="customerName">
+        <input id="customerName" class="nota-input" formControlName="customerName" autocomplete="off" />
+      </nota-form-field>
+      <nota-form-field [label]="'returnsPage.fields.customerPhone' | translate" forId="customerPhone">
+        <input id="customerPhone" class="nota-input" dir="ltr" formControlName="customerPhone" autocomplete="off" />
+      </nota-form-field>
+      <nota-form-field [label]="'returnsPage.fields.productCode' | translate" forId="productCode">
+        <input id="productCode" class="nota-input" dir="ltr" formControlName="productCode" autocomplete="off" />
+      </nota-form-field>
+      <nota-form-field [label]="'returnsPage.fields.invoiceId' | translate" forId="invoiceId">
+        <input id="invoiceId" class="nota-input" dir="ltr" formControlName="invoiceId" autocomplete="off" />
+      </nota-form-field>
+      <nota-form-field [label]="'returnsPage.fields.dateFrom' | translate" forId="dateFrom">
+        <p-datepicker inputId="dateFrom" formControlName="dateFrom" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="rt__control" />
+      </nota-form-field>
+      <nota-form-field [label]="'returnsPage.fields.dateTo' | translate" forId="dateTo">
+        <p-datepicker inputId="dateTo" formControlName="dateTo" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="rt__control" />
+      </nota-form-field>
+      <div class="rt__filter-actions">
+        <button type="submit" notaButton="primary" [disabled]="isLoading">{{ 'returnsPage.actions.search' | translate }}</button>
+        <button type="button" notaButton [disabled]="isLoading" (click)="resetFilters()">{{ 'returnsPage.actions.reset' | translate }}</button>
+      </div>
+    </form>
+
+    <section class="nota-card rt__list" aria-live="polite">
+      @if (isLoading) {
+        <p class="rt__state" role="status">{{ 'returnsPage.messages.loading' | translate }}</p>
+      } @else if (errorMessage) {
+        <div class="rt__state rt__state--error"><p role="alert">{{ errorMessage }}</p>
+          <button type="button" notaButton (click)="search()">{{ 'returnsPage.actions.tryAgain' | translate }}</button></div>
+      } @else if (returns.length === 0) {
+        <p class="rt__state">{{ 'returnsPage.messages.empty' | translate }}</p>
+      } @else {
+        <div class="nota-table-wrap">
+          <table class="nota-table">
+            <thead><tr>
+              <th>{{ 'returnsPage.fields.returnDate' | translate }}</th>
+              <th>{{ 'returnsPage.fields.type' | translate }}</th>
+              <th>{{ 'returnsPage.fields.invoiceNumber' | translate }}</th>
+              <th>{{ 'returnsPage.fields.customerName' | translate }}</th>
+              <th>{{ 'returnsPage.fields.customerPhone' | translate }}</th>
+              <th class="num">{{ 'returnsPage.fields.itemsCount' | translate }}</th>
+              <th class="num">{{ 'returnsPage.fields.finalReturnedAmount' | translate }}</th>
+              <th><span class="rt__sr">{{ 'returnsPage.fields.actions' | translate }}</span></th>
+            </tr></thead>
+            <tbody>
+              @for (item of returns; track trackByReturnId($index, item)) {
+                <tr>
+                  <td class="nota-num">{{ formatDisplayDate(item.returnDate) }}</td>
+                  <td><span class="nota-pill" [class.nota-pill--info]="item.returnType === 'credit'" [class.nota-pill--neutral]="item.returnType !== 'credit'">{{ formatType(item.returnType) }}</span></td>
+                  <td class="nota-num" dir="ltr">{{ item.invoiceNumber || '—' }}</td>
+                  <td dir="auto">{{ item.customerName || '—' }}</td>
+                  <td class="nota-num" dir="ltr">{{ item.customerPhone || '—' }}</td>
+                  <td class="num">{{ item.items.length | notaNumber }}</td>
+                  <td class="num rt__strong">{{ item.finalReturnedAmount | notaMoney }}</td>
+                  <td><button type="button" notaButton (click)="viewDetails(item)">{{ 'returnsPage.actions.viewDetails' | translate }}</button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <mat-paginator class="rt__paginator" [length]="pagination.totalItems" [pageIndex]="pagination.page - 1" [pageSize]="pagination.limit"
+          [pageSizeOptions]="pageSizeOptions" [showFirstLastButtons]="true" (page)="onPageChange($event)" [attr.aria-label]="'returnsPage.pagination.label' | translate" />
+      }
+    </section>
+  } @else {
+    <!-- New-return wizard -->
+    <nota-page-header [title]="'returnsPage.s10.newReturn' | translate" [subtitle]="'returnsPage.s10.wizard.subtitle' | translate">
+      <div notaPageActions>
+        <button type="button" notaButton (click)="closeWizard()" [disabled]="wizardSaving">{{ 'returnsPage.s10.wizard.backToLog' | translate }}</button>
+      </div>
+    </nota-page-header>
+
+    <ol class="rt__steps" [attr.aria-label]="'returnsPage.s10.wizard.steps' | translate">
+      @for (step of [1, 2, 3]; track step) {
+        <li class="rt__step" [class.is-on]="wizardStep === step" [class.is-done]="wizardStep > step" [attr.aria-current]="wizardStep === step ? 'step' : null">
+          <span class="rt__step-no">{{ wizardStep > step ? '✓' : (step | notaNumber) }}</span>
+          {{ ('returnsPage.s10.wizard.step' + step) | translate }}
+        </li>
+      }
+    </ol>
+
+    @if (wizardStep === 1) {
+      <section class="nota-card rt__choose">
+        <div class="rt__type" role="group" [attr.aria-label]="'returnsPage.fields.returnType' | translate">
+          <button type="button" class="rt__chip" [class.is-on]="wizardType === 'cash'" [attr.aria-pressed]="wizardType === 'cash'" (click)="setWizardType('cash')">{{ 'returnsPage.types.cash' | translate }}</button>
+          <button type="button" class="rt__chip" [class.is-on]="wizardType === 'credit'" [attr.aria-pressed]="wizardType === 'credit'" (click)="setWizardType('credit')">{{ 'returnsPage.types.credit' | translate }}</button>
+        </div>
+        <div class="rt__search">
+          <input type="text" class="nota-input" [(ngModel)]="wizardQuery" (keyup.enter)="searchWizardInvoices()" [placeholder]="'returnsPage.s10.wizard.searchPlaceholder' | translate"
+            [attr.aria-label]="'returnsPage.s10.wizard.searchPlaceholder' | translate" />
+          <button type="button" notaButton="primary" (click)="searchWizardInvoices()" [disabled]="wizardSearching || !wizardQuery.trim()">{{ 'returnsPage.actions.search' | translate }}</button>
+        </div>
+        @if (wizardSearching) {<p class="rt__state" role="status">{{ 'returnsPage.messages.loading' | translate }}</p>}
+        @if (wizardError) {<p class="rt__msg" role="alert">{{ wizardError }}</p>}
+        @if (wizardSearched && !wizardSearching && !wizardError && !wizardResults.length) {<p class="rt__state">{{ 'returnsPage.s10.wizard.noInvoices' | translate }}</p>}
+        <div class="rt__results">
+          @for (invoice of wizardResults; track invoice.id) {
+            <button type="button" class="rt__result" (click)="pickWizardInvoice(invoice)">
+              <span class="rt__result-main"><strong class="nota-num" dir="ltr">{{ invoice.label }}</strong>
+                <span class="nota-pill" [class.nota-pill--info]="invoice.type === 'credit'" [class.nota-pill--neutral]="invoice.type === 'cash'">{{ formatType(invoice.type) }}</span></span>
+              <span class="rt__muted"><span dir="auto">{{ invoice.customerName || '—' }}</span> · <span dir="ltr">{{ invoice.customerPhone }}</span> · {{ formatDisplayDate(invoice.date) }}</span>
+              <span class="rt__result-total nota-num">{{ invoice.total | notaMoney }}
+                @if (invoice.remaining !== null) {<span class="rt__muted"> · {{ 'returnsPage.s10.wizard.remaining' | translate }} {{ invoice.remaining | notaMoney }}</span>}</span>
+            </button>
+          }
+        </div>
+      </section>
+    } @else if (wizardInvoice) {
+      <div class="rt__wizard">
+        <section class="nota-card rt__items">
+          <div class="rt__invoice-head">
+            <div>
+              <strong class="nota-num" dir="ltr">{{ wizardInvoice.label }}</strong> · {{ formatType(wizardInvoice.type) }}
+              <div class="rt__muted"><span dir="auto">{{ wizardInvoice.customerName }}</span> · {{ formatDisplayDate(wizardInvoice.date) }}
+                @if (wizardInvoice.remaining !== null) { · {{ 'returnsPage.s10.wizard.remaining' | translate }} {{ wizardInvoice.remaining | notaMoney }} }</div>
+            </div>
+            <button type="button" notaButton (click)="goToWizardStep(1)" [disabled]="wizardSaving">{{ 'returnsPage.s10.wizard.changeInvoice' | translate }}</button>
+          </div>
+
+          @if (wizardStep === 2) {
+            <div class="rt__items-tools">
+              <button type="button" notaButton (click)="wizardReturnAll()">{{ 'invoiceHistoryPage.returnDialog.returnAll' | translate }}</button>
+              <button type="button" notaButton (click)="wizardClear()">{{ 'invoiceHistoryPage.returnDialog.clear' | translate }}</button>
+            </div>
+            <div class="nota-table-wrap">
+              <table class="nota-table">
+                <thead><tr>
+                  <th>{{ 'returnsPage.fields.productName' | translate }}</th>
+                  <th class="num">{{ 'returnsPage.s10.wizard.sold' | translate }}</th>
+                  <th class="num">{{ 'returnsPage.s10.wizard.returnedBefore' | translate }}</th>
+                  <th class="num">{{ 'returnsPage.s10.wizard.returnNow' | translate }}</th>
+                  <th class="num">{{ 'returnsPage.fields.price' | translate }}</th>
+                  <th>{{ 'returnsPage.fields.returnReason' | translate }}</th>
+                </tr></thead>
+                <tbody>
+                  @for (line of wizardLines; track line.productId) {
+                    <tr>
+                      <td><span dir="auto">{{ line.productName }}</span> <small class="rt__muted" dir="ltr">{{ line.productCode }}</small></td>
+                      <td class="num">{{ line.sold | notaNumber }}</td>
+                      <td class="num">{{ line.returnedBefore | notaNumber }}</td>
+                      <td class="num">
+                        <span class="rt__stepper">
+                          <button type="button" class="rt__step-btn" (click)="stepWizardQuantity(line, 1)" [attr.aria-label]="'sellingPage.pos.increase' | translate">+</button>
+                          <input type="number" class="rt__qty" min="0" [max]="line.sold" [(ngModel)]="line.quantity" [attr.aria-label]="'returnsPage.s10.wizard.returnNow' | translate" />
+                          <button type="button" class="rt__step-btn" (click)="stepWizardQuantity(line, -1)" [attr.aria-label]="'sellingPage.pos.decrease' | translate">−</button>
+                        </span>
+                      </td>
+                      <td class="num">{{ line.unitPrice | notaMoney }}</td>
+                      <td><input type="text" class="nota-input" [(ngModel)]="line.reason" maxlength="500" [placeholder]="'invoiceHistoryPage.returnDialog.reason' | translate"
+                        [attr.aria-label]="'returnsPage.fields.returnReason' | translate" /></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <div class="rt__form-row">
+              <nota-form-field [label]="'returnsPage.fields.returnDate' | translate" forId="rtWizDate" [required]="true">
+                <p-datepicker inputId="rtWizDate" [(ngModel)]="wizardDate" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="rt__control" />
+              </nota-form-field>
+              <nota-form-field [label]="'returnsPage.fields.note' | translate" forId="rtWizNote">
+                <input id="rtWizNote" type="text" class="nota-input" [(ngModel)]="wizardNote" maxlength="500" />
+              </nota-form-field>
+            </div>
+            <div class="rt__outcome" role="note">
+              <strong>{{ 'returnsPage.s10.wizard.whereMoney' | translate }}</strong>
+              <p>{{ (wizardInvoice.type === 'cash' ? 'returnsPage.s10.wizard.outcomeCash' : 'returnsPage.s10.wizard.outcomeCredit') | translate }}</p>
+              <p>{{ 'returnsPage.s10.wizard.outcomeStock' | translate }}</p>
+            </div>
+          }
+        </section>
+
+        <aside class="nota-card rt__summary" [attr.aria-label]="'returnsPage.s10.wizard.summary' | translate">
+          <h2 class="nota-section-title">{{ 'returnsPage.s10.wizard.summary' | translate }}</h2>
+          <ul class="rt__sum-lines">
+            @for (line of wizardSelectedLines; track line.productId) {
+              <li><span dir="auto">{{ line.productName }} × {{ line.quantity | notaNumber }}</span><span class="nota-num">{{ line.quantity * line.unitPrice | notaMoney }}</span></li>
+            } @empty {
+              <li class="rt__muted">{{ 'invoiceHistoryPage.returnDialog.selectionRequired' | translate }}</li>
+            }
+          </ul>
+          <div class="rt__sum-total"><span>{{ 'returnsPage.s10.wizard.estimate' | translate }}</span><strong class="nota-num">{{ wizardEstimatedAmount | notaMoney }}</strong></div>
+          <p class="rt__muted rt__small">{{ 'returnsPage.s10.wizard.estimateNote' | translate }}</p>
+          @if (wizardSaveError) {<p class="rt__msg" role="alert">{{ wizardSaveError }}</p>}
+          @if (wizardStep === 2) {
+            <button type="button" notaButton="primary" size="lg" (click)="goToWizardStep(3)" [disabled]="!wizardSelectedLines.length">{{ 'returnsPage.s10.wizard.next' | translate }}</button>
+          } @else {
+            <button type="button" notaButton="primary" size="lg" (click)="confirmWizardReturn()" [disabled]="wizardSaving || !wizardSelectedLines.length">
+              {{ (wizardSaving ? 'actions.loading' : 'returnsPage.s10.wizard.confirm') | translate }}
+            </button>
+            <button type="button" notaButton (click)="goToWizardStep(2)" [disabled]="wizardSaving">{{ 'returnsPage.s10.wizard.back' | translate }}</button>
+          }
+        </aside>
+      </div>
+    }
+  }
+</div>
+
+<!-- Return details (GET returns/:id) -->
+<p-dialog [visible]="detailsVisible" (visibleChange)="!$event && closeDetails()" [modal]="true" [showHeader]="false" [dismissableMask]="true"
+  [draggable]="false" [resizable]="false" styleClass="nota-p-dialog rt-wide">
+  <nota-dialog-shell [title]="(selectedReturn?.invoiceNumber || ('returnsPage.dialog.invoice' | translate)) + ' · ' + ('returnsPage.dialog.title' | translate)"
+    [closeLabel]="'returnsPage.dialog.closeAria' | translate" (closed)="closeDetails()">
+    @if (isDetailsLoading) {
+      <p class="rt__state" role="status">{{ 'returnsPage.messages.loadingDetails' | translate }}</p>
+    } @else if (detailsErrorMessage) {
+      <p class="rt__msg" role="alert">{{ detailsErrorMessage }}</p>
+    } @else if (selectedReturn; as item) {
+      <dl class="rt__info">
+        <div><dt>{{ 'returnsPage.fields.invoiceNumber' | translate }}</dt><dd dir="ltr">{{ item.invoiceNumber || '—' }}</dd></div>
+        <div><dt>{{ 'returnsPage.fields.invoiceId' | translate }}</dt><dd dir="ltr">{{ item.invoiceId || '—' }}</dd></div>
+        <div><dt>{{ 'returnsPage.fields.customerName' | translate }}</dt><dd dir="auto">{{ item.customerName || '—' }}</dd></div>
+        <div><dt>{{ 'returnsPage.fields.customerPhone' | translate }}</dt><dd dir="ltr">{{ item.customerPhone || '—' }}</dd></div>
+        <div><dt>{{ 'returnsPage.fields.returnType' | translate }}</dt><dd>{{ formatType(item.returnType) }}</dd></div>
+        <div><dt>{{ 'returnsPage.fields.returnDate' | translate }}</dt><dd>{{ formatDisplayDate(item.returnDate) }}</dd></div>
+      </dl>
+      <p class="rt__note"><strong>{{ 'returnsPage.fields.note' | translate }}:</strong> {{ item.note || ('returnsPage.messages.noNote' | translate) }}</p>
+      <h3 class="nota-section-title">{{ 'returnsPage.dialog.returnedItems' | translate }}</h3>
+      <div class="nota-table-wrap">
+        <table class="nota-table">
+          <thead><tr>
+            <th>{{ 'returnsPage.fields.productName' | translate }}</th><th>{{ 'returnsPage.fields.productCode' | translate }}</th>
+            <th class="num">{{ 'returnsPage.fields.quantity' | translate }}</th><th class="num">{{ 'returnsPage.fields.price' | translate }}</th>
+            <th class="num">{{ 'returnsPage.fields.total' | translate }}</th><th>{{ 'returnsPage.fields.returnReason' | translate }}</th>
+          </tr></thead>
+          <tbody>
+            @for (returnedItem of item.items; track returnedItem.productId) {
+              <tr><td dir="auto">{{ returnedItem.productName || '—' }}</td><td dir="ltr">{{ returnedItem.productCode || '—' }}</td>
+                <td class="num">{{ returnedItem.quantity | notaNumber }}</td><td class="num">{{ returnedItem.price | notaMoney }}</td>
+                <td class="num">{{ returnedItem.total | notaMoney }}</td><td>{{ returnedItem.returnReason || '—' }}</td></tr>
+            } @empty {
+              <tr><td colspan="6" class="rt__state">{{ 'returnsPage.messages.noItems' | translate }}</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <dl class="rt__totals">
+        <div><dt>{{ 'returnsPage.fields.subtotalReturnedAmount' | translate }}</dt><dd class="nota-num">{{ item.subtotalReturnedAmount | notaMoney }}</dd></div>
+        <div><dt>{{ 'returnsPage.fields.discountAmount' | translate }}</dt><dd class="nota-num">{{ item.discountAmount | notaMoney }}</dd></div>
+        <div><dt>{{ 'returnsPage.fields.shippingFees' | translate }}</dt><dd class="nota-num">{{ item.shippingFees | notaMoney }}</dd></div>
+        <div class="rt__grand"><dt>{{ 'returnsPage.fields.finalReturnedAmount' | translate }}</dt><dd class="nota-num">{{ item.finalReturnedAmount | notaMoney }}</dd></div>
+      </dl>
+    }
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton="primary" (click)="closeDetails()">{{ 'returnsPage.actions.close' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>

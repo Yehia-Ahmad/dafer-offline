@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota add supplier</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.num{font-variant-numeric:tabular-nums}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+.hint{font-size:12px;color:#4A5856}
+</style>
+</helmet>
+<div style="position: relative; min-height: 100vh; overflow: hidden; font-family: 'Alexandria', system-ui, sans-serif; color: #142321">
+  <dc-import name="Suppliers" hint-size="100%,960px"></dc-import>
+  <div style="position: absolute; inset: 0; background: rgba(11,31,28,0.5); display: flex; align-items: center; justify-content: center; padding: 24px">
+    <div role="dialog" aria-modal="true" aria-labelledby="dlg-title" style="width: 100%; max-width: 600px; background: #FFFFFF; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); display: flex; flex-direction: column">
+      <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #F0EDE6">
+        <h2 id="dlg-title" style="margin: 0; font-size: 20px; font-weight: 800">مورد جديد</h2>
+        <button type="button" aria-label="إغلاق" class="btn" style="width: 44px; padding: 0">×</button>
+      </div>
+      <div style="padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+        <label class="lb">اسم المورد / الشركة *<input type="text" class="in" value="شركة الصفا للإكسسوارات"></label>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+          <label class="lb">اسم المسؤول<input type="text" class="in" value="أ. حسن"></label>
+          <label class="lb">التليفون *<input type="text" class="in num" value="0109 210 5566" style="direction: ltr; text-align: right"></label>
+        </div>
+        <label class="lb">العنوان<input type="text" class="in" placeholder="اختياري"></label>
+        <label class="lb">بيورّد إيه<input type="text" class="in" value="مشتركات وإكسسوارات كهرباء"></label>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+          <label class="lb">الرقم الضريبي<input type="text" class="in" placeholder="اختياري"></label>
+          <label class="lb">مدة السداد المتفق عليها
+            <select class="in"><option>٣٠ يوم</option><option>كاش</option><option>٦٠ يوم</option></select>
+          </label>
+        </div>
+        <p class="hint" style="margin: 0; padding: 10px 12px; border-radius: 10px; background: #FAF9F6">رصيد المورد بيتحسب لوحده من فواتير الشراء والسداد. الأرصدة القديمة بتتدخل مرة واحدة في معالج رصيد البداية.</p>
+      </div>
+      <div style="display: flex; flex-direction: row; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #F0EDE6; background: #FAF9F6; border-radius: 0 0 20px 20px">
+        <button type="button" class="btn">إلغاء</button>
+        <button type="button" class="btn btn-p">حفظ المورد</button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

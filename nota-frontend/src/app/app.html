@@ -1,0 +1,12 @@
+<!-- Stage 9: the app frame (sidebar + top bar + page container) is rendered once here. Routes with data.frame === false (e.g. /ui-kit) render without it. -->
+@if (framed()) {
+  <app-side-nav>
+    <router-outlet />
+  </app-side-nav>
+} @else {
+  <router-outlet />
+}
+@if (offline) {
+  <app-connection-overlay />
+  <app-version-notice />
+}

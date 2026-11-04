@@ -1,0 +1,77 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.ui-kit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-gap);
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-page-y) var(--space-page-x);
+}
+
+.ui-kit__swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.ui-kit__swatch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ui-kit__chip {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+}
+
+.ui-kit__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.ui-kit__form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px 16px;
+}
+
+.ui-kit__wide {
+  grid-column: 1 / -1;
+}
+
+.ui-kit__grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: var(--space-gap);
+}
+
+.ui-kit__kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.ui-kit__dialog-preview {
+  padding: 24px;
+  border-radius: var(--radius-card);
+  background: var(--overlay);
+
+  .nota-dialog {
+    max-width: 540px;
+    margin: 0 auto;
+    box-shadow: var(--shadow-dialog);
+  }
+}

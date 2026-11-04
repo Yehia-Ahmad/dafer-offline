@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota sidebar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<nav aria-label="القائمة الرئيسية" style="width: 248px; min-height: 960px; height: 100%; box-sizing: border-box; background: {{bg}}; color: #F5F3EE; font-family: 'Alexandria', system-ui, sans-serif; display: flex; flex-direction: column; gap: 4px; padding: 20px 14px">
+  <div style="display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 0 8px 14px 8px">
+    <svg width="36" height="36" viewBox="0 0 100 100" aria-hidden="true">
+      <rect width="100" height="100" rx="24" fill="#0B3D37"></rect>
+      <path d="M25 42 C25 80 75 80 75 42" fill="none" stroke="#F5F3EE" stroke-width="12" stroke-linecap="round"></path>
+      <circle cx="50" cy="25" r="8.5" fill="#E4572E"></circle>
+    </svg>
+    <span style="font-size: 26px; font-weight: 800">نوتة</span>
+  </div>
+  <sc-for list="{{groups}}" as="g" hint-placeholder-count="6">
+    <div style="display: flex; flex-direction: column; gap: 2px; padding-top: 6px">
+      <sc-if value="{{g.label}}" hint-placeholder-val="{{ true }}">
+        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #9FC9BE; padding: 6px 12px 2px 12px">{{g.label}}</span>
+      </sc-if>
+      <sc-for list="{{g.items}}" as="it" hint-placeholder-count="3">
+        <a href="#" style="display: flex; flex-direction: row; align-items: center; gap: 10px; text-decoration: none; font-size: 14px; font-weight: {{it.weight}}; color: {{it.fg}}; background: {{it.bgc}}; padding: 7px 12px; border-radius: 9px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{it.icon}}"></path></svg>
+          <span>{{it.label}}</span>
+        </a>
+      </sc-for>
+    </div>
+  </sc-for>
+  <div style="flex: 1 1 auto"></div>
+  <div style="display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.08)">
+    <div style="width: 36px; height: 36px; border-radius: 999px; background: #E4572E; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px">أ</div>
+    <div style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto">
+      <span style="font-size: 14px; font-weight: 500">أحمد</span>
+      <span style="font-size: 12px; color: #9FC9BE">المالك · الجهاز الرئيسي</span>
+    </div>
+    <button type="button" aria-label="تسجيل الخروج" style="background: transparent; border: none; color: #F5F3EE; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"></path></svg>
+    </button>
+  </div>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","default":"home","options":["home","pos","credit","invoices","returns","customers","products","purchases","suppliers","cash","expenses","accounts","journal","reports","profit","users","shop","backup"]},"dark":{"editor":"boolean","default":false},"$preview":{"width":248,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const active = this.props.active ?? 'home';
+    const dark = !!this.props.dark;
+    const I = {
+      home: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      pos: 'M4 5h16v11H4zM8 20h8M12 16v4M8 9h3',
+      credit: 'M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
+      invoices: 'M7 3h10v18l-2.5-1.5L12 21l-2.5-1.5L7 21zM10 8h4M10 12h4',
+      returns: 'M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
+      customers: 'M16 19v-1a4 4 0 0 0-8 0v1M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      products: 'M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10',
+      purchases: 'M3 6h11v10H3zM14 10h4l3 3v3h-7M7 19h.01M17 19h.01',
+      suppliers: 'M4 21V5h10v16M14 9h6v12M8 9h2M8 13h2M8 17h2',
+      cash: 'M4 5h16v14H4zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM4 9h2M4 15h2',
+      expenses: 'M12 4v12M7 11l5 5 5-5M5 20h14',
+      accounts: 'M5 4h5v4H5zM14 10h5v4h-5zM14 17h5v4h-5zM7.5 8v11h6.5M7.5 12h6.5',
+      journal: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11',
+      reports: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+      profit: 'M3 17l6-6 4 4 8-8M15 7h6v6',
+      users: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4',
+      shop: 'M3 9l2-5h14l2 5M4 9v11h16V9M3 9h18M9 20v-6h6v6',
+      backup: 'M12 3c4.4 0 8 1.3 8 3v12c0 1.7-3.6 3-8 3s-8-1.3-8-3V6c0-1.7 3.6-3 8-3zM4 6c0 1.7 3.6 3 8 3s8-1.3 8-3M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3'
+    };
+    const raw = [
+      { label: '', items: [['home', 'الرئيسية']] },
+      { label: 'المبيعات', items: [['pos', 'نقطة البيع'], ['credit', 'البيع الآجل'], ['invoices', 'سجل الفواتير'], ['returns', 'المرتجعات'], ['customers', 'العملاء']] },
+      { label: 'المخزون', items: [['products', 'الأصناف والفئات'], ['purchases', 'المشتريات'], ['suppliers', 'الموردين']] },
+      { label: 'الخزنة', items: [['cash', 'الخزائن والوردية'], ['expenses', 'المصروفات']] },
+      { label: 'الحسابات', items: [['accounts', 'دليل الحسابات والقيود'], ['reports', 'التقارير المالية'], ['profit', 'تقرير الأرباح']] },
+      { label: 'الإدارة', items: [['users', 'المستخدمين والصلاحيات'], ['shop', 'بيانات المحل'], ['backup', 'النسخ الاحتياطي']] }
+    ];
+    const groups = raw.map((g) => ({
+      label: g.label,
+      items: g.items.map(([key, label]) => {
+        const on = key === active;
+        return {
+          label,
+          icon: I[key],
+          fg: on ? (dark ? '#0B1F1C' : '#0E4D45') : '#E3EFEB',
+          bgc: on ? (dark ? '#7FD1BE' : '#F5F3EE') : 'transparent',
+          weight: on ? 700 : 400
+        };
+      })
+    }));
+    return { groups, bg: dark ? '#081815' : '#0E4D45' };
+  }
+}
+</script>
+</body>
+</html>

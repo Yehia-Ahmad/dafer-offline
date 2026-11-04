@@ -1,0 +1,28 @@
+// Product form (ProductForm.dc.html). Tokens only.
+:host { display: block; }
+.pf { display: flex; flex-direction: column; gap: var(--space-gap); }
+.pf__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.pf__layout { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.pf__main { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.pf__side { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.pf__card { display: flex; flex-direction: column; gap: 14px; }
+.pf__title { margin: 0; font-size: 17px; font-weight: 700; }
+.pf__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.pf__grid--sm { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.pf__stack { display: flex; flex-direction: column; gap: 12px; }
+.pf__num { font-variant-numeric: tabular-nums; }
+// LTR values (codes) keep the page's reading side: right in Arabic, as in the design.
+.pf__ltr { text-align: left; }
+:host-context(html[dir='rtl']) .pf__ltr { text-align: right; }
+.pf__out { text-decoration: line-through; }
+.pf__readonly { display: flex; align-items: center; min-height: var(--touch-target); padding: 0 12px; border-radius: var(--radius-control);
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
+.pf__hints { display: flex; flex-wrap: wrap; gap: 10px; }
+.pf__hint { font-size: 13px; padding: 8px 12px; border-radius: var(--radius-control); background: var(--brand-soft); color: var(--brand-strong-text);
+  font-variant-numeric: tabular-nums;
+  &.is-bad { background: var(--danger-soft); color: var(--danger-text); } }
+.pf__drop { display: flex; align-items: center; justify-content: center; height: 180px; padding: 8px; border-radius: 14px;
+  border: 2px dashed var(--border-strong); background: var(--surface-2); color: var(--text-muted); font: inherit; font-size: 13px; cursor: pointer;
+  &.is-over { border-color: var(--brand); background: var(--brand-soft); }
+  img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; } }
+.pf__message { margin: 0; color: var(--text); }

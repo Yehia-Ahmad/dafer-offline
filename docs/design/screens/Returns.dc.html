@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota returns</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:right;font-size:13px;font-weight:700;color:#4A5856;background:#FAF9F6;padding:12px 16px}
+.tbl td{padding:12px 16px;border-top:1px solid #F0EDE6}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="returns" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <h1 style="margin: 0; font-size: 28px; font-weight: 800">مرتجع جديد</h1>
+
+    <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px">
+      <li style="display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 14px; color: #0E4D45; font-weight: 700"><span style="width: 28px; height: 28px; border-radius: 999px; background: #0E4D45; color: #FFFFFF; display: flex; align-items: center; justify-content: center">✓</span>اختار الفاتورة</li>
+      <li aria-hidden="true" style="width: 40px; height: 2px; background: #0E4D45; align-self: center"></li>
+      <li style="display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 14px; color: #0E4D45; font-weight: 700"><span style="width: 28px; height: 28px; border-radius: 999px; background: #0E4D45; color: #FFFFFF; display: flex; align-items: center; justify-content: center">٢</span>حدد الأصناف والكميات</li>
+      <li aria-hidden="true" style="width: 40px; height: 2px; background: #CFCAC0; align-self: center"></li>
+      <li style="display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 14px; color: #4A5856"><span style="width: 28px; height: 28px; border-radius: 999px; border: 2px solid #CFCAC0; display: flex; align-items: center; justify-content: center">٣</span>تأكيد ورد الفلوس</li>
+    </ol>
+
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 520px; min-width: 0; overflow: hidden">
+        <div style="display: flex; flex-direction: row; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding: 16px 18px; background: #FAF9F6; border-bottom: 1px solid #E6E2D9">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 18px; font-weight: 800">فاتورة #١٠٨ · آجل</span>
+            <span class="num" style="font-size: 13px; color: #4A5856">محمد فتحي · ١٥ / ١٠ / ٢٠٢٦ · الباقي عليه ٢٬٠٠٠ ج.م</span>
+          </div>
+          <button type="button" class="btn">تغيير الفاتورة</button>
+        </div>
+        <div style="overflow-x: auto">
+          <table class="tbl" style="min-width: 700px">
+            <thead><tr><th>الصنف</th><th>اتباع</th><th>رجع قبل كده</th><th>يرجع دلوقتي</th><th>السعر</th><th>السبب</th></tr></thead>
+            <tbody>
+              <tr><td>كشاف طوارئ</td><td class="num">٤</td><td class="num" style="color: #4A5856">٠</td>
+                <td><div style="display: flex; flex-direction: row; align-items: center; gap: 4px; border: 2px solid #0E4D45; border-radius: 10px; width: fit-content"><button type="button" aria-label="زوّد" style="width: 36px; height: 36px; border: none; background: transparent; font-size: 18px">+</button><span class="num" style="min-width: 22px; text-align: center; font-weight: 800">٢</span><button type="button" aria-label="قلّل" style="width: 36px; height: 36px; border: none; background: transparent; font-size: 18px">−</button></div></td>
+                <td class="num">٢٧٥</td><td><select class="in" style="padding: 8px 10px; font-size: 14px"><option>عيب صناعة</option></select></td></tr>
+              <tr><td>بانل سقف ٢٤ وات</td><td class="num">٥</td><td class="num" style="color: #4A5856">١</td>
+                <td><div style="display: flex; flex-direction: row; align-items: center; gap: 4px; border: 1px solid #CFCAC0; border-radius: 10px; width: fit-content"><button type="button" aria-label="زوّد" style="width: 36px; height: 36px; border: none; background: transparent; font-size: 18px">+</button><span class="num" style="min-width: 22px; text-align: center; color: #4A5856">٠</span><button type="button" aria-label="قلّل" style="width: 36px; height: 36px; border: none; background: transparent; font-size: 18px">−</button></div></td>
+                <td class="num">٣٢٠</td><td style="color: #4A5856; font-size: 13px">—</td></tr>
+              <tr><td>سلك كهرباء ٣ مم (متر)</td><td class="num">٣٠</td><td class="num" style="color: #4A5856">٠</td>
+                <td><div style="display: flex; flex-direction: row; align-items: center; gap: 4px; border: 1px solid #CFCAC0; border-radius: 10px; width: fit-content"><button type="button" aria-label="زوّد" style="width: 36px; height: 36px; border: none; background: transparent; font-size: 18px">+</button><span class="num" style="min-width: 22px; text-align: center; color: #4A5856">٠</span><button type="button" aria-label="قلّل" style="width: 36px; height: 36px; border: none; background: transparent; font-size: 18px">−</button></div></td>
+                <td class="num">١٨</td><td style="color: #4A5856; font-size: 13px">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="card" style="flex: 1 1 320px; min-width: 0; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 800">ملخص المرتجع</h2>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+          <div style="display: flex; flex-direction: row; justify-content: space-between"><span style="color: #4A5856">كشاف طوارئ × ٢</span><span class="num">٥٥٠</span></div>
+          <div style="display: flex; flex-direction: row; justify-content: space-between; font-size: 20px; font-weight: 800; padding-top: 10px; border-top: 1px dashed #CFCAC0"><span>قيمة المرتجع</span><span class="num">٥٥٠ ج.م</span></div>
+        </div>
+        <fieldset style="border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+          <legend style="font-size: 13px; color: #3B4A47; margin-bottom: 8px">الفلوس تروح فين؟</legend>
+          <label style="display: flex; flex-direction: row; align-items: flex-start; gap: 10px; padding: 12px; border: 2px solid #0E4D45; border-radius: 12px; background: #F1F7F5; font-size: 14px; min-height: 44px">
+            <input type="radio" name="refund" checked style="width: 18px; height: 18px; accent-color: #0E4D45; margin-top: 2px">
+            <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 700">تتخصم من الباقي عليه</span><span style="font-size: 13px; color: #4A5856">الباقي هيبقى ١٬٤٥٠ ج.م</span></span>
+          </label>
+          <label style="display: flex; flex-direction: row; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid #CFCAC0; border-radius: 12px; font-size: 14px; min-height: 44px">
+            <input type="radio" name="refund" style="width: 18px; height: 18px; accent-color: #0E4D45; margin-top: 2px">
+            <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 700">ترجع له كاش</span><span style="font-size: 13px; color: #4A5856">من الخزنة الرئيسية</span></span>
+          </label>
+        </fieldset>
+        <label style="display: flex; flex-direction: row; align-items: center; gap: 10px; font-size: 14px; min-height: 44px">
+          <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: #0E4D45">
+          رجّع الكميات للمخزون
+        </label>
+        <button type="button" class="btn btn-p" style="min-height: 52px; font-size: 16px">تأكيد المرتجع وطباعة</button>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

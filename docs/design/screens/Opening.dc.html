@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota opening balance wizard</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.btn{font-family:inherit;font-size:15px;font-weight:500;min-height:48px;padding:0 22px;border-radius:12px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.r{display:flex;flex-direction:row;justify-content:space-between;align-items:center;padding:12px 0;font-size:15px;border-bottom:1px solid #F0EDE6}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; gap: 28px">
+  <div style="display: flex; flex-direction: row; align-items: center; gap: 12px">
+    <svg width="40" height="40" viewBox="0 0 100 100" aria-hidden="true">
+      <rect width="100" height="100" rx="24" fill="#0E4D45"></rect>
+      <path d="M25 42 C25 80 75 80 75 42" fill="none" stroke="#F5F3EE" stroke-width="12" stroke-linecap="round"></path>
+      <circle cx="50" cy="25" r="8.5" fill="#E4572E"></circle>
+    </svg>
+    <span style="font-size: 26px; font-weight: 800; color: #0E4D45">نوتة</span>
+  </div>
+  <div style="width: 100%; max-width: 920px; display: flex; flex-direction: column; gap: 6px; text-align: center">
+    <h1 style="margin: 0; font-size: 30px; font-weight: 800">رصيد بداية المحل</h1>
+    <p style="margin: 0; font-size: 16px; color: #4A5856">قولنا المحل عنده إيه النهارده، عشان كل الحسابات تبدأ صح</p>
+  </div>
+  <ol aria-label="الخطوات" style="list-style: none; margin: 0; padding: 0; width: 100%; max-width: 920px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+    <sc-for list="{{steps}}" as="s" hint-placeholder-count="5">
+      <li style="display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center">
+        <span style="width: 100%; height: 6px; border-radius: 999px; background: {{s.bar}}"></span>
+        <span style="font-size: 13px; font-weight: {{s.w}}; color: {{s.fg}}">{{s.n}}. {{s.label}}</span>
+      </li>
+    </sc-for>
+  </ol>
+  <section style="width: 100%; max-width: 920px; background: #FFFFFF; border: 1px solid #E6E2D9; border-radius: 20px; padding: 28px 32px; display: flex; flex-direction: row; flex-wrap: wrap; gap: 32px">
+    <div style="flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column">
+      <h2 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 800">مراجعة قبل البدء</h2>
+      <div class="r" style="font-weight: 700; color: #0E4D45"><span>اللي ليك (الأصول)</span><span></span></div>
+      <div class="r"><span>الخزنة الرئيسية</span><span class="num">١٥٬٠٠٠</span></div>
+      <div class="r"><span>بنك مصر</span><span class="num">٣٠٬٠٠٠</span></div>
+      <div class="r"><span style="display: flex; flex-direction: column; gap: 2px">المخزون<span style="font-size: 12px; color: #4A5856">اتحسب لوحده: ٨٤ صنف × سعر الشراء</span></span><span class="num">٨٤٬٢٠٠</span></div>
+      <div class="r"><span>فلوس على العملاء (٧ عملاء)</span><span class="num">٦٬٣٠٠</span></div>
+      <div class="r" style="font-weight: 800"><span>الإجمالي</span><span class="num">١٣٥٬٥٠٠</span></div>
+      <div class="r" style="font-weight: 700; color: #9A3412; padding-top: 18px"><span>اللي عليك (الخصوم)</span><span></span></div>
+      <div class="r"><span>فلوس للموردين (٣ موردين)</span><span class="num">٨٬٥٠٠</span></div>
+    </div>
+    <div style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 16px; justify-content: center">
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 22px; border-radius: 16px; background: #0E4D45; color: #FFFFFF">
+        <span style="font-size: 14px; color: #CFE7DF">رأس مال المحل</span>
+        <span class="num" style="font-size: 38px; font-weight: 800">١٢٧٬٠٠٠ ج.م</span>
+        <span class="num" style="font-size: 13px; color: #CFE7DF; line-height: 1.7">= اللي ليك ١٣٥٬٥٠٠ − اللي عليك ٨٬٥٠٠</span>
+      </div>
+      <p style="margin: 0; font-size: 14px; line-height: 1.8; color: #3B4A47">ده هيتسجل قيد افتتاحي واحد بتاريخ النهارده. بعد كده كل بيعة ومصروف بيتسجلوا لوحدهم.</p>
+      <label style="display: flex; flex-direction: row; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.6; min-height: 44px">
+        <input type="checkbox" style="width: 20px; height: 20px; accent-color: #0E4D45; margin-top: 2px">
+        راجعت الأرقام، والمبالغ دي مطابقة للي عندي فعلًا
+      </label>
+    </div>
+  </section>
+  <div style="width: 100%; max-width: 920px; display: flex; flex-direction: row; justify-content: space-between; gap: 12px">
+    <button type="button" class="btn">→ رجوع للموردين</button>
+    <button type="button" class="btn btn-p">ابدأ الشغل</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const labels = ['الخزائن', 'المخزون', 'العملاء', 'الموردين', 'المراجعة'];
+    const steps = labels.map((label, i) => ({ n: (i + 1).toLocaleString('ar-EG'), label, bar: i < 4 ? '#0E4D45' : '#E4572E', fg: i === 4 ? '#142321' : '#0E4D45', w: i === 4 ? 800 : 500 }));
+    return { steps };
+  }
+}
+</script>
+</body>
+</html>

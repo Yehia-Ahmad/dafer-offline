@@ -1,0 +1,20 @@
+// POS (Pos.dc.html). Tokens only; dark mode comes from the token overrides.
+.pos{display:flex;flex-direction:column;gap:18px;container-type:inline-size}
+.pos__layout{display:grid;grid-template-columns:minmax(0,1fr) clamp(330px,36cqi,400px);gap:20px;align-items:start}
+.pos__catalog{display:flex;flex-direction:column;gap:16px;min-width:0}
+.pos__catalog .nota-page-header{margin:0}
+.pos__search{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 14px;background:var(--surface);border:2px solid var(--brand);border-radius:var(--radius-control-lg);color:var(--text-muted)}
+.pos__search-input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:inherit;font-size:16px}
+.pos__kbd{font:inherit;font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:6px}
+.pos__chips{display:flex;flex-wrap:wrap;gap:8px}
+.pos__chip{min-height:40px;padding:0 16px;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;font-size:14px;font-weight:500;cursor:pointer;
+  &.is-on{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}}
+.pos__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.pos__tile{display:flex;flex-direction:column;gap:8px;min-height:120px;padding:14px;text-align:start;font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:14px;cursor:pointer;
+  &:hover{border-color:var(--brand)}}
+.pos__tile-code{font-size:12px;color:var(--text-muted);text-align:start}
+.pos__tile-name{flex:1;font-size:15px;font-weight:500;line-height:1.4}
+.pos__tile-foot{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pos__tile-price{font-size:16px;font-weight:800;color:var(--brand-strong-text)}
+.pos__tile-stock{font-size:12px;color:var(--text-muted);&.is-low{color:var(--danger);font-weight:700}}
+.pos__note{margin:0;font-size:14px;color:var(--text-muted);&--error{color:var(--danger)}}

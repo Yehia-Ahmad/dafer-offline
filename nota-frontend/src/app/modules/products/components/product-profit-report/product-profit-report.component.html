@@ -1,0 +1,167 @@
+<!-- Profit report (docs/design/screens/Profit.dc.html). Stage 11: existing endpoints and params only. -->
+<div class="pr">
+  <nota-page-header [title]="'profitReportPage.title' | translate" [subtitle]="'profitReportPage.subtitle' | translate">
+    <div notaPageActions class="pr__periods" role="group" [attr.aria-label]="'profitReportPage.s11.period' | translate">
+      @for (item of periods; track item) {
+        <button type="button" class="pr__pill" [class.is-on]="period === item" [attr.aria-pressed]="period === item" (click)="setPeriod(item)">
+          {{ 'profitReportPage.s11.periods.' + item | translate }}
+        </button>
+      }
+    </div>
+  </nota-page-header>
+
+  <section class="nota-card pr__filters">
+    <nota-form-field [label]="'profitReportPage.filters.categoryId' | translate">
+      <p-select [options]="categoryOptions" optionLabel="label" optionValue="value" appendTo="body"
+        [(ngModel)]="filterCategoryId" (ngModelChange)="onCategoryFilterChange($event)"
+        [placeholder]="'profitReportPage.filters.placeholders.categoryId' | translate" [loading]="isCategoriesLoading" styleClass="w-full" />
+    </nota-form-field>
+    <nota-form-field [label]="'profitReportPage.filters.productId' | translate">
+      <p-select [options]="productOptions" optionLabel="label" optionValue="value" appendTo="body"
+        [(ngModel)]="filterProductId" [placeholder]="'profitReportPage.filters.placeholders.productId' | translate"
+        [loading]="isProductsLoading" [disabled]="!filterCategoryId" styleClass="w-full" />
+    </nota-form-field>
+    @if (period === 'custom' || filterDateFrom || filterDateTo) {
+      <nota-form-field [label]="'profitReportPage.filters.dateFrom' | translate" forId="profitReportDateFrom">
+        <p-datepicker [(ngModel)]="filterDateFrom" (ngModelChange)="period = 'custom'" [showIcon]="true" [iconDisplay]="'input'"
+          appendTo="body" inputId="profitReportDateFrom" styleClass="w-full" inputStyleClass="w-full" />
+      </nota-form-field>
+      <nota-form-field [label]="'profitReportPage.filters.dateTo' | translate" forId="profitReportDateTo">
+        <p-datepicker [(ngModel)]="filterDateTo" (ngModelChange)="period = 'custom'" [showIcon]="true" [iconDisplay]="'input'"
+          appendTo="body" inputId="profitReportDateTo" styleClass="w-full" inputStyleClass="w-full" />
+      </nota-form-field>
+    }
+    <div class="pr__filter-actions">
+      <button type="button" notaButton="primary" data-action="apply-filters" (click)="applyFilters()">{{ 'profitReportPage.filters.actions.apply' | translate }}</button>
+      <button type="button" notaButton data-action="reset-filters" (click)="resetFilters()">{{ 'profitReportPage.filters.actions.reset' | translate }}</button>
+    </div>
+  </section>
+
+  <section class="pr__kpis">
+    <nota-kpi-card [label]="'profitReportPage.s11.kpis.sales' | translate" [value]="kpis.sales | notaMoney" [note]="'profitReportPage.s11.kpis.salesNote' | translate" />
+    <nota-kpi-card [label]="'profitReportPage.s11.kpis.cost' | translate" [value]="kpis.cost | notaMoney" [note]="'profitReportPage.s11.kpis.costNote' | translate" />
+    <nota-kpi-card class="pr__kpi--brand" [label]="'profitReportPage.s11.kpis.profit' | translate" [value]="kpis.profit | notaMoney" [note]="'profitReportPage.s11.kpis.profitNote' | translate" />
+    <nota-kpi-card [label]="'profitReportPage.s11.kpis.margin' | translate"
+      [value]="kpis.margin === null ? '—' : ('productsPage.percent' | translate: { value: (kpis.margin | notaNumber) })"
+      [note]="'profitReportPage.s11.kpis.marginNote' | translate" />
+  </section>
+
+  <div class="pr__row">
+    <section class="nota-card pr__chart-card">
+      <div class="pr__card-head">
+        <h2 class="nota-section-title pr__h2">{{ 'profitReportPage.s11.chart.title' | translate }}</h2>
+        <div class="pr__legend">
+          <span><i class="pr__swatch pr__swatch--cash"></i>{{ 'profitReportPage.s11.chart.cash' | translate }}</span>
+          <span><i class="pr__swatch pr__swatch--credit"></i>{{ 'profitReportPage.s11.chart.credit' | translate }}</span>
+        </div>
+      </div>
+      @if (isProfitBarLoading) {
+        <p class="pr__muted" role="status">{{ 'actions.loading' | translate }}</p>
+      } @else if (profitBarError) {
+        <p class="pr__error" role="alert">{{ profitBarError }}</p>
+      } @else {
+        <div class="pr__chart" role="img" [attr.aria-label]="('profitReportPage.s11.chart.title' | translate) + ' ' + profitYear">
+          @for (month of chartMonths; track $index) {
+            <div class="pr__bar-col" [title]="month.label + ': ' + (month.profit | notaMoney)">
+              <div class="pr__bar-stack">
+                <div class="pr__bar pr__bar--credit" [style.height.%]="month.creditPct"></div>
+                <div class="pr__bar pr__bar--cash" [style.height.%]="month.cashPct"></div>
+              </div>
+              <span class="pr__bar-label">{{ month.label }}</span>
+            </div>
+          }
+        </div>
+      }
+      <div class="pr__export">
+        <nota-form-field [label]="'profitReportPage.export.year' | translate" forId="profitYear">
+          <input id="profitYear" type="number" min="1970" [max]="maxProfitYear" class="nota-input pr__year"
+            [(ngModel)]="profitYear" (change)="onProfitYearChange()" [placeholder]="'profitReportPage.export.yearPlaceholder' | translate" />
+        </nota-form-field>
+        <button type="button" notaButton data-action="export-pdf" (click)="generateProfitPdf()" [disabled]="isPdfGenerating">
+          {{ (isPdfGenerating ? 'actions.loading' : 'profitReportPage.export.action') | translate }}
+        </button>
+      </div>
+      @if (pdfError) {
+        <p class="pr__error" role="alert">{{ pdfError }}</p>
+      }
+    </section>
+
+    <section class="nota-card pr__table-card">
+      <div class="pr__card-head"><h2 class="nota-section-title pr__h2">{{ 'profitReportPage.s11.table.title' | translate }}</h2></div>
+      @if (loadError) {
+        <p class="pr__error" role="alert">{{ loadError }}</p>
+      } @else {
+        <div class="nota-table-wrap">
+          <table class="nota-table pr__table">
+            <thead><tr>
+              <th>{{ 'profitReportPage.tableHeaders.index' | translate }}</th>
+              <th>{{ 'profitReportPage.tableHeaders.productName' | translate }}</th>
+              <th>{{ 'profitReportPage.tableHeaders.categoryName' | translate }}</th>
+              <th class="num">{{ 'profitReportPage.s11.table.quantity' | translate }}</th>
+              <th class="num">{{ 'profitReportPage.s11.table.sales' | translate }}</th>
+              <th class="num">{{ 'profitReportPage.tableHeaders.totalProfit' | translate }}</th>
+              <th class="num">{{ 'profitReportPage.s11.table.margin' | translate }}</th>
+              <th class="num">{{ 'profitReportPage.tableHeaders.lastSellingDate' | translate }}</th>
+              <th class="num">{{ 'profitReportPage.tableHeaders.lastSellingPrice' | translate }}</th>
+            </tr></thead>
+            <tbody>
+              @if (isLoading) {
+                <tr><td colspan="9" class="pr__empty" role="status">{{ 'actions.loading' | translate }}</td></tr>
+              } @else {
+                @for (report of rankedReports; track report.productId || $index; let i = $index) {
+                  <tr class="pr__row-link" tabindex="0" (click)="openInvoiceDetails(report)" (keydown.enter)="openInvoiceDetails(report)">
+                    <td class="nota-num">{{ i + 1 | notaNumber }}</td>
+                    <td class="pr__strong">{{ report.productName || '-' }}</td>
+                    <td class="pr__muted-cell">{{ report.categoryName || '-' }}</td>
+                    <td class="nota-num">{{ report.quantity | notaNumber }}</td>
+                    <td class="nota-num">{{ report.sales | notaMoney }}</td>
+                    <td class="nota-num pr__profit" [class.is-loss]="report.totalProfit < 0">{{ report.totalProfit | notaMoney }}</td>
+                    <td class="nota-num pr__muted-cell">{{ report.margin === null ? '—' : ('productsPage.percent' | translate: { value: (report.margin | notaNumber) }) }}</td>
+                    <td class="nota-num">{{ formatDisplayDate(report.lastSellingDate) }}</td>
+                    <td class="nota-num">{{ report.lastSellingPrice !== null ? (report.lastSellingPrice | notaMoney) : '-' }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="9" class="pr__empty">{{ 'profitReportPage.messages.empty' | translate }}</td></tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  </div>
+</div>
+
+<p-dialog [(visible)]="invoiceDialogVisible" [modal]="true" [showHeader]="false" [dismissableMask]="true" [draggable]="false" [resizable]="false"
+  styleClass="nota-p-dialog pr-dialog" appendTo="body" (onHide)="closeInvoiceDetails()">
+  <nota-dialog-shell [title]="selectedReportRow?.productName || ('profitReportPage.dialog.title' | translate)"
+    [closeLabel]="'nav.categories.close' | translate" (closed)="closeInvoiceDetails()">
+    <p class="pr__muted">{{ selectedReportRow?.categoryName || '-' }}</p>
+    <div class="pr__invoices">
+      @for (invoice of selectedReportRow?.invoices || []; track invoice.id) {
+        <div class="pr__invoice">
+          <div class="pr__invoice-head">
+            <div>
+              <h3 class="pr__invoice-no">{{ invoice.invoiceNumber || invoice.id }}</h3>
+              <span class="pr__muted">{{ getInvoiceTypeLabel(invoice.type) }}</span>
+            </div>
+            <span class="pr__muted nota-num">{{ formatDisplayDate(invoice.sellingDate) }}</span>
+          </div>
+          <dl class="pr__metrics">
+            <div><dt>{{ 'profitReportPage.dialog.sellingPrice' | translate }}</dt><dd class="nota-num">{{ invoice.sellingPrice !== null ? (invoice.sellingPrice | notaMoney) : '-' }}</dd></div>
+            <div><dt>{{ 'profitReportPage.dialog.purchasePrice' | translate }}</dt><dd class="nota-num">{{ invoice.purchasePrice !== null ? (invoice.purchasePrice | notaMoney) : '-' }}</dd></div>
+            <div><dt>{{ 'profitReportPage.dialog.quantity' | translate }}</dt><dd class="nota-num">{{ invoice.quantity !== null ? (invoice.quantity | notaNumber) : '-' }}</dd></div>
+            <div><dt>{{ 'profitReportPage.dialog.profit' | translate }}</dt><dd class="nota-num pr__profit">{{ invoice.profit !== null ? (invoice.profit | notaMoney) : '-' }}</dd></div>
+          </dl>
+          <p class="pr__muted">{{ 'profitReportPage.dialog.customerName' | translate }}: {{ invoice.customerName || '-' }}</p>
+        </div>
+      }
+    </div>
+    @if (!(selectedReportRow?.invoices?.length)) {
+      <p class="pr__muted pr__center">{{ 'profitReportPage.messages.noInvoices' | translate }}</p>
+    }
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton="primary" (click)="closeInvoiceDetails()">{{ 'nav.categories.ok' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>

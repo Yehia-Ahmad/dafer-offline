@@ -1,0 +1,174 @@
+<!-- Backup (docs/design/screens/Backup.dc.html). Stage 11: layout only; every action goes through the desktop bridge as before. -->
+<div class="bk">
+  <nota-page-header [title]="'backupPage.title' | translate" [subtitle]="'backupPage.subtitle' | translate" />
+
+  <div class="bk__row">
+    <!-- Status + manual backup -->
+    <section class="nota-card bk__status" data-test="backup-status">
+      <div class="bk__badge" [class.is-warn]="!status()?.lastBackup || status()?.autoError" aria-hidden="true">
+        @if (status()?.lastBackup && !status()?.autoError) {
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7" /></svg>
+        } @else {
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5v.5M10.3 3.9 2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></svg>
+        }
+      </div>
+      <div class="bk__status-text">
+        <h2 class="bk__status-title">{{ 'backupPage.status.title' | translate }}</h2>
+        @if (status(); as s) {
+          @if (s.lastBackup; as last) {
+            <p class="bk__muted">
+              {{ 'backupPage.status.lastBackup' | translate: { date: (last.at | date: dateFormat) } }}
+              {{ 'backupPage.status.kind.' + last.kind | translate }}
+            </p>
+          } @else {
+            <p class="bk__muted">{{ 'backupPage.status.none' | translate }}</p>
+          }
+          @if (s.autoError; as failure) {
+            <p class="bk__danger">
+              {{ 'backupPage.status.autoError' | translate: { date: (failure.at | date: dateFormat), message: failure.message } }}
+            </p>
+          }
+        }
+        <p class="bk__muted">{{ 'backupPage.create.description' | translate }}</p>
+      </div>
+      <button type="button" notaButton="primary" size="lg" class="bk__primary" [disabled]="busy()" (click)="create()">
+        {{ (busy() === 'create' ? 'backupPage.create.working' : 'backupPage.create.button') | translate }}
+      </button>
+    </section>
+
+    <!-- Automatic daily backup (read-only: the desktop app runs it; the bridge has no settings to change) -->
+    @if (status(); as s) {
+      <section class="nota-card bk__auto">
+        <h2 class="nota-section-title bk__h2">{{ 'backupPage.s11.autoTitle' | translate }}</h2>
+        <p class="bk__line"><span class="nota-pill nota-pill--ok">{{ 'backupPage.s11.autoOn' | translate }}</span></p>
+        <p class="bk__muted">{{ 'backupPage.status.daily' | translate: { keep: s.keep } }}</p>
+        <p class="bk__muted">{{ 'backupPage.s11.autoCount' | translate: { count: s.autoCount } }}</p>
+        <div class="bk__path-box">
+          <span class="nota-label">{{ 'backupPage.s11.autoDir' | translate }}</span>
+          <span class="bk__path" dir="ltr">{{ s.autoDir }}</span>
+        </div>
+      </section>
+    }
+  </div>
+
+  @if (progressKey(); as key) {
+    <div class="bk__progress" role="status">
+      <span class="bk__spinner" aria-hidden="true"></span>
+      <span>{{ key | translate: progressParams() }}</span>
+    </div>
+  }
+
+  @if (outcome(); as result) {
+    <div class="bk__alert" role="alert" [class.bk__alert--error]="result.kind === 'error'" [class.bk__alert--ok]="result.kind !== 'error'">
+      @switch (result.kind) {
+        @case ('created') {
+          <p>{{ 'backupPage.create.done' | translate: { collections: result.value.collections, documents: result.value.documents, size: result.value.sizeMb } }}</p>
+          <p class="bk__path" dir="ltr">{{ result.value.path }}</p>
+          @if (result.value.sameDrive) {
+            <p class="bk__warn-text" data-test="same-drive-backup">
+              {{ 'backupPage.create.sameDrive' | translate: { drive: status()?.dataDrive } }}
+            </p>
+          }
+          <button type="button" notaButton class="bk__inline-btn" (click)="showFile(result.value.path)">{{ 'backupPage.showFile' | translate }}</button>
+        }
+        @case ('restored') {
+          <p>{{ 'backupPage.restore.done' | translate: { collections: result.value.collections, documents: result.value.restored } }}</p>
+          @if (result.value.safetyPath) {
+            <p>{{ 'backupPage.restore.safety' | translate }}</p>
+            <p class="bk__path" dir="ltr">{{ result.value.safetyPath }}</p>
+          }
+        }
+        @case ('error') {
+          <p>{{ result.message }}</p>
+          @if (result.detail) {
+            <pre class="bk__detail" dir="ltr">{{ result.detail }}</pre>
+          }
+        }
+      }
+    </div>
+  }
+
+  @if (status(); as s) {
+    @if (s.externalOverdue) {
+      <div class="bk__alert bk__alert--warn" role="note" data-test="external-warning">
+        <p class="bk__strong">{{ 'backupPage.warning.title' | translate }}</p>
+        <p>
+          @if (s.lastExternal; as external) {
+            {{ 'backupPage.warning.since' | translate: { date: (external.at | date: dateFormat), days: s.externalMaxAgeDays } }}
+          } @else {
+            {{ 'backupPage.warning.never' | translate }}
+          }
+          {{ 'backupPage.warning.advice' | translate: { drive: s.dataDrive } }}
+        </p>
+      </div>
+    }
+
+    <!-- Destination: extra copy folder -->
+    <section class="nota-card bk__card" data-test="copy-folder">
+      <h2 class="nota-section-title bk__h2">{{ 'backupPage.copy.title' | translate }}</h2>
+      <p class="bk__muted">{{ 'backupPage.copy.description' | translate }}</p>
+      <div class="bk__dest">
+        <div class="bk__path-box bk__grow">
+          <span class="nota-label">{{ 'backupPage.s11.destination' | translate }}</span>
+          @if (s.copyFolder) {
+            <span class="bk__path" dir="ltr">{{ s.copyFolder }}</span>
+          } @else {
+            <span class="bk__muted">{{ 'backupPage.copy.none' | translate }}</span>
+          }
+        </div>
+        <button type="button" notaButton [disabled]="busy()" (click)="chooseCopyFolder()">
+          {{ (s.copyFolder ? 'backupPage.copy.change' : 'backupPage.copy.choose') | translate }}
+        </button>
+        @if (s.copyFolder) {
+          <button type="button" notaButton="danger" [disabled]="busy()" (click)="clearCopyFolder()">
+            {{ 'backupPage.copy.clear' | translate }}
+          </button>
+        }
+      </div>
+      @if (s.copyFolder) {
+        @if (s.copyFolderSameDrive) {
+          <p class="bk__alert bk__alert--warn" role="note" data-test="copy-same-drive">
+            {{ 'backupPage.copy.sameDrive' | translate: { drive: s.dataDrive } }}
+          </p>
+        }
+        @if (s.lastCopy; as copy) {
+          @switch (copy.status) {
+            @case ('copied') {
+              <p class="bk__ok">{{ 'backupPage.copy.copied' | translate: { date: (copy.at | date: dateFormat) } }}</p>
+            }
+            @case ('unavailable') {
+              <p class="bk__warn-text">{{ 'backupPage.copy.unavailable' | translate }}</p>
+            }
+            @case ('failed') {
+              <p class="bk__danger">{{ 'backupPage.copy.failed' | translate: { message: copy.message } }}</p>
+            }
+          }
+        } @else {
+          <p class="bk__muted">{{ 'backupPage.copy.waiting' | translate }}</p>
+        }
+      }
+    </section>
+  }
+
+  <div class="bk__row">
+    <!-- Restore -->
+    <section class="nota-card bk__card bk__grow">
+      <h2 class="nota-section-title bk__h2">{{ 'backupPage.restore.title' | translate }}</h2>
+      <p class="bk__danger">{{ 'backupPage.restore.description' | translate }}</p>
+      <div>
+        <button type="button" notaButton [disabled]="busy()" (click)="restore()">
+          {{ (busy() === 'restore' ? 'backupPage.restore.working' : 'backupPage.restore.button') | translate }}
+        </button>
+      </div>
+    </section>
+
+    <!-- Safety folder on this PC -->
+    <section class="nota-card bk__card bk__grow">
+      <h2 class="nota-section-title bk__h2">{{ 'backupPage.safety.title' | translate }}</h2>
+      <p class="bk__muted">{{ 'backupPage.safety.description' | translate }}</p>
+      <div>
+        <button type="button" notaButton (click)="openFolder()">{{ 'backupPage.safety.openFolder' | translate }}</button>
+      </div>
+    </section>
+  </div>
+</div>

@@ -1,0 +1,134 @@
+<!-- Customers (docs/design/screens/Customers.dc.html, AddCustomer.dc.html). Stage 10: layout only; requests unchanged. -->
+<div class="cu">
+  <nota-page-header [title]="'customerPage.title' | translate" [subtitle]="'customerPage.subtitle' | translate">
+    <div notaPageActions>
+      <button type="button" notaButton="primary" (click)="openCreateDialog()" [disabled]="isFormBusy || isDeleting">+ {{ 'customerPage.form.addTitle' | translate }}</button>
+    </div>
+  </nota-page-header>
+
+  <section class="cu__kpis">
+    <div class="nota-kpi"><span class="nota-kpi__label">{{ 'customerPage.s10.allCustomers' | translate }}</span><span class="nota-kpi__value nota-num">{{ customers.length | notaNumber }}</span></div>
+    <div class="nota-kpi"><span class="nota-kpi__label">{{ 'customerPage.s10.indebted' | translate }}</span><span class="nota-kpi__value nota-num cu__due">{{ indebtedCount | notaNumber }}</span></div>
+  </section>
+
+  <section class="nota-card cu__list">
+    <div class="cu__toolbar">
+      <div class="cu__search">
+        <input type="text" class="nota-input" [(ngModel)]="searchTerm" (keyup.enter)="searchCustomers()"
+          [placeholder]="'customerPage.searchPlaceholder' | translate" [attr.aria-label]="'customerPage.searchPlaceholder' | translate" />
+        <button type="button" notaButton="primary" (click)="searchCustomers()" [disabled]="isFetching">{{ 'customerPage.actions.search' | translate }}</button>
+        <button type="button" notaButton (click)="clearSearch()" [disabled]="isFetching">{{ 'customerPage.actions.reset' | translate }}</button>
+      </div>
+      <div class="cu__pills" role="group" [attr.aria-label]="'customerPage.s10.filter' | translate">
+        <button type="button" class="cu__pill" [class.is-on]="listFilter === 'all'" [attr.aria-pressed]="listFilter === 'all'" (click)="listFilter = 'all'">{{ 'customerPage.s10.all' | translate }}</button>
+        <button type="button" class="cu__pill" [class.is-on]="listFilter === 'indebted'" [attr.aria-pressed]="listFilter === 'indebted'" (click)="listFilter = 'indebted'">{{ 'customerPage.s10.indebted' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="nota-table-wrap">
+      <table class="nota-table">
+        <thead><tr>
+          <th>#</th>
+          <th>{{ 'customerPage.form.name' | translate }}</th>
+          <th>{{ 'customerPage.form.phone' | translate }}</th>
+          <th>{{ 'customerPage.s10.balance' | translate }}</th>
+          <th>{{ 'customerPage.s10.since' | translate }}</th>
+          <th><span class="cu__sr">{{ 'tableHeaders.actions' | translate }}</span></th>
+        </tr></thead>
+        <tbody>
+          @if (isFetching) {
+            <tr><td colspan="6" class="cu__empty" role="status">{{ 'customerPage.loading' | translate }}</td></tr>
+          } @else {
+            @for (customer of visibleCustomers; track customer._id ?? $index; let i = $index) {
+              <tr>
+                <td class="nota-num">{{ i + 1 | notaNumber }}</td>
+                <td><button type="button" class="cu__name" dir="auto" (click)="openCustomerDetails(customer)">{{ customer.name }}</button></td>
+                <td class="nota-num" dir="ltr">{{ customer.phone }}</td>
+                <td><span class="nota-pill" [class.nota-pill--due]="customer.isIndebted" [class.nota-pill--ok]="!customer.isIndebted">
+                  {{ (customer.isIndebted ? 'customerPage.s10.owes' : 'customerPage.s10.settled') | translate }}</span></td>
+                <td class="nota-num">{{ customer.createdAt ? (customer.createdAt | date: 'yyyy-MM-dd') : '—' }}</td>
+                <td>
+                  <div class="cu__actions">
+                    <button type="button" notaButton (click)="openCustomerDetails(customer)">{{ 'customerPage.actions.viewDetails' | translate }}</button>
+                    <button type="button" notaButton (click)="editCustomer(customer)" [disabled]="isFormBusy || isDeleting">{{ 'customerPage.actions.edit' | translate }}</button>
+                    <button type="button" notaButton="danger" (click)="promptDelete(customer)" [disabled]="isDeleting">{{ 'customerPage.actions.delete' | translate }}</button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="6" class="cu__empty">{{ 'customerPage.empty' | translate }}</td></tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="cu__count">{{ visibleCustomers.length | notaNumber }} {{ 'customerPage.count' | translate }}</p>
+  </section>
+</div>
+
+<!-- Add / edit customer -->
+<p-dialog [(visible)]="formDialogVisible" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog"
+  (onHide)="formDialogVisible || closeFormDialog()">
+  <nota-dialog-shell [title]="(isEditMode ? 'customerPage.form.editTitle' : 'customerPage.form.addTitle') | translate"
+    [closeLabel]="'actions.cancelButton' | translate" (closed)="closeFormDialog()">
+    <form [formGroup]="customerForm" class="cu__form" (ngSubmit)="saveCustomer()" novalidate>
+      @if (isLoadingCustomer) {<p class="cu__muted" role="status">{{ 'actions.loading' | translate }}</p>}
+      <nota-form-field [label]="'customerPage.form.name' | translate" forId="cuName" [required]="true"
+        [error]="customerForm.get('name')?.invalid && customerForm.get('name')?.touched ? ('customerPage.form.validation.name' | translate) : null">
+        <input id="cuName" type="text" class="nota-input" formControlName="name" [placeholder]="'customerPage.form.placeholders.name' | translate" />
+      </nota-form-field>
+      <nota-form-field [label]="'customerPage.form.phone' | translate" forId="cuPhone" [required]="true" [hint]="'customerPage.s10.phoneUnique' | translate"
+        [error]="customerForm.get('phone')?.invalid && customerForm.get('phone')?.touched ? ('customerPage.form.validation.phone' | translate) : null">
+        <input id="cuPhone" type="text" class="nota-input" dir="ltr" formControlName="phone" [placeholder]="'customerPage.form.placeholders.phone' | translate" />
+      </nota-form-field>
+      @if (formError) {<p class="cu__error" role="alert">{{ formError }}</p>}
+      <button type="submit" hidden></button>
+    </form>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="closeFormDialog()" [disabled]="isSubmitting">{{ (isEditMode ? 'customerPage.actions.cancelEdit' : 'actions.cancelButton') | translate }}</button>
+      <button type="button" notaButton="primary" (click)="saveCustomer()" [disabled]="customerForm.invalid || isFormBusy || isDeleting">
+        {{ (isEditMode ? 'customerPage.actions.update' : 'customerPage.actions.create') | translate }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Delete -->
+<p-dialog [(visible)]="deleteVisible" [modal]="true" [showHeader]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+  <nota-dialog-shell [title]="'customerPage.messages.deleteTitle' | translate" [closeLabel]="'actions.cancelButton' | translate" (closed)="closeDeleteDialog()">
+    <p>{{ 'customerPage.messages.deleteConfirm' | translate }}</p>
+    @if (customerToDelete?.name) {<p class="cu__strong" dir="auto">{{ customerToDelete?.name }}</p>}
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="closeDeleteDialog()" [disabled]="isDeleting">{{ 'actions.cancelButton' | translate }}</button>
+      <button type="button" notaButton="danger" (click)="deleteCustomer()" [disabled]="isDeleting">{{ 'actions.deleteButton' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Customer with credit invoices: restore stock or not -->
+<p-dialog [(visible)]="restoreCreditInvoicesVisible" [modal]="true" [showHeader]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+  <nota-dialog-shell [title]="'customerPage.messages.restoreCreditInvoicesTitle' | translate" [closeLabel]="'actions.cancelButton' | translate"
+    (closed)="closeRestoreCreditInvoicesDialog()">
+    <p>{{ 'customerPage.messages.restoreCreditInvoicesConfirm' | translate }}</p>
+    @if (customerToDelete?.name) {<p class="cu__strong" dir="auto">{{ customerToDelete?.name }}</p>}
+    @if (deleteConfirmation?.message) {<p class="cu__muted">{{ deleteConfirmation?.message }}</p>}
+    @if (deleteConfirmation?.relatedCreditInvoiceCount !== undefined) {
+      <p>{{ 'customerPage.messages.relatedCreditInvoices' | translate }}: <strong class="nota-num">{{ deleteConfirmation?.relatedCreditInvoiceCount | notaNumber }}</strong></p>
+    }
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="closeRestoreCreditInvoicesDialog()" [disabled]="isDeleting">{{ 'actions.cancelButton' | translate }}</button>
+      <button type="button" notaButton (click)="confirmDeleteWithCreditInvoices(false)" [disabled]="isDeleting">{{ 'customerPage.actions.deleteWithoutRestore' | translate }}</button>
+      <button type="button" notaButton="danger" (click)="confirmDeleteWithCreditInvoices(true)" [disabled]="isDeleting">{{ 'customerPage.actions.deleteWithRestore' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Load / delete errors -->
+<p-dialog [(visible)]="errorVisible" [modal]="true" [showHeader]="false" [dismissableMask]="true" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+  <nota-dialog-shell [title]="'customerPage.s10.errorTitle' | translate" [closeLabel]="'customerPage.s10.ok' | translate" (closed)="closeErrorDialog()">
+    <p class="cu__error" role="alert">{{ errorMessage }}</p>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton="primary" (click)="closeErrorDialog()">{{ 'customerPage.s10.ok' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>

@@ -1,0 +1,259 @@
+<!-- Cash sale / POS (docs/design/screens/Pos.dc.html, PosDark.dc.html). Stage 9: layout only; save logic unchanged. -->
+<div class="pos">
+  <div class="pos__layout">
+    <!-- Catalog: title, search, category chips, product tiles -->
+    <section class="pos__catalog" [attr.aria-label]="'sellingPage.pos.catalog' | translate">
+      <nota-page-header [title]="'nav.items.pos' | translate" />
+      <label class="pos__search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4" /></svg>
+        <span class="nota-sr-only">{{ 'sellingPage.pos.searchLabel' | translate }}</span>
+        <input #posSearch type="text" class="pos__search-input" autofocus autocomplete="off" [value]="gridQuery"
+          [placeholder]="'sellingPage.pos.searchPlaceholder' | translate" (input)="onGridSearchInput($event)" />
+        <kbd class="pos__kbd" aria-hidden="true">F2</kbd>
+      </label>
+
+      <div class="pos__chips" role="group" [attr.aria-label]="'sellingPage.pos.categories' | translate">
+        <button type="button" class="pos__chip" [class.is-on]="activeCategoryId === null"
+          [attr.aria-pressed]="activeCategoryId === null" (click)="selectCategory(null)">
+          {{ 'sellingPage.pos.allCategories' | translate }}
+        </button>
+        @for (category of categories(); track category.id) {
+          <button type="button" class="pos__chip" [class.is-on]="activeCategoryId === category.id"
+            [attr.aria-pressed]="activeCategoryId === category.id" (click)="selectCategory(category.id)">
+            {{ category.label }}
+          </button>
+        }
+      </div>
+
+      @if (isGridLoading) {
+        <p class="pos__note" role="status">{{ 'sellingPage.actions.searching' | translate }}</p>
+      } @else if (gridError) {
+        <p class="pos__note pos__note--error" role="alert">{{ gridError }}</p>
+      } @else if (!gridProducts.length) {
+        <p class="pos__note">{{ 'sellingPage.pos.gridHint' | translate }}</p>
+      }
+
+      <div class="pos__grid">
+        @for (product of gridProducts; track product.id) {
+          <button type="button" class="pos__tile" (click)="addProductToInvoice(product)">
+            <span class="pos__tile-code" dir="ltr">{{ product.code }}</span>
+            <span class="pos__tile-name" dir="auto">{{ product.name }}</span>
+            <span class="pos__tile-foot">
+              <span class="pos__tile-price nota-num">{{ (product.wholesalePrice ?? product.retailPrice) | notaMoney }}</span>
+              @if (product.inventoryCount !== null) {
+                <span class="pos__tile-stock nota-num" [class.is-low]="isLowStock(product)">
+                  {{ 'sellingPage.pos.available' | translate }} {{ product.inventoryCount | notaNumber }}
+                </span>
+              }
+            </span>
+          </button>
+        }
+      </div>
+    </section>
+
+    <!-- Current invoice -->
+    <aside class="pos__invoice" [attr.aria-label]="'sellingPage.pos.currentInvoice' | translate">
+      <form [formGroup]="sellingForm" (ngSubmit)="saveSelling()" class="pos__form" novalidate>
+        <h2 class="pos__title">{{ 'sellingPage.pos.currentInvoice' | translate }}</h2>
+
+        <!-- Scrolls inside the panel; the totals and the save button below stay in view. -->
+        <div class="pos__scroll">
+
+        <!-- Customer + date -->
+        <div class="pos__fields">
+          <nota-form-field class="pos__span" [label]="'sellingPage.fields.searchCustomer' | translate" forId="posCustomerSearch"
+            [error]="customerSearchError">
+            <div class="nota-ac">
+              <input id="posCustomerSearch" type="text" class="nota-input" autocomplete="off" [value]="customerSearchInputValue"
+                [placeholder]="'sellingPage.placeholders.searchCustomer' | translate"
+                (input)="onCustomerSearchInputChange($event)" (focus)="onCustomerSearchInputFocus()" (blur)="onCustomerSearchInputBlur()" />
+              @if (isSearchingCustomers) {
+                <div class="nota-ac__loading" role="status">{{ 'sellingPage.actions.searching' | translate }}</div>
+              }
+              @if (showCustomerSuggestionPanel && customerOptions.length > 0) {
+                <ul class="nota-ac__panel" role="listbox">
+                  @for (customer of customerOptions; track customer.id) {
+                    <li class="nota-ac__item" role="option" (mousedown)="onCustomerOptionSelect(customer)">{{ customer.displayLabel }}</li>
+                  }
+                </ul>
+              }
+            </div>
+          </nota-form-field>
+
+          <nota-form-field [label]="'sellingPage.fields.customerName' | translate" forId="posCustomerName" [required]="true"
+            [error]="sellingForm.get('customerName')?.invalid && sellingForm.get('customerName')?.touched ? ('sellingPage.pos.required' | translate) : null">
+            <input id="posCustomerName" type="text" class="nota-input" formControlName="customerName" />
+          </nota-form-field>
+
+          <nota-form-field [label]="'sellingPage.fields.customerPhone' | translate" forId="posCustomerPhone">
+            <input id="posCustomerPhone" type="text" class="nota-input" dir="ltr" formControlName="customerPhone" />
+          </nota-form-field>
+
+          <nota-form-field class="pos__span" [label]="'sellingPage.fields.sellingDate' | translate" forId="sellingDate" [required]="true">
+            <p-datepicker formControlName="sellingDate" [showIcon]="true" [iconDisplay]="'input'" inputId="sellingDate"
+              appendTo="body" styleClass="pos__control" />
+          </nota-form-field>
+        </div>
+
+        <!-- Lines -->
+        <div formArrayName="items" class="pos__lines">
+          @for (itemGroup of invoiceItems.controls; track trackInvoiceItem($index); let index = $index) {
+            @let state = getInvoiceItemState(index);
+            <div class="pos__line" [formGroupName]="index">
+              <div class="pos__line-head">
+                @if (state.selectedProduct) {
+                  <div class="pos__line-name">
+                    <span dir="auto">{{ state.selectedProduct.name }}</span>
+                    <span class="pos__line-meta">
+                      @if (state.selectedProduct.code) {<span dir="ltr">{{ state.selectedProduct.code }}</span>}
+                      @if (state.selectedProduct.categoryName) {<span>· {{ state.selectedProduct.categoryName }}</span>}
+                    </span>
+                  </div>
+                  <button type="button" class="pos__link" (click)="changeLineProduct(index)">{{ 'sellingPage.pos.changeProduct' | translate }}</button>
+                } @else {
+                  <!-- Per-line product search (the pre-Stage-9 flow), for a line without a product. -->
+                  <div class="nota-ac pos__line-search">
+                    <input type="text" class="nota-input" autocomplete="off" [value]="state.searchInputValue"
+                      [attr.aria-label]="('sellingPage.fields.searchProduct' | translate) + ' ' + (index + 1)"
+                      [placeholder]="'sellingPage.placeholders.searchProduct' | translate"
+                      (input)="onSearchInputChange(index, $event)" (focus)="onSearchInputFocus(index)" (blur)="onSearchInputBlur(index)" />
+                    @if (state.isSearching) {
+                      <div class="nota-ac__loading" role="status">{{ 'sellingPage.actions.searching' | translate }}</div>
+                    }
+                    @if (state.showSuggestionPanel && state.productOptions.length > 0) {
+                      <ul class="nota-ac__panel" role="listbox">
+                        @for (item of state.productOptions; track item.id) {
+                          <li class="nota-ac__item" role="option" (mousedown)="onNativeOptionSelect(index, item)">{{ item.displayLabel }}</li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                }
+                <button type="button" notaButton icon class="pos__remove" (click)="removeInvoiceItem(index)"
+                  [attr.aria-label]="(invoiceItems.length === 1 ? 'sellingPage.actions.clearProduct' : 'sellingPage.actions.removeProduct') | translate"
+                  [title]="(invoiceItems.length === 1 ? 'sellingPage.actions.clearProduct' : 'sellingPage.actions.removeProduct') | translate">×</button>
+              </div>
+
+              <div class="pos__line-body">
+                <p-select class="pos__price-type" [options]="priceTypeOptions" optionLabel="label" optionValue="value" appendTo="body"
+                  formControlName="priceType" [ariaLabel]="'sellingPage.fields.priceType' | translate"
+                  [placeholder]="'sellingPage.placeholders.selectPriceType' | translate" styleClass="pos__control" />
+                <p-inputNumber class="pos__price" formControlName="price" [mode]="'decimal'" [min]="0" [useGrouping]="false"
+                  [readonly]="!isCustomPrice(index)" [ariaLabel]="'sellingPage.fields.price' | translate"
+                  styleClass="pos__control" inputStyleClass="pos__num-input" />
+                <div class="pos__stepper" role="group" [attr.aria-label]="'sellingPage.fields.productQuantity' | translate">
+                  <button type="button" class="pos__step" (click)="stepQuantity(index, 1)" [attr.aria-label]="'sellingPage.pos.increase' | translate">+</button>
+                  <p-inputNumber formControlName="quantity" [mode]="'decimal'" [min]="1" [useGrouping]="false"
+                    [ariaLabel]="'sellingPage.fields.productQuantity' | translate" styleClass="pos__qty" inputStyleClass="pos__qty-input" />
+                  <button type="button" class="pos__step" (click)="stepQuantity(index, -1)" [attr.aria-label]="'sellingPage.pos.decrease' | translate">−</button>
+                </div>
+                <span class="pos__line-total nota-num" [attr.aria-label]="'sellingPage.fields.lineTotal' | translate">
+                  {{ itemGroup.get('lineTotal')?.value | notaMoney }}
+                </span>
+              </div>
+
+              @if (state.searchError) {
+                <p class="pos__note pos__note--error" role="alert">{{ state.searchError }}</p>
+              }
+            </div>
+          }
+        </div>
+
+        <button type="button" notaButton class="pos__add" (click)="addInvoiceItem()">+ {{ 'sellingPage.actions.addProduct' | translate }}</button>
+
+        <div class="pos__stats">
+          <span>{{ 'sellingPage.fields.productsCount' | translate }}: <strong class="nota-num">{{ invoiceItems.length | notaNumber }}</strong></span>
+          <span>{{ 'sellingPage.fields.totalQuantity' | translate }}: <strong class="nota-num">{{ invoiceQuantityTotal | notaNumber }}</strong></span>
+        </div>
+
+        <!-- Discount + shipping -->
+        <div class="pos__fields">
+          <nota-form-field [label]="'sellingPage.fields.discountAmount' | translate" forId="posDiscount"
+            [hint]="('sellingPage.fields.discountPercentage' | translate) + ': ' + (discountPercentageInfo | notaNumber) + '%'">
+            <p-inputNumber inputId="posDiscount" formControlName="discountAmount" [mode]="'decimal'" [min]="0" [useGrouping]="false"
+              styleClass="pos__control" inputStyleClass="pos__num-input" />
+          </nota-form-field>
+          <nota-form-field [label]="'sellingPage.fields.shippingFees' | translate" forId="posShipping">
+            <p-inputNumber inputId="posShipping" formControlName="shippingFees" [mode]="'decimal'" [min]="0" [useGrouping]="false"
+              styleClass="pos__control" inputStyleClass="pos__num-input" />
+          </nota-form-field>
+        </div>
+
+        </div>
+
+        <div class="pos__footer">
+        <!-- Totals -->
+        <dl class="pos__totals">
+          <div><dt>{{ 'sellingPage.fields.subtotal' | translate }}</dt><dd class="nota-num">{{ invoiceSubtotal | notaMoney }}</dd></div>
+          <div><dt>{{ 'sellingPage.fields.discountAmount' | translate }}</dt><dd class="nota-num pos__minus">− {{ invoiceDiscountAmount | notaMoney }}</dd></div>
+          <div><dt>{{ 'sellingPage.fields.shippingFees' | translate }}</dt><dd class="nota-num">{{ shippingFeesValue | notaMoney }}</dd></div>
+          <div class="pos__grand"><dt>{{ 'sellingPage.fields.totalInvoicePrice' | translate }}</dt><dd class="nota-num">{{ invoiceGrandTotal | notaMoney }}</dd></div>
+        </dl>
+
+        @if (saveError && !errorDialogVisible) {
+          <p class="pos__note pos__note--error" role="alert">{{ saveError }}</p>
+        }
+
+        <button type="submit" notaButton="primary" size="lg" class="pos__pay" [disabled]="isSaving || sellingForm.invalid">
+          {{ (isSaving ? 'sellingPage.actions.saving' : 'sellingPage.actions.createSelling') | translate }}
+          <span class="pos__kbd-inline" aria-hidden="true">(F9)</span>
+        </button>
+        <button type="button" notaButton="danger" class="pos__clear" [disabled]="isSaving" (click)="clearInvoice()">
+          {{ 'sellingPage.pos.clearInvoice' | translate }}
+        </button>
+        </div>
+      </form>
+    </aside>
+  </div>
+</div>
+
+<!-- Success -->
+<p-dialog [(visible)]="successDialogVisible" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false"
+  [resizable]="false" styleClass="nota-p-dialog pos-dialog">
+  <nota-dialog-shell [title]="'sellingPage.messages.createdSuccess' | translate" [closeLabel]="'sellingPage.pos.ok' | translate"
+    (closed)="closeSuccessPopup()">
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton="primary" (click)="closeSuccessPopup()">{{ 'sellingPage.pos.ok' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Insufficient inventory: confirm adds the missing units and resends -->
+<p-dialog [(visible)]="inventoryConfirmationVisible" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false"
+  [resizable]="false" styleClass="nota-p-dialog pos-dialog">
+  <nota-dialog-shell [title]="'sellingPage.inventoryConfirmation.title' | translate"
+    [closeLabel]="'sellingPage.inventoryConfirmation.cancel' | translate" (closed)="!isSaving && cancelInsufficientInventory()">
+    <p class="pos-dialog__text">{{ 'sellingPage.inventoryConfirmation.message' | translate }}</p>
+    @for (shortage of inventoryShortages; track shortage.productId) {
+      <div class="pos-dialog__shortage">
+        <strong>{{ shortage.productName }}</strong>
+        <span class="nota-num">
+          {{ 'sellingPage.inventoryConfirmation.requested' | translate }}: {{ shortage.requestedQuantity | notaNumber }} ·
+          {{ 'sellingPage.inventoryConfirmation.available' | translate }}: {{ shortage.availableQuantity | notaNumber }} ·
+          {{ 'sellingPage.inventoryConfirmation.missing' | translate }}: {{ shortage.missingQuantity | notaNumber }}
+        </span>
+      </div>
+    }
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="cancelInsufficientInventory()" [disabled]="isSaving">
+        {{ 'sellingPage.inventoryConfirmation.cancel' | translate }}
+      </button>
+      <button type="button" notaButton="primary" (click)="confirmInsufficientInventory()" [disabled]="isSaving">
+        {{ (isSaving ? 'sellingPage.actions.saving' : 'sellingPage.inventoryConfirmation.proceed') | translate }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Error (incl. the backend's "price below purchase price") -->
+<p-dialog [(visible)]="errorDialogVisible" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false"
+  [resizable]="false" styleClass="nota-p-dialog pos-dialog">
+  <nota-dialog-shell [title]="'sellingPage.messages.createFailed' | translate" [closeLabel]="'sellingPage.pos.ok' | translate"
+    (closed)="closeErrorPopup()">
+    <p class="pos-dialog__text pos-dialog__text--error" role="alert">{{ saveError || ('sellingPage.messages.createFailed' | translate) }}</p>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton="primary" (click)="closeErrorPopup()">{{ 'sellingPage.pos.ok' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>

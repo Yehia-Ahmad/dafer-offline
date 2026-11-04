@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota shop profile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="shop" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800">بيانات المحل</h1>
+      <span style="font-size: 14px; color: #4A5856">البيانات دي بتظهر فوق كل فاتورة مطبوعة</span>
+    </div>
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+      <form class="card" style="flex: 999 1 460px; min-width: 0; padding: 24px; display: flex; flex-direction: column; gap: 18px">
+        <div style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 16px">
+          <div style="width: 96px; height: 96px; border-radius: 16px; border: 2px dashed #CFCAC0; display: flex; align-items: center; justify-content: center; background: #FAF9F6; color: #4A5856; font-size: 13px">اللوجو</div>
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; flex-direction: row; gap: 8px"><button type="button" class="btn">رفع لوجو</button><button type="button" class="btn" style="color: #9A3412">مسح</button></div>
+            <span style="font-size: 12px; color: #4A5856">PNG أو JPG، أقصى حجم ٥٠٠ كيلو</span>
+          </div>
+        </div>
+        <label class="lb">اسم المحل *
+          <input type="text" class="in" value="النور للأدوات الكهربائية">
+        </label>
+        <label class="lb">العنوان
+          <input type="text" class="in" value="١٢ شارع الجيش، المنصورة">
+        </label>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px">
+          <label class="lb">تليفون ١<input type="text" class="in num" value="0100 222 3344" style="direction: ltr; text-align: right"></label>
+          <label class="lb">تليفون ٢<input type="text" class="in num" value="050 123 4567" style="direction: ltr; text-align: right"></label>
+          <label class="lb">تليفون ٣<input type="text" class="in" placeholder="اختياري"></label>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px">
+          <label class="lb">الرقم الضريبي<input type="text" class="in num" placeholder="اختياري"></label>
+          <label class="lb">السجل التجاري<input type="text" class="in num" value="٤٥٦٧٨"></label>
+        </div>
+        <label class="lb">ملاحظة آخر الفاتورة
+          <textarea class="in" rows="2" style="resize: vertical">البضاعة المباعة لا ترد ولا تستبدل بعد ١٤ يوم</textarea>
+        </label>
+        <div style="display: flex; flex-direction: row; justify-content: flex-end; gap: 10px">
+          <button type="button" class="btn">إلغاء</button>
+          <button type="submit" class="btn btn-p">حفظ</button>
+        </div>
+      </form>
+      <aside style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 14px; font-weight: 700">شكلها على الفاتورة</span>
+        <div style="background: #FFFFFF; border-radius: 6px; padding: 24px 22px; box-shadow: 0 1px 3px rgba(20,35,33,0.12); display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding-bottom: 12px; border-bottom: 1px dashed #B9B4AA; text-align: center">
+            <span style="font-size: 20px; font-weight: 800">النور للأدوات الكهربائية</span>
+            <span style="font-size: 12px; color: #4A5856">١٢ شارع الجيش، المنصورة</span>
+            <span class="num" style="font-size: 12px; color: #4A5856; direction: ltr">0100 222 3344 · 050 123 4567</span>
+            <span style="font-size: 12px; color: #4A5856">س.ت ٤٥٦٧٨</span>
+          </div>
+          <div style="display: flex; flex-direction: row; justify-content: space-between; font-size: 13px"><span>فاتورة بيع #١٢٥</span><span class="num">٣ / ١١ / ٢٠٢٦</span></div>
+          <div style="display: flex; flex-direction: row; justify-content: space-between; font-size: 13px"><span>لمبة LED ١٨ وات × ٣</span><span class="num">١٨٠</span></div>
+          <div style="display: flex; flex-direction: row; justify-content: space-between; font-size: 13px"><span>مشترك ٥ مخارج × ١</span><span class="num">١٥٠</span></div>
+          <div style="display: flex; flex-direction: row; justify-content: space-between; font-size: 15px; font-weight: 800; padding-top: 10px; border-top: 1px dashed #B9B4AA"><span>الإجمالي</span><span class="num">٣٣٠ ج.م</span></div>
+          <span style="font-size: 12px; color: #4A5856; text-align: center">البضاعة المباعة لا ترد ولا تستبدل بعد ١٤ يوم</span>
+          <span style="font-size: 11px; color: #6B7775; text-align: center; padding-top: 8px; border-top: 1px solid #EEEAE2">تم إنشاء هذه الفاتورة إلكترونيًا</span>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+/* You can add global styles to this file, and also import other style files */
+/* Nota design foundation (docs/design/NOTA_DESIGN_SYSTEM.md):
+   Material theme mapped to tokens, Alexandria font, tokens (light + html.dark),
+   shared UI classes. Sass requires @use before any other rule. */
+@use './styles/material';
+@use './styles/fonts';
+@use './styles/tokens';
+@use './styles/ui';
+@use './styles/shell';
+
+/* Tailwind first */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}

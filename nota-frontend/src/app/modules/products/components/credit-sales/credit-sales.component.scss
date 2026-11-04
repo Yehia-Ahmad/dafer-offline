@@ -1,0 +1,29 @@
+// New credit invoice (NewCreditSale.dc.html). Tokens only; dark mode comes from the token overrides.
+.cs{display:flex;flex-direction:column;gap:18px;container-type:inline-size}
+.cs__form{display:flex;flex-direction:column;gap:18px}
+.cs__card-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.cs__fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.cs__span{grid-column:1/-1}
+.cs__layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;align-items:start}
+.cs__items{display:flex;flex-direction:column;gap:14px;min-width:0}
+.cs__items .nota-section-title{margin:0}
+.cs__table td{vertical-align:middle}
+.cs__product{min-width:240px}
+.cs__product-name{font-weight:500}
+.cs__product-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)}
+.cs__cell-input{width:120px}
+.cs__line-total{font-weight:700}
+.cs__link{border:0;background:none;padding:2px;font:inherit;font-size:12px;color:var(--brand-strong-text);text-decoration:underline;cursor:pointer}
+.cs__add{align-self:flex-start}
+.cs__summary{position:sticky;top:0;display:flex;flex-direction:column;gap:14px}
+.cs__summary .cs__fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+.cs__rows,.cs__review{margin:0;display:flex;flex-direction:column;gap:8px;font-size:14px;
+  div{display:flex;justify-content:space-between;gap:8px}dt{color:var(--text-muted)}dd{margin:0;font-weight:500}}
+.cs__net{padding-top:10px;border-top:1px dashed var(--border-strong);dt{color:var(--text);font-weight:700}dd{font-size:20px;font-weight:800}}
+.cs__remaining{dt{color:var(--text);font-weight:700}dd{font-size:18px;font-weight:800;color:var(--danger)}}
+.cs__msg{margin:4px 0 0;font-size:13px;font-weight:500;color:var(--danger)}
+.cs__primary{width:100%}
+.cs__kbd{font-weight:500;opacity:.8}
+.cs__dialog-text{margin:0;color:var(--text-muted);line-height:1.6}
+.cs{.cs__control{width:100%}.cs__num-input{width:100%;font-variant-numeric:tabular-nums}}
+@container (max-width:900px){.cs__layout{grid-template-columns:minmax(0,1fr)}.cs__summary{position:static}}
