@@ -46,6 +46,34 @@ test('the server lock is held by one holder at a time and released on close', as
   await new Promise((resolve) => again.close(resolve));
 });
 
+test('isPortFree: a listener on 0.0.0.0 or [::] of the port counts as taken', async () => {
+  const net = require('node:net');
+  const listen = (host, port) =>
+    new Promise((resolve, reject) => {
+      const server = net.createServer((socket) => socket.destroy());
+      server.once('error', reject);
+      server.listen({ host, port }, () => resolve(server));
+    });
+  const close = (server) => new Promise((resolve) => server.close(resolve));
+
+  assert.equal(await isPortFree(27342), true, 'nothing listens yet');
+  const wildcard = await listen('0.0.0.0', 27342);
+  assert.equal(await isPortFree(27342), false, 'IPv4 wildcard listener');
+  await close(wildcard);
+  assert.equal(await isPortFree(27342), true, 'free again after close');
+
+  let dualStack = null;
+  try {
+    dualStack = await listen('::', 27343);
+  } catch {
+    // No IPv6 on this machine: nothing more to check.
+  }
+  if (dualStack) {
+    assert.equal(await isPortFree(27343), false, 'IPv6 dual-stack listener');
+    await close(dualStack);
+  }
+});
+
 test('the copy holding the server lock stops when asked through the lock port', async () => {
   const port = 27319;
   assert.equal(await requestQuit(port), false, 'nobody holds the lock');

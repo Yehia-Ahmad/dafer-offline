@@ -82,18 +82,57 @@ function removePidFileIfOwn(pidFile, pid) {
   }
 }
 
-function processImageName(pid) {
-  const result = spawnSync('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH'], {
+// Full path of the program a process runs, or '' when it cannot be read (no such process, or
+// one this Windows account may not inspect). UTF-8 output keeps non-English folder names intact.
+function processImagePath(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return '';
+  const script =
+    "$ErrorActionPreference = 'SilentlyContinue'; [Console]::OutputEncoding = [Text.Encoding]::UTF8; " +
+    `$p = Get-Process -Id ${pid}; if ($p) { $p.Path }`;
+  const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
     encoding: 'utf8',
     windowsHide: true,
+    timeout: 30000,
   });
-  const match = /^"([^"]+)"/.exec((result.stdout || '').trim());
-  return match ? match[1].toLowerCase() : '';
+  return (result.stdout || '').trim();
+}
+
+// True when two paths name the same file or folder. Both are resolved and lose any trailing
+// separator; Windows paths compare case-insensitively and with either slash style
+// (C:\ProgramData\Nota\db equals c:/programdata/nota/db/). Other platforms compare exactly.
+function samePath(a, b, platform = process.platform) {
+  const flavor = platform === 'win32' ? path.win32 : path.posix;
+  const normalize = (file) => {
+    let resolved = flavor.resolve(String(file));
+    const root = flavor.parse(resolved).root;
+    while (resolved.length > root.length && /[\\/]$/.test(resolved)) resolved = resolved.slice(0, -1);
+    return platform === 'win32' ? resolved.toLowerCase() : resolved;
+  };
+  return normalize(a) === normalize(b);
+}
+
+function portInUseError(port) {
+  return new ServiceError('MONGOD_PORT_IN_USE', `المنفذ ${port} الخاص بقاعدة البيانات مستخدم من برنامج آخر.`);
 }
 
 class MongodManager extends EventEmitter {
-  constructor({ mongodPath, dbPath, logFile, pidFile, port, mongodb, log, cacheSizeGB = 1 }) {
+  constructor({
+    mongodPath,
+    dbPath,
+    logFile,
+    pidFile,
+    port,
+    mongodb,
+    log,
+    cacheSizeGB = 1,
+    isPortFree: portCheck = isPortFree, // replaceable in tests only
+    processImagePath: imagePathOf = processImagePath, // replaceable in tests only
+    platform = process.platform, // replaceable in tests only (path comparison rules)
+  }) {
     super();
+    this.platform = platform;
+    this.isPortFree = portCheck;
+    this.processImagePath = imagePathOf;
     this.mongodPath = mongodPath;
     this.dbPath = dbPath;
     this.logFile = logFile;
@@ -114,35 +153,60 @@ class MongodManager extends EventEmitter {
     return Boolean(this.child);
   }
 
-  async ping(timeoutMs = 1000) {
-    const client = new this.mongodb.MongoClient(this.uri, {
+  // One connection only (maxPoolSize 1), so an identity check and the command after it go over
+  // the same socket, to the same server.
+  newClient(timeoutMs) {
+    return new this.mongodb.MongoClient(this.uri, {
       serverSelectionTimeoutMS: timeoutMs,
       directConnection: true,
+      maxPoolSize: 1,
     });
+  }
+
+  // Which process answers on our port: { answered: false } when nothing does, otherwise
+  // { answered: true, pid } with pid null when the server will not say (then it is not ours:
+  // our mongod has no password and always reports its pid).
+  async queryPid(client) {
     try {
-      await client.db('admin').command({ ping: 1 });
-      return true;
-    } catch {
-      return false;
+      const status = await client.db('admin').command({ serverStatus: 1 });
+      const pid = Number(status && status.pid);
+      return { answered: true, pid: Number.isInteger(pid) && pid > 0 ? pid : null };
+    } catch (error) {
+      const ServerError = this.mongodb.MongoServerError;
+      return { answered: Boolean(ServerError) && error instanceof ServerError, pid: null };
+    }
+  }
+
+  async whoAnswers(timeoutMs = 1000) {
+    const client = this.newClient(timeoutMs);
+    try {
+      return await this.queryPid(client);
     } finally {
       await client.close().catch(() => {});
     }
   }
 
-  // Normal shutdown, retried while index builds finish, then forced. On a single server,
-  // force only aborts index builds (they resume on the next start); the journal keeps data safe.
-  async sendShutdown() {
-    const client = new this.mongodb.MongoClient(this.uri, {
-      serverSelectionTimeoutMS: 2000,
-      directConnection: true,
-    });
+  // Shuts down the mongod whose process id is expectedPid; any other server answering on our
+  // port is never sent the command. Normal shutdown, retried while index builds finish, then
+  // forced. On a single server, force only aborts index builds (they resume on the next start);
+  // the journal keeps data safe. Resolves to 'sent', 'unreachable' or 'foreign'.
+  async sendShutdown(expectedPid) {
+    const client = this.newClient(2000);
     const startedAt = Date.now();
     try {
       for (;;) {
+        const answer = await this.queryPid(client);
+        if (!answer.answered) return 'unreachable';
+        if (answer.pid !== expectedPid) {
+          this.log.warn(
+            `not sending shutdown: the server on port ${this.port} is pid ${answer.pid === null ? 'unknown' : answer.pid}, not ${expectedPid}`
+          );
+          return 'foreign';
+        }
         const force = Date.now() - startedAt >= SHUTDOWN_RETRY_MS;
         try {
           await client.db('admin').command(force ? { shutdown: 1, force: true } : { shutdown: 1 });
-          return;
+          return 'sent';
         } catch (error) {
           if (!force && /index builds in progress/i.test(error.message)) {
             this.log.info('index builds in progress, retrying shutdown');
@@ -150,9 +214,9 @@ class MongodManager extends EventEmitter {
             continue;
           }
           // The connection drops while mongod exits; that is the expected outcome.
-          if (error.name === 'MongoNetworkError' || /ECONNRESET|closed|ECONNREFUSED/i.test(error.message)) return;
+          if (error.name === 'MongoNetworkError' || /ECONNRESET|closed|ECONNREFUSED/i.test(error.message)) return 'sent';
           this.log.warn(`shutdown command: ${error.message}`);
-          return;
+          return 'sent';
         }
       }
     } finally {
@@ -160,24 +224,62 @@ class MongodManager extends EventEmitter {
     }
   }
 
-  // A mongod left over from a crash of the app still holds the data folder.
+  // A mongod left over from a crash of the app still holds the data folder. The pid file is
+  // trusted only when that pid runs this app's own mongod.exe (full path): after a reboot the
+  // pid may belong to any other process, including another MongoDB.
   async stopOrphan() {
-    let pid;
+    let pid = null;
     try {
       pid = Number(fs.readFileSync(this.pidFile, 'utf8').trim());
     } catch {
-      return;
+      // No pid file.
     }
-    if (pid && isProcessAlive(pid) && processImageName(pid) === 'mongod.exe') {
-      this.log.warn(`found mongod from a previous run (pid ${pid}), shutting it down`);
-      if (await this.ping()) await this.sendShutdown();
-      const exited = await waitFor(async () => !isProcessAlive(pid), { timeoutMs: EXIT_TIMEOUT_MS });
-      if (!exited) {
-        this.log.warn(`mongod pid ${pid} did not exit, killing it`);
-        spawnSync('taskkill', ['/PID', String(pid), '/F'], { windowsHide: true });
+    if (pid && isProcessAlive(pid)) {
+      const image = this.processImagePath(pid);
+      if (image && samePath(image, this.mongodPath, this.platform)) {
+        this.log.warn(`found mongod from a previous run (pid ${pid}), shutting it down`);
+        await this.sendShutdown(pid);
+        const exited = await waitFor(async () => !isProcessAlive(pid), { timeoutMs: EXIT_TIMEOUT_MS });
+        if (!exited) {
+          this.log.warn(`mongod pid ${pid} did not exit, killing it`);
+          spawnSync('taskkill', ['/PID', String(pid), '/F'], { windowsHide: true });
+        }
+      } else {
+        this.log.warn(
+          `stale pid file: pid ${pid} runs ${image ? `"${image}"` : 'a program this account cannot inspect'}, not this app's mongod; leaving it alone`
+        );
       }
     }
     fs.rmSync(this.pidFile, { force: true });
+    await this.stopServerOnOurDataFolder();
+  }
+
+  // A server on our port that runs on exactly our data folder is this app's own mongod, left
+  // over from a crash under another Windows account (whose process path this account cannot
+  // read): shut it down cleanly and wait for the port to free. Any other server stays foreign
+  // and is left alone; start() then refuses the port.
+  async stopServerOnOurDataFolder() {
+    if (await this.isPortFree(this.port)) return;
+    const client = this.newClient(1000);
+    let answer = { answered: false, pid: null };
+    let dbPath = null;
+    try {
+      answer = await this.queryPid(client);
+      if (answer.pid !== null) {
+        const options = await client.db('admin').command({ getCmdLineOpts: 1 });
+        dbPath = options && options.parsed && options.parsed.storage ? options.parsed.storage.dbPath : null;
+      }
+    } catch {
+      dbPath = null;
+    } finally {
+      await client.close().catch(() => {});
+    }
+    if (typeof dbPath !== 'string' || !dbPath || !samePath(dbPath, this.dbPath, this.platform)) return;
+
+    this.log.warn(`mongod pid ${answer.pid} on port ${this.port} runs on our data folder; shutting it down`);
+    if ((await this.sendShutdown(answer.pid)) !== 'sent') return;
+    const freed = await waitFor(() => this.isPortFree(this.port), { timeoutMs: EXIT_TIMEOUT_MS });
+    if (!freed) this.log.warn(`port ${this.port} is still in use after shutting down mongod pid ${answer.pid}`);
   }
 
   async start() {
@@ -188,12 +290,7 @@ class MongodManager extends EventEmitter {
     if (!fs.existsSync(this.mongodPath)) {
       throw new ServiceError('MONGOD_MISSING', 'ملف قاعدة البيانات غير موجود. أعد تثبيت البرنامج.', this.mongodPath);
     }
-    if (!(await isPortFree(this.port))) {
-      throw new ServiceError(
-        'MONGOD_PORT_IN_USE',
-        `المنفذ ${this.port} الخاص بقاعدة البيانات مستخدم من برنامج آخر.`
-      );
-    }
+    if (!(await this.isPortFree(this.port))) throw portInUseError(this.port);
 
     rotateIfLarge(this.logFile, { maxBytes: 20 * 1024 * 1024, keep: 2 });
     fs.mkdirSync(this.dbPath, { recursive: true });
@@ -224,10 +321,19 @@ class MongodManager extends EventEmitter {
     child.once('error', (error) => this.log.error(`mongod process error: ${error.message}`));
     fs.writeFileSync(this.pidFile, String(child.pid));
 
-    const ready = await waitFor(() => this.ping(), {
-      timeoutMs: START_TIMEOUT_MS,
-      isCancelled: () => exitCode !== null,
-    });
+    // Ready only when the server answering on our port is our own child. Anything else (for
+    // example another MongoDB listening on 0.0.0.0 of the same port) means the port is taken.
+    let foreign = null;
+    const ready = await waitFor(
+      async () => {
+        const answer = await this.whoAnswers();
+        if (!answer.answered) return false;
+        if (answer.pid === child.pid) return true;
+        foreign = answer;
+        return false;
+      },
+      { timeoutMs: START_TIMEOUT_MS, isCancelled: () => exitCode !== null || foreign !== null }
+    );
 
     if (!ready) {
       if (exitCode === null) {
@@ -236,10 +342,15 @@ class MongodManager extends EventEmitter {
       }
       this.child = null;
       removePidFileIfOwn(this.pidFile, child.pid);
-      const error =
-        exitCode === null
-          ? new ServiceError('MONGOD_TIMEOUT', 'استغرق تشغيل قاعدة البيانات وقتاً أطول من المتوقع.')
-          : explainMongodExit(exitCode, `${stderr}\n${readTail(this.logFile)}`);
+      let error;
+      if (foreign) {
+        error = portInUseError(this.port);
+        error.detail = `another server answers on 127.0.0.1:${this.port} (pid ${foreign.pid === null ? 'unknown' : foreign.pid})`;
+      } else if (exitCode === null) {
+        error = new ServiceError('MONGOD_TIMEOUT', 'استغرق تشغيل قاعدة البيانات وقتاً أطول من المتوقع.');
+      } else {
+        error = explainMongodExit(exitCode, `${stderr}\n${readTail(this.logFile)}`);
+      }
       this.log.error(`mongod failed to start: ${error.code} ${error.detail}`);
       throw error;
     }
@@ -261,10 +372,13 @@ class MongodManager extends EventEmitter {
     if (!child) return;
     this.stopping = true;
     this.log.info('stopping mongod');
-    await this.sendShutdown();
+    const sent = await this.sendShutdown(child.pid);
 
-    const timeout = sleep(EXIT_TIMEOUT_MS).then(() => 'timeout');
-    if ((await Promise.race([this.exited, timeout])) === 'timeout') {
+    if (sent === 'foreign') {
+      this.log.warn('another server answers on our port; stopping our mongod without the shutdown command');
+      child.kill();
+      await this.exited;
+    } else if ((await Promise.race([this.exited, sleep(EXIT_TIMEOUT_MS).then(() => 'timeout')])) === 'timeout') {
       this.log.warn('mongod did not exit in time, killing it');
       child.kill();
       await this.exited;
@@ -274,4 +388,4 @@ class MongodManager extends EventEmitter {
   }
 }
 
-module.exports = { DATABASE_NAME, MongodManager, ServiceError, explainMongodExit };
+module.exports = { DATABASE_NAME, MongodManager, ServiceError, explainMongodExit, processImagePath, samePath };

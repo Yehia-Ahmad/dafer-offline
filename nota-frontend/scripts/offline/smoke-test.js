@@ -67,6 +67,13 @@ function record(ok, name, detail) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Local calendar date as yyyy-MM-dd, the format the sales screens send. Not toISOString(): that is
+// the UTC date, which is still yesterday just after local midnight in a zone ahead of UTC.
+function localDay(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 function isPortOpen(port) {
   return new Promise((resolve) => {
     const socket = net.connect({ host: '127.0.0.1', port });
@@ -230,7 +237,7 @@ async function expectStock(ctx, expected) {
 
 async function runScenarios() {
   const ctx = {};
-  const today = new Date().toISOString();
+  const today = localDay(); // sellingDate of every sale below
 
   await step('Request without LAN key is rejected', async () => {
     const response = await request('GET', '/api/products', { withKey: false });

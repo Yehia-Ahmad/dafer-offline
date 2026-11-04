@@ -4,13 +4,35 @@ const net = require('node:net');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function isPortFree(port, host = '127.0.0.1') {
+function canListen(port, host) {
   return new Promise((resolve) => {
     const server = net.createServer();
     server.once('error', () => resolve(false));
     server.once('listening', () => server.close(() => resolve(true)));
     server.listen({ port, host, exclusive: true });
   });
+}
+
+// True when something accepts a TCP connection on 127.0.0.1:port.
+function acceptsConnection(port, timeoutMs = 1000) {
+  return new Promise((resolve) => {
+    const socket = net.connect({ host: '127.0.0.1', port });
+    const finish = (accepted) => {
+      socket.destroy();
+      resolve(accepted);
+    };
+    socket.setTimeout(timeoutMs, () => finish(false));
+    socket.once('connect', () => finish(true));
+    socket.once('error', () => finish(false));
+  });
+}
+
+// Windows lets a socket bind 127.0.0.1:port while another program listens on 0.0.0.0:port
+// (or the IPv6 dual-stack [::]:port), so a successful bind alone does not prove the port is
+// free: the port also counts as taken when anything answers on 127.0.0.1:port.
+async function isPortFree(port, host = '127.0.0.1') {
+  if (!(await canListen(port, host))) return false;
+  return !(await acceptsConnection(port));
 }
 
 // Sent to the lock port by `Nota.exe --quit-all` (the installer): the copy holding

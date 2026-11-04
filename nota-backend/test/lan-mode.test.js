@@ -236,3 +236,45 @@ test("graceful shutdown exits 1 when MongoDB disconnect fails", async () => {
   await shutdown();
   assert.deepEqual(exits, [1]);
 });
+
+// db.js: LAN mode never falls back to 127.0.0.1:27017, which may be another MongoDB on the PC.
+const { resolveMongoUri, DEFAULT_MONGO_URI } = require("../src/config/db");
+
+test("MONGO_URI rule: LAN mode requires it, online mode keeps the local default", () => {
+  assert.deepEqual(resolveMongoUri({ MONGO_URI: "mongodb://127.0.0.1:27217/nota" }), { uri: "mongodb://127.0.0.1:27217/nota" });
+  assert.deepEqual(
+    resolveMongoUri({ NOTA_LAN_MODE: "1", MONGO_URI: "mongodb://127.0.0.1:27217/nota" }),
+    { uri: "mongodb://127.0.0.1:27217/nota" }
+  );
+  assert.deepEqual(resolveMongoUri({}), { uri: DEFAULT_MONGO_URI, usedDefault: true });
+  const lan = resolveMongoUri({ NOTA_LAN_MODE: "1" });
+  assert.equal(lan.uri, undefined, "no URI is guessed in LAN mode");
+  assert.match(lan.error, /MONGO_URI/);
+  assert.match(lan.error, /NOTA_LAN_MODE=1/);
+  assert.equal(resolveMongoUri({ NOTA_LAN_MODE: "1", MONGO_URI: "" }).uri, undefined, "an empty MONGO_URI counts as missing");
+});
+
+test("LAN mode without MONGO_URI: the server exits 1 with a clear log line and never listens", async () => {
+  const { spawn } = require("node:child_process");
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "nota-no-uri-")); // no .env here
+  const env = { ...process.env, NOTA_LAN_MODE: "1", NOTA_LAN_SECRET: LAN_SECRET, PORT: "0", NOTA_LISTEN_HOST: "127.0.0.1" };
+  delete env.MONGO_URI;
+  delete env.NODE_ENV;
+  try {
+    const child = spawn(process.execPath, [path.join(__dirname, "..", "src", "server.js")], { cwd, env, windowsHide: true });
+    let output = "";
+    child.stdout.on("data", (chunk) => (output += chunk));
+    child.stderr.on("data", (chunk) => (output += chunk));
+    const code = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { child.kill(); reject(new Error(`server did not exit; output: ${output}`)); }, 20000);
+      child.once("exit", (exitCode) => { clearTimeout(timer); resolve(exitCode); });
+    });
+    assert.equal(code, 1);
+    assert.match(output, /MONGO_URI غير موجود في وضع الشبكة المحلية \(NOTA_LAN_MODE=1\)/);
+    assert.doesNotMatch(output, /Server started|MongoDB connected/);
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
+});

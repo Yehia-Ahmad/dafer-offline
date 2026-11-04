@@ -41,7 +41,16 @@ test('setup rejects bad input with a field to highlight', async () => {
     appVersion: '1.0.0',
     getServerLock: async () => ({}),
   });
-  const base = { shopName: 'Shop', secret: 'ABCD-EFGH-JKLM', port: 5055, dataChoice: 'empty' };
+  // A port free right now (not the default 5055, which an installed Nota may be using).
+  const freePort = await new Promise((resolve, reject) => {
+    const server = require('node:net').createServer();
+    server.once('error', reject);
+    server.listen({ host: '0.0.0.0', port: 0 }, () => {
+      const { port } = server.address();
+      server.close(() => resolve(port));
+    });
+  });
+  const base = { shopName: 'Shop', secret: 'ABCD-EFGH-JKLM', port: freePort, dataChoice: 'empty' };
   const fieldOf = async (input) => {
     try {
       await controller.completeMain(input, () => {});
