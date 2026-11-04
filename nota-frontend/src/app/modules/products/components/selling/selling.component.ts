@@ -869,7 +869,10 @@ export class SellingComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const selectedPrice = selectedProduct?.[priceType] ?? null;
+    // A product without the chosen price falls back to the other one (retail ↔ wholesale), like the credit form;
+    // it never becomes 0.
+    const otherPriceType: PriceType = priceType === 'retailPrice' ? 'wholesalePrice' : 'retailPrice';
+    const selectedPrice = selectedProduct?.[priceType] ?? selectedProduct?.[otherPriceType] ?? null;
     priceControl.setValue(selectedPrice, { emitEvent: false });
     priceControl.disable({ emitEvent: false });
     this.updateInvoiceItemTotal(itemGroup);
@@ -1044,8 +1047,9 @@ export class SellingComponent implements OnInit, OnDestroy {
       code,
       displayLabel,
       categoryName,
-      wholesalePrice: this.toNumber(candidate.wholesalePrice),
-      retailPrice: this.toNumber(candidate.retailPrice),
+      // Stage 11: a missing price stays null (Number(null) would make it 0); see applyPriceTypeToItem.
+      wholesalePrice: this.toPrice(candidate.wholesalePrice),
+      retailPrice: this.toPrice(candidate.retailPrice),
       discountPercentage: this.toNumber(candidate.discountPercentage),
       priceAfterDiscount: this.toNumber(candidate.priceAfterDiscount),
       inventoryCount: candidate.inventoryCount === undefined || candidate.inventoryCount === null
@@ -1075,6 +1079,10 @@ export class SellingComponent implements OnInit, OnDestroy {
   private toNumber(value: any): number | null {
     const num = Number(value);
     return Number.isFinite(num) ? num : null;
+  }
+
+  private toPrice(value: unknown): number | null {
+    return value === null || value === undefined || value === '' ? null : this.toNumber(value);
   }
 
   private calculateItemsSubtotal(): number {

@@ -29,8 +29,9 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
 
   it('renders the menu from the config with grouped links', () => {
     const hrefs = Array.from(el().querySelectorAll('a.nota-nav__link')).map((a) => a.getAttribute('href'));
-    expect(hrefs).toEqual(['/home', '/selling', '/credit-sales', '/invoice-history', '/returns', '/customers', '/products/profit-report', '/shop-profile']);
-    expect(el().querySelector('app-sidebar-categories')).not.toBeNull();
+    expect(hrefs).toEqual(['/home', '/selling', '/credit-sales', '/invoice-history', '/returns', '/customers', '/products', '/products/profit-report', '/shop-profile']);
+    // Stage 11: no category list or tools in the sidebar any more.
+    expect(el().querySelector('app-sidebar-categories')).toBeNull();
     // Not the main PC outside the desktop app: no backup link.
     expect(el().querySelector('a[href="/backup"]')).toBeNull();
   });
@@ -41,6 +42,22 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
     el().querySelector<HTMLAnchorElement>('a[href="/home"]')!.click();
     expect(localStorage.getItem(HOME_VIEW_STORAGE_KEY)).toBe(HOME_DEFAULT_VIEW);
     expect(navigate).toHaveBeenCalledWith(['/home'], { queryParams: { resetView: jasmine.any(Number) } });
+  });
+
+  it('products item: active on /products and the product form, not on the profit report (Stage 11)', () => {
+    const item = { key: 'products', labelKey: 'nav.items.products', route: '/products', icon: '', visible: () => true,
+      activePaths: ['/products/new', '/products/edit/'] };
+    expect(component.isPathActive(item)).toBeFalse();
+    for (const [url, active] of [['/products?category=c1', true], ['/products/new?category=c1', true], ['/products/edit/p1', true], ['/products/profit-report', false]] as const) {
+      (component as any).url = () => url;
+      expect(component.isPathActive(item)).withContext(url).toBe(active);
+    }
+  });
+
+  it('home link survives blocked storage (Stage 11)', () => {
+    spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    spyOn(localStorage, 'setItem').and.throwError('blocked');
+    expect(() => component.resetHomeView()).not.toThrow();
   });
 
   it('footer language and theme controls call the services', () => {

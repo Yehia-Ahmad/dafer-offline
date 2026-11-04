@@ -54,6 +54,8 @@ Later phases (decisions below): Users & permissions, then Accounting.
 - Money is rounded to 2 decimals in journal entries.
 - Current behavior (intended, to be replaced): DELETE /api/sellings/:id and DELETE /api/credit-sales/:id remove only the invoice record and do not restore stock; the UI warns users to process returns first. In the accounting phase, delete becomes cancel: status cancelled, reversing journal entry, and restoring the units that were not already returned.
 - createSellingInvoice still has an unused options param (requireShippingLocation, requireGovernment, defaultSellingDate, defaultQuantity) left over from website checkout; remove it when createSellingInvoice is modified for accounting.
+- Returns currently lower the invoice's totalPrice. In the accounting phase, store each refund's final amount and create a credit entry, so statements show the original invoice plus a separate return line.
+- Credit invoices have no invoice number. In the accounting phase add sequential document numbers for all document types (cash sale, credit sale, return, receipt, payment, purchase, journal entry), and allow the returns wizard to search by invoice number.
 
 ### Other
 - Selling.shippingLocation and Selling.government are website leftovers (the offline frontend never sends or reads them). Remove them together with the createSellingInvoice options param in the accounting phase. shippingFees on Selling and CreditSale is a real POS field and stays.

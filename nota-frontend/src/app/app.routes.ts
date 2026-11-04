@@ -1,4 +1,5 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { Router, Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { mainPcGuard } from './core/guards/main-pc.guard';
 import { HomeComponent } from './modules/layout/components/home/home.component';
@@ -52,14 +53,26 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/returns/components/returns/returns.component').then(m => m.ReturnsComponent)
     },
     {
+        // Stage 11: old category links open the products page on that category.
         path: 'categories/:id',
+        redirectTo: ({ params }) => inject(Router).createUrlTree(['/products'], { queryParams: { category: params['id'] } }),
+    },
+    {
+        // Stage 11: products & categories (optional ?category=<id>).
+        path: 'products',
+        pathMatch: 'full',
         // canActivate: [authGuard],
-        loadComponent: () => import('./modules/category/components/category-details/category-details.component').then(m => m.CategoryDetailsComponent)
+        loadComponent: () => import('./modules/category/components/products-page/products-page.component').then(m => m.ProductsPageComponent)
+    },
+    {
+        path: 'products/new',
+        // canActivate: [authGuard],
+        loadComponent: () => import('./modules/category/components/product-form/product-form.component').then(m => m.ProductFormComponent)
     },
     {
         path: 'products/edit/:id',
         // canActivate: [authGuard],
-        loadComponent: () => import('./modules/category/components/product-edit/product-edit.component').then(m => m.ProductEditComponent)
+        loadComponent: () => import('./modules/category/components/product-form/product-form.component').then(m => m.ProductFormComponent)
     },
     {
         path: 'products/profit-report',

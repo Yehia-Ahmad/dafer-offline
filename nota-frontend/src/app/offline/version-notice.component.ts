@@ -11,7 +11,8 @@ import { getDesktopRuntimeConfig } from '../core/runtime/runtime-config';
   template: `
     @if (mismatch() && !dismissed()) {
       <div
-        class="fixed inset-x-0 top-0 z-[9999] flex items-center justify-center gap-4 bg-[#fff3cd] px-4 py-2 text-sm text-[#664d03] shadow"
+        class="fixed inset-x-0 top-0 z-[9999] flex items-center justify-center gap-4 px-4 py-2 text-sm shadow"
+        style="background: var(--warning-soft); color: var(--warning-text)"
         dir="rtl"
         lang="ar"
         role="status"

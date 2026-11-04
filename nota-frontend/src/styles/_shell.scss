@@ -198,11 +198,6 @@
   letter-spacing: 0.04em;
 }
 
-.nota-nav__item {
-  display: flex;
-  flex-direction: column;
-}
-
 .nota-nav__link {
   display: flex;
   align-items: center;
@@ -239,17 +234,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.nota-nav__chevron {
-  flex: none;
-  margin-inline-start: auto;
-  opacity: 0.8;
-  transition: transform 0.2s ease;
-
-  &.is-open {
-    transform: rotate(180deg);
-  }
 }
 
 // Focus ring drawn inside the element so the scrolling menu never clips it.
@@ -340,8 +324,7 @@
 
   .nota-sidebar__wordmark,
   .nota-nav__label,
-  .nota-nav__group-label,
-  .nota-nav__chevron {
+  .nota-nav__group-label {
     display: none;
   }
 
@@ -367,156 +350,12 @@
   }
 }
 
-// ---------- Categories (temporary, until Stage 10) ----------
-.nota-cat {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 4px 0 8px;
-  margin-inline-start: 20px;
-  padding-inline-start: 8px;
-  border-inline-start: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-.nota-cat__list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: 40vh;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  list-style: none;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-}
-
-.nota-cat__row {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.nota-cat__link {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 6px 10px;
-  border-radius: 8px;
-  color: var(--sidebar-text);
-  font-size: 13px;
-  line-height: 1.5;
-  text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-
-  &:hover {
-    background: var(--sidebar-hover);
-  }
-
-  &.is-active {
-    background: var(--sidebar-active-bg);
-    color: var(--sidebar-active-text);
-    font-weight: 700;
-  }
-}
-
-.nota-cat__icon-btn {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--sidebar-group);
-  cursor: pointer;
-
-  &:hover {
-    background: var(--sidebar-hover);
-    color: var(--sidebar-text);
-  }
-}
-
-.nota-cat__empty {
-  padding: 6px 10px;
-  color: var(--sidebar-group);
-  font-size: 12px;
-}
-
-.nota-cat__add {
-  min-height: 36px;
-  padding: 6px 10px;
-  border: 1px dashed rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--sidebar-text);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  text-align: start;
-  cursor: pointer;
-
-  &:hover {
-    background: var(--sidebar-hover);
-  }
-}
-
-.nota-cat__tools {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 4px;
-  padding: 10px;
-  border-radius: var(--radius-control);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.nota-cat__tools-title {
-  margin: 0 0 2px;
-  color: var(--sidebar-group);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.nota-cat__tool {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 6px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--sidebar-text);
-  font: inherit;
-  font-size: 13px;
-  text-align: start;
-  cursor: pointer;
-
-  &:hover:not(:disabled) {
-    background: var(--sidebar-hover);
-  }
-
-  &:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  svg {
-    flex: none;
-  }
-}
-
-.nota-sidebar .mat-mdc-progress-spinner,
 .nota-cat-dialog .mat-mdc-progress-spinner {
   --mdc-circular-progress-active-indicator-color: currentColor;
   --mat-progress-spinner-active-indicator-color: currentColor;
 }
 
-// ---------- Category dialogs ----------
+// ---------- Category dialogs (products page, Stage 11) ----------
 .p-dialog.nota-p-dialog.nota-cat-dialog {
   width: min(540px, calc(100vw - 32px));
 }

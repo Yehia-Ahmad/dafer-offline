@@ -127,6 +127,10 @@
                     @if (isInvoiceOverdue(entry)) {<span class="nota-pill nota-pill--neutral">{{ getStatusLabel(entry.status) }}</span>}
                   </div>
                   <div class="cd__invoice-actions">
+                    @if (canAddPayment(entry)) {
+                      <!-- Stage 11: per-invoice payment, same POST credit-sales/:id/payments as the credit list. -->
+                      <button type="button" notaButton="primary" data-action="invoice-payment" (click)="openPaymentDialog(entry)">{{ 'customerDetailsPage.actions.addPayment' | translate }}</button>
+                    }
                     <button type="button" notaButton (click)="printCreditInvoice(entry)" [disabled]="isPrintingInvoice(entry.id)">
                       {{ (isPrintingInvoice(entry.id) ? 'actions.loading' : 'customerDetailsPage.actions.printInvoice') | translate }}
                     </button>

@@ -15,8 +15,11 @@ export interface NavItem {
   /** SVG path `d` (24×24, stroke icon) from docs/design/screens/Sidebar.dc.html. */
   icon: string;
   visible: (ctx: NavContext) => boolean;
-  /** Item that expands in place; 'categories' = the category list and tools (temporary, until Stage 10). */
-  expandable?: 'categories';
+  /**
+   * Extra paths that keep the item active (prefix match), e.g. the product form under /products.
+   * Without it the item is active on its route only (routerLinkActive, exact: false).
+   */
+  activePaths?: readonly string[];
   /** Home also resets the home page to its first view, as the old "reset view" button did. */
   resetsHomeView?: boolean;
 }
@@ -74,7 +77,9 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     key: 'inventory',
     labelKey: 'nav.groups.inventory',
     items: [
-      { key: 'products', labelKey: 'nav.items.products', icon: NAV_ICONS.products, visible: always, expandable: 'categories' },
+      // Stage 11: plain link; /products/profit-report belongs to "تقرير الأرباح", not here.
+      { key: 'products', labelKey: 'nav.items.products', route: '/products', icon: NAV_ICONS.products, visible: always,
+        activePaths: ['/products/new', '/products/edit/'] },
       { key: 'purchases', labelKey: 'nav.items.purchases', icon: NAV_ICONS.purchases, visible: notYet },
       { key: 'suppliers', labelKey: 'nav.items.suppliers', icon: NAV_ICONS.suppliers, visible: notYet },
     ],

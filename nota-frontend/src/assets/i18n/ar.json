@@ -1,17 +1,8 @@
 {
   "searchPlaceholder": "بحث ...",
   "sidebarTitles": {
-    "customers": "العملاء",
-    "selling": "البيع",
-    "credit_sales": "البيع الآجل",
-    "invoice_history": "سجل الفواتير",
-    "returns": "المرتجعات",
-    "profit_report": "تقرير الأرباح",
     "export_products": "تصدير المنتجات",
-    "categories": "الفئات",
-    "add_new_category": "اضافة فئة جديدة",
-    "backup": "النسخ الاحتياطي",
-    "shop_profile": "بيانات المتجر"
+    "add_new_category": "اضافة فئة جديدة"
   },
   "actions": {
     "save": "حفظ",
@@ -20,12 +11,10 @@
     "deleteButton": "نعم، حذف"
   },
   "tableHeaders": {
-    "name": "الاسم",
     "username": "اسم المستخدم",
     "number": "الرقم",
     "email": "البريد الإلكتروني",
     "role": "الدور",
-    "invoice": "الفاتورة",
     "actions": "الإجراءات"
   },
   "delete": "حذف",
@@ -37,7 +26,6 @@
   },
   "category": {
     "importExport": {
-      "toolsTitle": "أدوات الفئات",
       "export": "تصدير الفئات",
       "exporting": "جاري التصدير...",
       "import": "استيراد الفئات",
@@ -60,13 +48,11 @@
     "namePlaceholder": "اسم الفئة",
     "specifications": {
       "title": "المواصفات",
-      "addButton": "إضافة",
       "rowNamePlaceholder": "اسم الوصف",
       "valuePlaceholder": "ادخل القيمة",
       "removeButton": "حذف"
     },
     "addProduct": {
-      "title": "إضافة منتج",
       "productName": "اسم المنتج",
       "code": "كود المنتج",
       "inventoryCount": "عدد المخزون",
@@ -82,7 +68,6 @@
       }
     },
     "editProduct": {
-      "info": "تعديل تفاصيل المنتج",
       "title": "تعديل المنتج",
       "productName": "اسم المنتج",
       "code": "كود المنتج",
@@ -119,8 +104,7 @@
     "cancel_button": "لا، إلغاء",
     "delete_button": "نعم، احذف",
     "saveButton": "حفظ الفئة",
-    "updateButton": "تحديث الفئة",
-    "changeButton": "تغيير"
+    "updateButton": "تحديث الفئة"
   },
   "home": {
     "title": "نظام المخزون",
@@ -157,20 +141,13 @@
       "invoiceHistoryReady": "صفحة سجل الفواتير جاهزة."
     },
     "actions": {
-      "back": "رجوع",
-      "resetView": "إعادة العرض"
+      "back": "رجوع"
     }
   },
   "sellingPage": {
     "fields": {
-      "invoiceDetails": "تفاصيل الفاتورة",
-      "customerInformation": "بيانات العميل",
-      "invoiceProducts": "منتجات الفاتورة",
-      "invoiceProduct": "بند المنتج",
       "searchProduct": "بحث عن كود المنتج",
       "searchCustomer": "بحث عن العميل",
-      "productName": "اسم المنتج",
-      "categoryName": "اسم الفئة",
       "priceType": "نوع السعر",
       "price": "السعر",
       "lineTotal": "إجمالي البند",
@@ -184,7 +161,6 @@
       "discountPercentage": "نسبة الخصم",
       "discountAmount": "قيمة الخصم",
       "shippingFees": "رسوم الشحن",
-      "invoiceSummary": "ملخص الفاتورة",
       "totalInvoicePrice": "إجمالي قيمة الفاتورة"
     },
     "priceTypeOptions": {
@@ -243,25 +219,17 @@
     "title": "البيع الآجل",
     "subtitle": "جهز فاتورة البيع الآجل للعميل وأضف الأصناف وسجل الدفعة المقدمة قبل الحفظ.",
     "fields": {
-      "accountProfile": "ملف الحساب",
       "customerInformation": "بيانات العميل",
       "searchCustomer": "بحث عن العميل",
       "customerName": "اسم العميل",
       "customerPhone": "رقم هاتف العميل",
       "saleDate": "تاريخ البيع",
       "downPayment": "الدفعة المقدمة",
-      "basketEyebrow": "سلة الائتمان",
       "creditItems": "أصناف البيع الآجل",
-      "basketItem": "بند",
       "searchProduct": "بحث عن المنتج",
-      "productName": "اسم المنتج",
-      "itemCode": "كود الصنف",
-      "categoryName": "الفئة",
       "unitPrice": "سعر الوحدة",
       "quantity": "الكمية",
       "lineTotal": "إجمالي البند",
-      "snapshotEyebrow": "ملخص السداد",
-      "repaymentSnapshot": "ملخص العملية",
       "productsCount": "عدد الأصناف",
       "totalQuantity": "إجمالي الكمية",
       "subtotal": "الإجمالي الفرعي",
@@ -272,8 +240,7 @@
       "totalReceivable": "إجمالي المستحق"
     },
     "placeholders": {
-      "searchCustomer": "ابحث باسم العميل أو رقم الهاتف",
-      "searchProduct": "ابحث بكود المنتج أو الاسم"
+      "searchCustomer": "ابحث باسم العميل أو رقم الهاتف"
     },
     "actions": {
       "searching": "جاري البحث...",
@@ -296,7 +263,6 @@
       "createFailed": "فشل حفظ عملية البيع الآجل."
     },
     "dialog": {
-      "eyebrow": "مراجعة",
       "title": "ملف الائتمان جاهز",
       "subtitle": "استخدم هذا الملخص لتأكيد بيانات العميل وتاريخ البيع والمبلغ المتبقي قبل الحفظ.",
       "close": "إغلاق المراجعة"
@@ -380,24 +346,16 @@
       }
     },
     "tableHeaders": {
-      "index": "#",
       "invoiceNumber": "رقم الفاتورة",
-      "items": "الأصناف",
       "itemCount": "عدد الأصناف",
       "customer": "اسم العميل",
-      "customerPhone": "رقم هاتف العميل",
       "date": "التاريخ",
       "quantity": "الكمية",
-      "totalQuantity": "إجمالي الكمية",
       "discountAmount": "قيمة الخصم",
-      "discountPercentage": "نسبة الخصم",
       "shippingFees": "رسوم الشحن",
-      "unitPrice": "سعر القطعة",
-      "totalPrice": "إجمالي الفاتورة",
-      "action": "إجراء"
+      "totalPrice": "إجمالي الفاتورة"
     },
     "actions": {
-      "downloadInvoice": "تنزيل الفاتورة",
       "createReturn": "إرجاع أصناف"
     },
     "returnDialog": {
@@ -493,13 +451,43 @@
       "empty": "لا توجد صفوف أرباح للمنتجات.",
       "noInvoices": "لا توجد فواتير مرتبطة.",
       "loadFailed": "فشل تحميل تقرير أرباح المنتجات."
+    },
+    "s11": {
+      "period": "الفترة",
+      "periods": {
+        "all": "كل الفترات",
+        "month": "الشهر ده",
+        "sixMonths": "آخر ٦ شهور",
+        "year": "السنة",
+        "custom": "فترة مخصصة"
+      },
+      "kpis": {
+        "sales": "المبيعات",
+        "salesNote": "بعد خصومات الفواتير",
+        "cost": "تكلفة البضاعة المباعة",
+        "costNote": "الكمية × سعر الشراء",
+        "profit": "مجمل الربح",
+        "profitNote": "قبل المصروفات",
+        "margin": "هامش الربح",
+        "marginNote": "الربح من كل ١٠٠ جنيه مبيعات"
+      },
+      "chart": {
+        "title": "الربح بالشهر",
+        "cash": "نقدي",
+        "credit": "آجل"
+      },
+      "table": {
+        "title": "الأصناف حسب الربح",
+        "quantity": "الكمية المباعة",
+        "sales": "المبيعات",
+        "margin": "الهامش"
+      }
     }
   },
   "customerPage": {
     "title": "العملاء",
     "subtitle": "حفظ وإدارة أسماء العملاء وأرقام هواتفهم.",
     "searchPlaceholder": "ابحث باسم العميل أو رقم الهاتف",
-    "listTitle": "قائمة العملاء",
     "count": "عميل",
     "loading": "جارٍ تحميل العملاء...",
     "empty": "لا يوجد عملاء.",
@@ -554,9 +542,7 @@
     "title": "تفاصيل العميل",
     "subtitle": "مراجعة بيانات العميل وجميع فواتير البيع الآجل الخاصة به.",
     "labels": {
-      "profile": "بيانات العميل",
       "customerId": "معرّف العميل",
-      "createdAt": "تاريخ الإنشاء",
       "updatedAt": "تاريخ التحديث",
       "lastCashSaleDate": "آخر بيع نقدي",
       "lastCreditSaleDate": "آخر بيع آجل",
@@ -577,9 +563,6 @@
       "overdueInvoices": "فواتير متأخرة"
     },
     "history": {
-      "title": "سجل البيع الآجل",
-      "subtitle": "جميع فواتير البيع الآجل المرتبطة بهذا العميل.",
-      "count": "فاتورة",
       "empty": "لا توجد فواتير بيع آجل لهذا العميل.",
       "sellingDate": "تاريخ البيع",
       "dueDate": "تاريخ الاستحقاق",
@@ -617,7 +600,6 @@
       "inventoryWarning": "سيتم حذف سجل الفاتورة فقط. استخدم إرجاع الأصناف لإعادة الكميات إلى المخزون."
     },
     "paymentDialog": {
-      "eyebrow": "دفعة",
       "title": "تسجيل دفعة",
       "subtitle": "أضف دفعة جديدة لهذه الفاتورة وسيتم تحديث رصيد العميل بعد الحفظ.",
       "invoiceTarget": "تطبيق الدفعة على",
@@ -626,7 +608,6 @@
       "targetRequired": "اختر أول فاتورة أو آخر فاتورة قبل الحفظ.",
       "amount": "قيمة الدفعة",
       "amountRequired": "أدخل قيمة دفعة أكبر من صفر.",
-      "amountExceeded": "لا يمكن أن تكون قيمة الدفعة أكبر من المبلغ المتبقي.",
       "paymentDate": "تاريخ الدفع",
       "note": "ملاحظة",
       "notePlaceholder": "أضف ملاحظة اختيارية للدفعة",
@@ -635,7 +616,6 @@
       "saving": "جارٍ الحفظ..."
     },
     "refundDialog": {
-      "eyebrow": "مرتجع",
       "title": "تسجيل مرتجع",
       "subtitle": "يمكنك إرجاع جميع أصناف الفاتورة أو تحديد كميات جزئية للأصناف المطلوب إرجاعها.",
       "refundDate": "تاريخ المرتجع",
@@ -806,7 +786,6 @@
     "title": "النسخ الاحتياطي والاستعادة",
     "subtitle": "متاح على الجهاز الرئيسي فقط.",
     "create": {
-      "title": "إنشاء نسخة احتياطية",
       "description": "يحفظ كل بيانات البرنامج في ملف واحد. احفظ الملف على فلاشة أو جهاز آخر حتى لا تضيع البيانات إذا تعطل هذا الجهاز.",
       "button": "إنشاء نسخة احتياطية الآن",
       "working": "جاري إنشاء النسخة...",
@@ -862,7 +841,14 @@
       "restoring": "جاري استعادة البيانات... {{done}} من {{total}}",
       "rolling-back": "فشلت الاستعادة، جاري إعادة البيانات السابقة..."
     },
-    "showFile": "إظهار الملف"
+    "showFile": "إظهار الملف",
+    "s11": {
+      "autoTitle": "النسخ التلقائي",
+      "autoOn": "مفعّل",
+      "autoCount": "عدد النسخ اليومية المحفوظة الآن: {{count}}",
+      "autoDir": "مكان النسخ اليومية",
+      "destination": "المجلد"
+    }
   },
   "invoicePrint": {
     "salesTitle": "فاتورة بيع",
@@ -911,6 +897,14 @@
       "saved": "تم حفظ بيانات المتجر",
       "saveFailed": "تعذر حفظ بيانات المتجر",
       "loadFailed": "تعذر تحميل بيانات المتجر. يمكنك إدخالها وحفظها من جديد."
+    },
+    "s11": {
+      "cancel": "إلغاء",
+      "previewTitle": "شكلها على الفاتورة",
+      "sampleItem": "صنف تجريبي",
+      "sampleItem2": "صنف تجريبي آخر",
+      "total": "الإجمالي",
+      "previewHint": "معاينة فقط: الأصناف والأرقام للتوضيح."
     }
   },
   "nav": {
@@ -967,5 +961,42 @@
       "ok": "حسنًا",
       "error": "حدث خطأ"
     }
+  },
+  "productsPage": {
+    "title": "الأصناف والفئات",
+    "newProduct": "صنف جديد",
+    "categories": "الفئات",
+    "searchPlaceholder": "بحث بالاسم أو الكود",
+    "lowStockOnly": "التي قاربت على النفاد فقط ({{count}} أو أقل)",
+    "columns": {
+      "code": "الكود",
+      "name": "الصنف",
+      "stock": "المخزون",
+      "purchase": "سعر الشراء",
+      "retail": "قطاعي",
+      "wholesale": "جملة",
+      "discount": "خصم"
+    },
+    "percent": "{{value}}٪",
+    "empty": "لا توجد أصناف في هذه الفئة بعد.",
+    "noMatches": "لا توجد أصناف مطابقة."
+  },
+  "productForm": {
+    "newTitle": "صنف جديد",
+    "editTitle": "تعديل صنف",
+    "cancel": "إلغاء",
+    "saveAndAddAnother": "حفظ وإضافة غيره",
+    "basic": "البيانات الأساسية",
+    "category": "الفئة",
+    "categoryEditHint": "فئة الصنف لا تتغير من هنا.",
+    "codeHint": "يُقترح تلقائيًا بعد آخر كود في الفئة.",
+    "prices": "الأسعار",
+    "retailProfit": "ربح القطاعي: {{amount}} ({{percent}}٪)",
+    "wholesaleProfit": "ربح الجملة: {{amount}} ({{percent}}٪)",
+    "belowPurchaseHint": "البرنامج لا يقبل سعر شراء أكبر من سعر القطاعي أو الجملة.",
+    "specsOf": "مواصفات فئة \"{{name}}\"",
+    "image": "الصورة",
+    "dropImage": "اسحب صورة هنا أو اضغط للرفع",
+    "stock": "المخزون"
   }
 }

@@ -12,35 +12,35 @@ import { DesktopConnectionState, getDesktopBridge } from '../core/runtime/runtim
   template: `
     @if (visible()) {
       <div
-        class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4"
+        class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background: var(--overlay)"
         dir="rtl"
         lang="ar"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="connection-overlay-title"
       >
-        <div class="w-full max-w-md rounded-2xl bg-white p-6 text-center text-[#2f2f2f] shadow-2xl">
+        <div class="w-full max-w-md p-6 text-center" style="background: var(--surface); color: var(--text); border-radius: var(--radius-dialog); box-shadow: var(--shadow-dialog)">
           <h2 id="connection-overlay-title" class="mb-3 text-xl font-bold">{{ title() }}</h2>
           <p class="mb-2 leading-7">{{ message() }}</p>
-          <p class="mb-5 text-sm text-gray-500">بياناتك على هذه الصفحة محفوظة وستعود عند عودة الاتصال.</p>
+          <p class="mb-5 text-sm" style="color: var(--text-muted)">بياناتك على هذه الصفحة محفوظة وستعود عند عودة الاتصال.</p>
           @if (!waitOnly()) {
             <div class="flex flex-wrap justify-center gap-3">
               <button
                 type="button"
-                class="rounded-lg bg-[#FF9933] px-5 py-2 font-semibold disabled:opacity-60"
+                class="nota-btn nota-btn--primary"
                 [disabled]="retrying()"
                 (click)="retry()"
               >
                 {{ retrying() ? 'جاري المحاولة...' : 'إعادة المحاولة' }}
               </button>
               @if (state().role === 'client') {
-                <button type="button" class="rounded-lg px-5 py-2 outline outline-1 outline-gray-400" (click)="changeAddress()">
+                <button type="button" class="nota-btn nota-btn--secondary" (click)="changeAddress()">
                   تغيير عنوان الجهاز الرئيسي
                 </button>
               }
             </div>
           } @else {
-            <div class="mx-auto h-6 w-6 animate-spin rounded-full border-4 border-gray-300 border-t-[#FF9933]"></div>
+            <div class="mx-auto h-6 w-6 animate-spin rounded-full border-4" style="border-color: var(--border-strong); border-top-color: var(--brand)"></div>
           }
         </div>
       </div>

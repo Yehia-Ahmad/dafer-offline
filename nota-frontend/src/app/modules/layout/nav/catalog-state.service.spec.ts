@@ -17,7 +17,7 @@ describe('CatalogStateService (Stage 9 shared category list)', () => {
     categories.getCategories.and.returnValue(of([{ _id: 'c1', name: 'لمبات' }, { _id: 'c2', name: 'شواحن' }]) as any);
     categories.getProducts.and.returnValue(of({ data: [{ _id: 'p1' }] }) as any);
     service.refresh();
-    expect(service.categories().map((c) => c.route)).toEqual(['/categories/c1', '/categories/c2']);
+    expect(service.categories().map((c) => c.id)).toEqual(['c1', 'c2']);
     expect(categories.getProducts).toHaveBeenCalledOnceWith('c1', { categoryId: 'c1', limit: 1 });
     expect(service.hasProducts()).toBeTrue();
   });

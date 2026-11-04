@@ -40,7 +40,7 @@
             <span class="pos__tile-code" dir="ltr">{{ product.code }}</span>
             <span class="pos__tile-name" dir="auto">{{ product.name }}</span>
             <span class="pos__tile-foot">
-              <span class="pos__tile-price nota-num">{{ product.wholesalePrice | notaMoney }}</span>
+              <span class="pos__tile-price nota-num">{{ (product.wholesalePrice ?? product.retailPrice) | notaMoney }}</span>
               @if (product.inventoryCount !== null) {
                 <span class="pos__tile-stock nota-num" [class.is-low]="isLowStock(product)">
                   {{ 'sellingPage.pos.available' | translate }} {{ product.inventoryCount | notaNumber }}

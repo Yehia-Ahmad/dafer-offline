@@ -1,24 +1,42 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { format as formatDate } from 'date-fns';
 import { firstValueFrom } from 'rxjs';
-import { ButtonModule } from 'primeng/button';
 import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
-import { TableModule } from 'primeng/table';
 import { CateoryService } from '../../../category/services/cateory.service';
 import { HOME_VIEW_STORAGE_KEY } from '../../../layout/constants/home-view.constants';
-import { ThemeService } from '../../../shared/services/theme.service';
 import {
   ProductProfitReportInvoice,
   ProductProfitReportRow,
   ProductsService
 } from '../../services/products.service';
 import { ProfitBarService, YearProfitBarResponse } from '../../services/profit-bar.service';
+import {
+  NotaButtonDirective,
+  NotaDialogShellComponent,
+  NotaFormFieldComponent,
+  NotaKpiCardComponent,
+  NotaMoneyPipe,
+  NotaNumberPipe,
+  NotaPageHeaderComponent,
+} from '../../../shared/ui';
+
+/** Stage 11 period pills; each one only sets the existing dateFrom / dateTo filters. */
+export type ProfitPeriod = 'all' | 'month' | 'sixMonths' | 'year' | 'custom';
+
+export interface ProfitChartMonth {
+  label: string;
+  cash: number;
+  credit: number;
+  profit: number;
+  /** Bar heights in % of the tallest bar. */
+  cashPct: number;
+  creditPct: number;
+}
 
 type SelectOption = {
   label: string;
@@ -32,17 +50,21 @@ type SelectOption = {
     CommonModule,
     FormsModule,
     TranslatePipe,
-    TableModule,
     SelectModule,
     DatePickerModule,
-    ButtonModule,
-    DialogModule
+    DialogModule,
+    NotaButtonDirective,
+    NotaDialogShellComponent,
+    NotaFormFieldComponent,
+    NotaKpiCardComponent,
+    NotaMoneyPipe,
+    NotaNumberPipe,
+    NotaPageHeaderComponent
   ],
   templateUrl: './product-profit-report.component.html',
   styleUrl: './product-profit-report.component.scss'
 })
 export class ProductProfitReportComponent implements OnInit {
-  isDarkMode$;
   private readonly isBrowser: boolean;
   isLoading = false;
   loadError = '';
@@ -61,10 +83,14 @@ export class ProductProfitReportComponent implements OnInit {
   maxProfitYear = new Date().getFullYear() + 5;
   isPdfGenerating = false;
   pdfError = '';
+  period: ProfitPeriod = 'all';
+  readonly periods: ProfitPeriod[] = ['all', 'month', 'sixMonths', 'year', 'custom'];
+  /** Monthly chart (Stage 11): GET products/profit-bar?year, the endpoint the PDF export uses. */
+  profitBar: YearProfitBarResponse | null = null;
+  isProfitBarLoading = false;
+  profitBarError = '';
 
   constructor(
-    private readonly themeService: ThemeService,
-    private readonly router: Router,
     private readonly productsService: ProductsService,
     private readonly profitBarService: ProfitBarService,
     private readonly categoryService: CateoryService,
@@ -72,7 +98,6 @@ export class ProductProfitReportComponent implements OnInit {
     private readonly cdr: ChangeDetectorRef,
     @Inject(PLATFORM_ID) platformId: object
   ) {
-    this.isDarkMode$ = this.themeService.isDarkMode$;
     this.isBrowser = isPlatformBrowser(platformId);
   }
 
@@ -83,6 +108,104 @@ export class ProductProfitReportComponent implements OnInit {
 
     this.loadCategories();
     this.loadProfitReport();
+    this.loadProfitBar();
+  }
+
+  /** Period pill: fills dateFrom / dateTo and applies (custom only shows the date fields). */
+  setPeriod(period: ProfitPeriod): void {
+    this.period = period;
+    if (period === 'custom') return;
+
+    const today = new Date();
+    const start = (year: number, month: number) => new Date(year, month, 1);
+    if (period === 'all') {
+      this.filterDateFrom = null;
+      this.filterDateTo = null;
+    } else if (period === 'month') {
+      this.filterDateFrom = start(today.getFullYear(), today.getMonth());
+      this.filterDateTo = today;
+    } else if (period === 'sixMonths') {
+      this.filterDateFrom = start(today.getFullYear(), today.getMonth() - 5);
+      this.filterDateTo = today;
+    } else {
+      this.filterDateFrom = start(today.getFullYear(), 0);
+      this.filterDateTo = today;
+    }
+    this.applyFilters();
+  }
+
+  /** Year field of the chart / PDF: reload the chart when a valid year is entered. */
+  onProfitYearChange(): void {
+    this.loadProfitBar();
+  }
+
+  /** KPIs from the loaded rows. Sales = profit + quantity × purchase price, per invoice line. */
+  get kpis(): { sales: number; cost: number; profit: number; margin: number | null } {
+    let sales = 0;
+    let cost = 0;
+    let profit = 0;
+    for (const row of this.reports) {
+      profit += row.totalProfit;
+      for (const invoice of row.invoices) {
+        const lineCost = Number(invoice.purchasePrice || 0) * Number(invoice.quantity || 0);
+        cost += lineCost;
+        sales += Number(invoice.profit || 0) + lineCost;
+      }
+    }
+    const round = (value: number) => Math.round(value * 100) / 100;
+    return { sales: round(sales), cost: round(cost), profit: round(profit), margin: sales > 0 ? Math.round((profit / sales) * 1000) / 10 : null };
+  }
+
+  /** Rows by profit, highest first, with quantity, sales and margin from their invoice lines. */
+  get rankedReports(): Array<ProductProfitReportRow & { quantity: number; sales: number; margin: number | null }> {
+    return this.reports
+      .map((row) => {
+        let quantity = 0;
+        let sales = 0;
+        for (const invoice of row.invoices) {
+          const lineQuantity = Number(invoice.quantity || 0);
+          quantity += lineQuantity;
+          sales += Number(invoice.profit || 0) + Number(invoice.purchasePrice || 0) * lineQuantity;
+        }
+        sales = Math.round(sales * 100) / 100;
+        return { ...row, quantity, sales, margin: sales > 0 ? Math.round((row.totalProfit / sales) * 1000) / 10 : null };
+      })
+      .sort((left, right) => right.totalProfit - left.totalProfit);
+  }
+
+  get chartMonths(): ProfitChartMonth[] {
+    if (!this.profitBar) return [];
+    const { labels } = this.extractProfitBarChartData(this.profitBar);
+    const byMonth = new Map((this.profitBar.months || []).map((month) => [this.toNumber(month?.month), month]));
+    const months = labels.map((label, index) => {
+      const month = byMonth.get(index + 1);
+      return { label, cash: this.toNumber(month?.cashProfit), credit: this.toNumber(month?.creditProfit), profit: this.toNumber(month?.profit) };
+    });
+    const max = Math.max(1, ...months.map((month) => Math.max(month.cash, 0) + Math.max(month.credit, 0)));
+    return months.map((month) => ({
+      ...month,
+      cashPct: Math.max(0, month.cash) / max * 100,
+      creditPct: Math.max(0, month.credit) / max * 100,
+    }));
+  }
+
+  private loadProfitBar(): void {
+    const year = this.normalizeYear(this.profitYear);
+    this.isProfitBarLoading = true;
+    this.profitBarError = '';
+    this.profitBarService.getYearProfitBar({ year }).subscribe({
+      next: (response) => {
+        this.profitBar = response;
+        this.isProfitBarLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        this.profitBar = null;
+        this.isProfitBarLoading = false;
+        this.profitBarError = err?.error?.message || this.translate.instant('profitReportPage.messages.loadFailed');
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   applyFilters(): void {
@@ -90,6 +213,7 @@ export class ProductProfitReportComponent implements OnInit {
   }
 
   resetFilters(): void {
+    this.period = 'all';
     this.filterCategoryId = '';
     this.filterProductId = '';
     this.filterDateFrom = null;

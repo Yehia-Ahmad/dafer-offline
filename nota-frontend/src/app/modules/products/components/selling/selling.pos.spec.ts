@@ -29,8 +29,8 @@ describe('SellingComponent POS layout (Stage 9)', () => {
 
     http = TestBed.inject(HttpTestingController);
     TestBed.inject(CatalogStateService).categories.set([
-      { id: 'c1', label: 'لمبات', route: '/categories/c1' },
-      { id: 'c2', label: 'شواحن', route: '/categories/c2' },
+      { id: 'c1', label: 'لمبات' },
+      { id: 'c2', label: 'شواحن' },
     ]);
     fixture = TestBed.createComponent(SellingComponent);
     component = fixture.componentInstance;
@@ -90,6 +90,26 @@ describe('SellingComponent POS layout (Stage 9)', () => {
     expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p1', price: 60, quantity: 2, lineTotal: 120 }));
     expect(component.getInvoiceItem(1).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p2', price: 45, quantity: 1 }));
     expect(component.invoiceGrandTotal).toBe(165);
+  });
+
+  it('Stage 11: a missing price never becomes 0 — wholesale null falls back to retail, retail null to wholesale', () => {
+    typeInSearch('X');
+    http.expectOne((r) => r.url === `${base}products/search`).flush([
+      { _id: 'p7', name: 'بدون جملة', code: 'NW', wholesalePrice: null, retailPrice: 80, inventoryCount: 9 },
+      { _id: 'p8', name: 'بدون قطاعي', code: 'NR', wholesalePrice: 50, retailPrice: null, inventoryCount: 9 },
+    ]);
+    fixture.detectChanges();
+    const tiles = el().querySelectorAll<HTMLButtonElement>('.pos__tile');
+    expect(tiles[0].querySelector('.pos__tile-price')!.textContent).not.toContain('—');
+
+    tiles[0].click();
+    tiles[1].click();
+    fixture.detectChanges();
+    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p7', priceType: 'wholesalePrice', price: 80 }));
+    expect(component.getInvoiceItem(1).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p8', price: 50 }));
+
+    component.getInvoiceItem(1).get('priceType')!.setValue('retailPrice');
+    expect(component.getInvoiceItem(1).getRawValue().price).toBe(50);
   });
 
   it('− never goes below 1; + adds 1', () => {

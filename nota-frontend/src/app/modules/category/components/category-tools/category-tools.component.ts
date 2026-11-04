@@ -1,55 +1,36 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectorRef, Component, DestroyRef, Inject, inject, input, OnInit, PLATFORM_ID, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, Inject, inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { TranslatePipe } from '@ngx-translate/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { filter } from 'rxjs';
-import { CategoryImportResult, CategoryPayload, CateoryService } from '../../category/services/cateory.service';
-import { ProductsService } from '../../products/services/products.service';
-import { LanguageService } from '../../shared/services/translation.service';
-import { BRAND } from '../../../core/brand';
-import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent } from '../../shared/ui';
-import { NavIconComponent } from './nav-icon.component';
-import { NAV_ICONS } from './nav-menu.config';
-import { SidebarStateService } from './sidebar-state.service';
-import { CatalogStateService, SidebarCategory } from './catalog-state.service';
-
-export type { SidebarCategory } from './catalog-state.service';
+import { CategoryImportResult, CategoryPayload, CateoryService } from '../../services/cateory.service';
+import { ProductsService } from '../../../products/services/products.service';
+import { LanguageService } from '../../../shared/services/translation.service';
+import { BRAND } from '../../../../core/brand';
+import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent } from '../../../shared/ui';
+import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
 
 /**
- * "الأصناف والفئات" in the sidebar: the category list (→ /categories/:id) and every category tool that used to live
- * in the old custom-sidenav (add / edit / delete, Excel import / export / template, export products).
- * Temporary: moves into the Products page in Stage 10. Logic and API calls are the old component's, unchanged.
- * Stage 9: mounted once (app.html); the list and the product-exists flag live in CatalogStateService.
+ * Category tools of the Products page (Stage 11; moved unchanged from the Stage 8 sidebar item):
+ * add / edit / delete category, Excel import / export / template, export products.
+ * Renders the page-header tool buttons and the dialogs; the page opens the dialogs through the public methods.
+ * The list and the product-exists flag live in CatalogStateService (shared with the POS category chips).
  */
 @Component({
-  selector: 'app-sidebar-categories',
+  selector: 'app-category-tools',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, MatProgressSpinnerModule, MatSnackBarModule, RouterModule, DialogModule, TranslatePipe,
-    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NavIconComponent],
-  templateUrl: './sidebar-categories.component.html',
-  host: { class: 'nota-nav__item nota-nav__item--expandable' },
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, MatProgressSpinnerModule, MatSnackBarModule, DialogModule, TranslatePipe,
+    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent],
+  templateUrl: './category-tools.component.html',
+  host: { class: 'cat-tools' },
 })
-export class SidebarCategoriesComponent implements OnInit {
+export class CategoryToolsComponent implements OnInit {
   private _languageService = inject(LanguageService);
   private readonly destroyRef = inject(DestroyRef);
-  protected readonly _sidebarState = inject(SidebarStateService);
-  private readonly _router = inject(Router);
-  /** i18n key of the item label. */
-  readonly labelKey = input('nav.items.products');
-  protected readonly icons = NAV_ICONS;
   private readonly _catalog = inject(CatalogStateService);
-  /** The list as rendered (shared with the POS category chips). */
-  readonly categoryItems = this._catalog.categories;
-  readonly categoryKey = 'categories';
-  expandedCategory: string | null = null;
-  get categories(): SidebarCategory[] {
-    return this._catalog.categories();
-  }
   visible: boolean = false;
   isSaving = signal(false);
   editingCategory: any = null;
@@ -81,31 +62,8 @@ export class SidebarCategoriesComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // (a) app start: the sidebar is created once, with the app frame.
+    // Entering the products page reloads the list and the product-exists flag (as the sidebar did per navigation).
     this.getAllCategories();
-    // On a category or product page, show the list open.
-    if (this.isProductsRoute) this.expandedCategory = this.categoryKey;
-
-    // (c) entering a category or product page reloads the list and the product-exists flag and opens the list.
-    this._router.events.pipe(
-      filter((event) => event instanceof NavigationEnd),
-      takeUntilDestroyed(this.destroyRef)
-    ).subscribe(() => {
-      if (!this.isProductsRoute) return;
-      this.expandedCategory = this.categoryKey;
-      this.getAllCategories();
-      this.cdr.markForCheck();
-    });
-  }
-
-  /** Category and product pages belong to this item. */
-  get isProductsRoute(): boolean {
-    const url = this._router.url;
-    return url.startsWith('/categories/') || url.startsWith('/products/edit/');
-  }
-
-  get isExpanded(): boolean {
-    return this.expandedCategory === this.categoryKey && !this._sidebarState.collapsed();
   }
 
   initalizeAddCategory() {
@@ -330,19 +288,6 @@ export class SidebarCategoriesComponent implements OnInit {
 
   private localizedMessage(english: string, arabic: string): string {
     return this._languageService.selectedLanguage() === 'ar' ? arabic : english;
-  }
-
-  toggleCategory(category: string) {
-    if (this._sidebarState.collapsed()) {
-      this._sidebarState.setCollapsed(false);
-      // Wait a bit to allow sidenav to expand smoothly before showing children
-      setTimeout(() => {
-        this.expandedCategory = category;
-        this.cdr.markForCheck();
-      }, 300); // adjust delay to match your sidenav animation time
-    } else {
-      this.expandedCategory = this.expandedCategory === category ? null : category;
-    }
   }
 
   openDialog(): void {

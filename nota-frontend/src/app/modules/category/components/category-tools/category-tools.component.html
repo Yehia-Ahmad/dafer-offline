@@ -1,102 +1,39 @@
-<button type="button" class="nota-nav__link" [class.is-active]="isProductsRoute"
-  (click)="toggleCategory(categoryKey)"
-  [attr.aria-expanded]="isExpanded" aria-controls="nav-categories"
-  [attr.aria-label]="_sidebarState.collapsed() ? (labelKey() | translate) : null"
-  [attr.title]="_sidebarState.collapsed() ? (labelKey() | translate) : null">
-  <nota-nav-icon [path]="icons.products" />
-  <span class="nota-nav__label">{{ labelKey() | translate }}</span>
-  <svg class="nota-nav__chevron" [class.is-open]="isExpanded" width="16" height="16" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M6 9l6 6 6-6" />
-  </svg>
+<!-- Tool buttons (page-header actions). Same handlers as the Stage 8 sidebar tools. -->
+<input #categoryImportInput type="file" hidden
+  accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+  (change)="onCategoryImportSelected($event)" />
+<button type="button" notaButton data-action="import-categories" (click)="categoryImportInput.click()"
+  [disabled]="isImportingCategories()">
+  @if (isImportingCategories()) {
+    <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
+  }
+  {{ (isImportingCategories() ? 'category.importExport.importing' : 'category.importExport.import') | translate }}
 </button>
 
-@if (isExpanded) {
-  <div id="nav-categories" class="nota-cat">
-    <ul class="nota-cat__list">
-      @for (child of categoryItems(); track child.id) {
-        <li class="nota-cat__row">
-          <a class="nota-cat__link" [routerLink]="child.route" routerLinkActive="is-active" ariaCurrentWhenActive="page"
-            #rla="routerLinkActive">{{ child.label }}</a>
-          <button type="button" class="nota-cat__icon-btn" (click)="openEditCategoryDialog(child, $event)"
-            [attr.aria-label]="('nav.categories.edit' | translate) + ' ' + child.label" [title]="'nav.categories.edit' | translate">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-            </svg>
-          </button>
-          @if (!rla.isActive) {
-            <button type="button" class="nota-cat__icon-btn" (click)="promptForCategoryDeletion(child)"
-              [attr.aria-label]="('nav.categories.delete' | translate) + ' ' + child.label" [title]="'nav.categories.delete' | translate">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" />
-              </svg>
-            </button>
-          }
-        </li>
-      } @empty {
-        <li class="nota-cat__empty">{{ 'nav.categories.empty' | translate }}</li>
-      }
-    </ul>
+<button type="button" notaButton data-action="export-categories" (click)="exportCategories()"
+  [disabled]="isExportingCategories()">
+  @if (isExportingCategories()) {
+    <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
+  }
+  {{ (isExportingCategories() ? 'category.importExport.exporting' : 'category.importExport.export') | translate }}
+</button>
 
-    <button type="button" class="nota-cat__add" data-action="add-category" (click)="openDialog()">
-      + {{ 'sidebarTitles.add_new_category' | translate }}
-    </button>
+<button type="button" notaButton data-action="category-template" (click)="downloadCategoriesTemplate()"
+  [disabled]="isGeneratingCategoryTemplate()">
+  @if (isGeneratingCategoryTemplate()) {
+    <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
+  }
+  {{ (isGeneratingCategoryTemplate() ? 'category.importExport.generating' : 'category.importExport.template') | translate }}
+</button>
 
-    <div class="nota-cat__tools" role="group" [attr.aria-label]="'category.importExport.toolsTitle' | translate">
-      <p class="nota-cat__tools-title">{{ 'category.importExport.toolsTitle' | translate }}</p>
-
-      <button type="button" class="nota-cat__tool" data-action="export-categories" (click)="exportCategories()"
-        [disabled]="isExportingCategories()">
-        @if (isExportingCategories()) {
-          <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
-        } @else {
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 15v4h14v-4" /></svg>
-        }
-        <span>{{ (isExportingCategories() ? 'category.importExport.exporting' : 'category.importExport.export') | translate }}</span>
-      </button>
-
-      <input #categoryImportInput type="file" hidden
-        accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-        (change)="onCategoryImportSelected($event)" />
-      <button type="button" class="nota-cat__tool" data-action="import-categories" (click)="categoryImportInput.click()"
-        [disabled]="isImportingCategories()">
-        @if (isImportingCategories()) {
-          <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
-        } @else {
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M5 15v4h14v-4" /></svg>
-        }
-        <span>{{ (isImportingCategories() ? 'category.importExport.importing' : 'category.importExport.import') | translate }}</span>
-      </button>
-
-      <button type="button" class="nota-cat__tool" data-action="category-template" (click)="downloadCategoriesTemplate()"
-        [disabled]="isGeneratingCategoryTemplate()">
-        @if (isGeneratingCategoryTemplate()) {
-          <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
-        } @else {
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v5h4M10 13h5m-5 4h5" /></svg>
-        }
-        <span>{{ (isGeneratingCategoryTemplate() ? 'category.importExport.generating' : 'category.importExport.template') | translate }}</span>
-      </button>
-
-      @if (hasProducts()) {
-        <button type="button" class="nota-cat__tool" data-action="export-products" (click)="exportProductsExcel()"
-          [disabled]="isExportingProducts()">
-          @if (isExportingProducts()) {
-            <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
-          } @else {
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
-          }
-          <span>{{ (isExportingProducts() ? 'actions.loading' : 'sidebarTitles.export_products') | translate }}</span>
-        </button>
-      }
-    </div>
-  </div>
+@if (hasProducts()) {
+  <button type="button" notaButton data-action="export-products" (click)="exportProductsExcel()"
+    [disabled]="isExportingProducts()">
+    @if (isExportingProducts()) {
+      <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
+    }
+    {{ (isExportingProducts() ? 'actions.loading' : 'sidebarTitles.export_products') | translate }}
+  </button>
 }
 
 <!-- Add / edit category (docs/design/screens/AddCategory.dc.html) -->

@@ -1,5 +1,5 @@
 import { isPlatformBrowser } from '@angular/common';
-import { Component, computed, inject, PLATFORM_ID } from '@angular/core';
+import { Component, computed, inject, OnInit, PLATFORM_ID } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -10,28 +10,29 @@ import { HOME_DEFAULT_VIEW, HOME_VIEW_STORAGE_KEY } from '../constants/home-view
 import { brandName } from '../../../core/brand';
 import { isOfflineMainPc } from '../../../core/runtime/app-features';
 import { getDesktopRuntimeConfig } from '../../../core/runtime/runtime-config';
-import { NAV_GROUPS, NavContext, visibleNavGroups } from '../nav/nav-menu.config';
+import { NAV_GROUPS, NavContext, NavItem, visibleNavGroups } from '../nav/nav-menu.config';
 import { NavIconComponent } from '../nav/nav-icon.component';
-import { SidebarCategoriesComponent } from '../nav/sidebar-categories.component';
 import { SidebarStateService } from '../nav/sidebar-state.service';
+import { CatalogStateService } from '../nav/catalog-state.service';
 
 /**
  * Nota sidebar (docs/design/screens/Sidebar.dc.html): logo, grouped menu from NAV_GROUPS,
- * footer with language, theme and device. Category tools live in SidebarCategoriesComponent.
+ * footer with language, theme and device. Category tools live on the products page since Stage 11.
  */
 @Component({
   selector: 'app-custom-sidenav',
   standalone: true,
-  imports: [RouterModule, TranslatePipe, NavIconComponent, SidebarCategoriesComponent],
+  imports: [RouterModule, TranslatePipe, NavIconComponent],
   templateUrl: './custom-sidenav.component.html',
   host: { class: 'nota-sidebar', '[class.is-rail]': 'state.collapsed()' },
 })
-export class CustomSidenavComponent {
+export class CustomSidenavComponent implements OnInit {
   private readonly _languageService = inject(LanguageService);
   private readonly _themeService = inject(ThemeService);
   private readonly _router = inject(Router);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   protected readonly state = inject(SidebarStateService);
+  private readonly _catalog = inject(CatalogStateService);
 
   readonly language = this._languageService.selectedLanguage;
   readonly brandName = computed(() => brandName(this._languageService.selectedLanguage()));
@@ -52,6 +53,18 @@ export class CustomSidenavComponent {
   );
   readonly isHomeActive = computed(() => this.url().split(/[?#]/)[0] === '/home');
 
+  ngOnInit(): void {
+    // App start (the frame is created once): category list + product-exists flag for the POS chips,
+    // as the sidebar category item did before Stage 11.
+    this._catalog.refresh();
+  }
+
+  /** Active on the item's route itself and on its `activePaths` prefixes. */
+  isPathActive(item: NavItem): boolean {
+    const path = this.url().split(/[?#]/)[0];
+    return path === item.route || (item.activePaths ?? []).some((prefix) => path.startsWith(prefix));
+  }
+
   setLanguage(lang: 'ar' | 'en'): void {
     if (this.language() !== lang) this._languageService.changeLanguage(lang);
   }
@@ -69,7 +82,11 @@ export class CustomSidenavComponent {
 
   resetHomeView() {
     if (this.isBrowser) {
-      localStorage.setItem(HOME_VIEW_STORAGE_KEY, HOME_DEFAULT_VIEW);
+      try {
+        localStorage.setItem(HOME_VIEW_STORAGE_KEY, HOME_DEFAULT_VIEW);
+      } catch {
+        // Storage blocked or full: the home page still opens (on its saved or default view).
+      }
     }
     this._router.navigate(['/home'], { queryParams: { resetView: Date.now() } });
   }

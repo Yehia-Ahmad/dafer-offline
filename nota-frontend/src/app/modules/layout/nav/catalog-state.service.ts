@@ -4,16 +4,15 @@ import { CateoryService } from '../../category/services/cateory.service';
 
 export interface SidebarCategory {
   label: string;
-  route: string;
   id: string;
   category?: any;
 }
 
 /**
- * Category list + "any product exists" flag, shared by the sidebar (mounted once in app.html since Stage 9)
- * and the POS category chips. The requests are the ones the old sidebar made on every page:
+ * Category list + "any product exists" flag, shared by the products page (Stage 11), the product form
+ * and the POS category chips. The requests are the ones the old sidebar made:
  * GET categories, then GET products?categoryId=<first>&limit=1.
- * Refreshed on app start, after sidebar category changes, and when entering /categories/:id or /products/edit/:id.
+ * Refreshed on app start (sidebar), on entering /products, after category changes and after product create/delete.
  */
 @Injectable({ providedIn: 'root' })
 export class CatalogStateService {
@@ -34,7 +33,6 @@ export class CatalogStateService {
         const categories = Array.isArray(res) ? res : (res?.data ?? res?.categories ?? []);
         this.categories.set(categories.map((category: any) => ({
           label: category.name,
-          route: `/categories/${category._id}`,
           id: category._id,
           category
         })));

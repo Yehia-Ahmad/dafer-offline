@@ -34,9 +34,9 @@ describe('nav menu config', () => {
     expect(visibleNavGroups([{ key: 'x', labelKey: 'x', items: [{ key: 'a', labelKey: 'a', icon: '', visible: () => false }] }], { isMainPc: true })).toEqual([]);
   });
 
-  it('gives every visible item a route or the categories expander, plus an icon and label key', () => {
+  it('gives every visible item a route, plus an icon and label key', () => {
     for (const item of visibleNavGroups(NAV_GROUPS, { isMainPc: true }).flatMap((g) => g.items)) {
-      expect(!!item.route || item.expandable === 'categories').withContext(item.key).toBeTrue();
+      expect(!!item.route).withContext(item.key).toBeTrue();
       expect(item.icon).withContext(item.key).toBeTruthy();
       expect(item.labelKey).withContext(item.key).toMatch(/^nav\.items\./);
     }

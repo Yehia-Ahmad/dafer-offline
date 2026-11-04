@@ -13,7 +13,7 @@ import { RouterLink } from '@angular/router';
   template: `
     <div class="nota-page-header__text">
       @if (backLink()) {
-        <a class="nota-page-header__back" [routerLink]="backLink()">
+        <a class="nota-page-header__back" [routerLink]="backLink()" [queryParams]="backQueryParams()">
           <span class="nota-page-header__back-icon" aria-hidden="true">←</span>
           {{ backLabel() }}
         </a>
@@ -33,4 +33,6 @@ export class NotaPageHeaderComponent {
   readonly subtitle = input('');
   readonly backLink = input<string | readonly unknown[] | null>(null);
   readonly backLabel = input('');
+  /** Query params of the back link (e.g. the products list's selected category). */
+  readonly backQueryParams = input<Record<string, string> | null>(null);
 }
