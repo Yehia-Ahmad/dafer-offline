@@ -221,6 +221,22 @@
             "missing": "Missing",
             "cancel": "Cancel",
             "proceed": "Proceed"
+        },
+        "pos": {
+            "catalog": "Products",
+            "searchLabel": "Search products",
+            "searchPlaceholder": "Search by name or code, or scan a barcode (F2)",
+            "categories": "Categories",
+            "allCategories": "All",
+            "gridHint": "Type a product name or code, or pick a category to see its products.",
+            "available": "In stock",
+            "currentInvoice": "Current invoice",
+            "changeProduct": "Change product",
+            "increase": "Increase",
+            "decrease": "Decrease",
+            "clearInvoice": "Clear invoice",
+            "required": "Required",
+            "ok": "OK"
         }
     },
     "creditSalePage": {
@@ -284,6 +300,20 @@
             "title": "Credit File Ready",
             "subtitle": "Use this snapshot to confirm the customer, sale date, and remaining balance before saving.",
             "close": "Close Review"
+        },
+        "form": {
+            "title": "New credit invoice",
+            "customer": "Customer",
+            "newCustomer": "+ New customer",
+            "items": "Items",
+            "product": "Product",
+            "addItemPlaceholder": "+ Add an item by name or code (F2)",
+            "netTotal": "Invoice net total",
+            "required": "Required",
+            "ok": "OK",
+            "remove": "Remove",
+            "changeProduct": "Change product",
+            "summary": "Invoice summary"
         }
     },
     "invoiceHistoryPage": {

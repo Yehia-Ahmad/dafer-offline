@@ -3,7 +3,6 @@ import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, injec
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
-import { SideNavComponent } from '../../../layout/components/side-nav/side-nav.component';
 import { LanguageService } from '../../../shared/services/translation.service';
 import { ThemeService } from '../../../shared/services/theme.service';
 import { SHOP_PROFILE_LIMITS, ShopProfile } from '../../models/shop-profile.model';
@@ -14,10 +13,9 @@ type Outcome = { kind: 'saved' } | { kind: 'error'; message: string };
 /** The shop's own details (name, address, phones, logo, tax number, ...), printed on invoices. */
 @Component({
   selector: 'app-shop-profile',
-  imports: [SideNavComponent, TranslatePipe, AsyncPipe, NgClass, ReactiveFormsModule],
+  imports: [TranslatePipe, AsyncPipe, NgClass, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-side-nav>
       <main class="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 md:p-8" [attr.dir]="direction()">
         <header>
           <h1 class="mb-1 text-2xl font-bold">{{ 'shopProfilePage.title' | translate }}</h1>
@@ -125,7 +123,6 @@ type Outcome = { kind: 'saved' } | { kind: 'error'; message: string };
           </form>
         }
       </main>
-    </app-side-nav>
   `,
 })
 export class ShopProfileComponent implements OnInit {

@@ -1,505 +1,259 @@
-<app-side-nav>
-  <div class="w-full max-w-[1280px] mx-auto flex flex-col items-start gap-8">
-    <div class="w-full flex items-center justify-between gap-4">
-      <h1 class="text-2xl font-bold font-azonix" [ngClass]="{
-        'text-gray_light': (isDarkMode$ | async),
-        'text-orange': !(isDarkMode$ | async)
-      }">{{ 'home.cards.selling.title' | translate }}</h1>
+<!-- Cash sale / POS (docs/design/screens/Pos.dc.html, PosDark.dc.html). Stage 9: layout only; save logic unchanged. -->
+<div class="pos">
+  <div class="pos__layout">
+    <!-- Catalog: title, search, category chips, product tiles -->
+    <section class="pos__catalog" [attr.aria-label]="'sellingPage.pos.catalog' | translate">
+      <nota-page-header [title]="'nav.items.pos' | translate" backLink="/home" [backLabel]="'nav.back' | translate" />
+      <label class="pos__search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4" /></svg>
+        <span class="nota-sr-only">{{ 'sellingPage.pos.searchLabel' | translate }}</span>
+        <input #posSearch type="text" class="pos__search-input" autofocus autocomplete="off" [value]="gridQuery"
+          [placeholder]="'sellingPage.pos.searchPlaceholder' | translate" (input)="onGridSearchInput($event)" />
+        <kbd class="pos__kbd" aria-hidden="true">F2</kbd>
+      </label>
 
-      <button
-        type="button"
-        (click)="backToProducts()"
-        class="cursor-pointer rounded-[0.65rem] border border-transparent bg-[#f4d80a] px-4 py-2 font-roboto text-[0.95rem] font-bold text-gray_dark transition-opacity duration-200 hover:opacity-90"
-      >
-        {{ 'home.actions.back' | translate }}
-      </button>
-    </div>
+      <div class="pos__chips" role="group" [attr.aria-label]="'sellingPage.pos.categories' | translate">
+        <button type="button" class="pos__chip" [class.is-on]="activeCategoryId === null"
+          [attr.aria-pressed]="activeCategoryId === null" (click)="selectCategory(null)">
+          {{ 'sellingPage.pos.allCategories' | translate }}
+        </button>
+        @for (category of categories(); track category.id) {
+          <button type="button" class="pos__chip" [class.is-on]="activeCategoryId === category.id"
+            [attr.aria-pressed]="activeCategoryId === category.id" (click)="selectCategory(category.id)">
+            {{ category.label }}
+          </button>
+        }
+      </div>
 
-    <div class="w-full selling-form-shell p-6 sm:p-8">
-      <form [formGroup]="sellingForm" (ngSubmit)="saveSelling()" class="w-full flex flex-col gap-8" [attr.dir]="direction">
-        <div class="invoice-dashboard grid grid-cols-1 xl:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.85fr)] gap-6">
-          <div class="flex flex-col gap-6">
-            <section class="invoice-section">
-              <div class="invoice-section__header">
-                <div class="flex flex-col gap-2">
-                  <p class="invoice-eyebrow">{{ 'sellingPage.fields.invoiceDetails' | translate }}</p>
-                  <h2 class="invoice-section__title">{{ 'sellingPage.fields.customerInformation' | translate }}</h2>
-                </div>
-              </div>
+      @if (isGridLoading) {
+        <p class="pos__note" role="status">{{ 'sellingPage.actions.searching' | translate }}</p>
+      } @else if (gridError) {
+        <p class="pos__note pos__note--error" role="alert">{{ gridError }}</p>
+      } @else if (!gridProducts.length) {
+        <p class="pos__note">{{ 'sellingPage.pos.gridHint' | translate }}</p>
+      }
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="w-full flex flex-col gap-2 md:col-span-2">
-                  <label class="selling-label" [ngClass]="{
-                    'text-right': direction === 'rtl',
-                    'text-left': direction !== 'rtl'
-                  }">{{ 'sellingPage.fields.searchCustomer' | translate }}</label>
-                  <div class="native-autocomplete">
-                    <input
-                      type="text"
-                      [value]="customerSearchInputValue"
-                      [placeholder]="'sellingPage.placeholders.searchCustomer' | translate"
-                      class="selling-control-input"
-                      (input)="onCustomerSearchInputChange($event)"
-                      (focus)="onCustomerSearchInputFocus()"
-                      (blur)="onCustomerSearchInputBlur()"
-                    />
+      <div class="pos__grid">
+        @for (product of gridProducts; track product.id) {
+          <button type="button" class="pos__tile" (click)="addProductToInvoice(product)">
+            <span class="pos__tile-code" dir="ltr">{{ product.code }}</span>
+            <span class="pos__tile-name" dir="auto">{{ product.name }}</span>
+            <span class="pos__tile-foot">
+              <span class="pos__tile-price nota-num">{{ product.wholesalePrice | notaMoney }}</span>
+              @if (product.inventoryCount !== null) {
+                <span class="pos__tile-stock nota-num" [class.is-low]="isLowStock(product)">
+                  {{ 'sellingPage.pos.available' | translate }} {{ product.inventoryCount | notaNumber }}
+                </span>
+              }
+            </span>
+          </button>
+        }
+      </div>
+    </section>
 
-                    @if (isSearchingCustomers) {
-                      <div class="native-autocomplete-loading text-sm font-roboto">{{ 'sellingPage.actions.searching' | translate }}</div>
+    <!-- Current invoice -->
+    <aside class="pos__invoice" [attr.aria-label]="'sellingPage.pos.currentInvoice' | translate">
+      <form [formGroup]="sellingForm" (ngSubmit)="saveSelling()" class="pos__form" novalidate>
+        <h2 class="pos__title">{{ 'sellingPage.pos.currentInvoice' | translate }}</h2>
+
+        <!-- Scrolls inside the panel; the totals and the save button below stay in view. -->
+        <div class="pos__scroll">
+
+        <!-- Customer + date -->
+        <div class="pos__fields">
+          <nota-form-field class="pos__span" [label]="'sellingPage.fields.searchCustomer' | translate" forId="posCustomerSearch"
+            [error]="customerSearchError">
+            <div class="nota-ac">
+              <input id="posCustomerSearch" type="text" class="nota-input" autocomplete="off" [value]="customerSearchInputValue"
+                [placeholder]="'sellingPage.placeholders.searchCustomer' | translate"
+                (input)="onCustomerSearchInputChange($event)" (focus)="onCustomerSearchInputFocus()" (blur)="onCustomerSearchInputBlur()" />
+              @if (isSearchingCustomers) {
+                <div class="nota-ac__loading" role="status">{{ 'sellingPage.actions.searching' | translate }}</div>
+              }
+              @if (showCustomerSuggestionPanel && customerOptions.length > 0) {
+                <ul class="nota-ac__panel" role="listbox">
+                  @for (customer of customerOptions; track customer.id) {
+                    <li class="nota-ac__item" role="option" (mousedown)="onCustomerOptionSelect(customer)">{{ customer.displayLabel }}</li>
+                  }
+                </ul>
+              }
+            </div>
+          </nota-form-field>
+
+          <nota-form-field [label]="'sellingPage.fields.customerName' | translate" forId="posCustomerName" [required]="true"
+            [error]="sellingForm.get('customerName')?.invalid && sellingForm.get('customerName')?.touched ? ('sellingPage.pos.required' | translate) : null">
+            <input id="posCustomerName" type="text" class="nota-input" formControlName="customerName" />
+          </nota-form-field>
+
+          <nota-form-field [label]="'sellingPage.fields.customerPhone' | translate" forId="posCustomerPhone">
+            <input id="posCustomerPhone" type="text" class="nota-input" dir="ltr" formControlName="customerPhone" />
+          </nota-form-field>
+
+          <nota-form-field class="pos__span" [label]="'sellingPage.fields.sellingDate' | translate" forId="sellingDate" [required]="true">
+            <p-datepicker formControlName="sellingDate" [showIcon]="true" [iconDisplay]="'input'" inputId="sellingDate"
+              appendTo="body" styleClass="pos__control" />
+          </nota-form-field>
+        </div>
+
+        <!-- Lines -->
+        <div formArrayName="items" class="pos__lines">
+          @for (itemGroup of invoiceItems.controls; track trackInvoiceItem($index); let index = $index) {
+            @let state = getInvoiceItemState(index);
+            <div class="pos__line" [formGroupName]="index">
+              <div class="pos__line-head">
+                @if (state.selectedProduct) {
+                  <div class="pos__line-name">
+                    <span dir="auto">{{ state.selectedProduct.name }}</span>
+                    <span class="pos__line-meta">
+                      @if (state.selectedProduct.code) {<span dir="ltr">{{ state.selectedProduct.code }}</span>}
+                      @if (state.selectedProduct.categoryName) {<span>· {{ state.selectedProduct.categoryName }}</span>}
+                    </span>
+                  </div>
+                  <button type="button" class="pos__link" (click)="changeLineProduct(index)">{{ 'sellingPage.pos.changeProduct' | translate }}</button>
+                } @else {
+                  <!-- Per-line product search (the pre-Stage-9 flow), for a line without a product. -->
+                  <div class="nota-ac pos__line-search">
+                    <input type="text" class="nota-input" autocomplete="off" [value]="state.searchInputValue"
+                      [attr.aria-label]="('sellingPage.fields.searchProduct' | translate) + ' ' + (index + 1)"
+                      [placeholder]="'sellingPage.placeholders.searchProduct' | translate"
+                      (input)="onSearchInputChange(index, $event)" (focus)="onSearchInputFocus(index)" (blur)="onSearchInputBlur(index)" />
+                    @if (state.isSearching) {
+                      <div class="nota-ac__loading" role="status">{{ 'sellingPage.actions.searching' | translate }}</div>
                     }
-
-                    @if (showCustomerSuggestionPanel && customerOptions.length > 0) {
-                      <ul class="native-autocomplete-panel">
-                        @for (customer of customerOptions; track customer.id) {
-                          <li class="native-autocomplete-item" (mousedown)="onCustomerOptionSelect(customer)">
-                            {{ customer.displayLabel }}
-                          </li>
+                    @if (state.showSuggestionPanel && state.productOptions.length > 0) {
+                      <ul class="nota-ac__panel" role="listbox">
+                        @for (item of state.productOptions; track item.id) {
+                          <li class="nota-ac__item" role="option" (mousedown)="onNativeOptionSelect(index, item)">{{ item.displayLabel }}</li>
                         }
                       </ul>
                     }
                   </div>
-
-                  @if (customerSearchError) {
-                    <p class="text-sm font-roboto text-red">{{ customerSearchError }}</p>
-                  }
-                </div>
-
-                <div class="flex flex-col gap-2">
-                  <label class="selling-label" [ngClass]="{
-                    'text-right': direction === 'rtl',
-                    'text-left': direction !== 'rtl'
-                  }">{{ 'sellingPage.fields.customerName' | translate }}</label>
-                  <input
-                    pInputText
-                    formControlName="customerName"
-                    type="text"
-                    class="selling-control-input"
-                  />
-                </div>
-
-                <div class="flex flex-col gap-2">
-                  <label class="selling-label" [ngClass]="{
-                    'text-right': direction === 'rtl',
-                    'text-left': direction !== 'rtl'
-                  }">{{ 'sellingPage.fields.customerPhone' | translate }}</label>
-                  <input
-                    pInputText
-                    formControlName="customerPhone"
-                    type="text"
-                    class="selling-control-input"
-                  />
-                </div>
-
-                <div class="flex flex-col gap-2 md:col-span-2">
-                  <label class="selling-label" [ngClass]="{
-                    'text-right': direction === 'rtl',
-                    'text-left': direction !== 'rtl'
-                  }">{{ 'sellingPage.fields.sellingDate' | translate }}</label>
-                  <p-datepicker
-                    formControlName="sellingDate"
-                    [showIcon]="true"
-                    [iconDisplay]="'input'"
-                    inputId="sellingDate"
-                    styleClass="selling-control"
-                    inputStyleClass="selling-control-input"
-                  />
-                </div>
-              </div>
-            </section>
-
-            <section class="invoice-section">
-              <div class="invoice-section__header">
-                <div class="flex flex-col gap-2">
-                  <p class="invoice-eyebrow">{{ 'sellingPage.fields.invoiceProducts' | translate }}</p>
-                  <h2 class="invoice-section__title">{{ 'sellingPage.fields.invoiceProduct' | translate }}</h2>
-                </div>
-
-                <button type="button" class="invoice-add-button" (click)="addInvoiceItem()">
-                  {{ 'sellingPage.actions.addProduct' | translate }}
-                </button>
-              </div>
-
-              <div formArrayName="items" class="flex flex-col gap-4">
-                @for (itemGroup of invoiceItems.controls; track trackInvoiceItem($index); let index = $index) {
-                  <div class="invoice-item-card" [formGroupName]="index">
-                    <div class="invoice-item-card__header">
-                      <div class="flex flex-col gap-1">
-                        <span class="invoice-item-card__index">
-                          {{ 'sellingPage.fields.invoiceProduct' | translate }} {{ index + 1 }}
-                        </span>
-
-                        @if (getInvoiceItemState(index).selectedProduct?.code) {
-                          <span class="invoice-item-card__meta">
-                            {{ getInvoiceItemState(index).selectedProduct?.code }}
-                          </span>
-                        }
-                      </div>
-
-                      <button type="button" class="invoice-remove-button" (click)="removeInvoiceItem(index)">
-                        {{
-                          invoiceItems.length === 1
-                            ? ('sellingPage.actions.clearProduct' | translate)
-                            : ('sellingPage.actions.removeProduct' | translate)
-                        }}
-                      </button>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div class="w-full flex flex-col gap-2 md:col-span-2">
-                        <label class="selling-label" [ngClass]="{
-                          'text-right': direction === 'rtl',
-                          'text-left': direction !== 'rtl'
-                        }">{{ 'sellingPage.fields.searchProduct' | translate }}</label>
-                        <div class="native-autocomplete">
-                          <input
-                            type="text"
-                            [value]="getInvoiceItemState(index).searchInputValue"
-                            [placeholder]="'sellingPage.placeholders.searchProduct' | translate"
-                            class="selling-control-input"
-                            (input)="onSearchInputChange(index, $event)"
-                            (focus)="onSearchInputFocus(index)"
-                            (blur)="onSearchInputBlur(index)"
-                          />
-
-                          @if (getInvoiceItemState(index).isSearching) {
-                            <div class="native-autocomplete-loading text-sm font-roboto">{{ 'sellingPage.actions.searching' | translate }}</div>
-                          }
-
-                          @if (getInvoiceItemState(index).showSuggestionPanel && getInvoiceItemState(index).productOptions.length > 0) {
-                            <ul class="native-autocomplete-panel">
-                              @for (item of getInvoiceItemState(index).productOptions; track item.id) {
-                                <li class="native-autocomplete-item" (mousedown)="onNativeOptionSelect(index, item)">
-                                  {{ item.displayLabel }}
-                                </li>
-                              }
-                            </ul>
-                          }
-                        </div>
-                      </div>
-
-                      <div class="flex flex-col gap-2">
-                        <label class="selling-label" [ngClass]="{
-                          'text-right': direction === 'rtl',
-                          'text-left': direction !== 'rtl'
-                        }">{{ 'sellingPage.fields.productName' | translate }}</label>
-                        <input
-                          pInputText
-                          formControlName="productName"
-                          readonly
-                          class="selling-control-input opacity-70 cursor-not-allowed"
-                        />
-                      </div>
-
-                      <div class="flex flex-col gap-2">
-                        <label class="selling-label" [ngClass]="{
-                          'text-right': direction === 'rtl',
-                          'text-left': direction !== 'rtl'
-                        }">{{ 'sellingPage.fields.categoryName' | translate }}</label>
-                        <input
-                          pInputText
-                          formControlName="categoryName"
-                          readonly
-                          class="selling-control-input opacity-70 cursor-not-allowed"
-                        />
-                      </div>
-
-                      <div class="flex flex-col gap-2">
-                        <label class="selling-label" [ngClass]="{
-                          'text-right': direction === 'rtl',
-                          'text-left': direction !== 'rtl'
-                        }">{{ 'sellingPage.fields.priceType' | translate }}</label>
-                        <p-select
-                          [options]="priceTypeOptions"
-                          optionLabel="label"
-                          optionValue="value"
-                          appendTo="body"
-                          formControlName="priceType"
-                          [placeholder]="'sellingPage.placeholders.selectPriceType' | translate"
-                          styleClass="selling-control"
-                        />
-                      </div>
-
-                      <div class="flex flex-col gap-2">
-                        <label class="selling-label" [ngClass]="{
-                          'text-right': direction === 'rtl',
-                          'text-left': direction !== 'rtl'
-                        }">{{ 'sellingPage.fields.price' | translate }}</label>
-                        <p-inputNumber
-                          formControlName="price"
-                          [mode]="'decimal'"
-                          [min]="0"
-                          [useGrouping]="false"
-                          [readonly]="!isCustomPrice(index)"
-                          styleClass="selling-control"
-                          inputStyleClass="selling-control-input"
-                        />
-                      </div>
-
-                      <div class="flex flex-col gap-2">
-                        <label class="selling-label" [ngClass]="{
-                          'text-right': direction === 'rtl',
-                          'text-left': direction !== 'rtl'
-                        }">{{ 'sellingPage.fields.productQuantity' | translate }}</label>
-                        <p-inputNumber
-                          formControlName="quantity"
-                          [mode]="'decimal'"
-                          [min]="1"
-                          [useGrouping]="false"
-                          styleClass="selling-control"
-                          inputStyleClass="selling-control-input"
-                        />
-                      </div>
-
-                      <div class="flex flex-col gap-2">
-                        <label class="selling-label" [ngClass]="{
-                          'text-right': direction === 'rtl',
-                          'text-left': direction !== 'rtl'
-                        }">{{ 'sellingPage.fields.lineTotal' | translate }}</label>
-                        <p-inputNumber
-                          formControlName="lineTotal"
-                          [mode]="'decimal'"
-                          [useGrouping]="false"
-                          [readonly]="true"
-                          styleClass="selling-control"
-                          inputStyleClass="selling-control-input opacity-70 cursor-not-allowed"
-                        />
-                      </div>
-                    </div>
-
-                    @if (getInvoiceItemState(index).searchError) {
-                      <p class="text-sm font-roboto text-red">{{ getInvoiceItemState(index).searchError }}</p>
-                    }
-                  </div>
                 }
+                <button type="button" notaButton icon class="pos__remove" (click)="removeInvoiceItem(index)"
+                  [attr.aria-label]="(invoiceItems.length === 1 ? 'sellingPage.actions.clearProduct' : 'sellingPage.actions.removeProduct') | translate"
+                  [title]="(invoiceItems.length === 1 ? 'sellingPage.actions.clearProduct' : 'sellingPage.actions.removeProduct') | translate">×</button>
               </div>
-            </section>
-          </div>
 
-          <aside class="invoice-summary-card">
-            <div class="flex flex-col gap-2">
-              <p class="invoice-eyebrow">{{ 'sellingPage.fields.invoiceSummary' | translate }}</p>
-              <h2 class="invoice-section__title">{{ 'sellingPage.fields.totalInvoicePrice' | translate }}</h2>
+              <div class="pos__line-body">
+                <p-select class="pos__price-type" [options]="priceTypeOptions" optionLabel="label" optionValue="value" appendTo="body"
+                  formControlName="priceType" [ariaLabel]="'sellingPage.fields.priceType' | translate"
+                  [placeholder]="'sellingPage.placeholders.selectPriceType' | translate" styleClass="pos__control" />
+                <p-inputNumber class="pos__price" formControlName="price" [mode]="'decimal'" [min]="0" [useGrouping]="false"
+                  [readonly]="!isCustomPrice(index)" [ariaLabel]="'sellingPage.fields.price' | translate"
+                  styleClass="pos__control" inputStyleClass="pos__num-input" />
+                <div class="pos__stepper" role="group" [attr.aria-label]="'sellingPage.fields.productQuantity' | translate">
+                  <button type="button" class="pos__step" (click)="stepQuantity(index, 1)" [attr.aria-label]="'sellingPage.pos.increase' | translate">+</button>
+                  <p-inputNumber formControlName="quantity" [mode]="'decimal'" [min]="1" [useGrouping]="false"
+                    [ariaLabel]="'sellingPage.fields.productQuantity' | translate" styleClass="pos__qty" inputStyleClass="pos__qty-input" />
+                  <button type="button" class="pos__step" (click)="stepQuantity(index, -1)" [attr.aria-label]="'sellingPage.pos.decrease' | translate">−</button>
+                </div>
+                <span class="pos__line-total nota-num" [attr.aria-label]="'sellingPage.fields.lineTotal' | translate">
+                  {{ itemGroup.get('lineTotal')?.value | notaMoney }}
+                </span>
+              </div>
+
+              @if (state.searchError) {
+                <p class="pos__note pos__note--error" role="alert">{{ state.searchError }}</p>
+              }
             </div>
-
-            <div class="invoice-stat-grid">
-              <div class="invoice-stat">
-                <span class="invoice-stat__label">{{ 'sellingPage.fields.productsCount' | translate }}</span>
-                <strong class="invoice-stat__value">{{ invoiceItems.length }}</strong>
-              </div>
-
-              <div class="invoice-stat">
-                <span class="invoice-stat__label">{{ 'sellingPage.fields.totalQuantity' | translate }}</span>
-                <strong class="invoice-stat__value">{{ invoiceQuantityTotal }}</strong>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4">
-              <div class="flex flex-col gap-2">
-                <label class="selling-label" [ngClass]="{
-                  'text-right': direction === 'rtl',
-                  'text-left': direction !== 'rtl'
-                }">{{ 'sellingPage.fields.discountAmount' | translate }}</label>
-                <p-inputNumber
-                  formControlName="discountAmount"
-                  [mode]="'decimal'"
-                  [min]="0"
-                  [useGrouping]="false"
-                  styleClass="selling-control"
-                  inputStyleClass="selling-control-input"
-                />
-                <p class="font-roboto text-xs" [ngClass]="{
-                  'text-gray_light': (isDarkMode$ | async),
-                  'text-gray': !(isDarkMode$ | async)
-                }">
-                  {{ 'sellingPage.fields.discountPercentage' | translate }}:
-                  {{ discountPercentageInfo | number:'1.0-2' }}%
-                </p>
-              </div>
-
-              <div class="flex flex-col gap-2">
-                <label class="selling-label" [ngClass]="{
-                  'text-right': direction === 'rtl',
-                  'text-left': direction !== 'rtl'
-                }">{{ 'sellingPage.fields.shippingFees' | translate }}</label>
-                <p-inputNumber
-                  formControlName="shippingFees"
-                  [mode]="'decimal'"
-                  [min]="0"
-                  [useGrouping]="false"
-                  styleClass="selling-control"
-                  inputStyleClass="selling-control-input"
-                />
-              </div>
-            </div>
-
-            <div
-              class="flex flex-col gap-3 rounded-[1.1rem] border px-4 py-4"
-              [ngClass]="{
-                'border-[#4b4b4f] bg-[#303036]': (isDarkMode$ | async),
-                'border-[#ece2a5] bg-[#fff9d9]': !(isDarkMode$ | async)
-              }"
-            >
-              <div class="flex items-center justify-between gap-3 font-roboto text-sm" [ngClass]="{
-                'text-gray_light': (isDarkMode$ | async),
-                'text-gray_dark': !(isDarkMode$ | async)
-              }">
-                <span>{{ 'sellingPage.fields.subtotal' | translate }}</span>
-                <strong>{{ invoiceSubtotal | number:'1.2-2' }}</strong>
-              </div>
-              <div class="flex items-center justify-between gap-3 font-roboto text-sm" [ngClass]="{
-                'text-gray_light': (isDarkMode$ | async),
-                'text-gray_dark': !(isDarkMode$ | async)
-              }">
-                <span>{{ 'sellingPage.fields.discountAmount' | translate }}</span>
-                <strong>-{{ invoiceDiscountAmount | number:'1.2-2' }}</strong>
-              </div>
-              <div class="flex items-center justify-between gap-3 font-roboto text-sm" [ngClass]="{
-                'text-gray_light': (isDarkMode$ | async),
-                'text-gray_dark': !(isDarkMode$ | async)
-              }">
-                <span>{{ 'sellingPage.fields.shippingFees' | translate }}</span>
-                <strong>{{ shippingFeesValue | number:'1.2-2' }}</strong>
-              </div>
-            </div>
-
-            <div class="invoice-total-panel">
-              <span class="invoice-total-panel__label">{{ 'sellingPage.fields.totalInvoicePrice' | translate }}</span>
-              <strong class="invoice-total-panel__value">{{ invoiceGrandTotal | number:'1.2-2' }}</strong>
-            </div>
-
-            <div class="flex flex-col gap-2">
-              <label class="selling-label" [ngClass]="{
-                'text-right': direction === 'rtl',
-                'text-left': direction !== 'rtl'
-              }">{{ 'sellingPage.fields.totalInvoicePrice' | translate }}</label>
-              <p-inputNumber
-                formControlName="totalInvoicePrice"
-                [mode]="'decimal'"
-                [useGrouping]="false"
-                [readonly]="true"
-                styleClass="selling-control"
-                inputStyleClass="selling-control-input opacity-70 cursor-not-allowed"
-              />
-            </div>
-          </aside>
+          }
         </div>
+
+        <button type="button" notaButton class="pos__add" (click)="addInvoiceItem()">+ {{ 'sellingPage.actions.addProduct' | translate }}</button>
+
+        <div class="pos__stats">
+          <span>{{ 'sellingPage.fields.productsCount' | translate }}: <strong class="nota-num">{{ invoiceItems.length | notaNumber }}</strong></span>
+          <span>{{ 'sellingPage.fields.totalQuantity' | translate }}: <strong class="nota-num">{{ invoiceQuantityTotal | notaNumber }}</strong></span>
+        </div>
+
+        <!-- Discount + shipping -->
+        <div class="pos__fields">
+          <nota-form-field [label]="'sellingPage.fields.discountAmount' | translate" forId="posDiscount"
+            [hint]="('sellingPage.fields.discountPercentage' | translate) + ': ' + (discountPercentageInfo | notaNumber) + '%'">
+            <p-inputNumber inputId="posDiscount" formControlName="discountAmount" [mode]="'decimal'" [min]="0" [useGrouping]="false"
+              styleClass="pos__control" inputStyleClass="pos__num-input" />
+          </nota-form-field>
+          <nota-form-field [label]="'sellingPage.fields.shippingFees' | translate" forId="posShipping">
+            <p-inputNumber inputId="posShipping" formControlName="shippingFees" [mode]="'decimal'" [min]="0" [useGrouping]="false"
+              styleClass="pos__control" inputStyleClass="pos__num-input" />
+          </nota-form-field>
+        </div>
+
+        </div>
+
+        <div class="pos__footer">
+        <!-- Totals -->
+        <dl class="pos__totals">
+          <div><dt>{{ 'sellingPage.fields.subtotal' | translate }}</dt><dd class="nota-num">{{ invoiceSubtotal | notaMoney }}</dd></div>
+          <div><dt>{{ 'sellingPage.fields.discountAmount' | translate }}</dt><dd class="nota-num pos__minus">− {{ invoiceDiscountAmount | notaMoney }}</dd></div>
+          <div><dt>{{ 'sellingPage.fields.shippingFees' | translate }}</dt><dd class="nota-num">{{ shippingFeesValue | notaMoney }}</dd></div>
+          <div class="pos__grand"><dt>{{ 'sellingPage.fields.totalInvoicePrice' | translate }}</dt><dd class="nota-num">{{ invoiceGrandTotal | notaMoney }}</dd></div>
+        </dl>
 
         @if (saveError && !errorDialogVisible) {
-          <p class="text-sm font-roboto text-red">{{ saveError }}</p>
+          <p class="pos__note pos__note--error" role="alert">{{ saveError }}</p>
         }
 
-        <div class="w-full flex justify-end">
-          <p-button
-            type="submit"
-            [label]="isSaving ? ('sellingPage.actions.saving' | translate) : ('sellingPage.actions.createSelling' | translate)"
-            [loading]="isSaving"
-            [disabled]="isSaving || sellingForm.invalid"
-            styleClass="!px-4 !py-2 !bg-orange !border-none !text-gray_dark !font-semibold"
-          />
+        <button type="submit" notaButton="primary" size="lg" class="pos__pay" [disabled]="isSaving || sellingForm.invalid">
+          {{ (isSaving ? 'sellingPage.actions.saving' : 'sellingPage.actions.createSelling') | translate }}
+          <span class="pos__kbd-inline" aria-hidden="true">(F9)</span>
+        </button>
+        <button type="button" notaButton="danger" class="pos__clear" [disabled]="isSaving" (click)="clearInvoice()">
+          {{ 'sellingPage.pos.clearInvoice' | translate }}
+        </button>
         </div>
       </form>
-    </div>
+    </aside>
   </div>
+</div>
 
-  <p-dialog
-    [(visible)]="successDialogVisible"
-    [modal]="true"
-    [closable]="false"
-    [draggable]="false"
-    [resizable]="false"
-    [style]="{ width: '30rem' }"
-  >
-    <div class="flex flex-col items-center gap-5 py-2" [attr.dir]="direction">
-      <p class="text-center text-xl font-semibold font-roboto text-light_orange">
-        {{ 'sellingPage.messages.createdSuccess' | translate }}
-      </p>
-      <p-button
-        type="button"
-        [label]="direction === 'rtl' ? 'موافق' : 'OK'"
-        (click)="closeSuccessPopup()"
-        styleClass="!px-5 !py-2 !bg-orange !border-none !text-gray_dark !font-semibold"
-      />
-    </div>
-  </p-dialog>
+<!-- Success -->
+<p-dialog [(visible)]="successDialogVisible" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false"
+  [resizable]="false" styleClass="nota-p-dialog pos-dialog">
+  <nota-dialog-shell [title]="'sellingPage.messages.createdSuccess' | translate" [closeLabel]="'sellingPage.pos.ok' | translate"
+    (closed)="closeSuccessPopup()">
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton="primary" (click)="closeSuccessPopup()">{{ 'sellingPage.pos.ok' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
 
-  <p-dialog
-    [(visible)]="inventoryConfirmationVisible"
-    [modal]="true"
-    [closable]="false"
-    [draggable]="false"
-    [resizable]="false"
-    [style]="{ width: '34rem', maxWidth: 'calc(100vw - 2rem)' }"
-  >
-    <div class="flex flex-col gap-5 py-2" [attr.dir]="direction">
-      <div class="text-center">
-        <p class="text-xl font-semibold font-roboto text-orange">
-          {{ 'sellingPage.inventoryConfirmation.title' | translate }}
-        </p>
-        <p class="mt-2 font-roboto" [ngClass]="{
-          'text-gray_light': (isDarkMode$ | async),
-          'text-gray_dark': !(isDarkMode$ | async)
-        }">
-          {{ 'sellingPage.inventoryConfirmation.message' | translate }}
-        </p>
+<!-- Insufficient inventory: confirm adds the missing units and resends -->
+<p-dialog [(visible)]="inventoryConfirmationVisible" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false"
+  [resizable]="false" styleClass="nota-p-dialog pos-dialog">
+  <nota-dialog-shell [title]="'sellingPage.inventoryConfirmation.title' | translate"
+    [closeLabel]="'sellingPage.inventoryConfirmation.cancel' | translate" (closed)="!isSaving && cancelInsufficientInventory()">
+    <p class="pos-dialog__text">{{ 'sellingPage.inventoryConfirmation.message' | translate }}</p>
+    @for (shortage of inventoryShortages; track shortage.productId) {
+      <div class="pos-dialog__shortage">
+        <strong>{{ shortage.productName }}</strong>
+        <span class="nota-num">
+          {{ 'sellingPage.inventoryConfirmation.requested' | translate }}: {{ shortage.requestedQuantity | notaNumber }} ·
+          {{ 'sellingPage.inventoryConfirmation.available' | translate }}: {{ shortage.availableQuantity | notaNumber }} ·
+          {{ 'sellingPage.inventoryConfirmation.missing' | translate }}: {{ shortage.missingQuantity | notaNumber }}
+        </span>
       </div>
+    }
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="cancelInsufficientInventory()" [disabled]="isSaving">
+        {{ 'sellingPage.inventoryConfirmation.cancel' | translate }}
+      </button>
+      <button type="button" notaButton="primary" (click)="confirmInsufficientInventory()" [disabled]="isSaving">
+        {{ (isSaving ? 'sellingPage.actions.saving' : 'sellingPage.inventoryConfirmation.proceed') | translate }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
 
-      <div class="flex flex-col gap-3">
-        @for (shortage of inventoryShortages; track shortage.productId) {
-          <div class="rounded-xl border border-orange/40 px-4 py-3 font-roboto" [ngClass]="{
-            'bg-[#303036] text-gray_light': (isDarkMode$ | async),
-            'bg-[#fff9d9] text-gray_dark': !(isDarkMode$ | async)
-          }">
-            <p class="font-semibold">{{ shortage.productName }}</p>
-            <p class="mt-1 text-sm">
-              {{ 'sellingPage.inventoryConfirmation.requested' | translate }}:
-              {{ shortage.requestedQuantity }} ·
-              {{ 'sellingPage.inventoryConfirmation.available' | translate }}:
-              {{ shortage.availableQuantity }} ·
-              {{ 'sellingPage.inventoryConfirmation.missing' | translate }}:
-              {{ shortage.missingQuantity }}
-            </p>
-          </div>
-        }
-      </div>
-
-      <div class="flex justify-end gap-3">
-        <p-button
-          type="button"
-          [label]="'sellingPage.inventoryConfirmation.cancel' | translate"
-          (click)="cancelInsufficientInventory()"
-          [disabled]="isSaving"
-          styleClass="!px-5 !py-2 !bg-transparent !border-orange !text-orange !font-semibold"
-        />
-        <p-button
-          type="button"
-          [label]="'sellingPage.inventoryConfirmation.proceed' | translate"
-          (click)="confirmInsufficientInventory()"
-          [loading]="isSaving"
-          [disabled]="isSaving"
-          styleClass="!px-5 !py-2 !bg-orange !border-none !text-gray_dark !font-semibold"
-        />
-      </div>
-    </div>
-  </p-dialog>
-
-  <p-dialog
-    [(visible)]="errorDialogVisible"
-    [modal]="true"
-    [closable]="false"
-    [draggable]="false"
-    [resizable]="false"
-    [style]="{ width: '30rem' }"
-  >
-    <div class="flex flex-col items-center gap-5 py-2" [attr.dir]="direction">
-      <p class="text-center text-xl font-semibold font-roboto text-red">
-        {{ saveError || ('sellingPage.messages.createFailed' | translate) }}
-      </p>
-      <p-button
-        type="button"
-        [label]="direction === 'rtl' ? 'موافق' : 'OK'"
-        (click)="closeErrorPopup()"
-        styleClass="!px-5 !py-2 !bg-orange !border-none !text-gray_dark !font-semibold"
-      />
-    </div>
-  </p-dialog>
-</app-side-nav>
+<!-- Error (incl. the backend's "price below purchase price") -->
+<p-dialog [(visible)]="errorDialogVisible" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false"
+  [resizable]="false" styleClass="nota-p-dialog pos-dialog">
+  <nota-dialog-shell [title]="'sellingPage.messages.createFailed' | translate" [closeLabel]="'sellingPage.pos.ok' | translate"
+    (closed)="closeErrorPopup()">
+    <p class="pos-dialog__text pos-dialog__text--error" role="alert">{{ saveError || ('sellingPage.messages.createFailed' | translate) }}</p>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton="primary" (click)="closeErrorPopup()">{{ 'sellingPage.pos.ok' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>

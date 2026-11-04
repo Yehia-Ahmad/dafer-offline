@@ -221,6 +221,22 @@
       "missing": "الناقص",
       "cancel": "إلغاء",
       "proceed": "متابعة"
+    },
+    "pos": {
+      "catalog": "الأصناف",
+      "searchLabel": "بحث عن صنف",
+      "searchPlaceholder": "ابحث بالاسم أو الكود أو امسح الباركود (F2)",
+      "categories": "الفئات",
+      "allCategories": "الكل",
+      "gridHint": "اكتب اسم الصنف أو الكود، أو اختر فئة لعرض أصنافها.",
+      "available": "متاح",
+      "currentInvoice": "الفاتورة الحالية",
+      "changeProduct": "تغيير الصنف",
+      "increase": "زوّد",
+      "decrease": "قلّل",
+      "clearInvoice": "إلغاء الفاتورة",
+      "required": "مطلوب",
+      "ok": "موافق"
     }
   },
   "creditSalePage": {
@@ -284,6 +300,20 @@
       "title": "ملف الائتمان جاهز",
       "subtitle": "استخدم هذا الملخص لتأكيد بيانات العميل وتاريخ البيع والمبلغ المتبقي قبل الحفظ.",
       "close": "إغلاق المراجعة"
+    },
+    "form": {
+      "title": "فاتورة آجل جديدة",
+      "customer": "العميل",
+      "newCustomer": "+ عميل جديد",
+      "items": "الأصناف",
+      "product": "الصنف",
+      "addItemPlaceholder": "+ ضيف صنف بالاسم أو الكود (F2)",
+      "netTotal": "صافي الفاتورة",
+      "required": "مطلوب",
+      "ok": "موافق",
+      "remove": "مسح",
+      "changeProduct": "تغيير الصنف",
+      "summary": "ملخص الفاتورة"
     }
   },
   "invoiceHistoryPage": {

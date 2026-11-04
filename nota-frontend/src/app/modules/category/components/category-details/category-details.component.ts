@@ -12,8 +12,8 @@ import {
   ViewChild,
 } from '@angular/core';
 import { CateoryService, Product } from '../../services/cateory.service';
+import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
 import { ActivatedRoute, Router } from '@angular/router';
-import { SideNavComponent } from "../../../layout/components/side-nav/side-nav.component";
 import { DialogModule } from "primeng/dialog";
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
@@ -34,7 +34,6 @@ import { distinctUntilChanged, map } from 'rxjs';
     FormsModule,
     DialogModule,
     ButtonModule,
-    SideNavComponent,
     SelectModule,
     TranslatePipe,
     ErrorIconComponent,
@@ -44,6 +43,8 @@ import { distinctUntilChanged, map } from 'rxjs';
 })
 export class CategoryDetailsComponent implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
+  /** Stage 9: the sidebar is mounted once; refresh its category list / product-exists flag after a product is added. */
+  private readonly _catalog = inject(CatalogStateService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly pageSize = 10;
   private scrollObserver?: IntersectionObserver;
@@ -284,6 +285,7 @@ export class CategoryDetailsComponent implements OnInit, OnDestroy {
       next: (res: any) => {
         this.hideDialog();
         this.getProducts();
+        this._catalog.refresh();
         this.resetForm();
         this.isAddingProduct = false;
       },

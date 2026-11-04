@@ -2,11 +2,12 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectorRef, Component, DestroyRef, Inject, inject, input, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { Router, RouterModule } from '@angular/router';
+import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { TranslatePipe } from '@ngx-translate/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs';
 import { CategoryImportResult, CategoryPayload, CateoryService } from '../../category/services/cateory.service';
 import { ProductsService } from '../../products/services/products.service';
 import { LanguageService } from '../../shared/services/translation.service';
@@ -15,18 +16,15 @@ import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent }
 import { NavIconComponent } from './nav-icon.component';
 import { NAV_ICONS } from './nav-menu.config';
 import { SidebarStateService } from './sidebar-state.service';
+import { CatalogStateService, SidebarCategory } from './catalog-state.service';
 
-export interface SidebarCategory {
-  label: string;
-  route: string;
-  id: string;
-  category?: any;
-}
+export type { SidebarCategory } from './catalog-state.service';
 
 /**
  * "الأصناف والفئات" in the sidebar: the category list (→ /categories/:id) and every category tool that used to live
  * in the old custom-sidenav (add / edit / delete, Excel import / export / template, export products).
  * Temporary: moves into the Products page in Stage 10. Logic and API calls are the old component's, unchanged.
+ * Stage 9: mounted once (app.html); the list and the product-exists flag live in CatalogStateService.
  */
 @Component({
   selector: 'app-sidebar-categories',
@@ -44,11 +42,14 @@ export class SidebarCategoriesComponent implements OnInit {
   /** i18n key of the item label. */
   readonly labelKey = input('nav.items.products');
   protected readonly icons = NAV_ICONS;
-  /** The list as rendered (set whenever `categories` is reloaded). */
-  readonly categoryItems = signal<SidebarCategory[]>([]);
+  private readonly _catalog = inject(CatalogStateService);
+  /** The list as rendered (shared with the POS category chips). */
+  readonly categoryItems = this._catalog.categories;
   readonly categoryKey = 'categories';
   expandedCategory: string | null = null;
-  categories: SidebarCategory[] = [];
+  get categories(): SidebarCategory[] {
+    return this._catalog.categories();
+  }
   visible: boolean = false;
   isSaving = signal(false);
   editingCategory: any = null;
@@ -60,8 +61,7 @@ export class SidebarCategoriesComponent implements OnInit {
   errorMessage = signal('');
   errorVisible = signal(false);
   isExportingProducts = signal(false);
-  hasProducts = signal(false);
-  private hasProductsChecked = false;
+  readonly hasProducts = this._catalog.hasProducts;
   isExportingCategories = signal(false);
   isImportingCategories = signal(false);
   isGeneratingCategoryTemplate = signal(false);
@@ -81,9 +81,21 @@ export class SidebarCategoriesComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // (a) app start: the sidebar is created once, with the app frame.
     this.getAllCategories();
-    // On a category or product page, show the list open (the shell is re-created on every page).
+    // On a category or product page, show the list open.
     if (this.isProductsRoute) this.expandedCategory = this.categoryKey;
+
+    // (c) entering a category or product page reloads the list and the product-exists flag and opens the list.
+    this._router.events.pipe(
+      filter((event) => event instanceof NavigationEnd),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(() => {
+      if (!this.isProductsRoute) return;
+      this.expandedCategory = this.categoryKey;
+      this.getAllCategories();
+      this.cdr.markForCheck();
+    });
   }
 
   /** Category and product pages belong to this item. */
@@ -123,28 +135,13 @@ export class SidebarCategoriesComponent implements OnInit {
     });
   }
 
+  /** GET categories + product-exists check, through CatalogStateService (same requests as before). */
   getAllCategories() {
-    this.categories = [];
-    this._cateoryService.getCategories().pipe(
-      takeUntilDestroyed(this.destroyRef)
-    ).subscribe({
-      next: (res: any) => {
-        const categories = Array.isArray(res) ? res : (res?.data ?? res?.categories ?? []);
-        this.categories = categories.map((category: any) => ({
-          label: category.name,
-          route: `/categories/${category._id}`,
-          id: category._id,
-          category
-        }));
-        this.categoryItems.set(this.categories);
-        this.checkHasAnyProducts();
-      },
-      error: (err) => this.showOperationError(
-        err,
-        'Failed to load categories.',
-        'تعذر تحميل الفئات.'
-      )
-    });
+    this._catalog.refresh((err) => this.showOperationError(
+      err,
+      'Failed to load categories.',
+      'تعذر تحميل الفئات.'
+    ));
   }
 
   exportCategories(): void {
@@ -271,33 +268,6 @@ export class SidebarCategoriesComponent implements OnInit {
       }
     }
     return String(error ?? 'Unknown import error');
-  }
-
-  private checkHasAnyProducts() {
-    if (!this.isBrowser || this.hasProductsChecked) return;
-
-    this.hasProductsChecked = true;
-    const categoryIdHint = this.categories?.[0]?.id;
-
-    if (!categoryIdHint) {
-      this.hasProducts.set(false);
-      return;
-    }
-
-    this._cateoryService.getProducts(categoryIdHint, { categoryId: categoryIdHint, limit: 1 }).subscribe({
-      next: (res: any) => {
-        this.hasProducts.set(this.extractList(res).length > 0);
-      },
-      error: () => this.hasProducts.set(false)
-    });
-  }
-
-  private extractList(response: any): any[] {
-    if (Array.isArray(response)) return response;
-    if (Array.isArray(response?.data)) return response.data;
-    if (Array.isArray(response?.products)) return response.products;
-    if (Array.isArray(response?.data?.products)) return response.data.products;
-    return [];
   }
 
   exportProductsExcel() {

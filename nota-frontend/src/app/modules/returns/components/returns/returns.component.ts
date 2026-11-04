@@ -25,7 +25,6 @@ import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { finalize, forkJoin, takeUntil } from 'rxjs';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { SideNavComponent } from '../../../layout/components/side-nav/side-nav.component';
 import { ThemeService } from '../../../shared/services/theme.service';
 import {
   ApiDataResponse,
@@ -107,7 +106,6 @@ class ReturnsPaginatorIntl extends MatPaginatorIntl {
     CommonModule,
     TranslatePipe,
     ReactiveFormsModule,
-    SideNavComponent,
     ButtonModule,
     DatePickerModule,
     InputTextModule,

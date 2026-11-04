@@ -1,4 +1,4 @@
-import { CUSTOM_ELEMENTS_SCHEMA, provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, UrlTree } from '@angular/router';
 import { provideTranslateService } from '@ngx-translate/core';
@@ -10,7 +10,6 @@ import {
   DesktopRuntimeConfig,
   loadDesktopRuntimeConfig,
 } from '../core/runtime/runtime-config';
-import { SideNavComponent } from '../modules/layout/components/side-nav/side-nav.component';
 import { BackupPageComponent } from './backup-page.component';
 
 const baseStatus: BackupStatus = {
@@ -69,8 +68,6 @@ describe('BackupPageComponent', () => {
       imports: [BackupPageComponent],
       providers: [provideZonelessChangeDetection(), provideTranslateService()],
     })
-      // The real side navigation needs the whole app; a placeholder element is enough here.
-      .overrideComponent(BackupPageComponent, { remove: { imports: [SideNavComponent] }, add: { schemas: [CUSTOM_ELEMENTS_SCHEMA] } })
       .compileComponents();
     fixture = TestBed.createComponent(BackupPageComponent);
     fixture.detectChanges();

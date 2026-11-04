@@ -5,7 +5,7 @@ import { CustomSidenavComponent } from '../../custom-sidenav/custom-sidenav.comp
 import { SidebarStateService } from '../../nav/sidebar-state.service';
 
 /**
- * App frame used by every page (`<app-side-nav>…page…</app-side-nav>`): Nota sidebar on the inline-start side,
+ * App frame, rendered once in app.html around <router-outlet> (Stage 9): Nota sidebar on the inline-start side,
  * a slim top bar (back button; menu button for the drawer on narrow windows) and the page container.
  * Direction comes from <html dir>, set by LanguageService. Styles: src/styles/_shell.scss.
  */

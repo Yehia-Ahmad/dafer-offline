@@ -4,7 +4,6 @@ import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } 
 import { TranslatePipe } from '@ngx-translate/core';
 import { DialogModule } from 'primeng/dialog';
 import { Router } from '@angular/router';
-import { SideNavComponent } from '../../../layout/components/side-nav/side-nav.component';
 import { ThemeService } from '../../../shared/services/theme.service';
 import { ErrorIconComponent } from '../../../assets/error/error-icon.component';
 import { WarnComponent } from '../../../assets/warn/warn.component';
@@ -21,7 +20,7 @@ interface CustomerDeleteConfirmation {
 @Component({
   selector: 'app-customers',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, DialogModule, SideNavComponent, TranslatePipe, ErrorIconComponent, WarnComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, DialogModule, TranslatePipe, ErrorIconComponent, WarnComponent],
   templateUrl: './customers.component.html'
 })
 export class CustomersComponent implements OnInit {

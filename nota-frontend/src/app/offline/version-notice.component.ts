@@ -23,8 +23,9 @@ import { getDesktopRuntimeConfig } from '../core/runtime/runtime-config';
         <button type="button" class="rounded px-2 font-bold" aria-label="إخفاء" (click)="dismissed.set(true)">×</button>
       </div>
     }
+    <!-- Bottom corner on the page side (away from the sidebar) in both directions; styles: _shell.scss. -->
     <div
-      class="pointer-events-none fixed bottom-1 left-2 z-[9998] text-[11px] text-gray-500 opacity-80"
+      class="nota-version-label"
       dir="ltr"
       aria-hidden="true"
     >

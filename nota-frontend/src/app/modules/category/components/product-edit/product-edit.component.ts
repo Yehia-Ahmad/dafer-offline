@@ -1,9 +1,9 @@
-import { ChangeDetectorRef, Component } from '@angular/core';
-import { SideNavComponent } from "../../../layout/components/side-nav/side-nav.component";
+import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule, Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CateoryService } from '../../services/cateory.service';
+import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { WarnComponent } from "../../../assets/warn/warn.component";
@@ -15,11 +15,13 @@ import { format as formatDate } from 'date-fns';
 
 @Component({
   selector: 'app-product-edit',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, DialogModule, ButtonModule, SideNavComponent, WarnComponent, TranslatePipe, ErrorIconComponent, DatePickerModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, DialogModule, ButtonModule, WarnComponent, TranslatePipe, ErrorIconComponent, DatePickerModule],
   templateUrl: './product-edit.component.html',
   styleUrl: './product-edit.component.scss'
 })
 export class ProductEditComponent {
+  /** Stage 9: the sidebar is mounted once; refresh its product-exists flag after a delete. */
+  private readonly _catalog = inject(CatalogStateService);
   isLoading: boolean = false;
   productId: any;
   product: any = {};
@@ -74,6 +76,7 @@ export class ProductEditComponent {
     this._cateoryService.deleteProduct(this.productId).subscribe({
       next: (res: any) => {
         this.loading = false;
+        this._catalog.refresh();
         this.cdr.detectChanges();
         this.location.back();
       }, error: (err: any) => {

@@ -2,7 +2,6 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Router } from '@angular/router';
-import { SideNavComponent } from '../../../layout/components/side-nav/side-nav.component';
 import { ThemeService } from '../../../shared/services/theme.service';
 import { HOME_VIEW_STORAGE_KEY } from '../../../layout/constants/home-view.constants';
 import { ProductsService } from '../../services/products.service';
@@ -65,7 +64,6 @@ const DEFAULT_SELLINGS_PAGINATION: SellingsPagination = {
   imports: [
     CommonModule,
     FormsModule,
-    SideNavComponent,
     TranslatePipe,
     TableModule,
     InputTextModule,

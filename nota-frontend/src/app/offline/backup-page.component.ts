@@ -1,7 +1,6 @@
 import { AsyncPipe, DatePipe, NgClass } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
-import { SideNavComponent } from '../modules/layout/components/side-nav/side-nav.component';
 import { LanguageService } from '../modules/shared/services/translation.service';
 import { ThemeService } from '../modules/shared/services/theme.service';
 import {
@@ -27,10 +26,9 @@ const DATE_FORMAT = 'yyyy-MM-dd HH:mm';
  */
 @Component({
   selector: 'app-backup-page',
-  imports: [SideNavComponent, TranslatePipe, AsyncPipe, DatePipe, NgClass],
+  imports: [TranslatePipe, AsyncPipe, DatePipe, NgClass],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-side-nav>
       <main class="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 md:p-8" [attr.dir]="direction()">
         <header>
           <h1 class="mb-1 text-2xl font-bold">{{ 'backupPage.title' | translate }}</h1>
@@ -176,7 +174,6 @@ const DATE_FORMAT = 'yyyy-MM-dd HH:mm';
           <button type="button" class="underline" (click)="openFolder()">{{ 'backupPage.safety.openFolder' | translate }}</button>
         </section>
       </main>
-    </app-side-nav>
   `,
 })
 export class BackupPageComponent {

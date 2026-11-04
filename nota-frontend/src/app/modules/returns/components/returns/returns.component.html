@@ -1,4 +1,3 @@
-<app-side-nav>
   <main class="returns-page" [attr.dir]="direction" [class.returns-page--dark]="isDarkMode$ | async">
     <header class="page-header">
       <div><h1>{{ 'returnsPage.title' | translate }}</h1><p>{{ 'returnsPage.subtitle' | translate }}</p></div>
@@ -76,7 +75,6 @@
       }
     </section>
   </main>
-</app-side-nav>
 
 <ng-template #detailsDialog>
   <div class="details-dialog" [attr.dir]="direction" [class.details-dialog--dark]="isDarkMode$ | async">

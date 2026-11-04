@@ -1,6 +1,5 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component } from '@angular/core';
-import { SideNavComponent } from "../../../layout/components/side-nav/side-nav.component";
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -14,7 +13,7 @@ import { ErrorIconComponent } from "../../../assets/error/error-icon.component";
 @Component({
   selector: 'app-admins',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, TableModule, SelectModule, ButtonModule, DialogModule, SideNavComponent, TranslatePipe, ErrorIconComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, TableModule, SelectModule, ButtonModule, DialogModule, TranslatePipe, ErrorIconComponent],
   templateUrl: './admins.component.html',
   styleUrl: './admins.component.scss'
 })

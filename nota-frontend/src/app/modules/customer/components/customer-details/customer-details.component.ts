@@ -7,7 +7,6 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { Dialog } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { Subscription } from 'rxjs';
-import { SideNavComponent } from '../../../layout/components/side-nav/side-nav.component';
 import {
   buildCreditInvoiceDocument,
   CreditInvoicePrintData,
@@ -70,7 +69,7 @@ type CustomerDetailsView = CustomerDetails & {
 @Component({
   selector: 'app-customer-details',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, SideNavComponent, TranslatePipe, DatePickerModule, Dialog, InputNumberModule],
+  imports: [CommonModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule],
   templateUrl: './customer-details.component.html'
 })
 export class CustomerDetailsComponent implements OnInit, OnDestroy {

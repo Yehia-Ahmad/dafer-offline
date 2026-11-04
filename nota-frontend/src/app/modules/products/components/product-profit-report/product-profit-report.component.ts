@@ -11,7 +11,6 @@ import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { CateoryService } from '../../../category/services/cateory.service';
-import { SideNavComponent } from '../../../layout/components/side-nav/side-nav.component';
 import { HOME_VIEW_STORAGE_KEY } from '../../../layout/constants/home-view.constants';
 import { ThemeService } from '../../../shared/services/theme.service';
 import {
@@ -32,7 +31,6 @@ type SelectOption = {
   imports: [
     CommonModule,
     FormsModule,
-    SideNavComponent,
     TranslatePipe,
     TableModule,
     SelectModule,

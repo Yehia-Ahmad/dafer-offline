@@ -661,3 +661,22 @@
     transition: none;
   }
 }
+
+// ---------- Version label (offline edition, VersionNoticeComponent) ----------
+// Bottom corner opposite the sidebar: left in RTL (sidebar on the right), right in LTR, so it never covers the
+// sidebar footer. Physical sides from <html dir> because the label itself is dir="ltr".
+.nota-version-label {
+  position: fixed;
+  bottom: 4px;
+  right: 10px;
+  z-index: 9998;
+  pointer-events: none;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+html[dir='rtl'] .nota-version-label {
+  right: auto;
+  left: 10px;
+}

@@ -2,25 +2,33 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectorRef,
   Component,
+  ElementRef,
+  HostListener,
   Inject,
   OnDestroy,
   OnInit,
-  PLATFORM_ID
+  PLATFORM_ID,
+  ViewEncapsulation,
+  QueryList,
+  ViewChildren
 } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { DatePickerModule } from 'primeng/datepicker';
 import { Dialog } from 'primeng/dialog';
-import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
-import { InputTextModule } from 'primeng/inputtext';
 import { Subscription } from 'rxjs';
 import { format as formatDate } from 'date-fns';
 import { CustomersService } from '../../../customer/services/customers.service';
 import { HOME_VIEW_STORAGE_KEY } from '../../../layout/constants/home-view.constants';
-import { SideNavComponent } from '../../../layout/components/side-nav/side-nav.component';
-import { ThemeService } from '../../../shared/services/theme.service';
+import {
+  NotaButtonDirective,
+  NotaDialogShellComponent,
+  NotaFormFieldComponent,
+  NotaMoneyPipe,
+  NotaNumberPipe,
+  NotaPageHeaderComponent
+} from '../../../shared/ui';
 import {
   CreateCreditSalePayload,
   CreditSalesService
@@ -64,19 +72,25 @@ type CreditLineItemState = {
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    SideNavComponent,
     TranslatePipe,
-    InputTextModule,
     InputNumberModule,
     DatePickerModule,
     Dialog,
-    ButtonModule
+    NotaButtonDirective,
+    NotaDialogShellComponent,
+    NotaFormFieldComponent,
+    NotaMoneyPipe,
+    NotaNumberPipe,
+    NotaPageHeaderComponent
   ],
   templateUrl: './credit-sales.component.html',
-  styleUrl: './credit-sales.component.scss'
+  styleUrl: './credit-sales.component.scss',
+  // Classes are prefixed (cs__*), so the styles are not scoped; keeps the stylesheet within budget.
+  encapsulation: ViewEncapsulation.None
 })
 export class CreditSalesComponent implements OnInit, OnDestroy {
-  isDarkMode$;
+  /** Product search boxes of the lines without a product (F2 focuses the first one). */
+  @ViewChildren('lineSearch') private lineSearchInputs?: QueryList<ElementRef<HTMLInputElement>>;
   direction: 'rtl' | 'ltr' = 'ltr';
   creditSaleForm: FormGroup;
   reviewDialogVisible = false;
@@ -107,8 +121,6 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
   private lineItemSequence = 0;
 
   constructor(
-    private readonly themeService: ThemeService,
-    private readonly router: Router,
     private readonly formBuilder: FormBuilder,
     private readonly translate: TranslateService,
     private readonly productsService: ProductsService,
@@ -117,7 +129,6 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     @Inject(PLATFORM_ID) platformId: object
   ) {
-    this.isDarkMode$ = this.themeService.isDarkMode$;
     this.isBrowser = isPlatformBrowser(platformId);
     this.creditSaleForm = this.initializeForm();
     this.addLineItem(false);
@@ -169,12 +180,57 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
     return this.lineItems.controls as FormGroup[];
   }
 
-  backToProducts(): void {
-    if (this.isBrowser) {
-      localStorage.setItem(HOME_VIEW_STORAGE_KEY, 'products');
-    }
+  // ---------- Stage 9 frontend-only helpers ----------
 
-    this.router.navigate(['/home']);
+  /** F2 = focus the add-item search (adds an empty line if none), F9 = review (same as the review button). */
+  @HostListener('document:keydown', ['$event'])
+  onShortcut(event: KeyboardEvent): void {
+    if (event.key === 'F2') {
+      event.preventDefault();
+      this.focusItemSearch();
+    } else if (event.key === 'F9') {
+      event.preventDefault();
+      if (this.isSaving || this.reviewDialogVisible || this.successDialogVisible || this.errorDialogVisible) return;
+      this.openReviewDialog();
+    }
+  }
+
+  /** "+ Add item": a new empty line, its search box focused. */
+  addItemAndFocus(): void {
+    this.addLineItem();
+    this.cdr.detectChanges();
+    this.lineSearchInputs?.last?.nativeElement.focus();
+  }
+
+  focusItemSearch(): void {
+    if (!this.lineItemStates.some((state) => !state.selectedProduct)) {
+      this.addItemAndFocus();
+      return;
+    }
+    this.lineSearchInputs?.first?.nativeElement.focus();
+  }
+
+  /** "Change product" on a line: same as clearing its search box (keeps quantity). */
+  changeLineProduct(index: number): void {
+    this.onSearchInputChange(index, { target: { value: '' } } as unknown as Event);
+    this.cdr.detectChanges();
+    this.lineSearchInputs?.first?.nativeElement.focus();
+  }
+
+  /** "+ New customer": drop the picked customer so a new name and phone can be typed (created on save, as before). */
+  startNewCustomer(): void {
+    this.selectedCustomerOption = null;
+    this.customerSearchInputValue = '';
+    this.customerOptions = [];
+    this.showCustomerSuggestionPanel = false;
+    this.customerSearchError = '';
+    this.latestRequestedCustomerQuery = '';
+    this.creditSaleForm.patchValue({ customerId: null, customerName: '', customerPhone: '' });
+  }
+
+  isFieldInvalid(name: string): boolean {
+    const control = this.creditSaleForm.get(name);
+    return !!control && control.invalid && (control.touched || this.submitAttempted);
   }
 
   trackLineItem(index: number): string {
@@ -390,13 +446,6 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
   isDownPaymentExceeded(): boolean {
     const downPayment = this.toPositiveNumber(this.creditSaleForm.get('downPayment')?.value);
     return downPayment > this.totalReceivable && this.totalReceivable > 0;
-  }
-
-  formatMoney(value: number): string {
-    return new Intl.NumberFormat(this.direction === 'rtl' ? 'ar-EG' : 'en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value || 0);
   }
 
   formatDisplayDate(value: Date | string | null | undefined): string {

@@ -2,16 +2,28 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectorRef,
   Component,
+  ElementRef,
+  HostListener,
   Inject,
+  inject,
   OnDestroy,
   OnInit,
-  PLATFORM_ID
+  PLATFORM_ID,
+  ViewEncapsulation,
+  ViewChild
 } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { Router } from '@angular/router';
-import { SideNavComponent } from '../../../layout/components/side-nav/side-nav.component';
-import { ThemeService } from '../../../shared/services/theme.service';
 import { HOME_VIEW_STORAGE_KEY } from '../../../layout/constants/home-view.constants';
+import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
+import { CateoryService } from '../../../category/services/cateory.service';
+import {
+  NotaButtonDirective,
+  NotaDialogShellComponent,
+  NotaFormFieldComponent,
+  NotaMoneyPipe,
+  NotaNumberPipe,
+  NotaPageHeaderComponent
+} from '../../../shared/ui';
 import {
   FormArray,
   FormBuilder,
@@ -20,11 +32,9 @@ import {
   ReactiveFormsModule,
   Validators
 } from '@angular/forms';
-import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { DatePickerModule } from 'primeng/datepicker';
 import { InputNumberModule } from 'primeng/inputnumber';
-import { ButtonModule } from 'primeng/button';
 import { Dialog } from 'primeng/dialog';
 import { Subscription } from 'rxjs';
 import { ProductsService } from '../../services/products.service';
@@ -43,7 +53,12 @@ type ProductSearchResult = {
   retailPrice: number | null;
   discountPercentage: number | null;
   priceAfterDiscount: number | null;
+  /** Display only (POS tiles). */
+  inventoryCount: number | null;
 };
+
+/** POS tiles: stock at or below this shows in the danger color. */
+export const POS_LOW_STOCK = 3;
 
 type CustomerSearchResult = {
   id: string;
@@ -95,22 +110,37 @@ type InvoiceItemState = {
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
-    SideNavComponent,
     TranslatePipe,
-    InputTextModule,
     SelectModule,
     DatePickerModule,
     InputNumberModule,
-    ButtonModule,
-    Dialog
+    Dialog,
+    NotaButtonDirective,
+    NotaDialogShellComponent,
+    NotaFormFieldComponent,
+    NotaMoneyPipe,
+    NotaNumberPipe,
+    NotaPageHeaderComponent
   ],
   templateUrl: './selling.component.html',
-  styleUrl: './selling.component.scss'
+  styleUrls: ['./selling.component.scss', './selling-invoice.scss'],
+  // Classes are prefixed (pos__*), so the styles are not scoped; keeps the stylesheet within budget.
+  encapsulation: ViewEncapsulation.None
 })
 export class SellingComponent implements OnInit, OnDestroy {
-  isDarkMode$;
-  direction: 'rtl' | 'ltr' = 'ltr';
   private isBrowser: boolean;
+  /** Category chips: the list the sidebar already loads (no extra request). */
+  readonly categories = inject(CatalogStateService).categories;
+  private readonly _cateoryService = inject(CateoryService);
+  @ViewChild('posSearch') private posSearch?: ElementRef<HTMLInputElement>;
+  /** POS product grid (frontend only): fed by GET products/search or GET products?categoryId. */
+  gridQuery = '';
+  gridProducts: ProductSearchResult[] = [];
+  isGridLoading = false;
+  gridError = '';
+  activeCategoryId: string | null = null;
+  private gridRequest = 0;
+  readonly lowStock = POS_LOW_STOCK;
   private readonly subscriptions = new Subscription();
   private customerSearchBlurTimer: ReturnType<typeof setTimeout> | null = null;
   private invoiceItemSubscriptions = new Map<FormGroup, Subscription[]>();
@@ -139,8 +169,6 @@ export class SellingComponent implements OnInit, OnDestroy {
   ];
 
   constructor(
-    private _themeService: ThemeService,
-    private _router: Router,
     private _fb: FormBuilder,
     private _productsService: ProductsService,
     private _customersService: CustomersService,
@@ -148,18 +176,15 @@ export class SellingComponent implements OnInit, OnDestroy {
     private _cdr: ChangeDetectorRef,
     @Inject(PLATFORM_ID) platformId: Object
   ) {
-    this.isDarkMode$ = this._themeService.isDarkMode$;
     this.isBrowser = isPlatformBrowser(platformId);
     this.sellingForm = this.initializeForm();
     this.addInvoiceItem(false);
   }
 
   ngOnInit(): void {
-    this.updateDirection();
     this.setPriceTypeOptions();
     this.subscriptions.add(
       this._translate.onLangChange.subscribe(() => {
-        this.updateDirection();
         this.setPriceTypeOptions();
       })
     );
@@ -226,11 +251,116 @@ export class SellingComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
-  backToProducts(): void {
-    if (this.isBrowser) {
-      localStorage.setItem(HOME_VIEW_STORAGE_KEY, 'products');
+  // ---------- POS grid, chips, shortcuts (Stage 9, frontend only) ----------
+
+  /** F2 = focus the product search, F9 = save (same as the save button). */
+  @HostListener('document:keydown', ['$event'])
+  onShortcut(event: KeyboardEvent): void {
+    if (event.key === 'F2') {
+      event.preventDefault();
+      this.focusSearch();
+    } else if (event.key === 'F9') {
+      event.preventDefault();
+      if (this.isSaving || this.successDialogVisible || this.errorDialogVisible || this.inventoryConfirmationVisible) return;
+      this.saveSelling();
     }
-    this._router.navigate(['/home']);
+  }
+
+  focusSearch(): void {
+    const input = this.posSearch?.nativeElement;
+    input?.focus();
+    input?.select();
+  }
+
+  /** Top search box: same request as the line search (GET products/search?q=). */
+  onGridSearchInput(event: Event): void {
+    this.gridQuery = String((event.target as HTMLInputElement)?.value || '');
+    this.activeCategoryId = null;
+    this.loadGrid();
+  }
+
+  /** null = "All" (search results). */
+  selectCategory(categoryId: string | null): void {
+    this.activeCategoryId = categoryId;
+    this.loadGrid();
+  }
+
+  private loadGrid(): void {
+    const request = ++this.gridRequest;
+    const query = this.gridQuery.trim();
+    this.gridError = '';
+
+    if (!this.activeCategoryId && !query) {
+      this.gridProducts = [];
+      this.isGridLoading = false;
+      return;
+    }
+
+    this.isGridLoading = true;
+    const source = this.activeCategoryId
+      ? this._cateoryService.getProducts(this.activeCategoryId, { categoryId: this.activeCategoryId, limit: 100 })
+      : this._productsService.searchProducts(query);
+
+    source.subscribe({
+      next: (response: any) => {
+        if (request !== this.gridRequest) return;
+        this.isGridLoading = false;
+        this.gridProducts = this.extractProducts(response);
+        if (!this.gridProducts.length) {
+          this.gridError = this.translateKey('sellingPage.messages.noProductFound');
+        }
+        this._cdr.detectChanges();
+      },
+      error: (err: any) => {
+        if (request !== this.gridRequest) return;
+        this.isGridLoading = false;
+        this.gridProducts = [];
+        this.gridError = err?.error?.message || this.translateKey('sellingPage.messages.searchFailed');
+        this._cdr.detectChanges();
+      }
+    });
+  }
+
+  isLowStock(product: ProductSearchResult): boolean {
+    return product.inventoryCount !== null && product.inventoryCount <= POS_LOW_STOCK;
+  }
+
+  /** Tile click: +1 on the line that already has this product, else fill the first empty line (or a new one). */
+  addProductToInvoice(product: ProductSearchResult): void {
+    const existing = this.invoiceItemStates.findIndex((state) => state.selectedProduct?.id === product.id);
+    if (existing > -1) {
+      this.stepQuantity(existing, 1);
+      return;
+    }
+
+    let index = this.invoiceItemStates.findIndex((state) => !state.selectedProduct);
+    if (index === -1) {
+      this.addInvoiceItem(false);
+      index = this.invoiceItems.length - 1;
+    }
+    this.onNativeOptionSelect(index, product);
+  }
+
+  /** − / + next to the quantity; never below the existing minimum of 1. */
+  stepQuantity(index: number, delta: number): void {
+    const control = this.getInvoiceItem(index).get('quantity');
+    if (!control) return;
+    const current = Number(control.value || 0);
+    const next = (Number.isFinite(current) ? current : 0) + delta;
+    if (next < 1) return;
+    control.setValue(next);
+    control.markAsDirty();
+  }
+
+  /** "Change product" on a line: same as clearing its search box (keeps quantity and price type). */
+  changeLineProduct(index: number): void {
+    this.onSearchInputChange(index, { target: { value: '' } } as unknown as Event);
+  }
+
+  /** "Cancel / clear" button: the reset that runs after a successful save. */
+  clearInvoice(): void {
+    if (this.isSaving) return;
+    this.resetSellingForm();
   }
 
   trackInvoiceItem(index: number): string {
@@ -656,11 +786,6 @@ export class SellingComponent implements OnInit, OnDestroy {
     ];
   }
 
-  private updateDirection(): void {
-    const lang = this._translate.currentLang || this._translate.getDefaultLang() || 'en';
-    this.direction = lang === 'ar' ? 'rtl' : 'ltr';
-  }
-
   private translateKey(key: string): string {
     return this._translate.instant(key);
   }
@@ -922,7 +1047,10 @@ export class SellingComponent implements OnInit, OnDestroy {
       wholesalePrice: this.toNumber(candidate.wholesalePrice),
       retailPrice: this.toNumber(candidate.retailPrice),
       discountPercentage: this.toNumber(candidate.discountPercentage),
-      priceAfterDiscount: this.toNumber(candidate.priceAfterDiscount)
+      priceAfterDiscount: this.toNumber(candidate.priceAfterDiscount),
+      inventoryCount: candidate.inventoryCount === undefined || candidate.inventoryCount === null
+        ? null
+        : this.toNumber(candidate.inventoryCount)
     };
   }
 

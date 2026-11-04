@@ -72,6 +72,7 @@ export const routes: Routes = [
     {
         // Design-system preview; not linked from the menu, static content only.
         path: 'ui-kit',
+        data: { frame: false },
         loadComponent: () => import('./modules/ui-kit/ui-kit.component').then(m => m.UiKitComponent)
     },
     {
