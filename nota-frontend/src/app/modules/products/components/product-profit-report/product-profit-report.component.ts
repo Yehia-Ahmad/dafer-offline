@@ -395,7 +395,7 @@ export class ProductProfitReportComponent implements OnInit {
     container.style.padding = '16px';
     container.style.background = '#ffffff';
     container.style.color = '#111111';
-    container.style.fontFamily = 'Roboto, Arial, sans-serif';
+    container.style.fontFamily = "'Alexandria', Tahoma, Arial, sans-serif";
 
     const header = document.createElement('div');
     header.style.display = 'flex';

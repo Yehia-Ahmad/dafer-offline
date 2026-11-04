@@ -70,6 +70,11 @@ export const routes: Routes = [
         loadComponent: () => import('./offline/backup-page.component').then(m => m.BackupPageComponent)
     },
     {
+        // Design-system preview; not linked from the menu, static content only.
+        path: 'ui-kit',
+        loadComponent: () => import('./modules/ui-kit/ui-kit.component').then(m => m.UiKitComponent)
+    },
+    {
         path: '**',
         // canActivate: [authGuard],
         component: HomeComponent

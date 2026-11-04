@@ -36,6 +36,11 @@
                 "glob": "favicon.ico",
                 "input": "public",
                 "output": "/"
+              },
+              {
+                "glob": "alexandria-{arabic,latin}-wght-normal.woff2",
+                "input": "node_modules/@fontsource-variable/alexandria/files",
+                "output": "/assets/fonts/alexandria"
               }
             ],
             "styles": [
@@ -117,6 +122,11 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "alexandria-{arabic,latin}-wght-normal.woff2",
+                "input": "node_modules/@fontsource-variable/alexandria/files",
+                "output": "/assets/fonts/alexandria"
               }
             ],
             "styles": [

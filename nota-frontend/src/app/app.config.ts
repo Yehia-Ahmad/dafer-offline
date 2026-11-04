@@ -1,5 +1,5 @@
 import { routes } from './app.routes';
-import Aura from '@primeuix/themes/aura';
+import { NotaPreset } from './core/theme/nota-preset';
 import { provideRouter } from '@angular/router';
 import { providePrimeNG } from 'primeng/config';
 import { provideAngularSvgIcon } from 'angular-svg-icon';
@@ -31,9 +31,10 @@ export const appConfig: ApplicationConfig = {
     }),
     providePrimeNG({
       theme: {
-        preset: Aura,
+        preset: NotaPreset,
         options: {
-          darkModeSelector: '.my-app-dark'
+          // Same class ThemeService toggles on <html>.
+          darkModeSelector: '.dark'
         }
       }
     })

@@ -1,0 +1,123 @@
+// Nota design tokens (docs/design/NOTA_DESIGN_SYSTEM.md).
+// Light on :root; dark under html.dark — the class ThemeService already toggles
+// on document.documentElement. Everything else (Tailwind, Material, PrimeNG,
+// shared UI) reads these variables, so it follows the theme automatically.
+
+:root {
+  color-scheme: light;
+
+  // Surfaces
+  --bg: #F5F3EE;
+  --surface: #FFFFFF;
+  --surface-2: #FAF9F6;
+  --border: #E6E2D9;
+  --border-strong: #CFCAC0;
+  --line: #F0EDE6;
+
+  // Text
+  --text: #142321;
+  --text-muted: #4A5856;
+
+  // Brand
+  --brand: #0E4D45;
+  --brand-hover: #0B3F38;
+  --on-brand: #FFFFFF;
+  --brand-soft: #E6EFEC;
+  --brand-strong-text: #0E4D45;
+  --accent: #E4572E;
+
+  // Sidebar
+  --sidebar-bg: #0E4D45;
+  --sidebar-text: #E3EFEB;
+  --sidebar-group: #9FC9BE;
+
+  // Status
+  --success: #11795F;
+  --danger: #B4401F;
+  --danger-soft: #FBE9E3;
+  --danger-text: #9A3412;
+  --warning-soft: #FBF1D6;
+  --warning-text: #7A5B00;
+  --info-soft: #E3EDF7;
+  --info-text: #1F4E79;
+  --neutral-soft: #EFEDE8;
+  --neutral-text: #4A5856;
+
+  // Overlay (dialog backdrop)
+  --overlay: rgba(11, 31, 28, 0.5);
+
+  // Typography
+  --font-sans: 'Alexandria', Tahoma, 'Segoe UI', system-ui, sans-serif;
+
+  // Radius
+  --radius-card: 16px;
+  --radius-dialog: 20px;
+  --radius-control: 10px;
+  --radius-control-lg: 12px;
+  --radius-pill: 999px;
+
+  // Spacing
+  --space-page-y: 28px;
+  --space-page-x: 32px;
+  --space-gap: 18px;
+  --space-card: 20px;
+  --touch-target: 44px;
+
+  // Shadows
+  --shadow-sm: 0 1px 2px rgba(20, 35, 33, 0.06);
+  --shadow-md: 0 4px 14px rgba(20, 35, 33, 0.08);
+  --shadow-dialog: 0 24px 60px rgba(11, 31, 28, 0.25);
+}
+
+html.dark {
+  color-scheme: dark;
+
+  --bg: #0B1F1C;
+  --surface: #122B27;
+  --surface-2: #0F2522;
+  --border: #1F3D38;
+  --border-strong: #2C4D47;
+  --line: #1A3631;
+
+  --text: #E8F0EE;
+  --text-muted: #9DB5B0;
+
+  --brand: #2E8C7A;
+  --brand-hover: #359E8A;
+  --on-brand: #FFFFFF;
+  --brand-soft: #173A34;
+  --brand-strong-text: #7FD1BE;
+  --accent: #E4572E;
+
+  --sidebar-bg: #081815;
+  --sidebar-text: #E3EFEB;
+  --sidebar-group: #9FC9BE;
+
+  --success: #7FD1BE;
+  --danger: #F4A58A;
+  --danger-soft: #3A2620;
+  --danger-text: #F4A58A;
+  --warning-soft: #3A3220;
+  --warning-text: #F0CF7A;
+  --info-soft: #1D2E3D;
+  --info-text: #A9CBEB;
+  --neutral-soft: #1F3531;
+  --neutral-text: #B5C7C3;
+
+  --overlay: rgba(3, 12, 10, 0.65);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.35);
+  --shadow-dialog: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+// Tabular figures for every money / quantity value.
+.num {
+  font-variant-numeric: tabular-nums;
+}

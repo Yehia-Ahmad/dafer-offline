@@ -1,0 +1,138 @@
+// Angular Material theme mapped to the Nota tokens.
+// mat.theme() emits the structural system variables (typography, elevation,
+// shape, state); theme-overrides() then points every color at a token, so the
+// same rules follow ThemeService's html.dark class without a second theme.
+@use '@angular/material' as mat;
+
+html {
+  @include mat.theme((
+    color: (
+      theme-type: light,
+      primary: mat.$cyan-palette,
+      tertiary: mat.$orange-palette,
+    ),
+    typography: (
+      plain-family: (Alexandria, Tahoma, sans-serif),
+      brand-family: (Alexandria, Tahoma, sans-serif),
+      bold-weight: 700,
+      medium-weight: 500,
+      regular-weight: 400,
+    ),
+    density: 0,
+  ));
+
+  @include mat.theme-overrides((
+    primary: var(--brand),
+    on-primary: var(--on-brand),
+    primary-container: var(--brand-soft),
+    on-primary-container: var(--brand-strong-text),
+    secondary: var(--brand),
+    on-secondary: var(--on-brand),
+    secondary-container: var(--brand-soft),
+    on-secondary-container: var(--brand-strong-text),
+    tertiary: var(--accent),
+    error: var(--danger),
+    on-error: var(--on-brand),
+    error-container: var(--danger-soft),
+    on-error-container: var(--danger-text),
+    background: var(--bg),
+    on-background: var(--text),
+    surface: var(--surface),
+    surface-bright: var(--surface),
+    surface-dim: var(--surface-2),
+    surface-container-lowest: var(--surface),
+    surface-container-low: var(--surface),
+    surface-container: var(--surface),
+    surface-container-high: var(--surface),
+    surface-container-highest: var(--surface-2),
+    surface-variant: var(--surface-2),
+    on-surface: var(--text),
+    on-surface-variant: var(--text-muted),
+    outline: var(--border-strong),
+    outline-variant: var(--border),
+    inverse-surface: var(--text),
+    inverse-on-surface: var(--surface),
+    inverse-primary: var(--brand-soft),
+    scrim: var(--overlay),
+    corner-extra-small: 6px,
+    corner-small: var(--radius-control),
+    corner-medium: var(--radius-control-lg),
+    corner-large: var(--radius-card),
+    corner-extra-large: var(--radius-dialog),
+  ));
+
+  @include mat.button-overrides((
+    filled-container-shape: var(--radius-control),
+    outlined-container-shape: var(--radius-control),
+    protected-container-shape: var(--radius-control),
+    text-container-shape: var(--radius-control),
+    tonal-container-shape: var(--radius-control),
+    filled-container-height: var(--touch-target),
+    outlined-container-height: var(--touch-target),
+    protected-container-height: var(--touch-target),
+    text-container-height: var(--touch-target),
+    tonal-container-height: var(--touch-target),
+    outlined-outline-color: var(--border-strong),
+  ));
+
+  @include mat.dialog-overrides((
+    container-shape: var(--radius-dialog),
+    container-color: var(--surface),
+    subhead-color: var(--text),
+    supporting-text-color: var(--text-muted),
+  ));
+
+  @include mat.snack-bar-overrides((
+    container-shape: var(--radius-control),
+    container-color: var(--text),
+    supporting-text-color: var(--surface),
+    button-color: var(--brand-soft),
+  ));
+
+  @include mat.table-overrides((
+    background-color: var(--surface),
+    header-headline-color: var(--text-muted),
+    row-item-label-text-color: var(--text),
+    row-item-outline-color: var(--line),
+    header-headline-weight: 700,
+    header-headline-size: 13px,
+  ));
+
+  @include mat.paginator-overrides((
+    container-background-color: var(--surface),
+    container-text-color: var(--text-muted),
+  ));
+
+  @include mat.menu-overrides((
+    container-color: var(--surface),
+    container-shape: var(--radius-control-lg),
+    item-label-text-color: var(--text),
+  ));
+
+  @include mat.checkbox-overrides((
+    selected-icon-color: var(--brand),
+    selected-focus-icon-color: var(--brand),
+    selected-hover-icon-color: var(--brand),
+    selected-checkmark-color: var(--on-brand),
+    unselected-icon-color: var(--border-strong),
+    label-text-color: var(--text),
+  ));
+
+  @include mat.form-field-overrides((
+    outlined-outline-color: var(--border-strong),
+    outlined-focus-outline-color: var(--brand),
+    outlined-container-shape: var(--radius-control),
+    outlined-label-text-color: var(--text-muted),
+    outlined-input-text-color: var(--text),
+    filled-container-color: var(--surface-2),
+  ));
+}
+
+// Material table header row on --surface-2, like the design.
+.mat-mdc-table .mat-mdc-header-row {
+  background: var(--surface-2);
+}
+
+.cdk-overlay-dark-backdrop {
+  background: var(--overlay);
+}

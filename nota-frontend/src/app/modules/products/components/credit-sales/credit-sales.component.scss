@@ -10,7 +10,7 @@
     linear-gradient(180deg, #3b3b3f 0%, #2f2f33 100%);
   border: 1px solid #4a4a4f;
   border-radius: 20px;
-  font-family: 'Roboto', sans-serif;
+  font-family: var(--font-sans);
 }
 
 .credit-panel,

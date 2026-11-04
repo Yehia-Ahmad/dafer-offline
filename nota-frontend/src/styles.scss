@@ -1,4 +1,12 @@
 /* You can add global styles to this file, and also import other style files */
+/* Nota design foundation (docs/design/NOTA_DESIGN_SYSTEM.md):
+   Material theme mapped to tokens, Alexandria font, tokens (light + html.dark),
+   shared UI classes. Sass requires @use before any other rule. */
+@use './styles/material';
+@use './styles/fonts';
+@use './styles/tokens';
+@use './styles/ui';
+
 /* Tailwind first */
 @tailwind base;
 @tailwind components;
@@ -12,33 +20,6 @@ body {
 
 body {
     margin: 0;
-    font-family: Roboto, "Helvetica Neue", sans-serif;
-}
-
-@font-face {
-    font-family: 'Azonix';
-    src: url('assets/fonts/Montserrat-VariableFont_wght.ttf') format('truetype');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'SinkinSans';
-    src: url('assets/fonts/SinkinSans-500Medium.otf') format('opentype');
-    font-weight: 500;
-    font-style: normal;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'Roboto';
-    src: url('assets/fonts/Roboto-VariableFont_wdth,wght.ttf') format('truetype');
-    font-weight: 100 900;
-    /* supports all weights */
-    font-stretch: 75% 100%;
-    font-style: normal;
-    font-display: swap;
 }
 
 * {

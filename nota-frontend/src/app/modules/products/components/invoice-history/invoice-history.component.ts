@@ -466,7 +466,10 @@ export class InvoiceHistoryComponent implements OnInit {
         selling,
         language,
         branding: this.getInvoiceBranding(),
-        fontUrl: this.resolveAssetUrl('assets/fonts/Montserrat-VariableFont_wght.ttf')
+        fontUrls: {
+          arabic: this.resolveAssetUrl('assets/fonts/alexandria/alexandria-arabic-wght-normal.woff2'),
+          latin: this.resolveAssetUrl('assets/fonts/alexandria/alexandria-latin-wght-normal.woff2'),
+        }
       }));
       invoiceWindow.document.close();
       invoiceWindow.focus();

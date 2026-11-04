@@ -10,7 +10,7 @@
 ::ng-deep .p-dialog-title {
     margin: 0 auto !important;
     color: #FF9933 !important;
-    font-family: 'Azonix' !important;
+    font-family: var(--font-sans) !important;
     font-size: 1.5rem !important;
 }
 

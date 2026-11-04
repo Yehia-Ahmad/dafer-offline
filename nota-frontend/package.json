@@ -41,6 +41,7 @@
     "@angular/material": "^20.2.8",
     "@angular/platform-browser": "^20.3.0",
     "@angular/router": "^20.3.0",
+    "@fontsource-variable/alexandria": "^5.2.8",
     "@fortawesome/fontawesome-free": "^7.2.0",
     "@ngx-translate/core": "^17.0.0",
     "@ngx-translate/http-loader": "^17.0.0",
