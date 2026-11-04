@@ -7,6 +7,7 @@
 // discovery, shows the admin app, and keeps the server running in the tray.
 // Client PC: shows the admin app against the main PC's backend and watches the connection.
 
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -28,7 +29,7 @@ const EDITION = require('./edition.json');
 const { ensureLayout, layout, resolveHome, resolveResources } = require('./lib/paths');
 const { createLogger } = require('./lib/logger');
 const { MONGOD_PORT, SERVER_LOCK_PORT, readConfig, writeConfig } = require('./lib/config-store');
-const { unprotectSecret } = require('./lib/secret-store');
+const { protectSecret, unprotectSecret } = require('./lib/secret-store');
 const { holdPortLock, isPortFree, requestQuit, waitFor } = require('./lib/net-utils');
 const { MongodManager } = require('./lib/mongod-manager');
 const { BackendManager, buildBackendEnv } = require('./lib/backend-manager');
@@ -749,14 +750,36 @@ async function attachToRunningServer() {
   });
 }
 
-async function startMainRole() {
-  const { paths, resources, config } = state;
+// Stage 13: the backend's session-token secret (NOTA_JWT_SECRET), main PC only. Generated on the
+// first start in main-PC mode (32 random bytes, hex) and kept DPAPI-protected in config.json next
+// to the LAN secret, so tokens survive restarts. NOTA_AUTH is not set yet, so a failure here is
+// logged and the backend starts without it; Stage 14 (auth on) must treat it like SECRET_UNREADABLE.
+function loadJwtSecret() {
+  try {
+    if (state.config.jwtSecretProtected) {
+      return unprotectSecret(state.config.jwtSecretProtected, { purpose: 'jwt' });
+    }
+    const secret = crypto.randomBytes(32).toString('hex');
+    state.config = writeConfig(state.paths.config, {
+      ...state.config,
+      jwtSecretProtected: protectSecret(secret, { purpose: 'jwt' }),
+    });
+    log.info('generated the session-token secret');
+    return secret;
+  } catch (error) {
+    log.error(`session-token secret: ${error.message}`);
+    return null;
+  }
+}
 
+async function startMainRole() {
   if (!state.serverLock) state.serverLock = await holdServerLock();
   if (!state.serverLock) {
     await attachToRunningServer();
     return;
   }
+  const jwtSecret = loadJwtSecret();
+  const { paths, resources, config } = state;
   checkFirewall();
 
   const mongod = new MongodManager({
@@ -778,6 +801,7 @@ async function startMainRole() {
       port: config.port,
       mongoUri: mongod.uri,
       secret: state.secret,
+      jwtSecret,
       appVersion: EDITION.version,
       instanceId: config.instanceId,
     }),

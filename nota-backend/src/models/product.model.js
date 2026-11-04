@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const auditFieldsPlugin = require("../auth/auditFields.plugin");
 const isBase64Image = require("../utils/isBase64Image");
 const { calculatePriceAfterDiscount } = require("../utils/productPricing");
 
@@ -117,4 +118,6 @@ productSchema.set("toJSON", {
   },
 });
 
+// Stage 13: createdBy / updatedBy from the signed-in user (nothing when auth is off).
+productSchema.plugin(auditFieldsPlugin, { ignorePaths: ["inventoryCount", "soldItemCount"] });
 module.exports = mongoose.model("Product", productSchema);

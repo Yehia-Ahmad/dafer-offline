@@ -144,7 +144,12 @@ function validate() {
   };
   smoke({}, 'online mode');
   smoke({ NOTA_LAN_MODE: '1', NOTA_LAN_SECRET: 'STAGE-CHECK-SECRET' }, 'LAN mode');
-  log('checks passed: no secrets or excluded files, backend loads in online and LAN mode');
+  // Stage 13: auth mode loads bcryptjs and jsonwebtoken, so this also proves they were staged.
+  smoke(
+    { NOTA_LAN_MODE: '1', NOTA_LAN_SECRET: 'STAGE-CHECK-SECRET', NOTA_AUTH: '1', NOTA_JWT_SECRET: 'STAGE-CHECK-JWT-SECRET-0123456789abcdef' },
+    'LAN + auth mode'
+  );
+  log('checks passed: no secrets or excluded files, backend loads in online, LAN and LAN + auth mode');
 }
 
 checkInputs();

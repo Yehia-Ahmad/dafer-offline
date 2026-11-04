@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const auditFieldsPlugin = require("../auth/auditFields.plugin");
 
 const customerSchema = new mongoose.Schema(
   {
@@ -19,4 +20,6 @@ const customerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Stage 13: createdBy / updatedBy from the signed-in user (nothing when auth is off).
+customerSchema.plugin(auditFieldsPlugin);
 module.exports = mongoose.model("Customer", customerSchema);

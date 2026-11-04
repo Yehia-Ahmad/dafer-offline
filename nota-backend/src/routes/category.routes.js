@@ -11,13 +11,34 @@ const {
   importCategoriesExcel,
 } = require("../controllers/categoryImportExport.controller");
 const uploadCategoryWorkbook = require("../middlewares/categoryImportUpload.middleware");
+const { requirePermission } = require("../auth/middleware");
+const { auditOnSuccess } = require("../auth/audit");
 
 const router = express.Router();
 
-router.route("/").get(getCategories).post(createCategory);
+// Stage 13: permissions (enforced only with NOTA_AUTH=1). The import result's counts go in the audit log.
+const importCounts = (_req, body) =>
+  Object.fromEntries(Object.entries(body || {}).filter(([, value]) => typeof value === "number"));
+
+router
+  .route("/")
+  .get(requirePermission("products.view"), getCategories)
+  .post(requirePermission("categories.manage"), createCategory);
 // Static import/export routes must be registered before /:id.
-router.get("/export", exportCategoriesExcel);
-router.post("/import", uploadCategoryWorkbook, importCategoriesExcel);
-router.route("/:id").get(getCategoryById).put(updateCategory).delete(deleteCategory);
+// The workbook holds purchase prices: exporting needs products.viewCost too.
+router.get("/export", requirePermission("products.importExport", "products.viewCost"), exportCategoriesExcel);
+router.post(
+  "/import",
+  requirePermission("products.importExport", "categories.manage"),
+  auditOnSuccess("category.import", "Category", importCounts),
+  uploadCategoryWorkbook,
+  importCategoriesExcel
+);
+router
+  .route("/:id")
+  .get(requirePermission("products.view"), getCategoryById)
+  .put(requirePermission("categories.manage"), updateCategory)
+  // Deleting a category also deletes all of its products.
+  .delete(requirePermission("categories.manage", "products.manage"), deleteCategory);
 
 module.exports = router;

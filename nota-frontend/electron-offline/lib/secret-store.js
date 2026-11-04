@@ -13,10 +13,15 @@
 
 const { spawnSync } = require('node:child_process');
 
-const ENTROPY = 'nota-offline-lan-secret-v1';
+// One entropy value per secret, so a protected value can only be read back as what it is.
+// lan: the LAN secret (Stage 2). jwt: the session-token signing secret of the main PC (Stage 13).
+const ENTROPY_BY_PURPOSE = {
+  lan: 'nota-offline-lan-secret-v1',
+  jwt: 'nota-offline-jwt-secret-v1',
+};
 
-// -EncodedCommand accepts no further arguments, so each mode gets its own script.
-const script = (mode) => `
+// -EncodedCommand accepts no further arguments, so each mode and purpose gets its own script.
+const script = (mode, ENTROPY) => `
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Security
 $mode = '${mode}'
@@ -31,10 +36,13 @@ if ($mode -eq 'protect') {
 [Console]::Out.Write([Convert]::ToBase64String($result))
 `;
 
-const ENCODED_SCRIPTS = {
-  protect: Buffer.from(script('protect'), 'utf16le').toString('base64'),
-  unprotect: Buffer.from(script('unprotect'), 'utf16le').toString('base64'),
-};
+const encode = (mode, entropy) => Buffer.from(script(mode, entropy), 'utf16le').toString('base64');
+const ENCODED_SCRIPTS = Object.fromEntries(
+  Object.entries(ENTROPY_BY_PURPOSE).map(([purpose, entropy]) => [
+    purpose,
+    { protect: encode('protect', entropy), unprotect: encode('unprotect', entropy) },
+  ])
+);
 
 class SecretStoreError extends Error {
   constructor(message) {
@@ -43,12 +51,14 @@ class SecretStoreError extends Error {
   }
 }
 
-function runDpapi(mode, inputBase64, { platform = process.platform } = {}) {
+// options.purpose: 'lan' (default) or 'jwt'.
+function runDpapi(mode, inputBase64, { platform = process.platform, purpose = 'lan' } = {}) {
   if (platform !== 'win32') throw new SecretStoreError('the LAN secret store needs Windows');
+  if (!ENCODED_SCRIPTS[purpose]) throw new SecretStoreError(`unknown secret purpose ${purpose}`);
 
   const result = spawnSync(
     'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', ENCODED_SCRIPTS[mode]],
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', ENCODED_SCRIPTS[purpose][mode]],
     { input: inputBase64, encoding: 'utf8', windowsHide: true, timeout: 30000 }
   );
   if (result.error) throw new SecretStoreError(`could not run PowerShell: ${result.error.message}`);

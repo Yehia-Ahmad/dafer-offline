@@ -11,14 +11,24 @@ const productRoutes = require("./routes/product.routes");
 const returnsRoutes = require("./routes/returns.routes");
 const sellingRoutes = require("./routes/selling.routes");
 const shopProfileRoutes = require("./routes/shopProfile.routes");
+const { createAuthRouter } = require("./routes/auth.routes");
+const usersRoutes = require("./routes/users.routes");
+const auditRoutes = require("./routes/audit.routes");
 const { createLanSecretGuard, isLanMode } = require("./middlewares/lanSecret.middleware");
 const notFound = require("./middlewares/notFound.middleware");
 const errorHandler = require("./middlewares/error.middleware");
+const { isAuthMode, requireJwtSecret } = require("./auth/config");
+const { authFlag, costStrip, requireAuth } = require("./auth/middleware");
 
 const app = express();
 // Offline desktop edition only (NOTA_LAN_MODE=1). Unset in the online deployment.
 const lanMode = isLanMode();
+// Stage 13 switch (NOTA_AUTH=1). Unset: no login, no permissions, nothing stripped, as before.
+const authMode = isAuthMode();
+// Fail closed: auth mode without a usable NOTA_JWT_SECRET must not start (throws here, at load).
+const jwtSecret = authMode ? requireJwtSecret() : null;
 
+app.use(authFlag(authMode));
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(morgan("dev"));
@@ -30,6 +40,18 @@ app.get("/", (req, res) => {
 if (lanMode) {
   app.use("/api", createLanSecretGuard(process.env.NOTA_LAN_SECRET));
   app.use("/api/lan", lanRoutes);
+}
+
+if (authMode) {
+  // LAN key first (above), then the session token. /api/lan/* and the login screen's own
+  // endpoints (bootstrap, login, setup-owner, recover) need no token.
+  app.use("/api", requireAuth(jwtSecret));
+  app.use("/api", costStrip());
+  const authRouter = createAuthRouter({ secret: jwtSecret });
+  app.locals.auth = authRouter.controller; // the lockout counters, for tests
+  app.use("/api/auth", authRouter);
+  app.use("/api/users", usersRoutes);
+  app.use("/api/audit", auditRoutes);
 }
 
 app.use("/api/categories", categoryRoutes);

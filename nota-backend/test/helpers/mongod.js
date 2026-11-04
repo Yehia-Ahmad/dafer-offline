@@ -1,6 +1,7 @@
 // Throwaway mongod for tests that need a real database (Stage 12: aggregations).
 // Binary: NOTA_TEST_MONGOD, else the bundled ../nota-frontend/vendor/mongodb/bin/mongod(.exe).
-// Port 27098, fresh dbpath under the OS temp folder, removed afterwards. Never touches 27017.
+// Port 27098 by default (Stage 13 tests use 27097), fresh dbpath under the OS temp folder,
+// removed afterwards. Never touches 27017.
 // When no binary exists the caller skips its tests (see `mongodSkipReason`).
 const fs = require("node:fs");
 const net = require("node:net");
@@ -29,19 +30,20 @@ const isPortOpen = (port) =>
     socket.once("error", () => { socket.destroy(); resolve(false); });
   });
 
-async function startMongod() {
+// Test files run in parallel processes: each file that needs a database passes its own port.
+async function startMongod({ port = PORT } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nota-test-mongo-"));
   const dbPath = path.join(dir, "db");
   fs.mkdirSync(dbPath);
-  const child = spawn(mongodPath, ["--dbpath", dbPath, "--port", String(PORT), "--bind_ip", "127.0.0.1",
+  const child = spawn(mongodPath, ["--dbpath", dbPath, "--port", String(port), "--bind_ip", "127.0.0.1",
     "--logpath", path.join(dir, "mongod.log"), "--wiredTigerCacheSizeGB", "0.25"], { stdio: "ignore", windowsHide: true });
   const deadline = Date.now() + 60000;
-  while (!(await isPortOpen(PORT))) {
+  while (!(await isPortOpen(port))) {
     if (child.exitCode !== null) throw new Error(`mongod exited with ${child.exitCode}`);
     if (Date.now() > deadline) throw new Error("mongod did not start in 60 s");
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
-  await mongoose.connect(`mongodb://127.0.0.1:${PORT}/${DB_NAME}`);
+  await mongoose.connect(`mongodb://127.0.0.1:${port}/${DB_NAME}`);
   // Build the indexes the models declare (the dashboard relies on them being valid).
   await Promise.all(Object.values(mongoose.models).map((model) => model.init()));
 

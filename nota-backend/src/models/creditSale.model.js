@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const auditFieldsPlugin = require("../auth/auditFields.plugin");
 
 const creditSalePaymentSchema = new mongoose.Schema(
   {
@@ -19,6 +20,7 @@ const creditSalePaymentSchema = new mongoose.Schema(
   },
   { _id: true }
 );
+creditSalePaymentSchema.plugin(auditFieldsPlugin, { createdOnly: true });
 
 const creditSaleItemSchema = new mongoose.Schema(
   {
@@ -277,4 +279,6 @@ const creditSaleSchema = new mongoose.Schema(
 creditSaleSchema.index({ "items.product": 1 });
 creditSaleSchema.index({ customer: 1, status: 1, sellingDate: -1 });
 
+// Stage 13: createdBy / updatedBy from the signed-in user (nothing when auth is off).
+creditSaleSchema.plugin(auditFieldsPlugin);
 module.exports = mongoose.model("CreditSale", creditSaleSchema);

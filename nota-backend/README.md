@@ -105,11 +105,16 @@ The offline desktop edition of the admin app bundles this backend and starts it 
 | `NOTA_LISTEN_HOST` | Optional bind address. Unset means all interfaces, as before. |
 | `NOTA_APP_VERSION` | Desktop app version, reported by `/api/lan/info`. |
 | `NOTA_INSTANCE_ID` | Stable ID of the main PC, reported by `/api/lan/info`. |
+| `NOTA_AUTH` | Stage 13. `1` turns users and permissions on (login, `requirePermission` on every route, cost stripping, audit log). Any other value or unset means off, and the backend behaves exactly as before. The desktop app does not set it yet (Stage 14 does). |
+| `NOTA_JWT_SECRET` | Stage 13. Signing secret of the session tokens, at least 32 characters. Startup fails with `NOTA_AUTH=1` without it. The desktop app generates it on the main PC (32 random bytes, hex), keeps it DPAPI-protected in `config.json` and always passes it. |
+| `MONGO_URI` | Required in LAN mode: the backend refuses to start without it instead of falling back to `127.0.0.1:27017`. |
 
 In LAN mode:
 - Every `/api/*` request must send the secret in the `X-Nota-Lan-Key` header. Otherwise the response is `401 { "message": "كلمة سر الشبكة غير صحيحة", "code": "LAN_KEY_INVALID" }`. CORS preflight `OPTIONS` requests are let through.
 - `GET /api/lan/info` returns `{ app, lanMode, appVersion, instanceId, backendVersion, serverTime }`, which clients use to check the connection, the secret and the version.
 - When run as an Electron utility process, the backend posts `{ type: "ready", port }` once listening and `{ type: "error", code, message }` if listening fails. On `{ type: "shutdown" }` it stops accepting connections, gives in-flight requests up to 10 seconds, disconnects from MongoDB and exits.
+
+With `NOTA_AUTH=1` (Stage 13), after the LAN key every `/api/*` request also needs `Authorization: Bearer <token>`, except `/api/lan/*` and `GET /api/auth/bootstrap`, `POST /api/auth/login`, `/setup-owner` and `/recover`. See `docs/OFFLINE_PLAN.md` ("Stage 13 — users and permissions") for the endpoints, the permission catalog and the route → permission table.
 
 ## API Endpoints
 

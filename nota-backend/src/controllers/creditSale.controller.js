@@ -8,6 +8,7 @@ const { createReturnLog } = require("../services/returns.service");
 const { toCreditSaleInvoice } = require("../utils/creditSaleFormatter");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { buildPaginatedResponse, getPaginationParams } = require("../utils/pagination");
+const { canSellBelowCost } = require("../auth/middleware");
 
 const REACTIONARY_CREDIT_SALE_STATUS = "Reactionary";
 const CREDIT_SALE_STATUSES = new Set([
@@ -422,7 +423,9 @@ const buildQuantityByProductId = (items) => {
   return quantityByProductId;
 };
 
-const applyInventoryForInvoiceChange = async ({ currentItems, nextItems, res }) => {
+// Stage 13: allowBelowCost is true on create/edit only with NOTA_AUTH=1 for a user with
+// sales.priceBelowCost, and always on returns (they keep the original prices).
+const applyInventoryForInvoiceChange = async ({ currentItems, nextItems, res, allowBelowCost = false }) => {
   const currentQuantityByProductId = buildQuantityByProductId(currentItems);
   const nextQuantityByProductId = buildQuantityByProductId(nextItems);
   const allProductIds = [...new Set([
@@ -470,7 +473,8 @@ const applyInventoryForInvoiceChange = async ({ currentItems, nextItems, res }) 
     const purchasePrice = resolveItemPurchasePrice(item, product);
     const unitPrice = roundMoney(Number(item.unitPrice || 0));
 
-    if (unitPrice < purchasePrice) {
+    // The message never includes the purchase price.
+    if (unitPrice < purchasePrice && !allowBelowCost) {
       res.status(400);
       throw new Error(`سعر البيع لا يمكن أن يكون أقل من سعر الشراء للمنتج ${product.name}`);
     }
@@ -1027,6 +1031,7 @@ const createCreditSale = asyncHandler(async (req, res) => {
     currentItems: [],
     nextItems: items,
     res,
+    allowBelowCost: canSellBelowCost(req),
   });
   const persistedItems = buildPersistedItems(items, productsById);
   const invoiceTotals = buildInvoiceTotals(persistedItems, invoicePricing);
@@ -1335,6 +1340,7 @@ const updateCreditSale = asyncHandler(async (req, res) => {
       currentItems,
       nextItems,
       res,
+      allowBelowCost: canSellBelowCost(req),
     });
   }
 
@@ -1564,10 +1570,13 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
   const originalTotalPrice = Number(creditSale.totalPrice || 0);
   const originalShippingFees = Number(creditSale.shippingFees || 0);
   const nextItems = buildNextCreditSaleItemsAfterRefund(creditSale, refundSelections);
+  // A return keeps the original invoice prices and never sets new ones, so the below-cost rule
+  // (a selling rule) does not apply here.
   const productsById = await applyInventoryForInvoiceChange({
     currentItems,
     nextItems,
     res,
+    allowBelowCost: true,
   });
 
   let updatedCreditSale;
@@ -1699,10 +1708,12 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
     }
 
     try {
+      // Rollback of a return: back to the original invoice prices (no below-cost rule either).
       await applyInventoryForInvoiceChange({
         currentItems: nextItems,
         nextItems: currentItems,
         res,
+        allowBelowCost: true,
       });
     } catch (_rollbackError) {
       // Best-effort rollback only; surface the refund failure.

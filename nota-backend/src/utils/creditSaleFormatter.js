@@ -1,4 +1,5 @@
 const { buildInvoiceTotals } = require("./invoicePricing");
+const { actorFields } = require("./actorFields");
 
 const getCreditSaleItemProductId = (item) => {
   if (
@@ -17,6 +18,7 @@ const toCreditSalePayment = (payment) => ({
   amount: payment.amount,
   paymentDate: payment.paymentDate,
   note: payment.note ?? null,
+  ...actorFields(payment),
 });
 
 const toCreditSaleRefundItem = (item, options = {}) => {
@@ -131,6 +133,7 @@ const toCreditSaleInvoice = (creditSale, options = {}) => {
     items,
     createdAt: creditSale.createdAt,
     updatedAt: creditSale.updatedAt,
+    ...actorFields(creditSale),
   };
 };
 

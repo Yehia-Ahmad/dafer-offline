@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const auditFieldsPlugin = require("../auth/auditFields.plugin");
 
 const itemSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
@@ -35,4 +36,6 @@ returnLogSchema.index({ returnDate: -1, createdAt: -1 });
 returnLogSchema.index({ "items.productId": 1 });
 returnLogSchema.index({ "items.productCode": 1 });
 
+// Stage 13: createdBy / updatedBy from the signed-in user (nothing when auth is off).
+returnLogSchema.plugin(auditFieldsPlugin);
 module.exports = mongoose.model("ReturnLog", returnLogSchema);

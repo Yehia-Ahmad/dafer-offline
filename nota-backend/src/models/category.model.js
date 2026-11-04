@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const auditFieldsPlugin = require("../auth/auditFields.plugin");
 const isBase64Image = require("../utils/isBase64Image");
 
 const categorySchema = new mongoose.Schema(
@@ -31,4 +32,6 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Stage 13: createdBy / updatedBy from the signed-in user (nothing when auth is off).
+categorySchema.plugin(auditFieldsPlugin);
 module.exports = mongoose.model("Category", categorySchema);

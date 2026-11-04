@@ -63,6 +63,11 @@ function normalizeConfig(raw) {
   if (raw.role === 'main') {
     // Optional second folder (USB drive, another disk) for a copy of each daily backup.
     config.backupCopyFolder = typeof raw.backupCopyFolder === 'string' ? raw.backupCopyFolder : '';
+    // Stage 13: the backend's session-token secret (NOTA_JWT_SECRET), DPAPI-protected like the
+    // LAN secret. Created on the first start in main-PC mode; absent on configs from before Stage 13.
+    if (typeof raw.jwtSecretProtected === 'string' && raw.jwtSecretProtected) {
+      config.jwtSecretProtected = raw.jwtSecretProtected;
+    }
   }
 
   if (raw.role === 'client') {

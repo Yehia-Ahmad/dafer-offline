@@ -5,6 +5,8 @@
 // OS temp folder, starts nota-backend in LAN mode against it on port 5099, runs the core
 // shop scenarios (sales, edits, returns, credit sales, payments, exports) over HTTP, then stops
 // everything and deletes the temp folder. It never touches the real database or port 27017.
+// Stage 13: the backend runs with NOTA_AUTH=1 (the owner is set up first and their token is sent
+// on every scenario), then once more with NOTA_AUTH unset on a fresh database to prove the switch.
 //
 // Development tool only: stage.js does not copy scripts/ into the installer.
 'use strict';
@@ -42,6 +44,11 @@ const MONGO_PORT = 27099;
 const BACKEND_PORT = 5099;
 const DB_NAME = 'dafer_smoke';
 const MONGO_URI = `mongodb://127.0.0.1:${MONGO_PORT}/${DB_NAME}`;
+// Stage 13: the main run is with NOTA_AUTH=1; a short second run (fresh database on the same
+// mongod) proves that with NOTA_AUTH unset the backend behaves as before.
+const NOAUTH_DB_NAME = 'dafer_smoke_noauth';
+const JWT_SECRET = 'smoke-jwt-secret-0123456789abcdef-0123456789';
+const OWNER = { name: 'Smoke Owner', username: 'smoke-owner', password: 'owner-pass-123' };
 const LAN_SECRET = 'smoke-secret-123';
 const LAN_KEY_HEADER = 'x-nota-lan-key';
 const BASE_URL = `http://127.0.0.1:${BACKEND_PORT}`;
@@ -137,25 +144,22 @@ async function startMongod() {
   log(`mongod ready on 127.0.0.1:${MONGO_PORT} (dbpath ${dbPath})`);
 }
 
-async function startBackend() {
-  const logFile = path.join(tempDir, 'backend.log');
-  const child = startChild(
-    process.execPath,
-    ['src/server.js'],
-    {
-      cwd: BACKEND_DIR,
-      env: {
-        ...process.env,
-        PORT: String(BACKEND_PORT),
-        MONGO_URI,
-        NOTA_LAN_MODE: '1',
-        NOTA_LAN_SECRET: LAN_SECRET,
-        // Keep the test server off the shop network.
-        NOTA_LISTEN_HOST: '127.0.0.1',
-      },
-    },
-    logFile
-  );
+async function startBackend({ auth = true, dbName = DB_NAME } = {}) {
+  const logFile = path.join(tempDir, `backend-${auth ? 'auth' : 'noauth'}.log`);
+  const mongoUri = `mongodb://127.0.0.1:${MONGO_PORT}/${dbName}`;
+  const env = {
+    ...process.env,
+    PORT: String(BACKEND_PORT),
+    MONGO_URI: mongoUri,
+    NOTA_LAN_MODE: '1',
+    NOTA_LAN_SECRET: LAN_SECRET,
+    // Keep the test server off the shop network.
+    NOTA_LISTEN_HOST: '127.0.0.1',
+  };
+  delete env.NOTA_AUTH;
+  delete env.NOTA_JWT_SECRET;
+  if (auth) Object.assign(env, { NOTA_AUTH: '1', NOTA_JWT_SECRET: JWT_SECRET });
+  const child = startChild(process.execPath, ['src/server.js'], { cwd: BACKEND_DIR, env }, logFile);
   const responds = async () => {
     try {
       const response = await fetch(`${BASE_URL}/`, { signal: AbortSignal.timeout(2000) });
@@ -169,12 +173,17 @@ async function startBackend() {
   } catch (error) {
     throw new Error(`${error.message}\n--- backend log ---\n${tail(logFile)}`);
   }
-  log(`backend ready on ${BASE_URL} (LAN mode, ${MONGO_URI})`);
+  log(`backend ready on ${BASE_URL} (LAN mode, auth ${auth ? 'on (NOTA_AUTH=1)' : 'off'}, ${mongoUri})`);
+  return child;
 }
 
-async function request(method, urlPath, { body, withKey = true, binary = false } = {}) {
+// The session token sent by default (the owner's, once setup-owner ran). null: no token.
+let authToken = null;
+
+async function request(method, urlPath, { body, withKey = true, binary = false, token = authToken } = {}) {
   const headers = {};
   if (withKey) headers[LAN_KEY_HEADER] = LAN_SECRET;
+  if (token) headers.authorization = `Bearer ${token}`;
   if (body !== undefined) headers['content-type'] = 'application/json';
   const response = await fetch(`${BASE_URL}${urlPath}`, {
     method,
@@ -235,9 +244,207 @@ async function expectStock(ctx, expected) {
   return `stock ${actual}`;
 }
 
+// Stage 13, before the existing scenarios: the owner is created and their token is then sent on
+// every request.
+async function runAuthSetup(ctx) {
+  await step('Auth: bootstrap before the owner exists → hasOwner false', async () => {
+    const response = await request('GET', '/api/auth/bootstrap', { token: null });
+    expectStatus(response, 200, 'GET /api/auth/bootstrap');
+    expect(response.json.hasOwner === false, `hasOwner expected false, got ${response.json.hasOwner}`);
+    return `hasOwner ${response.json.hasOwner}, shop name "${response.json.shop.name}"`;
+  });
+
+  await step('Auth: request without a token → 401 SESSION_EXPIRED', async () => {
+    const response = await request('GET', '/api/products', { token: null });
+    expectStatus(response, 401, 'GET /api/products without a token');
+    expect(response.json.code === 'SESSION_EXPIRED', `code expected SESSION_EXPIRED, got ${response.json.code}`);
+    return describe(response);
+  });
+
+  await step('Auth: setup-owner → 201, token and recovery code', async () => {
+    const response = await request('POST', '/api/auth/setup-owner', { body: OWNER, token: null });
+    expectStatus(response, 201, 'POST /api/auth/setup-owner');
+    expect(response.json.token && response.json.user.role === 'owner', 'no owner token');
+    expect(/^[A-HJ-NP-Z2-9]{4}(-[A-HJ-NP-Z2-9]{4}){3}$/.test(response.json.recoveryCode), `bad recovery code ${response.json.recoveryCode}`);
+    authToken = response.json.token;
+    ctx.ownerId = response.json.user._id;
+    ctx.recoveryCode = response.json.recoveryCode;
+    return `owner ${ctx.ownerId}, ${response.json.permissions.length} permissions`;
+  });
+
+  await step('Auth: bootstrap after setup → hasOwner true', async () => {
+    const response = await request('GET', '/api/auth/bootstrap', { token: null });
+    expectStatus(response, 200, 'GET /api/auth/bootstrap');
+    expect(response.json.hasOwner === true, `hasOwner expected true, got ${response.json.hasOwner}`);
+    return `hasOwner ${response.json.hasOwner}`;
+  });
+
+  await step('Auth: second setup-owner → 409 OWNER_EXISTS', async () => {
+    const response = await request('POST', '/api/auth/setup-owner', { body: { ...OWNER, username: 'second-owner' }, token: null });
+    expectStatus(response, 409, 'second POST /api/auth/setup-owner');
+    expect(response.json.code === 'OWNER_EXISTS', `code expected OWNER_EXISTS, got ${response.json.code}`);
+    return describe(response);
+  });
+
+  // Used only by "Sale below purchase price is rejected": the owner may sell below cost.
+  await step('Auth: owner creates a clerk (cashier, no sales.priceBelowCost) → 201, login 200', async () => {
+    const clerk = { name: 'Smoke Clerk', username: 'smoke-clerk', password: 'clerk-pass-1', role: 'cashier' };
+    const created = await request('POST', '/api/users', { body: clerk });
+    expectStatus(created, 201, 'POST /api/users');
+    const login = await request('POST', '/api/auth/login', { body: { username: clerk.username, password: clerk.password }, token: null });
+    expectStatus(login, 200, 'clerk login');
+    ctx.clerkToken = login.json.token;
+    return `clerk ${created.json.user._id}`;
+  });
+}
+
+// Stage 13, after the existing scenarios: a cashier's rights, disabling, password change, recovery
+// and the audit log.
+async function runAuthScenarios(ctx) {
+  const cashier = { name: 'Smoke Cashier', username: 'smoke-cashier', password: 'cashier-pass-1', role: 'cashier' };
+
+  await step('Auth: owner creates a cashier → 201', async () => {
+    const response = await request('POST', '/api/users', { body: cashier });
+    expectStatus(response, 201, 'POST /api/users');
+    ctx.cashierId = response.json.user._id;
+    return `cashier ${ctx.cashierId}, role ${response.json.user.role}`;
+  });
+
+  await step('Auth: cashier login → 200 with the cashier permissions', async () => {
+    requireCtx(ctx, 'cashierId');
+    const response = await request('POST', '/api/auth/login', { body: { username: cashier.username, password: cashier.password }, token: null });
+    expectStatus(response, 200, 'POST /api/auth/login');
+    expect(!response.json.permissions.includes('products.viewCost'), 'the cashier must not have products.viewCost');
+    ctx.cashierToken = response.json.token;
+    return `${response.json.permissions.length} permissions`;
+  });
+
+  await step('Auth: cashier makes a cash sale → 201, createdBy = cashier', async () => {
+    requireCtx(ctx, 'cashierToken', 'productId');
+    const response = await request('POST', '/api/sellings', {
+      token: ctx.cashierToken,
+      body: { customerName: 'Smoke Cashier Customer', customerPhone: '01000000009', sellingDate: localDay(), items: [{ productId: ctx.productId, quantity: 1, price: 100 }] },
+    });
+    expectStatus(response, 201, 'POST /api/sellings as cashier');
+    expect(String(response.json.createdBy) === String(ctx.cashierId), `createdBy expected ${ctx.cashierId}, got ${response.json.createdBy}`);
+    expect(response.json.createdByName === cashier.name, `createdByName expected "${cashier.name}", got "${response.json.createdByName}"`);
+    expect(!('profitAmount' in response.json.items[0]) && !('totalProfit' in response.json), 'the cashier sees profit in the sale');
+    return `invoice ${response.json._id}, createdByName "${response.json.createdByName}"`;
+  });
+
+  await step('Auth: cashier deletes a product → 403 FORBIDDEN', async () => {
+    requireCtx(ctx, 'cashierToken', 'productId');
+    const response = await request('DELETE', `/api/products/${ctx.productId}`, { token: ctx.cashierToken });
+    expectStatus(response, 403, 'DELETE /api/products/:id as cashier');
+    expect(response.json.code === 'FORBIDDEN', `code expected FORBIDDEN, got ${response.json.code}`);
+    return describe(response);
+  });
+
+  await step('Auth: cashier opens the profit report → 403 FORBIDDEN', async () => {
+    requireCtx(ctx, 'cashierToken');
+    const response = await request('GET', '/api/products/profit-report', { token: ctx.cashierToken });
+    expectStatus(response, 403, 'GET /api/products/profit-report as cashier');
+    return describe(response);
+  });
+
+  await step('Auth: cashier sees no purchasePrice on products (the owner does)', async () => {
+    requireCtx(ctx, 'cashierToken', 'productId');
+    const asCashier = await request('GET', `/api/products/${ctx.productId}`, { token: ctx.cashierToken });
+    expectStatus(asCashier, 200, 'GET /api/products/:id as cashier');
+    expect(!('purchasePrice' in asCashier.json), 'purchasePrice is visible to the cashier');
+    const list = await request('GET', '/api/products', { token: ctx.cashierToken });
+    expect(!list.text.includes('purchasePrice'), 'purchasePrice in the cashier product list');
+    const asOwner = await request('GET', `/api/products/${ctx.productId}`);
+    expect(asOwner.json.purchasePrice === 50, `owner purchasePrice expected 50, got ${asOwner.json.purchasePrice}`);
+    return `cashier: no purchasePrice; owner: ${asOwner.json.purchasePrice}`;
+  });
+
+  await step('Auth: disable the cashier → their token gets 401', async () => {
+    requireCtx(ctx, 'cashierId', 'cashierToken');
+    const response = await request('PATCH', `/api/users/${ctx.cashierId}/status`, { body: { isActive: false } });
+    expectStatus(response, 200, 'PATCH /api/users/:id/status');
+    const after = await request('GET', '/api/products', { token: ctx.cashierToken });
+    expectStatus(after, 401, 'GET /api/products with the disabled cashier token');
+    return describe(after);
+  });
+
+  await step('Auth: owner change-password → old token 401, new token works', async () => {
+    const oldToken = authToken;
+    const response = await request('POST', '/api/auth/change-password', { body: { currentPassword: OWNER.password, newPassword: 'owner-pass-456' } });
+    expectStatus(response, 200, 'POST /api/auth/change-password');
+    const old = await request('GET', '/api/auth/me', { token: oldToken });
+    expectStatus(old, 401, 'GET /api/auth/me with the old token');
+    authToken = response.json.token;
+    const me = await request('GET', '/api/auth/me');
+    expectStatus(me, 200, 'GET /api/auth/me with the new token');
+    return 'old token 401, new token 200';
+  });
+
+  await step('Auth: recover with the recovery code → new password, new code, old code refused', async () => {
+    requireCtx(ctx, 'recoveryCode');
+    const response = await request('POST', '/api/auth/recover', {
+      body: { username: OWNER.username, recoveryCode: ctx.recoveryCode, newPassword: 'owner-pass-789' },
+      token: null,
+    });
+    expectStatus(response, 200, 'POST /api/auth/recover');
+    expect(response.json.recoveryCode && response.json.recoveryCode !== ctx.recoveryCode, 'no new recovery code');
+    authToken = response.json.token;
+    const again = await request('POST', '/api/auth/recover', {
+      body: { username: OWNER.username, recoveryCode: ctx.recoveryCode, newPassword: 'owner-pass-000' },
+      token: null,
+    });
+    expectStatus(again, 401, 'POST /api/auth/recover with the old code');
+    const login = await request('POST', '/api/auth/login', { body: { username: OWNER.username, password: 'owner-pass-789' }, token: null });
+    expectStatus(login, 200, 'login with the recovered password');
+    return 'recovered; old code 401; login 200';
+  });
+
+  await step('Auth: audit list contains the expected actions', async () => {
+    const response = await request('GET', '/api/audit?limit=100');
+    expectStatus(response, 200, 'GET /api/audit');
+    const actions = new Set(response.json.data.map((entry) => entry.action));
+    const expected = [
+      'auth.setup_owner', 'auth.login', 'user.created', 'user.status_changed', 'auth.password_changed',
+      'auth.recover', 'auth.recover_failed', 'sale.updated', 'sale.deleted', 'credit.payment', 'return.created',
+      'credit.deleted', 'shop.updated',
+    ];
+    const missing = expected.filter((action) => !actions.has(action));
+    expect(missing.length === 0, `missing actions: ${missing.join(', ')}`);
+    expect(!response.text.includes(OWNER.password) && !response.text.includes(ctx.recoveryCode), 'a secret is in the audit log');
+    return `${response.json.pagination.totalItems} entries, ${actions.size} actions`;
+  });
+}
+
+// Stage 13: with NOTA_AUTH unset the backend behaves as before (fresh database, no token).
+async function runAuthOffCheck() {
+  authToken = null;
+  await step('Auth off: GET /api/products without a token → 200', async () => {
+    const response = await request('GET', '/api/products');
+    expectStatus(response, 200, 'GET /api/products');
+    return describe(response);
+  });
+
+  await step('Auth off: create a category without a token → 201', async () => {
+    const response = await request('POST', '/api/categories', { body: { name: 'No Auth Category' } });
+    expectStatus(response, 201, 'POST /api/categories');
+    expect(!('createdBy' in response.json), 'createdBy is set with auth off');
+    return `id ${response.json._id}, no createdBy`;
+  });
+
+  await step('Auth off: /api/auth/bootstrap and /api/users are not mounted → 404', async () => {
+    const bootstrap = await request('GET', '/api/auth/bootstrap');
+    expectStatus(bootstrap, 404, 'GET /api/auth/bootstrap');
+    const users = await request('GET', '/api/users');
+    expectStatus(users, 404, 'GET /api/users');
+    return `${describe(bootstrap)}; ${describe(users)}`;
+  });
+}
+
 async function runScenarios() {
   const ctx = {};
   const today = localDay(); // sellingDate of every sale below
+
+  await runAuthSetup(ctx);
 
   await step('Request without LAN key is rejected', async () => {
     const response = await request('GET', '/api/products', { withKey: false });
@@ -290,8 +497,11 @@ async function runScenarios() {
   });
 
   await step('Sale below purchase price is rejected', async () => {
-    requireCtx(ctx, 'productId');
+    requireCtx(ctx, 'productId', 'clerkToken');
+    // Stage 13: the owner may sell below cost (sales.priceBelowCost), so this check uses the clerk
+    // (a cashier, who may not). The message must not reveal the purchase price (50).
     const response = await request('POST', '/api/sellings', {
+      token: ctx.clerkToken,
       body: {
         customerName: 'Smoke Cash Customer',
         customerPhone: '01000000001',
@@ -300,6 +510,7 @@ async function runScenarios() {
       },
     });
     expectStatus(response, 400, 'POST /api/sellings at price 40');
+    expect(!/50/.test(String(response.json && response.json.message)), 'the message reveals the purchase price');
     return `${describe(response)}, ${await expectStock(ctx, 8)}`;
   });
 
@@ -554,6 +765,8 @@ async function runScenarios() {
       return describe(response);
     });
   }
+
+  await runAuthScenarios(ctx);
 }
 
 function stopChild(child) {
@@ -607,8 +820,13 @@ async function main() {
     ensureMongod();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-smoke-'));
     await startMongod();
-    await startBackend();
+    const authBackend = await startBackend({ auth: true });
     await runScenarios();
+    // The switch: the same backend with NOTA_AUTH unset, on a fresh database of the same mongod.
+    await stopChild(authBackend);
+    children.splice(children.indexOf(authBackend), 1);
+    await startBackend({ auth: false, dbName: NOAUTH_DB_NAME });
+    await runAuthOffCheck();
   } catch (error) {
     record(false, 'Smoke test setup', error.message);
   } finally {

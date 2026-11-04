@@ -116,6 +116,30 @@ test('the backend gets only the variables it needs', () => {
   assert.equal(env.NOTA_LAN_MODE, '1');
   assert.equal(env.NOTA_LISTEN_HOST, '0.0.0.0');
   assert.equal(env.PORT, '5055');
+  assert.equal('NOTA_JWT_SECRET' in env, false, 'no session-token secret given, none passed');
+  assert.equal('NOTA_AUTH' in env, false);
+});
+
+test('the main PC passes its session-token secret, but does not turn auth on yet (Stage 14)', () => {
+  const env = buildBackendEnv({
+    port: 5055,
+    mongoUri: 'mongodb://127.0.0.1:27217/nota',
+    secret: 'S3CRET-VALUE',
+    jwtSecret: 'a'.repeat(64),
+    appVersion: '1.0.0',
+    instanceId: 'id',
+    sourceEnv: { NOTA_AUTH: '1', NOTA_JWT_SECRET: 'from-the-user-environment' },
+  });
+  assert.equal(env.NOTA_JWT_SECRET, 'a'.repeat(64));
+  assert.equal('NOTA_AUTH' in env, false, 'never taken from the user environment either');
+});
+
+test('secret store: the session-token secret round-trips with its own entropy', { skip: process.platform !== 'win32' }, () => {
+  const secret = require('node:crypto').randomBytes(32).toString('hex');
+  const stored = protectSecret(secret, { purpose: 'jwt' });
+  assert.equal(unprotectSecret(stored, { purpose: 'jwt' }), secret);
+  assert.throws(() => unprotectSecret(stored), /DPAPI unprotect failed/, 'cannot be read back as the LAN secret');
+  assert.throws(() => protectSecret(secret, { purpose: 'other' }), /unknown secret purpose/);
 });
 
 test('secret store round-trips through machine-scope DPAPI', { skip: process.platform !== 'win32' }, () => {

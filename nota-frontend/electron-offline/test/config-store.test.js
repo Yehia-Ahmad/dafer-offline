@@ -40,6 +40,16 @@ test('the main PC keeps the extra backup folder; it is empty by default', () => 
   assert.equal(writeConfig(file, { ...validMain, role: 'client' }).backupCopyFolder, undefined);
 });
 
+test('the main PC keeps its protected session-token secret through later writes; configs from before Stage 13 have none', () => {
+  const file = path.join(tempDir(), 'config.json');
+  assert.equal('jwtSecretProtected' in writeConfig(file, validMain), false, 'older configs stay valid without it');
+  writeConfig(file, { ...validMain, jwtSecretProtected: 'AQAAANCMnd8-jwt' });
+  // Any later write (for example choosing a backup folder) must not drop it.
+  writeConfig(file, { ...readConfig(file), backupCopyFolder: 'E:\\Nota' });
+  assert.equal(readConfig(file).jwtSecretProtected, 'AQAAANCMnd8-jwt');
+  assert.equal(writeConfig(file, { ...validMain, role: 'client', jwtSecretProtected: 'x' }).jwtSecretProtected, undefined, 'client PCs never keep one');
+});
+
 test('client configs keep the main PC address fields', () => {
   const file = path.join(tempDir(), 'config.json');
   writeConfig(file, { ...validMain, role: 'client', mainHost: '192.168.1.10', mainInstanceId: 'x' });

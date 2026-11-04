@@ -7,6 +7,8 @@ const asyncHandler = require("../utils/asyncHandler");
 const { createReturnLog } = require("../services/returns.service");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { buildPaginatedResponse, getPaginationParams } = require("../utils/pagination");
+const { canSellBelowCost } = require("../auth/middleware");
+const { actorFields } = require("../utils/actorFields");
 
 const getRawQuantity = (body) => {
   if (body.quantity !== undefined) return body.quantity;
@@ -428,6 +430,7 @@ const toSellingInvoice = (selling, options = {}) => {
       })),
     })),
     items,
+    ...actorFields(selling),
   };
 };
 
@@ -539,6 +542,8 @@ const applyInventoryForInvoiceChange = async ({
   res,
   allowInsufficientInventory = false,
   inventoryAdjustmentsByProductId = new Map(),
+  // Stage 13: true only with NOTA_AUTH=1 for a user with sales.priceBelowCost (canSellBelowCost).
+  allowBelowCost = false,
 }) => {
   const currentQuantityByProductId = buildQuantityByProductId(currentItems);
   const nextQuantityByProductId = buildQuantityByProductId(nextItems);
@@ -609,7 +614,8 @@ const applyInventoryForInvoiceChange = async ({
     const purchasePrice = resolveItemPurchasePrice(item, product);
     const unitPrice = roundMoney(Number(item.unitPrice || 0));
 
-    if (unitPrice < purchasePrice) {
+    // The message never includes the purchase price.
+    if (unitPrice < purchasePrice && !allowBelowCost) {
       res.status(400);
       throw new Error(`سعر البيع لا يمكن أن يكون أقل من سعر الشراء للمنتج ${product.name}`);
     }
@@ -686,7 +692,7 @@ const hasLineItemChanges = (body) =>
   body.price !== undefined ||
   getRawQuantity(body) !== undefined;
 
-const createSellingInvoice = async ({ body, res, options = {} }) => {
+const createSellingInvoice = async ({ body, res, options = {}, allowBelowCost = false }) => {
   const { customerName, customerPhone } = body;
   const normalizedCustomerName = normalizeRequiredString(customerName, "اسم العميل", res);
   const normalizedCustomerPhone = normalizeRequiredString(customerPhone, "رقم هاتف العميل", res);
@@ -715,6 +721,7 @@ const createSellingInvoice = async ({ body, res, options = {} }) => {
     nextItems: items,
     res,
     allowInsufficientInventory: body.confirmInsufficientInventory === true,
+    allowBelowCost,
   });
   const persistedItems = buildPersistedItems(items, productsById);
   const invoiceTotals = buildInvoiceTotals(persistedItems, invoicePricing);
@@ -759,6 +766,7 @@ const createSelling = asyncHandler(async (req, res) => {
   const selling = await createSellingInvoice({
     body: req.body,
     res,
+    allowBelowCost: canSellBelowCost(req),
   });
 
   res.status(201).json(toSellingInvoice(selling));
@@ -974,6 +982,7 @@ const updateSelling = asyncHandler(async (req, res) => {
       currentItems,
       nextItems,
       res,
+      allowBelowCost: canSellBelowCost(req),
     });
   }
 

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const auditFieldsPlugin = require("../auth/auditFields.plugin");
 
 const sellingItemSchema = new mongoose.Schema(
   {
@@ -158,4 +159,6 @@ sellingSchema.index({ "items.product": 1 });
 // Stage 12: date-range reads of the dashboard summary.
 sellingSchema.index({ sellingDate: -1 });
 
+// Stage 13: createdBy / updatedBy from the signed-in user (nothing when auth is off).
+sellingSchema.plugin(auditFieldsPlugin);
 module.exports = mongoose.model("Selling", sellingSchema);

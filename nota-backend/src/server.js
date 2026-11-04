@@ -4,6 +4,9 @@ const mongoose = require("mongoose");
 const app = require("./app");
 const connectDB = require("./config/db");
 const { createGracefulShutdown } = require("./utils/gracefulShutdown");
+const { isAuthMode } = require("./auth/config");
+const User = require("./models/user.model");
+const AuditLog = require("./models/auditLog.model");
 
 const PORT = process.env.PORT || 5000;
 // Optional bind address. Unset in the online deployment, which keeps listening on all
@@ -20,6 +23,12 @@ const onListening = () => {
 
 const startServer = async () => {
   await connectDB();
+
+  // Stage 13: with auth on, the user indexes (one owner, unique usernames) must exist before the
+  // first setup-owner request, so two racing requests can never both create an owner.
+  if (isAuthMode()) {
+    await Promise.all([User.init(), AuditLog.init()]);
+  }
 
   const server = LISTEN_HOST
     ? app.listen(PORT, LISTEN_HOST, onListening)
