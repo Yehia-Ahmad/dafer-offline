@@ -1,0 +1,34 @@
+// Credit sales list (CreditSales.dc.html). Tokens only.
+:host { display: block; }
+.cl { display: flex; flex-direction: column; gap: var(--space-gap); container-type: inline-size; }
+.cl__kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.cl__layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: var(--space-gap); align-items: start; }
+.cl__list { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cl__toolbar { display: flex; flex-direction: column; gap: 10px; }
+.cl__search { display: flex; gap: 8px; .nota-input { flex: 1; min-width: 0; } }
+.cl__pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.cl__pill { min-height: 40px; padding: 0 16px; border-radius: var(--radius-pill); border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; cursor: pointer;
+  &.is-on { background: var(--brand); border-color: var(--brand); color: var(--on-brand); } }
+.cl__table { font-size: 13px; th, td { padding: 10px 8px; } th { white-space: normal; } }
+.cl__row { cursor: pointer; &.is-selected td { background: var(--brand-soft); } &:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; } }
+.cl__cust { display: block; font-weight: 500; }
+.cl__muted { display: block; font-size: 12px; color: var(--text-muted); }
+.cl__in { color: var(--success); }
+.cl__due { color: var(--danger); }
+.cl__strong { font-weight: 700; }
+.cl__empty { text-align: center; color: var(--text-muted); padding: 24px; }
+.cl__msg { margin: 0; font-size: 14px; font-weight: 500; color: var(--danger); }
+.cl__ok { margin: 0; font-size: 14px; font-weight: 500; color: var(--success); }
+.cl__sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.cl__pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.cl__pager-btns { display: flex; align-items: center; gap: 8px; }
+.cl__panel { position: sticky; top: 0; display: flex; flex-direction: column; gap: 14px; }
+.cl__panel-title { margin: 4px 0 8px; font-size: 18px; font-weight: 800; }
+.cl__figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px; border-radius: var(--radius-control); background: var(--surface-2);
+  div { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-muted); } strong { font-size: 16px; color: var(--text); } }
+.cl__form { display: flex; flex-direction: column; gap: 12px; }
+.cl__panel-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cl__prev { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.cl__prev-row { display: flex; justify-content: space-between; font-size: 14px; }
+:host ::ng-deep { .cl__control { width: 100%; } .cl__num-input { width: 100%; font-variant-numeric: tabular-nums; } }
+@container (max-width: 980px) { .cl__layout { grid-template-columns: minmax(0, 1fr); } .cl__panel { position: static; } }

@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule, Location } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CateoryService } from '../../services/cateory.service';
 import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
 import { DialogModule } from 'primeng/dialog';
@@ -15,7 +15,7 @@ import { format as formatDate } from 'date-fns';
 
 @Component({
   selector: 'app-product-edit',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, DialogModule, ButtonModule, WarnComponent, TranslatePipe, ErrorIconComponent, DatePickerModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, DialogModule, ButtonModule, WarnComponent, TranslatePipe, ErrorIconComponent, DatePickerModule],
   templateUrl: './product-edit.component.html',
   styleUrl: './product-edit.component.scss'
 })

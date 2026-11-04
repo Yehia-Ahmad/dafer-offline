@@ -4,9 +4,13 @@ import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } 
 import { TranslatePipe } from '@ngx-translate/core';
 import { DialogModule } from 'primeng/dialog';
 import { Router } from '@angular/router';
-import { ThemeService } from '../../../shared/services/theme.service';
-import { ErrorIconComponent } from '../../../assets/error/error-icon.component';
-import { WarnComponent } from '../../../assets/warn/warn.component';
+import {
+  NotaButtonDirective,
+  NotaDialogShellComponent,
+  NotaFormFieldComponent,
+  NotaNumberPipe,
+  NotaPageHeaderComponent
+} from '../../../shared/ui';
 import { Customer, CustomerQueryParams, CustomersService } from '../../services/customers.service';
 import { LanguageService } from '../../../shared/services/translation.service';
 
@@ -20,11 +24,17 @@ interface CustomerDeleteConfirmation {
 @Component({
   selector: 'app-customers',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, DialogModule, TranslatePipe, ErrorIconComponent, WarnComponent],
-  templateUrl: './customers.component.html'
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, DialogModule, TranslatePipe,
+    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaNumberPipe, NotaPageHeaderComponent],
+  templateUrl: './customers.component.html',
+  styleUrl: './customers.component.scss'
 })
 export class CustomersComponent implements OnInit {
-  isDarkMode$;
+  /** Stage 10: add/edit lives in a dialog (AddCustomer.dc.html); save errors such as a duplicate phone show inside it. */
+  formDialogVisible = false;
+  formError = '';
+  /** Frontend-only filter pill on the loaded list. */
+  listFilter: 'all' | 'indebted' = 'all';
   customerForm: FormGroup;
   customers: Customer[] = [];
   searchTerm = '';
@@ -41,14 +51,12 @@ export class CustomersComponent implements OnInit {
   isLoadingCustomer = false;
 
   constructor(
-    private _themeService: ThemeService,
     private _formBuilder: FormBuilder,
     private _customersService: CustomersService,
     private _languageService: LanguageService,
     private _router: Router,
     private _cdr: ChangeDetectorRef
   ) {
-    this.isDarkMode$ = this._themeService.isDarkMode$;
     this.customerForm = this._formBuilder.group({
       name: [null, Validators.required],
       phone: [null, Validators.required]
@@ -65,6 +73,25 @@ export class CustomersComponent implements OnInit {
 
   get isFormBusy(): boolean {
     return this.isSubmitting || this.isLoadingCustomer;
+  }
+
+  get indebtedCount(): number {
+    return this.customers.filter((customer) => customer.isIndebted).length;
+  }
+
+  get visibleCustomers(): Customer[] {
+    return this.listFilter === 'indebted' ? this.customers.filter((customer) => customer.isIndebted) : this.customers;
+  }
+
+  openCreateDialog(): void {
+    if (this.isFormBusy || this.isDeleting) return;
+    this.resetForm();
+    this.formDialogVisible = true;
+  }
+
+  closeFormDialog(): void {
+    if (this.isSubmitting) return;
+    this.resetForm();
   }
 
   loadCustomers(params?: CustomerQueryParams): void {
@@ -98,6 +125,7 @@ export class CustomersComponent implements OnInit {
     }
 
     this.isSubmitting = true;
+    this.formError = '';
     const payload = this.customerForm.getRawValue() as Pick<Customer, 'name' | 'phone'>;
     const request$ = this.selectedCustomerId
       ? this._customersService.updateCustomer(this.selectedCustomerId, payload)
@@ -122,6 +150,8 @@ export class CustomersComponent implements OnInit {
     }
 
     this.isLoadingCustomer = true;
+    this.formError = '';
+    this.formDialogVisible = true;
     this._customersService.getCustomerById(customer._id).subscribe({
       next: (response: any) => {
         const customerDetails = this.extractCustomer(response) ?? customer;
@@ -219,6 +249,8 @@ export class CustomersComponent implements OnInit {
 
   resetForm(): void {
     this.selectedCustomerId = null;
+    this.formDialogVisible = false;
+    this.formError = '';
     this.customerForm.reset();
     this._cdr.markForCheck();
   }
@@ -320,6 +352,11 @@ export class CustomersComponent implements OnInit {
 
   private showError(message: string): void {
     this.errorMessage = message;
+    // While the add/edit dialog is open the message shows inside it; otherwise in the error dialog (as before).
+    if (this.formDialogVisible) {
+      this.formError = message;
+      return;
+    }
     this.errorVisible = true;
   }
 }

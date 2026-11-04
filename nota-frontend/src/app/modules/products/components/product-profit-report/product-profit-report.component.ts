@@ -85,14 +85,6 @@ export class ProductProfitReportComponent implements OnInit {
     this.loadProfitReport();
   }
 
-  backToProducts(): void {
-    if (this.isBrowser) {
-      localStorage.setItem(HOME_VIEW_STORAGE_KEY, 'products');
-    }
-
-    this.router.navigate(['/home']);
-  }
-
   applyFilters(): void {
     this.loadProfitReport();
   }

@@ -1,7 +1,7 @@
 <!-- New credit invoice (docs/design/screens/NewCreditSale.dc.html). Stage 9: layout only; payload and validation unchanged. -->
 <div class="cs">
   <nota-page-header [title]="'creditSalePage.form.title' | translate" [subtitle]="'creditSalePage.subtitle' | translate"
-    backLink="/home" [backLabel]="'nav.back' | translate" />
+    backLink="/credit-sales" [backLabel]="'nav.items.credit' | translate" />
 
   <form [formGroup]="creditSaleForm" class="cs__form" novalidate>
     <!-- Customer -->
@@ -143,6 +143,15 @@
           <p-inputNumber inputId="csDownPayment" formControlName="downPayment" [min]="0" [mode]="'decimal'" [useGrouping]="false"
             styleClass="cs__control" inputStyleClass="cs__num-input" />
         </nota-form-field>
+        <div class="cs__fields">
+          <nota-form-field [label]="'creditSalePage.form.dueDate' | translate" forId="csDueDate" [hint]="'creditSalePage.form.optional' | translate">
+            <p-datepicker formControlName="dueDate" [showIcon]="true" [iconDisplay]="'input'" inputId="csDueDate" appendTo="body"
+              [showClear]="true" styleClass="cs__control" />
+          </nota-form-field>
+          <nota-form-field [label]="'creditSalePage.form.notes' | translate" forId="csNotes" [hint]="'creditSalePage.form.optional' | translate">
+            <input id="csNotes" type="text" class="nota-input" formControlName="notes" maxlength="1000" />
+          </nota-form-field>
+        </div>
         <dl class="cs__rows">
           <div class="cs__remaining"><dt>{{ 'creditSalePage.fields.financedAmount' | translate }}</dt><dd class="nota-num">{{ financedAmount | notaMoney }}</dd></div>
           <div><dt>{{ 'creditSalePage.fields.productsCount' | translate }}</dt><dd class="nota-num">{{ productsCount | notaNumber }}</dd></div>
@@ -181,6 +190,12 @@
       <div><dt>{{ 'creditSalePage.fields.totalReceivable' | translate }}</dt><dd class="nota-num">{{ totalReceivable | notaMoney }}</dd></div>
       <div><dt>{{ 'creditSalePage.fields.downPayment' | translate }}</dt><dd class="nota-num">{{ creditSaleForm.get('downPayment')?.value || 0 | notaMoney }}</dd></div>
       <div class="cs__remaining"><dt>{{ 'creditSalePage.fields.financedAmount' | translate }}</dt><dd class="nota-num">{{ financedAmount | notaMoney }}</dd></div>
+      @if (creditSaleForm.get('dueDate')?.value) {
+        <div><dt>{{ 'creditSalePage.form.dueDate' | translate }}</dt><dd>{{ formatDisplayDate(creditSaleForm.get('dueDate')?.value) }}</dd></div>
+      }
+      @if (creditSaleForm.get('notes')?.value?.trim()) {
+        <div><dt>{{ 'creditSalePage.form.notes' | translate }}</dt><dd>{{ creditSaleForm.get('notes')?.value }}</dd></div>
+      }
     </dl>
     <ng-container notaDialogFooter>
       <button type="button" notaButton (click)="closeReviewDialog()">{{ 'creditSalePage.dialog.close' | translate }}</button>

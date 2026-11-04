@@ -158,4 +158,40 @@ describe('CreditSalesComponent payloads (Stage 9 safety)', () => {
     expect(component.saveError).toBe('سعر البيع لا يمكن أن يكون أقل من سعر الشراء');
     expect(component.errorDialogVisible).toBeTrue();
   });
+  // ---------- Stage 10 (after-only): optional due date + note, retailPrice fallback ----------
+
+  it('Stage 10: due date and note are appended only when filled', () => {
+    pickCustomer();
+    fillItems();
+    component.creditSaleForm.patchValue({ dueDate: new Date(2026, 11, 3), notes: '  موقع عمارة الجلاء ' });
+    component.saveCreditSale();
+    const req = expectCreditPost();
+    expect(JSON.stringify(req.request.body)).toBe(JSON.stringify({
+      sellingDate: '2026-11-04', discountAmount: 40, discountPercentage: 1.92, shippingFees: 0,
+      initialPaidAmount: undefined, items, customerId: 'cu1', dueDate: '2026-12-03', notes: 'موقع عمارة الجلاء',
+    }));
+    req.flush({});
+  });
+
+  it('Stage 10: a blank note and no due date leave the body as before', () => {
+    pickCustomer();
+    fillItems();
+    component.creditSaleForm.patchValue({ dueDate: null, notes: '   ' });
+    component.saveCreditSale();
+    const req = expectCreditPost();
+    expect('dueDate' in req.request.body).toBeFalse();
+    expect('notes' in req.request.body).toBeFalse();
+    req.flush({});
+  });
+
+  it('Stage 10: a product without a retail price falls back to the wholesale price', () => {
+    pickCustomer();
+    searchAndPick(0, 'FL', product('p2', 'كشاف خارجي ٥٠ وات', 'FL-50', 200, null));
+    expect(component.lineItemControls[0].get('price')!.value).toBe(200);
+    component.creditSaleForm.patchValue({ sellingDate: new Date(2026, 10, 4) });
+    component.saveCreditSale();
+    const req = expectCreditPost();
+    expect(req.request.body.items).toEqual([{ productId: 'p2', quantity: 1, price: 200 }]);
+    req.flush({});
+  });
 });

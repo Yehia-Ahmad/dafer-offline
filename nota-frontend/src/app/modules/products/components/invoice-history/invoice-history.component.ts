@@ -1,20 +1,22 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { Router } from '@angular/router';
-import { ThemeService } from '../../../shared/services/theme.service';
 import { HOME_VIEW_STORAGE_KEY } from '../../../layout/constants/home-view.constants';
 import { ProductsService } from '../../services/products.service';
-import { TableModule } from 'primeng/table';
 import { FormsModule } from '@angular/forms';
-import { InputTextModule } from 'primeng/inputtext';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { DatePickerModule } from 'primeng/datepicker';
-import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { CateoryService } from '../../../category/services/cateory.service';
-import { WarnComponent } from '../../../assets/warn/warn.component';
+import {
+  NotaButtonDirective,
+  NotaDialogShellComponent,
+  NotaFormFieldComponent,
+  NotaMoneyPipe,
+  NotaNumberPipe,
+  NotaPageHeaderComponent
+} from '../../../shared/ui';
 import { ReturnsService } from '../../../returns/services/returns.service';
 import {
   buildFallbackInvoiceNumber,
@@ -65,20 +67,23 @@ const DEFAULT_SELLINGS_PAGINATION: SellingsPagination = {
     CommonModule,
     FormsModule,
     TranslatePipe,
-    TableModule,
-    InputTextModule,
     InputNumberModule,
     DatePickerModule,
-    ButtonModule,
     DialogModule,
     SelectModule,
-    WarnComponent
-],
+    NotaButtonDirective,
+    NotaDialogShellComponent,
+    NotaFormFieldComponent,
+    NotaMoneyPipe,
+    NotaNumberPipe,
+    NotaPageHeaderComponent
+  ],
   templateUrl: './invoice-history.component.html',
   styleUrl: './invoice-history.component.scss'
 })
 export class InvoiceHistoryComponent implements OnInit {
-  isDarkMode$;
+  /** Stage 10: the invoice shown in the detail panel (frontend only). */
+  selectedSelling: InvoiceHistoryRow | null = null;
   private isBrowser: boolean;
   isLoading = false;
   isLoadingMore = false;
@@ -110,8 +115,6 @@ export class InvoiceHistoryComponent implements OnInit {
   private readonly _shopProfileService = inject(ShopProfileService);
 
   constructor(
-    private _themeService: ThemeService,
-    private _router: Router,
     private _productsService: ProductsService,
     private _returnsService: ReturnsService,
     private _categoryService: CateoryService,
@@ -119,7 +122,6 @@ export class InvoiceHistoryComponent implements OnInit {
     private _cdr: ChangeDetectorRef,
     @Inject(PLATFORM_ID) platformId: Object
   ) {
-    this.isDarkMode$ = this._themeService.isDarkMode$;
     this.isBrowser = isPlatformBrowser(platformId);
   }
 
@@ -130,13 +132,6 @@ export class InvoiceHistoryComponent implements OnInit {
     this.loadSellings();
     // Cached for printing; without it the invoice prints with a neutral header.
     this._shopProfileService.refresh();
-  }
-
-  backToProducts(): void {
-    if (this.isBrowser) {
-      localStorage.setItem(HOME_VIEW_STORAGE_KEY, 'products');
-    }
-    this._router.navigate(['/home']);
   }
 
   applyFilters(): void {
@@ -165,25 +160,35 @@ export class InvoiceHistoryComponent implements OnInit {
     this.loadProductsByCategory(this.filterCategoryId);
   }
 
-  onTableViewportScroll(event: Event): void {
-    const target = event.target as HTMLElement | null;
-    if (!target || this.isLoading || this.isLoadingMore || !this.pagination.hasNextPage) {
+  /** Stage 10 pager (replaces infinite scroll): same GET sellings request with the requested page. */
+  goToPage(page: number): void {
+    if (this.isLoading || page < 1 || page > Math.max(1, this.pagination.totalPages) || page === this.pagination.page) {
       return;
     }
 
-    const scrollThreshold = 80;
-    const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
-    if (distanceFromBottom <= scrollThreshold) {
-      this.loadNextSellingsPage();
-    }
+    this.loadSellings(page, false);
   }
 
-  private loadNextSellingsPage(): void {
-    if (!this.pagination.hasNextPage || this.isLoadingMore || this.isLoading) {
-      return;
-    }
+  selectSelling(selling: InvoiceHistoryRow): void {
+    this.selectedSelling = selling;
+  }
 
-    this.loadSellings(this.pagination.page + 1, true);
+  /** First and last row number of the shown page (for "x–y of N"). */
+  get pageRange(): { from: number; to: number } {
+    if (!this.sellings.length) return { from: 0, to: 0 };
+    const from = (this.pagination.page - 1) * this.pagination.limit + 1;
+    return { from, to: from + this.sellings.length - 1 };
+  }
+
+  /** Total of the invoices on the shown page (labelled as such in the footer). */
+  get pageTotal(): number {
+    return this.sellings.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
+  }
+
+  statusPill(selling: InvoiceHistoryRow): string {
+    return selling.refundStatus === 'partial' || selling.refundStatus === 'full'
+      ? 'nota-pill nota-pill--info'
+      : 'nota-pill nota-pill--ok';
   }
 
   private loadSellings(page = 1, append = false): void {
@@ -201,6 +206,7 @@ export class InvoiceHistoryComponent implements OnInit {
         const nextSellings = this.extractSellings(response);
         this.sellings = append ? this.mergeSellings(this.sellings, nextSellings) : nextSellings;
         this.pagination = this.extractPagination(response, page);
+        this.selectedSelling = this.sellings.find((item) => item.id === this.selectedSelling?.id) ?? this.sellings[0] ?? null;
         this.isLoading = false;
         this.isLoadingMore = false;
         this._cdr.detectChanges();
@@ -209,6 +215,7 @@ export class InvoiceHistoryComponent implements OnInit {
         const message = err?.error?.message || 'Failed to load sellings.';
         if (!append) {
           this.sellings = [];
+          this.selectedSelling = null;
           this.pagination = { ...DEFAULT_SELLINGS_PAGINATION, limit: this.pagination.limit };
           this.loadError = message;
         } else {
@@ -392,7 +399,18 @@ export class InvoiceHistoryComponent implements OnInit {
       discountPercentage: this.resolveDiscountPercentage(item, subtotal),
       shippingFees: this.toNumber(item.shippingFees),
       totalPrice: this.resolveInvoiceTotal(item, items),
-      items
+      items,
+      refundStatus: String(item.refundStatus || 'none'),
+      refundedAmount: this.toNumber(item.refundedAmount),
+      refunds: (Array.isArray(item.refunds) ? item.refunds : []).map((refund: any, index: number) => ({
+        id: String(refund?._id || index),
+        refundDate: refund?.refundDate ? String(refund.refundDate) : null,
+        totalAmount: this.toNumber(refund?.totalAmount),
+        items: (Array.isArray(refund?.items) ? refund.items : []).map((refundItem: any) => ({
+          productName: String(refundItem?.productName || ''),
+          quantity: this.toNumber(refundItem?.quantity)
+        }))
+      }))
     };
   }
 
@@ -602,6 +620,7 @@ export class InvoiceHistoryComponent implements OnInit {
     this._productsService.deleteSelling(selling.id).subscribe({
       next: () => {
         this.sellings = this.sellings.filter((item) => item.id !== selling.id);
+        if (this.selectedSelling?.id === selling.id) this.selectedSelling = this.sellings[0] ?? null;
         this.deletingSellingId = '';
         this.deleteDialogVisible = false;
         this.selectedSellingToDelete = null;

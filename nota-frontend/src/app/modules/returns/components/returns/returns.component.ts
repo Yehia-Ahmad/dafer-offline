@@ -7,25 +7,29 @@ import {
   Inject,
   Injectable,
   OnInit,
-  PLATFORM_ID,
-  TemplateRef,
-  ViewChild
+  PLATFORM_ID
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { FormsModule } from '@angular/forms';
 import { MatPaginatorIntl, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatTableModule } from '@angular/material/table';
-import { ButtonModule } from 'primeng/button';
 import { DatePickerModule } from 'primeng/datepicker';
-import { InputTextModule } from 'primeng/inputtext';
+import { Dialog } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
-import { finalize, forkJoin, takeUntil } from 'rxjs';
+import { finalize, forkJoin } from 'rxjs';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { ThemeService } from '../../../shared/services/theme.service';
+import { ProductsService } from '../../../products/services/products.service';
+import { CreditSalesService } from '../../../products/services/credit-sales.service';
+import { toCreditSaleView } from '../../../customer/utils/credit-sale-view.util';
+import {
+  NotaButtonDirective,
+  NotaDialogShellComponent,
+  NotaFormFieldComponent,
+  NotaMoneyPipe,
+  NotaNumberPipe,
+  NotaPageHeaderComponent
+} from '../../../shared/ui';
 import {
   ApiDataResponse,
   ReturnLog,
@@ -52,6 +56,31 @@ const EMPTY_SUMMARY: ReturnsSummary = {
   totalCreditReturns: 0,
   totalReturnedAmount: 0,
   totalReturnedItems: 0
+};
+
+/** New-return wizard (Stage 10): one invoice, cash or credit, as the wizard shows it. */
+export type WizardInvoice = {
+  id: string;
+  type: ReturnType;
+  label: string;
+  customerName: string;
+  customerPhone: string;
+  date: string | null;
+  total: number;
+  remaining: number | null;
+  items: Array<{ productId: string; productName: string; productCode: string; quantity: number; unitPrice: number }>;
+  returnedByProduct: Record<string, number>;
+};
+
+export type WizardLine = {
+  productId: string;
+  productName: string;
+  productCode: string;
+  sold: number;
+  returnedBefore: number;
+  quantity: number;
+  unitPrice: number;
+  reason: string;
 };
 
 const DEFAULT_PAGINATION: ReturnsPagination = {
@@ -106,16 +135,18 @@ class ReturnsPaginatorIntl extends MatPaginatorIntl {
     CommonModule,
     TranslatePipe,
     ReactiveFormsModule,
-    ButtonModule,
+    FormsModule,
     DatePickerModule,
-    InputTextModule,
+    Dialog,
     SelectModule,
-    MatButtonModule,
-    MatDialogModule,
     MatPaginatorModule,
-    MatProgressSpinnerModule,
     MatSnackBarModule,
-    MatTableModule
+    NotaButtonDirective,
+    NotaDialogShellComponent,
+    NotaFormFieldComponent,
+    NotaMoneyPipe,
+    NotaNumberPipe,
+    NotaPageHeaderComponent
   ],
   templateUrl: './returns.component.html',
   styleUrl: './returns.component.scss',
@@ -123,21 +154,26 @@ class ReturnsPaginatorIntl extends MatPaginatorIntl {
   providers: [{ provide: MatPaginatorIntl, useClass: ReturnsPaginatorIntl }]
 })
 export class ReturnsComponent implements OnInit {
-  @ViewChild('detailsDialog') private detailsDialog!: TemplateRef<unknown>;
-
-  readonly displayedColumns = [
-    'returnDate',
-    'returnType',
-    'invoiceNumber',
-    'customerName',
-    'customerPhone',
-    'itemsCount',
-    'finalReturnedAmount',
-    'actions'
-  ];
   readonly pageSizeOptions = [10, 25, 50, 100];
-  readonly isDarkMode$;
   readonly filtersForm;
+  /** Details dialog (p-dialog + dialog shell since Stage 10; same GET returns/:id). */
+  detailsVisible = false;
+
+  // ---------- New-return wizard (Stage 10) ----------
+  view: 'log' | 'wizard' = 'log';
+  wizardStep: 1 | 2 | 3 = 1;
+  wizardType: ReturnType = 'cash';
+  wizardQuery = '';
+  wizardResults: WizardInvoice[] = [];
+  wizardSearching = false;
+  wizardSearched = false;
+  wizardError = '';
+  wizardInvoice: WizardInvoice | null = null;
+  wizardLines: WizardLine[] = [];
+  wizardDate: Date = new Date();
+  wizardNote = '';
+  wizardSaving = false;
+  wizardSaveError = '';
 
   get returnTypeOptions(): Array<{ label: string; value: ReturnType | '' }> {
     return [
@@ -163,9 +199,9 @@ export class ReturnsComponent implements OnInit {
   constructor(
     private readonly fb: FormBuilder,
     private readonly returnsService: ReturnsService,
-    private readonly dialog: MatDialog,
+    private readonly productsService: ProductsService,
+    private readonly creditSalesService: CreditSalesService,
     private readonly snackBar: MatSnackBar,
-    private readonly themeService: ThemeService,
     private readonly destroyRef: DestroyRef,
     private readonly cdr: ChangeDetectorRef,
     private readonly translate: TranslateService,
@@ -173,7 +209,6 @@ export class ReturnsComponent implements OnInit {
     @Inject(DOCUMENT) private readonly document: Document
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
-    this.isDarkMode$ = this.themeService.isDarkMode$;
     this.filtersForm = this.fb.group({
       returnType: this.fb.control<ReturnType | ''>(''),
       customerName: this.fb.nonNullable.control(''),
@@ -223,23 +258,18 @@ export class ReturnsComponent implements OnInit {
     this.selectedReturn = item;
     this.detailsErrorMessage = '';
     this.isDetailsLoading = true;
-    const dialogRef = this.dialog.open(this.detailsDialog, {
-      width: 'min(1000px, 94vw)',
-      maxWidth: '94vw',
-      maxHeight: '90vh',
-      autoFocus: false,
-      panelClass: 'returns-details-dialog'
-    });
+    this.detailsVisible = true;
+    const requestedId = item._id;
 
     this.returnsService.getReturnById(item._id).pipe(
       takeUntilDestroyed(this.destroyRef),
-      takeUntil(dialogRef.afterClosed()),
       finalize(() => {
         this.isDetailsLoading = false;
         this.cdr.markForCheck();
       })
     ).subscribe({
       next: (response) => {
+        if (!this.detailsVisible || this.selectedReturn?._id !== requestedId) return;
         this.selectedReturn = this.unwrapData(response);
         this.cdr.markForCheck();
       },
@@ -252,15 +282,13 @@ export class ReturnsComponent implements OnInit {
       }
     });
 
-    dialogRef.afterClosed().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
-      this.selectedReturn = null;
-      this.detailsErrorMessage = '';
-      this.cdr.markForCheck();
-    });
   }
 
   closeDetails(): void {
-    this.dialog.closeAll();
+    this.detailsVisible = false;
+    this.selectedReturn = null;
+    this.detailsErrorMessage = '';
+    this.cdr.markForCheck();
   }
 
   async exportToExcel(): Promise<void> {
@@ -322,14 +350,6 @@ export class ReturnsComponent implements OnInit {
     }
   }
 
-  formatCurrency(value: number | null | undefined): string {
-    return new Intl.NumberFormat(this.translate.currentLang === 'ar' ? 'ar-EG' : 'en-US', {
-      style: 'currency',
-      currency: 'EGP',
-      minimumFractionDigits: 2
-    }).format(Number(value ?? 0));
-  }
-
   formatDisplayDate(value: string | null | undefined): string {
     if (!value) return '—';
     const date = new Date(value);
@@ -341,16 +361,235 @@ export class ReturnsComponent implements OnInit {
     }).format(date);
   }
 
-  get direction(): 'rtl' | 'ltr' {
-    return this.translate.currentLang === 'ar' ? 'rtl' : 'ltr';
-  }
-
   formatType(value: ReturnType): string {
     return this.translate.instant(`returnsPage.types.${value}`);
   }
 
   trackByReturnId(_: number, item: ReturnLog): string {
     return item._id;
+  }
+
+  get pageRangeFrom(): number {
+    return this.returns.length ? (this.pagination.page - 1) * this.pagination.limit + 1 : 0;
+  }
+
+  // ---------- New-return wizard ----------
+
+  openWizard(): void {
+    this.view = 'wizard';
+    this.resetWizard();
+  }
+
+  closeWizard(): void {
+    if (this.wizardSaving) return;
+    this.view = 'log';
+    this.resetWizard();
+  }
+
+  setWizardType(type: ReturnType): void {
+    if (this.wizardType === type) return;
+    this.wizardType = type;
+    this.wizardResults = [];
+    this.wizardSearched = false;
+    this.wizardError = '';
+  }
+
+  /** Same list endpoints the other screens use: GET sellings (cash) / GET credit-sales (credit). Digits → phone. */
+  searchWizardInvoices(): void {
+    const query = this.wizardQuery.trim();
+    if (!query || this.wizardSearching) return;
+    const byPhone = /^[\d\s+()-]+$/.test(query);
+    const filter = byPhone ? { customerPhone: query } : { customerName: query };
+    this.wizardSearching = true;
+    this.wizardError = '';
+    const type = this.wizardType;
+    const request$ = type === 'cash'
+      ? this.productsService.getSellings({ ...filter, page: 1, limit: 10 })
+      : this.creditSalesService.getCreditSales({ ...filter, page: 1, limit: 10 });
+
+    request$.pipe(
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => {
+        this.wizardSearching = false;
+        this.wizardSearched = true;
+        this.cdr.markForCheck();
+      })
+    ).subscribe({
+      next: (response: any) => {
+        if (type !== this.wizardType) return;
+        const list: any[] = Array.isArray(response) ? response : Array.isArray(response?.data) ? response.data : [];
+        this.wizardResults = list
+          .map((item) => (type === 'cash' ? this.toCashWizardInvoice(item) : this.toCreditWizardInvoice(item)))
+          .filter((item): item is WizardInvoice => !!item && item.items.length > 0);
+      },
+      error: (error) => {
+        this.wizardResults = [];
+        this.wizardError = this.getErrorMessage(error, this.translate.instant('returnsPage.s10.wizard.searchFailed'));
+      }
+    });
+  }
+
+  pickWizardInvoice(invoice: WizardInvoice): void {
+    this.wizardInvoice = invoice;
+    this.wizardLines = invoice.items
+      .filter((item) => item.productId && item.quantity > 0)
+      .map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        productCode: item.productCode,
+        sold: item.quantity,
+        returnedBefore: invoice.returnedByProduct[item.productId] ?? 0,
+        quantity: 0,
+        unitPrice: item.unitPrice,
+        reason: ''
+      }));
+    this.wizardSaveError = '';
+    this.wizardStep = 2;
+  }
+
+  stepWizardQuantity(line: WizardLine, delta: number): void {
+    line.quantity = Math.min(line.sold, Math.max(0, Math.floor(Number(line.quantity) || 0) + delta));
+  }
+
+  wizardReturnAll(): void {
+    this.wizardLines.forEach((line) => (line.quantity = line.sold));
+  }
+
+  wizardClear(): void {
+    this.wizardLines.forEach((line) => (line.quantity = 0));
+  }
+
+  get wizardSelectedLines(): WizardLine[] {
+    return this.wizardLines.filter((line) => this.wizardQuantityOf(line) > 0);
+  }
+
+  /** Σ quantity × unit price, before any invoice discount (the backend computes the final amount). */
+  get wizardEstimatedAmount(): number {
+    return this.wizardSelectedLines.reduce((sum, line) => sum + this.wizardQuantityOf(line) * line.unitPrice, 0);
+  }
+
+  goToWizardStep(step: 1 | 2 | 3): void {
+    if (step === 3 && !this.wizardSelectedLines.length) return;
+    if (step >= 2 && !this.wizardInvoice) return;
+    this.wizardStep = step;
+  }
+
+  /**
+   * POST /returns with the body each existing screen sends today: cash = the invoice-history dialog,
+   * credit = the customer page refund dialog (plus returnReason per item only when filled; the API accepts it).
+   */
+  confirmWizardReturn(): void {
+    const invoice = this.wizardInvoice;
+    const lines = this.wizardSelectedLines;
+    if (!invoice || !lines.length || this.wizardSaving) return;
+
+    const note = this.wizardNote.trim();
+    const items = lines.map((line) => ({
+      productId: line.productId,
+      quantity: this.wizardQuantityOf(line),
+      ...(line.reason.trim() ? { returnReason: line.reason.trim() } : {})
+    }));
+    const payload = invoice.type === 'cash'
+      ? {
+          returnType: 'cash' as const,
+          invoiceId: invoice.id,
+          returnDate: this.toIsoDate(this.wizardDate),
+          ...(note ? { note } : {}),
+          items
+        }
+      : {
+          returnType: 'credit' as const,
+          invoiceId: invoice.id,
+          refundDate: this.formatDate(this.wizardDate),
+          note: note || undefined,
+          items
+        };
+    if (payload.returnType === 'cash' && !payload.returnDate) return;
+
+    this.wizardSaving = true;
+    this.wizardSaveError = '';
+    this.returnsService.createReturn(payload).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.wizardSaving = false;
+        this.snackBar.open(this.translate.instant('returnsPage.s10.wizard.saved'), undefined, { duration: 3000 });
+        this.view = 'log';
+        this.resetWizard();
+        this.loadReturns();
+      },
+      error: (error) => {
+        this.wizardSaving = false;
+        this.wizardSaveError = this.getErrorMessage(error, this.translate.instant('returnsPage.s10.wizard.saveFailed'));
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private wizardQuantityOf(line: WizardLine): number {
+    return Math.min(line.sold, Math.max(0, Math.floor(Number(line.quantity) || 0)));
+  }
+
+  private resetWizard(): void {
+    this.wizardStep = 1;
+    this.wizardQuery = '';
+    this.wizardResults = [];
+    this.wizardSearched = false;
+    this.wizardError = '';
+    this.wizardInvoice = null;
+    this.wizardLines = [];
+    this.wizardDate = new Date();
+    this.wizardNote = '';
+    this.wizardSaveError = '';
+  }
+
+  private toCashWizardInvoice(source: any): WizardInvoice | null {
+    const id = String(source?.invoiceId || source?._id || source?.id || '');
+    if (!id) return null;
+    const items = (Array.isArray(source?.items) ? source.items : []).map((item: any) => ({
+      productId: String(item?.productId || ''),
+      productName: String(item?.productName || ''),
+      productCode: String(item?.productCode || ''),
+      quantity: Math.max(0, Math.floor(Number(item?.productQuantity ?? item?.productQuentity ?? item?.quantity) || 0)),
+      unitPrice: Number(item?.productPricePerEach ?? item?.price) || 0
+    }));
+    return {
+      id, type: 'cash', label: String(source?.invoiceNumber || id),
+      customerName: String(source?.customerName || ''), customerPhone: String(source?.customerPhone || ''),
+      date: source?.sellingDate ? String(source.sellingDate) : null, total: Number(source?.totalPrice) || 0, remaining: null,
+      items, returnedByProduct: this.sumReturned(source?.refunds)
+    };
+  }
+
+  private toCreditWizardInvoice(source: any): WizardInvoice | null {
+    const view = toCreditSaleView(source);
+    if (!view) return null;
+    return {
+      id: view.id, type: 'credit', label: view.invoiceId,
+      customerName: view.customerName, customerPhone: view.customerPhone, date: view.sellingDate,
+      total: view.totalPrice, remaining: view.remainingAmount,
+      items: view.items.map((item) => ({
+        productId: item.productId, productName: item.productName, productCode: item.productCode, quantity: item.quantity, unitPrice: item.pricePerEach
+      })),
+      returnedByProduct: this.sumReturned(source?.refunds)
+    };
+  }
+
+  private sumReturned(refunds: any): Record<string, number> {
+    const totals: Record<string, number> = {};
+    (Array.isArray(refunds) ? refunds : []).forEach((refund: any) =>
+      (Array.isArray(refund?.items) ? refund.items : []).forEach((item: any) => {
+        const productId = String(item?.productId || '');
+        if (productId) totals[productId] = (totals[productId] ?? 0) + (Number(item?.quantity) || 0);
+      })
+    );
+    return totals;
+  }
+
+  /** Same date format the invoice-history cash return sends (ISO date part). */
+  private toIsoDate(value: Date | null): string | undefined {
+    if (!value) return undefined;
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return undefined;
+    return date.toISOString().split('T')[0];
   }
 
   private loadReturns(): void {

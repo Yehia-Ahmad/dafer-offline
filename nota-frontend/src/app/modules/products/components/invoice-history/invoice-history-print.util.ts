@@ -36,6 +36,10 @@ export type InvoiceHistoryRow = {
   shippingFees: number | null;
   totalPrice: number | null;
   items: InvoiceHistoryItem[];
+  /** Display only (Stage 10 detail panel); not used by the print. */
+  refundStatus?: 'none' | 'partial' | 'full' | string;
+  refundedAmount?: number | null;
+  refunds?: Array<{ id: string; refundDate: string | null; totalAmount: number | null; items: Array<{ productName: string; quantity: number | null }> }>;
 };
 
 export type InvoicePrintLanguage = 'ar' | 'en';

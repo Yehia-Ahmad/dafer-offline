@@ -1,148 +1,42 @@
-:host {
-  display: block;
-  width: 100%;
-}
-
-.invoice-history-shell {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.invoice-history-table-scroll {
-  max-height: 450px;
-  overflow: auto;
-  width: 100%;
-}
-
-.invoice-history-load-more {
-  padding: 1rem 0 0;
-  text-align: center;
-  font-family: var(--font-sans);
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.invoice-items-column {
-  min-width: 25rem;
-}
-
-.invoice-items-stack {
-  display: flex;
-  min-width: 22rem;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.invoice-item-card {
-  border-radius: 16px;
-  border: 1px solid transparent;
-  padding: 0.95rem 1rem;
-}
-
-.invoice-item-card--dark {
-  border-color: rgba(243, 222, 198, 0.08);
-  background: linear-gradient(180deg, #43434a 0%, #383841 100%);
-  color: #f3dec6;
-}
-
-.invoice-item-card--light {
-  border-color: #d4d8df;
-  background: linear-gradient(180deg, #ffffff 0%, #f4f6f9 100%);
-  color: #243245;
-}
-
-.invoice-item-card__top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.invoice-item-card__identity {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.invoice-item-card__name {
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.invoice-item-card__category {
-  font-size: 0.76rem;
-  opacity: 0.68;
-}
-
-.invoice-item-card__code {
-  flex-shrink: 0;
-  border-radius: 999px;
-  background: #f4d80a;
-  color: #232327;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.invoice-item-card__metrics {
-  margin-top: 0.85rem;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.6rem;
-}
-
-.invoice-item-card__metric {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  min-width: 0;
-}
-
-.invoice-item-card__metric-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  opacity: 0.62;
-  text-transform: uppercase;
-}
-
-.invoice-item-card__metric-value {
-  font-size: 0.88rem;
-  font-weight: 700;
-}
-
-.invoice-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0.5rem;
-  min-width: 12.5rem;
-}
-
-:host ::ng-deep .invoice-history-table .p-datatable-tbody > tr > td {
-  vertical-align: top;
-  border-color: rgba(148, 163, 184, 0.24);
-}
-
-:host ::ng-deep .invoice-history-table .p-datatable-thead > tr > th {
-  white-space: nowrap;
-}
-
-@media (max-width: 767px) {
-  .invoice-items-column {
-    min-width: 20rem;
-  }
-
-  .invoice-items-stack {
-    min-width: 18rem;
-  }
-
-  .invoice-item-card__metrics {
-    grid-template-columns: 1fr;
-  }
-
-  .invoice-actions {
-    min-width: 10rem;
-  }
-}
+// Invoice history (Invoices.dc.html). Tokens only.
+:host { display: block; }
+.ih { display: flex; flex-direction: column; gap: var(--space-gap); container-type: inline-size; }
+.ih__filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+.ih__filter-actions { display: flex; gap: 8px; }
+.ih__layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--space-gap); align-items: start; }
+.ih__list { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ih__table { th, td { padding: 10px 8px; } th { white-space: normal; } }
+.ih__row { cursor: pointer;
+  &.is-selected td { background: var(--brand-soft); }
+  &:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; } }
+.ih__cust { display: block; font-weight: 500; }
+.ih__muted { font-size: 13px; color: var(--text-muted); }
+.ih__strong { font-weight: 700; }
+.ih__due { color: var(--danger); }
+.ih__empty { text-align: center; color: var(--text-muted); padding: 24px; }
+.ih__msg { margin: 0; font-size: 14px; font-weight: 500; color: var(--danger); }
+.ih__pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.ih__pager-btns { display: flex; align-items: center; gap: 8px; }
+.ih__detail { position: sticky; top: 0; display: flex; flex-direction: column; gap: 14px; }
+.ih__detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.ih__detail-title { margin: 0 0 4px; font-size: 20px; font-weight: 800; text-align: start; }
+.ih__detail-cust { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius-control); background: var(--surface-2); }
+.ih__lines { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column;
+  li { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  small { margin-inline-start: 6px; } }
+.ih__line-meta { display: block; margin-inline-start: 0 !important; }
+.ih__refund-line { color: var(--info-text); }
+.ih__totals { margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px;
+  div { display: flex; justify-content: space-between; gap: 8px; } dt { color: var(--text-muted); } dd { margin: 0; } }
+.ih__grand { padding-top: 8px; border-top: 1px dashed var(--border-strong);
+  dt { color: var(--text); font-weight: 700; } dd { font-size: 22px; font-weight: 800; color: var(--brand-strong-text); } }
+.ih__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ih__delete { grid-column: 1 / -1; }
+.ih__note { margin: 0; font-size: 12px; }
+.ih__form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.ih__items-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.ih__items-tools { display: flex; gap: 8px; }
+.ih__qty-cell { width: 130px; }
+:host ::ng-deep { .ih__control { width: 100%; } .ih__num-input { width: 100%; font-variant-numeric: tabular-nums; } }
+::ng-deep .p-dialog.nota-p-dialog.ih-wide { width: min(760px, calc(100vw - 32px)); max-width: 760px; }
+@container (max-width: 980px) { .ih__layout { grid-template-columns: minmax(0, 1fr); } .ih__detail { position: static; } }

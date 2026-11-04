@@ -12,6 +12,8 @@ export interface CreditSaleFilters {
   status?: CreditSaleStatus;
   sellingDate?: string;
   dueDate?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface CreditSaleItemPayload {

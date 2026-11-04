@@ -10,14 +10,6 @@
           'text-gray_dark': !(isDarkMode$ | async)
         }">{{ 'profitReportPage.subtitle' | translate }}</p>
       </div>
-
-      <button
-        type="button"
-        (click)="backToProducts()"
-        class="cursor-pointer rounded-[0.65rem] border border-transparent bg-[#f4d80a] px-4 py-2 font-roboto text-[0.95rem] font-bold text-gray_dark transition-opacity duration-200 hover:opacity-90"
-      >
-        {{ 'home.actions.back' | translate }}
-      </button>
     </div>
 
     <div class="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">

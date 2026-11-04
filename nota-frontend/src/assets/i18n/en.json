@@ -313,7 +313,52 @@
             "ok": "OK",
             "remove": "Remove",
             "changeProduct": "Change product",
-            "summary": "Invoice summary"
+            "summary": "Invoice summary",
+            "dueDate": "Due date",
+            "notes": "Note",
+            "optional": "Optional"
+        },
+        "list": {
+            "subtitle": "Invoices that still have money due, and the payments made on them.",
+            "new": "New credit invoice",
+            "kpiCount": "Invoices",
+            "kpiCountNote": "Matching the search and status",
+            "kpiRemaining": "Remaining",
+            "kpiOverdue": "Overdue",
+            "onThisPage": "On the shown page",
+            "searchPlaceholder": "Search by customer name or phone",
+            "statusLabel": "Status",
+            "filter": {
+                "all": "All",
+                "pending": "Due",
+                "partially_paid": "Partly paid",
+                "paid": "Paid",
+                "Reactionary": "Returned"
+            },
+            "number": "No.",
+            "customer": "Customer",
+            "date": "Date",
+            "total": "Total",
+            "paid": "Paid",
+            "remaining": "Remaining",
+            "due": "Due:",
+            "pay": "Payment",
+            "empty": "No credit invoices.",
+            "panelTitle": "Record a payment on an invoice",
+            "nothingDue": "Nothing is due on this invoice.",
+            "paymentSaved": "Payment saved.",
+            "customerPage": "Customer page (return / delete)",
+            "previousPayments": "Previous payments",
+            "pick": "Pick an invoice from the table.",
+            "loadFailed": "Could not load credit invoices.",
+            "status": {
+                "pending": "Due",
+                "partially_paid": "Partly paid",
+                "paid": "Paid",
+                "reactionary": "Returned",
+                "unknown": "Unknown",
+                "overdue": "Overdue"
+            }
         }
     },
     "invoiceHistoryPage": {
@@ -376,6 +421,29 @@
             "invoiceWindowBlocked": "Allow pop-ups to open and save the invoice.",
             "invoiceDownloadFailed": "Failed to open the invoice.",
             "returnFailed": "Failed to create the return."
+        },
+        "s10": {
+            "subtitle": "Cash sale invoices, with their returns.",
+            "filters": "Invoice filters",
+            "type": "Type",
+            "status": "Status",
+            "cash": "Cash",
+            "refund": {
+                "none": "Normal",
+                "partial": "Partly returned",
+                "full": "Fully returned"
+            },
+            "range": "Showing {{from}}–{{to}} of {{total}} invoices",
+            "pageTotal": "· page total",
+            "prev": "Previous",
+            "next": "Next",
+            "detail": "Invoice details",
+            "returned": "Returned",
+            "subtotal": "Subtotal",
+            "refundedAmount": "Returned amount",
+            "print": "Print",
+            "pick": "Pick an invoice from the table.",
+            "product": "Product"
         }
     },
     "profitReportPage": {
@@ -467,6 +535,19 @@
             "restoreCreditInvoicesTitle": "Restore Credit Invoices?",
             "restoreCreditInvoicesConfirm": "This customer only has fully paid credit invoices. Choose whether to restore the invoice products to inventory before deleting the customer data.",
             "relatedCreditInvoices": "Related credit invoices"
+        },
+        "s10": {
+            "allCustomers": "All customers",
+            "indebted": "Owe money",
+            "filter": "Filter",
+            "all": "All",
+            "balance": "Balance",
+            "since": "Customer since",
+            "owes": "Owes",
+            "settled": "Settled",
+            "phoneUnique": "Must not repeat another customer's phone",
+            "errorTitle": "Something went wrong",
+            "ok": "OK"
         }
     },
     "customerDetailsPage": {
@@ -578,6 +659,40 @@
             "paymentFailed": "Failed to record payment.",
             "refundFailed": "Failed to record refund.",
             "deleteInvoiceFailed": "Failed to delete credit invoice."
+        },
+        "s10": {
+            "back": "All customers",
+            "since": "Customer since",
+            "balanceDue": "Balance due",
+            "collect": "Collect payment",
+            "tabs": {
+                "statement": "Statement",
+                "invoices": "Invoices",
+                "payments": "Payments",
+                "returns": "Returns"
+            },
+            "statement": {
+                "legend": "Debit = owes · Credit = paid",
+                "note": "Built from credit invoices, their payments and returns; cash sales do not affect the balance.",
+                "date": "Date",
+                "description": "Description",
+                "document": "Document",
+                "debit": "Debit",
+                "credit": "Credit",
+                "balance": "Balance",
+                "total": "Total",
+                "invoice": "Credit invoice",
+                "afterReturns": "(net after returns)",
+                "payment": "Payment",
+                "refund": "Return",
+                "refundReleased": "Return — paid money released",
+                "empty": "No transactions."
+            },
+            "invoice": "Invoice",
+            "amount": "Amount",
+            "items": "Items",
+            "noPayments": "No payments.",
+            "noReturns": "No returns."
         }
     },
     "returnsPage": {
@@ -654,6 +769,37 @@
             "first": "First page",
             "last": "Last page",
             "range": "{{start}} – {{end}} of {{total}}"
+        },
+        "s10": {
+            "newReturn": "New return",
+            "wizard": {
+                "subtitle": "Pick the invoice, choose items and quantities, then confirm.",
+                "backToLog": "Back to the returns log",
+                "steps": "Return steps",
+                "step1": "Choose invoice",
+                "step2": "Items and quantities",
+                "step3": "Confirm and refund",
+                "searchPlaceholder": "Customer name or phone",
+                "noInvoices": "No invoices match this search.",
+                "remaining": "Remaining",
+                "changeInvoice": "Change invoice",
+                "sold": "Sold",
+                "returnedBefore": "Returned before",
+                "returnNow": "Return now",
+                "whereMoney": "Where does the money go?",
+                "outcomeCash": "Cash invoice: the returned amount is given back to the customer in cash.",
+                "outcomeCredit": "Credit invoice: the amount is deducted from what the customer owes; anything above that goes to their other open invoices or back in cash (decided automatically).",
+                "outcomeStock": "Returned quantities go back to stock automatically.",
+                "summary": "Return summary",
+                "estimate": "Return value (estimate)",
+                "estimateNote": "Before the invoice discount; the final amount is calculated on save.",
+                "next": "Next",
+                "confirm": "Confirm return",
+                "back": "Back to items",
+                "saved": "Return recorded.",
+                "saveFailed": "Failed to record the return.",
+                "searchFailed": "Failed to search invoices."
+            }
         }
     },
     "backupPage": {

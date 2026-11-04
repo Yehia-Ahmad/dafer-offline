@@ -8,13 +8,27 @@ import { Dialog } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { Subscription } from 'rxjs';
 import {
+  NotaButtonDirective,
+  NotaDialogShellComponent,
+  NotaFormFieldComponent,
+  NotaMoneyPipe,
+  NotaNumberPipe,
+  NotaPageHeaderComponent
+} from '../../../shared/ui';
+import {
+  creditSaleStatusPill,
+  CreditSaleView,
+  isCreditSaleOverdue,
+  toCreditInvoicePrintData,
+  toCreditSaleView
+} from '../../utils/credit-sale-view.util';
+import { buildCustomerStatement, CustomerStatement } from '../../utils/customer-statement.util';
+import {
   buildCreditInvoiceDocument,
-  CreditInvoicePrintData,
   CreditInvoicePrintLanguage
 } from './credit-invoice-print.util';
 import { CreditSalesService } from '../../../products/services/credit-sales.service';
 import { ReturnsService } from '../../../returns/services/returns.service';
-import { ThemeService } from '../../../shared/services/theme.service';
 import { ShopProfileService } from '../../../shop-profile/services/shop-profile.service';
 import { InvoiceBranding, toPrintableShop } from '../../../shop-profile/utils/invoice-branding.util';
 import {
@@ -26,40 +40,10 @@ import {
 } from '../../services/customers.service';
 import { brandName } from '../../../../core/brand';
 
-type CustomerHistoryView = {
-  id: string;
-  invoiceId: string;
-  sellingDate: string | null;
-  dueDate: string | null;
-  status: 'pending' | 'partially_paid' | 'paid' | 'reactionary' | 'unknown';
-  subtotal: number;
-  discountAmount: number | null;
-  discountPercentage: number | null;
-  shippingFees: number | null;
-  totalPrice: number;
-  paidAmount: number;
-  remainingAmount: number;
-  itemCount: number;
-  totalQuantity: number;
-  notes: string;
-  paymentsCount: number;
-  items: Array<{
-    id: string;
-    productId: string;
-    productName: string;
-    productCode: string;
-    categoryName: string;
-    quantity: number;
-    pricePerEach: number;
-    totalPrice: number;
-  }>;
-  payments: Array<{
-    id: string;
-    amount: number;
-    paymentDate: string | null;
-    note: string;
-  }>;
-};
+/** Stage 10: one credit invoice, normalized by the shared credit-sale view util (same rules as before). */
+type CustomerHistoryView = CreditSaleView;
+
+type CustomerTab = 'statement' | 'invoices' | 'payments' | 'returns';
 
 type CustomerDetailsView = CustomerDetails & {
   creditSummary: CustomerCreditSummary;
@@ -69,11 +53,18 @@ type CustomerDetailsView = CustomerDetails & {
 @Component({
   selector: 'app-customer-details',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule],
-  templateUrl: './customer-details.component.html'
+  imports: [CommonModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
+    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
+  templateUrl: './customer-details.component.html',
+  styleUrl: './customer-details.component.scss'
 })
 export class CustomerDetailsComponent implements OnInit, OnDestroy {
-  isDarkMode$;
+  /** Stage 10 tabs (frontend only). */
+  activeTab: CustomerTab = 'statement';
+  /** Running-balance statement computed from the loaded credit history (no extra request). */
+  statement: CustomerStatement = { rows: [], totalDebit: 0, totalCredit: 0, balance: 0 };
+  allPayments: Array<CustomerHistoryView['payments'][number] & { invoiceId: string }> = [];
+  allRefunds: Array<CustomerHistoryView['refunds'][number] & { invoiceId: string }> = [];
   direction: 'rtl' | 'ltr' = 'ltr';
   customer: CustomerDetailsView | null = null;
   paymentForm: FormGroup;
@@ -103,7 +94,6 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   private readonly shopProfileService = inject(ShopProfileService);
 
   constructor(
-    private readonly themeService: ThemeService,
     private readonly customersService: CustomersService,
     private readonly creditSalesService: CreditSalesService,
     private readonly returnsService: ReturnsService,
@@ -114,7 +104,6 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     @Inject(PLATFORM_ID) platformId: Object
   ) {
-    this.isDarkMode$ = this.themeService.isDarkMode$;
     this.isBrowser = isPlatformBrowser(platformId);
     this.paymentForm = this.formBuilder.group({
       amount: [null, [Validators.required, Validators.min(0.01)]],
@@ -160,8 +149,17 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     this.subscriptions.unsubscribe();
   }
 
-  backToCustomers(): void {
-    this.router.navigate(['/customers']);
+  setTab(tab: CustomerTab): void {
+    this.activeTab = tab;
+  }
+
+  statusPill(entry: CustomerHistoryView): string {
+    return creditSaleStatusPill(entry.status, this.isInvoiceOverdue(entry));
+  }
+
+  /** Short invoice reference for tables (the full id stays in the printed invoice). */
+  shortRef(invoiceId: string): string {
+    return invoiceId ? `#${invoiceId.slice(-6).toUpperCase()}` : '—';
   }
 
   trackHistory(index: number, item: CustomerHistoryView): string {
@@ -211,7 +209,9 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
       }
 
       const language = this.getInvoiceLanguage();
-      const printableInvoice = this.mapCreditInvoiceToPrintData(entry, this.customer);
+      const printableInvoice = toCreditInvoicePrintData(
+        entry, this.customer.name || '', this.customer.phone || '', this.getStatusLabel(entry.status)
+      );
 
       invoiceWindow.document.open();
       invoiceWindow.document.write(buildCreditInvoiceDocument({
@@ -541,35 +541,8 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     return this.translate.instant(`customerDetailsPage.status.${status}`);
   }
 
-  getStatusClasses(status: CustomerHistoryView['status']): string {
-    switch (status) {
-      case 'paid':
-        return 'bg-[#1e6f5c]/15 text-[#20c997]';
-      case 'partially_paid':
-        return 'bg-[#ff9933]/15 text-[#ffb056]';
-      case 'pending':
-        return 'bg-[#f4d80a]/15 text-[#f4d80a]';
-      case 'reactionary':
-        return 'bg-[#b83c3c]/15 text-[#ff7b7b]';
-      default:
-        return 'bg-[#7f7f86]/20 text-[#d7d7dc]';
-    }
-  }
-
   isInvoiceOverdue(entry: CustomerHistoryView): boolean {
-    if (!entry.dueDate || entry.remainingAmount <= 0) {
-      return false;
-    }
-
-    const dueDate = new Date(entry.dueDate);
-    if (Number.isNaN(dueDate.getTime())) {
-      return false;
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    dueDate.setHours(0, 0, 0, 0);
-    return dueDate < today;
+    return isCreditSaleOverdue(entry);
   }
 
   private updateDirection(): void {
@@ -585,6 +558,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
       next: (response: any) => {
         const normalized = this.normalizeCustomerResponse(response);
         this.customer = normalized;
+        this.rebuildDerivedViews();
         this.isLoading = false;
         this.cdr.detectChanges();
       },
@@ -641,57 +615,19 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   }
 
   private normalizeHistoryEntry(source: CustomerCreditHistoryEntry | any): CustomerHistoryView | null {
-    if (!source) return null;
+    return toCreditSaleView(source);
+  }
 
-    const id = String(source._id || source.id || source.invoiceId || '').trim();
-    const invoiceId = String(source.invoiceId || source._id || source.id || '').trim();
-    if (!id && !invoiceId) {
-      return null;
-    }
-
-    const items = this.normalizeHistoryItems(source.items);
-    const subtotal = this.toNumber(source.subtotal ?? this.sumHistoryItemTotals(items));
-    const discountAmountValue = this.toOptionalNonNegativeNumber(source.discountAmount);
-    const discountPercentageValue =
-      this.toOptionalBoundedPercentage(source.discountPercentage) ??
-      this.calculateDiscountPercentageFromAmount(subtotal, discountAmountValue);
-    const shippingFeesValue = this.toOptionalNonNegativeNumber(source.shippingFees);
-    const discountPercentage = discountPercentageValue ?? 0;
-    const discountAmount = discountAmountValue ?? this.roundCurrency((subtotal * discountPercentage) / 100);
-    const shippingFees = shippingFeesValue ?? 0;
-    const totalPrice = this.toNumber(
-      source.totalPrice ?? Math.max(subtotal - discountAmount + shippingFees, 0)
-    );
-    const paidAmount = this.toNumber(source.paidAmount);
-    const remainingAmount = this.toNumber(
-      source.remainingAmount ?? Math.max(totalPrice - paidAmount, 0)
-    );
-    const itemCount = this.toInteger(source.itemCount ?? source.items?.length);
-    const totalQuantity = this.toInteger(source.totalQuantity);
-    const normalizedStatus = this.normalizeStatus(source.status);
-    const payments = this.normalizePayments(source.payments);
-    const paymentsCount = payments.length;
-
-    return {
-      id: id || invoiceId,
-      invoiceId: invoiceId || id,
-      sellingDate: source.sellingDate ? String(source.sellingDate) : null,
-      dueDate: source.dueDate ? String(source.dueDate) : null,
-      status: normalizedStatus,
-      subtotal,
-      discountAmount: discountAmountValue ?? discountAmount,
-      discountPercentage: discountPercentageValue,
-      shippingFees: shippingFeesValue,
-      totalPrice,
-      paidAmount,
-      remainingAmount,
-      itemCount,
-      totalQuantity,
-      notes: String(source.notes || '').trim(),
-      paymentsCount,
-      items,
-      payments
-    };
+  /** Statement, flattened payments and refunds for the tabs. */
+  private rebuildDerivedViews(): void {
+    const history = (this.customer?.creditHistory ?? []) as CustomerHistoryView[];
+    this.statement = buildCustomerStatement(history);
+    this.allPayments = history
+      .flatMap((entry) => entry.payments.map((payment) => ({ ...payment, invoiceId: entry.invoiceId })))
+      .sort((a, b) => String(b.paymentDate || '').localeCompare(String(a.paymentDate || '')));
+    this.allRefunds = history
+      .flatMap((entry) => entry.refunds.map((refund) => ({ ...refund, invoiceId: entry.invoiceId })))
+      .sort((a, b) => String(b.refundDate || '').localeCompare(String(a.refundDate || '')));
   }
 
   private normalizeSummary(
@@ -753,77 +689,6 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     };
   }
 
-  private normalizeStatus(value: unknown): CustomerHistoryView['status'] {
-    if (value === 'pending' || value === 'partially_paid' || value === 'paid' || value === 'reactionary') {
-      return value;
-    }
-
-    if (value === 'partiallyPaid') {
-      return 'partially_paid';
-    }
-
-    if (value === 'Reactionary') {
-      return 'reactionary';
-    }
-
-    return 'unknown';
-  }
-
-  private normalizeHistoryItems(source: CustomerCreditHistoryEntry['items'] | any): CustomerHistoryView['items'] {
-    if (!Array.isArray(source)) {
-      return [];
-    }
-
-    return source
-      .map((item: any, index: number) => {
-        const quantity = this.toInteger(item?.productQuantity ?? item?.productQuentity);
-        const productName = String(item?.productName || '').trim();
-        const productCode = String(item?.productCode || '').trim();
-        const categoryName = String(item?.categoryName || '').trim();
-
-        if (!productName && !productCode && !categoryName) {
-          return null;
-        }
-
-        return {
-          id: String(item?._id || item?.productId || `${index}`),
-          productId: String(item?.productId || '').trim(),
-          productName,
-          productCode,
-          categoryName,
-          quantity,
-          pricePerEach: this.toNumber(item?.productPricePerEach),
-          totalPrice: this.toNumber(item?.totalPrice)
-        };
-      })
-      .filter((item): item is CustomerHistoryView['items'][number] => item !== null);
-  }
-
-  private normalizePayments(source: CustomerCreditHistoryEntry['payments'] | any): CustomerHistoryView['payments'] {
-    if (!Array.isArray(source)) {
-      return [];
-    }
-
-    return source
-      .map((payment: any, index: number) => {
-        const amount = this.toNumber(payment?.amount);
-        const paymentDate = payment?.paymentDate ? String(payment.paymentDate) : null;
-        const note = String(payment?.note || '').trim();
-
-        if (amount <= 0 && !paymentDate && !note) {
-          return null;
-        }
-
-        return {
-          id: String(payment?._id || `${index}`),
-          amount,
-          paymentDate,
-          note
-        };
-      })
-      .filter((item): item is CustomerHistoryView['payments'][number] => item !== null);
-  }
-
   private isDueSoon(entry: CustomerHistoryView): boolean {
     if (!entry.dueDate || entry.remainingAmount <= 0 || this.isInvoiceOverdue(entry)) {
       return false;
@@ -873,39 +738,6 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     }
 
     return null;
-  }
-
-  private mapCreditInvoiceToPrintData(
-    entry: CustomerHistoryView,
-    customer: CustomerDetailsView
-  ): CreditInvoicePrintData {
-    return {
-      id: entry.id,
-      invoiceId: entry.invoiceId || entry.id,
-      invoiceNumber: entry.invoiceId || entry.id,
-      customerName: customer.name || '',
-      customerPhone: customer.phone || '',
-      sellingDate: entry.sellingDate,
-      dueDate: entry.dueDate,
-      statusLabel: this.getStatusLabel(entry.status),
-      itemCount: entry.itemCount,
-      totalQuantity: entry.totalQuantity,
-      subtotal: entry.subtotal,
-      discountPercentage: entry.discountPercentage,
-      shippingFees: entry.shippingFees,
-      totalPrice: entry.totalPrice,
-      paidAmount: entry.paidAmount,
-      remainingAmount: entry.remainingAmount,
-      items: entry.items.map((item) => ({
-        id: item.id,
-        productCode: item.productCode,
-        productName: item.productName,
-        categoryName: item.categoryName,
-        quantity: item.quantity,
-        unitPrice: item.pricePerEach,
-        totalPrice: item.totalPrice
-      }))
-    };
   }
 
   private extractErrorMessage(error: any, fallbackKey: string): string {
@@ -1024,48 +856,6 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   private toNumber(value: unknown): number {
     const normalized = Number(value);
     return Number.isFinite(normalized) ? normalized : 0;
-  }
-
-  private toNumberOrNull(value: unknown): number | null {
-    const normalized = Number(value);
-    return Number.isFinite(normalized) ? normalized : null;
-  }
-
-  private toNonNegativeNumber(value: unknown): number {
-    return Math.max(0, this.toNumber(value));
-  }
-
-  private toBoundedPercentage(value: unknown): number {
-    return Math.min(100, this.toNonNegativeNumber(value));
-  }
-
-  private toOptionalNonNegativeNumber(value: unknown): number | null {
-    const normalized = this.toNumberOrNull(value);
-    return normalized === null ? null : Math.max(0, normalized);
-  }
-
-  private toOptionalBoundedPercentage(value: unknown): number | null {
-    const normalized = this.toOptionalNonNegativeNumber(value);
-    return normalized === null ? null : Math.min(100, normalized);
-  }
-
-  private calculateDiscountPercentageFromAmount(
-    subtotal: number,
-    discountAmount: number | null
-  ): number | null {
-    if (discountAmount === null || subtotal <= 0) {
-      return null;
-    }
-
-    return this.roundCurrency(Math.min((discountAmount / subtotal) * 100, 100));
-  }
-
-  private roundCurrency(value: number): number {
-    return Number((value || 0).toFixed(2));
-  }
-
-  private sumHistoryItemTotals(items: CustomerHistoryView['items']): number {
-    return items.reduce((sum, item) => sum + this.toNumber(item.totalPrice), 0);
   }
 
   private toInteger(value: unknown): number {

@@ -31,7 +31,13 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/products/components/selling/selling.component').then(m => m.SellingComponent)
     },
     {
+        // Stage 10: the credit invoice list; the create form moved to /credit-sales/new.
         path: 'credit-sales',
+        // canActivate: [authGuard],
+        loadComponent: () => import('./modules/products/components/credit-sales-list/credit-sales-list.component').then(m => m.CreditSalesListComponent)
+    },
+    {
+        path: 'credit-sales/new',
         // canActivate: [authGuard],
         loadComponent: () => import('./modules/products/components/credit-sales/credit-sales.component').then(m => m.CreditSalesComponent)
     },

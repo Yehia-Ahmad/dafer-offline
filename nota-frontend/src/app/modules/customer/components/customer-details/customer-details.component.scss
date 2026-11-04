@@ -1,0 +1,54 @@
+// Customer page (Customer.dc.html). Tokens only.
+:host { display: block; }
+.cd { display: flex; flex-direction: column; gap: var(--space-gap); }
+.cd__state { text-align: center; color: var(--text-muted); &--error { color: var(--danger); } }
+.cd__head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 16px 24px; align-items: center; }
+.cd__who { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.cd__avatar { flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-strong-text); font-size: 22px; font-weight: 800; }
+.cd__who-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cd__name { font-size: 22px; font-weight: 800; }
+.cd__meta, .cd__muted { font-size: 13px; color: var(--text-muted); }
+.cd__muted { margin-inline-start: 6px; }
+.cd__balance { display: flex; flex-direction: column; gap: 4px; text-align: end; }
+.cd__balance-label { font-size: 13px; color: var(--text-muted); }
+.cd__balance-value { font-size: 28px; font-weight: 800; color: var(--danger); }
+.cd__facts { grid-column: 1 / -1; margin: 0; display: flex; flex-wrap: wrap; gap: 8px 24px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13px;
+  div { display: flex; gap: 6px; } dt { color: var(--text-muted); } dd { margin: 0; font-weight: 500; } }
+.cd__kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.cd__breakdown { grid-column: span 2; }
+.cd__pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.cd__in { color: var(--success); }
+.cd__due { color: var(--danger); }
+.cd__strong { font-weight: 700; }
+.cd__tabs-card { display: flex; flex-direction: column; gap: 14px; }
+.cd__tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--border); }
+.cd__tab { min-height: 44px; padding: 0 16px; border: 0; border-bottom: 3px solid transparent; background: none; color: var(--text-muted); font: inherit; font-weight: 500; cursor: pointer;
+  &.is-on { color: var(--brand-strong-text); border-bottom-color: var(--brand); font-weight: 700; } }
+.cd__legend { margin: 0; font-size: 13px; color: var(--text-muted); }
+.cd__empty { text-align: center; color: var(--text-muted); padding: 24px; }
+.cd__total td { font-weight: 800; background: var(--surface-2); }
+.cd__msg { margin: 0; font-size: 13px; font-weight: 500; color: var(--danger); }
+.cd__invoices { display: flex; flex-direction: column; gap: 14px; }
+.cd__invoice { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); }
+.cd__invoice-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.cd__invoice-id { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cd__invoice-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cd__invoice-facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 16px; font-size: 13px;
+  div { display: flex; flex-direction: column; gap: 2px; } dt { color: var(--text-muted); } dd { margin: 0; font-weight: 700; font-size: 14px; } }
+.cd__notes { margin: 0; font-size: 14px; }
+.cd__pays { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+.cd__pay { display: inline-flex; gap: 8px; padding: 4px 10px; border-radius: var(--radius-pill); background: var(--surface-2); }
+.cd__chip { display: inline-block; margin-inline-end: 6px; }
+.cd__dialog-text { margin: 0; color: var(--text-muted); line-height: 1.6; }
+.cd__form { display: flex; flex-direction: column; gap: 12px; }
+.cd__form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.cd__items-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.cd__items-tools { display: flex; gap: 8px; }
+.cd__qty-cell { width: 140px; }
+:host ::ng-deep { .cd__control { width: 100%; } .cd__num-input { width: 100%; font-variant-numeric: tabular-nums; } }
+::ng-deep .p-dialog.nota-p-dialog.cd-wide { width: min(760px, calc(100vw - 32px)); max-width: 760px; }
+@media (max-width: 720px) {
+  .cd__head { grid-template-columns: minmax(0, 1fr); }
+  .cd__balance { text-align: start; }
+  .cd__breakdown { grid-column: auto; }
+}

@@ -286,7 +286,9 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
       sellingDate: new Date(),
       discountAmount: 0,
       shippingFees: 0,
-      downPayment: 0
+      downPayment: 0,
+      dueDate: null,
+      notes: ''
     });
 
     this.customerSearchInputValue = '';
@@ -541,6 +543,9 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
       discountAmount: [0, [Validators.min(0)]],
       shippingFees: [0, [Validators.min(0)]],
       downPayment: [0, [Validators.min(0)]],
+      // Stage 10: optional; sent only when filled.
+      dueDate: [null as Date | null],
+      notes: [''],
       items: this.formBuilder.array([])
     });
   }
@@ -660,6 +665,16 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
     } else {
       payload.customerName = normalizedCustomerName;
       payload.customerPhone = normalizedCustomerPhone;
+    }
+
+    // Stage 10: optional fields, appended only when filled (both empty → the body is exactly as before).
+    const dueDate = this.parseDateValue(raw.dueDate);
+    if (dueDate) {
+      payload.dueDate = formatDate(dueDate, 'yyyy-MM-dd');
+    }
+    const notes = String(raw.notes || '').trim();
+    if (notes) {
+      payload.notes = notes;
     }
 
     return payload;
@@ -867,8 +882,9 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
       code,
       displayLabel,
       categoryName,
-      wholesalePrice: this.toNumber(candidate.wholesalePrice),
-      retailPrice: this.toNumber(candidate.retailPrice),
+      // A missing price stays null (Number(null) would be 0), so the unit price falls back retail → wholesale.
+      wholesalePrice: this.toPrice(candidate.wholesalePrice),
+      retailPrice: this.toPrice(candidate.retailPrice),
       discountPercentage: this.toNumber(candidate.discountPercentage),
       priceAfterDiscount: this.toNumber(candidate.priceAfterDiscount)
     };
@@ -959,6 +975,10 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
     }
 
     return boundedValue;
+  }
+
+  private toPrice(value: unknown): number | null {
+    return value === null || value === undefined || value === '' ? null : this.toNumber(value);
   }
 
   private toNumber(value: unknown): number | null {

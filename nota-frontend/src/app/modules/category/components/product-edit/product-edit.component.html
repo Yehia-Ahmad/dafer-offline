@@ -1,3 +1,10 @@
+    @if (product?.category?._id) {
+        <!-- Stage 10: page back link to the parent (the product's category). -->
+        <a class="nota-page-header__back" [routerLink]="['/categories', product.category._id]">
+            <span class="nota-page-header__back-icon" aria-hidden="true">←</span>
+            {{ product.category.name || ('nav.items.products' | translate) }}
+        </a>
+    }
     <h2 class="text-center text-2xl font-bold font-azonix text-[#878787]">
         {{ 'category.editProduct.info' | translate }}
     </h2>

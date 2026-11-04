@@ -1,367 +1,213 @@
-  <div class="w-full flex flex-col items-start gap-8">
-    <div class="w-full flex items-center justify-between gap-4">
-      <h1 class="text-2xl font-bold font-azonix" [ngClass]="{
-        'text-gray_light': (isDarkMode$ | async),
-        'text-orange': !(isDarkMode$ | async)
-      }">{{ 'home.cards.invoiceHistory.title' | translate }}</h1>
+<!-- Invoice history (docs/design/screens/Invoices.dc.html). Stage 10: layout only; requests unchanged. Cash invoices. -->
+<div class="ih">
+  <nota-page-header [title]="'home.cards.invoiceHistory.title' | translate" [subtitle]="'invoiceHistoryPage.s10.subtitle' | translate" />
 
-      <button
-        type="button"
-        (click)="backToProducts()"
-        class="cursor-pointer rounded-[0.65rem] border border-transparent bg-[#f4d80a] px-4 py-2 font-roboto text-[0.95rem] font-bold text-gray_dark transition-opacity duration-200 hover:opacity-90"
-      >
-        {{ 'home.actions.back' | translate }}
-      </button>
+  <!-- Filters -->
+  <section class="nota-card ih__filters" [attr.aria-label]="'invoiceHistoryPage.s10.filters' | translate">
+    <nota-form-field [label]="'invoiceHistoryPage.filters.categoryId' | translate" forId="ihCategory">
+      <p-select inputId="ihCategory" [options]="categoryOptions" optionLabel="label" optionValue="value" appendTo="body"
+        [(ngModel)]="filterCategoryId" (ngModelChange)="onCategoryFilterChange($event)"
+        [placeholder]="'invoiceHistoryPage.filters.placeholders.categoryId' | translate" [loading]="isCategoriesLoading" styleClass="ih__control" />
+    </nota-form-field>
+    <nota-form-field [label]="'invoiceHistoryPage.filters.productId' | translate" forId="ihProduct">
+      <p-select inputId="ihProduct" [options]="productOptions" optionLabel="label" optionValue="value" appendTo="body" [(ngModel)]="filterProductId"
+        [placeholder]="'invoiceHistoryPage.filters.placeholders.productId' | translate" [loading]="isProductsLoading" [disabled]="!filterCategoryId" styleClass="ih__control" />
+    </nota-form-field>
+    <nota-form-field [label]="'invoiceHistoryPage.filters.customerName' | translate" forId="ihName">
+      <input id="ihName" type="text" class="nota-input" [(ngModel)]="filterCustomerName" (keyup.enter)="applyFilters()"
+        [placeholder]="'invoiceHistoryPage.filters.placeholders.customerName' | translate" />
+    </nota-form-field>
+    <nota-form-field [label]="'invoiceHistoryPage.filters.customerPhone' | translate" forId="ihPhone">
+      <input id="ihPhone" type="text" class="nota-input" dir="ltr" [(ngModel)]="filterCustomerPhone" (keyup.enter)="applyFilters()"
+        [placeholder]="'invoiceHistoryPage.filters.placeholders.customerPhone' | translate" />
+    </nota-form-field>
+    <nota-form-field [label]="'invoiceHistoryPage.filters.sellingDate' | translate" forId="invoiceHistorySellingDate">
+      <p-datepicker [(ngModel)]="filterSellingDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" inputId="invoiceHistorySellingDate" styleClass="ih__control" />
+    </nota-form-field>
+    <div class="ih__filter-actions">
+      <button type="button" notaButton="primary" (click)="applyFilters()">{{ 'invoiceHistoryPage.filters.actions.apply' | translate }}</button>
+      <button type="button" notaButton (click)="resetFilters()">{{ 'invoiceHistoryPage.filters.actions.reset' | translate }}</button>
     </div>
+  </section>
 
-    <div class="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-roboto" [ngClass]="{
-          'text-light_orange': (isDarkMode$ | async),
-          'text-gray_dark': !(isDarkMode$ | async)
-        }">{{ 'invoiceHistoryPage.filters.categoryId' | translate }}</label>
-        <p-select
-          [options]="categoryOptions"
-          optionLabel="label"
-          optionValue="value"
-          appendTo="body"
-          [(ngModel)]="filterCategoryId"
-          (ngModelChange)="onCategoryFilterChange($event)"
-          [placeholder]="'invoiceHistoryPage.filters.placeholders.categoryId' | translate"
-          [loading]="isCategoriesLoading"
-          styleClass="w-full"
-        />
-      </div>
-
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-roboto" [ngClass]="{
-          'text-light_orange': (isDarkMode$ | async),
-          'text-gray_dark': !(isDarkMode$ | async)
-        }">{{ 'invoiceHistoryPage.filters.productId' | translate }}</label>
-        <p-select
-          [options]="productOptions"
-          optionLabel="label"
-          optionValue="value"
-          appendTo="body"
-          [(ngModel)]="filterProductId"
-          [placeholder]="'invoiceHistoryPage.filters.placeholders.productId' | translate"
-          [loading]="isProductsLoading"
-          [disabled]="!filterCategoryId"
-          styleClass="w-full"
-        />
-      </div>
-
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-roboto" [ngClass]="{
-          'text-light_orange': (isDarkMode$ | async),
-          'text-gray_dark': !(isDarkMode$ | async)
-        }">{{ 'invoiceHistoryPage.filters.customerName' | translate }}</label>
-        <input
-          pInputText
-          type="text"
-          [(ngModel)]="filterCustomerName"
-          [placeholder]="'invoiceHistoryPage.filters.placeholders.customerName' | translate"
-          class="w-full"
-        />
-      </div>
-
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-roboto" [ngClass]="{
-          'text-light_orange': (isDarkMode$ | async),
-          'text-gray_dark': !(isDarkMode$ | async)
-        }">{{ 'invoiceHistoryPage.filters.customerPhone' | translate }}</label>
-        <input
-          pInputText
-          type="text"
-          [(ngModel)]="filterCustomerPhone"
-          [placeholder]="'invoiceHistoryPage.filters.placeholders.customerPhone' | translate"
-          class="w-full"
-        />
-      </div>
-
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-roboto" [ngClass]="{
-          'text-light_orange': (isDarkMode$ | async),
-          'text-gray_dark': !(isDarkMode$ | async)
-        }">{{ 'invoiceHistoryPage.filters.sellingDate' | translate }}</label>
-        <p-datepicker
-          [(ngModel)]="filterSellingDate"
-          [showIcon]="true"
-          [iconDisplay]="'input'"
-          appendTo="body"
-          inputId="invoiceHistorySellingDate"
-        />
-      </div>
-
-      <div class="flex items-end gap-2">
-        <p-button
-          type="button"
-          [label]="'invoiceHistoryPage.filters.actions.apply' | translate"
-          (click)="applyFilters()"
-          styleClass="!px-3 !py-2 !bg-orange !border-none !text-gray_dark !font-semibold"
-        />
-        <p-button
-          type="button"
-          [label]="'invoiceHistoryPage.filters.actions.reset' | translate"
-          (click)="resetFilters()"
-          styleClass="!px-3 !py-2 !bg-[#b9b9b9] !border-none !text-gray_dark !font-semibold"
-        />
-      </div>
-    </div>
-
-    <div class="w-full rounded-xl p-6 sm:p-8 invoice-history-shell" [ngClass]="{
-      'bg-gray_dark': (isDarkMode$ | async),
-      'bg-light_card_bg': !(isDarkMode$ | async)
-    }">
+  <div class="ih__layout">
+    <!-- List -->
+    <section class="nota-card ih__list">
       @if (loadError) {
-        <p class="text-sm font-roboto text-red">{{ loadError }}</p>
-      } @else {
-        <div class="invoice-history-table-scroll" (scroll)="onTableViewportScroll($event)">
-          <p-table
-            [value]="sellings"
-            [loading]="isLoading"
-            [tableStyle]="{ 'min-width': '1820px' }"
-            styleClass="invoice-history-table"
-          >
-            <ng-template pTemplate="header">
-              <tr [ngClass]="{
-                'bg-[#515151]': (isDarkMode$ | async),
-                'bg-[#e7e7e7]': !(isDarkMode$ | async)
-              }">
-                <th class="px-3 py-3 text-start font-roboto text-xs uppercase">{{ 'invoiceHistoryPage.tableHeaders.index' | translate }}</th>
-                <th class="px-3 py-3 text-start font-roboto text-xs uppercase">{{ 'invoiceHistoryPage.tableHeaders.invoiceNumber' | translate }}</th>
-                <th class="px-3 py-3 text-start font-roboto text-xs uppercase">{{ 'invoiceHistoryPage.tableHeaders.customer' | translate }}</th>
-                <th class="px-3 py-3 text-start font-roboto text-xs uppercase">{{ 'invoiceHistoryPage.tableHeaders.customerPhone' | translate }}</th>
-                <th class="px-3 py-3 text-start font-roboto text-xs uppercase">{{ 'invoiceHistoryPage.tableHeaders.date' | translate }}</th>
-                <th class="px-3 py-3 text-start font-roboto text-xs uppercase">{{ 'invoiceHistoryPage.tableHeaders.items' | translate }}</th>
-                <th class="px-3 py-3 text-start font-roboto text-xs uppercase">{{ 'invoiceHistoryPage.tableHeaders.itemCount' | translate }}</th>
-                <th class="px-3 py-3 text-start font-roboto text-xs uppercase">{{ 'invoiceHistoryPage.tableHeaders.totalQuantity' | translate }}</th>
-                <th class="px-3 py-3 text-start font-roboto text-xs uppercase">{{ 'invoiceHistoryPage.tableHeaders.discountAmount' | translate }}</th>
-                <th class="px-3 py-3 text-start font-roboto text-xs uppercase">{{ 'invoiceHistoryPage.tableHeaders.discountPercentage' | translate }}</th>
-                <th class="px-3 py-3 text-start font-roboto text-xs uppercase">{{ 'invoiceHistoryPage.tableHeaders.shippingFees' | translate }}</th>
-                <th class="px-3 py-3 text-start font-roboto text-xs uppercase">{{ 'invoiceHistoryPage.tableHeaders.totalPrice' | translate }}</th>
-                <th class="px-3 py-3 text-start font-roboto text-xs uppercase">{{ 'invoiceHistoryPage.tableHeaders.action' | translate }}</th>
-              </tr>
-            </ng-template>
-
-          <ng-template pTemplate="body" let-selling let-rowIndex="rowIndex">
-            <tr class="invoice-history-row">
-              <td class="px-3 py-3 font-roboto whitespace-nowrap invoice-history-cell">{{ rowIndex + 1 }}</td>
-              <td class="px-3 py-3 font-roboto whitespace-nowrap invoice-history-cell">{{ selling.invoiceNumber || '-' }}</td>
-              <td class="px-3 py-3 font-roboto whitespace-nowrap invoice-history-cell">{{ selling.customerName || '-' }}</td>
-              <td class="px-3 py-3 font-roboto whitespace-nowrap invoice-history-cell">{{ selling.customerPhone || '-' }}</td>
-              <td class="px-3 py-3 font-roboto whitespace-nowrap invoice-history-cell">{{ selling.sellingDate ? (selling.sellingDate | date: 'yyyy-MM-dd') : '-' }}</td>
-              <td class="px-3 py-3 font-roboto invoice-history-cell invoice-items-column">
-                <div class="invoice-items-stack">
-                  @for (item of selling.items; track item.id) {
-                    <div class="invoice-item-card" [ngClass]="{
-                      'invoice-item-card--dark': (isDarkMode$ | async),
-                      'invoice-item-card--light': !(isDarkMode$ | async)
-                    }">
-                      <div class="invoice-item-card__top">
-                        <div class="invoice-item-card__identity">
-                          <span class="invoice-item-card__name">{{ item.productName || '-' }}</span>
-                          <span class="invoice-item-card__category">{{ item.categoryName || '-' }}</span>
-                        </div>
-                        <span class="invoice-item-card__code">
-                          {{ item.productCode || '-' }}
-                        </span>
-                      </div>
-
-                      <div class="invoice-item-card__metrics">
-                        <div class="invoice-item-card__metric">
-                          <span class="invoice-item-card__metric-label">{{ 'invoiceHistoryPage.tableHeaders.quantity' | translate }}</span>
-                          <span class="invoice-item-card__metric-value">{{ item.quantity ?? '-' }}</span>
-                        </div>
-                        <div class="invoice-item-card__metric">
-                          <span class="invoice-item-card__metric-label">{{ 'invoiceHistoryPage.tableHeaders.unitPrice' | translate }}</span>
-                          <span class="invoice-item-card__metric-value">{{ item.unitPrice ?? '-' }}</span>
-                        </div>
-                        <div class="invoice-item-card__metric">
-                          <span class="invoice-item-card__metric-label">{{ 'invoiceHistoryPage.tableHeaders.totalPrice' | translate }}</span>
-                          <span class="invoice-item-card__metric-value">{{ item.totalPrice ?? '-' }}</span>
-                        </div>
-                      </div>
-                    </div>
-                  }
-                </div>
-              </td>
-              <td class="px-3 py-3 font-roboto whitespace-nowrap invoice-history-cell">{{ selling.itemCount ?? selling.items.length }}</td>
-              <td class="px-3 py-3 font-roboto whitespace-nowrap invoice-history-cell">{{ selling.totalQuantity ?? '-' }}</td>
-              <td class="px-3 py-3 font-roboto whitespace-nowrap invoice-history-cell">{{ (selling.discountAmount ?? 0) | number:'1.2-2' }}</td>
-              <td class="px-3 py-3 font-roboto whitespace-nowrap invoice-history-cell">{{ (selling.discountPercentage ?? 0) | number:'1.0-2' }}%</td>
-              <td class="px-3 py-3 font-roboto whitespace-nowrap invoice-history-cell">{{ (selling.shippingFees ?? 0) | number:'1.2-2' }}</td>
-              <td class="px-3 py-3 font-roboto whitespace-nowrap invoice-history-cell">{{ (selling.totalPrice ?? 0) | number:'1.2-2' }}</td>
-              <td class="px-3 py-3 font-roboto invoice-history-cell">
-                <div class="invoice-actions">
-                  <button
-                    type="button"
-                    class="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d6efd] px-3 py-2 text-sm font-semibold text-white transition-opacity duration-200 hover:opacity-85 disabled:cursor-not-allowed disabled:bg-[#8a8a8a]"
-                    [disabled]="isDeletingSelling(selling.id) || isReturningSelling(selling.id) || isDownloadingInvoice(selling.id)"
-                    (click)="downloadInvoice(selling)"
-                    [attr.aria-label]="'invoiceHistoryPage.actions.downloadInvoice' | translate"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="h-4 w-4 fill-current">
-                      <path d="M12 16.5a1 1 0 0 1-.71-.29l-4-4a1 1 0 1 1 1.42-1.42L11 13.09V4a1 1 0 1 1 2 0v9.09l2.29-2.3a1 1 0 0 1 1.42 1.42l-4 4A1 1 0 0 1 12 16.5Zm6 3.5H6a3 3 0 0 1-3-3v-1a1 1 0 1 1 2 0v1a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a1 1 0 1 1 2 0v1a3 3 0 0 1-3 3Z" />
-                    </svg>
-                    <span>
-                      {{ isDownloadingInvoice(selling.id) ? ('actions.loading' | translate) : ('invoiceHistoryPage.actions.downloadInvoice' | translate) }}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    class="inline-flex items-center justify-center rounded-md bg-orange px-3 py-2 text-sm font-semibold text-gray_dark transition-opacity duration-200 hover:opacity-85 disabled:cursor-not-allowed disabled:bg-[#8a8a8a]"
-                    [disabled]="!canReturnSelling(selling) || isDeletingSelling(selling.id) || isReturningSelling(selling.id) || isDownloadingInvoice(selling.id)"
-                    (click)="openReturnDialog(selling)"
-                  >
-                    {{ isReturningSelling(selling.id) ? ('actions.loading' | translate) : ('invoiceHistoryPage.actions.createReturn' | translate) }}
-                  </button>
-                  <button
-                    type="button"
-                    class="inline-flex items-center justify-center rounded-md bg-red px-3 py-2 text-sm font-semibold text-white transition-opacity duration-200 hover:opacity-85 disabled:cursor-not-allowed disabled:bg-[#8a8a8a]"
-                    [disabled]="isDeletingSelling(selling.id) || isReturningSelling(selling.id) || isDownloadingInvoice(selling.id)"
-                    (click)="openDeleteDialog(selling)"
-                  >
-                    {{ isDeletingSelling(selling.id) ? ('actions.loading' | translate) : ('delete' | translate) }}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </ng-template>
-
-          <ng-template pTemplate="emptymessage">
-            <tr>
-              <td colspan="13" class="px-3 py-6 text-center font-roboto" [ngClass]="{
-                'text-brown': (isDarkMode$ | async),
-                'text-gray_dark': !(isDarkMode$ | async)
-              }">
-                {{ 'invoiceHistoryPage.messages.empty' | translate }}
-              </td>
-            </tr>
-          </ng-template>
-          </p-table>
-        </div>
-
-        @if (isLoadingMore) {
-          <div class="invoice-history-load-more" [ngClass]="{
-            'text-brown': (isDarkMode$ | async),
-            'text-gray_dark': !(isDarkMode$ | async)
-          }">
-            {{ 'actions.loading' | translate }}
-          </div>
-        }
-        @if (loadMoreError) {
-          <p class="mt-4 text-center text-sm font-roboto text-red">{{ loadMoreError }}</p>
-        }
+        <p class="ih__msg" role="alert">{{ loadError }}</p>
       }
-    </div>
-  </div>
-
-  <p-dialog
-    [(visible)]="deleteDialogVisible"
-    [modal]="true"
-    [closable]="!isDeletingSelectedSelling"
-    [dismissableMask]="!isDeletingSelectedSelling"
-    [draggable]="false"
-    [resizable]="false"
-    [style]="{ width: '35vw' }"
-    styleClass="!border-0"
-    (onHide)="closeDeleteDialog()"
-  >
-    <div class="flex flex-col gap-5 p-2" [ngClass]="{
-      'text-light_orange': (isDarkMode$ | async),
-      'text-gray_dark': !(isDarkMode$ | async)
-    }">
-      <div class="w-full flex items-center justify-center">
-        <app-warn></app-warn>
+      <div class="nota-table-wrap">
+        <table class="nota-table ih__table">
+          <thead><tr>
+            <th>{{ 'invoiceHistoryPage.tableHeaders.invoiceNumber' | translate }}</th>
+            <th>{{ 'invoiceHistoryPage.tableHeaders.date' | translate }}</th>
+            <th>{{ 'invoiceHistoryPage.tableHeaders.customer' | translate }}</th>
+            <th>{{ 'invoiceHistoryPage.s10.type' | translate }}</th>
+            <th class="num">{{ 'invoiceHistoryPage.tableHeaders.itemCount' | translate }}</th>
+            <th class="num">{{ 'invoiceHistoryPage.tableHeaders.totalPrice' | translate }}</th>
+            <th>{{ 'invoiceHistoryPage.s10.status' | translate }}</th>
+          </tr></thead>
+          <tbody>
+            @if (isLoading) {
+              <tr><td colspan="7" class="ih__empty" role="status">{{ 'actions.loading' | translate }}</td></tr>
+            } @else {
+              @for (selling of sellings; track selling.id) {
+                <tr class="ih__row" [class.is-selected]="selectedSelling?.id === selling.id" tabindex="0"
+                  (click)="selectSelling(selling)" (keydown.enter)="selectSelling(selling)" [attr.aria-selected]="selectedSelling?.id === selling.id">
+                  <td class="nota-num" dir="ltr">{{ selling.invoiceNumber || '-' }}</td>
+                  <td class="nota-num">{{ selling.sellingDate ? (selling.sellingDate | date: 'yyyy-MM-dd') : '-' }}</td>
+                  <td><span class="ih__cust" dir="auto">{{ selling.customerName || '-' }}</span>
+                    @if (selling.customerPhone) {<span class="ih__muted" dir="ltr">{{ selling.customerPhone }}</span>}</td>
+                  <td><span class="nota-pill nota-pill--neutral">{{ 'invoiceHistoryPage.s10.cash' | translate }}</span></td>
+                  <td class="num">{{ selling.itemCount ?? selling.items.length | notaNumber }} <span class="ih__muted">/ {{ selling.totalQuantity ?? 0 | notaNumber }}</span></td>
+                  <td class="num ih__strong">{{ selling.totalPrice ?? 0 | notaMoney }}</td>
+                  <td><span [class]="statusPill(selling)">{{ ('invoiceHistoryPage.s10.refund.' + (selling.refundStatus || 'none')) | translate }}</span></td>
+                </tr>
+              } @empty {
+                <tr><td colspan="7" class="ih__empty">{{ 'invoiceHistoryPage.messages.empty' | translate }}</td></tr>
+              }
+            }
+          </tbody>
+        </table>
       </div>
-      <h2 class="text-center text-2xl font-bold font-azonix text-orange">
-        {{ 'delete' | translate }}
-      </h2>
-      <p class="text-center font-roboto text-lg">
-        {{ 'invoiceHistoryPage.messages.deleteConfirm' | translate }}
-      </p>
-      <p class="text-center font-roboto text-sm opacity-75">{{ 'invoiceHistoryPage.messages.deleteInventoryWarning' | translate }}</p>
-      <div class="flex items-center justify-center gap-3">
-        <p-button
-          type="button"
-          [label]="'actions.cancelButton' | translate"
-          (click)="closeDeleteDialog()"
-          [disabled]="isDeletingSelectedSelling"
-          styleClass="!px-4 !py-2 !bg-[#b9b9b9] !border-none !text-gray_dark !font-semibold"
-        />
-        <p-button
-          type="button"
-          [label]="isDeletingSelectedSelling ? ('actions.loading' | translate) : ('delete' | translate)"
-          (click)="deleteSelling()"
-          [disabled]="isDeletingSelectedSelling"
-          styleClass="!px-4 !py-2 !bg-red !border-none !text-white !font-semibold"
-        />
+      <div class="ih__pager">
+        <span class="ih__muted nota-num">
+          {{ 'invoiceHistoryPage.s10.range' | translate: { from: (pageRange.from | notaNumber), to: (pageRange.to | notaNumber), total: (pagination.totalItems | notaNumber) } }}
+          · {{ 'invoiceHistoryPage.s10.pageTotal' | translate }} {{ pageTotal | notaMoney }}
+        </span>
+        <span class="ih__pager-btns">
+          <button type="button" notaButton (click)="goToPage(pagination.page - 1)" [disabled]="isLoading || !pagination.hasPrevPage">{{ 'invoiceHistoryPage.s10.prev' | translate }}</button>
+          <span class="nota-num ih__muted">{{ pagination.page | notaNumber }} / {{ (pagination.totalPages || 1) | notaNumber }}</span>
+          <button type="button" notaButton (click)="goToPage(pagination.page + 1)" [disabled]="isLoading || !pagination.hasNextPage">{{ 'invoiceHistoryPage.s10.next' | translate }}</button>
+        </span>
       </div>
-    </div>
-  </p-dialog>
+    </section>
 
-  <p-dialog
-    [(visible)]="returnDialogVisible"
-    [modal]="true"
-    [closable]="!isReturningSelectedSelling"
-    [dismissableMask]="!isReturningSelectedSelling"
-    [draggable]="false"
-    [resizable]="false"
-    [style]="{ width: 'min(46rem, 94vw)' }"
-    styleClass="!border-0"
-    (onHide)="closeReturnDialog()"
-  >
-    <div class="flex flex-col gap-5 p-2" [ngClass]="{
-      'text-light_orange': (isDarkMode$ | async),
-      'text-gray_dark': !(isDarkMode$ | async)
-    }">
-      <div>
-        <h2 class="text-2xl font-bold font-azonix text-orange">{{ 'invoiceHistoryPage.returnDialog.title' | translate }}</h2>
-        <p class="mt-2 font-roboto text-sm">{{ 'invoiceHistoryPage.returnDialog.subtitle' | translate }}</p>
-      </div>
-
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div class="flex flex-col gap-1">
-          <label for="cashReturnDate" class="font-roboto text-sm">{{ 'invoiceHistoryPage.returnDialog.returnDate' | translate }}</label>
-          <p-datepicker inputId="cashReturnDate" [(ngModel)]="cashReturnDate" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="w-full" inputStyleClass="w-full" />
-        </div>
-        <div class="flex flex-col gap-1">
-          <label for="cashReturnNote" class="font-roboto text-sm">{{ 'invoiceHistoryPage.returnDialog.note' | translate }}</label>
-          <input id="cashReturnNote" pInputText [(ngModel)]="cashReturnNote" class="w-full" [placeholder]="'invoiceHistoryPage.returnDialog.notePlaceholder' | translate" />
-        </div>
-      </div>
-
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <h3 class="font-roboto font-semibold">{{ 'invoiceHistoryPage.returnDialog.items' | translate }}</h3>
-        <div class="flex gap-2">
-          <p-button type="button" [label]="'invoiceHistoryPage.returnDialog.returnAll' | translate" (onClick)="fillCashReturnWithAllItems()" styleClass="!border-none !bg-orange !text-gray_dark" />
-          <p-button type="button" [label]="'invoiceHistoryPage.returnDialog.clear' | translate" (onClick)="clearCashReturnQuantities()" styleClass="!border-none !bg-[#b9b9b9] !text-gray_dark" />
-        </div>
-      </div>
-
-      <div class="flex max-h-[45vh] flex-col gap-3 overflow-y-auto">
-        @for (item of cashReturnItems; track $index) {
-          <div class="grid grid-cols-1 gap-3 rounded-lg border p-3 md:grid-cols-[1fr_9rem_1fr]" [ngClass]="{
-            'border-[#515151]': (isDarkMode$ | async),
-            'border-[#dedede]': !(isDarkMode$ | async)
-          }">
-            <div class="font-roboto">
-              <strong class="block">{{ item.productName || '-' }}</strong>
-              <span class="text-sm opacity-70">{{ item.productCode || '-' }} · {{ 'invoiceHistoryPage.returnDialog.available' | translate }}: {{ item.availableQuantity }}</span>
-            </div>
-            <p-inputNumber [(ngModel)]="item.quantity" [min]="0" [max]="item.availableQuantity" [useGrouping]="false" inputStyleClass="w-full" />
-            <input pInputText [(ngModel)]="item.returnReason" class="w-full" [placeholder]="'invoiceHistoryPage.returnDialog.reason' | translate" />
+    <!-- Detail panel -->
+    <aside class="nota-card ih__detail" [attr.aria-label]="'invoiceHistoryPage.s10.detail' | translate">
+      @if (selectedSelling; as selling) {
+        <div class="ih__detail-head">
+          <div>
+            <h2 class="ih__detail-title nota-num" dir="ltr">{{ selling.invoiceNumber }}</h2>
+            <span class="ih__muted nota-num">{{ selling.sellingDate ? (selling.sellingDate | date: 'yyyy-MM-dd HH:mm') : '-' }}</span>
           </div>
-        }
-      </div>
+          <span [class]="statusPill(selling)">{{ ('invoiceHistoryPage.s10.refund.' + (selling.refundStatus || 'none')) | translate }}</span>
+        </div>
+        <div class="ih__detail-cust">
+          <strong dir="auto">{{ selling.customerName || '-' }}</strong>
+          <span class="ih__muted" dir="ltr">{{ selling.customerPhone || '-' }}</span>
+        </div>
+        <ul class="ih__lines">
+          @for (item of selling.items; track item.id) {
+            <li>
+              <span><span dir="auto">{{ item.productName || '-' }}</span> <span class="ih__muted">× {{ item.quantity ?? 0 | notaNumber }}
+                @ {{ item.unitPrice ?? 0 | notaMoney }}</span>
+                <small class="ih__muted ih__line-meta"><span dir="ltr">{{ item.productCode || '-' }}</span> · {{ item.categoryName || '-' }}</small></span>
+              <span class="nota-num">{{ item.totalPrice ?? 0 | notaMoney }}</span>
+            </li>
+          }
+          @for (refund of selling.refunds ?? []; track refund.id) {
+            @for (line of refund.items; track $index) {
+              <li class="ih__refund-line"><span>{{ 'invoiceHistoryPage.s10.returned' | translate }}: <span dir="auto">{{ line.productName }}</span> × {{ line.quantity ?? 0 | notaNumber }}</span>
+                <span class="ih__muted nota-num">{{ refund.refundDate ? (refund.refundDate | date: 'yyyy-MM-dd') : '' }}</span></li>
+            }
+          }
+        </ul>
+        <dl class="ih__totals">
+          <div><dt>{{ 'invoiceHistoryPage.s10.subtotal' | translate }}</dt><dd class="nota-num">{{ selling.subtotal ?? 0 | notaMoney }}</dd></div>
+          <div><dt>{{ 'invoiceHistoryPage.tableHeaders.discountAmount' | translate }} ({{ selling.discountPercentage ?? 0 | notaNumber }}%)</dt><dd class="nota-num">− {{ selling.discountAmount ?? 0 | notaMoney }}</dd></div>
+          <div><dt>{{ 'invoiceHistoryPage.tableHeaders.shippingFees' | translate }}</dt><dd class="nota-num">{{ selling.shippingFees ?? 0 | notaMoney }}</dd></div>
+          @if (selling.refundedAmount) {
+            <div><dt>{{ 'invoiceHistoryPage.s10.refundedAmount' | translate }}</dt><dd class="nota-num ih__due">− {{ selling.refundedAmount | notaMoney }}</dd></div>
+          }
+          <div class="ih__grand"><dt>{{ 'invoiceHistoryPage.tableHeaders.totalPrice' | translate }}</dt><dd class="nota-num">{{ selling.totalPrice ?? 0 | notaMoney }}</dd></div>
+        </dl>
+        <div class="ih__actions">
+          <button type="button" notaButton="primary" (click)="downloadInvoice(selling)"
+            [disabled]="isDeletingSelling(selling.id) || isReturningSelling(selling.id) || isDownloadingInvoice(selling.id)">
+            {{ (isDownloadingInvoice(selling.id) ? 'actions.loading' : 'invoiceHistoryPage.s10.print') | translate }}
+          </button>
+          <button type="button" notaButton (click)="openReturnDialog(selling)"
+            [disabled]="!canReturnSelling(selling) || isDeletingSelling(selling.id) || isReturningSelling(selling.id) || isDownloadingInvoice(selling.id)">
+            {{ (isReturningSelling(selling.id) ? 'actions.loading' : 'invoiceHistoryPage.actions.createReturn') | translate }}
+          </button>
+          <button type="button" notaButton="danger" class="ih__delete" (click)="openDeleteDialog(selling)"
+            [disabled]="isDeletingSelling(selling.id) || isReturningSelling(selling.id) || isDownloadingInvoice(selling.id)">
+            {{ (isDeletingSelling(selling.id) ? 'actions.loading' : 'delete') | translate }}
+          </button>
+        </div>
+        <p class="ih__muted ih__note">{{ 'invoiceHistoryPage.messages.deleteInventoryWarning' | translate }}</p>
+      } @else {
+        <p class="ih__empty">{{ 'invoiceHistoryPage.s10.pick' | translate }}</p>
+      }
+    </aside>
+  </div>
+</div>
 
-      @if (returnError) { <p class="font-roboto text-sm text-red">{{ returnError }}</p> }
-      @if (!hasCashReturnSelection()) { <p class="font-roboto text-sm opacity-70">{{ 'invoiceHistoryPage.returnDialog.selectionRequired' | translate }}</p> }
+<!-- Delete (warning text about stock unchanged) -->
+<p-dialog [(visible)]="deleteDialogVisible" [modal]="true" [showHeader]="false" [closable]="!isDeletingSelectedSelling" [dismissableMask]="!isDeletingSelectedSelling"
+  [draggable]="false" [resizable]="false" styleClass="nota-p-dialog" (onHide)="closeDeleteDialog()">
+  <nota-dialog-shell [title]="'delete' | translate" [closeLabel]="'actions.cancelButton' | translate" (closed)="closeDeleteDialog()">
+    <p>{{ 'invoiceHistoryPage.messages.deleteConfirm' | translate }}</p>
+    <p class="ih__muted">{{ 'invoiceHistoryPage.messages.deleteInventoryWarning' | translate }}</p>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="closeDeleteDialog()" [disabled]="isDeletingSelectedSelling">{{ 'actions.cancelButton' | translate }}</button>
+      <button type="button" notaButton="danger" (click)="deleteSelling()" [disabled]="isDeletingSelectedSelling">
+        {{ (isDeletingSelectedSelling ? 'actions.loading' : 'delete') | translate }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
 
-      <div class="flex justify-end gap-3">
-        <p-button type="button" [label]="'actions.cancelButton' | translate" (onClick)="closeReturnDialog()" [disabled]="isReturningSelectedSelling" styleClass="!border-none !bg-[#b9b9b9] !text-gray_dark" />
-        <p-button type="button" [label]="isReturningSelectedSelling ? ('actions.loading' | translate) : ('invoiceHistoryPage.actions.createReturn' | translate)" (onClick)="createCashReturn()" [disabled]="isReturningSelectedSelling || !hasCashReturnSelection()" styleClass="!border-none !bg-orange !text-gray_dark" />
-      </div>
+<!-- Cash return -->
+<p-dialog [(visible)]="returnDialogVisible" [modal]="true" [showHeader]="false" [closable]="!isReturningSelectedSelling" [dismissableMask]="!isReturningSelectedSelling"
+  [draggable]="false" [resizable]="false" styleClass="nota-p-dialog ih-wide" (onHide)="closeReturnDialog()">
+  <nota-dialog-shell [title]="'invoiceHistoryPage.returnDialog.title' | translate" [closeLabel]="'actions.cancelButton' | translate" (closed)="closeReturnDialog()">
+    <p class="ih__muted">{{ 'invoiceHistoryPage.returnDialog.subtitle' | translate }}</p>
+    <div class="ih__form-row">
+      <nota-form-field [label]="'invoiceHistoryPage.returnDialog.returnDate' | translate" forId="cashReturnDate">
+        <p-datepicker inputId="cashReturnDate" [(ngModel)]="cashReturnDate" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="ih__control" />
+      </nota-form-field>
+      <nota-form-field [label]="'invoiceHistoryPage.returnDialog.note' | translate" forId="cashReturnNote">
+        <input id="cashReturnNote" type="text" class="nota-input" [(ngModel)]="cashReturnNote" [placeholder]="'invoiceHistoryPage.returnDialog.notePlaceholder' | translate" />
+      </nota-form-field>
     </div>
-  </p-dialog>
+    <div class="ih__items-head">
+      <strong>{{ 'invoiceHistoryPage.returnDialog.items' | translate }}</strong>
+      <span class="ih__items-tools">
+        <button type="button" notaButton (click)="fillCashReturnWithAllItems()">{{ 'invoiceHistoryPage.returnDialog.returnAll' | translate }}</button>
+        <button type="button" notaButton (click)="clearCashReturnQuantities()">{{ 'invoiceHistoryPage.returnDialog.clear' | translate }}</button>
+      </span>
+    </div>
+    <div class="nota-table-wrap">
+      <table class="nota-table">
+        <thead><tr>
+          <th>{{ 'invoiceHistoryPage.s10.product' | translate }}</th>
+          <th class="num">{{ 'invoiceHistoryPage.returnDialog.available' | translate }}</th>
+          <th class="num">{{ 'invoiceHistoryPage.tableHeaders.quantity' | translate }}</th>
+          <th>{{ 'invoiceHistoryPage.returnDialog.reason' | translate }}</th>
+        </tr></thead>
+        <tbody>
+          @for (item of cashReturnItems; track $index) {
+            <tr>
+              <td><span dir="auto">{{ item.productName || '-' }}</span> <small class="ih__muted" dir="ltr">{{ item.productCode || '-' }}</small></td>
+              <td class="num">{{ item.availableQuantity | notaNumber }}</td>
+              <td class="num ih__qty-cell"><p-inputNumber [(ngModel)]="item.quantity" [min]="0" [max]="item.availableQuantity" [useGrouping]="false"
+                [ariaLabel]="'invoiceHistoryPage.tableHeaders.quantity' | translate" styleClass="ih__control" inputStyleClass="ih__num-input" /></td>
+              <td><input type="text" class="nota-input" [(ngModel)]="item.returnReason" [placeholder]="'invoiceHistoryPage.returnDialog.reason' | translate"
+                [attr.aria-label]="'invoiceHistoryPage.returnDialog.reason' | translate" /></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (returnError) {<p class="ih__msg" role="alert">{{ returnError }}</p>}
+    @if (!hasCashReturnSelection()) {<p class="ih__muted">{{ 'invoiceHistoryPage.returnDialog.selectionRequired' | translate }}</p>}
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="closeReturnDialog()" [disabled]="isReturningSelectedSelling">{{ 'actions.cancelButton' | translate }}</button>
+      <button type="button" notaButton="primary" (click)="createCashReturn()" [disabled]="isReturningSelectedSelling || !hasCashReturnSelection()">
+        {{ (isReturningSelectedSelling ? 'actions.loading' : 'invoiceHistoryPage.actions.createReturn') | translate }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
