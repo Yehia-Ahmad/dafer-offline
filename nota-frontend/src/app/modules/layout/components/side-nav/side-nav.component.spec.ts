@@ -7,7 +7,7 @@ import { TranslateModule } from '@ngx-translate/core';
 
 import { SideNavComponent } from './side-nav.component';
 
-describe('SideNavComponent', () => {
+describe('SideNavComponent (app frame)', () => {
   let component: SideNavComponent;
   let fixture: ComponentFixture<SideNavComponent>;
 
@@ -23,7 +23,11 @@ describe('SideNavComponent', () => {
     fixture.detectChanges();
   });
 
-  it('should create', () => {
+  it('renders the sidebar, top bar and page container', () => {
+    const el = fixture.nativeElement as HTMLElement;
     expect(component).toBeTruthy();
+    expect(el.querySelector('app-custom-sidenav')).not.toBeNull();
+    expect(el.querySelector('.nota-shell__back')).not.toBeNull();
+    expect(el.querySelector('.nota-shell__content')).not.toBeNull();
   });
 });

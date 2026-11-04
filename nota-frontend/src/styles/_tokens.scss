@@ -30,6 +30,10 @@
   --sidebar-bg: #0E4D45;
   --sidebar-text: #E3EFEB;
   --sidebar-group: #9FC9BE;
+  --sidebar-active-bg: #F5F3EE;
+  --sidebar-active-text: #0E4D45;
+  --sidebar-hover: rgba(255, 255, 255, 0.08);
+  --sidebar-focus: #F5F3EE;
 
   // Status
   --success: #11795F;
@@ -92,6 +96,10 @@ html.dark {
   --sidebar-bg: #081815;
   --sidebar-text: #E3EFEB;
   --sidebar-group: #9FC9BE;
+  --sidebar-active-bg: #7FD1BE;
+  --sidebar-active-text: #0B1F1C;
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-focus: #7FD1BE;
 
   --success: #7FD1BE;
   --danger: #F4A58A;

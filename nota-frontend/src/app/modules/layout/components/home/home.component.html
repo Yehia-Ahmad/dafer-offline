@@ -1,5 +1,5 @@
+<app-side-nav>
 @if (currentView === 'dashboard') {
-  <app-header></app-header>
   <div class="w-full min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-8" [ngClass]="{
     'bg-dark': (isDarkMode$ | async),
     'bg-light_bg': !(isDarkMode$ | async)
@@ -91,7 +91,6 @@
     </div>
   </div>
 } @else {
-  <app-side-nav>
     <div class="w-full flex flex-col items-start gap-8">
       @if (currentView === 'inventory') {
         <div class="w-full flex items-center justify-between gap-4">
@@ -256,5 +255,5 @@
         </div>
       }
     </div>
-  </app-side-nav>
 }
+</app-side-nav>

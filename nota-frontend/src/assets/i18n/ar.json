@@ -736,5 +736,60 @@
       "saveFailed": "تعذر حفظ بيانات المتجر",
       "loadFailed": "تعذر تحميل بيانات المتجر. يمكنك إدخالها وحفظها من جديد."
     }
+  },
+  "nav": {
+    "label": "القائمة الرئيسية",
+    "groups": {
+      "sales": "المبيعات",
+      "inventory": "المخزون",
+      "treasury": "الخزنة",
+      "accounting": "الحسابات",
+      "admin": "الإدارة"
+    },
+    "items": {
+      "home": "الرئيسية",
+      "pos": "نقطة البيع",
+      "credit": "البيع الآجل",
+      "invoices": "سجل الفواتير",
+      "returns": "المرتجعات",
+      "customers": "العملاء",
+      "products": "الأصناف والفئات",
+      "purchases": "المشتريات",
+      "suppliers": "الموردين",
+      "cash": "الخزائن والوردية",
+      "expenses": "المصروفات",
+      "accounts": "دليل الحسابات والقيود",
+      "reports": "التقارير المالية",
+      "profit": "تقرير الأرباح",
+      "users": "المستخدمين والصلاحيات",
+      "shop": "بيانات المحل",
+      "backup": "النسخ الاحتياطي"
+    },
+    "collapse": "طي القائمة",
+    "expand": "توسيع القائمة",
+    "openMenu": "فتح القائمة",
+    "closeMenu": "إغلاق القائمة",
+    "back": "رجوع",
+    "language": "اللغة",
+    "theme": "المظهر",
+    "themeLight": "فاتح",
+    "themeDark": "داكن",
+    "deviceMain": "الجهاز الرئيسي",
+    "deviceClient": "جهاز فرعي",
+    "categories": {
+      "empty": "لا توجد فئات بعد",
+      "edit": "تعديل الفئة",
+      "delete": "حذف الفئة",
+      "imageAlt": "صورة الفئة",
+      "imagePlaceholder": "صورة",
+      "optional": "اختياري",
+      "specificationsHint": "الخانات دي هتظهر في فورم كل صنف في الفئة دي",
+      "specificationLabel": "مواصفة",
+      "addSpecification": "+ مواصفة",
+      "cancel": "إلغاء",
+      "close": "إغلاق",
+      "ok": "حسنًا",
+      "error": "حدث خطأ"
+    }
   }
 }

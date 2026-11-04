@@ -736,5 +736,60 @@
             "saveFailed": "Could not save the shop profile",
             "loadFailed": "Could not load the shop profile. You can enter it and save it again."
         }
+    },
+    "nav": {
+        "label": "Main menu",
+        "groups": {
+            "sales": "Sales",
+            "inventory": "Inventory",
+            "treasury": "Treasury",
+            "accounting": "Accounting",
+            "admin": "Administration"
+        },
+        "items": {
+            "home": "Home",
+            "pos": "Point of sale",
+            "credit": "Credit sales",
+            "invoices": "Invoice history",
+            "returns": "Returns",
+            "customers": "Customers",
+            "products": "Products & categories",
+            "purchases": "Purchases",
+            "suppliers": "Suppliers",
+            "cash": "Cash boxes & shift",
+            "expenses": "Expenses",
+            "accounts": "Accounts & entries",
+            "reports": "Financial reports",
+            "profit": "Profit report",
+            "users": "Users & permissions",
+            "shop": "Shop profile",
+            "backup": "Backup"
+        },
+        "collapse": "Collapse menu",
+        "expand": "Expand menu",
+        "openMenu": "Open menu",
+        "closeMenu": "Close menu",
+        "back": "Back",
+        "language": "Language",
+        "theme": "Theme",
+        "themeLight": "Light",
+        "themeDark": "Dark",
+        "deviceMain": "Main PC",
+        "deviceClient": "Client PC",
+        "categories": {
+            "empty": "No categories yet",
+            "edit": "Edit category",
+            "delete": "Delete category",
+            "imageAlt": "Category image",
+            "imagePlaceholder": "Image",
+            "optional": "Optional",
+            "specificationsHint": "These fields appear in the form of every product in this category",
+            "specificationLabel": "Specification",
+            "addSpecification": "+ Specification",
+            "cancel": "Cancel",
+            "close": "Close",
+            "ok": "OK",
+            "error": "Something went wrong"
+        }
     }
 }

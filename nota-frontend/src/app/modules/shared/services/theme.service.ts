@@ -2,6 +2,8 @@ import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { BehaviorSubject } from 'rxjs';
 
+export const THEME_STORAGE_KEY = 'theme';
+
 @Injectable({
   providedIn: 'root'
 })
@@ -13,22 +15,28 @@ export class ThemeService {
   constructor(@Inject(PLATFORM_ID) private platformId: Object) {
     this.isBrowser = isPlatformBrowser(this.platformId);
 
-    // Only access localStorage in browser
     if (this.isBrowser) {
-      const savedTheme = localStorage.getItem('theme');
+      const savedTheme = this.savedTheme();
+      const media = typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-color-scheme: dark)')
+        : null;
 
-      if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        this.enableDarkMode();
+      if (savedTheme) {
+        // A theme the user picked wins over the OS setting.
+        this.apply(savedTheme === 'dark');
       } else {
-        this.enableLightMode();
+        this.apply(!!media?.matches);
       }
 
-      // Optional: listen for system preference changes
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-        if (e.matches) this.enableDarkMode();
-        else this.enableLightMode();
+      // Follow the OS setting only while the user has never picked a theme.
+      media?.addEventListener('change', e => {
+        if (!this.savedTheme()) this.apply(e.matches);
       });
     }
+  }
+
+  get isDarkMode(): boolean {
+    return this._isDarkMode.value;
   }
 
   toggleTheme(): void {
@@ -39,19 +47,40 @@ export class ThemeService {
     }
   }
 
+  /** User's pick: applied and saved. */
   enableDarkMode(): void {
-    if (this.isBrowser) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    }
-    this._isDarkMode.next(true);
+    this.apply(true);
+    this.save('dark');
   }
 
+  /** User's pick: applied and saved. */
   enableLightMode(): void {
+    this.apply(false);
+    this.save('light');
+  }
+
+  private apply(dark: boolean): void {
     if (this.isBrowser) {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+      document.documentElement.classList.toggle('dark', dark);
     }
-    this._isDarkMode.next(false);
+    this._isDarkMode.next(dark);
+  }
+
+  private savedTheme(): 'dark' | 'light' | null {
+    try {
+      const value = localStorage.getItem(THEME_STORAGE_KEY);
+      return value === 'dark' || value === 'light' ? value : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private save(theme: 'dark' | 'light'): void {
+    if (!this.isBrowser) return;
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      // Storage unavailable: the pick lasts for this session only.
+    }
   }
 }

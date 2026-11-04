@@ -2,7 +2,6 @@ import { Component, computed, Inject, inject, OnInit, PLATFORM_ID } from '@angul
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { SideNavComponent } from "../side-nav/side-nav.component";
 import { ThemeService } from '../../../shared/services/theme.service';
-import { HeaderComponent } from "../header/header.component";
 import { TranslatePipe } from '@ngx-translate/core';
 import { LanguageService } from '../../../shared/services/translation.service';
 import { brandName } from '../../../../core/brand';
@@ -11,7 +10,7 @@ import { HOME_DEFAULT_VIEW, HOME_VIEW_STORAGE_KEY, HOME_VIEWS, HomeView } from '
 
 @Component({
   selector: 'app-home',
-  imports: [CommonModule, SideNavComponent, HeaderComponent, TranslatePipe],
+  imports: [CommonModule, SideNavComponent, TranslatePipe],
   standalone: true,
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss']

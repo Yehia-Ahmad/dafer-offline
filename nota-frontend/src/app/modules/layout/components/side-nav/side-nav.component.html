@@ -1,18 +1,32 @@
-<app-header #headerRef (collapsedSidenav)="toggleSidenav($event)"></app-header>
+<div class="nota-shell" [class.is-rail]="state.mode() === 'rail'" [class.is-drawer]="state.isDrawer()"
+  [class.is-drawer-open]="state.isDrawer() && state.drawerOpen()">
+  <app-custom-sidenav id="nota-sidebar" class="nota-shell__sidebar"
+    [attr.aria-hidden]="state.isDrawer() && !state.drawerOpen() ? 'true' : null"
+    [attr.inert]="state.isDrawer() && !state.drawerOpen() ? '' : null" />
 
-<mat-sidenav-container [attr.dir]="direction()" [ngStyle]="{ height: sidenavHeight }">
-  <mat-sidenav #sidenav mode="side" opened="true" position="start" [style.overflow]="'hidden'" [style.width]="sidenavWidth()" [ngStyle]="{
-      'background-color': (isDarkMode$ | async) ? '#151515' : '#f5f5f5'
-    }">
-    <app-custom-sidenav #customSidenav (collapsedSidenav)="toggleSidenav($event)"></app-custom-sidenav>
-  </mat-sidenav>
+  @if (state.isDrawer() && state.drawerOpen()) {
+    <div class="nota-shell__scrim" aria-hidden="true" (click)="state.closeDrawer()"></div>
+  }
 
-  <mat-sidenav-content class="p-6"
-    [style.margin-left]="direction() === 'ltr' ? sidenavWidth() : null"
-    [style.margin-right]="direction() === 'rtl' ? sidenavWidth() : null"
-    [ngStyle]="{
-      'background-color': (isDarkMode$ | async) ? '#1f1f1f' : '#ffffff'
-    }">
-    <ng-content></ng-content>
-  </mat-sidenav-content>
-</mat-sidenav-container>
+  <div class="nota-shell__main">
+    <div class="nota-shell__topbar">
+      @if (state.isDrawer()) {
+        <button type="button" class="nota-btn nota-btn--secondary nota-btn--icon" (click)="state.openDrawer()"
+          aria-controls="nota-sidebar" [attr.aria-expanded]="state.drawerOpen()"
+          [attr.aria-label]="'nav.openMenu' | translate" [title]="'nav.openMenu' | translate">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
+      }
+      <button type="button" class="nota-btn nota-btn--secondary nota-shell__back" (click)="goBack()"
+        [attr.aria-label]="'nav.back' | translate">
+        <svg class="nota-shell__back-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+        <span>{{ 'nav.back' | translate }}</span>
+      </button>
+    </div>
+    <div class="nota-shell__content">
+      <ng-content></ng-content>
+    </div>
+  </div>
+</div>
