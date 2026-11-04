@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota add or edit product</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+.hint{font-size:12px;color:#4A5856}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="products" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <a href="#" style="font-size: 14px; text-decoration: none">→ الأصناف</a>
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800">صنف جديد</h1>
+      <div style="display: flex; flex-direction: row; gap: 10px">
+        <button type="button" class="btn">إلغاء</button>
+        <button type="button" class="btn">حفظ وإضافة غيره</button>
+        <button type="button" class="btn btn-p">حفظ</button>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <div style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+        <section class="card" style="padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 700">البيانات الأساسية</h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px">
+            <label class="lb">اسم الصنف *<input type="text" class="in" value="لمبة LED ٢٤ وات"></label>
+            <label class="lb">الكود / الباركود *
+              <span style="display: flex; flex-direction: row; gap: 8px"><input type="text" class="in num" value="LED-24" style="direction: ltr; text-align: right"><button type="button" class="btn" style="padding: 0 12px; white-space: nowrap">امسح</button></span>
+            </label>
+            <label class="lb">الفئة *
+              <select class="in"><option>لمبات</option><option>شواحن</option><option>أسلاك</option></select>
+            </label>
+            <label class="lb">الوحدة
+              <select class="in"><option>قطعة</option><option>متر</option><option>لفة</option><option>كرتونة</option></select>
+            </label>
+          </div>
+        </section>
+        <section class="card" style="padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 700">الأسعار</h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px">
+            <label class="lb">سعر الشراء *<input type="text" class="in num" value="٥٠"><span class="hint">مخفي عن الكاشير</span></label>
+            <label class="lb">سعر القطاعي *<input type="text" class="in num" value="٨٠"></label>
+            <label class="lb">سعر الجملة<input type="text" class="in num" value="٧٠"></label>
+            <label class="lb">خصم ٪<input type="text" class="in num" value="٠"></label>
+          </div>
+          <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px">
+            <span style="font-size: 13px; padding: 8px 12px; border-radius: 10px; background: #E6EFEC; color: #0E4D45">ربح القطاعي: ٣٠ ج.م (٣٧٫٥٪)</span>
+            <span style="font-size: 13px; padding: 8px 12px; border-radius: 10px; background: #E6EFEC; color: #0E4D45">ربح الجملة: ٢٠ ج.م (٢٨٫٦٪)</span>
+          </div>
+          <span class="hint">البرنامج مش هيقبل سعر بيع أقل من سعر الشراء.</span>
+        </section>
+        <section class="card" style="padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 700">مواصفات فئة "لمبات"</h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px">
+            <label class="lb">القدرة (وات)<input type="text" class="in num" value="٢٤"></label>
+            <label class="lb">شدة الإضاءة (لومن)<input type="text" class="in num" value="٢٤٠٠"></label>
+            <label class="lb">لون الإضاءة<select class="in"><option>أبيض</option><option>وورم</option></select></label>
+          </div>
+        </section>
+      </div>
+      <aside style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+        <section class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 12px; align-items: stretch">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 700">الصورة</h2>
+          <div style="height: 180px; border-radius: 14px; border: 2px dashed #CFCAC0; background: #FAF9F6; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #4A5856">اسحب صورة هنا أو اضغط للرفع</div>
+        </section>
+        <section class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 12px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 700">المخزون</h2>
+          <label class="lb">الكمية الحالية<input type="text" class="in num" value="٠"><span class="hint">للصنف الجديد. بعد كده الكمية بتزيد من فواتير الشراء.</span></label>
+          <label class="lb">نبّهني لما يوصل لـ<input type="text" class="in num" value="٥"><span class="hint">بيظهر في "أصناف قربت تخلص"</span></label>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

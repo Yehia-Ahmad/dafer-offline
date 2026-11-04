@@ -22,7 +22,7 @@ function isValidHost(host) {
   return /^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$/.test(value);
 }
 
-// result.status: ok | unauthorized | unreachable | not-kapomatic
+// result.status: ok | unauthorized | unreachable | not-nota
 async function probeServer({ host, port, secret, fetchImpl = fetch, timeoutMs = PROBE_TIMEOUT_MS }) {
   let response;
   try {
@@ -41,10 +41,10 @@ async function probeServer({ host, port, secret, fetchImpl = fetch, timeoutMs = 
     // not JSON: not our server
   }
   if (response.status === 401 && body && body.code === 'LAN_KEY_INVALID') return { status: 'unauthorized' };
-  if (response.ok && body && body.app === 'kapomatic-backend' && body.lanMode === true) {
+  if (response.ok && body && body.app === 'nota-backend' && body.lanMode === true) {
     return { status: 'ok', info: body };
   }
-  return { status: 'not-kapomatic', detail: `HTTP ${response.status}` };
+  return { status: 'not-nota', detail: `HTTP ${response.status}` };
 }
 
 // Watches the link to the main PC and reports changes. When the main PC stops answering it

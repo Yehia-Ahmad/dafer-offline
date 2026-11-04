@@ -1,9 +1,9 @@
 'use strict';
 
-// Kapomatic Offline: Electron entry point.
+// Nota (offline edition): Electron entry point.
 //
 // First launch: the setup page chooses the role.
-// Main PC: runs the bundled mongod (127.0.0.1 only) and kapomatic-backend (LAN), answers LAN
+// Main PC: runs the bundled mongod (127.0.0.1 only) and the Nota backend (LAN), answers LAN
 // discovery, shows the admin app, and keeps the server running in the tray.
 // Client PC: shows the admin app against the main PC's backend and watches the connection.
 
@@ -51,17 +51,17 @@ const QUIT_ALL_TIMEOUT_MS = 100000;
 app.setName(EDITION.productName);
 app.setPath(
   'userData',
-  process.env.KAPOMATIC_OFFLINE_USER_DATA // tests: simulates a second Windows account
-    ? path.resolve(process.env.KAPOMATIC_OFFLINE_USER_DATA)
+  process.env.NOTA_OFFLINE_USER_DATA // tests: simulates a second Windows account
+    ? path.resolve(process.env.NOTA_OFFLINE_USER_DATA)
     : path.join(app.getPath('appData'), EDITION.productName)
 );
 
 // Development-only test hook: answers file dialogs and confirmations from a JSON file, because
 // native dialogs cannot be automated. The installed app never reads it.
-const TEST_DIALOGS_FILE = app.isPackaged ? null : process.env.KAPOMATIC_OFFLINE_TEST_DIALOGS || null;
+const TEST_DIALOGS_FILE = app.isPackaged ? null : process.env.NOTA_OFFLINE_TEST_DIALOGS || null;
 // Development-only: shorter automatic backup timing for tests, and a folder that counts as
 // another drive, as JSON ({ "firstCheckDelayMs": 3000, "checkIntervalMs": 5000, "otherDrive": "..." }).
-const TEST_AUTO_BACKUP = app.isPackaged ? null : JSON.parse(process.env.KAPOMATIC_OFFLINE_TEST_AUTO_BACKUP || 'null');
+const TEST_AUTO_BACKUP = app.isPackaged ? null : JSON.parse(process.env.NOTA_OFFLINE_TEST_AUTO_BACKUP || 'null');
 
 const startHidden = process.argv.includes('--hidden'); // started by Windows at login
 const quitRequested = process.argv.includes('--quit'); // a script asks this account's copy to stop
@@ -114,7 +114,7 @@ const loadBson = () => require(path.join(state.resources.backendDir, 'node_modul
 function setStatus(status) {
   state.status = { ...status, label: statusLabel(status), appVersion: EDITION.version };
   log.info(`status: ${status.state}${status.reason ? ` (${status.reason})` : ''}${status.code ? ` ${status.code}` : ''}`);
-  send('kapomatic:status', state.status);
+  send('nota:status', state.status);
   updateTray();
 
   if (status.state === 'running') {
@@ -138,7 +138,7 @@ function setStatus(status) {
 
   // A lost connection while the app is open shows Angular's overlay instead (status.overlay),
   // so a half-finished invoice is not thrown away.
-  if (['failed', 'not-configured', 'unreachable', 'unauthorized', 'not-kapomatic'].includes(status.state) && !status.overlay) {
+  if (['failed', 'not-configured', 'unreachable', 'unauthorized', 'not-nota'].includes(status.state) && !status.overlay) {
     if (state.uiLoaded) showStatusPage();
     showWindow();
   }
@@ -146,7 +146,7 @@ function setStatus(status) {
 
 function setConnection(connection) {
   state.connection = { ...connection, role: state.config ? state.config.role : null };
-  send('kapomatic:connection', state.connection);
+  send('nota:connection', state.connection);
 }
 
 function send(channel, value) {
@@ -343,7 +343,7 @@ function openLogs() {
 
 function openBackupPage() {
   showWindow();
-  if (state.uiLoaded) send('kapomatic:navigate', '/backup');
+  if (state.uiLoaded) send('nota:navigate', '/backup');
 }
 
 // ---------------------------------------------------------------- dialogs
@@ -582,7 +582,7 @@ function registerBackupIpc() {
 
 function registerIpc() {
   registerBackupIpc();
-  handle('kapomatic:runtime-config', () => {
+  handle('nota:runtime-config', () => {
     if (!state.apiOrigin || !state.config) throw new Error('the app is not configured');
     return {
       apiBaseUrl: `${state.apiOrigin}/api/`,
@@ -592,13 +592,13 @@ function registerIpc() {
         state.config.role === 'client' ? (state.serverInfo && state.serverInfo.appVersion) || null : EDITION.version,
     };
   });
-  handle('kapomatic:status', () => state.status);
-  handle('kapomatic:connection', () => state.connection);
-  handle('kapomatic:retry', () => retry());
-  handle('kapomatic:retry-connection', () => (state.monitor ? state.monitor.check().then(() => state.connection) : state.connection));
-  handle('kapomatic:change-address', () => changeAddress());
-  handle('kapomatic:open-logs', () => openLogs());
-  handle('kapomatic:quit', () => gracefulQuit('user pressed exit'));
+  handle('nota:status', () => state.status);
+  handle('nota:connection', () => state.connection);
+  handle('nota:retry', () => retry());
+  handle('nota:retry-connection', () => (state.monitor ? state.monitor.check().then(() => state.connection) : state.connection));
+  handle('nota:change-address', () => changeAddress());
+  handle('nota:open-logs', () => openLogs());
+  handle('nota:quit', () => gracefulQuit('user pressed exit'));
 
   handleSetup('setup:info', () => ({
     ...state.setup.info(),
@@ -678,7 +678,7 @@ function applyLoginItem(config) {
   });
 }
 
-// The machine-wide server lock. `Kapomatic Offline.exe --quit-all` (the installer) can ask the
+// The machine-wide server lock. `Nota.exe --quit-all` (the installer) can ask the
 // copy holding it to stop, from any Windows account.
 const holdServerLock = () =>
   holdPortLock(SERVER_LOCK_PORT, { onQuit: () => gracefulQuit('asked to quit through the server lock (installer)') });
@@ -824,7 +824,7 @@ const CLIENT_ERRORS = {
   unreachable: () =>
     `تعذر الاتصال بالجهاز الرئيسي (${state.config.mainHost}:${state.config.port}). تأكد أن الجهاز الرئيسي يعمل وأن البرنامج مفتوح عليه، وأن الجهازين على نفس الشبكة.`,
   unauthorized: () => 'كلمة سر الشبكة على هذا الجهاز لا تطابق الجهاز الرئيسي. أدخل كلمة السر الصحيحة.',
-  'not-kapomatic': () => `العنوان ${state.config.mainHost}:${state.config.port} لا يخص جهاز Kapomatic رئيسي.`,
+  'not-nota': () => `العنوان ${state.config.mainHost}:${state.config.port} لا يخص جهاز ${EDITION.nameAr} رئيسي.`,
 };
 
 async function startClientRole(knownInfo) {
@@ -942,7 +942,7 @@ function fatal(error) {
   app.exit(1);
 }
 
-// `Kapomatic Offline.exe --quit-all`, run by the installer before it replaces or removes the
+// `Nota.exe --quit-all`, run by the installer before it replaces or removes the
 // app: asks the running copies to stop cleanly and returns once the database has stopped, so
 // the installer never has to kill mongod.
 async function quitAll() {

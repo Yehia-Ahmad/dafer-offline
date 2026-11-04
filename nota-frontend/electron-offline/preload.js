@@ -9,18 +9,18 @@ const subscribe = (channel, callback) => {
   return () => ipcRenderer.removeListener(channel, listener);
 };
 
-contextBridge.exposeInMainWorld('kapomaticDesktop', {
+contextBridge.exposeInMainWorld('notaDesktop', {
   // Read by Angular before it starts (src/app/core/runtime/runtime-config.ts).
-  getRuntimeConfig: () => ipcRenderer.invoke('kapomatic:runtime-config'),
+  getRuntimeConfig: () => ipcRenderer.invoke('nota:runtime-config'),
 
   // Connection to the server, shown by Angular's connection overlay.
-  getConnection: () => ipcRenderer.invoke('kapomatic:connection'),
-  onConnection: (callback) => subscribe('kapomatic:connection', callback),
-  retryConnection: () => ipcRenderer.invoke('kapomatic:retry-connection'),
-  changeServerAddress: () => ipcRenderer.invoke('kapomatic:change-address'),
+  getConnection: () => ipcRenderer.invoke('nota:connection'),
+  onConnection: (callback) => subscribe('nota:connection', callback),
+  retryConnection: () => ipcRenderer.invoke('nota:retry-connection'),
+  changeServerAddress: () => ipcRenderer.invoke('nota:change-address'),
 
   // The tray asks Angular to open a page (e.g. /backup).
-  onNavigate: (callback) => subscribe('kapomatic:navigate', callback),
+  onNavigate: (callback) => subscribe('nota:navigate', callback),
 
   // Backup page (main PC only). Each call resolves to { ok, value } or { ok: false, error };
   // value is null when the user cancelled the file dialog or the confirmation.
@@ -38,11 +38,11 @@ contextBridge.exposeInMainWorld('kapomaticDesktop', {
   },
 
   // Status page.
-  getStatus: () => ipcRenderer.invoke('kapomatic:status'),
-  onStatus: (callback) => subscribe('kapomatic:status', callback),
-  retry: () => ipcRenderer.invoke('kapomatic:retry'),
-  openLogs: () => ipcRenderer.invoke('kapomatic:open-logs'),
-  quit: () => ipcRenderer.invoke('kapomatic:quit'),
+  getStatus: () => ipcRenderer.invoke('nota:status'),
+  onStatus: (callback) => subscribe('nota:status', callback),
+  retry: () => ipcRenderer.invoke('nota:retry'),
+  openLogs: () => ipcRenderer.invoke('nota:open-logs'),
+  quit: () => ipcRenderer.invoke('nota:quit'),
 
   // Setup page. Every call resolves to { ok: true, value } or { ok: false, error: { message, field } }.
   setup: {

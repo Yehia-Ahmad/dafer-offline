@@ -15,7 +15,7 @@ const LABELS = {
   connected: 'متصل بالجهاز الرئيسي',
   unreachable: 'لا يوجد اتصال بالجهاز الرئيسي',
   unauthorized: 'كلمة سر الشبكة غير صحيحة',
-  'not-kapomatic': 'العنوان لا يخص جهازاً رئيسياً',
+  'not-nota': 'العنوان لا يخص جهازاً رئيسياً',
 };
 
 // The server pauses briefly for each of these (supervisor.runMaintenance).

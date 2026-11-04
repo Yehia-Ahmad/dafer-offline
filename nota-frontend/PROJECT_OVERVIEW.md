@@ -1,8 +1,8 @@
-# Kapomatic Inventory System
+# Nota
 
 ## 1. Project Overview
 
-Kapomatic Inventory System is an Angular-based inventory, sales, customer, returns, and e-commerce administration application. The codebase is a frontend application with optional Electron desktop packaging for Windows.
+Nota is an Angular-based inventory, sales, customer, returns, and e-commerce administration application. The codebase is a frontend application with optional Electron desktop packaging for Windows.
 
 The project helps a product-based business manage its internal stock catalog, cash sales, credit sales, customers, returns, profit reporting, website orders, storefront settings, and website promotional images from one administrative interface.
 
@@ -457,6 +457,6 @@ Actual values are intentionally not included.
 
 ## 13. Summary
 
-Kapomatic Inventory System is a business operations frontend for inventory, sales, customers, returns, reporting, and e-commerce administration. It is built with Angular 20 and can also be packaged as an Electron desktop application. The strongest implemented areas are product/category management, cash sales, credit sales, customer credit tracking, returns, profit reporting, website settings, website image targeting, and website order moderation.
+Nota is a business operations frontend for inventory, sales, customers, returns, reporting, and e-commerce administration. It is built with Angular 20 and can also be packaged as an Electron desktop application. The strongest implemented areas are product/category management, cash sales, credit sales, customer credit tracking, returns, profit reporting, website settings, website image targeting, and website order moderation.
 
 The project is best suited for administrators, sales staff, finance staff, warehouse/inventory staff, and e-commerce operators who need a unified interface for day-to-day product and order operations. Authentication scaffolding exists, but active route protection and interceptor-based token usage need verification or completion before the application can be considered access-controlled.

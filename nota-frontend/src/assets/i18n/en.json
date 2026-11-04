@@ -691,7 +691,7 @@
     "invoicePrint": {
         "salesTitle": "Sales Invoice",
         "creditTitle": "Credit Sales Invoice",
-        "systemNote": "This invoice was generated electronically",
+        "systemNote": "This invoice was generated electronically by {{appName}}",
         "taxNumber": "Tax No.",
         "commercialRegister": "Commercial Reg."
     },

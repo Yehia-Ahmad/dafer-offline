@@ -15,7 +15,7 @@ const notFound = require("./middlewares/notFound.middleware");
 const errorHandler = require("./middlewares/error.middleware");
 
 const app = express();
-// Offline desktop edition only (KAPOMATIC_LAN_MODE=1). Unset in the online deployment.
+// Offline desktop edition only (NOTA_LAN_MODE=1). Unset in the online deployment.
 const lanMode = isLanMode();
 
 app.use(cors());
@@ -27,7 +27,7 @@ app.get("/", (req, res) => {
 });
 
 if (lanMode) {
-  app.use("/api", createLanSecretGuard(process.env.KAPOMATIC_LAN_SECRET));
+  app.use("/api", createLanSecretGuard(process.env.NOTA_LAN_SECRET));
   app.use("/api/lan", lanRoutes);
 }
 

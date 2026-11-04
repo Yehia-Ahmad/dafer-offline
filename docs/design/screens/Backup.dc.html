@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota backup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:right;font-size:13px;font-weight:700;color:#4A5856;background:#FAF9F6;padding:12px 16px}
+.tbl td{padding:12px 16px;border-top:1px solid #F0EDE6}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="backup" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800">النسخ الاحتياطي</h1>
+      <span style="font-size: 14px; color: #4A5856">متاح على الجهاز الرئيسي بس، لأن الداتا كلها متخزنة عليه</span>
+    </div>
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px">
+      <section class="card" style="flex: 2 1 420px; min-width: 0; padding: 22px; display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 20px">
+        <div style="width: 64px; height: 64px; border-radius: 999px; background: #E6EFEC; display: flex; align-items: center; justify-content: center">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0E4D45" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+        </div>
+        <div style="flex: 1 1 220px; display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 20px; font-weight: 800">الداتا في أمان</span>
+          <span class="num" style="font-size: 14px; color: #4A5856">آخر نسخة: النهارده ٢:٠٠ ص (تلقائي) · ٤٫٢ ميجا</span>
+        </div>
+        <button type="button" class="btn btn-p" style="min-height: 52px; font-size: 16px">عمل نسخة دلوقتي</button>
+      </section>
+      <section class="card" style="flex: 1 1 300px; min-width: 0; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700">النسخ التلقائي</h2>
+        <label style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; min-height: 44px">مفعّل
+          <input type="checkbox" checked style="width: 22px; height: 22px; accent-color: #0E4D45">
+        </label>
+        <label class="lb">كل
+          <select class="in"><option>يوم الساعة ٢:٠٠ ص</option><option>٦ ساعات</option><option>أسبوع</option></select>
+        </label>
+        <label class="lb">احتفظ بآخر
+          <select class="in"><option>١٤ نسخة</option><option>٧ نسخ</option><option>٣٠ نسخة</option></select>
+        </label>
+      </section>
+    </div>
+    <section class="card" style="padding: 20px 22px; display: flex; flex-direction: row; flex-wrap: wrap; gap: 14px; align-items: flex-end">
+      <label class="lb" style="flex: 1 1 360px">مكان حفظ النسخ
+        <input type="text" class="in" value="D:\Nota Backups" style="direction: ltr; text-align: right">
+      </label>
+      <button type="button" class="btn">تغيير</button>
+      <p style="margin: 0; flex: 1 1 100%; font-size: 13px; color: #4A5856">نصيحة: اختار فلاشة أو هارد خارجي، عشان لو الجهاز نفسه باظ تفضل الداتا موجودة.</p>
+    </section>
+    <section class="card" style="overflow: hidden">
+      <div style="padding: 16px 20px; display: flex; flex-direction: row; justify-content: space-between; align-items: center"><h2 style="margin: 0; font-size: 18px; font-weight: 700">النسخ المحفوظة</h2><button type="button" class="btn">استرجاع من ملف</button></div>
+      <div style="overflow-x: auto">
+        <table class="tbl" style="min-width: 640px">
+          <thead><tr><th>التاريخ</th><th>النوع</th><th>الحجم</th><th></th></tr></thead>
+          <tbody>
+            <tr><td class="num">٣ / ١١ / ٢٠٢٦ · ٢:٠٠ ص</td><td><span class="pill" style="color: #4A5856; background: #EFEDE8">تلقائي</span></td><td class="num">٤٫٢ ميجا</td><td><button type="button" class="btn" style="min-height: 36px; font-size: 13px">استرجاع</button></td></tr>
+            <tr><td class="num">٢ / ١١ / ٢٠٢٦ · ٩:١٥ م</td><td><span class="pill" style="color: #0E4D45; background: #E6EFEC">يدوي</span></td><td class="num">٤٫١ ميجا</td><td><button type="button" class="btn" style="min-height: 36px; font-size: 13px">استرجاع</button></td></tr>
+            <tr><td class="num">٢ / ١١ / ٢٠٢٦ · ٢:٠٠ ص</td><td><span class="pill" style="color: #4A5856; background: #EFEDE8">تلقائي</span></td><td class="num">٤٫١ ميجا</td><td><button type="button" class="btn" style="min-height: 36px; font-size: 13px">استرجاع</button></td></tr>
+            <tr><td class="num">١ / ١١ / ٢٠٢٦ · ٢:٠٠ ص</td><td><span class="pill" style="color: #4A5856; background: #EFEDE8">تلقائي</span></td><td class="num">٤٫٠ ميجا</td><td><button type="button" class="btn" style="min-height: 36px; font-size: 13px">استرجاع</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin: 0; padding: 12px 20px; border-top: 1px solid #F0EDE6; font-size: 13px; color: #9A3412">الاسترجاع بيرجّع الداتا لوقت النسخة. قبله البرنامج بيعمل نسخة أمان من الوضع الحالي تلقائي.</p>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const EDITION = require('../edition.json');
 const { DEFAULT_PORT, MONGOD_PORT, validPort, writeConfig } = require('./config-store');
 const { protectSecret } = require('./secret-store');
 const { isPortFree } = require('./net-utils');
@@ -180,7 +181,7 @@ class SetupController {
     if (result.status === 'unreachable') {
       throw new SetupError('تعذر الوصول إلى الجهاز الرئيسي. تأكد أنه يعمل ومتصل بنفس الشبكة، وأن العنوان صحيح.', 'host');
     }
-    if (result.status !== 'ok') throw new SetupError('هذا العنوان لا يخص جهاز Kapomatic رئيسي.', 'host');
+    if (result.status !== 'ok') throw new SetupError(`هذا العنوان لا يخص جهاز ${EDITION.nameAr} رئيسي.`, 'host');
 
     const config = writeConfig(this.paths.config, {
       schemaVersion: 1,

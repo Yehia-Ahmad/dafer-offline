@@ -1,9 +1,11 @@
-import { Component, Inject, OnInit, PLATFORM_ID } from '@angular/core';
+import { Component, computed, Inject, inject, OnInit, PLATFORM_ID } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { SideNavComponent } from "../side-nav/side-nav.component";
 import { ThemeService } from '../../../shared/services/theme.service';
 import { HeaderComponent } from "../header/header.component";
 import { TranslatePipe } from '@ngx-translate/core';
+import { LanguageService } from '../../../shared/services/translation.service';
+import { brandName } from '../../../../core/brand';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HOME_DEFAULT_VIEW, HOME_VIEW_STORAGE_KEY, HOME_VIEWS, HomeView } from '../../constants/home-view.constants';
 
@@ -18,6 +20,8 @@ export class HomeComponent implements OnInit {
   currentView: HomeView = HOME_DEFAULT_VIEW;
   isDarkMode$;
   private isBrowser: boolean;
+  private readonly _languageService = inject(LanguageService);
+  brandName = computed(() => brandName(this._languageService.selectedLanguage()));
 
   constructor(
     private _themeService: ThemeService,

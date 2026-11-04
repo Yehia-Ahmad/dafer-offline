@@ -21,8 +21,8 @@ test('probe results: ok, wrong secret, not ours, unreachable', async () => {
   const ok = await probeServer({
     ...target,
     fetchImpl: async (url, options) => {
-      seen = { url, header: options.headers['X-Kapomatic-Lan-Key'] };
-      return jsonResponse(200, { app: 'kapomatic-backend', lanMode: true, appVersion: '1.0.0', instanceId: 'm' });
+      seen = { url, header: options.headers['X-Nota-Lan-Key'] };
+      return jsonResponse(200, { app: 'nota-backend', lanMode: true, appVersion: '1.0.0', instanceId: 'm' });
     },
   });
   assert.equal(ok.status, 'ok');
@@ -33,10 +33,10 @@ test('probe results: ok, wrong secret, not ours, unreachable', async () => {
   assert.equal(wrong.status, 'unauthorized');
 
   const online = await probeServer({ ...target, fetchImpl: async () => jsonResponse(404, { message: 'not found' }) });
-  assert.equal(online.status, 'not-kapomatic', 'an online-mode backend has no LAN route');
+  assert.equal(online.status, 'not-nota', 'an online-mode backend has no LAN route');
 
   const other = await probeServer({ ...target, fetchImpl: async () => ({ status: 200, ok: true, json: async () => { throw new Error('html'); } }) });
-  assert.equal(other.status, 'not-kapomatic');
+  assert.equal(other.status, 'not-nota');
 
   const down = await probeServer({ ...target, fetchImpl: async () => { const e = new Error('fetch failed'); e.cause = { code: 'ECONNREFUSED' }; throw e; } });
   assert.deepEqual(down, { status: 'unreachable', detail: 'ECONNREFUSED' });
@@ -47,7 +47,7 @@ test('the monitor reports a lost connection once, then its return', async () => 
   let up = true;
   global.fetch = async () => {
     if (!up) throw Object.assign(new Error('fetch failed'), { cause: { code: 'ECONNREFUSED' } });
-    return jsonResponse(200, { app: 'kapomatic-backend', lanMode: true });
+    return jsonResponse(200, { app: 'nota-backend', lanMode: true });
   };
   try {
     const timers = { setTimeout: () => 1, clearTimeout: () => {} };

@@ -7,8 +7,10 @@
 const { execFile } = require('node:child_process');
 const path = require('node:path');
 
+const EDITION = require('../edition.json');
+
 // Keep in sync with installer-offline/installer.nsh.
-const FIREWALL_RULES = ['Kapomatic Offline (TCP)', 'Kapomatic Offline (UDP)'];
+const FIREWALL_RULES = [`${EDITION.productName} Server`, `${EDITION.productName} Discovery`];
 
 // netsh exits with 0 when a rule with that name exists and 1 when none does, whatever the
 // Windows display language. Resolves to the missing rule names, or null if netsh did not run.

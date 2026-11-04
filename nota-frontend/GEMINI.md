@@ -1,9 +1,9 @@
-# Kapomatic Inventory System - Project Context
+# Nota - Project Context
 
-This document provides foundational context and instructions for AI agents working on the Kapomatic Inventory System.
+This document provides foundational context and instructions for AI agents working on Nota.
 
 ## Project Overview
-Kapomatic is a modern inventory management application built with **Angular** and wrapped as a desktop application using **Electron**. It features customer management, product categorization, sales tracking (including credit sales), and profit reporting.
+Nota is a modern inventory management application built with **Angular** and wrapped as a desktop application using **Electron**. It features customer management, product categorization, sales tracking (including credit sales), and profit reporting.
 
 ### Core Technology Stack
 - **Framework:** Angular 20 (utilizing Standalone Components, Functional Guards/Interceptors, and Zoneless Change Detection).

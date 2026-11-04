@@ -691,7 +691,7 @@
   "invoicePrint": {
     "salesTitle": "فاتورة بيع",
     "creditTitle": "فاتورة بيع آجل",
-    "systemNote": "تم إنشاء هذه الفاتورة إلكترونيًا",
+    "systemNote": "تم إنشاء هذه الفاتورة إلكترونيًا بواسطة {{appName}}",
     "taxNumber": "الرقم الضريبي",
     "commercialRegister": "السجل التجاري"
   },

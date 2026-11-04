@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota customers list</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:right;font-size:13px;font-weight:700;color:#4A5856;background:#FAF9F6;padding:12px 16px}
+.tbl td{padding:12px 16px;border-top:1px solid #F0EDE6}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="customers" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800">العملاء</h1>
+      <div style="display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap">
+        <button type="button" class="btn">تصدير Excel</button>
+        <button type="button" class="btn btn-p">+ عميل جديد</button>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px">
+      <div class="card" style="padding: 16px 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #4A5856">كل العملاء</span><span class="num" style="font-size: 26px; font-weight: 800">٢١٤</span></div>
+      <div class="card" style="padding: 16px 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #4A5856">عليهم فلوس</span><span class="num" style="font-size: 26px; font-weight: 800">١٨</span></div>
+      <div class="card" style="padding: 16px 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #4A5856">إجمالي المستحق</span><span class="num" style="font-size: 26px; font-weight: 800">١٢٬٩٠٠ ج.م</span></div>
+      <div class="card" style="padding: 16px 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #4A5856">متأخرين عن الميعاد</span><span class="num" style="font-size: 26px; font-weight: 800; color: #B4401F">٤</span></div>
+    </div>
+    <section class="card" style="overflow: hidden">
+      <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px; padding: 14px 16px; align-items: center">
+        <input type="text" class="in" placeholder="بحث بالاسم أو رقم التليفون" style="flex: 1 1 260px; width: auto">
+        <div role="group" aria-label="فلتر" style="display: flex; flex-direction: row; gap: 6px; flex-wrap: wrap">
+          <button type="button" class="btn" style="background: #0E4D45; color: #FFFFFF; border-color: #0E4D45">الكل</button>
+          <button type="button" class="btn">عليهم فلوس</button>
+          <button type="button" class="btn">متأخرين</button>
+        </div>
+        <select class="in" aria-label="ترتيب" style="width: auto; flex: 0 1 200px"><option>الأكبر رصيدًا</option><option>آخر تعامل</option><option>الاسم</option></select>
+      </div>
+      <div style="overflow-x: auto">
+        <table class="tbl" style="min-width: 760px">
+          <thead><tr><th>العميل</th><th>التليفون</th><th>عدد الفواتير</th><th>إجمالي المشتريات</th><th>الرصيد المستحق</th><th>آخر تعامل</th><th></th></tr></thead>
+          <tbody>
+            <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+              <tr>
+                <td><div style="display: flex; flex-direction: row; align-items: center; gap: 10px"><span style="width: 34px; height: 34px; border-radius: 999px; background: #E6EFEC; color: #0E4D45; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px">{{r.i}}</span><a href="#" style="color: #142321; font-weight: 500; text-decoration: none">{{r.name}}</a></div></td>
+                <td class="num" style="color: #4A5856; direction: ltr; text-align: right">{{r.phone}}</td>
+                <td class="num">{{r.count}}</td>
+                <td class="num">{{r.total}}</td>
+                <td><span class="pill num" style="color: {{r.bc}}; background: {{r.bb}}">{{r.bal}}</span></td>
+                <td class="num" style="color: #4A5856">{{r.last}}</td>
+                <td><div style="display: flex; flex-direction: row; gap: 6px"><button type="button" class="btn" style="min-height: 36px; padding: 0 12px; font-size: 13px">كشف حساب</button><button type="button" class="btn" style="min-height: 36px; padding: 0 12px; font-size: 13px">تحصيل</button></div></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const r = (name, phone, count, total, bal, last, kind) => {
+      const k = kind === 'late' ? ['#9A3412', '#FBE9E3'] : kind === 'due' ? ['#7A5B00', '#FBF1D6'] : ['#0E4D45', '#E6EFEC'];
+      return { name, i: name[0], phone, count, total, bal, last, bc: k[0], bb: k[1] };
+    };
+    const rows = [
+      r('شركة الأمل للتوريدات', '0155 220 3344', '٩', '١٨٬٤٠٠', '٢٬٣٥٠ ج.م', '٢ / ١٠', 'late'),
+      r('م. سامي للمقاولات', '0100 123 4567', '٦', '١٢٬٧٠٠', '١٬٦٠٠ ج.م', '٣ / ١١', 'due'),
+      r('ورشة النور', '0111 987 6543', '٤', '٥٬٢٠٠', '١٬٤٥٠ ج.م', '٣ / ١١', 'due'),
+      r('محمد فتحي', '0122 555 0199', '٢', '٤٬٠٠٠', '١٬٤٥٠ ج.م', '٣ / ١١', 'late'),
+      r('كريم السيد', '0106 448 2210', '٥', '٣٬٣٠٠', '٦٠٠ ج.م', '٢ / ١١', 'due'),
+      r('هاني عبد الله', '0109 334 5512', '٣', '١٬٧٤٠', 'مفيش', '٣ / ١١', 'ok'),
+      r('عم صبحي', '0127 300 1188', '١١', '٩٬٨٠٠', 'مفيش', '٢ / ١١', 'ok'),
+      r('أبو يوسف للدهانات', '0114 662 7781', '٧', '١١٬٢٠٠', 'مفيش', '١٢ / ٩', 'ok')
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

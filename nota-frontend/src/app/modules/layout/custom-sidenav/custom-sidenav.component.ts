@@ -18,6 +18,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { ThemeService } from '../../shared/services/theme.service';
 import { HOME_DEFAULT_VIEW, HOME_VIEW_STORAGE_KEY } from '../constants/home-view.constants';
 import { filter } from 'rxjs';
+import { BRAND } from '../../../core/brand';
 import { ProductsService } from '../../products/services/products.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { isOfflineMainPc } from '../../../core/runtime/app-features';
@@ -220,7 +221,7 @@ export class CustomSidenavComponent implements OnInit {
     try {
       const { Workbook } = await import('exceljs');
       const workbook = new Workbook();
-      workbook.creator = 'Kapomatic Inventory System';
+      workbook.creator = BRAND.nameEn;
       workbook.created = new Date();
 
       const worksheet = workbook.addWorksheet('Categories');

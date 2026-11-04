@@ -25,6 +25,7 @@ import {
   CustomerDetails,
   CustomersService
 } from '../../services/customers.service';
+import { brandName } from '../../../../core/brand';
 
 type CustomerHistoryView = {
   id: string;
@@ -993,7 +994,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
       shop: toPrintableShop(this.shopProfileService.profile()),
       texts: {
         neutralTitle: this.translate.instant('invoicePrint.creditTitle'),
-        systemNote: this.translate.instant('invoicePrint.systemNote'),
+        systemNote: this.translate.instant('invoicePrint.systemNote', { appName: brandName(this.translate.currentLang) }),
         taxNumberLabel: this.translate.instant('invoicePrint.taxNumber'),
         commercialRegisterLabel: this.translate.instant('invoicePrint.commercialRegister')
       }

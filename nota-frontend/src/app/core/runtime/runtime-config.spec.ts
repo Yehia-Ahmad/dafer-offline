@@ -1,13 +1,13 @@
 import { environment } from '../../../environments/environment';
 import {
   DesktopRuntimeConfig,
-  KapomaticDesktopBridge,
+  NotaDesktopBridge,
   getDesktopRuntimeConfig,
   loadDesktopRuntimeConfig,
   normalizeApiBaseUrl,
 } from './runtime-config';
 
-const bridgeReturning = (config: Partial<DesktopRuntimeConfig>): KapomaticDesktopBridge => ({
+const bridgeReturning = (config: Partial<DesktopRuntimeConfig>): NotaDesktopBridge => ({
   getRuntimeConfig: async () => config as DesktopRuntimeConfig,
 });
 
@@ -72,7 +72,7 @@ describe('runtime-config', () => {
 
     it('fails without the desktop bridge', async () => {
       await expectAsync(loadDesktopRuntimeConfig(undefined)).toBeRejectedWithError(
-        /Kapomatic Offline desktop app/
+        /Nota desktop app/
       );
     });
 

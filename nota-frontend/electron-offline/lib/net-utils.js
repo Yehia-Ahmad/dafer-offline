@@ -13,9 +13,9 @@ function isPortFree(port, host = '127.0.0.1') {
   });
 }
 
-// Sent to the lock port by `Kapomatic Offline.exe --quit-all` (the installer): the copy holding
+// Sent to the lock port by `Nota.exe --quit-all` (the installer): the copy holding
 // the lock, in whichever Windows account, stops cleanly.
-const QUIT_COMMAND = 'KAPOMATIC_OFFLINE_QUIT_V1';
+const QUIT_COMMAND = 'NOTA_OFFLINE_QUIT_V1';
 
 // Holding a local port is a machine-wide lock: unlike Electron's single-instance lock, it
 // also sees copies of the app running under other Windows accounts, and Windows releases it

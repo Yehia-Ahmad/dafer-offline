@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { getDesktopBridge } from './core/runtime/runtime-config';
 import { environment } from '../environments/environment';
@@ -12,7 +12,6 @@ import { VersionNoticeComponent } from './offline/version-notice.component';
   styleUrl: './app.scss'
 })
 export class App {
-  protected readonly title = signal('okland-warranty-system');
   /** Offline desktop edition: connection overlay and version notice. */
   protected readonly offline = environment.offline;
 

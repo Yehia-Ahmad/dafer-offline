@@ -4,7 +4,7 @@
 // calls, <img> product images and file downloads alike. The secret stays in the main
 // process and never reaches the Angular code.
 
-const LAN_KEY_HEADER = 'X-Kapomatic-Lan-Key';
+const LAN_KEY_HEADER = 'X-Nota-Lan-Key';
 
 function installSecretHeader(session, { origin, secret }) {
   const filter = { urls: [`${origin}/*`] };

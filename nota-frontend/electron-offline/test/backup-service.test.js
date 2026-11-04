@@ -21,24 +21,24 @@ const canRun =
 const silentLog = { info() {}, warn() {}, error() {} };
 
 test('backup file names sort by date and time', () => {
-  const name = backupFileName('kapomatic-backup-', new Date(2026, 10, 2, 9, 5, 7));
-  assert.equal(name, 'kapomatic-backup-2026-11-02_090507.archive.gz');
+  const name = backupFileName('nota-backup-', new Date(2026, 10, 2, 9, 5, 7));
+  assert.equal(name, 'nota-backup-2026-11-02_090507.archive.gz');
   assert.ok(backupFileName(SAFETY_PREFIX).startsWith('before-restore-'));
 });
 
 test('mongodump output parsing', () => {
   const entries = parseDumpOutput(
-    '2026-11-02T21:00:00.000+0200\tdone dumping kapomatic_warehouse.products (12 documents)\n' +
-      '2026-11-02T21:00:00.000+0200\tdone dumping kapomatic_warehouse.categories (1 document)\n'
+    '2026-11-02T21:00:00.000+0200\tdone dumping nota.products (12 documents)\n' +
+      '2026-11-02T21:00:00.000+0200\tdone dumping nota.categories (1 document)\n'
   );
   assert.deepEqual(entries, [
-    { namespace: 'kapomatic_warehouse.products', documents: 12 },
-    { namespace: 'kapomatic_warehouse.categories', documents: 1 },
+    { namespace: 'nota.products', documents: 12 },
+    { namespace: 'nota.categories', documents: 1 },
   ]);
 });
 
 test('real tools: backup, restore over newer data, rollback on a broken file, pruning', { skip: !canRun, timeout: 300000 }, async () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'kapomatic-backup-'));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-backup-'));
   const mongodb = require(mongodbPath);
   const mongod = new MongodManager({
     mongodPath: bin('mongod.exe'),

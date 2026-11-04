@@ -24,13 +24,13 @@ const pad = (value) => String(value).padStart(2, '0');
 // 2026-11-02 (local date)
 const localDateStamp = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
-// kapomatic-backup-2026-11-02_213005.archive.gz (local time, sorts by date)
-function backupFileName(prefix = 'kapomatic-backup-', date = new Date()) {
+// nota-backup-2026-11-02_213005.archive.gz (local time, sorts by date)
+function backupFileName(prefix = 'nota-backup-', date = new Date()) {
   const stamp = `${localDateStamp(date)}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
   return `${prefix}${stamp}${BACKUP_SUFFIX}`;
 }
 
-// mongodump prints e.g. "done dumping kapomatic_warehouse.products (12 documents)".
+// mongodump prints e.g. "done dumping nota.products (12 documents)".
 function parseDumpOutput(text) {
   return [...text.matchAll(/done dumping (\S+) \((\d+) documents?\)/g)].map((match) => ({
     namespace: match[1],

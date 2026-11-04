@@ -2,7 +2,7 @@
 // End-to-end smoke test for the offline edition's backend (npm run smoke:offline).
 //
 // Starts a throwaway mongod from vendor/mongodb on port 27099 with a fresh dbpath under the
-// OS temp folder, starts kapomatic-backend in LAN mode against it on port 5099, runs the core
+// OS temp folder, starts nota-backend in LAN mode against it on port 5099, runs the core
 // shop scenarios (sales, edits, returns, credit sales, payments, exports) over HTTP, then stops
 // everything and deletes the temp folder. It never touches the real database or port 27017.
 //
@@ -32,7 +32,7 @@ const REMOVED_ROUTES = [
 ];
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const BACKEND_DIR = path.resolve(process.env.KAPOMATIC_BACKEND_DIR || path.join(ROOT, '..', 'kapomatic-backend'));
+const BACKEND_DIR = path.resolve(process.env.NOTA_BACKEND_DIR || path.join(ROOT, '..', 'nota-backend'));
 const MONGOD_PATH = path.join(ROOT, 'vendor', 'mongodb', 'bin', process.platform === 'win32' ? 'mongod.exe' : 'mongod');
 
 const MONGO_PORT = 27099;
@@ -40,7 +40,7 @@ const BACKEND_PORT = 5099;
 const DB_NAME = 'dafer_smoke';
 const MONGO_URI = `mongodb://127.0.0.1:${MONGO_PORT}/${DB_NAME}`;
 const LAN_SECRET = 'smoke-secret-123';
-const LAN_KEY_HEADER = 'x-kapomatic-lan-key';
+const LAN_KEY_HEADER = 'x-nota-lan-key';
 const BASE_URL = `http://127.0.0.1:${BACKEND_PORT}`;
 const STARTUP_TIMEOUT_MS = 60000;
 const REQUEST_TIMEOUT_MS = 30000;
@@ -137,10 +137,10 @@ async function startBackend() {
         ...process.env,
         PORT: String(BACKEND_PORT),
         MONGO_URI,
-        KAPOMATIC_LAN_MODE: '1',
-        KAPOMATIC_LAN_SECRET: LAN_SECRET,
+        NOTA_LAN_MODE: '1',
+        NOTA_LAN_SECRET: LAN_SECRET,
         // Keep the test server off the shop network.
-        KAPOMATIC_LISTEN_HOST: '127.0.0.1',
+        NOTA_LISTEN_HOST: '127.0.0.1',
       },
     },
     logFile
@@ -530,10 +530,10 @@ async function main() {
       if (await isPortOpen(port)) throw new Error(`port ${port} (${label}) is already in use; stop whatever is listening there and retry`);
     }
     if (!fs.existsSync(path.join(BACKEND_DIR, 'src', 'server.js'))) {
-      throw new Error(`backend not found at ${BACKEND_DIR}; set KAPOMATIC_BACKEND_DIR`);
+      throw new Error(`backend not found at ${BACKEND_DIR}; set NOTA_BACKEND_DIR`);
     }
     ensureMongod();
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kapomatic-smoke-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-smoke-'));
     await startMongod();
     await startBackend();
     await runScenarios();

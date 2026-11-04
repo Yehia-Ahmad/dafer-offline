@@ -1,4 +1,5 @@
 import { environment } from '../../../environments/environment';
+import { BRAND } from '../brand';
 
 /** What the offline desktop app hands to Angular before it starts. */
 export interface DesktopRuntimeConfig {
@@ -19,7 +20,7 @@ export interface DesktopConnectionState {
    * Why the server cannot be used: the main PC is off, the secret changed, it is restarting,
    * or it is paused for a few seconds for the daily backup.
    */
-  reason?: 'unreachable' | 'unauthorized' | 'not-kapomatic' | 'server-restarting' | 'server-maintenance';
+  reason?: 'unreachable' | 'unauthorized' | 'not-nota' | 'server-restarting' | 'server-maintenance';
   role?: 'main' | 'client' | null;
   /** host:port of the main PC (client PCs). */
   address?: string;
@@ -92,7 +93,7 @@ export interface DesktopBackupBridge {
 }
 
 /** Exposed by the offline edition's Electron preload script. */
-export interface KapomaticDesktopBridge {
+export interface NotaDesktopBridge {
   getRuntimeConfig(): Promise<DesktopRuntimeConfig>;
   getConnection?(): Promise<DesktopConnectionState>;
   onConnection?(callback: (state: DesktopConnectionState) => void): () => void;
@@ -103,13 +104,13 @@ export interface KapomaticDesktopBridge {
 }
 
 /** The desktop bridge, or undefined outside the offline desktop edition. */
-export function getDesktopBridge(): KapomaticDesktopBridge | undefined {
-  return typeof window === 'undefined' ? undefined : window.kapomaticDesktop;
+export function getDesktopBridge(): NotaDesktopBridge | undefined {
+  return typeof window === 'undefined' ? undefined : window.notaDesktop;
 }
 
 declare global {
   interface Window {
-    kapomaticDesktop?: KapomaticDesktopBridge;
+    notaDesktop?: NotaDesktopBridge;
   }
 }
 
@@ -139,10 +140,10 @@ export function normalizeApiBaseUrl(value: unknown): string {
  * when they are created.
  */
 export async function loadDesktopRuntimeConfig(
-  bridge: KapomaticDesktopBridge | undefined = window.kapomaticDesktop
+  bridge: NotaDesktopBridge | undefined = window.notaDesktop
 ): Promise<Readonly<DesktopRuntimeConfig>> {
   if (!bridge || typeof bridge.getRuntimeConfig !== 'function') {
-    throw new Error('The offline edition must run inside the Kapomatic Offline desktop app.');
+    throw new Error(`The offline edition must run inside the ${BRAND.nameEn} desktop app.`);
   }
 
   const config = await bridge.getRuntimeConfig();

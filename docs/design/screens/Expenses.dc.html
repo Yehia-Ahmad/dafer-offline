@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota expenses</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:right;font-size:13px;font-weight:700;color:#4A5856;background:#FAF9F6;padding:12px 16px}
+.tbl td{padding:12px 16px;border-top:1px solid #F0EDE6}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="expenses" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <h1 style="margin: 0; font-size: 28px; font-weight: 800">المصروفات</h1>
+    <form class="card" style="padding: 18px 20px; display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px; align-items: flex-end">
+      <label class="lb" style="flex: 1 1 180px">البند
+        <select class="in"><option>كهرباء</option><option>إيجار</option><option>مرتبات</option><option>نقل ومشاوير</option><option>متنوع</option></select>
+      </label>
+      <label class="lb" style="flex: 1 1 140px">المبلغ<input type="text" class="in num" value="٦٥٠" style="font-weight: 700"></label>
+      <label class="lb" style="flex: 1 1 180px">من خزنة
+        <select class="in"><option>الخزنة الرئيسية</option><option>درج الكاشير ١</option><option>بنك مصر</option></select>
+      </label>
+      <label class="lb" style="flex: 1 1 140px">التاريخ<input type="text" class="in num" value="٣ / ١١ / ٢٠٢٦"></label>
+      <label class="lb" style="flex: 2 1 220px">ملاحظة<input type="text" class="in" value="فاتورة كهرباء أكتوبر"></label>
+      <button type="submit" class="btn btn-p" style="min-height: 46px">تسجيل</button>
+    </form>
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 480px; min-width: 0; overflow: hidden">
+        <div style="padding: 16px 18px; display: flex; flex-direction: row; justify-content: space-between; align-items: center"><h2 style="margin: 0; font-size: 18px; font-weight: 700">مصروفات نوفمبر</h2><span class="num" style="font-size: 14px; color: #4A5856">الإجمالي ٤٬٤٠٠ ج.م</span></div>
+        <div style="overflow-x: auto">
+          <table class="tbl" style="min-width: 600px">
+            <thead><tr><th>التاريخ</th><th>البند</th><th>الملاحظة</th><th>الخزنة</th><th>المبلغ</th><th>بواسطة</th></tr></thead>
+            <tbody>
+              <tr><td class="num" style="color: #4A5856">٣ / ١١</td><td>كهرباء</td><td>فاتورة كهرباء أكتوبر</td><td>الخزنة الرئيسية</td><td class="num" style="font-weight: 700">٦٥٠</td><td style="color: #4A5856">أحمد</td></tr>
+              <tr><td class="num" style="color: #4A5856">٣ / ١١</td><td>متنوع</td><td>شاي وقهوة</td><td>درج الكاشير ١</td><td class="num" style="font-weight: 700">٨٠</td><td style="color: #4A5856">محمود</td></tr>
+              <tr><td class="num" style="color: #4A5856">٢ / ١١</td><td>نقل ومشاوير</td><td>توصيل بضاعة لعميل</td><td>درج الكاشير ١</td><td class="num" style="font-weight: 700">١٧٠</td><td style="color: #4A5856">محمود</td></tr>
+              <tr><td class="num" style="color: #4A5856">١ / ١١</td><td>إيجار</td><td>إيجار نوفمبر</td><td>بنك مصر</td><td class="num" style="font-weight: 700">٣٬٥٠٠</td><td style="color: #4A5856">أحمد</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <aside class="card" style="flex: 1 1 300px; min-width: 0; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700">أكتوبر بالبند</h2>
+        <sc-for list="{{cats}}" as="c" hint-placeholder-count="5">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; flex-direction: row; justify-content: space-between; font-size: 14px"><span>{{c.name}}</span><span class="num" style="font-weight: 700">{{c.v}}</span></div>
+            <div style="height: 8px; border-radius: 999px; background: #EFEDE8"><div style="height: 8px; width: {{c.w}}; border-radius: 999px; background: #0E4D45"></div></div>
+          </div>
+        </sc-for>
+        <div style="display: flex; flex-direction: row; justify-content: space-between; font-size: 16px; font-weight: 800; padding-top: 10px; border-top: 1px solid #F0EDE6"><span>الإجمالي</span><span class="num">٩٬٤٠٠ ج.م</span></div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const data = [['مرتبات', 4500], ['إيجار', 3500], ['كهرباء', 650], ['نقل ومشاوير', 420], ['متنوع', 330]];
+    const cats = data.map(([name, v]) => ({ name, v: v.toLocaleString('ar-EG'), w: Math.round((v / 4500) * 100) + '%' }));
+    return { cats };
+  }
+}
+</script>
+</body>
+</html>

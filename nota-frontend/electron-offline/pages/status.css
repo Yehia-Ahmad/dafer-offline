@@ -48,6 +48,18 @@ h1 {
   color: var(--accent);
 }
 
+h1.brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+h1.brand .logo {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
 .state {
   display: flex;
   align-items: center;

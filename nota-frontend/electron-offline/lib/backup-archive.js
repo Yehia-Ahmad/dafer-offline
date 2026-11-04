@@ -132,7 +132,7 @@ async function readArchiveSummary(file, bson) {
 }
 
 // The archive must hold exactly one application database; its name may differ from ours
-// (the VPS uses kapoInventory), and the restore renames it.
+// (the VPS uses vpsInventory), and the restore renames it.
 function chooseSourceDatabase(summary) {
   const names = Object.keys(summary.databases);
   if (names.length === 0) {

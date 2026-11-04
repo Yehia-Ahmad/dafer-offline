@@ -1,10 +1,10 @@
 ; NSIS hooks for the offline edition installer (electron-builder.offline.json).
 
-; Firewall rule names: keep in sync with electron-offline/lib/firewall.js.
-!define KAPOMATIC_RULE_TCP "Kapomatic Offline (TCP)"
-!define KAPOMATIC_RULE_UDP "Kapomatic Offline (UDP)"
+; Firewall rule names: keep in sync with electron-offline/lib/firewall.js and the productName in electron-offline/edition.json.
+!define NOTA_RULE_TCP "Nota Server"
+!define NOTA_RULE_UDP "Nota Discovery"
 ; Login item value written by the app (electron-offline/main.js applyLoginItem).
-!define KAPOMATIC_RUN_VALUE "Kapomatic Offline"
+!define NOTA_RUN_VALUE "Nota"
 
 ; Defining customCheckAppRunning skips these in electron-builder's template, but its default
 ; check (_CHECK_APP_RUNNING), used below as the fallback, needs them.
@@ -18,10 +18,10 @@ Var pid
 ; check then closes whatever is left (client or second-account windows, no database).
 !macro customCheckAppRunning
   ${If} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
-    DetailPrint "Stopping Kapomatic Offline..."
+    DetailPrint "Stopping Nota..."
     ExecWait '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" --quit-all' $0
     ${If} $0 != 0
-      DetailPrint "Kapomatic Offline did not confirm a clean stop (exit code $0)."
+      DetailPrint "Nota did not confirm a clean stop (exit code $0)."
     ${EndIf}
   ${EndIf}
   !insertmacro IS_POWERSHELL_AVAILABLE
@@ -46,13 +46,14 @@ Var pid
   ; Shared data folder: every Windows account on the PC may modify it, so the main PC works
   ; whoever logs in. BUILTIN\Users by SID, so it works on Arabic and English Windows alike.
   ; The folder and its data are never removed by the uninstaller.
+  ; Folder name: keep in sync with the productName in electron-offline/edition.json (lib/paths.js).
   ReadEnvStr $1 "ProgramData"
   ${If} $1 == ""
     StrCpy $1 "C:\ProgramData"
   ${EndIf}
-  CreateDirectory "$1\Kapomatic Offline"
-  DetailPrint "Setting permissions on $1\Kapomatic Offline..."
-  nsExec::ExecToLog '"$SYSDIR\icacls.exe" "$1\Kapomatic Offline" /grant *S-1-5-32-545:(OI)(CI)M /T /C /Q'
+  CreateDirectory "$1\Nota"
+  DetailPrint "Setting permissions on $1\Nota..."
+  nsExec::ExecToLog '"$SYSDIR\icacls.exe" "$1\Nota" /grant *S-1-5-32-545:(OI)(CI)M /T /C /Q'
   Pop $0
   ${If} $0 != 0
     DetailPrint "icacls failed with exit code $0"
@@ -66,9 +67,9 @@ Var pid
   DetailPrint "Adding Windows Firewall rules..."
   nsExec::ExecToLog '"$SYSDIR\netsh.exe" advfirewall firewall delete rule name=all program="$INSTDIR\${APP_EXECUTABLE_FILENAME}"'
   Pop $0
-  nsExec::ExecToLog '"$SYSDIR\netsh.exe" advfirewall firewall add rule name="${KAPOMATIC_RULE_TCP}" dir=in action=allow program="$INSTDIR\${APP_EXECUTABLE_FILENAME}" protocol=TCP remoteip=localsubnet profile=any enable=yes'
+  nsExec::ExecToLog '"$SYSDIR\netsh.exe" advfirewall firewall add rule name="${NOTA_RULE_TCP}" dir=in action=allow program="$INSTDIR\${APP_EXECUTABLE_FILENAME}" protocol=TCP remoteip=localsubnet profile=any enable=yes'
   Pop $0
-  nsExec::ExecToLog '"$SYSDIR\netsh.exe" advfirewall firewall add rule name="${KAPOMATIC_RULE_UDP}" dir=in action=allow program="$INSTDIR\${APP_EXECUTABLE_FILENAME}" protocol=UDP remoteip=localsubnet profile=any enable=yes'
+  nsExec::ExecToLog '"$SYSDIR\netsh.exe" advfirewall firewall add rule name="${NOTA_RULE_UDP}" dir=in action=allow program="$INSTDIR\${APP_EXECUTABLE_FILENAME}" protocol=UDP remoteip=localsubnet profile=any enable=yes'
   Pop $1
   ${If} $0 != 0
   ${OrIf} $1 != 0
@@ -83,6 +84,6 @@ Var pid
     Pop $0
     ; The "start with Windows" entry of the account running the uninstaller. Other accounts'
     ; entries point at a missing file and are ignored by Windows.
-    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${KAPOMATIC_RUN_VALUE}"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${NOTA_RUN_VALUE}"
   ${EndIf}
 !macroend

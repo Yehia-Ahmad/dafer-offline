@@ -22,7 +22,7 @@ function buildRestoreArgs({ port, archivePath, gzip, sourceDb, targetDb }) {
 }
 
 // mongorestore reports progress on stderr, e.g.
-//   finished restoring kapoInventory.products (120 documents, 0 failures)
+//   finished restoring vpsInventory.products (120 documents, 0 failures)
 //   123 document(s) restored successfully. 0 document(s) failed to restore.
 function parseRestoreOutput(text) {
   const finished = [...text.matchAll(/finished restoring (\S+) \((\d+) documents?, (\d+) failures?\)/g)].map((m) => ({

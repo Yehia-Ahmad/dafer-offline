@@ -18,7 +18,7 @@ const baseStatus: BackupStatus = {
   lastAuto: null,
   autoCount: 0,
   keep: 14,
-  autoDir: 'C:\\ProgramData\\Kapomatic Offline\\backups\\auto',
+  autoDir: 'C:\\ProgramData\\Nota\\backups\\auto',
   autoError: null,
   dataDrive: 'C:',
   copyFolder: null,
@@ -33,7 +33,7 @@ describe('BackupPageComponent', () => {
   let backup: jasmine.SpyObj<DesktopBackupBridge>;
   let fixture: ComponentFixture<BackupPageComponent>;
   let pushStatus: (status: BackupStatus) => void;
-  const original = window.kapomaticDesktop;
+  const original = window.notaDesktop;
   const find = (selector: string) => (fixture.nativeElement as HTMLElement).querySelector(selector);
 
   const text = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -63,7 +63,7 @@ describe('BackupPageComponent', () => {
       pushStatus = callback;
       return () => undefined;
     });
-    window.kapomaticDesktop = { getRuntimeConfig: async () => ({}) as DesktopRuntimeConfig, backup };
+    window.notaDesktop = { getRuntimeConfig: async () => ({}) as DesktopRuntimeConfig, backup };
 
     await TestBed.configureTestingModule({
       imports: [BackupPageComponent],
@@ -78,17 +78,17 @@ describe('BackupPageComponent', () => {
   });
 
   afterEach(() => {
-    window.kapomaticDesktop = original;
+    window.notaDesktop = original;
   });
 
   it('shows the saved file after a backup', async () => {
-    backup.create.and.resolveTo({ ok: true, value: { path: 'C:\\Users\\shop\\Documents\\kapomatic-backup.archive.gz', sizeMb: 1.2, collections: 9, documents: 120 } });
+    backup.create.and.resolveTo({ ok: true, value: { path: 'C:\\Users\\shop\\Documents\\nota-backup.archive.gz', sizeMb: 1.2, collections: 9, documents: 120 } });
     button('backupPage.create.button').click();
     await settle();
     expect(backup.create).toHaveBeenCalled();
-    expect(text()).toContain('kapomatic-backup.archive.gz');
+    expect(text()).toContain('nota-backup.archive.gz');
     button('backupPage.showFile').click();
-    expect(backup.showFile).toHaveBeenCalledWith('C:\\Users\\shop\\Documents\\kapomatic-backup.archive.gz');
+    expect(backup.showFile).toHaveBeenCalledWith('C:\\Users\\shop\\Documents\\nota-backup.archive.gz');
   });
 
   it('shows the Arabic error from the desktop app', async () => {
@@ -106,7 +106,7 @@ describe('BackupPageComponent', () => {
   });
 
   it('shows where the pre-restore copy was saved', async () => {
-    backup.restore.and.resolveTo({ ok: true, value: { restored: 10, collections: 2, safetyPath: 'C:\\ProgramData\\Kapomatic Offline\\backups\\before-restore-x.archive.gz' } });
+    backup.restore.and.resolveTo({ ok: true, value: { restored: 10, collections: 2, safetyPath: 'C:\\ProgramData\\Nota\\backups\\before-restore-x.archive.gz' } });
     button('backupPage.restore.button').click();
     await settle();
     expect(text()).toContain('before-restore-x.archive.gz');
@@ -134,15 +134,15 @@ describe('BackupPageComponent', () => {
       ok: true,
       value: {
         ...baseStatus,
-        copyFolder: 'E:\\Kapomatic',
-        lastCopy: { at: new Date().toISOString(), folder: 'E:\\Kapomatic', name: 'x', status: 'unavailable' },
+        copyFolder: 'E:\\Nota',
+        lastCopy: { at: new Date().toISOString(), folder: 'E:\\Nota', name: 'x', status: 'unavailable' },
       },
     });
     await settle();
     button('backupPage.copy.choose').click();
     await settle();
     expect(backup.chooseCopyFolder).toHaveBeenCalled();
-    expect(find('[data-test="copy-folder"]')?.textContent).toContain('E:\\Kapomatic');
+    expect(find('[data-test="copy-folder"]')?.textContent).toContain('E:\\Nota');
     expect(find('[data-test="copy-folder"]')?.textContent).toContain('backupPage.copy.unavailable');
 
     backup.clearCopyFolder.and.resolveTo({ ok: true, value: baseStatus });

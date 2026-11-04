@@ -9,8 +9,8 @@ const dgram = require('node:dgram');
 const os = require('node:os');
 
 const DISCOVERY_PORT = 5056;
-const PROBE = 'KAPOMATIC_OFFLINE_DISCOVER_V1';
-const REPLY_TYPE = 'kapomatic-offline-server';
+const PROBE = 'NOTA_OFFLINE_DISCOVER_V1';
+const REPLY_TYPE = 'nota-offline-server';
 const MAX_REPLY_BYTES = 2048;
 
 function ipToInt(ip) {

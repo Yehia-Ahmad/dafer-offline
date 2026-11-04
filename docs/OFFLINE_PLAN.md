@@ -3,7 +3,7 @@
 ## Context
 - This repo is a standalone offline edition: a generic product to be sold to many shops. It has no website, no mobile app, and no Firebase.
 - The main PC runs a bundled MongoDB and the backend; other PCs connect to it over the shop LAN through Electron (electron-offline).
-- Backend: Express + Mongoose (kapomatic-backend). Frontend: Angular standalone components (kapomatic-frontend).
+- Backend: Express + Mongoose (nota-backend). Frontend: Angular standalone components (nota-frontend).
 - The full online edition lives in a different repo and must not be touched.
 
 ## General rules for every change
@@ -18,7 +18,17 @@
 3. Remove website settings, add ShopProfile. (done)
 4. Remove website code from the frontend. (done)
 5. Remove leftovers: old non-offline build files, unused assets, unused stubs, unused i18n keys.
-6. Branding: replace the Kapomatic name and logo everywhere with the final product name once it is decided. This includes internal identifiers (kapomatic_warehouse DB name, KAPOMATIC_* env vars, kapomatic:* IPC channels, window.kapomaticDesktop, X-Kapomatic-Lan-Key header, backup file prefixes, firewall rule names, ProgramData folder, discovery/quit protocol strings, secret-store entropy, 'not-kapomatic' state, backend health-check app name), since there are no existing installs to keep compatible.
+6. Branding: the product is now Nota / نوتة. The old name and logo were replaced everywhere, including internal identifiers (DB name `nota`, NOTA_* env vars, nota:* IPC channels, window.notaDesktop, X-Nota-Lan-Key header, backup file prefixes, firewall rule names, ProgramData folder, discovery/quit protocol strings, secret-store entropy, 'not-nota' state, backend health-check app name `nota-backend`). (done)
+
+## Phase 2 — Nota design
+Reference: docs/design/NOTA_DESIGN_SYSTEM.md and docs/design/screens/.
+6. Branding: product name, icons and logos. (done)
+7. Design foundation: color tokens, Alexandria font bundled locally, Material/PrimeNG/Tailwind theme, shared components.
+8. App shell: grouped sidebar, header, user card.
+9. Sales screens redesign.
+10. Remaining screens redesign + dashboard.
+
+Later phases (decisions below): Users & permissions, then Accounting.
 
 ## Agreed decisions for later phases (after cleanup)
 

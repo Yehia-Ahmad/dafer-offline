@@ -10,7 +10,10 @@
         'bg-light_content_bg border-[#E6E6E6]': !(isDarkMode$ | async)
       }">
         <div class="mb-10 flex w-full flex-col items-center gap-3">
-          <img src="assets/svg/Kapo.svg" alt="Kapo" class="h-64 w-auto object-contain" />
+          <div class="flex items-center gap-4">
+            <img src="assets/svg/nota-icon.svg" alt="" class="h-24 w-auto object-contain" />
+            <span class="text-5xl font-bold">{{ brandName() }}</span>
+          </div>
           <h1 class="text-center font-azonix text-azonix-title sm:text-azonix-display" [ngClass]="{
             'text-light_orange': (isDarkMode$ | async),
             'text-orange': !(isDarkMode$ | async)

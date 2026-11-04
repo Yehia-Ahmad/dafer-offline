@@ -1,13 +1,13 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { DesktopConnectionState, KapomaticDesktopBridge } from '../core/runtime/runtime-config';
+import { DesktopConnectionState, NotaDesktopBridge } from '../core/runtime/runtime-config';
 import { ConnectionOverlayComponent } from './connection-overlay.component';
 
 describe('ConnectionOverlayComponent', () => {
   let emit: (state: DesktopConnectionState) => void;
-  let bridge: jasmine.SpyObj<Required<KapomaticDesktopBridge>>;
+  let bridge: jasmine.SpyObj<Required<NotaDesktopBridge>>;
   let fixture: ComponentFixture<ConnectionOverlayComponent>;
-  const original = window.kapomaticDesktop;
+  const original = window.notaDesktop;
 
   const text = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
   const buttons = () => Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
@@ -31,7 +31,7 @@ describe('ConnectionOverlayComponent', () => {
     });
     bridge.getConnection.and.resolveTo({ connected: true });
     bridge.retryConnection.and.resolveTo({ connected: true });
-    window.kapomaticDesktop = bridge;
+    window.notaDesktop = bridge;
 
     await TestBed.configureTestingModule({
       imports: [ConnectionOverlayComponent],
@@ -43,7 +43,7 @@ describe('ConnectionOverlayComponent', () => {
   });
 
   afterEach(() => {
-    window.kapomaticDesktop = original;
+    window.notaDesktop = original;
   });
 
   it('stays hidden while connected', () => {

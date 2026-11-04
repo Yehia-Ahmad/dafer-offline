@@ -1,6 +1,6 @@
 {
-  "appId": "com.kapomatic.inventory.offline",
-  "productName": "Kapomatic Offline",
+  "appId": "app.nota.offline",
+  "productName": "Nota",
   "beforeBuild": "electron/before-build.js",
   "afterPack": "scripts/offline/after-pack.js",
   "npmRebuild": false,
@@ -32,7 +32,7 @@
       }
     ],
     "icon": "build/icon.ico",
-    "artifactName": "Kapomatic-Offline-Setup-${version}.${ext}"
+    "artifactName": "Nota-Setup-${version}.${ext}"
   },
   "nsis": {
     "oneClick": false,
@@ -40,7 +40,7 @@
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "Kapomatic Offline",
+    "shortcutName": "Nota",
     "deleteAppDataOnUninstall": false,
     "include": "installer-offline/installer.nsh"
   }

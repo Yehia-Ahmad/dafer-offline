@@ -38,7 +38,8 @@
     </div>
     <div class="flex items-center gap-4" [style.flex-direction]="direction() === 'rtl' ? 'row-reverse' : 'row'">
         <div class="items-center gap-2 hidden sm:flex" [style.flex-direction]="direction() === 'rtl' ? 'row-reverse' : 'row'">
-            <img src="assets/svg/Kapo.svg" alt="Logo" class="sm:h-8 lg:h-24" />
+            <img src="assets/svg/nota-icon.svg" alt="" class="sm:h-8 lg:h-12 w-auto" />
+            <span class="font-bold sm:text-lg lg:text-2xl">{{ brandName() }}</span>
                 
             <div class="flex flex-col space-y-2">
                 <!-- <h2 class="block sm:text-sm lg:text-xl tracking-widest font-azonix" [ngClass]="{
@@ -63,7 +64,8 @@
         <app-menu-open class="cursor-pointer" (click)="toggleSidenav()"></app-menu-open>
 
         <div class="items-center gap-2 hidden sm:flex" [style.flex-direction]="direction() === 'rtl' ? 'row-reverse' : 'row'">
-        <img src="assets/svg/Kapo.svg" alt="Logo" class="sm:h-8 lg:h-24" />
+        <img src="assets/svg/nota-icon.svg" alt="" class="sm:h-8 lg:h-12 w-auto" />
+            <span class="font-bold sm:text-lg lg:text-2xl">{{ brandName() }}</span>
             
             <div class="flex flex-col space-y-2">
                 <!-- <h2 class="block sm:text-sm lg:text-xl tracking-widest font-azonix" [ngClass]="{

@@ -8,7 +8,6 @@ import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
 import { logoutInterceptor } from './core/interceptor/logout.interceptor';
 import { httpconfigInterceptor } from './core/interceptor/httpconfig.interceptor';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { requestOnlineInterceptor } from './core/interceptor/request-online.interceptor';
 import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
@@ -20,7 +19,6 @@ export const appConfig: ApplicationConfig = {
     provideAnimationsAsync(),
     provideZonelessChangeDetection(),
     provideBrowserGlobalErrorListeners(),
-    provideClientHydration(withEventReplay()),
     provideHttpClient(withFetch()),
     // provideHttpClient(withFetch(), withInterceptors([httpconfigInterceptor, logoutInterceptor, requestOnlineInterceptor])),
     provideTranslateService({

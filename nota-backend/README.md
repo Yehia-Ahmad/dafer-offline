@@ -100,14 +100,14 @@ The offline desktop edition of the admin app bundles this backend and starts it 
 
 | Variable | Meaning |
 |---|---|
-| `KAPOMATIC_LAN_MODE` | `1` turns LAN mode on. Any other value or unset means off. |
-| `KAPOMATIC_LAN_SECRET` | Shared LAN secret, at least 8 characters. Startup fails in LAN mode without it. |
-| `KAPOMATIC_LISTEN_HOST` | Optional bind address. Unset means all interfaces, as before. |
-| `KAPOMATIC_APP_VERSION` | Desktop app version, reported by `/api/lan/info`. |
-| `KAPOMATIC_INSTANCE_ID` | Stable ID of the main PC, reported by `/api/lan/info`. |
+| `NOTA_LAN_MODE` | `1` turns LAN mode on. Any other value or unset means off. |
+| `NOTA_LAN_SECRET` | Shared LAN secret, at least 8 characters. Startup fails in LAN mode without it. |
+| `NOTA_LISTEN_HOST` | Optional bind address. Unset means all interfaces, as before. |
+| `NOTA_APP_VERSION` | Desktop app version, reported by `/api/lan/info`. |
+| `NOTA_INSTANCE_ID` | Stable ID of the main PC, reported by `/api/lan/info`. |
 
 In LAN mode:
-- Every `/api/*` request must send the secret in the `X-Kapomatic-Lan-Key` header. Otherwise the response is `401 { "message": "كلمة سر الشبكة غير صحيحة", "code": "LAN_KEY_INVALID" }`. CORS preflight `OPTIONS` requests are let through.
+- Every `/api/*` request must send the secret in the `X-Nota-Lan-Key` header. Otherwise the response is `401 { "message": "كلمة سر الشبكة غير صحيحة", "code": "LAN_KEY_INVALID" }`. CORS preflight `OPTIONS` requests are let through.
 - `GET /api/lan/info` returns `{ app, lanMode, appVersion, instanceId, backendVersion, serverTime }`, which clients use to check the connection, the secret and the version.
 - When run as an Electron utility process, the backend posts `{ type: "ready", port }` once listening and `{ type: "error", code, message }` if listening fails. On `{ type: "shutdown" }` it stops accepting connections, gives in-flight requests up to 10 seconds, disconnects from MongoDB and exits.
 

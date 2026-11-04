@@ -10,12 +10,12 @@ const { AUTO_PREFIX, AutoBackup, onSameDrive } = require('../lib/auto-backup');
 
 const DAY = 24 * 60 * 60 * 1000;
 
-// Tests run on one drive: folders named kapomatic-usb-* stand in for another drive.
-const onUsb = (file) => path.resolve(file).split(path.sep).some((part) => part.startsWith('kapomatic-usb-'));
+// Tests run on one drive: folders named nota-usb-* stand in for another drive.
+const onUsb = (file) => path.resolve(file).split(path.sep).some((part) => part.startsWith('nota-usb-'));
 const fakeSameDrive = async (a, b) => onUsb(a) === onUsb(b);
 
 function setup({ copyFolder = null, failWith = null } = {}) {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'kapomatic-auto-'));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-auto-'));
   const dir = path.join(home, 'backups', 'auto');
   fs.mkdirSync(dir, { recursive: true });
   let clock = new Date(2026, 10, 2, 9, 0, 0).getTime();
@@ -88,7 +88,7 @@ test('keeps the newest 14 daily backups and leaves other files alone', async () 
 
 test('the extra folder gets a copy and counts as a backup outside the PC', async () => {
   const ctx = setup();
-  const usb = fs.mkdtempSync(path.join(os.tmpdir(), 'kapomatic-usb-'));
+  const usb = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-usb-'));
   ctx.copyFolder = usb;
 
   assert.equal((await ctx.auto.summary()).externalOverdue, true, 'warns before any copy outside the PC');
@@ -109,7 +109,7 @@ test('the extra folder gets a copy and counts as a backup outside the PC', async
 
 test('a missing extra folder is skipped and logged once; the copy happens once it is back', async () => {
   const ctx = setup();
-  const usb = path.join(ctx.home, 'kapomatic-usb-drive');
+  const usb = path.join(ctx.home, 'nota-usb-drive');
   ctx.copyFolder = usb;
 
   await ctx.auto.check();
@@ -131,7 +131,7 @@ test('a missing extra folder is skipped and logged once; the copy happens once i
 
 test('the extra folder keeps 14 too, and only this app files are removed there', async () => {
   const ctx = setup();
-  const usb = fs.mkdtempSync(path.join(os.tmpdir(), 'kapomatic-usb-'));
+  const usb = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-usb-'));
   fs.writeFileSync(path.join(usb, 'family-photos.zip'), 'not ours');
   fs.writeFileSync(path.join(usb, `${AUTO_PREFIX}2026-01-01_000000.archive.gz.partial`), 'interrupted copy');
   ctx.copyFolder = usb;
@@ -175,7 +175,7 @@ test('a manual backup on another drive is the latest backup and a copy outside t
   const ctx = setup();
   await ctx.auto.check();
   ctx.advance(60 * 1000);
-  assert.equal(await ctx.auto.recordManual({ path: path.join(os.tmpdir(), 'kapomatic-usb-x', 'backup.archive.gz') }), true);
+  assert.equal(await ctx.auto.recordManual({ path: path.join(os.tmpdir(), 'nota-usb-x', 'backup.archive.gz') }), true);
   const summary = await ctx.auto.summary();
   assert.equal(summary.lastBackup.kind, 'manual');
   assert.equal(summary.lastExternal.kind, 'manual');
@@ -195,7 +195,7 @@ test('a manual backup on the data drive is the latest backup but does not clear 
 
 test('an extra folder on the data drive gets the copy but is flagged and does not clear the warning', async () => {
   const ctx = setup();
-  const sameDriveFolder = fs.mkdtempSync(path.join(os.tmpdir(), 'kapomatic-other-folder-'));
+  const sameDriveFolder = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-other-folder-'));
   ctx.copyFolder = sameDriveFolder;
   await ctx.auto.check();
   assert.deepEqual(ctx.files(sameDriveFolder), ctx.files(), 'still copied');
@@ -205,7 +205,7 @@ test('an extra folder on the data drive gets the copy but is flagged and does no
   assert.equal(summary.externalOverdue, true);
   assert.ok(ctx.logs.some(([level, m]) => level === 'warn' && m.includes('same drive')));
 
-  ctx.copyFolder = fs.mkdtempSync(path.join(os.tmpdir(), 'kapomatic-usb-'));
+  ctx.copyFolder = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-usb-'));
   await ctx.auto.copyNow();
   const moved = await ctx.auto.summary();
   assert.equal(moved.copyFolderSameDrive, false);

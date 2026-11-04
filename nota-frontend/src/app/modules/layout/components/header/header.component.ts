@@ -8,6 +8,7 @@ import { FormsModule } from '@angular/forms';
 import { LanguageService } from '../../../shared/services/translation.service';
 import { MoonComponent } from "../../../assets/moon/moon.component";
 import { ThemeService } from '../../../shared/services/theme.service';
+import { brandName } from '../../../../core/brand';
 
 @Component({
   selector: 'app-header',
@@ -21,6 +22,7 @@ export class HeaderComponent {
   isDarkMode$;
   collapsed = signal(false);
   direction = computed(() => this._languageService.selectedLanguage() === 'ar' ? 'rtl' : 'ltr');
+  brandName = computed(() => brandName(this._languageService.selectedLanguage()));
   i18n: any[] = [
     {
       name:'English',

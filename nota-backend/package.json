@@ -1,5 +1,5 @@
 {
-  "name": "kapomatic-warehouse-backend",
+  "name": "nota-backend",
   "version": "1.0.0",
   "description": "Warehouse backend API for categories and products",
   "main": "src/server.js",

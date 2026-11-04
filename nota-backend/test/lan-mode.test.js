@@ -15,10 +15,10 @@ const { createGracefulShutdown } = require("../src/utils/gracefulShutdown");
 const APP_PATH = path.join(__dirname, "..", "src", "app.js");
 const LAN_SECRET = "7KQ4-MZ8P-W2RT";
 const LAN_ENV_KEYS = [
-  "KAPOMATIC_LAN_MODE",
-  "KAPOMATIC_LAN_SECRET",
-  "KAPOMATIC_APP_VERSION",
-  "KAPOMATIC_INSTANCE_ID",
+  "NOTA_LAN_MODE",
+  "NOTA_LAN_SECRET",
+  "NOTA_APP_VERSION",
+  "NOTA_INSTANCE_ID",
 ];
 
 const savedEnv = Object.fromEntries(LAN_ENV_KEYS.map((key) => [key, process.env[key]]));
@@ -51,24 +51,24 @@ const withServer = async (app, callback) => {
 };
 
 const lanEnv = {
-  KAPOMATIC_LAN_MODE: "1",
-  KAPOMATIC_LAN_SECRET: LAN_SECRET,
-  KAPOMATIC_APP_VERSION: "1.2.3",
-  KAPOMATIC_INSTANCE_ID: "main-pc-instance",
+  NOTA_LAN_MODE: "1",
+  NOTA_LAN_SECRET: LAN_SECRET,
+  NOTA_APP_VERSION: "1.2.3",
+  NOTA_INSTANCE_ID: "main-pc-instance",
 };
 
 test("isLanMode is on only for the exact value 1", () => {
   assert.equal(isLanMode({}), false);
-  assert.equal(isLanMode({ KAPOMATIC_LAN_MODE: "" }), false);
-  assert.equal(isLanMode({ KAPOMATIC_LAN_MODE: "true" }), false);
-  assert.equal(isLanMode({ KAPOMATIC_LAN_MODE: "1" }), true);
+  assert.equal(isLanMode({ NOTA_LAN_MODE: "" }), false);
+  assert.equal(isLanMode({ NOTA_LAN_MODE: "true" }), false);
+  assert.equal(isLanMode({ NOTA_LAN_MODE: "1" }), true);
 });
 
 test("LAN guard refuses to start without a usable secret", () => {
-  assert.throws(() => createLanSecretGuard(undefined), /KAPOMATIC_LAN_SECRET/);
-  assert.throws(() => createLanSecretGuard("   "), /KAPOMATIC_LAN_SECRET/);
+  assert.throws(() => createLanSecretGuard(undefined), /NOTA_LAN_SECRET/);
+  assert.throws(() => createLanSecretGuard("   "), /NOTA_LAN_SECRET/);
   assert.throws(() => createLanSecretGuard("short"), /at least 8/);
-  assert.throws(() => loadApp({ KAPOMATIC_LAN_MODE: "1" }), /KAPOMATIC_LAN_SECRET/);
+  assert.throws(() => loadApp({ NOTA_LAN_MODE: "1" }), /NOTA_LAN_SECRET/);
 });
 
 test("online mode: no LAN secret is required and LAN routes are not mounted", async () => {
@@ -103,7 +103,7 @@ test("LAN mode: requests without the right secret are rejected with 401", async 
     });
 
     const wrong = await fetch(`${baseUrl}/api/categories`, {
-      headers: { "X-Kapomatic-Lan-Key": "WRONG-SECRET-1" },
+      headers: { "X-Nota-Lan-Key": "WRONG-SECRET-1" },
     });
     assert.equal(wrong.status, 401);
 
@@ -119,13 +119,13 @@ test("LAN mode: the right secret reaches the routes", async () => {
   await withServer(app, async (baseUrl) => {
     // Surrounding whitespace in the header is tolerated.
     const response = await fetch(`${baseUrl}/api/lan/info`, {
-      headers: { "X-Kapomatic-Lan-Key": ` ${LAN_SECRET} ` },
+      headers: { "X-Nota-Lan-Key": ` ${LAN_SECRET} ` },
     });
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("cache-control"), "no-store");
 
     const body = await response.json();
-    assert.equal(body.app, "kapomatic-backend");
+    assert.equal(body.app, "nota-backend");
     assert.equal(body.lanMode, true);
     assert.equal(body.appVersion, "1.2.3");
     assert.equal(body.instanceId, "main-pc-instance");
@@ -133,7 +133,7 @@ test("LAN mode: the right secret reaches the routes", async () => {
     assert.ok(!Number.isNaN(Date.parse(body.serverTime)));
 
     const unknown = await fetch(`${baseUrl}/api/does-not-exist`, {
-      headers: { "X-Kapomatic-Lan-Key": LAN_SECRET },
+      headers: { "X-Nota-Lan-Key": LAN_SECRET },
     });
     assert.equal(unknown.status, 404);
   });
@@ -148,14 +148,14 @@ test("LAN mode: CORS preflight passes and notifications are not mounted", async 
       headers: {
         Origin: "null",
         "Access-Control-Request-Method": "GET",
-        "Access-Control-Request-Headers": "x-kapomatic-lan-key",
+        "Access-Control-Request-Headers": "x-nota-lan-key",
       },
     });
     assert.equal(preflight.status, 204);
 
     const notifications = await fetch(`${baseUrl}/api/notifications/devices`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Kapomatic-Lan-Key": LAN_SECRET },
+      headers: { "Content-Type": "application/json", "X-Nota-Lan-Key": LAN_SECRET },
       body: JSON.stringify({ token: "abc" }),
     });
     assert.equal(notifications.status, 404);

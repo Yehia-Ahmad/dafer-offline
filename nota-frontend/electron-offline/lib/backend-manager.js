@@ -1,9 +1,10 @@
 'use strict';
 
-// Runs kapomatic-backend in an Electron utility process (Electron's own Node.js, so no
+// Runs the Nota backend in an Electron utility process (Electron's own Node.js, so no
 // node.exe is bundled) and stops it through the backend's graceful shutdown message.
 
 const { EventEmitter } = require('node:events');
+const EDITION = require('../edition.json');
 const { ServiceError } = require('./mongod-manager');
 const { sleep } = require('./net-utils');
 
@@ -23,12 +24,12 @@ function buildBackendEnv({ port, mongoUri, secret, appVersion, instanceId, sourc
     ...env,
     NODE_ENV: 'production',
     PORT: String(port),
-    KAPOMATIC_LISTEN_HOST: '0.0.0.0',
+    NOTA_LISTEN_HOST: '0.0.0.0',
     MONGO_URI: mongoUri,
-    KAPOMATIC_LAN_MODE: '1',
-    KAPOMATIC_LAN_SECRET: secret,
-    KAPOMATIC_APP_VERSION: appVersion,
-    KAPOMATIC_INSTANCE_ID: instanceId,
+    NOTA_LAN_MODE: '1',
+    NOTA_LAN_SECRET: secret,
+    NOTA_APP_VERSION: appVersion,
+    NOTA_INSTANCE_ID: instanceId,
   };
 }
 
@@ -60,7 +61,7 @@ class BackendManager extends EventEmitter {
         cwd: this.cwd, // holds no .env file, so dotenv loads nothing
         env: this.env,
         stdio: 'pipe',
-        serviceName: 'Kapomatic Offline Server',
+        serviceName: `${EDITION.productName} Server`,
       });
       this.child = child;
       if (child.stdout) child.stdout.on('data', this.output);

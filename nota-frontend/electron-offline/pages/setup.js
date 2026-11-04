@@ -1,7 +1,7 @@
 'use strict';
 
 (() => {
-  const setup = window.kapomaticDesktop.setup;
+  const setup = window.notaDesktop.setup;
   const $ = (id) => document.getElementById(id);
   const steps = ['step-role', 'step-main', 'step-client'];
   let info = null;

@@ -1,13 +1,13 @@
 const crypto = require("crypto");
 
 // Offline (LAN) edition only. The desktop app on the main PC starts the backend with
-// KAPOMATIC_LAN_MODE=1 and a shared secret; every /api request must then carry that
+// NOTA_LAN_MODE=1 and a shared secret; every /api request must then carry that
 // secret. When the variable is not set (the online deployment) none of this is mounted.
-const LAN_KEY_HEADER = "x-kapomatic-lan-key";
+const LAN_KEY_HEADER = "x-nota-lan-key";
 const LAN_KEY_INVALID_CODE = "LAN_KEY_INVALID";
 const MIN_LAN_SECRET_LENGTH = 8;
 
-const isLanMode = (env = process.env) => env.KAPOMATIC_LAN_MODE === "1";
+const isLanMode = (env = process.env) => env.NOTA_LAN_MODE === "1";
 
 const hashKey = (value) => crypto.createHash("sha256").update(String(value)).digest();
 
@@ -17,7 +17,7 @@ const createLanSecretGuard = (secret) => {
   // Fail closed: LAN mode without a usable secret must not start an open server.
   if (expectedKey.length < MIN_LAN_SECRET_LENGTH) {
     throw new Error(
-      `KAPOMATIC_LAN_SECRET must be at least ${MIN_LAN_SECRET_LENGTH} characters when KAPOMATIC_LAN_MODE=1`
+      `NOTA_LAN_SECRET must be at least ${MIN_LAN_SECRET_LENGTH} characters when NOTA_LAN_MODE=1`
     );
   }
 

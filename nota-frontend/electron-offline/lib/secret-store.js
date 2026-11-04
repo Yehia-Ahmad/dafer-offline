@@ -13,7 +13,7 @@
 
 const { spawnSync } = require('node:child_process');
 
-const ENTROPY = 'kapomatic-offline-lan-secret-v1';
+const ENTROPY = 'nota-offline-lan-secret-v1';
 
 // -EncodedCommand accepts no further arguments, so each mode gets its own script.
 const script = (mode) => `

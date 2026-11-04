@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota pay supplier</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.num{font-variant-numeric:tabular-nums}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+.hint{font-size:12px;color:#4A5856}
+</style>
+</helmet>
+<div style="position: relative; min-height: 100vh; overflow: hidden; font-family: 'Alexandria', system-ui, sans-serif; color: #142321">
+  <dc-import name="Suppliers" hint-size="100%,960px"></dc-import>
+  <div style="position: absolute; inset: 0; background: rgba(11,31,28,0.5); display: flex; align-items: center; justify-content: center; padding: 24px">
+    <div role="dialog" aria-modal="true" aria-labelledby="dlg-title" style="width: 100%; max-width: 540px; background: #FFFFFF; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); display: flex; flex-direction: column">
+      <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #F0EDE6">
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <h2 id="dlg-title" style="margin: 0; font-size: 20px; font-weight: 800">سداد دفعة لمورد</h2>
+          <span style="font-size: 13px; color: #4A5856">الشركة المصرية للإضاءة</span>
+        </div>
+        <button type="button" aria-label="إغلاق" class="btn" style="width: 44px; padding: 0">×</button>
+      </div>
+      <div style="padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <div style="padding: 12px 14px; border-radius: 12px; background: #FBF1D6"><div style="font-size: 12px; color: #7A5B00">علينا ليه دلوقتي</div><div class="num" style="font-size: 20px; font-weight: 800; color: #7A5B00">٦٬٦٥٠</div></div>
+          <div style="padding: 12px 14px; border-radius: 12px; background: #E6EFEC"><div style="font-size: 12px; color: #0E4D45">بعد الدفعة</div><div class="num" style="font-size: 20px; font-weight: 800; color: #0E4D45">٤٬١٥٠</div></div>
+        </div>
+        <label class="lb">المبلغ *<input type="text" class="in num" value="٢٬٥٠٠" style="font-size: 22px; font-weight: 800"></label>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+          <label class="lb">من خزنة *
+            <select class="in"><option>بنك مصر · ٤١٬٠٠٠</option><option>الخزنة الرئيسية · ١٨٬٤٠٠</option></select>
+          </label>
+          <label class="lb">التاريخ<input type="text" class="in num" value="٣ / ١١ / ٢٠٢٦"></label>
+        </div>
+        <label class="lb">رقم الشيك / التحويل<input type="text" class="in" placeholder="اختياري"></label>
+        <label class="lb">ملاحظة<input type="text" class="in" value="من فاتورة EL-8841"></label>
+        <span class="hint">هيتعمل سند صرف وقيد: من حـ/ المورد إلى حـ/ بنك مصر.</span>
+      </div>
+      <div style="display: flex; flex-direction: row; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #F0EDE6; background: #FAF9F6; border-radius: 0 0 20px 20px">
+        <button type="button" class="btn">إلغاء</button>
+        <button type="button" class="btn btn-p">حفظ وطباعة سند الصرف</button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

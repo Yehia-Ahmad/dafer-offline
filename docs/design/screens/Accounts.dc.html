@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota chart of accounts and journal</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:right;font-size:13px;font-weight:700;color:#4A5856;background:#FAF9F6;padding:11px 14px}
+.tbl td{padding:11px 14px;border-top:1px solid #F0EDE6}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="accounts" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; font-size: 28px; font-weight: 800">دليل الحسابات والقيود</h1>
+        <span style="font-size: 14px; color: #4A5856">للمحاسب. معظم القيود بتتعمل لوحدها من البيع والشراء والمصروفات.</span>
+      </div>
+      <div style="display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap">
+        <button type="button" class="btn">+ حساب</button>
+        <button type="button" class="btn btn-p">+ قيد يدوي</button>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <nav aria-label="دليل الحسابات" class="card" style="flex: 1 1 300px; max-width: 380px; padding: 14px; display: flex; flex-direction: column; gap: 2px">
+        <sc-for list="{{tree}}" as="a" hint-placeholder-count="16">
+          <a href="#" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding: 7px 10px; padding-inline-start: {{a.pad}}; border-radius: 8px; text-decoration: none; color: #142321; background: {{a.bg}}; font-size: {{a.fs}}; font-weight: {{a.w}}">
+            <span class="num" style="font-size: 12px; color: #4A5856; min-width: 38px">{{a.code}}</span>
+            <span style="flex: 1 1 auto">{{a.name}}</span>
+            <span class="num" style="font-size: 12px; color: #4A5856">{{a.bal}}</span>
+          </a>
+        </sc-for>
+      </nav>
+      <div style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+        <section class="card" style="overflow: hidden">
+          <div style="padding: 14px 16px; display: flex; flex-direction: row; justify-content: space-between; align-items: center"><h2 style="margin: 0; font-size: 18px; font-weight: 700">دفتر اليومية</h2><span style="font-size: 13px; color: #4A5856">النهارده</span></div>
+          <div style="overflow-x: auto">
+            <table class="tbl" style="min-width: 600px">
+              <thead><tr><th>رقم القيد</th><th>البيان</th><th>المصدر</th><th>المبلغ</th><th>الحالة</th></tr></thead>
+              <tbody>
+                <sc-for list="{{entries}}" as="e" hint-placeholder-count="5">
+                  <tr style="background: {{e.bg}}"><td class="num" style="font-weight: 700">{{e.no}}</td><td>{{e.desc}}</td><td><span class="pill" style="color: {{e.sc}}; background: {{e.sb}}">{{e.src}}</span></td><td class="num">{{e.amt}}</td><td style="font-size: 13px; color: #11795F">مرحّل</td></tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section class="card" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px">
+            <div style="display: flex; flex-direction: column; gap: 2px">
+              <h2 style="margin: 0; font-size: 18px; font-weight: 800">قيد ٠٤١٢</h2>
+              <span class="num" style="font-size: 13px; color: #4A5856">٣ / ١١ / ٢٠٢٦ · من <a href="#">فاتورة بيع آجل #١٢٣</a> · أحمد</span>
+            </div>
+            <span class="pill" style="color: #0E4D45; background: #E6EFEC">متوازن ✓</span>
+          </div>
+          <div style="overflow-x: auto">
+            <table class="tbl" style="min-width: 520px">
+              <thead><tr><th>الحساب</th><th>البيان</th><th>مدين</th><th>دائن</th></tr></thead>
+              <tbody>
+                <tr><td>١١٣١ · م. سامي للمقاولات</td><td style="color: #4A5856">قيمة الفاتورة على العميل</td><td class="num" style="font-weight: 700">٢٬١٠٠</td><td></td></tr>
+                <tr><td>٤١٠ · المبيعات</td><td style="color: #4A5856">إيراد البيع</td><td></td><td class="num" style="font-weight: 700">٢٬١٠٠</td></tr>
+                <tr><td>٥١٠ · تكلفة البضاعة المباعة</td><td style="color: #4A5856">تكلفة الأصناف (سعر الشراء)</td><td class="num" style="font-weight: 700">١٬٤٧٠</td><td></td></tr>
+                <tr><td>١١٤ · المخزون</td><td style="color: #4A5856">خروج البضاعة</td><td></td><td class="num" style="font-weight: 700">١٬٤٧٠</td></tr>
+              </tbody>
+              <tfoot><tr style="background: #FAF9F6; font-weight: 800"><td colspan="2" style="padding: 12px 14px">الإجمالي</td><td class="num" style="padding: 12px 14px">٣٬٥٧٠</td><td class="num" style="padding: 12px 14px">٣٬٥٧٠</td></tr></tfoot>
+            </table>
+          </div>
+          <p style="margin: 0; font-size: 13px; color: #4A5856; line-height: 1.7">القيد المرحّل ما بيتعدّلش. لو الفاتورة اتعدّلت أو اتلغت، البرنامج بيعمل قيد عكسي وقيد جديد، فالتاريخ كله بيفضل ظاهر.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const a = (code, name, bal, lvl, sel) => ({ code, name, bal, pad: (10 + lvl * 18) + 'px', fs: lvl === 0 ? '15px' : '14px', w: lvl === 0 ? 700 : 400, bg: sel ? '#E6EFEC' : 'transparent' });
+    const tree = [
+      a('١', 'الأصول', '', 0), a('١١', 'أصول متداولة', '', 1), a('١١١', 'الخزائن', '٢٨٬٢٥٠', 2), a('١١٢', 'البنوك', '٤١٬٠٠٠', 2), a('١١٣', 'العملاء', '١٢٬٩٠٠', 2, true), a('١١٤', 'المخزون', '٩٦٬٣٠٠', 2),
+      a('٢', 'الخصوم', '', 0), a('٢١', 'الموردين', '١٤٬٦٥٠', 1), a('٢٢', 'ضريبة مستحقة', '٠', 1),
+      a('٣', 'حقوق الملكية', '', 0), a('٣١', 'رأس المال', '١٥٠٬٠٠٠', 1), a('٣٢', 'جاري المالك', '', 1),
+      a('٤', 'الإيرادات', '', 0), a('٤١٠', 'المبيعات', '', 1), a('٤٢٠', 'خصم مسموح به', '', 1),
+      a('٥', 'المصروفات', '', 0), a('٥١٠', 'تكلفة البضاعة المباعة', '', 1), a('٥٢٠', 'مصروفات تشغيل', '', 1), a('٥٣٠', 'عجز وزيادة الخزنة', '', 1)
+    ];
+    const S = { sale: ['فاتورة بيع', '#0E4D45', '#E6EFEC'], buy: ['مشتريات', '#1F4E79', '#E3EDF7'], exp: ['مصروف', '#7A5B00', '#FBF1D6'], man: ['يدوي', '#5B2A86', '#EFE6F7'], ret: ['مرتجع', '#9A3412', '#FBE9E3'] };
+    const e = (no, desc, s, amt, sel) => ({ no, desc, src: S[s][0], sc: S[s][1], sb: S[s][2], amt, bg: sel ? '#F1F7F5' : 'transparent' });
+    const entries = [
+      e('٠٤١٢', 'بيع آجل لـ م. سامي للمقاولات', 'sale', '٢٬١٠٠', true),
+      e('٠٤١١', 'بيع كاش #١٢٢', 'sale', '٨٥', false),
+      e('٠٤١٠', 'شراء من الشركة المصرية للإضاءة', 'buy', '٥٬٤٥٠', false),
+      e('٠٤٠٩', 'مرتجع من محمد فتحي', 'ret', '٥٥٠', false),
+      e('٠٤٠٨', 'فاتورة كهرباء أكتوبر', 'exp', '٦٥٠', false),
+      e('٠٤٠٧', 'تسوية فرق جرد', 'man', '١٢٠', false)
+    ];
+    return { tree, entries };
+  }
+}
+</script>
+</body>
+</html>

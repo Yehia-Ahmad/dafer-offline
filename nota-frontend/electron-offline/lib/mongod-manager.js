@@ -9,7 +9,7 @@ const path = require('node:path');
 const { rotateIfLarge } = require('./logger');
 const { isPortFree, sleep, waitFor } = require('./net-utils');
 
-const DATABASE_NAME = 'kapomatic_warehouse';
+const DATABASE_NAME = 'nota';
 const START_TIMEOUT_MS = 120000; // crash recovery on a large database can take a while
 const SHUTDOWN_RETRY_MS = 10000; // retry a normal shutdown while index builds finish
 const EXIT_TIMEOUT_MS = 30000;

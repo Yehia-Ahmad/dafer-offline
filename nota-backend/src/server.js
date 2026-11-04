@@ -8,7 +8,7 @@ const { createGracefulShutdown } = require("./utils/gracefulShutdown");
 const PORT = process.env.PORT || 5000;
 // Optional bind address. Unset in the online deployment, which keeps listening on all
 // interfaces as before. Deliberately not named HOST, which some shells already export.
-const LISTEN_HOST = process.env.KAPOMATIC_LISTEN_HOST;
+const LISTEN_HOST = process.env.NOTA_LISTEN_HOST;
 
 // Set only when the offline desktop app runs the backend as an Electron utility process.
 const parentPort = process.parentPort;

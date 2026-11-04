@@ -25,6 +25,7 @@ import {
 } from './invoice-history-print.util';
 import { ShopProfileService } from '../../../shop-profile/services/shop-profile.service';
 import { InvoiceBranding, toPrintableShop } from '../../../shop-profile/utils/invoice-branding.util';
+import { brandName } from '../../../../core/brand';
 
 type SelectOption = {
   label: string;
@@ -686,7 +687,7 @@ export class InvoiceHistoryComponent implements OnInit {
       shop: toPrintableShop(this._shopProfileService.profile()),
       texts: {
         neutralTitle: this.translateKey('invoicePrint.salesTitle'),
-        systemNote: this.translateKey('invoicePrint.systemNote'),
+        systemNote: this._translate.instant('invoicePrint.systemNote', { appName: brandName(this._translate.currentLang) }),
         taxNumberLabel: this.translateKey('invoicePrint.taxNumber'),
         commercialRegisterLabel: this.translateKey('invoicePrint.commercialRegister')
       }

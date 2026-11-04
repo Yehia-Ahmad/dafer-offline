@@ -15,17 +15,17 @@ const { buildBackendEnv } = require('../lib/backend-manager');
 const { protectSecret, unprotectSecret } = require('../lib/secret-store');
 
 test('home folder: override, then ProgramData when installed, then the dev folder', () => {
-  assert.equal(resolveHome({ isPackaged: true, env: { KAPOMATIC_OFFLINE_HOME: 'C:\\x' } }), path.resolve('C:\\x'));
+  assert.equal(resolveHome({ isPackaged: true, env: { NOTA_OFFLINE_HOME: 'C:\\x' } }), path.resolve('C:\\x'));
   assert.equal(
     resolveHome({ isPackaged: true, env: { ProgramData: 'C:\\ProgramData' } }),
-    path.join('C:\\ProgramData', 'Kapomatic Offline')
+    path.join('C:\\ProgramData', 'Nota')
   );
   assert.match(resolveHome({ isPackaged: false, env: {} }), /offline-dev-home$/);
   assert.equal(layout('H').dbPath, path.join('H', 'data', 'db'));
 });
 
 test('logger writes lines and rotates large files', () => {
-  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'kapomatic-log-')), 'app.log');
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nota-log-')), 'app.log');
   const logger = createLogger(file, { maxBytes: 2000, keep: 3 });
   const log = logger('test');
   for (let i = 0; i < 200; i++) log.info(`line ${i} ${'x'.repeat(40)}`);
@@ -76,7 +76,7 @@ test('a lock without a quit handler ignores the quit request', async () => {
 test('the backend gets only the variables it needs', () => {
   const env = buildBackendEnv({
     port: 5055,
-    mongoUri: 'mongodb://127.0.0.1:27217/kapomatic_warehouse',
+    mongoUri: 'mongodb://127.0.0.1:27217/nota',
     secret: 'S3CRET-VALUE',
     appVersion: '1.0.0',
     instanceId: 'id',
@@ -85,8 +85,8 @@ test('the backend gets only the variables it needs', () => {
   assert.equal(env.FIREBASE_SERVICE_ACCOUNT, undefined);
   assert.equal(env.NOTIFICATIONS_API_KEY, undefined);
   assert.equal(env.SystemRoot, 'C:\\Windows');
-  assert.equal(env.KAPOMATIC_LAN_MODE, '1');
-  assert.equal(env.KAPOMATIC_LISTEN_HOST, '0.0.0.0');
+  assert.equal(env.NOTA_LAN_MODE, '1');
+  assert.equal(env.NOTA_LISTEN_HOST, '0.0.0.0');
   assert.equal(env.PORT, '5055');
 });
 

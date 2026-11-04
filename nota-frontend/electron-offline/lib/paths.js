@@ -2,23 +2,26 @@
 
 // Where the offline edition keeps its files.
 //
-// Installed app: C:\ProgramData\Kapomatic Offline, shared by every Windows account on the PC,
+// Installed app: C:\ProgramData\<productName from edition.json> (C:\ProgramData\Nota), shared by every Windows account on the PC,
 // so data survives updates, reinstalls and switching users.
 // Development (npm run electron:start:offline): <project>/offline-dev-home.
-// KAPOMATIC_OFFLINE_HOME overrides both (used by tests).
+// NOTA_OFFLINE_HOME overrides both (used by tests).
 
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const PRODUCT_FOLDER = 'Kapomatic Offline';
+const EDITION = require('../edition.json');
+
+// Keep in sync with installer-offline/installer.nsh (data folder).
+const PRODUCT_FOLDER = EDITION.productName;
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 
 // Well-known SID of BUILTIN\Users, so this works on Arabic and English Windows alike.
 const USERS_SID = '*S-1-5-32-545';
 
 function resolveHome({ isPackaged, env = process.env }) {
-  if (env.KAPOMATIC_OFFLINE_HOME) return path.resolve(env.KAPOMATIC_OFFLINE_HOME);
+  if (env.NOTA_OFFLINE_HOME) return path.resolve(env.NOTA_OFFLINE_HOME);
   if (!isPackaged) return path.join(PROJECT_ROOT, 'offline-dev-home');
   return path.join(env.ProgramData || 'C:\\ProgramData', PRODUCT_FOLDER);
 }
@@ -46,7 +49,7 @@ function resolveResources({ isPackaged, resourcesPath, env = process.env }) {
     };
   }
   return {
-    backendDir: path.resolve(env.KAPOMATIC_BACKEND_DIR || path.join(PROJECT_ROOT, '..', 'kapomatic-backend')),
+    backendDir: path.resolve(env.NOTA_BACKEND_DIR || path.join(PROJECT_ROOT, '..', 'nota-backend')),
     mongodbBin: path.join(PROJECT_ROOT, 'vendor', 'mongodb', 'bin'),
     uiDir: path.join(PROJECT_ROOT, 'dist-offline', 'browser'),
   };

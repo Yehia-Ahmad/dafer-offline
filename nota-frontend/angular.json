@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "okland-warranty-system-v2": {
+    "nota": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -93,10 +93,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "okland-warranty-system-v2:build:production"
+              "buildTarget": "nota:build:production"
             },
             "development": {
-              "buildTarget": "okland-warranty-system-v2:build:development"
+              "buildTarget": "nota:build:development"
             }
           },
           "defaultConfiguration": "development"

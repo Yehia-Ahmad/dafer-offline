@@ -23,7 +23,7 @@ const path = require('node:path');
 
 const { BACKUP_SUFFIX, backupFileName, localDateStamp } = require('./backup-service');
 
-const AUTO_PREFIX = 'kapomatic-auto-backup-';
+const AUTO_PREFIX = 'nota-auto-backup-';
 const KEEP_AUTO_BACKUPS = 14;
 const FIRST_CHECK_DELAY_MS = 2 * 60 * 1000;
 const CHECK_INTERVAL_MS = 15 * 60 * 1000;

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota credit sales</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:right;font-size:13px;font-weight:700;color:#4A5856;background:#FAF9F6;padding:12px 16px}
+.tbl td{padding:12px 16px;border-top:1px solid #F0EDE6}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="credit" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px">
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; font-size: 28px; font-weight: 800">البيع الآجل</h1>
+        <span style="font-size: 14px; color: #4A5856">الفواتير اللي لسه عليها فلوس، والدفعات اللي اتسددت منها</span>
+      </div>
+      <button type="button" class="btn btn-p">+ فاتورة آجل جديدة</button>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px">
+      <div class="card" style="padding: 16px 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #4A5856">إجمالي المستحق</span><span class="num" style="font-size: 26px; font-weight: 800">١٢٬٩٠٠ ج.م</span></div>
+      <div class="card" style="padding: 16px 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #4A5856">متأخر عن ميعاده</span><span class="num" style="font-size: 26px; font-weight: 800; color: #B4401F">٤٬٣٥٠ ج.م</span></div>
+      <div class="card" style="padding: 16px 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #4A5856">اتحصّل الشهر ده</span><span class="num" style="font-size: 26px; font-weight: 800; color: #11795F">٧٬٢٠٠ ج.م</span></div>
+      <div class="card" style="padding: 16px 18px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #4A5856">عملاء عليهم فلوس</span><span class="num" style="font-size: 26px; font-weight: 800">١٨</span></div>
+    </div>
+
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 520px; min-width: 0; overflow: hidden">
+        <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px; padding: 14px 16px; align-items: center">
+          <input type="text" class="in" placeholder="بحث باسم العميل أو رقم التليفون أو رقم الفاتورة" style="flex: 1 1 260px; width: auto">
+          <div role="group" aria-label="الحالة" style="display: flex; flex-direction: row; gap: 6px; flex-wrap: wrap">
+            <button type="button" class="btn" style="background: #0E4D45; color: #FFFFFF; border-color: #0E4D45">الكل</button>
+            <button type="button" class="btn">مستحقة</button>
+            <button type="button" class="btn">مدفوعة جزئي</button>
+            <button type="button" class="btn">متأخرة</button>
+            <button type="button" class="btn">مدفوعة</button>
+          </div>
+        </div>
+        <div style="overflow-x: auto">
+          <table class="tbl" style="min-width: 760px">
+            <thead><tr><th>رقم</th><th>العميل</th><th>التاريخ</th><th>الإجمالي</th><th>المدفوع</th><th>الباقي</th><th>الحالة</th><th></th></tr></thead>
+            <tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+                <tr style="background: {{r.bg}}">
+                  <td class="num" style="font-weight: 700">{{r.no}}</td>
+                  <td><div style="display: flex; flex-direction: column; gap: 2px"><span>{{r.cust}}</span><span class="num" style="font-size: 12px; color: #4A5856; direction: ltr; text-align: right">{{r.phone}}</span></div></td>
+                  <td class="num" style="color: #4A5856">{{r.date}}</td>
+                  <td class="num">{{r.total}}</td>
+                  <td class="num" style="color: #11795F">{{r.paid}}</td>
+                  <td class="num" style="font-weight: 700">{{r.left}}</td>
+                  <td><span class="pill" style="color: {{r.sc}}; background: {{r.sb}}">{{r.status}}</span></td>
+                  <td><button type="button" class="btn" style="min-height: 36px; padding: 0 12px; font-size: 13px">دفعة</button></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="card" aria-label="تسجيل دفعة" style="flex: 1 1 320px; min-width: 0; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 13px; color: #4A5856">تسجيل دفعة على فاتورة</span>
+          <h2 style="margin: 0; font-size: 20px; font-weight: 800">#١٢٣ · م. سامي للمقاولات</h2>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center">
+          <div style="background: #FAF9F6; border-radius: 10px; padding: 10px"><div style="font-size: 12px; color: #4A5856">الإجمالي</div><div class="num" style="font-weight: 700">٢٬١٠٠</div></div>
+          <div style="background: #FAF9F6; border-radius: 10px; padding: 10px"><div style="font-size: 12px; color: #4A5856">اتدفع</div><div class="num" style="font-weight: 700; color: #11795F">٥٠٠</div></div>
+          <div style="background: #FBE9E3; border-radius: 10px; padding: 10px"><div style="font-size: 12px; color: #9A3412">الباقي</div><div class="num" style="font-weight: 800; color: #9A3412">١٬٦٠٠</div></div>
+        </div>
+        <label class="lb">المبلغ
+          <input type="text" class="in num" value="٦٠٠" style="font-size: 20px; font-weight: 700">
+        </label>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <label class="lb">في خزنة
+            <select class="in"><option>الخزنة الرئيسية</option><option>درج الكاشير ١</option><option>فودافون كاش</option></select>
+          </label>
+          <label class="lb">التاريخ
+            <input type="text" class="in num" value="٣ / ١١ / ٢٠٢٦">
+          </label>
+        </div>
+        <label class="lb">ملاحظة
+          <input type="text" class="in" placeholder="مثلًا: دفعة تانية">
+        </label>
+        <button type="button" class="btn btn-p" style="min-height: 52px; font-size: 16px">حفظ الدفعة وطباعة إيصال</button>
+        <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid #F0EDE6">
+          <span style="font-size: 13px; font-weight: 700">الدفعات السابقة</span>
+          <div style="display: flex; flex-direction: row; justify-content: space-between; font-size: 14px"><span class="num" style="color: #4A5856">٢٠ / ١٠ / ٢٠٢٦</span><span class="num">٥٠٠ ج.م</span></div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const S = {
+      due: { status: 'مستحقة', sc: '#7A5B00', sb: '#FBF1D6' },
+      part: { status: 'مدفوعة جزئي', sc: '#1F4E79', sb: '#E3EDF7' },
+      late: { status: 'متأخرة', sc: '#9A3412', sb: '#FBE9E3' },
+      paid: { status: 'مدفوعة', sc: '#0E4D45', sb: '#E6EFEC' }
+    };
+    const r = (no, cust, phone, date, total, paid, left, s, sel) => ({ no, cust, phone, date, total, paid, left, ...S[s], bg: sel ? '#F1F7F5' : 'transparent' });
+    const rows = [
+      r('#١٢٣', 'م. سامي للمقاولات', '0100 123 4567', '٣ / ١١', '٢٬١٠٠', '٥٠٠', '١٬٦٠٠', 'part', true),
+      r('#١٢٠', 'ورشة النور', '0111 987 6543', '٣ / ١١', '١٬٤٥٠', '٠', '١٬٤٥٠', 'due', false),
+      r('#١٠٨', 'محمد فتحي', '0122 555 0199', '١٥ / ١٠', '٢٬٨٠٠', '٨٠٠', '٢٬٠٠٠', 'late', false),
+      r('#٠٩٧', 'شركة الأمل للتوريدات', '0155 220 3344', '٢ / ١٠', '٣٬٥٠٠', '١٬١٥٠', '٢٬٣٥٠', 'late', false),
+      r('#٠٩٢', 'كريم السيد', '0106 448 2210', '٢٨ / ٩', '٩٠٠', '٣٠٠', '٦٠٠', 'part', false),
+      r('#٠٨٥', 'عم صبحي', '0127 300 1188', '٢٠ / ٩', '١٬٢٠٠', '١٬٢٠٠', '٠', 'paid', false),
+      r('#٠٧٩', 'أبو يوسف للدهانات', '0114 662 7781', '١٢ / ٩', '٢٬٤٠٠', '٢٬٤٠٠', '٠', 'paid', false)
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota cash sale</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: {{t.bg}}; color: {{t.text}}; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="pos" dark="{{t.dark}}" hint-size="248px,960px"></dc-import>
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: row; flex-wrap: wrap">
+    <main style="flex: 999 1 480px; min-width: 0; padding: 24px 28px; display: flex; flex-direction: column; gap: 18px">
+      <div style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px">
+        <h1 style="margin: 0; font-size: 26px; font-weight: 800; flex: 1 1 auto">نقطة البيع</h1>
+        <label style="flex: 1 1 360px; display: flex; flex-direction: row; align-items: center; gap: 10px; background: {{t.card}}; border: 2px solid {{t.brand}}; border-radius: 12px; padding: 0 14px; min-height: 52px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{t.muted}}" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"></path></svg>
+          <span style="position: absolute; width: 1px; height: 1px; overflow: hidden">بحث عن صنف</span>
+          <input type="text" value="" placeholder="ابحث بالاسم أو الكود أو امسح الباركود (F2)" style="flex: 1 1 auto; font-family: inherit; font-size: 16px; border: none; outline: none; background: transparent; color: {{t.text}}">
+        </label>
+      </div>
+      <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px">
+        <sc-for list="{{cats}}" as="c" hint-placeholder-count="6">
+          <button type="button" style="font-family: inherit; font-size: 14px; font-weight: 500; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid {{c.bd}}; background: {{c.bgc}}; color: {{c.fg}}; cursor: pointer">{{c.name}}</button>
+        </sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px">
+        <sc-for list="{{items}}" as="p" hint-placeholder-count="12">
+          <button type="button" style="font-family: inherit; text-align: right; display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: {{t.card}}; border: 1px solid {{t.border}}; color: {{t.text}}; cursor: pointer; min-height: 120px">
+            <span style="font-size: 12px; color: {{t.muted}}; direction: ltr; text-align: right">{{p.code}}</span>
+            <span style="font-size: 15px; font-weight: 500; line-height: 1.4">{{p.name}}</span>
+            <span style="flex: 1 1 auto"></span>
+            <span style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%">
+              <span class="num" style="font-size: 16px; font-weight: 800; color: {{t.price}}">{{p.price}}</span>
+              <span class="num" style="font-size: 12px; color: {{p.sc}}">{{p.stock}}</span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+    </main>
+
+    <aside aria-label="الفاتورة الحالية" style="flex: 1 1 380px; min-width: 0; background: {{t.card}}; border-inline-start: 1px solid {{t.border}}; padding: 22px 22px; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; flex-direction: row; align-items: center; justify-content: space-between">
+        <h2 style="margin: 0; font-size: 20px; font-weight: 800">فاتورة #١٢٥</h2>
+        <span style="font-size: 13px; color: {{t.muted}}">الكاشير: محمود</span>
+      </div>
+      <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: {{t.muted}}">العميل (اختياري)
+        <input type="text" value="زبون نقدي" style="font-family: inherit; font-size: 15px; padding: 11px 12px; border: 1px solid {{t.border}}; border-radius: 10px; background: {{t.bg}}; color: {{t.text}}">
+      </label>
+      <div style="display: flex; flex-direction: column; flex: 1 1 auto; gap: 0">
+        <sc-for list="{{cart}}" as="l" hint-placeholder-count="4">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid {{t.line}}">
+            <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; min-width: 0">
+              <span style="font-size: 14px; font-weight: 500">{{l.name}}</span>
+              <span class="num" style="font-size: 12px; color: {{t.muted}}">{{l.unit}} للقطعة</span>
+            </div>
+            <div style="display: flex; flex-direction: row; align-items: center; gap: 4px; border: 1px solid {{t.border}}; border-radius: 10px">
+              <button type="button" aria-label="زوّد" style="width: 36px; height: 36px; border: none; background: transparent; color: {{t.text}}; font-size: 18px; cursor: pointer">+</button>
+              <span class="num" style="min-width: 22px; text-align: center; font-weight: 700">{{l.qty}}</span>
+              <button type="button" aria-label="قلّل" style="width: 36px; height: 36px; border: none; background: transparent; color: {{t.text}}; font-size: 18px; cursor: pointer">−</button>
+            </div>
+            <span class="num" style="width: 76px; text-align: left; font-weight: 700">{{l.total}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+        <div style="display: flex; flex-direction: row; justify-content: space-between"><span style="color: {{t.muted}}">الإجمالي قبل الخصم</span><span class="num">٥١٥ ج.م</span></div>
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center"><span style="color: {{t.muted}}">خصم</span><span class="num" style="color: {{t.warn}}">− ١٥ ج.م</span></div>
+        <div style="display: flex; flex-direction: row; justify-content: space-between"><span style="color: {{t.muted}}">توصيل</span><span class="num">٠</span></div>
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: baseline; padding-top: 10px; border-top: 1px dashed {{t.border}}">
+          <span style="font-size: 16px; font-weight: 700">المطلوب</span>
+          <span class="num" style="font-size: 32px; font-weight: 800; color: {{t.price}}">٥٠٠ ج.م</span>
+        </div>
+      </div>
+      <fieldset style="border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px">
+        <legend style="font-size: 13px; color: {{t.muted}}; padding: 0; margin-bottom: 8px">طريقة الدفع</legend>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+          <button type="button" style="font-family: inherit; font-size: 14px; font-weight: 700; min-height: 44px; border-radius: 10px; border: 2px solid {{t.brand}}; background: {{t.sel}}; color: {{t.selText}}; cursor: pointer">كاش</button>
+          <button type="button" style="font-family: inherit; font-size: 14px; min-height: 44px; border-radius: 10px; border: 1px solid {{t.border}}; background: {{t.card}}; color: {{t.text}}; cursor: pointer">فيزا</button>
+          <button type="button" style="font-family: inherit; font-size: 14px; min-height: 44px; border-radius: 10px; border: 1px solid {{t.border}}; background: {{t.card}}; color: {{t.text}}; cursor: pointer">محفظة</button>
+        </div>
+      </fieldset>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: {{t.muted}}">المدفوع
+          <input type="text" value="٥٠٠" class="num" style="font-family: inherit; font-size: 18px; font-weight: 700; padding: 10px 12px; border: 1px solid {{t.border}}; border-radius: 10px; background: {{t.bg}}; color: {{t.text}}">
+        </label>
+        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: {{t.muted}}">الباقي للزبون
+          <span class="num" style="font-size: 18px; font-weight: 700; padding: 10px 12px; border-radius: 10px; background: {{t.bg}}; color: {{t.text}}">٠ ج.م</span>
+        </div>
+      </div>
+      <button type="button" style="font-family: inherit; font-size: 18px; font-weight: 800; color: #FFFFFF; background: {{t.brand}}; border: none; border-radius: 14px; min-height: 60px; cursor: pointer">دفع وطباعة (F9)</button>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+        <button type="button" style="font-family: inherit; font-size: 14px; min-height: 44px; border-radius: 10px; border: 1px solid {{t.border}}; background: {{t.card}}; color: {{t.text}}; cursor: pointer">تعليق الفاتورة</button>
+        <button type="button" style="font-family: inherit; font-size: 14px; min-height: 44px; border-radius: 10px; border: 1px solid {{t.border}}; background: {{t.card}}; color: {{t.warn}}; cursor: pointer">إلغاء</button>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = !!this.props.dark;
+    const t = dark
+      ? { dark: true, bg: '#0B1F1C', card: '#122B27', border: '#1F3D38', line: '#1A3631', text: '#E8F0EE', muted: '#9DB5B0', brand: '#2E8C7A', price: '#7FD1BE', warn: '#F4A58A', sel: '#173A34', selText: '#7FD1BE' }
+      : { dark: false, bg: '#F5F3EE', card: '#FFFFFF', border: '#E6E2D9', line: '#F0EDE6', text: '#142321', muted: '#4A5856', brand: '#0E4D45', price: '#0E4D45', warn: '#B4401F', sel: '#E6EFEC', selText: '#0E4D45' };
+    const catNames = ['الكل', 'لمبات', 'شواحن', 'أسلاك', 'مفاتيح وبرايز', 'كشافات'];
+    const cats = catNames.map((name, i) => ({ name, bgc: i === 0 ? t.brand : t.card, fg: i === 0 ? '#FFFFFF' : t.text, bd: i === 0 ? t.brand : t.border }));
+    const p = (code, name, price, stock) => ({ code, name, price, stock: 'متاح ' + stock, sc: Number(stock) <= 3 ? t.warn : t.muted });
+    const items = [
+      p('LED-12', 'لمبة LED ١٢ وات', '٤٥ ج.م', '2'), p('LED-18', 'لمبة LED ١٨ وات', '٦٠ ج.م', '24'), p('CH-25C', 'شاحن تايب سي ٢٥ وات', '١٨٠ ج.م', '3'),
+      p('CH-20L', 'شاحن لايتنينج ٢٠ وات', '٢٢٠ ج.م', '11'), p('W-2MM', 'سلك كهرباء ٢ مم (متر)', '١٢ ج.م', '140'), p('W-3MM', 'سلك كهرباء ٣ مم (متر)', '١٨ ج.م', '95'),
+      p('SW-1', 'مفتاح إضاءة مفرد', '٣٥ ج.م', '40'), p('SK-3', 'بريزة ثلاثية', '٨٥ ج.م', '6'), p('EM-01', 'كشاف طوارئ', '٢٧٥ ج.م', '7'),
+      p('PNL-24', 'بانل سقف ٢٤ وات', '٣٢٠ ج.م', '15'), p('EXT-5', 'مشترك ٥ مخارج', '١٥٠ ج.م', '18'), p('TP-1', 'شريط عازل', '١٠ ج.م', '200')
+    ];
+    const cart = [
+      { name: 'لمبة LED ١٨ وات', unit: '٦٠ ج.م', qty: '٣', total: '١٨٠' },
+      { name: 'مشترك ٥ مخارج', unit: '١٥٠ ج.م', qty: '١', total: '١٥٠' },
+      { name: 'بريزة ثلاثية', unit: '٨٥ ج.م', qty: '١', total: '٨٥' },
+      { name: 'شريط عازل', unit: '١٠ ج.م', qty: '١٠', total: '١٠٠' }
+    ];
+    return { t, cats, items, cart };
+  }
+}
+</script>
+</body>
+</html>

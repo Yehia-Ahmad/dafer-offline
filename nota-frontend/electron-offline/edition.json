@@ -1,5 +1,6 @@
 {
-  "productName": "Kapomatic Offline",
+  "productName": "Nota",
+  "nameAr": "نوتة",
   "version": "1.0.0",
-  "description": "Kapomatic Inventory System, offline LAN edition"
+  "description": "Nota — sales, inventory and accounts for shops (offline)"
 }

@@ -8,14 +8,14 @@ const test = require('node:test');
 
 const { ConfigError, DEFAULT_PORT, readConfig, writeConfig } = require('../lib/config-store');
 
-const tempDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'kapomatic-config-'));
+const tempDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'nota-config-'));
 
 const validMain = {
   schemaVersion: 1,
   role: 'main',
   instanceId: 'b3c6f0d2-1111-4c4c-9a9a-123456789abc',
   lanSecretProtected: 'AQAAANCMnd8BFdERjHoAwE',
-  shopName: 'Kapomatic',
+  shopName: 'Nota',
 };
 
 test('a missing config means the app is not set up yet', () => {
@@ -35,8 +35,8 @@ test('write then read returns the normalized config with defaults', () => {
 test('the main PC keeps the extra backup folder; it is empty by default', () => {
   const file = path.join(tempDir(), 'config.json');
   assert.equal(writeConfig(file, validMain).backupCopyFolder, '');
-  writeConfig(file, { ...validMain, backupCopyFolder: 'E:\\Kapomatic' });
-  assert.equal(readConfig(file).backupCopyFolder, 'E:\\Kapomatic');
+  writeConfig(file, { ...validMain, backupCopyFolder: 'E:\\Nota' });
+  assert.equal(readConfig(file).backupCopyFolder, 'E:\\Nota');
   assert.equal(writeConfig(file, { ...validMain, role: 'client' }).backupCopyFolder, undefined);
 });
 

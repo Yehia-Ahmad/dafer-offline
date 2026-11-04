@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota purchase invoice</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.in{font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:right;font-size:13px;font-weight:700;color:#4A5856;background:#FAF9F6;padding:12px 16px}
+.tbl td{padding:10px 16px;border-top:1px solid #F0EDE6}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="purchases" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800">فاتورة شراء جديدة</h1>
+      <span style="font-size: 14px; color: #4A5856">البضاعة بتدخل المخزون أول ما تحفظ</span>
+    </div>
+    <div class="card" style="padding: 18px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px">
+      <label class="lb">المورد
+        <select class="in"><option>الشركة المصرية للإضاءة</option><option>مؤسسة الفتح للأسلاك</option></select>
+      </label>
+      <label class="lb">رقم فاتورة المورد<input type="text" class="in num" value="EL-8841" style="direction: ltr; text-align: right"></label>
+      <label class="lb">التاريخ<input type="text" class="in num" value="٣ / ١١ / ٢٠٢٦"></label>
+      <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #3B4A47">رصيد المورد قبل الفاتورة
+        <span class="num" style="font-size: 18px; font-weight: 800; padding: 10px 12px; border-radius: 10px; background: #FAF9F6; color: #142321">٤٬٢٠٠ ج.م علينا</span>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 520px; min-width: 0; overflow: hidden">
+        <div style="overflow-x: auto">
+          <table class="tbl" style="min-width: 640px">
+            <thead><tr><th>الصنف</th><th>الكمية</th><th>سعر الشراء</th><th>الإجمالي</th><th>المخزون بعد</th><th></th></tr></thead>
+            <tbody>
+              <tr><td>لمبة LED ١٢ وات</td><td><input type="text" aria-label="الكمية" class="in num" value="٥٠" style="width: 80px; padding: 8px"></td><td><input type="text" aria-label="سعر الشراء" class="in num" value="٢٨" style="width: 90px; padding: 8px"></td><td class="num" style="font-weight: 700">١٬٤٠٠</td><td class="num" style="color: #11795F">٢ ← ٥٢</td><td><button type="button" aria-label="مسح السطر" class="btn" style="min-height: 36px; width: 36px; padding: 0; color: #9A3412">×</button></td></tr>
+              <tr><td>شاحن تايب سي ٢٥ وات</td><td><input type="text" aria-label="الكمية" class="in num" value="٢٠" style="width: 80px; padding: 8px"></td><td><input type="text" aria-label="سعر الشراء" class="in num" value="١٢٠" style="width: 90px; padding: 8px"></td><td class="num" style="font-weight: 700">٢٬٤٠٠</td><td class="num" style="color: #11795F">٣ ← ٢٣</td><td><button type="button" aria-label="مسح السطر" class="btn" style="min-height: 36px; width: 36px; padding: 0; color: #9A3412">×</button></td></tr>
+              <tr><td>بريزة ثلاثية</td><td><input type="text" aria-label="الكمية" class="in num" value="٣٠" style="width: 80px; padding: 8px"></td><td><input type="text" aria-label="سعر الشراء" class="in num" value="٥٥" style="width: 90px; padding: 8px"></td><td class="num" style="font-weight: 700">١٬٦٥٠</td><td class="num" style="color: #11795F">٦ ← ٣٦</td><td><button type="button" aria-label="مسح السطر" class="btn" style="min-height: 36px; width: 36px; padding: 0; color: #9A3412">×</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding: 12px 16px; border-top: 1px solid #F0EDE6"><input type="text" class="in" placeholder="+ ضيف صنف بالاسم أو الكود"></div>
+      </section>
+      <aside class="card" style="flex: 1 1 320px; min-width: 0; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; font-size: 20px; font-weight: 800"><span>الإجمالي</span><span class="num">٥٬٤٥٠ ج.م</span></div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+          <button type="button" class="btn" style="padding: 0 8px">كاش كله</button>
+          <button type="button" class="btn" style="padding: 0 8px; border: 2px solid #0E4D45; background: #E6EFEC; color: #0E4D45; font-weight: 700">جزء كاش</button>
+          <button type="button" class="btn" style="padding: 0 8px">آجل كله</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <label class="lb">المدفوع<input type="text" class="in num" value="٣٬٠٠٠" style="font-weight: 700"></label>
+          <label class="lb">من خزنة<select class="in"><option>الخزنة الرئيسية</option></select></label>
+        </div>
+        <div style="display: flex; flex-direction: row; justify-content: space-between; font-size: 14px; padding: 10px 12px; border-radius: 10px; background: #FBF1D6; color: #7A5B00"><span>يتبقى للمورد</span><span class="num" style="font-weight: 800">٢٬٤٥٠ ج.م</span></div>
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px dashed #CFCAC0; border-radius: 12px; font-size: 13px">
+          <span style="font-weight: 700">القيد اللي هيتعمل تلقائي</span>
+          <div style="display: flex; flex-direction: row; justify-content: space-between"><span>من حـ/ المخزون</span><span class="num">٥٬٤٥٠ مدين</span></div>
+          <div style="display: flex; flex-direction: row; justify-content: space-between; color: #4A5856"><span>إلى حـ/ الخزنة الرئيسية</span><span class="num">٣٬٠٠٠ دائن</span></div>
+          <div style="display: flex; flex-direction: row; justify-content: space-between; color: #4A5856"><span>إلى حـ/ الشركة المصرية للإضاءة</span><span class="num">٢٬٤٥٠ دائن</span></div>
+        </div>
+        <button type="button" class="btn btn-p" style="min-height: 52px; font-size: 16px">حفظ فاتورة الشراء</button>
+        <span class="num" style="font-size: 13px; color: #4A5856">رصيد المورد بعد الحفظ: ٦٬٦٥٠ ج.م</span>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

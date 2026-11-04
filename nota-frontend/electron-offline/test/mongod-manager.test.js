@@ -21,7 +21,7 @@ const silentLog = { info() {}, warn() {}, error() {} };
 // Every mongod a test starts is killed afterwards, even when the test fails, so a failure
 // can never leave a process running that keeps the test runner alive.
 async function withHome(callback) {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'kapomatic-mongod-'));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-mongod-'));
   const managers = [];
   const track = (manager) => {
     managers.push(manager);

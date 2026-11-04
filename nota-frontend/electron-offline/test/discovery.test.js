@@ -20,11 +20,11 @@ test('broadcast addresses come from each IPv4 network plus 255.255.255.255', () 
 });
 
 test('replies are validated and never trusted blindly', () => {
-  const good = Buffer.from(JSON.stringify({ type: 'kapomatic-offline-server', v: 1, instanceId: 'id', port: 5055, shopName: 'Shop', appVersion: '1.0.0' }));
+  const good = Buffer.from(JSON.stringify({ type: 'nota-offline-server', v: 1, instanceId: 'id', port: 5055, shopName: 'Shop', appVersion: '1.0.0' }));
   assert.deepEqual(parseReply(good), { instanceId: 'id', shopName: 'Shop', port: 5055, appVersion: '1.0.0' });
   assert.equal(parseReply(Buffer.from('not json')), null);
   assert.equal(parseReply(Buffer.from(JSON.stringify({ type: 'other', v: 1, instanceId: 'id', port: 1 }))), null);
-  assert.equal(parseReply(Buffer.from(JSON.stringify({ type: 'kapomatic-offline-server', v: 1, port: '5055' }))), null);
+  assert.equal(parseReply(Buffer.from(JSON.stringify({ type: 'nota-offline-server', v: 1, port: '5055' }))), null);
   assert.equal(parseReply(Buffer.alloc(5000, 32)), null);
 });
 

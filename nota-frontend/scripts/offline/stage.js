@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Stages the offline edition for electron-builder (electron-builder.offline.json):
 //   offline-stage/app      Electron app folder: Angular offline build + electron-offline + package.json
-//   offline-stage/backend  kapomatic-backend with production dependencies only
+//   offline-stage/backend  nota-backend with production dependencies only
 //
 // Inputs: dist-offline/ (npm run build:offline), vendor/ (npm run offline:vendor) and the
-// backend checkout next to this project, or the folder in KAPOMATIC_BACKEND_DIR.
+// backend checkout next to this project, or the folder in NOTA_BACKEND_DIR.
 // Uses only Node's own fs functions, so it runs the same from cmd, PowerShell or bash.
 'use strict';
 
@@ -13,7 +13,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const BACKEND_SOURCE = path.resolve(process.env.KAPOMATIC_BACKEND_DIR || path.join(ROOT, '..', 'kapomatic-backend'));
+const BACKEND_SOURCE = path.resolve(process.env.NOTA_BACKEND_DIR || path.join(ROOT, '..', 'nota-backend'));
 const ANGULAR_OUTPUT = path.join(ROOT, 'dist-offline', 'browser');
 const ELECTRON_SOURCE = path.join(ROOT, 'electron-offline');
 const STAGE = path.join(ROOT, 'offline-stage');
@@ -76,7 +76,7 @@ function checkInputs() {
   for (const file of ['src/server.js', 'src/app.js', 'package.json', 'package-lock.json']) {
     requireFile(
       path.join(BACKEND_SOURCE, file),
-      'Check out kapomatic-backend next to this project or set KAPOMATIC_BACKEND_DIR.'
+      'Check out nota-backend next to this project or set NOTA_BACKEND_DIR.'
     );
   }
 }
@@ -88,11 +88,11 @@ function stageApp() {
   fs.cpSync(ELECTRON_SOURCE, path.join(STAGE_APP, 'electron-offline'), { recursive: true });
 
   const appPackage = {
-    name: 'kapomatic-offline',
+    name: 'nota-offline',
     productName: EDITION.productName,
     version: EDITION.version,
     description: EDITION.description,
-    author: 'Kapomatic',
+    author: EDITION.productName,
     main: 'electron-offline/main.js',
     private: true,
   };
@@ -143,7 +143,7 @@ function validate() {
     if (result.status !== 0) fail(`staged backend failed to load (${label}):\n${result.stderr}`);
   };
   smoke({}, 'online mode');
-  smoke({ KAPOMATIC_LAN_MODE: '1', KAPOMATIC_LAN_SECRET: 'STAGE-CHECK-SECRET' }, 'LAN mode');
+  smoke({ NOTA_LAN_MODE: '1', NOTA_LAN_SECRET: 'STAGE-CHECK-SECRET' }, 'LAN mode');
   log('checks passed: no secrets or excluded files, backend loads in online and LAN mode');
 }
 

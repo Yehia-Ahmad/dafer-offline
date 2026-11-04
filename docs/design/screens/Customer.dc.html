@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Nota customer statement</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.btn{font-family:inherit;font-size:14px;font-weight:500;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid #CFCAC0;background:#FFFFFF;color:#142321;cursor:pointer}
+.btn-p{background:#0E4D45;border-color:#0E4D45;color:#FFFFFF;font-weight:700}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:right;font-size:13px;font-weight:700;color:#4A5856;background:#FAF9F6;padding:12px 16px}
+.tbl td{padding:12px 16px;border-top:1px solid #F0EDE6}
+</style>
+</helmet>
+<div style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif">
+  <dc-import name="Sidebar" active="customers" hint-size="248px,960px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <a href="#" style="font-size: 14px; color: #0E4D45; text-decoration: none">→ كل العملاء</a>
+    <div class="card" style="padding: 20px 22px; display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 20px">
+      <div style="width: 64px; height: 64px; border-radius: 999px; background: #E6EFEC; color: #0E4D45; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800">م</div>
+      <div style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; font-size: 26px; font-weight: 800">محمد فتحي</h1>
+        <span class="num" style="font-size: 14px; color: #4A5856"><span style="direction: ltr; display: inline-block">0122 555 0199</span> · عميل من سبتمبر ٢٠٢٦</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px 18px; border-radius: 12px; background: #FBE9E3">
+        <span style="font-size: 13px; color: #9A3412">الرصيد المستحق عليه</span>
+        <span class="num" style="font-size: 28px; font-weight: 800; color: #9A3412">١٬٤٥٠ ج.م</span>
+      </div>
+      <div style="display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap">
+        <button type="button" class="btn btn-p">تحصيل دفعة</button>
+        <button type="button" class="btn">طباعة كشف</button>
+        <button type="button" class="btn">Excel</button>
+      </div>
+    </div>
+
+    <div role="tablist" aria-label="أقسام العميل" style="display: flex; flex-direction: row; gap: 4px; border-bottom: 1px solid #E6E2D9">
+      <button type="button" role="tab" aria-selected="true" style="font-family: inherit; font-size: 15px; font-weight: 700; padding: 12px 18px; min-height: 44px; border: none; border-bottom: 3px solid #0E4D45; background: transparent; color: #0E4D45; cursor: pointer">كشف الحساب</button>
+      <button type="button" role="tab" aria-selected="false" style="font-family: inherit; font-size: 15px; padding: 12px 18px; min-height: 44px; border: none; background: transparent; color: #4A5856; cursor: pointer">الفواتير (٢)</button>
+      <button type="button" role="tab" aria-selected="false" style="font-family: inherit; font-size: 15px; padding: 12px 18px; min-height: 44px; border: none; background: transparent; color: #4A5856; cursor: pointer">الدفعات (٣)</button>
+      <button type="button" role="tab" aria-selected="false" style="font-family: inherit; font-size: 15px; padding: 12px 18px; min-height: 44px; border: none; background: transparent; color: #4A5856; cursor: pointer">المرتجعات (١)</button>
+    </div>
+
+    <section class="card" style="overflow: hidden">
+      <div style="display: flex; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 18px">
+        <span style="font-size: 14px; color: #4A5856">من ١ / ٩ / ٢٠٢٦ إلى ٣ / ١١ / ٢٠٢٦</span>
+        <span style="font-size: 13px; color: #4A5856">مدين = عليه · دائن = دفعه أو رجّعه</span>
+      </div>
+      <div style="overflow-x: auto">
+        <table class="tbl" style="min-width: 720px">
+          <thead><tr><th>التاريخ</th><th>البيان</th><th>المستند</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead>
+          <tbody>
+            <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+              <tr>
+                <td class="num" style="color: #4A5856">{{r.date}}</td>
+                <td>{{r.desc}}</td>
+                <td class="num"><a href="#" style="color: #0E4D45">{{r.doc}}</a></td>
+                <td class="num" style="color: #9A3412">{{r.dr}}</td>
+                <td class="num" style="color: #11795F">{{r.cr}}</td>
+                <td class="num" style="font-weight: 700">{{r.bal}}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+          <tfoot>
+            <tr style="background: #FAF9F6; font-weight: 800">
+              <td colspan="3" style="padding: 14px 16px">الإجمالي</td>
+              <td class="num" style="padding: 14px 16px; color: #9A3412">٤٬٠٠٠</td>
+              <td class="num" style="padding: 14px 16px; color: #11795F">٢٬٥٥٠</td>
+              <td class="num" style="padding: 14px 16px">١٬٤٥٠</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const rows = [
+      { date: '٥ / ٩', desc: 'فاتورة بيع آجل', doc: '#٠٧١', dr: '١٬٢٠٠', cr: '', bal: '١٬٢٠٠' },
+      { date: '١٠ / ٩', desc: 'دفعة نقدي', doc: 'سند قبض ١٤', dr: '', cr: '١٬٢٠٠', bal: '٠' },
+      { date: '١٥ / ١٠', desc: 'فاتورة بيع آجل', doc: '#١٠٨', dr: '٢٬٨٠٠', cr: '', bal: '٢٬٨٠٠' },
+      { date: '٢٠ / ١٠', desc: 'دفعة نقدي', doc: 'سند قبض ٢٢', dr: '', cr: '٥٠٠', bal: '٢٬٣٠٠' },
+      { date: '٢٨ / ١٠', desc: 'دفعة فودافون كاش', doc: 'سند قبض ٢٧', dr: '', cr: '٣٠٠', bal: '٢٬٠٠٠' },
+      { date: '٣ / ١١', desc: 'مرتجع: كشاف طوارئ × ٢', doc: 'مرتجع ٩', dr: '', cr: '٥٥٠', bal: '١٬٤٥٠' }
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

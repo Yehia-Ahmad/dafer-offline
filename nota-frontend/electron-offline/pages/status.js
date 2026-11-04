@@ -1,12 +1,12 @@
 'use strict';
 
 (() => {
-  const desktop = window.kapomaticDesktop;
+  const desktop = window.notaDesktop;
   const $ = (id) => document.getElementById(id);
   const busyStates = new Set(['starting', 'restarting', 'stopping', 'connecting']);
-  const errorStates = new Set(['failed', 'not-configured', 'unreachable', 'unauthorized', 'not-kapomatic']);
-  const retryStates = new Set(['failed', 'unreachable', 'unauthorized', 'not-kapomatic']);
-  const addressStates = new Set(['unreachable', 'unauthorized', 'not-kapomatic']);
+  const errorStates = new Set(['failed', 'not-configured', 'unreachable', 'unauthorized', 'not-nota']);
+  const retryStates = new Set(['failed', 'unreachable', 'unauthorized', 'not-nota']);
+  const addressStates = new Set(['unreachable', 'unauthorized', 'not-nota']);
 
   function render(status) {
     $('label').textContent = status.label || '';
