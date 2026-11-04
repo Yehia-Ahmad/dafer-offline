@@ -15,8 +15,10 @@
 .pp__cat { display: flex; align-items: center; gap: 2px; border-radius: var(--radius-control);
   &:hover { background: var(--surface-2); }
   &.is-on { background: var(--brand-soft); .pp__cat-link { color: var(--brand-strong-text); font-weight: 700; } } }
-.pp__cat-link { flex: 1 1 auto; min-width: 0; min-height: 40px; display: flex; align-items: center; padding: 8px 12px; color: var(--text);
-  font-size: 14px; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp__cat-link { flex: 1 1 auto; min-width: 0; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 12px; color: var(--text); font-size: 14px; text-decoration: none; }
+.pp__cat-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp__count { flex: none; font-size: 12px; color: var(--text-muted); font-weight: 400; }
 .pp__cat-btn { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 8px;
   background: transparent; color: var(--text-muted); cursor: pointer;
   &:hover { background: var(--surface); color: var(--text); }
@@ -28,8 +30,6 @@
 .pp__search { flex: 1 1 240px; width: auto; }
 .pp__toggle { display: flex; align-items: center; gap: 8px; min-height: var(--touch-target); font-size: 14px; cursor: pointer;
   input { width: 18px; height: 18px; accent-color: var(--brand); } }
-// Keeps the absolutely positioned .nota-sr-only header label inside the scrolling wrapper (no page-wide overflow on phones).
-.pp__main .nota-table-wrap { position: relative; }
 .pp__table { min-width: 820px; }
 .pp__code { color: var(--text-muted); text-align: start; }
 .pp__name { font-weight: 500; &.is-out { text-decoration: line-through; color: var(--text-muted); } }

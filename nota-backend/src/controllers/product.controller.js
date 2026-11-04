@@ -111,6 +111,20 @@ const validateSpecifications = (specifications, res) => {
   return specifications;
 };
 
+// Stage 12: optional per-product low-stock threshold. undefined = not sent; null = clear it.
+const normalizeLowStockThreshold = (value, res) => {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+
+  const threshold = Number(value);
+  if (!Number.isFinite(threshold) || threshold < 0) {
+    res.status(400);
+    throw new Error("يجب أن يكون حد التنبيه للمخزون رقمًا غير سالب");
+  }
+
+  return threshold;
+};
+
 const normalizeDiscountPercentage = (value, res) => {
   const discountPercentage = Number(value);
 
@@ -392,6 +406,8 @@ const buildProductProfitRows = async ({ products, startDate, endDate }) => {
 
 const getProducts = asyncHandler(async (req, res) => {
   const { categoryId } = req.query;
+  // Stage 12 (optional): name/code contains, case-insensitive.
+  const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
 
   // Invalid page/limit values intentionally use defaults instead of returning
   // an error, as required by the public API contract.
@@ -400,18 +416,21 @@ const getProducts = asyncHandler(async (req, res) => {
   const page = parsePaginationInteger(req.query.page, DEFAULT_PAGE, MAX_PAGE);
   const skip = (page - 1) * limit;
 
-  if (!categoryId) {
-    res.status(400);
-    throw new Error("مطلوب معامل الاستعلام categoryId");
+  // Stage 12: without categoryId the list covers all products (same paging and shape).
+  const filter = {};
+  if (categoryId) {
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      res.status(404);
+      throw new Error("لم يتم العثور على فئة للمعرّف المقدم");
+    }
+    filter.category = categoryId;
   }
 
-  const category = await Category.findById(categoryId);
-  if (!category) {
-    res.status(404);
-    throw new Error("لم يتم العثور على فئة للمعرّف المقدم");
+  if (search) {
+    const searchRegex = new RegExp(escapeRegex(search), "i");
+    filter.$or = [{ name: searchRegex }, { code: searchRegex }];
   }
-
-  const filter = { category: categoryId };
 
   // Count and fetch use the exact same filter. skip/limit are applied by
   // MongoDB, so only the requested page is loaded into application memory.
@@ -565,6 +584,7 @@ const createProduct = asyncHandler(async (req, res) => {
   } = req.body;
   const discountPercentageInput =
     req.body.discountPercentage ?? req.body.discount_percentage;
+  const lowStockThreshold = normalizeLowStockThreshold(req.body.lowStockThreshold, res);
 
   const category = await Category.findById(categoryId);
   if (!category) {
@@ -650,6 +670,10 @@ const createProduct = asyncHandler(async (req, res) => {
 
   if (soldItemCount !== undefined) {
     payload.soldItemCount = normalizedSoldItemCount;
+  }
+
+  if (lowStockThreshold !== undefined && lowStockThreshold !== null) {
+    payload.lowStockThreshold = lowStockThreshold;
   }
 
   const product = await Product.create(payload);
@@ -803,6 +827,10 @@ const updateProduct = asyncHandler(async (req, res) => {
     req.body.discountPercentage ?? req.body.discount_percentage;
   if (discountPercentageInput !== undefined) {
     product.discountPercentage = normalizeDiscountPercentage(discountPercentageInput, res);
+  }
+  const lowStockThreshold = normalizeLowStockThreshold(req.body.lowStockThreshold, res);
+  if (lowStockThreshold !== undefined) {
+    product.lowStockThreshold = lowStockThreshold === null ? undefined : lowStockThreshold;
   }
   if (requestSpecifications !== undefined) {
     product.specifications = cloneSpecifications(requestSpecifications);

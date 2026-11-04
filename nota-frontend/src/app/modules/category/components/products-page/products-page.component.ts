@@ -4,7 +4,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
-  effect,
+  computed,
   inject,
   OnDestroy,
   OnInit,
@@ -30,10 +30,16 @@ import {
 } from '../../../shared/ui';
 import { CategoryToolsComponent } from '../category-tools/category-tools.component';
 
-/** "Low stock only" threshold (Stage 11; Stage 12 decides a per-product setting). */
+/** Low stock when inventoryCount <= the product's lowStockThreshold, or this default (same as the backend). */
 export const LOW_STOCK_THRESHOLD = 5;
-/** Medium level: the old category page marked ≤ 10 in red. */
-export const MEDIUM_STOCK_THRESHOLD = 10;
+
+/** The product's own threshold (Stage 12), else the default. */
+export function stockThreshold(product: { lowStockThreshold?: unknown } | null | undefined): number {
+  const value = Number(product?.lowStockThreshold);
+  return product?.lowStockThreshold !== undefined && product?.lowStockThreshold !== null && Number.isFinite(value) && value >= 0
+    ? value
+    : LOW_STOCK_THRESHOLD;
+}
 
 /**
  * Products & categories (docs/design/screens/Products.dc.html), route /products?category=<id>.
@@ -63,6 +69,11 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   readonly tools = viewChild(CategoryToolsComponent);
   readonly categories = this._catalog.categories;
   readonly lowStockThreshold = LOW_STOCK_THRESHOLD;
+  /** "كل الأصناف" count: sum of the categories' productCount, when the API sent them. */
+  readonly allCount = computed(() => {
+    const counts = this.categories().map((category) => category.productCount);
+    return counts.every((count) => typeof count === 'number') ? counts.reduce((sum, count) => sum + (count as number), 0) : null;
+  });
 
   @ViewChild('scrollSentinel')
   set infiniteScrollSentinel(element: ElementRef<HTMLElement> | undefined) {
@@ -81,14 +92,6 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   hasNextPage = true;
   currentPage = 0;
   totalPages = 1;
-
-  constructor() {
-    // No category in the URL: open the first one once the list is loaded (there is no all-products endpoint).
-    effect(() => {
-      const first = this.categories()[0];
-      if (!this.categoryId && first) this.selectCategory(first.id, true);
-    });
-  }
 
   ngOnInit(): void {
     this._activatedRoute.queryParamMap.pipe(
@@ -110,6 +113,11 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
     return this.categories().find((category) => category.id === this.categoryId);
   }
 
+  /** Stage 12: no ?category = "كل الأصناف" (GET products without categoryId). */
+  get isAllProducts(): boolean {
+    return !this.categoryId;
+  }
+
   get filteredProducts(): Product[] {
     const normalizedSearchTerm = this.searchTerm.trim().toLowerCase();
     const searched = !normalizedSearchTerm
@@ -119,15 +127,22 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
         const productCode = String(product?.code || '').toLowerCase();
         return productName.includes(normalizedSearchTerm) || productCode.includes(normalizedSearchTerm);
       });
-    return this.lowStockOnly ? searched.filter((product) => this.isLowStock(product?.inventoryCount)) : searched;
+    return this.lowStockOnly ? searched.filter((product) => this.isLowStock(product)) : searched;
   }
 
   selectCategory(categoryId: string, replaceUrl = false): void {
     this._router.navigate(['/products'], { queryParams: { category: categoryId }, replaceUrl });
   }
 
-  /** Codes of the loaded products: the new-product form suggests the next code from them, as the old dialog did. */
+  /**
+   * Codes of the loaded products: the new-product form suggests the next code from them, as the old dialog did.
+   * On "كل الأصناف" the form opens on the first category and loads that category's codes itself.
+   */
   newProduct(): void {
+    if (this.isAllProducts) {
+      this._router.navigate(['/products/new']);
+      return;
+    }
     this._router.navigate(['/products/new'], {
       queryParams: { category: this.categoryId },
       state: { productCodes: this.products.map((product) => product?.code ?? null) },
@@ -146,15 +161,20 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
     this.tools()?.promptForCategoryDeletion(category);
   }
 
-  stockVariant(inventoryCount: unknown): NotaPillVariant {
-    if (this.isLowStock(inventoryCount)) return 'overdue';
-    const parsedValue = Number(inventoryCount);
-    return Number.isFinite(parsedValue) && parsedValue <= MEDIUM_STOCK_THRESHOLD ? 'due' : 'ok';
+  /** low ≤ threshold, medium ≤ 2 × threshold, else ok (threshold 5 gives the Stage 11 levels ≤ 5 / ≤ 10). */
+  stockVariant(product: Product): NotaPillVariant {
+    if (this.isLowStock(product)) return 'overdue';
+    const parsedValue = Number(product?.inventoryCount);
+    return Number.isFinite(parsedValue) && parsedValue <= stockThreshold(product) * 2 ? 'due' : 'ok';
   }
 
-  isLowStock(inventoryCount: unknown): boolean {
-    const parsedValue = Number(inventoryCount);
-    return Number.isFinite(parsedValue) && parsedValue <= LOW_STOCK_THRESHOLD;
+  isLowStock(product: Product): boolean {
+    const parsedValue = Number(product?.inventoryCount);
+    return Number.isFinite(parsedValue) && parsedValue <= stockThreshold(product);
+  }
+
+  threshold(product: Product): number {
+    return stockThreshold(product);
   }
 
   isOutOfStock(inventoryCount: unknown): boolean {
@@ -163,7 +183,7 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   }
 
   loadNextPage(): void {
-    if (!this.categoryId || this.isLoadingProducts || !this.hasNextPage) {
+    if (this.isLoadingProducts || !this.hasNextPage) {
       return;
     }
 
@@ -171,7 +191,7 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
     this.isLoadingProducts = true;
 
     const requestedCategoryId = this.categoryId;
-    this._cateoryService.getProductsPage(requestedCategoryId, {
+    this._cateoryService.getProductsPage(requestedCategoryId || null, {
       page: requestedPage,
       limit: this.pageSize
     }).pipe(

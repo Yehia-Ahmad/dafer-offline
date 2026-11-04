@@ -11,6 +11,8 @@ export interface Product {
   inventoryCount?: number;
   discountPercentage?: number;
   priceAfterDiscount?: number;
+  /** Stage 12 (optional): low stock when inventoryCount <= this; missing → 5. */
+  lowStockThreshold?: number;
   [key: string]: unknown;
 }
 
@@ -34,6 +36,8 @@ export interface ProductPayload {
   discountPercentage?: number;
   soldItemCount?: number | string;
   editProduct?: boolean;
+  /** Stage 12: sent only when filled (null clears it on update). */
+  lowStockThreshold?: number | null;
   specifications?: Array<{ title: string; value: string }>;
 }
 
@@ -115,14 +119,14 @@ export class CateoryService {
     return this._http.get(`${this._baseUrl}products`, { params });
   }
 
+  /** Stage 12: an empty categoryId lists all products (GET products?page&limit, no categoryId). */
   getProductsPage(
-    categoryId: number | string,
+    categoryId: number | string | null,
     options: { page?: number; limit?: number } = {}
   ): Observable<ProductsPage> {
     const page = options.page ?? 1;
     const limit = options.limit ?? 10;
-    const params = new HttpParams()
-      .set('categoryId', String(categoryId))
+    const params = (categoryId ? new HttpParams().set('categoryId', String(categoryId)) : new HttpParams())
       .set('page', page)
       .set('limit', limit);
 

@@ -274,6 +274,9 @@
 
 // ---------- Tables ----------
 .nota-table-wrap {
+  // Stage 12: contains absolutely positioned children (e.g. .nota-sr-only header labels) so a wide
+  // table scrolls inside its wrapper instead of widening the page on phones.
+  position: relative;
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;

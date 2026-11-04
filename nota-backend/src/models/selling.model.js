@@ -155,5 +155,7 @@ const sellingSchema = new mongoose.Schema(
 );
 
 sellingSchema.index({ "items.product": 1 });
+// Stage 12: date-range reads of the dashboard summary.
+sellingSchema.index({ sellingDate: -1 });
 
 module.exports = mongoose.model("Selling", sellingSchema);

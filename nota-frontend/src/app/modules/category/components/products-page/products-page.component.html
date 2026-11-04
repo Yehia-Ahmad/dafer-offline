@@ -3,7 +3,7 @@
   <nota-page-header [title]="'productsPage.title' | translate">
     <div notaPageActions class="pp__actions">
       <app-category-tools />
-      <button type="button" notaButton="primary" data-action="new-product" (click)="newProduct()" [disabled]="!categoryId">
+      <button type="button" notaButton="primary" data-action="new-product" (click)="newProduct()" [disabled]="!categories().length">
         + {{ 'productsPage.newProduct' | translate }}
       </button>
     </div>
@@ -17,10 +17,20 @@
           [attr.aria-label]="'sidebarTitles.add_new_category' | translate" [title]="'sidebarTitles.add_new_category' | translate">+</button>
       </div>
       <ul class="pp__cats-list">
+        <!-- Stage 12: all products (GET products without categoryId). -->
+        <li class="pp__cat" [class.is-on]="isAllProducts" data-test="all-products">
+          <a class="pp__cat-link" [routerLink]="['/products']" [attr.aria-current]="isAllProducts ? 'page' : null">
+            <span class="pp__cat-label">{{ 'productsPage.allProducts' | translate }}</span>
+            @if (allCount() !== null) {<span class="pp__count nota-num">{{ allCount() | notaNumber }}</span>}
+          </a>
+        </li>
         @for (category of categories(); track category.id) {
           <li class="pp__cat" [class.is-on]="category.id === categoryId">
             <a class="pp__cat-link" [routerLink]="['/products']" [queryParams]="{ category: category.id }"
-              [attr.aria-current]="category.id === categoryId ? 'page' : null">{{ category.label }}</a>
+              [attr.aria-current]="category.id === categoryId ? 'page' : null">
+              <span class="pp__cat-label">{{ category.label }}</span>
+              @if (category.productCount !== undefined) {<span class="pp__count nota-num">{{ category.productCount | notaNumber }}</span>}
+            </a>
             <button type="button" class="pp__cat-btn" (click)="openEditCategory(category, $event)"
               [attr.aria-label]="('nav.categories.edit' | translate) + ' ' + category.label" [title]="'nav.categories.edit' | translate">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -44,12 +54,12 @@
 
     <section class="nota-card pp__main">
       <div class="pp__toolbar">
-        <h2 class="pp__cat-name">{{ selectedCategory?.label || ('productsPage.categories' | translate) }}</h2>
+        <h2 class="pp__cat-name">{{ isAllProducts ? ('productsPage.allProducts' | translate) : (selectedCategory?.label || ('productsPage.categories' | translate)) }}</h2>
         <input type="text" class="nota-input pp__search" [(ngModel)]="searchTerm" [ngModelOptions]="{ standalone: true }"
           [placeholder]="'productsPage.searchPlaceholder' | translate" [attr.aria-label]="'productsPage.searchPlaceholder' | translate" />
         <label class="pp__toggle">
           <input type="checkbox" [(ngModel)]="lowStockOnly" [ngModelOptions]="{ standalone: true }" />
-          {{ 'productsPage.lowStockOnly' | translate: { count: (lowStockThreshold | notaNumber) } }}
+          {{ 'productsPage.lowStockOnly' | translate }}
         </label>
       </div>
 
@@ -70,7 +80,8 @@
               <tr>
                 <td class="nota-num pp__code" dir="ltr">{{ product?.code || '—' }}</td>
                 <td class="pp__name" [class.is-out]="isOutOfStock(product?.inventoryCount)">{{ product?.name }}</td>
-                <td><span [class]="'nota-pill nota-num nota-pill--' + stockVariant(product?.inventoryCount)">{{ product?.inventoryCount | notaNumber }}</span></td>
+                <td><span [class]="'nota-pill nota-num nota-pill--' + stockVariant(product)"
+                  [title]="'productsPage.thresholdTitle' | translate: { count: (threshold(product) | notaNumber) }">{{ product?.inventoryCount | notaNumber }}</span></td>
                 <td class="nota-num pp__muted-cell">{{ product?.['purchasePrice'] | notaMoney }}</td>
                 <td class="nota-num pp__strong">{{ product?.['retailPrice'] | notaMoney }}</td>
                 <td class="nota-num">{{ product?.['wholesalePrice'] | notaMoney }}</td>

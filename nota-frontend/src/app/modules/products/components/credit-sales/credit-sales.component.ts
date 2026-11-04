@@ -20,7 +20,6 @@ import { InputNumberModule } from 'primeng/inputnumber';
 import { Subscription } from 'rxjs';
 import { format as formatDate } from 'date-fns';
 import { CustomersService } from '../../../customer/services/customers.service';
-import { HOME_VIEW_STORAGE_KEY } from '../../../layout/constants/home-view.constants';
 import {
   NotaButtonDirective,
   NotaDialogShellComponent,
@@ -148,12 +147,6 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
         this.refreshDerivedState();
       })
     );
-
-    if (!this.isBrowser) {
-      return;
-    }
-
-    localStorage.setItem(HOME_VIEW_STORAGE_KEY, 'products');
   }
 
   ngOnDestroy(): void {

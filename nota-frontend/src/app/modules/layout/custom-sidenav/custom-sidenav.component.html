@@ -43,14 +43,6 @@
               <nota-nav-icon [path]="item.icon" />
               <span class="nota-nav__label">{{ item.labelKey | translate }}</span>
             </a>
-          } @else if (item.resetsHomeView) {
-            <a class="nota-nav__link" href="/home" [class.is-active]="isHomeActive()"
-              [attr.aria-current]="isHomeActive() ? 'page' : null" (click)="onHomeClick($event)"
-              [attr.aria-label]="state.collapsed() ? (item.labelKey | translate) : null"
-              [attr.title]="state.collapsed() ? (item.labelKey | translate) : null">
-              <nota-nav-icon [path]="item.icon" />
-              <span class="nota-nav__label">{{ item.labelKey | translate }}</span>
-            </a>
           } @else {
             <a class="nota-nav__link" [routerLink]="item.route" routerLinkActive="is-active" ariaCurrentWhenActive="page"
               [attr.aria-label]="state.collapsed() ? (item.labelKey | translate) : null"

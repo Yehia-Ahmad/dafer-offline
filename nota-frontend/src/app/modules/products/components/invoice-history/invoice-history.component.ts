@@ -1,7 +1,6 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { HOME_VIEW_STORAGE_KEY } from '../../../layout/constants/home-view.constants';
 import { ProductsService } from '../../services/products.service';
 import { FormsModule } from '@angular/forms';
 import { InputNumberModule } from 'primeng/inputnumber';
@@ -127,7 +126,6 @@ export class InvoiceHistoryComponent implements OnInit {
 
   ngOnInit(): void {
     if (!this.isBrowser) return;
-    localStorage.setItem(HOME_VIEW_STORAGE_KEY, 'products');
     this.loadCategories();
     this.loadSellings();
     // Cached for printing; without it the invoice prints with a neutral header.

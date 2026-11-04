@@ -80,7 +80,7 @@
             "soldItemCount": "Sold Item Count",
             "actions": {
                 "save": "Save & Exit",
-                "syncPurchasePrice": "Sync Selling Price"
+                "syncPurchasePrice": "Update purchase price on invoices"
             },
             "syncPurchasePrice": {
                 "title": "Sync Selling Price",
@@ -107,41 +107,10 @@
         "delete_button": "Yes Delete"
     },
     "home": {
-        "title": "INVENTORY SYSTEM",
-        "subtitle": "Choose a section to continue",
         "cards": {
-            "inventory": {
-                "title": "Inventory",
-                "description": "Manage inventory operations."
-            },
-            "products": {
-                "title": "Products",
-                "description": "Go to selling and invoice history pages."
-            },
-            "customers": {
-                "title": "Customers",
-                "description": "Create and manage customer records."
-            },
-            "selling": {
-                "title": "Selling",
-                "description": "Open the selling page."
-            },
-            "creditSales": {
-                "title": "Credit Sales",
-                "description": "Open the sale on credit workspace."
-            },
             "invoiceHistory": {
-                "title": "Invoice History",
-                "description": "Open invoice history page."
+                "title": "Invoice History"
             }
-        },
-        "pages": {
-            "inventoryReady": "Inventory page is ready.",
-            "sellingReady": "Selling page is ready.",
-            "invoiceHistoryReady": "Invoice history page is ready."
-        },
-        "actions": {
-            "back": "Back"
         }
     },
     "sellingPage": {
@@ -967,7 +936,7 @@
         "newProduct": "New product",
         "categories": "Categories",
         "searchPlaceholder": "Search by name or code",
-        "lowStockOnly": "Low stock only ({{count}} or less)",
+        "lowStockOnly": "Low stock only",
         "columns": {
             "code": "Code",
             "name": "Product",
@@ -979,7 +948,9 @@
         },
         "percent": "{{value}}%",
         "empty": "No products in this category yet.",
-        "noMatches": "No matching products."
+        "noMatches": "No matching products.",
+        "allProducts": "All products",
+        "thresholdTitle": "Alert at {{count}}"
     },
     "productForm": {
         "newTitle": "New product",
@@ -997,6 +968,65 @@
         "specsOf": "\"{{name}}\" specifications",
         "image": "Image",
         "dropImage": "Drop an image here or click to upload",
-        "stock": "Stock"
+        "stock": "Stock",
+        "optional": "Optional",
+        "lowStockThreshold": "Alert me when stock reaches",
+        "lowStockThresholdHint": "Optional. Empty = 5. Shows in \"Running low\"."
+    },
+    "dashboard": {
+        "greeting": {
+            "morning": "Good morning",
+            "evening": "Good evening"
+        },
+        "actions": {
+            "cash": "Cash invoice",
+            "credit": "Credit invoice",
+            "collect": "Collect payment"
+        },
+        "loading": "Loading today's summary...",
+        "loadFailed": "Could not load today's summary.",
+        "retry": "Retry",
+        "kpis": {
+            "salesToday": "Today's sales",
+            "upFromYesterday": "+{{percent}}% vs yesterday",
+            "downFromYesterday": "−{{percent}}% vs yesterday",
+            "noYesterday": "No sales yesterday to compare",
+            "invoicesToday": "Invoices today",
+            "invoicesSplit": "{{cash}} cash · {{credit}} credit",
+            "outstanding": "Credit owed by customers",
+            "overdue": "{{count}} overdue invoices ({{amount}})",
+            "customersWithBalance": "From {{count}} customers"
+        },
+        "chart": {
+            "title": "Sales, last 7 days",
+            "cash": "Cash",
+            "credit": "Credit"
+        },
+        "lowStock": {
+            "title": "Running low",
+            "all": "All products",
+            "threshold": "Alert at {{count}}"
+        },
+        "recent": {
+            "title": "Latest invoices",
+            "history": "Invoice history",
+            "number": "No.",
+            "customer": "Customer",
+            "type": "Type",
+            "total": "Total",
+            "time": "Time",
+            "cash": "Cash",
+            "credit": "Credit"
+        },
+        "empty": {
+            "welcomeTitle": "Welcome to Nota",
+            "welcomeText": "Start by adding your products and shop details, then make your first invoice.",
+            "addProducts": "Add products",
+            "shopProfile": "Shop profile",
+            "noWeekSales": "No sales in the last 7 days",
+            "noWeekSalesText": "The chart appears with the first invoice.",
+            "noLowStock": "Every product is above its alert level",
+            "noInvoices": "No invoices yet"
+        }
     }
 }

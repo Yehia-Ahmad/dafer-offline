@@ -76,6 +76,11 @@
             <nota-form-field [label]="'category.addProduct.wholesalePrice' | translate" forId="pf-wholesale" [required]="true">
               <input id="pf-wholesale" type="text" inputmode="decimal" class="nota-input pf__num" formControlName="wholesalePrice" />
             </nota-form-field>
+            <!-- Stage 12: optional; sent only when filled. -->
+            <nota-form-field [label]="'category.editProduct.discountPercentage' | translate" forId="pf-discount" [hint]="'productForm.optional' | translate">
+              <input id="pf-discount" type="number" min="0" max="100" step="0.01" class="nota-input pf__num"
+                [(ngModel)]="newDiscountPercentage" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
           </div>
         } @else {
           <div class="pf__grid pf__grid--sm">
@@ -164,6 +169,10 @@
             <nota-form-field [label]="'category.addProduct.soldItemCount' | translate" forId="pf-sold">
               <input id="pf-sold" type="text" inputmode="numeric" class="nota-input pf__num" formControlName="soldItemCount" />
             </nota-form-field>
+            <nota-form-field [label]="'productForm.lowStockThreshold' | translate" forId="pf-threshold" [hint]="'productForm.lowStockThresholdHint' | translate">
+              <input id="pf-threshold" type="number" min="0" step="1" class="nota-input pf__num" [placeholder]="'5'"
+                [(ngModel)]="newLowStockThreshold" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
           </div>
         } @else {
           <div class="pf__stack">
@@ -175,6 +184,10 @@
             </nota-form-field>
             <nota-form-field [label]="'category.editProduct.soldItemCount' | translate" forId="soldItemCount">
               <input id="soldItemCount" type="text" inputmode="numeric" class="nota-input pf__num" [(ngModel)]="product.soldItemCount" [ngModelOptions]="{ standalone: true }" />
+            </nota-form-field>
+            <nota-form-field [label]="'productForm.lowStockThreshold' | translate" forId="lowStockThreshold" [hint]="'productForm.lowStockThresholdHint' | translate">
+              <input id="lowStockThreshold" type="number" min="0" step="1" class="nota-input pf__num" [placeholder]="'5'"
+                [(ngModel)]="editLowStockThreshold" [ngModelOptions]="{ standalone: true }" />
             </nota-form-field>
           </div>
         }

@@ -5,6 +5,8 @@ import { CateoryService } from '../../category/services/cateory.service';
 export interface SidebarCategory {
   label: string;
   id: string;
+  /** Stage 12: products in the category (GET categories productCount). */
+  productCount?: number;
   category?: any;
 }
 
@@ -34,6 +36,7 @@ export class CatalogStateService {
         this.categories.set(categories.map((category: any) => ({
           label: category.name,
           id: category._id,
+          productCount: Number.isFinite(Number(category.productCount)) ? Number(category.productCount) : undefined,
           category
         })));
         this.checkHasAnyProducts();

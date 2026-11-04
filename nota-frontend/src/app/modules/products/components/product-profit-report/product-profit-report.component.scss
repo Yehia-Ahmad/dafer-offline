@@ -14,7 +14,6 @@
 .pr__chart-card { flex: 1 1 100%; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
 // Full row: the table keeps the old columns plus quantity, sales and margin.
 .pr__table-card { flex: 1 1 100%; min-width: 0; padding: 0; overflow: hidden; }
-.pr__table-card .nota-table-wrap { position: relative; }
 .pr__table-card .pr__card-head, .pr__table-card > .pr__error { padding: 16px 18px; }
 .pr__card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .pr__h2 { margin: 0; }

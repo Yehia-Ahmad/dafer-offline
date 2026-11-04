@@ -80,7 +80,7 @@
       "soldItemCount": "عدد المبيعات",
       "actions": {
         "save": "حفظ المنتج",
-        "syncPurchasePrice": "تعديل سعر البيع"
+        "syncPurchasePrice": "تحديث سعر الشراء في الفواتير"
       },
       "syncPurchasePrice": {
         "title": "تعديل سعر البيع",
@@ -107,41 +107,10 @@
     "updateButton": "تحديث الفئة"
   },
   "home": {
-    "title": "نظام المخزون",
-    "subtitle": "اختر القسم الذي تريد المتابعة إليه",
     "cards": {
-      "inventory": {
-        "title": "المخزون",
-        "description": "إدارة عمليات المخزون."
-      },
-      "products": {
-        "title": "المنتجات",
-        "description": "الانتقال إلى صفحات البيع وسجل الفواتير."
-      },
-      "customers": {
-        "title": "العملاء",
-        "description": "إنشاء وإدارة بيانات العملاء."
-      },
-      "selling": {
-        "title": "البيع",
-        "description": "فتح صفحة البيع."
-      },
-      "creditSales": {
-        "title": "البيع الآجل",
-        "description": "فتح مساحة عمل البيع بالتقسيط."
-      },
       "invoiceHistory": {
-        "title": "سجل الفواتير",
-        "description": "فتح صفحة سجل الفواتير."
+        "title": "سجل الفواتير"
       }
-    },
-    "pages": {
-      "inventoryReady": "صفحة المخزون جاهزة.",
-      "sellingReady": "صفحة البيع جاهزة.",
-      "invoiceHistoryReady": "صفحة سجل الفواتير جاهزة."
-    },
-    "actions": {
-      "back": "رجوع"
     }
   },
   "sellingPage": {
@@ -967,7 +936,7 @@
     "newProduct": "صنف جديد",
     "categories": "الفئات",
     "searchPlaceholder": "بحث بالاسم أو الكود",
-    "lowStockOnly": "التي قاربت على النفاد فقط ({{count}} أو أقل)",
+    "lowStockOnly": "التي قاربت على النفاد فقط",
     "columns": {
       "code": "الكود",
       "name": "الصنف",
@@ -979,7 +948,9 @@
     },
     "percent": "{{value}}٪",
     "empty": "لا توجد أصناف في هذه الفئة بعد.",
-    "noMatches": "لا توجد أصناف مطابقة."
+    "noMatches": "لا توجد أصناف مطابقة.",
+    "allProducts": "كل الأصناف",
+    "thresholdTitle": "حد التنبيه: {{count}}"
   },
   "productForm": {
     "newTitle": "صنف جديد",
@@ -997,6 +968,65 @@
     "specsOf": "مواصفات فئة \"{{name}}\"",
     "image": "الصورة",
     "dropImage": "اسحب صورة هنا أو اضغط للرفع",
-    "stock": "المخزون"
+    "stock": "المخزون",
+    "optional": "اختياري",
+    "lowStockThreshold": "نبّهني لما المخزون يوصل لـ",
+    "lowStockThresholdHint": "اختياري. لو فاضي: ٥. بيظهر في \"أصناف قربت تخلص\"."
+  },
+  "dashboard": {
+    "greeting": {
+      "morning": "صباح الخير",
+      "evening": "مساء الخير"
+    },
+    "actions": {
+      "cash": "فاتورة كاش",
+      "credit": "فاتورة آجل",
+      "collect": "تحصيل من عميل"
+    },
+    "loading": "جاري تحميل ملخص اليوم...",
+    "loadFailed": "تعذر تحميل ملخص اليوم.",
+    "retry": "إعادة المحاولة",
+    "kpis": {
+      "salesToday": "مبيعات النهارده",
+      "upFromYesterday": "أعلى من امبارح بـ {{percent}}٪",
+      "downFromYesterday": "أقل من امبارح بـ {{percent}}٪",
+      "noYesterday": "مفيش مبيعات امبارح للمقارنة",
+      "invoicesToday": "عدد الفواتير",
+      "invoicesSplit": "{{cash}} كاش · {{credit}} آجل",
+      "outstanding": "آجل مستحق على العملاء",
+      "overdue": "{{count}} فواتير متأخرة ({{amount}})",
+      "customersWithBalance": "على {{count}} عميل"
+    },
+    "chart": {
+      "title": "مبيعات آخر ٧ أيام",
+      "cash": "كاش",
+      "credit": "آجل"
+    },
+    "lowStock": {
+      "title": "أصناف قربت تخلص",
+      "all": "كل الأصناف",
+      "threshold": "حد التنبيه: {{count}}"
+    },
+    "recent": {
+      "title": "آخر الفواتير",
+      "history": "سجل الفواتير",
+      "number": "رقم",
+      "customer": "العميل",
+      "type": "النوع",
+      "total": "الإجمالي",
+      "time": "الوقت",
+      "cash": "كاش",
+      "credit": "آجل"
+    },
+    "empty": {
+      "welcomeTitle": "أهلاً بيك في نوتة",
+      "welcomeText": "ابدأ بإضافة الأصناف وبيانات المحل، وبعدها اعمل أول فاتورة.",
+      "addProducts": "إضافة الأصناف",
+      "shopProfile": "بيانات المحل",
+      "noWeekSales": "مفيش مبيعات في آخر ٧ أيام",
+      "noWeekSalesText": "الرسم هيظهر مع أول فاتورة.",
+      "noLowStock": "كل الأصناف فوق حد التنبيه",
+      "noInvoices": "مفيش فواتير لسه"
+    }
   }
 }

@@ -57,6 +57,12 @@ export class ProductFormComponent implements OnInit {
   isAddingProduct = false;
   /** Codes the next-code suggestion is computed from (the category's loaded products, as in the old dialog). */
   private productCodes: unknown[] = [];
+  /**
+   * Stage 12, create only, kept outside the reactive form so its value (and today's POST body) stays the same:
+   * sent only when filled.
+   */
+  newDiscountPercentage: number | string | null = '';
+  newLowStockThreshold: number | string | null = '';
 
   // ---------- edit (from the old /products/edit/:id) ----------
   isLoading: boolean = false;
@@ -70,6 +76,8 @@ export class ProductFormComponent implements OnInit {
   syncDateFrom: Date | null = null;
   syncDateTo: Date | null = null;
   productDetails: { title: string; value: string }[] = [];
+  /** Stage 12: the product's lowStockThreshold in the edit form ('' = none). */
+  editLowStockThreshold: number | string | null = '';
 
   constructor() {
     this.productId = this._activatedRoute.snapshot.params['id'];
@@ -78,6 +86,11 @@ export class ProductFormComponent implements OnInit {
     effect(() => {
       const categories = this.categories();
       untracked(() => {
+        // Stage 12: opened from "كل الأصناف" (no ?category): start on the first category.
+        if (this.mode === 'new' && !this.categoryId && categories[0]) {
+          this.setNewCategory(categories[0].id, null);
+          return;
+        }
         if (this.mode !== 'new' || this.newProductDetails.length) return;
         const category = categories.find((item) => item.id === this.categoryId)?.category;
         const details = this.buildProductDetailsFromCategory(category);
@@ -211,6 +224,13 @@ export class ProductFormComponent implements OnInit {
     if (!payload.specifications.length) {
       delete payload.specifications;
     }
+    // Stage 12: optional fields, appended only when filled (both empty → the same body as before).
+    if (isFilled(this.newDiscountPercentage)) {
+      payload.discountPercentage = Number(this.newDiscountPercentage);
+    }
+    if (isFilled(this.newLowStockThreshold)) {
+      payload.lowStockThreshold = Number(this.newLowStockThreshold);
+    }
 
     this._cateoryService.addNewProduct(payload).pipe(
       takeUntilDestroyed(this.destroyRef)
@@ -253,6 +273,8 @@ export class ProductFormComponent implements OnInit {
     });
     this.resetProductDetailsControls();
     this.imagePreview = null;
+    this.newDiscountPercentage = '';
+    this.newLowStockThreshold = '';
   }
 
   onNewImageSelected(event: any) {
@@ -330,6 +352,7 @@ export class ProductFormComponent implements OnInit {
         this.product = res;
         this.productDetails = this.buildProductDetails(this.product);
         this.newInventory = null;
+        this.editLowStockThreshold = isFilled(this.product?.lowStockThreshold) ? this.product.lowStockThreshold : '';
         this.cdr.detectChanges();
       }, error: (err: any) => {
         this.loading = false;
@@ -375,6 +398,8 @@ export class ProductFormComponent implements OnInit {
       image: this.product.image,
       editProduct: newInventoryCount === 0,
       specifications: this.normalizeProductDetails(this.productDetails),
+      // Stage 12: only when filled, or null to clear a threshold the product had; otherwise not sent.
+      ...this.lowStockThresholdUpdate(),
     };
     this._cateoryService.updateProduct(this.productId, payload).subscribe({
       next: () => {
@@ -388,6 +413,11 @@ export class ProductFormComponent implements OnInit {
         this.cdr.detectChanges();
       }
     })
+  }
+
+  private lowStockThresholdUpdate(): { lowStockThreshold?: number | null } {
+    if (isFilled(this.editLowStockThreshold)) return { lowStockThreshold: Number(this.editLowStockThreshold) };
+    return isFilled(this.product?.lowStockThreshold) ? { lowStockThreshold: null } : {};
   }
 
   showDeleteDialog() {
@@ -525,4 +555,9 @@ export class ProductFormComponent implements OnInit {
       }))
       .filter((detail: { title: string }) => Boolean(detail.title));
   }
+}
+
+/** A form value the user actually entered (0 counts; '', null and undefined do not). */
+function isFilled(value: unknown): boolean {
+  return value !== '' && value !== null && value !== undefined && Number.isFinite(Number(value));
 }

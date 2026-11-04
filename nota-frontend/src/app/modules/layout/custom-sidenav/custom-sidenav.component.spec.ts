@@ -6,7 +6,6 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule } from '@ngx-translate/core';
 
 import { CustomSidenavComponent, deviceLabelKey } from './custom-sidenav.component';
-import { HOME_DEFAULT_VIEW, HOME_VIEW_STORAGE_KEY } from '../constants/home-view.constants';
 import { LanguageService } from '../../shared/services/translation.service';
 import { ThemeService } from '../../shared/services/theme.service';
 
@@ -36,12 +35,10 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
     expect(el().querySelector('a[href="/backup"]')).toBeNull();
   });
 
-  it('home resets the home page view, as the old "reset view" button did', () => {
-    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
-    localStorage.setItem(HOME_VIEW_STORAGE_KEY, 'products');
-    el().querySelector<HTMLAnchorElement>('a[href="/home"]')!.click();
-    expect(localStorage.getItem(HOME_VIEW_STORAGE_KEY)).toBe(HOME_DEFAULT_VIEW);
-    expect(navigate).toHaveBeenCalledWith(['/home'], { queryParams: { resetView: jasmine.any(Number) } });
+  it('home is a plain link to the dashboard (Stage 12: no HOME_VIEW reset any more)', () => {
+    const home = el().querySelector<HTMLAnchorElement>('a[href="/home"]')!;
+    expect(home).not.toBeNull();
+    expect('resetHomeView' in component).toBeFalse();
   });
 
   it('products item: active on /products and the product form, not on the profit report (Stage 11)', () => {
@@ -52,12 +49,6 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
       (component as any).url = () => url;
       expect(component.isPathActive(item)).withContext(url).toBe(active);
     }
-  });
-
-  it('home link survives blocked storage (Stage 11)', () => {
-    spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
-    spyOn(localStorage, 'setItem').and.throwError('blocked');
-    expect(() => component.resetHomeView()).not.toThrow();
   });
 
   it('footer language and theme controls call the services', () => {

@@ -1,12 +1,10 @@
-import { isPlatformBrowser } from '@angular/common';
-import { Component, computed, inject, OnInit, PLATFORM_ID } from '@angular/core';
+import { Component, computed, inject, OnInit } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { filter, map } from 'rxjs';
 import { LanguageService } from '../../shared/services/translation.service';
 import { ThemeService } from '../../shared/services/theme.service';
-import { HOME_DEFAULT_VIEW, HOME_VIEW_STORAGE_KEY } from '../constants/home-view.constants';
 import { brandName } from '../../../core/brand';
 import { isOfflineMainPc } from '../../../core/runtime/app-features';
 import { getDesktopRuntimeConfig } from '../../../core/runtime/runtime-config';
@@ -30,7 +28,6 @@ export class CustomSidenavComponent implements OnInit {
   private readonly _languageService = inject(LanguageService);
   private readonly _themeService = inject(ThemeService);
   private readonly _router = inject(Router);
-  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   protected readonly state = inject(SidebarStateService);
   private readonly _catalog = inject(CatalogStateService);
 
@@ -51,7 +48,6 @@ export class CustomSidenavComponent implements OnInit {
     ),
     { initialValue: this._router.url }
   );
-  readonly isHomeActive = computed(() => this.url().split(/[?#]/)[0] === '/home');
 
   ngOnInit(): void {
     // App start (the frame is created once): category list + product-exists flag for the POS chips,
@@ -71,24 +67,6 @@ export class CustomSidenavComponent implements OnInit {
 
   toggleTheme(): void {
     this._themeService.toggleTheme();
-  }
-
-  /** Home link: same as the old "reset view" button, the home page opens on its first view. */
-  onHomeClick(event: MouseEvent): void {
-    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-    event.preventDefault();
-    this.resetHomeView();
-  }
-
-  resetHomeView() {
-    if (this.isBrowser) {
-      try {
-        localStorage.setItem(HOME_VIEW_STORAGE_KEY, HOME_DEFAULT_VIEW);
-      } catch {
-        // Storage blocked or full: the home page still opens (on its saved or default view).
-      }
-    }
-    this._router.navigate(['/home'], { queryParams: { resetView: Date.now() } });
   }
 }
 

@@ -8,7 +8,6 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { CateoryService } from '../../../category/services/cateory.service';
-import { HOME_VIEW_STORAGE_KEY } from '../../../layout/constants/home-view.constants';
 import {
   ProductProfitReportInvoice,
   ProductProfitReportRow,
@@ -102,10 +101,6 @@ export class ProductProfitReportComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    if (this.isBrowser) {
-      localStorage.setItem(HOME_VIEW_STORAGE_KEY, 'profit-report');
-    }
-
     this.loadCategories();
     this.loadProfitReport();
     this.loadProfitBar();

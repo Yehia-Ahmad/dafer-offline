@@ -5,6 +5,7 @@ const morgan = require("morgan");
 const categoryRoutes = require("./routes/category.routes");
 const creditSaleRoutes = require("./routes/creditSale.routes");
 const customerRoutes = require("./routes/customer.routes");
+const dashboardRoutes = require("./routes/dashboard.routes");
 const lanRoutes = require("./routes/lan.routes");
 const productRoutes = require("./routes/product.routes");
 const returnsRoutes = require("./routes/returns.routes");
@@ -34,6 +35,7 @@ if (lanMode) {
 app.use("/api/categories", categoryRoutes);
 app.use("/api/credit-sales", creditSaleRoutes);
 app.use("/api/customers", customerRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/returns", returnsRoutes);
 app.use("/api/sellings", sellingRoutes);

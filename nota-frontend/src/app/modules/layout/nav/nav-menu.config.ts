@@ -20,8 +20,6 @@ export interface NavItem {
    * Without it the item is active on its route only (routerLinkActive, exact: false).
    */
   activePaths?: readonly string[];
-  /** Home also resets the home page to its first view, as the old "reset view" button did. */
-  resetsHomeView?: boolean;
 }
 
 export interface NavGroup {
@@ -59,7 +57,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     key: 'main',
     items: [
-      { key: 'home', labelKey: 'nav.items.home', route: '/home', icon: NAV_ICONS.home, visible: always, resetsHomeView: true },
+      { key: 'home', labelKey: 'nav.items.home', route: '/home', icon: NAV_ICONS.home, visible: always },
     ],
   },
   {

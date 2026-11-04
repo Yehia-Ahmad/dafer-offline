@@ -26,7 +26,15 @@ const validateSpecifications = (specifications, res) => {
 
 const getCategories = asyncHandler(async (req, res) => {
   const categories = await Category.find().sort({ createdAt: 1 });
-  res.json(categories);
+  // Stage 12 (additive): number of products in each category.
+  const counts = await Product.aggregate([{ $group: { _id: "$category", count: { $sum: 1 } } }]);
+  const countByCategory = new Map(counts.map((entry) => [String(entry._id), entry.count]));
+  res.json(
+    categories.map((category) => ({
+      ...category.toJSON(),
+      productCount: countByCategory.get(String(category._id)) || 0,
+    }))
+  );
 });
 
 const getCategoryById = asyncHandler(async (req, res) => {

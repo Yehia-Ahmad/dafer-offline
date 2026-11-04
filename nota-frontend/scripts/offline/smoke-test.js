@@ -33,7 +33,10 @@ const REMOVED_ROUTES = [
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const BACKEND_DIR = path.resolve(process.env.NOTA_BACKEND_DIR || path.join(ROOT, '..', 'nota-backend'));
-const MONGOD_PATH = path.join(ROOT, 'vendor', 'mongodb', 'bin', process.platform === 'win32' ? 'mongod.exe' : 'mongod');
+// NOTA_MONGOD_PATH (development only): use another mongod binary, e.g. a Linux build on a dev machine,
+// instead of the bundled Windows one in vendor/mongodb.
+const MONGOD_OVERRIDE = process.env.NOTA_MONGOD_PATH ? path.resolve(process.env.NOTA_MONGOD_PATH) : null;
+const MONGOD_PATH = MONGOD_OVERRIDE || path.join(ROOT, 'vendor', 'mongodb', 'bin', process.platform === 'win32' ? 'mongod.exe' : 'mongod');
 
 const MONGO_PORT = 27099;
 const BACKEND_PORT = 5099;
@@ -93,6 +96,7 @@ function tail(file, lines = 30) {
 
 function ensureMongod() {
   if (fs.existsSync(MONGOD_PATH)) return;
+  if (MONGOD_OVERRIDE) throw new Error(`NOTA_MONGOD_PATH does not exist: ${MONGOD_OVERRIDE}`);
   log('vendor/mongodb is missing; running npm run offline:vendor');
   const result = spawnSync('npm', ['run', 'offline:vendor'], { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' });
   if (result.status !== 0 || !fs.existsSync(MONGOD_PATH)) {
@@ -385,6 +389,67 @@ async function runScenarios() {
     return `${await expectStock(ctx, 7)}, invoice total ${response.json.totalPrice}, remaining ${response.json.remainingAmount}`;
   });
 
+  // Stage 12: dashboard summary, low-stock threshold, category product counts, all-products list.
+  // Runs before the deletes below, while the cash and credit invoices of this run still exist.
+  await step('Dashboard summary: today\'s cash and credit sales, credit outstanding', async () => {
+    requireCtx(ctx, 'cashInvoiceId', 'creditInvoiceId');
+    const cashInvoice = await request('GET', `/api/sellings/${ctx.cashInvoiceId}`);
+    const creditInvoice = await request('GET', `/api/credit-sales/${ctx.creditInvoiceId}`);
+    expectStatus(cashInvoice, 200, 'GET /api/sellings/:id');
+    expectStatus(creditInvoice, 200, 'GET /api/credit-sales/:id');
+    const response = await request('GET', '/api/dashboard/summary');
+    expectStatus(response, 200, 'GET /api/dashboard/summary');
+    const summary = response.json;
+    const cashTotal = Number(cashInvoice.json.totalPrice);
+    const creditTotal = Number(creditInvoice.json.totalPrice);
+    const remaining = Number(creditInvoice.json.remainingAmount);
+    expect(summary.today.cash.count === 1 && summary.today.cash.total === cashTotal,
+      `today cash expected 1 × ${cashTotal}, got ${summary.today.cash.count} × ${summary.today.cash.total}`);
+    expect(summary.today.credit.count === 1 && summary.today.credit.total === creditTotal,
+      `today credit expected 1 × ${creditTotal}, got ${summary.today.credit.count} × ${summary.today.credit.total}`);
+    expect(summary.credit.outstanding === remaining, `outstanding expected ${remaining}, got ${summary.credit.outstanding}`);
+    expect(summary.credit.customersWithBalance === (remaining > 0 ? 1 : 0), `customersWithBalance got ${summary.credit.customersWithBalance}`);
+    expect(summary.last7Days.length === 7 && summary.last7Days[6].cash === cashTotal, 'last 7 days do not end with today\'s cash total');
+    expect(summary.recentInvoices.length === 2, `recentInvoices expected 2, got ${summary.recentInvoices.length}`);
+    expect(!summary.lowStock.some((row) => row.id === ctx.productId), 'stock 7 is above the default threshold 5 but is listed as low');
+    return `date ${summary.date} (${summary.timeZone}), cash ${cashTotal}, credit ${creditTotal}, outstanding ${remaining}`;
+  });
+
+  await step('Product with lowStockThreshold 20 (stock 15) appears in dashboard low stock', async () => {
+    requireCtx(ctx, 'categoryId');
+    const created = await request('POST', '/api/products', {
+      body: { name: 'Smoke Low Stock', code: 'SMOKE-LOW', categoryId: ctx.categoryId, inventoryCount: 15,
+        purchasePrice: 10, wholesalePrice: 20, retailPrice: 20, lowStockThreshold: 20 },
+    });
+    expectStatus(created, 201, 'POST /api/products with lowStockThreshold');
+    expect(created.json.lowStockThreshold === 20, `lowStockThreshold expected 20, got ${created.json.lowStockThreshold}`);
+    ctx.lowStockProductId = created.json._id;
+    const response = await request('GET', '/api/dashboard/summary');
+    const row = (response.json.lowStock || []).find((entry) => entry.id === ctx.lowStockProductId);
+    expect(row && row.threshold === 20 && row.inventoryCount === 15, `not in lowStock as expected (${JSON.stringify(response.json.lowStock)})`);
+    return `low stock: ${response.json.lowStock.map((entry) => `${entry.code} ${entry.inventoryCount}/${entry.threshold}`).join(', ')}`;
+  });
+
+  await step('GET /api/categories → productCount 2 for the smoke category', async () => {
+    requireCtx(ctx, 'categoryId', 'lowStockProductId');
+    const response = await request('GET', '/api/categories');
+    expectStatus(response, 200, 'GET /api/categories');
+    const category = (response.json || []).find((entry) => entry._id === ctx.categoryId);
+    expect(category && category.productCount === 2, `productCount expected 2, got ${category && category.productCount}`);
+    expect(category.name === 'Smoke Category', 'category fields changed');
+    return `productCount ${category.productCount}`;
+  });
+
+  await step('GET /api/products without categoryId → all products, paginated', async () => {
+    requireCtx(ctx, 'productId', 'lowStockProductId');
+    const response = await request('GET', '/api/products?page=1&limit=10');
+    expectStatus(response, 200, 'GET /api/products');
+    const ids = (response.json.data || []).map((entry) => entry._id);
+    expect(response.json.pagination && response.json.pagination.totalItems === 2, `totalItems expected 2, got ${JSON.stringify(response.json.pagination)}`);
+    expect(ids.includes(ctx.productId) && ids.includes(ctx.lowStockProductId), 'not every product is listed');
+    return `totalItems ${response.json.pagination.totalItems}`;
+  });
+
   await step('Delete cash invoice → stock unchanged (7)', async () => {
     requireCtx(ctx, 'cashInvoiceId');
     // Intended behavior: delete removes only the invoice record and does not restore stock.
@@ -408,9 +473,9 @@ async function runScenarios() {
     return await expectStock(ctx, 7);
   });
 
-  // GET /api/products requires categoryId by design (the frontend always lists per category).
+  // GET /api/products with a categoryId (the per-category list; without one, see the Stage 12 step above).
   const productsList = `/api/products?categoryId=${ctx.categoryId || 'missing-category'}`;
-  for (const urlPath of ['/api/sellings', '/api/credit-sales', '/api/customers', productsList, '/api/products/profit-report']) {
+  for (const urlPath of ['/api/sellings', '/api/credit-sales', '/api/customers', productsList, '/api/products/profit-report', '/api/dashboard/summary']) {
     await step(`GET ${urlPath.split('?')[0]} → 200`, async () => {
       const response = await request('GET', urlPath);
       expectStatus(response, 200, `GET ${urlPath}`);

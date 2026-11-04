@@ -13,7 +13,6 @@ import {
   ViewChild
 } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { HOME_VIEW_STORAGE_KEY } from '../../../layout/constants/home-view.constants';
 import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
 import { CateoryService } from '../../../category/services/cateory.service';
 import {
@@ -194,9 +193,6 @@ export class SellingComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.sellingForm.get('shippingFees')!.valueChanges.subscribe(() => this.updateInvoiceTotals())
     );
-
-    if (!this.isBrowser) return;
-    localStorage.setItem(HOME_VIEW_STORAGE_KEY, 'products');
   }
 
   ngOnDestroy(): void {

@@ -76,9 +76,10 @@ describe('Stage 11 payloads — products list (AFTER: ProductsPageComponent)', (
     component.searchTerm = '';
     component.lowStockOnly = true;
     expect(component.filteredProducts.map((p) => p._id)).toEqual(['p2']);
-    expect(component.stockVariant(3)).toBe('overdue');
-    expect(component.stockVariant(8)).toBe('due');
-    expect(component.stockVariant(40)).toBe('ok');
+    // Stage 12: stockVariant takes the product (its own threshold, default 5: ≤5 / ≤10 / above).
+    expect(component.stockVariant({ _id: 'a', name: 'a', inventoryCount: 3 })).toBe('overdue');
+    expect(component.stockVariant({ _id: 'a', name: 'a', inventoryCount: 8 })).toBe('due');
+    expect(component.stockVariant({ _id: 'a', name: 'a', inventoryCount: 40 })).toBe('ok');
   });
 
   it('"new product" opens the form on the category and hands it the loaded codes', () => {

@@ -86,6 +86,11 @@ const productSchema = new mongoose.Schema(
       default: 0,
       min: [0, "عدد العناصر المباعة لا يمكن أن يكون سالبًا"],
     },
+    // Stage 12 (optional): "low stock" when inventoryCount <= this. Not set → clients and the dashboard use 5.
+    lowStockThreshold: {
+      type: Number,
+      min: [0, "حد التنبيه للمخزون لا يمكن أن يكون سالبًا"],
+    },
     specifications: {
       type: [
         {
