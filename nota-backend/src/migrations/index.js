@@ -7,8 +7,12 @@ const Product = require("../models/product.model");
 const Receipt = require("../models/receipt.model");
 const ReturnLog = require("../models/returnLog.model");
 const Selling = require("../models/selling.model");
+const Customer = require("../models/customer.model");
+const Account = require("../models/account.model");
+const JournalEntry = require("../models/journalEntry.model");
+const { seedAccounts, postEntry, accountMap } = require("../accounting/posting");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
-const { PREFIXES, formatDocumentNumber } = require("../utils/documentNumber");
+const { PREFIXES, formatDocumentNumber, nextDocumentNumber } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
 const { isLanMode } = require("../middlewares/lanSecret.middleware");
 
@@ -459,11 +463,56 @@ async function indexesMigration() {
   }
 }
 
+async function ledgerStartMigration(session) {
+  await seedAccounts(session);
+  const existingStart = await Meta.findOne({ _id: "schema", ledgerStartAt: { $exists: true } }).session(session).lean();
+  if (existingStart?.ledgerStartAt) return {};
+  const products = await Product.find({}).select("inventoryCount purchasePrice").lean().session(session);
+  const customers = await Customer.find({}).select("name").lean().session(session);
+  const creditSales = await CreditSale.find({}).lean().session(session);
+  const returns = await ReturnLog.find({ returnType: "credit" }).lean().session(session);
+  const returnMap = new Map(returns.map((row) => [String(row._id), row]));
+  const balances = new Map(customers.map((customer) => [String(customer._id), { customer, amount: 0 }]));
+  for (const sale of creditSales) {
+    const balance = balances.get(String(sale.customer));
+    if (!balance) continue;
+    balance.amount += Number(sale.totalPrice || 0);
+    for (const payment of sale.payments || []) if (payment.source !== "return_reallocation") balance.amount -= Number(payment.amount || 0);
+    for (const refund of sale.refunds || []) balance.amount -= Number(returnMap.get(String(refund.returnLog))?.finalReturnedAmount ?? refund.totalAmount ?? 0);
+    if (sale.status === "cancelled") {
+      balance.amount -= Number(sale.totalPrice || 0);
+      balance.amount += Number(sale.cancelRefundAmount || 0);
+    }
+  }
+  const accounts = await accountMap(["INVENTORY", "CUSTOMERS", "CAPITAL"], session);
+  const lines = [];
+  const inventoryValue = roundMoney(products.reduce((sum, product) => sum + Number(product.inventoryCount || 0) * Number(product.purchasePrice || 0), 0));
+  if (inventoryValue > 0) lines.push({ accountId: accounts.get("INVENTORY")._id, accountCode: accounts.get("INVENTORY").code, accountName: accounts.get("INVENTORY").nameEn, debit: inventoryValue, credit: 0 });
+  for (const { customer, amount } of balances.values()) {
+    const rounded = roundMoney(amount);
+    if (rounded === 0) continue;
+    lines.push({ accountId: accounts.get("CUSTOMERS")._id, accountCode: accounts.get("CUSTOMERS").code, accountName: accounts.get("CUSTOMERS").nameEn, debit: rounded > 0 ? rounded : 0, credit: rounded < 0 ? -rounded : 0, partyType: "customer", partyId: customer._id, partyName: customer.name });
+  }
+  const debits = roundMoney(lines.reduce((sum, row) => sum + Number(row.debit || 0), 0));
+  const credits = roundMoney(lines.reduce((sum, row) => sum + Number(row.credit || 0), 0));
+  const capital = roundMoney(debits - credits);
+  if (capital !== 0) lines.push({ accountId: accounts.get("CAPITAL")._id, accountCode: accounts.get("CAPITAL").code, accountName: accounts.get("CAPITAL").nameEn, debit: capital < 0 ? -capital : 0, credit: capital > 0 ? capital : 0 });
+  const now = new Date();
+  if (lines.length >= 2) {
+    const openingId = new mongoose.Types.ObjectId();
+    const openingNumber = await nextDocumentNumber(PREFIXES.OPENING_BALANCE, session);
+    await postEntry({ date: now, type: "opening", number: openingNumber, source: { type: "opening", id: openingId, number: openingNumber }, lines, memo: "Ledger opening balance", session });
+  }
+  await Meta.updateOne({ _id: "schema" }, { $set: { ledgerStartAt: now } }, { session, upsert: true });
+  return { ledgerStartAt: now, openingCapital: capital };
+}
+
 const migrations = [
   { version: 1, name: "document numbers and receipts", run: numbersMigration },
   { version: 2, name: "original invoice totals and returned status", chunked: true, runChunk: originalTotalsMigrationChunk },
   { version: 3, name: "remove selling leftovers", run: removeLeftoversMigration },
   { version: 4, name: "stage 16 indexes", outsideTransaction: true, run: indexesMigration },
+  { version: 5, name: "stage 17 chart of accounts and ledger start", run: ledgerStartMigration },
 ];
 
 async function recordMigration(migration, details, session) {

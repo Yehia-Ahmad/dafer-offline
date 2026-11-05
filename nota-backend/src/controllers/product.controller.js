@@ -9,6 +9,7 @@ const asyncHandler = require("../utils/asyncHandler");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { calculatePriceAfterDiscount } = require("../utils/productPricing");
 const { withTransaction } = require("../utils/transaction");
+const { postInventoryAdjustment, postCostSync } = require("../accounting/posting");
 const { audit } = require("../auth/audit");
 const { hasPermission } = require("../auth/middleware");
 
@@ -530,7 +531,6 @@ const getProductById = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("المنتج غير موجود");
   }
-
   res.json(product);
 });
 
@@ -596,7 +596,7 @@ const exportProductsExcel = asyncHandler(async (req, res) => {
   res.end();
 });
 
-const createProduct = asyncHandler(async (req, res) => {
+const createProductInTransaction = async (req, res, session) => {
   const {
     name,
     code,
@@ -613,7 +613,7 @@ const createProduct = asyncHandler(async (req, res) => {
     req.body.discountPercentage ?? req.body.discount_percentage;
   const lowStockThreshold = normalizeLowStockThreshold(req.body.lowStockThreshold, res);
 
-  const category = await Category.findById(categoryId);
+  const category = await Category.findById(categoryId).session(session);
   if (!category) {
     res.status(404);
     throw new Error("لم يتم العثور على فئة للمعرّف المقدم");
@@ -703,23 +703,31 @@ const createProduct = asyncHandler(async (req, res) => {
     payload.lowStockThreshold = lowStockThreshold;
   }
 
-  const product = await Product.create(payload);
+  const product = await Product.create([payload], { session }).then((rows) => rows[0]);
+  const openingStock = Number(product.inventoryCount || 0);
+  if (openingStock > 0) await postInventoryAdjustment({ date: new Date(), source: { type: "product_create", id: product._id, number: product.code }, amount: roundMoney(openingStock * Number(product.purchasePrice || 0)), increase: true, session });
   await product.populate("category", CATEGORY_PRODUCT_FIELDS);
+  return product;
+};
 
+const createProduct = asyncHandler(async (req, res) => {
+  const product = await withTransaction((session) => createProductInTransaction(req, res, session));
   res.status(201).json(product);
 });
 
-const updateProduct = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id);
+const updateProductInTransaction = async (req, res, session) => {
+  const product = await Product.findById(req.params.id).session(session);
   let selectedCategory;
+  let originalPurchasePrice;
 
   if (!product) {
     res.status(404);
     throw new Error("المنتج غير موجود");
   }
+  originalPurchasePrice = Number(product.purchasePrice || 0);
 
   if (req.body.categoryId !== undefined) {
-    selectedCategory = await Category.findById(req.body.categoryId);
+    selectedCategory = await Category.findById(req.body.categoryId).session(session);
     if (!selectedCategory) {
       res.status(404);
       throw new Error("لم يتم العثور على فئة للمعرّف المقدم");
@@ -865,9 +873,19 @@ const updateProduct = asyncHandler(async (req, res) => {
     product.specifications = cloneSpecifications(selectedCategory.specifications);
   }
 
-  const updatedProduct = await product.save();
+  const oldInventory = currentInventoryCount;
+  const oldPurchase = originalPurchasePrice;
+  const updatedProduct = await product.save({ session });
+  const inventoryDelta = Number(updatedProduct.inventoryCount || 0) - oldInventory;
+  if (inventoryDelta !== 0) await postInventoryAdjustment({ date: new Date(), source: { type: "inventory_adjustment", id: updatedProduct._id, number: updatedProduct.code }, amount: roundMoney(Math.abs(inventoryDelta) * Number(updatedProduct.purchasePrice || 0)), increase: inventoryDelta > 0, session });
+  const purchaseDelta = Number(updatedProduct.purchasePrice || 0) - oldPurchase;
+  if (purchaseDelta !== 0 && oldInventory > 0) await postInventoryAdjustment({ date: new Date(), source: { type: "cost_revaluation", id: updatedProduct._id, number: updatedProduct.code }, amount: roundMoney(oldInventory * Math.abs(purchaseDelta)), increase: purchaseDelta > 0, session });
   await updatedProduct.populate("category", CATEGORY_PRODUCT_FIELDS);
+  return updatedProduct;
+};
 
+const updateProduct = asyncHandler(async (req, res) => {
+  const updatedProduct = await withTransaction((session) => updateProductInTransaction(req, res, session));
   res.json(updatedProduct);
 });
 
@@ -946,6 +964,7 @@ const syncProductPurchasePriceInTransaction = async (req, res, session) => {
   let updatedCashInvoices = 0;
   let updatedCreditInvoices = 0;
   let updatedItemsCount = 0;
+  let costCorrection = 0;
 
   for (const selling of sellings) {
     let didUpdateInvoice = false;
@@ -955,6 +974,7 @@ const syncProductPurchasePriceInTransaction = async (req, res, session) => {
         if (String(getSellingItemProductId(item)) !== String(product._id)) continue;
 
         const quantity = Number(item.quantity || 0);
+        costCorrection += roundMoney((purchasePrice - Number(item.purchasePrice || 0)) * quantity);
         item.purchasePrice = purchasePrice;
         item.profitAmount = roundMoney(Number(item.totalPrice || 0) - purchasePrice * quantity);
         updatedItemsCount += 1;
@@ -998,6 +1018,7 @@ const syncProductPurchasePriceInTransaction = async (req, res, session) => {
       if (String(getCreditSaleItemProductId(item)) !== String(product._id)) continue;
 
       const quantity = Number(item.quantity || 0);
+      costCorrection += roundMoney((purchasePrice - Number(item.purchasePrice || 0)) * quantity);
       item.purchasePrice = purchasePrice;
       item.profitAmount = roundMoney(Number(item.totalPrice || 0) - purchasePrice * quantity);
       updatedItemsCount += 1;
@@ -1009,6 +1030,8 @@ const syncProductPurchasePriceInTransaction = async (req, res, session) => {
       updatedCreditInvoices += 1;
     }
   }
+
+  if (costCorrection !== 0) await postCostSync({ date: new Date(), source: { type: "cost_sync", id: product._id, number: product.code }, amount: Math.abs(costCorrection), increase: costCorrection > 0, session });
 
   await audit(req, { action: "product.sync_purchase_price", entity: "Product", entityId: product._id, details: { updatedItemsCount }, session, strict: true });
   return {
@@ -1048,7 +1071,9 @@ const deleteProduct = asyncHandler(async (req, res) => {
       await audit(req, { action: "product.archived", entity: "Product", entityId: id, session, strict: true });
       return { action: "archived", message: "Product archived successfully", product };
     }
+    const stockValue = roundMoney(Number(product.inventoryCount || 0) * Number(product.purchasePrice || 0));
     await product.deleteOne({ session });
+    if (stockValue > 0) await postInventoryAdjustment({ date: new Date(), source: { type: "product_writeoff", id, number: product.code }, amount: stockValue, increase: false, session });
     await audit(req, { action: "product.deleted", entity: "Product", entityId: id, session, strict: true });
     return { action: "deleted", message: "Product deleted successfully" };
   });

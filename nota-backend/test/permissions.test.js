@@ -36,6 +36,7 @@ const EXPECTED_CATALOG = [
   "reports.profit", "dashboard.view",
   "shop.manage", "users.manage", "audit.view",
   "backup.manage",
+  "accounting.view", "accounting.manage",
 ];
 
 test("catalog: exactly the Stage 13 keys, each with an Arabic and English label and a group", () => {
@@ -49,7 +50,7 @@ test("catalog: exactly the Stage 13 keys, each with an Arabic and English label 
 test("role templates match the spec", () => {
   const sorted = (list) => [...list].sort();
   assert.deepEqual(sorted(ROLE_TEMPLATES.owner), sorted(EXPECTED_CATALOG));
-  assert.deepEqual(sorted(ROLE_TEMPLATES.manager), sorted(EXPECTED_CATALOG.filter((k) => k !== "users.manage" && k !== "backup.manage")));
+  assert.deepEqual(sorted(ROLE_TEMPLATES.manager), sorted(EXPECTED_CATALOG.filter((k) => !["users.manage", "backup.manage", "accounting.manage"].includes(k))));
   assert.deepEqual(sorted(ROLE_TEMPLATES.cashier), sorted([
     "sales.create", "sales.view", "credit.create", "credit.view", "credit.collect",
     "returns.create", "customers.view", "products.view", "dashboard.view",
@@ -59,7 +60,7 @@ test("role templates match the spec", () => {
   ]));
   assert.deepEqual(sorted(ROLE_TEMPLATES.accountant), sorted([
     "sales.view", "credit.view", "returns.view", "customers.view", "products.view", "dashboard.view",
-    "reports.profit", "products.viewCost", "credit.collect", "audit.view",
+    "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view",
   ]));
   assert.deepEqual(permissionsForRole("custom"), []);
 });
@@ -96,6 +97,11 @@ const EXPECTED_ROUTES = {
   "GET /api/users/:id": "users.manage",
   "PUT /api/users/:id": "users.manage",
   "GET /api/audit": "audit.view",
+  "GET /api/accounting/accounts": "accounting.view",
+  "GET /api/accounting/accounts/:id/ledger": "accounting.view",
+  "GET /api/accounting/journal": "accounting.view",
+  "GET /api/accounting/journal/:id": "accounting.view",
+  "GET /api/accounting/health": "accounting.view",
   "GET /api/categories": "products.view",
   "POST /api/categories": "categories.manage",
   "GET /api/categories/export": "products.importExport + products.viewCost",

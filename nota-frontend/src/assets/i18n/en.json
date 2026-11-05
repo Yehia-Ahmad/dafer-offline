@@ -1374,5 +1374,13 @@
             "step2": "On the other PC: make a backup first, then set it up again as a client PC connected to the main PC.",
             "step3": "If you are not sure, call support before deleting anything."
         }
+    },
+    "accounting": {
+        "accounts": { "title": "Chart of accounts" },
+        "journal": { "title": "Journal entries" },
+        "asOf": "As of",
+        "number": "Number",
+        "date": "Date",
+        "total": "Total"
     }
 }

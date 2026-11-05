@@ -212,6 +212,9 @@ Everything is behind the **`NOTA_AUTH` switch**. With `NOTA_AUTH=1` every rule b
 - VAT is an optional per-shop setting and is posted to a VAT payable account. E-invoicing is a later phase.
 - Money is rounded to 2 decimals in journal entries.
 - **Stage 17 must:** create the chart of accounts and journal entries; use the Stage 16 document numbers and transactions; post cancel reversals, return credits, down-payment refunds/customer-credit payouts as debits, and inventory adjustments; do not mutate or delete posted entries.
+- **Stage 17 (done):** chart codes 31/32/33 are CAPITAL/RETAINED_EARNINGS/OWNER_DRAWINGS; customers remain control account 113 with virtual party rows. Automatic entries cover sales, receipts, returns, cancels, edits, auto-restock, stock/cost adjustments, category imports and hard deletes. Ledger start records `meta.ledgerStartAt` and an OB opening entry; health reconciles trial balance, inventory, customers, dashboard net sales (shipping included), line-cost COGS and source coverage. The design's old code clash is intentionally resolved in favor of 31/32/33.
+- **Stage 18 must:** add the opening-balance wizard by reversing and re-posting OB-000001 for cash, inventory, customer and supplier opening balances, with the difference to capital.
+- **Stage 19 must:** route CASH_MAIN postings to the selected cash box/payment method and add shift closing with cash over/short.
 
 ### Other
 - Selling.shippingLocation, Selling.government and the unused createSellingInvoice options parameter were removed in Stage 16. shippingFees on Selling and CreditSale remains a real POS field.

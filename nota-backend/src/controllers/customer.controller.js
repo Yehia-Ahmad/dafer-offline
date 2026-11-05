@@ -11,6 +11,7 @@ const {
 const asyncHandler = require("../utils/asyncHandler");
 const { withTransaction } = require("../utils/transaction");
 const { PREFIXES, nextDocumentNumber } = require("../utils/documentNumber");
+const { postReceipt } = require("../accounting/posting");
 const { audit } = require("../auth/audit");
 
 const OPEN_CREDIT_SALE_STATUSES = ["pending", "partially_paid"];
@@ -487,6 +488,8 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
     kind: "payment",
     allocations: pendingUpdates.map((creditSale) => ({ creditSale: creditSale._id, amount: creditSale.payments.at(-1).amount })),
   }], { session });
+  const receipt = await Receipt.findById(receiptId).session(session).lean();
+  await postReceipt({ receipt, customer: customer.toObject ? customer.toObject() : customer, session });
   await audit(req, { action: "credit.payment", entity: "Customer", entityId: customer._id, details: { amount, number: receiptNumber }, session, strict: true });
   return {
     message: "تم تسجيل الدفعة بنجاح",

@@ -14,6 +14,7 @@ const shopProfileRoutes = require("./routes/shopProfile.routes");
 const { createAuthRouter } = require("./routes/auth.routes");
 const usersRoutes = require("./routes/users.routes");
 const auditRoutes = require("./routes/audit.routes");
+const accountingRoutes = require("./routes/accounting.routes");
 const { createLanSecretGuard, isLanMode } = require("./middlewares/lanSecret.middleware");
 const notFound = require("./middlewares/notFound.middleware");
 const errorHandler = require("./middlewares/error.middleware");
@@ -53,6 +54,11 @@ if (authMode) {
   app.use("/api/users", usersRoutes);
   app.use("/api/audit", auditRoutes);
 }
+
+// Accounting endpoints remain available to the offline/legacy migration
+// runner when authentication is disabled; requirePermission is a no-op in
+// that mode and enforces accounting.view/manage when auth is enabled.
+app.use("/api/accounting", accountingRoutes);
 
 app.use("/api/categories", categoryRoutes);
 app.use("/api/credit-sales", creditSaleRoutes);

@@ -97,6 +97,16 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/products/components/product-profit-report/product-profit-report.component').then(m => m.ProductProfitReportComponent)
     },
     {
+        path: 'accounting/accounts',
+        canActivate: [permissionGuard(ROUTE_RULES.accounting)],
+        loadComponent: () => import('./modules/accounting/accounts.component').then(m => m.AccountsComponent)
+    },
+    {
+        path: 'accounting/journal',
+        canActivate: [permissionGuard(ROUTE_RULES.accounting)],
+        loadComponent: () => import('./modules/accounting/journal.component').then(m => m.JournalComponent)
+    },
+    {
         path: 'shop-profile',
         canDeactivate: [unsavedWorkGuard],
         canActivate: [permissionGuard(ROUTE_RULES.shopProfile)],

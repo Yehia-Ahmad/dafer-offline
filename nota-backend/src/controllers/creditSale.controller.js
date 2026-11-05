@@ -11,6 +11,7 @@ const { buildPaginatedResponse, getPaginationParams } = require("../utils/pagina
 const { canSellBelowCost } = require("../auth/middleware");
 const { PREFIXES, normalizeNumberSearch } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
+const { postSale, postReceipt, postReturn, reverseAllFor, postEntry, accountMap } = require("../accounting/posting");
 const { audit } = require("../auth/audit");
 const Receipt = require("../models/receipt.model");
 const { nextDocumentNumber } = require("../utils/documentNumber");
@@ -1053,6 +1054,11 @@ const createCreditSaleInTransaction = async (req, res, session) => {
   }
 
   await audit(req, { action: "credit.created", entity: "CreditSale", entityId: creditSale._id, session, strict: true });
+  await postSale({ sale: creditSale, credit: true, customer, session });
+  if (initialPaidAmount > 0) {
+    const receipt = await Receipt.findById(receiptId).session(session).lean();
+    await postReceipt({ receipt, customer, session });
+  }
   return creditSale;
 };
 
@@ -1368,6 +1374,8 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
 
   const updatedCreditSale = await creditSale.save({ session });
 
+  await reverseAllFor("credit_sale", creditSale._id, { date: new Date(), memo: "Credit sale edit", session });
+  await postSale({ sale: updatedCreditSale, credit: true, customer: customer || { _id: updatedCreditSale.customer, name: updatedCreditSale.customerName }, session });
   await audit(req, { action: "credit.updated", entity: "CreditSale", entityId: creditSale._id, session, strict: true });
   return updatedCreditSale;
 };
@@ -1514,6 +1522,9 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
     kind: "payment",
     allocations: pendingUpdates.map((targetCreditSale) => ({ creditSale: targetCreditSale._id, amount: targetCreditSale.payments.at(-1).amount })),
   }], { session });
+  const receipt = await Receipt.findById(receiptId).session(session).lean();
+  const receiptCustomer = await Customer.findById(creditSale.customer).session(session).lean();
+  await postReceipt({ receipt, customer: receiptCustomer, session });
   await audit(req, { action: "credit.payment", entity: "CreditSale", entityId: creditSale._id, details: { amount, number: receiptNumber }, session, strict: true });
   return {
     ...primaryInvoice,
@@ -1620,7 +1631,7 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
       items: refundSelections.map(({ invoiceItem, quantity, returnReason }) => {
         const productId = getCreditSaleItemProductId(invoiceItem);
         const price = roundMoney(invoiceItem.unitPrice || 0);
-        return { productId, productName: invoiceItem.productName, productCode: productsById.get(productId.toString())?.code, quantity, price, total: roundMoney(price * quantity), returnReason };
+        return { productId, productName: invoiceItem.productName, productCode: productsById.get(productId.toString())?.code, purchasePrice: roundMoney(productsById.get(productId.toString())?.purchasePrice || invoiceItem.purchasePrice || 0), quantity, price, total: roundMoney(price * quantity), returnReason };
       }),
       subtotalReturnedAmount, discountAmount: returnedDiscountAmount,
       shippingFees: returnedShippingFees, finalReturnedAmount,
@@ -1639,6 +1650,7 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
     creditSale.refundStatus = getRefundStatus(creditSale.refunds, creditSale.totalQuantity);
     applyCreditAmountsToInvoice(creditSale, creditAmounts, isFullRefund ? REACTIONARY_CREDIT_SALE_STATUS : undefined);
     await creditSale.save({ session });
+    await postReturn({ returnLog, sale: creditSale, customer: await Customer.findById(creditSale.customer).session(session).lean(), session });
     await audit(req, { action: "credit.returned", entity: "CreditSale", entityId: creditSale._id, details: { number, amount: finalReturnedAmount }, session, strict: true });
     return creditSale;
   });
@@ -1671,6 +1683,15 @@ const cancelCreditSale = asyncHandler(async (req, res) => {
     invoice.cancelRefundAmount = roundMoney(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
     invoice.remainingAmount = 0;
     await invoice.save({ session });
+    await reverseAllFor("credit_sale", invoice._id, { date: invoice.cancelledAt, memo: "Credit sale cancellation", session });
+    const downPayment = payments.find((payment) => payment.source === "down_payment");
+    if (invoice.cancelRefundAmount > 0 && downPayment) {
+      const accounts = await accountMap(["CUSTOMERS", "CASH_MAIN"], session);
+      await postEntry({ date: invoice.cancelledAt, source: { type: "refund", id: invoice._id, number: downPayment.number }, session, lines: [
+        { accountId: accounts.get("CUSTOMERS")._id, accountCode: accounts.get("CUSTOMERS").code, accountName: accounts.get("CUSTOMERS").nameEn, debit: invoice.cancelRefundAmount, credit: 0, partyType: "customer", partyId: invoice.customer, partyName: invoice.customerName },
+        { accountId: accounts.get("CASH_MAIN")._id, accountCode: accounts.get("CASH_MAIN").code, accountName: accounts.get("CASH_MAIN").nameEn, debit: 0, credit: invoice.cancelRefundAmount },
+      ] });
+    }
     await audit(req, { action: "credit.cancelled", entity: "CreditSale", entityId: invoice._id, details: { reason }, session, strict: true });
     return invoice;
   });

@@ -37,6 +37,8 @@ const PERMISSIONS = {
   "audit.view": { group: "admin", ar: "عرض سجل العمليات", en: "View the audit log" },
   // Reserved for Stage 15 (backup and restore through Electron IPC). No backend route uses it yet.
   "backup.manage": { group: "admin", ar: "النسخ الاحتياطي والاستعادة", en: "Backup and restore" },
+  "accounting.view": { group: "accounting", ar: "عرض الحسابات", en: "View accounting" },
+  "accounting.manage": { group: "accounting", ar: "إدارة الحسابات", en: "Manage accounting" },
 };
 
 const PERMISSION_GROUPS = {
@@ -47,6 +49,7 @@ const PERMISSION_GROUPS = {
   products: { ar: "المنتجات والمخزون", en: "Products and inventory" },
   reports: { ar: "التقارير", en: "Reports" },
   admin: { ar: "الإدارة", en: "Administration" },
+  accounting: { ar: "الحسابات", en: "Accounting" },
 };
 
 const ALL_PERMISSIONS = Object.freeze(Object.keys(PERMISSIONS));
@@ -58,7 +61,7 @@ const VIEW_PERMISSIONS = ["sales.view", "credit.view", "returns.view", "customer
 
 const ROLE_TEMPLATES = Object.freeze({
   owner: ALL_PERMISSIONS,
-  manager: Object.freeze(ALL_PERMISSIONS.filter((key) => key !== "users.manage" && key !== "backup.manage")),
+  manager: Object.freeze(ALL_PERMISSIONS.filter((key) => key !== "users.manage" && key !== "backup.manage" && key !== "accounting.manage")),
   cashier: Object.freeze([
     "sales.create",
     "sales.view",
@@ -71,7 +74,7 @@ const ROLE_TEMPLATES = Object.freeze({
     "dashboard.view",
   ]),
   storekeeper: Object.freeze(["products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost"]),
-  accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view"]),
+  accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view"]),
 });
 
 const ROLE_LABELS = {

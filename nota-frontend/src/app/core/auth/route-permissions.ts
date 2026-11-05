@@ -30,6 +30,7 @@ export const ROUTE_RULES = {
   backup: { all: ['backup.manage'], mainPcOnly: true },
   users: { all: ['users.manage'] },
   audit: { all: ['audit.view'] },
+  accounting: { all: ['accounting.view'] },
 } as const satisfies Record<string, RouteRule>;
 
 /**
@@ -47,6 +48,7 @@ export const LANDING_ORDER: readonly { path: string; rule: RouteRule }[] = [
   { path: '/products/profit-report', rule: ROUTE_RULES.profitReport },
   { path: '/users', rule: ROUTE_RULES.users },
   { path: '/audit', rule: ROUTE_RULES.audit },
+  { path: '/accounting/accounts', rule: ROUTE_RULES.accounting },
   { path: '/shop-profile', rule: ROUTE_RULES.shopProfile },
   { path: '/backup', rule: ROUTE_RULES.backup },
 ];

@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const hasLabel = (error, label) => Boolean(error && typeof error.hasErrorLabel === "function" && error.hasErrorLabel(label));
+const hasLabel = (error, label) => Boolean(error && ((typeof error.hasErrorLabel === "function" && error.hasErrorLabel(label)) || (label === "TransientTransactionError" && /Please retry your operation|WriteConflict|TransientTransactionError/i.test(String(error.message || "")))));
 
 async function commitWithRetry(session, maxCommitRetries) {
   for (let attempt = 0; attempt < maxCommitRetries; attempt += 1) {
@@ -13,7 +13,7 @@ async function commitWithRetry(session, maxCommitRetries) {
   }
 }
 
-async function withTransaction(fn, { maxRetries = 5, maxCommitRetries = 5 } = {}) {
+async function withTransaction(fn, { maxRetries = 10, maxCommitRetries = 5 } = {}) {
   for (let attempt = 0; attempt < maxRetries; attempt += 1) {
     const session = await mongoose.startSession();
     try {
@@ -23,7 +23,10 @@ async function withTransaction(fn, { maxRetries = 5, maxCommitRetries = 5 } = {}
       return value;
     } catch (error) {
       if (session.inTransaction()) await session.abortTransaction().catch(() => {});
-      if (hasLabel(error, "TransientTransactionError") && attempt + 1 < maxRetries) continue;
+      if (hasLabel(error, "TransientTransactionError") && attempt + 1 < maxRetries) {
+        await new Promise((resolve) => setTimeout(resolve, Math.min(25, 5 * (attempt + 1))));
+        continue;
+      }
       throw error;
     } finally {
       await session.endSession();

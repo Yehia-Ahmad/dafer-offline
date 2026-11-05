@@ -182,6 +182,18 @@ async function main() {
     await waitForHttp(`http://127.0.0.1:${currentPort}`, currentBackend, "current backend");
     const currentBase = `http://127.0.0.1:${currentPort}`;
 
+    const health = await request(currentBase, "GET", "/api/accounting/health");
+    for (const [name, check] of Object.entries(health)) {
+      if (check && typeof check === "object" && "difference" in check) assert.equal(Number(check.difference), 0, `accounting health ${name}`);
+    }
+    const indexDb = new mongoose.mongo.MongoClient(mongoUri);
+    await indexDb.connect();
+    const journalIndexes = await indexDb.db().collection("journalentries").indexes();
+    const accountIndexes = await indexDb.db().collection("accounts").indexes();
+    assert.ok(journalIndexes.some((index) => index.name === "source.type_1_source.id_1"));
+    assert.ok(accountIndexes.some((index) => index.name === "code_1"));
+    await indexDb.close();
+
     const sellings = await request(currentBase, "GET", "/api/sellings?limit=100");
     const partialRow = sellings.data.find((invoice) => invoice.customerName === "Cash partial");
     assert.ok(partialRow);

@@ -11,6 +11,7 @@ const { canSellBelowCost } = require("../auth/middleware");
 const { actorFields } = require("../utils/actorFields");
 const { PREFIXES, nextDocumentNumber, normalizeNumberSearch } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
+const { postSale, postReturn, postInventoryAdjustment, reverseAllFor } = require("../accounting/posting");
 const { audit } = require("../auth/audit");
 
 const getRawQuantity = (body) => {
@@ -725,6 +726,7 @@ const createSellingInvoice = async ({ body, res, allowBelowCost = false, session
       shippingFees: invoiceTotals.shippingFees,
       totalPrice: invoiceTotals.totalPrice,
   }], { session });
+  created[0]._autoRestockAdjustments = [...(productsById.autoRestockedByProductId || new Map()).entries()].map(([productId, quantity]) => ({ productId, quantity }));
   return created[0];
 };
 
@@ -739,6 +741,12 @@ const createSelling = asyncHandler(async (req, res) => {
       number,
     });
     await audit(req, { action: "sale.created", entity: "Selling", entityId: created._id, session, strict: true });
+    await postSale({ sale: created, session });
+    for (const adjustment of created._autoRestockAdjustments || []) {
+      const product = await Product.findById(adjustment.productId).session(session).lean();
+      const amount = roundMoney(Number(adjustment.quantity || 0) * Number(product?.purchasePrice || 0));
+      if (amount > 0) await postInventoryAdjustment({ date: created.sellingDate, source: { type: "auto_restock", id: created._id, number: created.number }, amount, increase: true, session });
+    }
     return created;
   });
 
@@ -991,6 +999,8 @@ const updateSellingInTransaction = async (req, res, session) => {
 
   const updatedSelling = await selling.save({ session });
 
+  await reverseAllFor("sale", selling._id, { date: new Date(), memo: "Sale edit", session });
+  await postSale({ sale: updatedSelling, session });
   await audit(req, { action: "sale.updated", entity: "Selling", entityId: selling._id, session, strict: true });
   return updatedSelling;
 };
@@ -1030,6 +1040,7 @@ const cancelSelling = asyncHandler(async (req, res) => {
     selling.cancellationReason = reason;
     selling.cancelRefundAmount = roundMoney(Math.max(0, Number(selling.totalPrice || 0) - Number(selling.refundedAmount || 0)));
     await selling.save({ session });
+    await reverseAllFor("sale", selling._id, { date: selling.cancelledAt, memo: "Sale cancellation", session });
     await audit(req, { action: "sale.cancelled", entity: "Selling", entityId: selling._id, details: { reason }, session, strict: true });
     return selling;
   });
@@ -1061,7 +1072,8 @@ const addSellingRefund = asyncHandler(async (req, res) => {
     const productsById = new Map(products.map((product) => [product._id.toString(), product]));
     const refundItems = selections.map(({ invoiceItem, quantity, returnReason }) => {
       const unitPrice = roundMoney(invoiceItem.unitPrice || 0);
-      return { invoiceItemId: invoiceItem._id, product: getSellingItemProductId(invoiceItem), productName: invoiceItem.productName, quantity, unitPrice, totalPrice: roundMoney(unitPrice * quantity), returnReason };
+      const product = productsById.get(getSellingItemProductId(invoiceItem).toString());
+      return { invoiceItemId: invoiceItem._id, product: getSellingItemProductId(invoiceItem), productName: invoiceItem.productName, purchasePrice: roundMoney(product?.purchasePrice || invoiceItem.purchasePrice || 0), quantity, unitPrice, totalPrice: roundMoney(unitPrice * quantity), returnReason };
     });
     const totalQuantity = refundItems.reduce((sum, item) => sum + item.quantity, 0);
     const subtotalReturnedAmount = roundMoney(refundItems.reduce((sum, item) => sum + item.totalPrice, 0));
@@ -1091,7 +1103,7 @@ const addSellingRefund = asyncHandler(async (req, res) => {
       number, returnType: "cash", invoiceId: selling._id, invoiceNumber: selling.number,
       customerName: selling.customerName, customerPhone: selling.customerPhone,
       returnDate: refundDate, note: note?.trim() || undefined,
-      items: refundItems.map((item) => ({ productId: item.product, productName: item.productName, productCode: productsById.get(item.product.toString()).code, quantity: item.quantity, price: item.unitPrice, total: item.totalPrice, returnReason: item.returnReason })),
+      items: refundItems.map((item) => ({ productId: item.product, productName: item.productName, productCode: productsById.get(item.product.toString()).code, purchasePrice: item.purchasePrice, quantity: item.quantity, price: item.unitPrice, total: item.totalPrice, returnReason: item.returnReason })),
       subtotalReturnedAmount, discountAmount, shippingFees, finalReturnedAmount,
       createdBy: req.user?._id ?? req.user?.id,
     }, session);
@@ -1100,6 +1112,7 @@ const addSellingRefund = asyncHandler(async (req, res) => {
     selling.refundedAmount = roundMoney(previousRefundedAmount + finalReturnedAmount);
     selling.refundStatus = isFull ? "full" : "partial";
     await selling.save({ session });
+    await postReturn({ returnLog, sale: selling, session });
     await audit(req, { action: "sale.returned", entity: "Selling", entityId: selling._id, details: { number, amount: finalReturnedAmount }, session, strict: true });
     return { selling, returnLog };
   });

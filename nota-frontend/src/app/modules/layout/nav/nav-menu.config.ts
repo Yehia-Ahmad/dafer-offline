@@ -104,8 +104,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     key: 'accounting',
     labelKey: 'nav.groups.accounting',
     items: [
-      { key: 'accounts', labelKey: 'nav.items.accounts', icon: NAV_ICONS.accounts, visible: notYet },
-      { key: 'reports', labelKey: 'nav.items.reports', icon: NAV_ICONS.reports, visible: notYet },
+      { key: 'accounts', labelKey: 'nav.items.accounts', route: '/accounting/accounts', icon: NAV_ICONS.accounts, visible: allowed(ROUTE_RULES.accounting) },
+      { key: 'reports', labelKey: 'nav.items.reports', route: '/accounting/journal', icon: NAV_ICONS.reports, visible: allowed(ROUTE_RULES.accounting) },
       { key: 'profit', labelKey: 'nav.items.profit', route: '/products/profit-report', icon: NAV_ICONS.profit, visible: allowed(ROUTE_RULES.profitReport) },
     ],
   },

@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Category = require("../models/category.model");
 const Product = require("../models/product.model");
+const { postInventoryAdjustment } = require("../accounting/posting");
 const isBase64Image = require("../utils/isBase64Image");
 const {
   createCategoryWorkbook,
@@ -373,6 +374,10 @@ const importCategories = async (buffer, session) => {
         { ordered: true, session }
       );
       productImportedCount = insertedProducts.length;
+      for (const product of insertedProducts) {
+        const amount = Number(product.inventoryCount || 0) * Number(product.purchasePrice || 0);
+        if (amount > 0) await postInventoryAdjustment({ date: new Date(), source: { type: "product_create", id: product._id, number: product.code }, amount, increase: true, session });
+      }
     } catch (error) {
       if (error?.hasErrorLabel?.("TransientTransactionError")) throw error;
       const failedIndex = error.writeErrors?.[0]?.index ?? error.index ?? 0;
