@@ -2,7 +2,7 @@
 <div class="cu">
   <nota-page-header [title]="'customerPage.title' | translate" [subtitle]="'customerPage.subtitle' | translate">
     <div notaPageActions>
-      <button type="button" notaButton="primary" (click)="openCreateDialog()" [disabled]="isFormBusy || isDeleting">+ {{ 'customerPage.form.addTitle' | translate }}</button>
+      <button *notaCan="'customers.manage'" type="button" notaButton="primary" (click)="openCreateDialog()" [disabled]="isFormBusy || isDeleting">+ {{ 'customerPage.form.addTitle' | translate }}</button>
     </div>
   </nota-page-header>
 
@@ -50,8 +50,8 @@
                 <td>
                   <div class="cu__actions">
                     <button type="button" notaButton (click)="openCustomerDetails(customer)">{{ 'customerPage.actions.viewDetails' | translate }}</button>
-                    <button type="button" notaButton (click)="editCustomer(customer)" [disabled]="isFormBusy || isDeleting">{{ 'customerPage.actions.edit' | translate }}</button>
-                    <button type="button" notaButton="danger" (click)="promptDelete(customer)" [disabled]="isDeleting">{{ 'customerPage.actions.delete' | translate }}</button>
+                    <button *notaCan="'customers.manage'" type="button" notaButton (click)="editCustomer(customer)" [disabled]="isFormBusy || isDeleting">{{ 'customerPage.actions.edit' | translate }}</button>
+                    <button *notaCan="'customers.manage'" type="button" notaButton="danger" (click)="promptDelete(customer)" [disabled]="isDeleting">{{ 'customerPage.actions.delete' | translate }}</button>
                   </div>
                 </td>
               </tr>

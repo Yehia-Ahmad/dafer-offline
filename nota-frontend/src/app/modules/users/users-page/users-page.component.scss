@@ -1,0 +1,63 @@
+.up {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-gap);
+}
+
+.up__card { padding: 0; overflow: hidden; }
+
+.up__empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-muted);
+
+  button { margin-inline-start: 12px; }
+}
+
+.up__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.up__avatar {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--brand-soft);
+  color: var(--brand-strong-text);
+  font-size: 14px;
+}
+
+.up__you { font-weight: 400; color: var(--text-muted); font-size: 13px; }
+
+.up__role { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+
+.up__row--off td { color: var(--text-muted); }
+
+.up__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.up__reset {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.up__warn {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  font-weight: 700;
+}

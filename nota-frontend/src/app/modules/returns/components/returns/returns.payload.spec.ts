@@ -8,6 +8,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { NEVER } from 'rxjs';
 import { environment } from '../../../../../environments/environment';
 import { ReturnsComponent } from './returns.component';
+import { signInAs } from '../../../../core/auth/testing/sign-in';
 
 /** Stage 10 payload safety for the returns log. Template-free so it runs unchanged before and after the redesign. */
 describe('ReturnsComponent payloads (Stage 10 safety)', () => {
@@ -41,6 +42,7 @@ describe('ReturnsComponent payloads (Stage 10 safety)', () => {
       .compileComponents();
 
     http = TestBed.inject(HttpTestingController);
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     component = TestBed.createComponent(ReturnsComponent).componentInstance;
     component.ngOnInit();
     expectLoad({ page: '1', limit: '10' }, {});

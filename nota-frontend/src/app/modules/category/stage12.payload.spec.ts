@@ -10,6 +10,7 @@ import { environment } from '../../../environments/environment';
 import { CatalogStateService } from '../layout/nav/catalog-state.service';
 import { ProductsPageComponent } from './components/products-page/products-page.component';
 import { ProductFormComponent } from './components/product-form/product-form.component';
+import { signInAs } from '../../core/auth/testing/sign-in';
 
 /**
  * Stage 12 payloads: all-products list (no categoryId), productCount in the catalog, per-product
@@ -41,6 +42,7 @@ describe('Stage 12 — products page "كل الأصناف"', () => {
     TestBed.inject(CatalogStateService).categories.set([
       { id: 'c1', label: 'لمبات', productCount: 3 }, { id: 'c2', label: 'شواحن', productCount: 2 },
     ]);
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     component = TestBed.createComponent(ProductsPageComponent).componentInstance;
     component.ngOnInit();
   });
@@ -102,6 +104,7 @@ describe('Stage 12 — product form, create: discount % and lowStockThreshold on
     http = TestBed.inject(HttpTestingController);
     spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
     TestBed.inject(CatalogStateService).categories.set([{ id: 'c1', label: 'لمبات', category }, { id: 'c2', label: 'شواحن', category: { _id: 'c2' } }]);
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     const fixture = TestBed.createComponent(ProductFormComponent);
     component = fixture.componentInstance;
     fixture.detectChanges(); // ngOnInit + the category effect
@@ -171,6 +174,7 @@ describe('Stage 12 — product form, edit: lowStockThreshold only when filled, n
     await configure(ProductFormComponent, { snapshot: { params: { id: 'p1' } } });
     http = TestBed.inject(HttpTestingController);
     spyOn(TestBed.inject(Location), 'back');
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     component = TestBed.createComponent(ProductFormComponent).componentInstance;
     component.getProductById();
     http.expectOne(`${base}products/p1`).flush({ _id: 'p1', name: 'لمبة', code: 'L-1', inventoryCount: 12, wholesalePrice: 30, purchasePrice: 22,

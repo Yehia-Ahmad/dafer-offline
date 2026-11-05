@@ -1,0 +1,65 @@
+<!-- Stage 14: audit log (audit.view). No design board; the existing table pattern. -->
+<div class="ap">
+  <nota-page-header [title]="'audit.title' | translate" [subtitle]="'audit.subtitle' | translate" />
+
+  <form class="nota-card ap__filters" (ngSubmit)="search()" novalidate>
+    <nota-form-field [label]="'audit.filters.from' | translate" forId="apFrom">
+      <p-datepicker inputId="apFrom" name="from" [(ngModel)]="dateFrom" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="ap__control" />
+    </nota-form-field>
+    <nota-form-field [label]="'audit.filters.to' | translate" forId="apTo">
+      <p-datepicker inputId="apTo" name="to" [(ngModel)]="dateTo" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="ap__control" />
+    </nota-form-field>
+    <nota-form-field [label]="'audit.filters.user' | translate" forId="apUser">
+      <p-select inputId="apUser" name="user" [options]="userOptions()" optionLabel="label" optionValue="value" [(ngModel)]="userId"
+        [showClear]="true" [placeholder]="'audit.filters.allUsers' | translate" appendTo="body" styleClass="ap__control" />
+    </nota-form-field>
+    <nota-form-field [label]="'audit.filters.action' | translate" forId="apAction">
+      <p-select inputId="apAction" name="action" [options]="actionOptions()" optionLabel="label" optionValue="value" [(ngModel)]="action"
+        [showClear]="true" [filter]="true" filterBy="label" [placeholder]="'audit.filters.allActions' | translate" appendTo="body" styleClass="ap__control" />
+    </nota-form-field>
+    <div class="ap__filter-actions">
+      <button type="submit" notaButton="primary" [disabled]="loading()">{{ 'audit.filters.search' | translate }}</button>
+      <button type="button" notaButton [disabled]="loading()" (click)="reset()">{{ 'audit.filters.reset' | translate }}</button>
+    </div>
+  </form>
+
+  <section class="nota-card ap__list" aria-live="polite">
+    @if (loading()) {
+      <p class="ap__state" role="status">{{ 'auth.loading' | translate }}</p>
+    } @else if (error()) {
+      <div class="ap__state"><p class="nota-error" role="alert">{{ error() }}</p>
+        <button type="button" notaButton (click)="load(page())">{{ 'auth.retry' | translate }}</button></div>
+    } @else if (entries().length === 0) {
+      <p class="ap__state">{{ 'audit.empty' | translate }}</p>
+    } @else {
+      <div class="nota-table-wrap">
+        <table class="nota-table">
+          <thead><tr>
+            <th>{{ 'audit.columns.time' | translate }}</th>
+            <th>{{ 'audit.columns.user' | translate }}</th>
+            <th>{{ 'audit.columns.action' | translate }}</th>
+            <th>{{ 'audit.columns.entity' | translate }}</th>
+            <th>{{ 'audit.columns.details' | translate }}</th>
+          </tr></thead>
+          <tbody>
+            @for (entry of entries(); track entry._id) {
+              <tr>
+                <td class="nota-num ap__time">{{ entry.at | date: 'yyyy-MM-dd HH:mm:ss' }}</td>
+                <td dir="auto">{{ entry.userName || '—' }}</td>
+                <td><span class="nota-pill" [class.nota-pill--overdue]="entry.action.endsWith('failed') || entry.action === 'auth.locked' || entry.action.endsWith('deleted')"
+                  [class.nota-pill--neutral]="!(entry.action.endsWith('failed') || entry.action === 'auth.locked' || entry.action.endsWith('deleted'))">{{ actionLabel(entry.action) }}</span></td>
+                <td>{{ entityLabel(entry.entity) }}</td>
+                <td class="ap__details" dir="auto">{{ detailsSummary(entry) || '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <nav class="ap__pager" [attr.aria-label]="'audit.pager.label' | translate">
+        <button type="button" notaButton data-action="prev-page" [disabled]="page() <= 1" (click)="load(page() - 1)">{{ 'audit.pager.prev' | translate }}</button>
+        <span class="nota-num">{{ 'audit.pager.status' | translate: { page: (page() | notaNumber), pages: (totalPages() | notaNumber), total: (totalItems() | notaNumber) } }}</span>
+        <button type="button" notaButton data-action="next-page" [disabled]="page() >= totalPages()" (click)="load(page() + 1)">{{ 'audit.pager.next' | translate }}</button>
+      </nav>
+    }
+  </section>
+</div>

@@ -1,10 +1,15 @@
 // Sidebar menu: one config for every group and item (docs/design/NOTA_DESIGN_SYSTEM.md, "Layout shell").
-// Later stages turn future items on by changing `visible` (and add permission checks to NavContext).
+// Later stages turn future items on by changing `visible`.
+// Stage 14: an item shows only if its route exists and the user may open it (the same rule as the
+// route's guard, core/auth/route-permissions.ts).
+import { ROUTE_RULES, RouteRule } from '../../../core/auth/route-permissions';
 
-/** Everything an item's visibility rule may look at. Users phase adds the user's permissions here. */
+/** Everything an item's visibility rule may look at. */
 export interface NavContext {
   /** Offline main PC (backup lives there only). */
   isMainPc: boolean;
+  /** The signed-in user has this permission. */
+  has: (key: string) => boolean;
 }
 
 export interface NavItem {
@@ -46,29 +51,34 @@ export const NAV_ICONS = {
   profit: 'M3 17l6-6 4 4 8-8M15 7h6v6',
   users: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4',
   shop: 'M3 9l2-5h14l2 5M4 9v11h16V9M3 9h18M9 20v-6h6v6',
+  audit: 'M9 4h6v3H9zM7 5H5v16h14V5h-2M8 11h8M8 15h8M8 19h5',
   backup: 'M12 3c4.4 0 8 1.3 8 3v12c0 1.7-3.6 3-8 3s-8-1.3-8-3V6c0-1.7 3.6-3 8-3zM4 6c0 1.7 3.6 3 8 3s8-1.3 8-3M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
 } as const;
 
-const always = () => true;
-/** Screen not built yet (accounting / users phase). */
+/** Screen not built yet (accounting phase). */
 const notYet = () => false;
+/** The route's permission rule, as its guard checks it. */
+const allowed = (rule: RouteRule) => (ctx: NavContext) =>
+  (!rule.mainPcOnly || ctx.isMainPc) &&
+  (!rule.all || rule.all.every((key) => ctx.has(key))) &&
+  (!rule.any || rule.any.some((key) => ctx.has(key)));
 
 export const NAV_GROUPS: readonly NavGroup[] = [
   {
     key: 'main',
     items: [
-      { key: 'home', labelKey: 'nav.items.home', route: '/home', icon: NAV_ICONS.home, visible: always },
+      { key: 'home', labelKey: 'nav.items.home', route: '/home', icon: NAV_ICONS.home, visible: allowed(ROUTE_RULES.home) },
     ],
   },
   {
     key: 'sales',
     labelKey: 'nav.groups.sales',
     items: [
-      { key: 'pos', labelKey: 'nav.items.pos', route: '/selling', icon: NAV_ICONS.pos, visible: always },
-      { key: 'credit', labelKey: 'nav.items.credit', route: '/credit-sales', icon: NAV_ICONS.credit, visible: always },
-      { key: 'invoices', labelKey: 'nav.items.invoices', route: '/invoice-history', icon: NAV_ICONS.invoices, visible: always },
-      { key: 'returns', labelKey: 'nav.items.returns', route: '/returns', icon: NAV_ICONS.returns, visible: always },
-      { key: 'customers', labelKey: 'nav.items.customers', route: '/customers', icon: NAV_ICONS.customers, visible: always },
+      { key: 'pos', labelKey: 'nav.items.pos', route: '/selling', icon: NAV_ICONS.pos, visible: allowed(ROUTE_RULES.selling) },
+      { key: 'credit', labelKey: 'nav.items.credit', route: '/credit-sales', icon: NAV_ICONS.credit, visible: allowed(ROUTE_RULES.creditSales) },
+      { key: 'invoices', labelKey: 'nav.items.invoices', route: '/invoice-history', icon: NAV_ICONS.invoices, visible: allowed(ROUTE_RULES.invoiceHistory) },
+      { key: 'returns', labelKey: 'nav.items.returns', route: '/returns', icon: NAV_ICONS.returns, visible: allowed(ROUTE_RULES.returns) },
+      { key: 'customers', labelKey: 'nav.items.customers', route: '/customers', icon: NAV_ICONS.customers, visible: allowed(ROUTE_RULES.customers) },
     ],
   },
   {
@@ -76,7 +86,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     labelKey: 'nav.groups.inventory',
     items: [
       // Stage 11: plain link; /products/profit-report belongs to "تقرير الأرباح", not here.
-      { key: 'products', labelKey: 'nav.items.products', route: '/products', icon: NAV_ICONS.products, visible: always,
+      { key: 'products', labelKey: 'nav.items.products', route: '/products', icon: NAV_ICONS.products, visible: allowed(ROUTE_RULES.products),
         activePaths: ['/products/new', '/products/edit/'] },
       { key: 'purchases', labelKey: 'nav.items.purchases', icon: NAV_ICONS.purchases, visible: notYet },
       { key: 'suppliers', labelKey: 'nav.items.suppliers', icon: NAV_ICONS.suppliers, visible: notYet },
@@ -96,16 +106,17 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { key: 'accounts', labelKey: 'nav.items.accounts', icon: NAV_ICONS.accounts, visible: notYet },
       { key: 'reports', labelKey: 'nav.items.reports', icon: NAV_ICONS.reports, visible: notYet },
-      { key: 'profit', labelKey: 'nav.items.profit', route: '/products/profit-report', icon: NAV_ICONS.profit, visible: always },
+      { key: 'profit', labelKey: 'nav.items.profit', route: '/products/profit-report', icon: NAV_ICONS.profit, visible: allowed(ROUTE_RULES.profitReport) },
     ],
   },
   {
     key: 'admin',
     labelKey: 'nav.groups.admin',
     items: [
-      { key: 'users', labelKey: 'nav.items.users', icon: NAV_ICONS.users, visible: notYet },
-      { key: 'shop', labelKey: 'nav.items.shop', route: '/shop-profile', icon: NAV_ICONS.shop, visible: always },
-      { key: 'backup', labelKey: 'nav.items.backup', route: '/backup', icon: NAV_ICONS.backup, visible: (ctx) => ctx.isMainPc },
+      { key: 'users', labelKey: 'nav.items.users', route: '/users', icon: NAV_ICONS.users, visible: allowed(ROUTE_RULES.users) },
+      { key: 'audit', labelKey: 'nav.items.audit', route: '/audit', icon: NAV_ICONS.audit, visible: allowed(ROUTE_RULES.audit) },
+      { key: 'shop', labelKey: 'nav.items.shop', route: '/shop-profile', icon: NAV_ICONS.shop, visible: allowed(ROUTE_RULES.shopProfile) },
+      { key: 'backup', labelKey: 'nav.items.backup', route: '/backup', icon: NAV_ICONS.backup, visible: allowed(ROUTE_RULES.backup) },
     ],
   },
 ];

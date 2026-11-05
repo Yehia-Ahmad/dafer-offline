@@ -6,6 +6,8 @@
 } @else {
   <router-outlet />
 }
+<!-- Stage 14: permission and session messages. -->
+<nota-toasts />
 @if (offline) {
   <app-connection-overlay />
   <app-version-notice />

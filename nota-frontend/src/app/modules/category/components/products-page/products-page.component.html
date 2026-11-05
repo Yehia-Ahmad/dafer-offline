@@ -3,7 +3,8 @@
   <nota-page-header [title]="'productsPage.title' | translate">
     <div notaPageActions class="pp__actions">
       <app-category-tools />
-      <button type="button" notaButton="primary" data-action="new-product" (click)="newProduct()" [disabled]="!categories().length">
+      <!-- Creating a product requires knowing its cost: products.manage + products.viewCost. -->
+      <button *notaCan="['products.manage', 'products.viewCost']" type="button" notaButton="primary" data-action="new-product" (click)="newProduct()" [disabled]="!categories().length">
         + {{ 'productsPage.newProduct' | translate }}
       </button>
     </div>
@@ -13,7 +14,7 @@
     <nav class="nota-card pp__cats" [attr.aria-label]="'productsPage.categories' | translate">
       <div class="pp__cats-head">
         <span class="pp__cats-title">{{ 'productsPage.categories' | translate }}</span>
-        <button type="button" notaButton icon data-action="add-category" (click)="openAddCategory()"
+        <button *notaCan="'categories.manage'" type="button" notaButton icon data-action="add-category" (click)="openAddCategory()"
           [attr.aria-label]="'sidebarTitles.add_new_category' | translate" [title]="'sidebarTitles.add_new_category' | translate">+</button>
       </div>
       <ul class="pp__cats-list">
@@ -31,13 +32,14 @@
               <span class="pp__cat-label">{{ category.label }}</span>
               @if (category.productCount !== undefined) {<span class="pp__count nota-num">{{ category.productCount | notaNumber }}</span>}
             </a>
-            <button type="button" class="pp__cat-btn" (click)="openEditCategory(category, $event)"
+            <button *notaCan="'categories.manage'" type="button" class="pp__cat-btn" (click)="openEditCategory(category, $event)"
               [attr.aria-label]="('nav.categories.edit' | translate) + ' ' + category.label" [title]="'nav.categories.edit' | translate">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
             </button>
             @if (category.id !== categoryId) {
-              <button type="button" class="pp__cat-btn pp__cat-btn--danger" (click)="deleteCategory(category)"
+              <!-- Deleting a category deletes its products: categories.manage + products.manage. -->
+              <button *notaCan="['categories.manage', 'products.manage']" type="button" class="pp__cat-btn pp__cat-btn--danger" (click)="deleteCategory(category)"
                 [attr.aria-label]="('nav.categories.delete' | translate) + ' ' + category.label" [title]="'nav.categories.delete' | translate">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -69,7 +71,8 @@
             <th>{{ 'productsPage.columns.code' | translate }}</th>
             <th>{{ 'productsPage.columns.name' | translate }}</th>
             <th>{{ 'productsPage.columns.stock' | translate }}</th>
-            <th class="num">{{ 'productsPage.columns.purchase' | translate }}</th>
+            <!-- Stage 14: purchase price only with products.viewCost (the server strips it otherwise). -->
+            <th *notaCan="'products.viewCost'" class="num">{{ 'productsPage.columns.purchase' | translate }}</th>
             <th class="num">{{ 'productsPage.columns.retail' | translate }}</th>
             <th class="num">{{ 'productsPage.columns.wholesale' | translate }}</th>
             <th class="num">{{ 'productsPage.columns.discount' | translate }}</th>
@@ -82,15 +85,15 @@
                 <td class="pp__name" [class.is-out]="isOutOfStock(product?.inventoryCount)">{{ product?.name }}</td>
                 <td><span [class]="'nota-pill nota-num nota-pill--' + stockVariant(product)"
                   [title]="'productsPage.thresholdTitle' | translate: { count: (threshold(product) | notaNumber) }">{{ product?.inventoryCount | notaNumber }}</span></td>
-                <td class="nota-num pp__muted-cell">{{ product?.['purchasePrice'] | notaMoney }}</td>
+                <td *notaCan="'products.viewCost'" class="nota-num pp__muted-cell">{{ product?.['purchasePrice'] | notaMoney }}</td>
                 <td class="nota-num pp__strong">{{ product?.['retailPrice'] | notaMoney }}</td>
                 <td class="nota-num">{{ product?.['wholesalePrice'] | notaMoney }}</td>
                 <td class="nota-num pp__muted-cell">{{ product?.discountPercentage ? ('productsPage.percent' | translate: { value: (product.discountPercentage | notaNumber) }) : '—' }}</td>
-                <td><a notaButton class="pp__edit" [routerLink]="['/products/edit', product._id]">{{ 'category.editProduct.title' | translate }}</a></td>
+                <td><a *notaCan="'products.manage'" notaButton class="pp__edit" [routerLink]="['/products/edit', product._id]">{{ 'category.editProduct.title' | translate }}</a></td>
               </tr>
             } @empty {
               @if (hasLoadedProducts && !isLoadingProducts) {
-                <tr><td colspan="8" class="pp__empty">{{ (lowStockOnly || searchTerm ? 'productsPage.noMatches' : 'productsPage.empty') | translate }}</td></tr>
+                <tr><td [attr.colspan]="columnCount()" class="pp__empty">{{ (lowStockOnly || searchTerm ? 'productsPage.noMatches' : 'productsPage.empty') | translate }}</td></tr>
               }
             }
           </tbody>

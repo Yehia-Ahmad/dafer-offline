@@ -1,0 +1,38 @@
+.ap { display: flex; flex-direction: column; gap: var(--space-gap); }
+
+.ap__filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.ap__filter-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+:host ::ng-deep .ap__control { width: 100%; }
+
+.ap__list { padding: 0; overflow: hidden; }
+
+.ap__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 16px;
+  margin: 0;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.ap__time { white-space: nowrap; }
+.ap__details { max-width: 420px; color: var(--text-muted); font-size: 13px; }
+
+.ap__pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px;
+  border-top: 1px solid var(--line);
+}

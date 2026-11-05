@@ -6,6 +6,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter, Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { App } from './app';
+import { signInAs } from './core/auth/testing/sign-in';
 
 @Component({ template: '<p class="page">page</p>' })
 class PageStub {}
@@ -28,12 +29,14 @@ describe('App', () => {
   });
 
   it('should create the app', () => {
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
     expect(app).toBeTruthy();
   });
 
   it('should render the router outlet', () => {
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
@@ -41,12 +44,14 @@ describe('App', () => {
   });
 
   it('should set <html lang dir> at startup', () => {
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     TestBed.createComponent(App);
     const root = document.documentElement;
     expect(root.dir).toBe(root.lang === 'ar' ? 'rtl' : 'ltr');
   });
 
   it('renders the frame once around the page; data.frame === false renders the page alone', async () => {
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     const fixture = TestBed.createComponent(App);
     const router = TestBed.inject(Router);
     const el = fixture.nativeElement as HTMLElement;

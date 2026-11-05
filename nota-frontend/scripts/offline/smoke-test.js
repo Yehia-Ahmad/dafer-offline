@@ -201,6 +201,43 @@ async function request(method, urlPath, { body, withKey = true, binary = false, 
   return { status: response.status, headers: response.headers, json, text };
 }
 
+// Stage 14: the same request, sent from another local source address. 127.0.0.2 is not one of
+// the main PC's own addresses the backend accepts (127.0.0.1, ::1, ::ffff:127.0.0.1), so it stands
+// in for a client PC without the test server ever leaving this machine.
+const NON_LOCAL_SOURCE = '127.0.0.2';
+function requestFromAddress(localAddress, method, urlPath, { body } = {}) {
+  const http = require('node:http');
+  const payload = body === undefined ? null : Buffer.from(JSON.stringify(body));
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      `${BASE_URL}${urlPath}`,
+      {
+        method,
+        localAddress,
+        timeout: REQUEST_TIMEOUT_MS,
+        headers: {
+          [LAN_KEY_HEADER]: LAN_SECRET,
+          ...(payload ? { 'content-type': 'application/json', 'content-length': payload.length } : {}),
+        },
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf8');
+          let json = null;
+          try { json = JSON.parse(text); } catch { /* not JSON */ }
+          resolve({ status: res.statusCode, json, text });
+        });
+      }
+    );
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
 const describe = (response) => {
   const message = response.json && (response.json.message || response.json.code);
   return `HTTP ${response.status}${message ? ` "${message}"` : ''}`;
@@ -259,6 +296,25 @@ async function runAuthSetup(ctx) {
     expectStatus(response, 401, 'GET /api/products without a token');
     expect(response.json.code === 'SESSION_EXPIRED', `code expected SESSION_EXPIRED, got ${response.json.code}`);
     return describe(response);
+  });
+
+  await step('Auth: bootstrap from the main PC itself → isLocal true', async () => {
+    const response = await request('GET', '/api/auth/bootstrap', { token: null });
+    expectStatus(response, 200, 'GET /api/auth/bootstrap');
+    expect(response.json.isLocal === true, `isLocal expected true, got ${response.json.isLocal}`);
+    return `isLocal ${response.json.isLocal}`;
+  });
+
+  await step(`Auth: setup-owner from a non-loopback address (${NON_LOCAL_SOURCE}) → 403 LOCAL_ONLY, isLocal false`, async () => {
+    const boot = await requestFromAddress(NON_LOCAL_SOURCE, 'GET', '/api/auth/bootstrap');
+    expectStatus(boot, 200, 'GET /api/auth/bootstrap from a client address');
+    expect(boot.json.isLocal === false, `isLocal expected false, got ${boot.json.isLocal}`);
+    const response = await requestFromAddress(NON_LOCAL_SOURCE, 'POST', '/api/auth/setup-owner', { body: OWNER });
+    expectStatus(response, 403, 'POST /api/auth/setup-owner from a client address');
+    expect(response.json.code === 'LOCAL_ONLY', `code expected LOCAL_ONLY, got ${response.json.code}`);
+    const after = await request('GET', '/api/auth/bootstrap', { token: null });
+    expect(after.json.hasOwner === false, 'an owner was created anyway');
+    return `${describe(response)}; bootstrap isLocal ${boot.json.isLocal}; still no owner`;
   });
 
   await step('Auth: setup-owner → 201, token and recovery code', async () => {

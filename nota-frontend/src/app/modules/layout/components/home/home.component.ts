@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
@@ -14,6 +15,7 @@ import {
   notaLocale,
 } from '../../../shared/ui';
 import { DashboardService, DashboardSummary } from '../../services/dashboard.service';
+import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 
 export interface DashboardKpi {
   key: string;
@@ -43,7 +45,7 @@ export interface DashboardBar {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [RouterLink, TranslatePipe, NotaButtonDirective, NotaEmptyStateComponent, NotaMoneyPipe, NotaNumberPipe],
+  imports: [NotaCanDirective, NgTemplateOutlet, RouterLink, TranslatePipe, NotaButtonDirective, NotaEmptyStateComponent, NotaMoneyPipe, NotaNumberPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss'],

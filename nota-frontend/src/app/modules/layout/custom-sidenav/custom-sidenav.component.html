@@ -28,7 +28,7 @@
   </div>
 
   <div class="nota-sidebar__menu">
-    @for (group of groups; track group.key) {
+    @for (group of groups(); track group.key) {
       <div class="nota-nav__group" role="group" [attr.aria-label]="group.labelKey ? (group.labelKey | translate) : null">
         @if (group.labelKey) {
           <span class="nota-nav__group-label" aria-hidden="true">{{ group.labelKey | translate }}</span>
@@ -88,7 +88,8 @@
       <span class="nota-nav__label">{{ 'nav.theme' | translate }}: {{ (isDark() ? 'nav.themeDark' : 'nav.themeLight') | translate }}</span>
     </button>
 
-    @if (deviceLabelKey) {
+    <!-- The device shows here only when nobody is signed in; otherwise the user card has it. -->
+    @if (deviceLabelKey && !user()) {
       <div class="nota-sidebar__device" [attr.title]="state.collapsed() ? (deviceLabelKey | translate) : null">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18v12H3zM8 20h8M12 16v4" /></svg>
@@ -96,6 +97,22 @@
       </div>
     }
 
-    <!-- USER CARD SLOT (users & permissions phase): name, role, device, logout. Renders nothing for now. -->
+    <!-- Stage 14: the signed-in user (Sidebar.dc.html): name, role, device, change password, logout. -->
+    @if (user(); as current) {
+      <div class="nota-user-card" [attr.title]="state.collapsed() ? current.name : null">
+        <span class="nota-user-card__avatar" aria-hidden="true">{{ initial() }}</span>
+        <div class="nota-user-card__text nota-nav__label">
+          <span class="nota-user-card__name">{{ current.name }}</span>
+          <span class="nota-user-card__meta">{{ roleLabelKey() | translate }}@if (deviceLabelKey) { · {{ deviceLabelKey | translate }} }</span>
+          <button type="button" class="nota-user-card__link" (click)="changePasswordOpen = true">{{ 'auth.changePassword.open' | translate }}</button>
+        </div>
+        <button type="button" class="nota-user-card__logout" (click)="logout()"
+          [attr.aria-label]="'auth.logout' | translate" [title]="'auth.logout' | translate">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" /></svg>
+        </button>
+      </div>
+    }
   </div>
 </nav>
+<nota-change-password-dialog [(open)]="changePasswordOpen" />

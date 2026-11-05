@@ -9,6 +9,8 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { format as formatDate } from 'date-fns';
 import { CateoryService } from '../../services/cateory.service';
 import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
+import { AuthService } from '../../../../core/auth/auth.service';
+import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import {
   NotaButtonDirective,
   NotaDialogShellComponent,
@@ -28,7 +30,7 @@ export type ProductFormMode = 'new' | 'edit';
 @Component({
   selector: 'app-product-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DialogModule, DatePickerModule,
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DialogModule, DatePickerModule, NotaCanDirective,
     NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
   templateUrl: './product-form.component.html',
   styleUrl: './product-form.component.scss',
@@ -37,6 +39,7 @@ export class ProductFormComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   /** The sidebar is mounted once; refresh the shared category list / product-exists flag after a create or delete. */
   private readonly _catalog = inject(CatalogStateService);
+  private readonly _auth = inject(AuthService);
   private readonly _cateoryService = inject(CateoryService);
   private readonly _activatedRoute = inject(ActivatedRoute);
   private readonly _router = inject(Router);
@@ -401,6 +404,8 @@ export class ProductFormComponent implements OnInit {
       // Stage 12: only when filled, or null to clear a threshold the product had; otherwise not sent.
       ...this.lowStockThresholdUpdate(),
     };
+    // Stage 14: without products.viewCost the purchase price is not sent; the server keeps the stored one.
+    if (!this._auth.has('products.viewCost')) delete (payload as { purchasePrice?: unknown }).purchasePrice;
     this._cateoryService.updateProduct(this.productId, payload).subscribe({
       next: () => {
         this.loading = false;

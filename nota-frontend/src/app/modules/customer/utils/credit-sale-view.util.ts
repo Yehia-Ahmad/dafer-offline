@@ -8,6 +8,8 @@ export type CreditSaleStatusView = 'pending' | 'partially_paid' | 'paid' | 'reac
 
 export type CreditSaleView = {
   id: string;
+  /** Stage 14: who created the invoice (sent by the backend with auth on). Display only. */
+  createdByName?: string | null;
   invoiceId: string;
   customerId: string;
   customerName: string;
@@ -173,6 +175,7 @@ export function toCreditSaleView(source: any): CreditSaleView | null {
     customerId: String(source.customerId?._id || source.customerId || source.customer?._id || source.customer || ''),
     customerName: String(source.customerName || ''),
     customerPhone: String(source.customerPhone || ''),
+    createdByName: source.createdByName ? String(source.createdByName) : null,
     sellingDate: source.sellingDate ? String(source.sellingDate) : null,
     dueDate: source.dueDate ? String(source.dueDate) : null,
     status: normalizeCreditSaleStatus(source.status),

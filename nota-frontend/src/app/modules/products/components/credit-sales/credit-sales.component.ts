@@ -33,6 +33,8 @@ import {
   CreditSalesService
 } from '../../services/credit-sales.service';
 import { ProductsService } from '../../services/products.service';
+import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 
 type ProductSearchResult = {
   id: string;
@@ -68,7 +70,7 @@ type CreditLineItemState = {
 @Component({
   selector: 'app-credit-sales',
   standalone: true,
-  imports: [
+  imports: [LockedActionComponent, NotaCanDirective, 
     CommonModule,
     ReactiveFormsModule,
     TranslatePipe,

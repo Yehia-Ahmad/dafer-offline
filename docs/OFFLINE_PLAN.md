@@ -28,7 +28,7 @@ Reference: docs/design/NOTA_DESIGN_SYSTEM.md and docs/design/screens/.
 9. Sales screens redesign.
 10. Remaining screens redesign + dashboard.
 
-Later phases (decisions below): Users & permissions (Stage 13 backend done; Stages 14–15 next), then Accounting.
+Later phases (decisions below): Users & permissions (Stage 13 backend done; Stage 14 frontend + auth on done; Stage 15 next), then Accounting.
 
 ## Agreed decisions for later phases (after cleanup)
 
@@ -42,7 +42,7 @@ Later phases (decisions below): Users & permissions (Stage 13 backend done; Stag
 - The "price below purchase price" error must not reveal the purchase price.
 
 #### Stage 13 — users and permissions, backend (done)
-Everything is behind the **`NOTA_AUTH` switch**. With `NOTA_AUTH=1` every rule below is enforced. Unset (or any other value), the backend behaves exactly as before: `/api/auth`, `/api/users` and `/api/audit` are not mounted (404), nothing is stripped, no token is needed, no createdBy is set and nothing is audited. The desktop app passes `NOTA_JWT_SECRET` but does not set `NOTA_AUTH` yet.
+Everything is behind the **`NOTA_AUTH` switch**. With `NOTA_AUTH=1` every rule below is enforced. Unset (or any other value), the backend behaves exactly as before: `/api/auth`, `/api/users` and `/api/audit` are not mounted (404), nothing is stripped, no token is needed, no createdBy is set and nothing is audited. Since Stage 14 the desktop app always sets `NOTA_AUTH=1` on the main PC.
 
 - **Single source of truth:** `nota-backend/src/auth/permissions.js` (catalog with Arabic/English labels and groups, role templates, `permissionsForRole`, `effectivePermissions`, `hasPermission`).
   - **Catalog (27 keys):**
@@ -67,7 +67,7 @@ Everything is behind the **`NOTA_AUTH` switch**. With `NOTA_AUTH=1` every rule b
   - `PUBLIC` (LAN key only): `/api/lan/info`, `/api/auth/bootstrap`, `/login`, `/setup-owner`, `/recover`.
   - `AUTHENTICATED` (any signed-in user): `/api/auth/me`, `/change-password`, `/permissions`, `GET /api/shop-profile`.
   - Categories: view → products.view; write → categories.manage; delete → categories.manage + products.manage (it deletes the category's products); export → products.importExport + products.viewCost; import → products.importExport + categories.manage.
-  - Products: view and search → products.view; write → products.manage; Excel export → products.importExport + products.viewCost; the three profit routes → reports.profit + products.viewCost; sync-purchase-price → products.syncPrice.
+  - Products: view and search → products.view; write → products.manage (Stage 14: create → products.manage + products.viewCost); Excel export → products.importExport + products.viewCost; the three profit routes → reports.profit + products.viewCost; sync-purchase-price → products.syncPrice.
   - Sellings → sales.view/create/edit/delete. Credit sales → credit.view/create/edit/delete, and `/:id/payments` → credit.collect.
   - Customers → customers.view/manage, and `/:id/payments` → credit.collect.
   - Returns → returns.view/create. Dashboard → dashboard.view. `PUT /api/shop-profile` → shop.manage. `/api/users/*` → users.manage. `/api/audit` → audit.view.
@@ -114,18 +114,54 @@ Everything is behind the **`NOTA_AUTH` switch**. With `NOTA_AUTH=1` every rule b
   - `GET /api/audit` (audit.view) filters on `from`, `to`, `userId` and `action`, is paginated, and returns newest first.
 - **Electron (main PC):** on the first start in main-PC mode, the app generates the session-token secret, stores it DPAPI-protected in `config.json` (`jwtSecretProtected`, separate entropy from the LAN secret), and passes it as `NOTA_JWT_SECRET` from then on. Client PCs don't need it.
 
-**Stage 14 must:**
-- Set `NOTA_AUTH=1` in `buildBackendEnv`.
-- Make an unreadable session-token secret **fatal at startup when `NOTA_AUTH=1`**, like `SECRET_UNREADABLE`. Today `loadJwtSecret()` in `electron-offline/main.js` only logs it and starts the backend without a secret.
-- Add a test for `loadJwtSecret()`: first start generates and stores the secret, later starts read it back, and an unreadable value fails. Today only its parts (secret-store, config-store, `buildBackendEnv`) are tested.
-- Make the invoice edit UI send the stored discount unchanged when the user didn't touch it (same `discountAmount`, or for a percentage invoice the same percentage and its recomputed amount). Otherwise users without `sales.discount` get 403 on ordinary edits.
-- Build the login screen (`/api/auth/bootstrap` before login), the users page (`/api/auth/permissions` + `/api/users`; replaces the old Admins page), and the permission-driven menu.
-- Send `Authorization: Bearer` on every request and handle `SESSION_EXPIRED` (back to login), `FORBIDDEN`, and the missing cost/profit fields.
-- Show `createdByName` on invoices.
+**Stage 14 must** (all done in Stage 14; the invoice-edit item had nothing to attach to, see below).
+
+#### Stage 14 — login, users page, permission-driven UI, auth on (done)
+- **Backend:** `POST /api/auth/setup-owner` and `/recover` accept only loopback requests (`req.ip` 127.0.0.1, ::1, ::ffff:127.0.0.1; no `trust proxy`), otherwise 403 `LOCAL_ONLY` (`localOnly()` in `src/auth/middleware.js`). `GET /api/auth/bootstrap` adds `isLocal`. The main PC's own window calls the backend on `http://127.0.0.1:<port>` (main.js `beginRole`), client PCs on the LAN address.
+- **Electron:** `buildBackendEnv` sets `NOTA_AUTH=1` (the user environment can't turn it off). `loadJwtSecret()` moved to `electron-offline/lib/jwt-secret.js` and throws; `main.js` shows the error screen `JWT_SECRET_UNREADABLE` and does not start mongod/backend without the secret. Tests: `electron-offline/test/jwt-secret.test.js`.
+- **Session (frontend, `src/app/core/auth/`):** `AuthService` (signals `user`, `permissions`, `token`; `has`/`hasAll`/`hasAny`; `firstAllowedPath()`). Token in memory + `sessionStorage` (`nota.session`), never localStorage, no "remember me"; a reload keeps the session (checked with `/auth/me` before the first page), closing the window ends it.
+- **Interceptor (`auth.interceptor.ts`, replaces the online edition's httpconfig/logout/request-online interceptors, all deleted):** Bearer on backend requests (the LAN key header is still added by Electron); 401 `SESSION_EXPIRED` → `/login?reason=expired&returnUrl=…`; 403 `FORBIDDEN` → toast with the server message; 429 `LOGIN_LOCKED` → toast with the minutes. Login-screen requests show their errors themselves (`HANDLES_OWN_ERRORS`). It resolves `TranslateService` lazily: the i18n files load through it.
+- **Guards:** `authGuard`, `permissionGuard(rule)` (redirect to the first allowed page + one toast "مش عندك صلاحية تفتح الصفحة دي"), `guestGuard` (/login), `landingRedirect` ('' and `**`). `/backup` keeps `mainPcGuard` (canMatch) plus `backup.manage`. A user with no page at all lands on `/no-access`.
+- **Login (`/login`, outside the frame):** shop name/logo from bootstrap; first run on the main PC creates the owner, then the recovery code is shown once (copy, print, "كتبت الكود وحفظته في مكان آمن" required before continuing); on a client PC "لسه مفيش حساب مالك…" with retry. "نسيت كلمة المرور؟" recovers on the main PC only (new code shown the same way). Change password from the sidebar user card keeps the session with the new token.
+- **Route → permission map** (`src/app/core/auth/route-permissions.ts`; the sidebar uses the same rules):
+
+| Route | Sidebar item | Needs |
+|---|---|---|
+| /login | — | nothing (guest only) |
+| /home | الرئيسية | dashboard.view |
+| /selling | نقطة البيع | sales.create |
+| /credit-sales | البيع الآجل | credit.view |
+| /credit-sales/new | — | credit.create |
+| /invoice-history | سجل الفواتير | sales.view |
+| /returns | المرتجعات | returns.create **or** returns.view (without view: wizard only, no log) |
+| /customers, /customers/:id | العملاء | customers.view |
+| /products | الأصناف والفئات | products.view |
+| /products/new | — | products.manage + products.viewCost |
+| /products/edit/:id | — | products.manage |
+| /products/profit-report | تقرير الأرباح | reports.profit + products.viewCost |
+| /users | المستخدمين والصلاحيات | users.manage |
+| /audit | سجل العمليات | audit.view |
+| /shop-profile | بيانات المحل | shop.manage |
+| /backup | النسخ الاحتياطي | main PC + backup.manage |
+| /ui-kit | — | signed in |
+| /no-access | — | signed in |
+| '', `**` | — | → first allowed page (sidebar order), or /login |
+
+- **Actions:** one structural directive `*notaCan` (`core/auth/nota-can.directive.ts`; list = all keys, `any: true`, `else` template) and the permission-locked pattern `nota-locked-action`. Locked (lock + note): cash invoice delete, credit invoice delete (customer page), invoice discount (POS, new credit sale), collect on a credit invoice. Hidden: create/edit/delete buttons, Excel import/template (importExport + categories.manage) and exports (importExport + viewCost), sync purchase price, return buttons, dashboard shortcuts.
+- **Cost/profit without `products.viewCost`:** purchase-price column (products list), purchase-price field, profit hints and below-cost hint (product form, edit) and the profit report link are not rendered. The product update doesn't send `purchasePrice`; the PUT keeps the stored value.
+- **Creating a product requires knowing its cost:** `POST /api/products` needs `products.manage` + `products.viewCost` (backend route map, `EXPECTED_ROUTES`), and so do the "new product" button, the `/products/new` guard and the dashboard "add products" shortcut. Editing stays `products.manage`. The frontend never sends a new product without its purchase price (no server-default path).
+- **Users (`/users`) and audit (`/audit`):** see Users.dc.html/AddUser.dc.html; owner row has no disable/role change and only the owner edits it; no reset on your own row; disable, reset and role/permission changes warn "هيتعمله خروج من كل الأجهزة". The audit page has date/user/action filters and paging; its user filter uses `/api/users` only with users.manage.
+- **`createdByName`** shows in the cash and credit invoice detail panels when the server sends it. No print had a printed-by line, so prints are unchanged.
+- **No invoice edit screen exists in the frontend** (no `PUT /sellings`; `updateCreditSale` is unused), so "resend the stored discount on edits" had nothing to attach to.
 
 **Stage 15 must:**
-- Build the owner setup wizard (setup-owner + showing the recovery code once), the recovery-code UI (`/api/auth/recover`) and auto-lock.
-- Put backup and restore behind `backup.manage` (Electron IPC).
+- Auto-lock (sign out after idle time on shared PCs).
+- Enforce `backup.manage` in Electron IPC: backup/restore must check the signed-in user (e.g. a token check against the backend), not just the hidden UI.
+- Warn when another main PC answers on the LAN (two owners/databases in one shop).
+- If an invoice edit screen is ever added: send the stored discount unchanged when the user didn't touch it (Stage 13 discount rule), and show "الخصم ثابت لأنك مش عندك صلاحية تعديل الخصم" without `sales.discount`.
+- Logout and session expiry drop an unsaved POS cart or form: there is no unsaved-changes check yet; add one and ask before logout.
+- The design's "يقدر يدخل من" (per-device login) and "أقصى خصم مسموح" (max discount) on the users screens have no backend; skipped.
+- The login lockout counters are in memory (lost on restart); the setup-owner/recover loopback check relies on there being no proxy in front of the backend.
 
 ### Accounting (double-entry)
 - MongoDB runs as a single-member replica set so transactions work. An invoice and its journal entry are saved together or not at all.
@@ -146,4 +182,4 @@ Everything is behind the **`NOTA_AUTH` switch**. With `NOTA_AUTH=1` every rule b
 
 ### Other
 - Selling.shippingLocation and Selling.government are website leftovers (the offline frontend never sends or reads them). Remove them together with the createSellingInvoice options param in the accounting phase. shippingFees on Selling and CreditSale is a real POS field and stays.
-- The Admins page (modules/admin, route /admins, AdminsService) calls /users, /users/:id (GET, PATCH, DELETE) and /auth/signup and expects `res.data.users` with email/phone and roles admin/customer. That doesn't match the Stage 13 API (`/api/users` returns `{ users }`, there is no PATCH /:id, DELETE or signup). Stage 14 replaces it.
+- The Admins page (modules/admin, route /admins, AdminsService) calls /users, /users/:id (GET, PATCH, DELETE) and /auth/signup and expects `res.data.users` with email/phone and roles admin/customer. That doesn't match the Stage 13 API (`/api/users` returns `{ users }`, there is no PATCH /:id, DELETE or signup). (done: Stage 14 removed it; /users replaces it.)

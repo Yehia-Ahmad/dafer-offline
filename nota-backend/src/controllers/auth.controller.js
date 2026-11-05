@@ -7,7 +7,7 @@ const { ALL_PERMISSIONS, PERMISSIONS, PERMISSION_GROUPS, ROLES, ROLE_LABELS, eff
 const { signToken } = require("../auth/jwt");
 const { createLoginLimiter } = require("../auth/loginLimiter");
 const { audit } = require("../auth/audit");
-const { httpError } = require("../auth/middleware");
+const { httpError, isLoopback } = require("../auth/middleware");
 
 const SHOP_PROFILE_KEY = "default"; // the single ShopProfile document (shopProfile.controller.js)
 
@@ -78,12 +78,17 @@ function createAuthController({ secret, now = () => Date.now() } = {}) {
   const recoverLimiter = createLoginLimiter({ now });
   const issue = (user) => signToken(user, secret);
 
-  const bootstrap = asyncHandler(async (_req, res) => {
+  const bootstrap = asyncHandler(async (req, res) => {
     const [owner, profile] = await Promise.all([
       User.exists({ role: "owner" }),
       ShopProfile.findOne({ key: SHOP_PROFILE_KEY }, "name logo").lean(),
     ]);
-    res.json({ hasOwner: Boolean(owner), shop: { name: profile?.name || "", logo: profile?.logo || "" } });
+    // Stage 14: isLocal tells the login screen whether it runs on the main PC (owner setup, recover).
+    res.json({
+      hasOwner: Boolean(owner),
+      isLocal: isLoopback(req),
+      shop: { name: profile?.name || "", logo: profile?.logo || "" },
+    });
   });
 
   const setupOwner = asyncHandler(async (req, res) => {

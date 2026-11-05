@@ -6,9 +6,10 @@
       <span class="db__date">{{ dateLabel() }}</span>
     </div>
     <div class="db__actions">
-      <a notaButton="primary" size="lg" routerLink="/selling" data-action="new-cash">+ {{ 'dashboard.actions.cash' | translate }}</a>
-      <a notaButton size="lg" routerLink="/credit-sales/new" data-action="new-credit">{{ 'dashboard.actions.credit' | translate }}</a>
-      <a notaButton size="lg" routerLink="/credit-sales" data-action="collect">{{ 'dashboard.actions.collect' | translate }}</a>
+      <!-- Stage 14: each shortcut only for users who may open its page. -->
+      <a *notaCan="'sales.create'" notaButton="primary" size="lg" routerLink="/selling" data-action="new-cash">+ {{ 'dashboard.actions.cash' | translate }}</a>
+      <a *notaCan="'credit.create'" notaButton size="lg" routerLink="/credit-sales/new" data-action="new-credit">{{ 'dashboard.actions.credit' | translate }}</a>
+      <a *notaCan="['credit.view', 'credit.collect']" notaButton size="lg" routerLink="/credit-sales" data-action="collect">{{ 'dashboard.actions.collect' | translate }}</a>
     </div>
   </header>
 
@@ -24,8 +25,8 @@
       <section class="nota-card db__welcome" data-test="new-shop">
         <nota-empty-state icon="fa-solid fa-store" [title]="'dashboard.empty.welcomeTitle' | translate" [text]="'dashboard.empty.welcomeText' | translate">
           <div class="db__welcome-actions">
-            <a notaButton="primary" routerLink="/products">{{ 'dashboard.empty.addProducts' | translate }}</a>
-            <a notaButton routerLink="/shop-profile">{{ 'dashboard.empty.shopProfile' | translate }}</a>
+            <a *notaCan="['products.manage', 'products.viewCost']" notaButton="primary" routerLink="/products">{{ 'dashboard.empty.addProducts' | translate }}</a>
+            <a *notaCan="'shop.manage'" notaButton routerLink="/shop-profile">{{ 'dashboard.empty.shopProfile' | translate }}</a>
           </div>
         </nota-empty-state>
       </section>
@@ -71,16 +72,19 @@
       <section class="nota-card db__low-card">
         <div class="db__card-head">
           <h2 class="nota-section-title db__h2">{{ 'dashboard.lowStock.title' | translate }}</h2>
-          <a class="db__link" routerLink="/products">{{ 'dashboard.lowStock.all' | translate }}</a>
+          <a *notaCan="'products.view'" class="db__link" routerLink="/products">{{ 'dashboard.lowStock.all' | translate }}</a>
         </div>
         @if (summary()!.lowStock.length) {
           <ul class="db__low">
             @for (row of summary()!.lowStock; track row.id) {
               <li>
-                <a class="db__low-row" [routerLink]="['/products/edit', row.id]">
+                <ng-template #lowRow>
                   <span class="db__low-name">{{ row.name }}<span class="db__muted db__low-code" dir="ltr">{{ row.code }}</span></span>
                   <span [class]="'nota-pill nota-num nota-pill--' + stockVariant(row)" [title]="'dashboard.lowStock.threshold' | translate: { count: (row.threshold | notaNumber) }">{{ row.inventoryCount | notaNumber }}</span>
-                </a>
+                </ng-template>
+                <!-- The product form needs products.manage; otherwise the row is plain text. -->
+                <a *notaCan="'products.manage'; else lowRowPlain" class="db__low-row" [routerLink]="['/products/edit', row.id]"><ng-container [ngTemplateOutlet]="lowRow" /></a>
+                <ng-template #lowRowPlain><div class="db__low-row"><ng-container [ngTemplateOutlet]="lowRow" /></div></ng-template>
               </li>
             }
           </ul>
@@ -93,7 +97,7 @@
     <section class="nota-card db__recent">
       <div class="db__card-head db__card-head--pad">
         <h2 class="nota-section-title db__h2">{{ 'dashboard.recent.title' | translate }}</h2>
-        <a class="db__link" routerLink="/invoice-history">{{ 'dashboard.recent.history' | translate }}</a>
+        <a *notaCan="'sales.view'" class="db__link" routerLink="/invoice-history">{{ 'dashboard.recent.history' | translate }}</a>
       </div>
       @if (summary()!.recentInvoices.length) {
         <div class="nota-table-wrap">

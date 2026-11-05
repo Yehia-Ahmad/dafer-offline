@@ -1,0 +1,526 @@
+/* Stage 14: login / first run / recovery code (Login.dc.html), toasts, the permission-locked
+   pattern and the sidebar user card (Sidebar.dc.html). Tokens only; light/dark via html.dark. */
+
+/* ---------- login page ---------- */
+.nota-auth-page {
+  display: flex;
+  flex-wrap: wrap;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+.nota-auth-page--center {
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.nota-auth__brand {
+  flex: 1 1 420px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 56px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+}
+
+.nota-auth__brand-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.nota-auth__mark-tile { fill: var(--sidebar-hover); }
+.nota-auth__mark-noon { stroke: var(--sidebar-text); }
+.nota-auth__mark-coin { fill: var(--accent); }
+
+.nota-auth__shop-logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.nota-auth__wordmark {
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.nota-auth__wordmark.is-latin { font-weight: 700; }
+
+.nota-auth__brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 460px;
+}
+
+.nota-auth__headline {
+  margin: 0;
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.nota-auth__tagline,
+.nota-auth__device {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.8;
+  color: var(--sidebar-group);
+}
+
+.nota-auth__device {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.nota-auth__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--sidebar-active-bg);
+}
+
+.nota-auth__panel {
+  flex: 999 1 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 32px 24px 48px;
+}
+
+.nota-auth__toggles {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.nota-auth__segmented {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background: var(--surface);
+
+  button {
+    min-height: var(--touch-target);
+    padding: 0 14px;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  button.is-on {
+    background: var(--brand-soft);
+    color: var(--brand-strong-text);
+    font-weight: 700;
+  }
+}
+
+.nota-auth__form {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.nota-auth__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nota-auth__title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+}
+
+.nota-auth__lead,
+.nota-auth__status {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.nota-auth__input {
+  font-size: 16px;
+  min-height: 50px;
+}
+
+.nota-auth__code-input {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nota-auth__pass {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  .nota-auth__input {
+    width: 100%;
+    padding-inline-end: 52px;
+  }
+}
+
+.nota-auth__eye {
+  position: absolute;
+  inset-inline-end: 4px;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover { color: var(--text); }
+}
+
+.nota-auth__notice {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  font-size: 14px;
+}
+
+.nota-auth__error {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.nota-auth__help {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border-radius: var(--radius-control-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.nota-auth__help-text {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.nota-auth__link {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brand-strong-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.nota-auth-card {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 28px;
+}
+
+.nota-auth-card__title { margin: 0; font-size: 24px; font-weight: 800; }
+.nota-auth-card__lead { margin: 0; line-height: 1.7; color: var(--text-muted); }
+
+.nota-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+@media (max-width: 720px) {
+  .nota-auth__brand {
+    flex-basis: 100%;
+    padding: 24px 16px;
+    gap: 16px;
+  }
+
+  .nota-auth__brand-copy,
+  .nota-auth__device { display: none; }
+
+  .nota-auth__wordmark { font-size: 28px; }
+
+  .nota-auth__panel { padding: 20px 16px 32px; }
+
+  .nota-auth__title { font-size: 26px; }
+}
+
+/* ---------- recovery code (shown once) ---------- */
+.nota-rc {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  min-height: 100vh;
+  padding: 40px 16px;
+  background: var(--bg);
+}
+
+.nota-rc__box {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px;
+  border-radius: var(--radius-dialog);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.nota-rc__title { margin: 0; font-size: 28px; font-weight: 800; }
+.nota-rc__lead { margin: 0; font-size: 16px; line-height: 1.8; }
+.nota-rc__main-only { margin: 0; font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+
+.nota-rc__warn {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  font-weight: 700;
+}
+
+.nota-rc__code-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 12px;
+  border-radius: var(--radius-card);
+  background: var(--surface-2);
+  border: 2px dashed var(--border-strong);
+}
+
+.nota-rc__code {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: clamp(22px, 6vw, 40px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  user-select: all;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.nota-rc__print-title,
+.nota-rc__print-note { display: none; }
+
+.nota-rc__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.nota-rc__ack {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--touch-target);
+  font-weight: 700;
+  cursor: pointer;
+
+  input { width: 20px; height: 20px; accent-color: var(--brand); }
+}
+
+@media print {
+  body.nota-printing-code * { visibility: hidden; }
+  body.nota-printing-code .nota-rc-print,
+  body.nota-printing-code .nota-rc-print * { visibility: visible; }
+  body.nota-printing-code .nota-rc-print {
+    position: fixed;
+    inset: 0 0 auto 0;
+    border: 2px dashed currentColor;
+    background: none;
+  }
+  body.nota-printing-code .nota-rc__print-title,
+  body.nota-printing-code .nota-rc__print-note { display: block; }
+}
+
+/* ---------- toasts ---------- */
+.nota-toasts {
+  position: fixed;
+  inset-block-end: 20px;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(480px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+[dir='rtl'] .nota-toasts { transform: translateX(50%); }
+
+.nota-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-control-lg);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  pointer-events: auto;
+
+  &.is-error { background: var(--danger-soft); color: var(--danger-text); border-color: transparent; }
+  &.is-success { background: var(--brand-soft); color: var(--brand-strong-text); border-color: transparent; }
+}
+
+.nota-toast__text { flex: 1 1 auto; line-height: 1.6; }
+
+.nota-toast__close {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* ---------- permission-locked action ---------- */
+.nota-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: var(--radius-control);
+  background: var(--neutral-soft);
+  color: var(--neutral-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.nota-locked__icon { flex: none; }
+.nota-locked__label { font-weight: 700; }
+
+/* ---------- sidebar user card ---------- */
+.nota-user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--sidebar-hover);
+  color: var(--sidebar-text);
+}
+
+.nota-user-card__avatar {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-brand);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.nota-user-card__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: normal; /* .nota-nav__label is single-line; the meta line may wrap */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nota-user-card__name {
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nota-user-card__meta { font-size: 12px; line-height: 1.5; color: var(--sidebar-group); white-space: normal; }
+
+.nota-user-card__link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sidebar-text);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.nota-user-card__logout {
+  flex: none;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--sidebar-text);
+  cursor: pointer;
+
+  &:hover { background: var(--sidebar-hover); }
+  &:focus-visible { outline: 2px solid var(--sidebar-focus); outline-offset: 1px; }
+}
+
+.nota-sidebar.is-rail .nota-user-card {
+  flex-direction: column;
+  padding: 6px 0;
+  background: transparent;
+}
+
+/* ---------- users page dialogs ---------- */
+.p-dialog.nota-p-dialog.uf-dialog {
+  width: min(880px, calc(100vw - 32px));
+  max-width: 880px;
+
+  .nota-dialog__body {
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+  }
+}

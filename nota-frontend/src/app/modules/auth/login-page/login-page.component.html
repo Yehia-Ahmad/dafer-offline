@@ -1,0 +1,190 @@
+<!-- Stage 14: Login.dc.html. Brand panel + one form at a time (sign in, first run, recover, recovery code). -->
+@if (view() === 'code') {
+  <nota-recovery-code [code]="issuedCode()" [kind]="issuedKind()" [shopName]="shopName() || brand()" (continued)="goIn()" />
+} @else {
+  <section class="nota-auth__brand" aria-hidden="false">
+    <div class="nota-auth__brand-top">
+      @if (logoSrc()) {
+        <img class="nota-auth__shop-logo" [src]="logoSrc()" [alt]="shopName()" />
+      } @else {
+        <svg class="nota-auth__mark" width="56" height="56" viewBox="0 0 100 100" aria-hidden="true">
+          <rect width="100" height="100" rx="24" class="nota-auth__mark-tile"></rect>
+          <path d="M25 42 C25 80 75 80 75 42" fill="none" class="nota-auth__mark-noon" stroke-width="12" stroke-linecap="round"></path>
+          <circle cx="50" cy="25" r="8.5" class="nota-auth__mark-coin"></circle>
+        </svg>
+      }
+      <span class="nota-auth__wordmark" [class.is-latin]="language() !== 'ar'">{{ shopName() || brand() }}</span>
+    </div>
+    <div class="nota-auth__brand-copy">
+      <h1 class="nota-auth__headline">{{ 'auth.brand.headline' | translate }}</h1>
+      <p class="nota-auth__tagline">{{ 'auth.brand.tagline' | translate }}</p>
+    </div>
+    @if (runtime) {
+      <div class="nota-auth__device">
+        <span class="nota-auth__dot" aria-hidden="true"></span>
+        <span>
+          @if (runtime.role === 'main') {
+            {{ 'auth.device.main' | translate }}
+          } @else {
+            {{ 'auth.device.client' | translate }}@if (serverAddress) { · <span dir="ltr">{{ serverAddress }}</span> }
+          }
+        </span>
+      </div>
+    }
+  </section>
+
+  <section class="nota-auth__panel">
+    <div class="nota-auth__toggles">
+      <div class="nota-auth__segmented" role="group" [attr.aria-label]="'nav.language' | translate">
+        <button type="button" lang="ar" [class.is-on]="language() === 'ar'" [attr.aria-pressed]="language() === 'ar'" (click)="setLanguage('ar')">عربي</button>
+        <button type="button" lang="en" [class.is-on]="language() === 'en'" [attr.aria-pressed]="language() === 'en'" (click)="setLanguage('en')">English</button>
+      </div>
+      <button type="button" notaButton [icon]="true" (click)="toggleTheme()" [attr.aria-pressed]="isDark()"
+        [attr.aria-label]="('nav.theme' | translate) + ': ' + ((isDark() ? 'nav.themeDark' : 'nav.themeLight') | translate)"
+        [title]="('nav.theme' | translate) + ': ' + ((isDark() ? 'nav.themeDark' : 'nav.themeLight') | translate)">
+        @if (isDark()) {
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+        } @else {
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" /></svg>
+        }
+      </button>
+    </div>
+
+    @switch (view()) {
+      @case ('loading') {
+        <p class="nota-auth__status" role="status">{{ 'auth.loading' | translate }}</p>
+      }
+
+      @case ('unreachable') {
+        <div class="nota-auth__form">
+          <h2 class="nota-auth__title">{{ 'auth.unreachable.title' | translate }}</h2>
+          <p class="nota-auth__lead">{{ 'auth.unreachable.text' | translate }}</p>
+          <button type="button" notaButton="primary" class="nota-btn--lg" (click)="loadBootstrap()">{{ 'auth.retry' | translate }}</button>
+        </div>
+      }
+
+      @case ('login') {
+        <form class="nota-auth__form" data-form="login" (ngSubmit)="login()" novalidate>
+          <div class="nota-auth__heading">
+            <h2 class="nota-auth__title">{{ 'auth.login.title' | translate }}</h2>
+            <p class="nota-auth__lead">{{ 'auth.login.lead' | translate }}</p>
+          </div>
+          @if (expired && !error()) {
+            <p class="nota-auth__notice" role="status">{{ 'auth.sessionExpired' | translate }}</p>
+          }
+          <nota-form-field [label]="'auth.fields.username' | translate" forId="loginUser" [error]="fieldErrors()['username'] | translate">
+            <input #firstInput id="loginUser" name="username" type="text" class="nota-input nota-auth__input" dir="ltr" autocomplete="username"
+              autocapitalize="off" spellcheck="false" [ngModel]="username()" (ngModelChange)="username.set($event)" />
+          </nota-form-field>
+          <nota-form-field [label]="'auth.fields.password' | translate" forId="loginPass" [error]="fieldErrors()['password'] | translate">
+            <div class="nota-auth__pass">
+              <input id="loginPass" name="password" [type]="showPassword() ? 'text' : 'password'" class="nota-input nota-auth__input"
+                autocomplete="current-password" [ngModel]="password()" (ngModelChange)="password.set($event)" />
+              <button type="button" class="nota-auth__eye" data-action="toggle-password" (click)="showPassword.set(!showPassword())"
+                [attr.aria-pressed]="showPassword()" [attr.aria-label]="(showPassword() ? 'auth.hidePassword' : 'auth.showPassword') | translate"
+                [title]="(showPassword() ? 'auth.hidePassword' : 'auth.showPassword') | translate">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  @if (showPassword()) {
+                    <path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A9.8 9.8 0 0 1 12 5c5 0 9 4.5 10 7a12.6 12.6 0 0 1-3.2 4.2M6.6 6.6C4.4 8 2.8 10.1 2 12c1 2.5 5 7 10 7a9.6 9.6 0 0 0 5.4-1.6" />
+                  } @else {
+                    <path d="M2 12c1-2.5 5-7 10-7s9 4.5 10 7c-1 2.5-5 7-10 7S3 14.5 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+                  }
+                </svg>
+              </button>
+            </div>
+          </nota-form-field>
+          @if (error()) {
+            <p class="nota-error nota-auth__error" role="alert">{{ error() }}</p>
+          }
+          <button type="submit" notaButton="primary" class="nota-btn--lg" data-action="login" [disabled]="busy()">{{ 'auth.login.submit' | translate }}</button>
+          <div class="nota-auth__help">
+            <button type="button" class="nota-auth__link" data-action="forgot" (click)="openRecover()">{{ 'auth.login.forgot' | translate }}</button>
+            <span class="nota-auth__help-text">{{ 'auth.login.forgotHelp' | translate }}</span>
+          </div>
+        </form>
+      }
+
+      @case ('setup') {
+        <form class="nota-auth__form" data-form="setup" (ngSubmit)="setupOwner()" novalidate>
+          <div class="nota-auth__heading">
+            <h2 class="nota-auth__title">{{ 'auth.setup.title' | translate }}</h2>
+            <p class="nota-auth__lead">{{ 'auth.setup.lead' | translate }}</p>
+          </div>
+          <nota-form-field [label]="'auth.fields.name' | translate" forId="ownerName" [required]="true" [error]="fieldErrors()['name'] | translate">
+            <input #firstInput id="ownerName" name="name" type="text" class="nota-input nota-auth__input" autocomplete="name"
+              [ngModel]="ownerName()" (ngModelChange)="ownerName.set($event)" />
+          </nota-form-field>
+          <nota-form-field [label]="'auth.fields.username' | translate" forId="ownerUser" [required]="true"
+            [hint]="'auth.validation.usernameHint' | translate" [error]="fieldErrors()['username'] | translate">
+            <input id="ownerUser" name="username" type="text" class="nota-input nota-auth__input" dir="ltr" autocomplete="username"
+              autocapitalize="off" spellcheck="false" [ngModel]="username()" (ngModelChange)="username.set($event)" />
+          </nota-form-field>
+          <nota-form-field [label]="'auth.fields.password' | translate" forId="ownerPass" [required]="true"
+            [hint]="'auth.validation.passwordHint' | translate" [error]="fieldErrors()['password'] | translate">
+            <input id="ownerPass" name="password" type="password" class="nota-input nota-auth__input" autocomplete="new-password"
+              [ngModel]="password()" (ngModelChange)="password.set($event)" />
+          </nota-form-field>
+          <nota-form-field [label]="'auth.fields.confirm' | translate" forId="ownerConfirm" [required]="true" [error]="fieldErrors()['confirm'] | translate">
+            <input id="ownerConfirm" name="confirm" type="password" class="nota-input nota-auth__input" autocomplete="new-password"
+              [ngModel]="confirmPassword()" (ngModelChange)="confirmPassword.set($event)" />
+          </nota-form-field>
+          @if (error()) {
+            <p class="nota-error nota-auth__error" role="alert">{{ error() }}</p>
+          }
+          <button type="submit" notaButton="primary" class="nota-btn--lg" data-action="setup-owner" [disabled]="busy()">{{ 'auth.setup.submit' | translate }}</button>
+        </form>
+      }
+
+      @case ('noOwnerClient') {
+        <div class="nota-auth__form" data-form="no-owner-client">
+          <h2 class="nota-auth__title">{{ 'auth.noOwnerClient.title' | translate }}</h2>
+          <p class="nota-auth__lead">{{ 'auth.noOwnerClient.text' | translate }}</p>
+          @if (error()) {
+            <p class="nota-error nota-auth__error" role="alert">{{ error() }}</p>
+          }
+          <button type="button" notaButton="primary" class="nota-btn--lg" data-action="retry" (click)="loadBootstrap()">{{ 'auth.retry' | translate }}</button>
+        </div>
+      }
+
+      @case ('recover') {
+        <form class="nota-auth__form" data-form="recover" (ngSubmit)="recover()" novalidate>
+          <div class="nota-auth__heading">
+            <h2 class="nota-auth__title">{{ 'auth.recover.title' | translate }}</h2>
+            <p class="nota-auth__lead">{{ 'auth.recover.lead' | translate }}</p>
+          </div>
+          <nota-form-field [label]="'auth.fields.username' | translate" forId="recUser" [required]="true" [error]="fieldErrors()['username'] | translate">
+            <input #firstInput id="recUser" name="username" type="text" class="nota-input nota-auth__input" dir="ltr" autocomplete="username"
+              autocapitalize="off" spellcheck="false" [ngModel]="username()" (ngModelChange)="username.set($event)" />
+          </nota-form-field>
+          <nota-form-field [label]="'auth.fields.recoveryCode' | translate" forId="recCode" [required]="true"
+            [hint]="'auth.recover.codeHint' | translate" [error]="fieldErrors()['code'] | translate">
+            <input id="recCode" name="code" type="text" class="nota-input nota-auth__input nota-auth__code-input" dir="ltr" autocomplete="off"
+              autocapitalize="characters" spellcheck="false" [ngModel]="recoveryCode()" (ngModelChange)="recoveryCode.set($event)" />
+          </nota-form-field>
+          <nota-form-field [label]="'auth.fields.newPassword' | translate" forId="recPass" [required]="true"
+            [hint]="'auth.validation.passwordHint' | translate" [error]="fieldErrors()['password'] | translate">
+            <input id="recPass" name="password" type="password" class="nota-input nota-auth__input" autocomplete="new-password"
+              [ngModel]="password()" (ngModelChange)="password.set($event)" />
+          </nota-form-field>
+          <nota-form-field [label]="'auth.fields.confirm' | translate" forId="recConfirm" [required]="true" [error]="fieldErrors()['confirm'] | translate">
+            <input id="recConfirm" name="confirm" type="password" class="nota-input nota-auth__input" autocomplete="new-password"
+              [ngModel]="confirmPassword()" (ngModelChange)="confirmPassword.set($event)" />
+          </nota-form-field>
+          @if (error()) {
+            <p class="nota-error nota-auth__error" role="alert">{{ error() }}</p>
+          }
+          <button type="submit" notaButton="primary" class="nota-btn--lg" data-action="recover" [disabled]="busy()">{{ 'auth.recover.submit' | translate }}</button>
+          <button type="button" class="nota-auth__link" data-action="back-to-login" (click)="show('login')">{{ 'auth.backToLogin' | translate }}</button>
+        </form>
+      }
+
+      @case ('recoverClient') {
+        <div class="nota-auth__form" data-form="recover-client">
+          <h2 class="nota-auth__title">{{ 'auth.recover.title' | translate }}</h2>
+          <p class="nota-auth__lead">{{ 'auth.recover.clientText' | translate }}</p>
+          <button type="button" notaButton="primary" class="nota-btn--lg" data-action="back-to-login" (click)="show('login')">{{ 'auth.backToLogin' | translate }}</button>
+        </div>
+      }
+    }
+  </section>
+}

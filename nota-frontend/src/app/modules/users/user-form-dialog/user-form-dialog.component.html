@@ -1,0 +1,107 @@
+<p-dialog [visible]="open()" (visibleChange)="open.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
+  [draggable]="false" [resizable]="false" styleClass="nota-p-dialog uf-dialog">
+  <nota-dialog-shell [title]="(isNew() ? 'users.form.newTitle' : 'users.form.editTitle') | translate" [closeLabel]="'auth.close' | translate" (closed)="close()">
+    @if (confirming()) {
+      <div class="uf__confirm" role="alertdialog" aria-live="assertive" data-testid="logout-confirm">
+        <p class="uf__confirm-title">{{ 'users.form.confirmAccessTitle' | translate: { name: name() } }}</p>
+        <p class="uf__confirm-note">{{ 'users.logoutEverywhere' | translate }}</p>
+      </div>
+    } @else {
+      <form class="uf" (ngSubmit)="submit()" novalidate>
+        <div class="uf__grid">
+          <nota-form-field [label]="'auth.fields.name' | translate" forId="ufName" [required]="true" [error]="errors().name">
+            <input id="ufName" name="name" type="text" class="nota-input" [ngModel]="name()" (ngModelChange)="name.set($event)" />
+          </nota-form-field>
+          @if (isNew()) {
+            <nota-form-field [label]="'auth.fields.username' | translate" forId="ufUser" [required]="true"
+              [hint]="'auth.validation.usernameHint' | translate" [error]="errors().username">
+              <input id="ufUser" name="username" type="text" class="nota-input" dir="ltr" autocomplete="off" autocapitalize="off" spellcheck="false"
+                [ngModel]="username()" (ngModelChange)="username.set($event)" />
+            </nota-form-field>
+            <nota-form-field [label]="'auth.fields.password' | translate" forId="ufPass" [required]="true"
+              [hint]="'auth.validation.passwordHint' | translate" [error]="errors().password">
+              <input id="ufPass" name="password" type="password" class="nota-input" autocomplete="new-password"
+                [ngModel]="password()" (ngModelChange)="password.set($event)" />
+            </nota-form-field>
+            <nota-form-field [label]="'auth.fields.confirm' | translate" forId="ufConfirm" [required]="true" [error]="errors().confirm">
+              <input id="ufConfirm" name="confirm" type="password" class="nota-input" autocomplete="new-password"
+                [ngModel]="confirm()" (ngModelChange)="confirm.set($event)" />
+            </nota-form-field>
+          } @else {
+            <nota-form-field [label]="'auth.fields.username' | translate" [hint]="'users.form.usernameFixed' | translate">
+              <span class="uf__readonly" dir="ltr">{{ username() }}</span>
+            </nota-form-field>
+          }
+        </div>
+
+        <fieldset class="uf__roles" [class.is-invalid]="!!errors().role">
+          <legend class="uf__legend">{{ 'users.form.role' | translate }}</legend>
+          @if (isOwnerRow()) {
+            <p class="nota-hint">{{ 'users.form.ownerFixed' | translate }}</p>
+          } @else {
+            <div class="uf__role-list">
+              @for (option of roles; track option) {
+                <label class="uf__role" [class.is-on]="role() === option">
+                  <span class="uf__role-head">
+                    <input type="radio" name="role" [value]="option" [checked]="role() === option" (change)="chooseRole(option)" [attr.data-role]="option" />
+                    {{ roleLabel(option) }}
+                  </span>
+                  <span class="nota-hint">{{ 'users.form.roleHints.' + option | translate }}</span>
+                </label>
+              }
+            </div>
+            <span class="nota-hint">{{ 'users.form.roleTemplateHint' | translate }}</span>
+          }
+          @if (errors().role) {
+            <p class="nota-error" role="alert">{{ errors().role }}</p>
+          }
+        </fieldset>
+
+        <section class="uf__perms" [attr.aria-label]="'users.form.permissions' | translate">
+          <div class="uf__perms-head">
+            <h3 class="uf__legend">{{ 'users.form.permissions' | translate }}</h3>
+            @if (edited() && !isOwnerRow()) {
+              <span class="nota-pill nota-pill--due" data-testid="edited-badge">{{ 'users.customized' | translate }}</span>
+              <button type="button" notaButton data-action="revert-template" (click)="revertToTemplate()">{{ 'users.form.revert' | translate }}</button>
+            }
+          </div>
+          @if (hasUnheld() && !isOwnerRow()) {
+            <p class="nota-hint" data-testid="unheld-note">{{ 'users.form.unheldNote' | translate }}</p>
+          }
+          <div class="uf__groups">
+            @for (group of groups(); track group.key) {
+              <fieldset class="uf__group">
+                <legend class="uf__group-title">{{ group.label }}</legend>
+                @for (item of group.items; track item.key) {
+                  <label class="uf__perm" [class.is-disabled]="!item.held || isOwnerRow()" [class.is-refused]="refusedKeys().includes(item.key)">
+                    <input type="checkbox" [attr.data-perm]="item.key" [checked]="isChecked(item.key)"
+                      [disabled]="!item.held || isOwnerRow()" (change)="toggle(item.key, $any($event.target).checked)" />
+                    <span>{{ item.label }}</span>
+                  </label>
+                }
+              </fieldset>
+            }
+          </div>
+          @if (errors().permissions) {
+            <p class="nota-error" role="alert" data-testid="permissions-error">{{ errors().permissions }}</p>
+          }
+        </section>
+        @if (errors().general) {
+          <p class="nota-error" role="alert">{{ errors().general }}</p>
+        }
+        <button type="submit" hidden></button>
+      </form>
+    }
+    <ng-container notaDialogFooter>
+      @if (confirming()) {
+        <button type="button" notaButton (click)="confirming.set(false)" [disabled]="saving()">{{ 'auth.back' | translate }}</button>
+        <button type="button" notaButton="primary" data-action="confirm-save" (click)="submit()" [disabled]="saving()">{{ 'users.form.confirmSave' | translate }}</button>
+      } @else {
+        <button type="button" notaButton (click)="close()" [disabled]="saving()">{{ 'auth.cancel' | translate }}</button>
+        <button type="button" notaButton="primary" data-action="save-user" (click)="submit()" [disabled]="saving()">
+          {{ (isNew() ? 'users.form.create' : 'users.form.save') | translate }}
+        </button>
+      }
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>

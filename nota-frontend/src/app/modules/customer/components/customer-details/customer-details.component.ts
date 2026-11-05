@@ -39,6 +39,8 @@ import {
   CustomersService
 } from '../../services/customers.service';
 import { brandName } from '../../../../core/brand';
+import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 
 /** Stage 10: one credit invoice, normalized by the shared credit-sale view util (same rules as before). */
 type CustomerHistoryView = CreditSaleView;
@@ -53,7 +55,7 @@ type CustomerDetailsView = CustomerDetails & {
 @Component({
   selector: 'app-customer-details',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
+  imports: [LockedActionComponent, NotaCanDirective, CommonModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
     NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
   templateUrl: './customer-details.component.html',
   styleUrl: './customer-details.component.scss'

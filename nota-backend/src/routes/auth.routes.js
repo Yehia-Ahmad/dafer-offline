@@ -1,6 +1,6 @@
 const express = require("express");
 const { createAuthController } = require("../controllers/auth.controller");
-const { publicRoute, requireLogin } = require("../auth/middleware");
+const { localOnly, publicRoute, requireLogin } = require("../auth/middleware");
 
 // Stage 13: /api/auth. Mounted only when NOTA_AUTH=1. `now` is for tests (lockout expiry).
 function createAuthRouter({ secret, now } = {}) {
@@ -8,9 +8,10 @@ function createAuthRouter({ secret, now } = {}) {
   const router = express.Router();
 
   router.get("/bootstrap", publicRoute(), controller.bootstrap);
-  router.post("/setup-owner", publicRoute(), controller.setupOwner);
+  // Stage 14: only from the main PC itself (a client PC must not claim the owner or recover it).
+  router.post("/setup-owner", publicRoute(), localOnly(), controller.setupOwner);
   router.post("/login", publicRoute(), controller.login);
-  router.post("/recover", publicRoute(), controller.recover);
+  router.post("/recover", publicRoute(), localOnly(), controller.recover);
 
   router.get("/me", requireLogin(), controller.me);
   router.post("/change-password", requireLogin(), controller.changePassword);

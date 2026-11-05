@@ -9,10 +9,11 @@ import { ThemeService } from './modules/shared/services/theme.service';
 import { ConnectionOverlayComponent } from './offline/connection-overlay.component';
 import { VersionNoticeComponent } from './offline/version-notice.component';
 import { SideNavComponent } from './modules/layout/components/side-nav/side-nav.component';
+import { ToastsComponent } from './core/auth/toasts.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, SideNavComponent, ConnectionOverlayComponent, VersionNoticeComponent],
+  imports: [RouterOutlet, SideNavComponent, ConnectionOverlayComponent, VersionNoticeComponent, ToastsComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })

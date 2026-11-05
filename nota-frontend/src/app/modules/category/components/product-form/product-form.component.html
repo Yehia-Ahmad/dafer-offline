@@ -17,7 +17,7 @@
         </button>
       } @else {
         <button type="button" notaButton="danger" data-action="delete-product" (click)="showDeleteDialog()">{{ 'category.deleteProduct.title' | translate }}</button>
-        <button type="button" notaButton data-action="sync-purchase-price" (click)="showSyncDialog()">{{ 'category.editProduct.actions.syncPurchasePrice' | translate }}</button>
+        <button *notaCan="['products.syncPrice', 'products.viewCost']" type="button" notaButton data-action="sync-purchase-price" (click)="showSyncDialog()">{{ 'category.editProduct.actions.syncPurchasePrice' | translate }}</button>
         <button type="button" notaButton="primary" data-action="save-product" [disabled]="loading" (click)="updateProduct()">
           {{ !isLoading ? ('category.editProduct.actions.save' | translate) : ('actions.loading' | translate) }}
         </button>
@@ -67,6 +67,7 @@
         <h2 class="pf__title">{{ 'productForm.prices' | translate }}</h2>
         @if (mode === 'new') {
           <div class="pf__grid pf__grid--sm" [formGroup]="addProductForm">
+            <!-- New products need products.viewCost (route guard + backend), so the purchase price is always here. -->
             <nota-form-field [label]="'category.addProduct.purchasePrice' | translate" forId="pf-purchase">
               <input id="pf-purchase" type="text" inputmode="decimal" class="nota-input pf__num" formControlName="purchasePrice" />
             </nota-form-field>
@@ -84,7 +85,7 @@
           </div>
         } @else {
           <div class="pf__grid pf__grid--sm">
-            <nota-form-field [label]="'category.editProduct.purchasePrice' | translate" forId="purchasePrice">
+            <nota-form-field *notaCan="'products.viewCost'" [label]="'category.editProduct.purchasePrice' | translate" forId="purchasePrice">
               <input id="purchasePrice" type="text" inputmode="decimal" class="nota-input pf__num" [(ngModel)]="product.purchasePrice" [ngModelOptions]="{ standalone: true }" />
             </nota-form-field>
             <nota-form-field [label]="'category.editProduct.retailPrice' | translate" forId="retailPrice">
@@ -99,7 +100,8 @@
             </nota-form-field>
           </div>
         }
-        <div class="pf__hints">
+        <!-- Profit hints and the below-cost hint: only with products.viewCost (no client cost hint otherwise). -->
+        <div *notaCan="'products.viewCost'" class="pf__hints">
           @if (profitHint(prices.retail, prices.purchase); as hint) {
             <span class="pf__hint" [class.is-bad]="hint.amount < 0">{{ 'productForm.retailProfit' | translate: { amount: (hint.amount | notaMoney), percent: (hint.percent | notaNumber) } }}</span>
           }
@@ -107,7 +109,7 @@
             <span class="pf__hint" [class.is-bad]="hint.amount < 0">{{ 'productForm.wholesaleProfit' | translate: { amount: (hint.amount | notaMoney), percent: (hint.percent | notaNumber) } }}</span>
           }
         </div>
-        <span class="nota-hint">{{ 'productForm.belowPurchaseHint' | translate }}</span>
+        <span *notaCan="'products.viewCost'" class="nota-hint">{{ 'productForm.belowPurchaseHint' | translate }}</span>
       </section>
 
       <!-- Category specifications -->

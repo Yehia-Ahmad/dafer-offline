@@ -6,6 +6,7 @@ import {
   DestroyRef,
   Inject,
   Injectable,
+  inject,
   OnInit,
   PLATFORM_ID
 } from '@angular/core';
@@ -40,6 +41,8 @@ import {
   ReturnType
 } from '../../models/returns.model';
 import { ReturnsService } from '../../services/returns.service';
+import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { AuthService } from '../../../../core/auth/auth.service';
 
 type FilterFormValue = {
   returnType: ReturnType | '';
@@ -131,7 +134,7 @@ class ReturnsPaginatorIntl extends MatPaginatorIntl {
 @Component({
   selector: 'app-returns',
   standalone: true,
-  imports: [
+  imports: [NotaCanDirective, 
     CommonModule,
     TranslatePipe,
     ReactiveFormsModule,
@@ -154,6 +157,7 @@ class ReturnsPaginatorIntl extends MatPaginatorIntl {
   providers: [{ provide: MatPaginatorIntl, useClass: ReturnsPaginatorIntl }]
 })
 export class ReturnsComponent implements OnInit {
+  private readonly _auth = inject(AuthService);
   readonly pageSizeOptions = [10, 25, 50, 100];
   readonly filtersForm;
   /** Details dialog (p-dialog + dialog shell since Stage 10; same GET returns/:id). */
@@ -221,7 +225,13 @@ export class ReturnsComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.loadReturns();
+    // Stage 14: the log needs returns.view; a user who may only record returns (the cashier
+    // template) opens straight on the new-return wizard and never requests the log.
+    if (this._auth.has('returns.view')) {
+      this.loadReturns();
+    } else {
+      this.openWizard();
+    }
   }
 
   search(): void {
@@ -512,9 +522,11 @@ export class ReturnsComponent implements OnInit {
       next: () => {
         this.wizardSaving = false;
         this.snackBar.open(this.translate.instant('returnsPage.s10.wizard.saved'), undefined, { duration: 3000 });
-        this.view = 'log';
         this.resetWizard();
-        this.loadReturns();
+        if (this._auth.has('returns.view')) {
+          this.view = 'log';
+          this.loadReturns();
+        }
       },
       error: (error) => {
         this.wizardSaving = false;

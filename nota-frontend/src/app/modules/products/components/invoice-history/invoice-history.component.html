@@ -90,6 +90,7 @@
           <div>
             <h2 class="ih__detail-title nota-num" dir="ltr">{{ selling.invoiceNumber }}</h2>
             <span class="ih__muted nota-num">{{ selling.sellingDate ? (selling.sellingDate | date: 'yyyy-MM-dd HH:mm') : '-' }}</span>
+            @if (selling.createdByName) {<span class="ih__muted ih__created-by" data-testid="created-by">{{ 'auth.createdBy' | translate: { name: selling.createdByName } }}</span>}
           </div>
           <span [class]="statusPill(selling)">{{ ('invoiceHistoryPage.s10.refund.' + (selling.refundStatus || 'none')) | translate }}</span>
         </div>
@@ -127,16 +128,18 @@
             [disabled]="isDeletingSelling(selling.id) || isReturningSelling(selling.id) || isDownloadingInvoice(selling.id)">
             {{ (isDownloadingInvoice(selling.id) ? 'actions.loading' : 'invoiceHistoryPage.s10.print') | translate }}
           </button>
-          <button type="button" notaButton (click)="openReturnDialog(selling)"
+          <button *notaCan="'returns.create'" type="button" notaButton (click)="openReturnDialog(selling)"
             [disabled]="!canReturnSelling(selling) || isDeletingSelling(selling.id) || isReturningSelling(selling.id) || isDownloadingInvoice(selling.id)">
             {{ (isReturningSelling(selling.id) ? 'actions.loading' : 'invoiceHistoryPage.actions.createReturn') | translate }}
           </button>
-          <button type="button" notaButton="danger" class="ih__delete" (click)="openDeleteDialog(selling)"
+          <!-- Stage 14: delete needs sales.delete; without it the permission-locked pattern shows instead. -->
+          <button *notaCan="'sales.delete'; else ihDeleteLocked" type="button" notaButton="danger" class="ih__delete" (click)="openDeleteDialog(selling)"
             [disabled]="isDeletingSelling(selling.id) || isReturningSelling(selling.id) || isDownloadingInvoice(selling.id)">
             {{ (isDeletingSelling(selling.id) ? 'actions.loading' : 'delete') | translate }}
           </button>
+          <ng-template #ihDeleteLocked><nota-locked-action class="ih__delete" data-testid="delete-locked" note="auth.locked.delete" /></ng-template>
         </div>
-        <p class="ih__muted ih__note">{{ 'invoiceHistoryPage.messages.deleteInventoryWarning' | translate }}</p>
+        <p *notaCan="'sales.delete'" class="ih__muted ih__note">{{ 'invoiceHistoryPage.messages.deleteInventoryWarning' | translate }}</p>
       } @else {
         <p class="ih__empty">{{ 'invoiceHistoryPage.s10.pick' | translate }}</p>
       }

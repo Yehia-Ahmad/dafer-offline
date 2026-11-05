@@ -2,6 +2,9 @@
 <input #categoryImportInput type="file" hidden
   accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
   (change)="onCategoryImportSelected($event)" />
+<!-- Stage 14: import (and its template) need products.importExport + categories.manage; exports need
+     products.importExport + products.viewCost (they carry purchase prices). -->
+<ng-container *notaCan="['products.importExport', 'categories.manage']">
 <button type="button" notaButton data-action="import-categories" (click)="categoryImportInput.click()"
   [disabled]="isImportingCategories()">
   @if (isImportingCategories()) {
@@ -9,8 +12,9 @@
   }
   {{ (isImportingCategories() ? 'category.importExport.importing' : 'category.importExport.import') | translate }}
 </button>
+</ng-container>
 
-<button type="button" notaButton data-action="export-categories" (click)="exportCategories()"
+<button *notaCan="['products.importExport', 'products.viewCost']" type="button" notaButton data-action="export-categories" (click)="exportCategories()"
   [disabled]="isExportingCategories()">
   @if (isExportingCategories()) {
     <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
@@ -18,7 +22,7 @@
   {{ (isExportingCategories() ? 'category.importExport.exporting' : 'category.importExport.export') | translate }}
 </button>
 
-<button type="button" notaButton data-action="category-template" (click)="downloadCategoriesTemplate()"
+<button *notaCan="['products.importExport', 'categories.manage']" type="button" notaButton data-action="category-template" (click)="downloadCategoriesTemplate()"
   [disabled]="isGeneratingCategoryTemplate()">
   @if (isGeneratingCategoryTemplate()) {
     <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
@@ -27,7 +31,7 @@
 </button>
 
 @if (hasProducts()) {
-  <button type="button" notaButton data-action="export-products" (click)="exportProductsExcel()"
+  <button *notaCan="['products.importExport', 'products.viewCost']" type="button" notaButton data-action="export-products" (click)="exportProductsExcel()"
     [disabled]="isExportingProducts()">
     @if (isExportingProducts()) {
       <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>

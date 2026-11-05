@@ -25,6 +25,8 @@ import {
   NotaNumberPipe,
   NotaPageHeaderComponent
 } from '../../../shared/ui';
+import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 
 /** Status pills map to the API `status` values (Reactionary = fully returned). */
 export type CreditListStatusFilter = '' | CreditSaleStatus | 'Reactionary';
@@ -41,7 +43,7 @@ const PAGE_SIZE = 10;
 @Component({
   selector: 'app-credit-sales-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, TranslatePipe, DatePickerModule, InputNumberModule,
+  imports: [LockedActionComponent, NotaCanDirective, CommonModule, FormsModule, ReactiveFormsModule, RouterLink, TranslatePipe, DatePickerModule, InputNumberModule,
     NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
   templateUrl: './credit-sales-list.component.html',
   styleUrl: './credit-sales-list.component.scss'

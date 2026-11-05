@@ -2,7 +2,7 @@
 <div class="cl">
   <nota-page-header [title]="'creditSalePage.title' | translate" [subtitle]="'creditSalePage.list.subtitle' | translate">
     <div notaPageActions>
-      <a notaButton="primary" routerLink="/credit-sales/new">+ {{ 'creditSalePage.list.new' | translate }}</a>
+      <a *notaCan="'credit.create'" notaButton="primary" routerLink="/credit-sales/new">+ {{ 'creditSalePage.list.new' | translate }}</a>
     </div>
   </nota-page-header>
 
@@ -63,7 +63,7 @@
                   <td><span [class]="statusPill(row)">{{ statusKey(row) | translate }}</span></td>
                   <td>
                     @if (canPay(row)) {
-                      <button type="button" notaButton (click)="select(row); $event.stopPropagation()">{{ 'creditSalePage.list.pay' | translate }}</button>
+                      <button *notaCan="'credit.collect'" type="button" notaButton (click)="select(row); $event.stopPropagation()">{{ 'creditSalePage.list.pay' | translate }}</button>
                     }
                   </td>
                 </tr>
@@ -91,6 +91,7 @@
           <span class="cl__muted">{{ 'creditSalePage.list.panelTitle' | translate }}</span>
           <h2 class="cl__panel-title"><span class="nota-num" dir="ltr">{{ shortRef(invoice.invoiceId) }}</span> · <span dir="auto">{{ invoice.customerName }}</span></h2>
           <span [class]="statusPill(invoice)">{{ statusKey(invoice) | translate }}</span>
+          @if (invoice.createdByName) {<span class="cl__muted cl__created-by" data-testid="created-by">{{ 'auth.createdBy' | translate: { name: invoice.createdByName } }}</span>}
         </div>
         <div class="cl__figures">
           <div><span>{{ 'creditSalePage.list.total' | translate }}</span><strong class="nota-num">{{ invoice.totalPrice | notaMoney }}</strong></div>
@@ -99,7 +100,9 @@
         </div>
 
         @if (canPay(invoice)) {
-          <form [formGroup]="paymentForm" class="cl__form" (ngSubmit)="savePayment()" novalidate>
+          <!-- Stage 14: collecting needs credit.collect; otherwise the permission-locked pattern. -->
+          <ng-template #collectLocked><nota-locked-action data-testid="collect-locked" /></ng-template>
+          <form *notaCan="'credit.collect'; else collectLocked" [formGroup]="paymentForm" class="cl__form" (ngSubmit)="savePayment()" novalidate>
             <nota-form-field [label]="'customerDetailsPage.paymentDialog.amount' | translate" forId="clAmount" [required]="true"
               [error]="paymentForm.get('amount')?.invalid && (paymentForm.get('amount')?.touched || paymentSubmitAttempted) ? ('customerDetailsPage.paymentDialog.amountRequired' | translate) : null">
               <p-inputNumber inputId="clAmount" formControlName="amount" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cl__control" inputStyleClass="cl__num-input" />

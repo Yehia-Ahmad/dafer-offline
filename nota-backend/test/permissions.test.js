@@ -115,7 +115,7 @@ const EXPECTED_ROUTES = {
   "DELETE /api/customers/:id": "customers.manage",
   "GET /api/dashboard/summary": "dashboard.view",
   "GET /api/products": "products.view",
-  "POST /api/products": "products.manage",
+  "POST /api/products": "products.manage + products.viewCost",
   "GET /api/products/search": "products.view",
   "GET /api/products/export/excel": "products.importExport + products.viewCost",
   "GET /api/products/profit-report": "reports.profit + products.viewCost",

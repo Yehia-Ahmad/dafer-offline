@@ -6,7 +6,7 @@
         <button type="button" notaButton [disabled]="isExporting || returns.length === 0 || isLoading" (click)="exportToExcel()">
           {{ (isExporting ? 'returnsPage.actions.exporting' : 'returnsPage.actions.export') | translate }}
         </button>
-        <button type="button" notaButton="primary" (click)="openWizard()">+ {{ 'returnsPage.s10.newReturn' | translate }}</button>
+        <button *notaCan="'returns.create'" type="button" notaButton="primary" (click)="openWizard()">+ {{ 'returnsPage.s10.newReturn' | translate }}</button>
       </div>
     </nota-page-header>
 
@@ -90,7 +90,7 @@
     <!-- New-return wizard -->
     <nota-page-header [title]="'returnsPage.s10.newReturn' | translate" [subtitle]="'returnsPage.s10.wizard.subtitle' | translate">
       <div notaPageActions>
-        <button type="button" notaButton (click)="closeWizard()" [disabled]="wizardSaving">{{ 'returnsPage.s10.wizard.backToLog' | translate }}</button>
+        <button *notaCan="'returns.view'" type="button" notaButton (click)="closeWizard()" [disabled]="wizardSaving">{{ 'returnsPage.s10.wizard.backToLog' | translate }}</button>
       </div>
     </nota-page-header>
 

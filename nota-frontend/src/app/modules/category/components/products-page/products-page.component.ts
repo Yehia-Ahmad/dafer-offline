@@ -29,6 +29,8 @@ import {
   NotaPillVariant,
 } from '../../../shared/ui';
 import { CategoryToolsComponent } from '../category-tools/category-tools.component';
+import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { AuthService } from '../../../../core/auth/auth.service';
 
 /** Low stock when inventoryCount <= the product's lowStockThreshold, or this default (same as the backend). */
 export const LOW_STOCK_THRESHOLD = 5;
@@ -50,12 +52,15 @@ export function stockThreshold(product: { lowStockThreshold?: unknown } | null |
   selector: 'app-products-page',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, TranslatePipe, DialogModule, NotaButtonDirective, NotaDialogShellComponent,
-    NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, CategoryToolsComponent],
+    NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, CategoryToolsComponent, NotaCanDirective],
   templateUrl: './products-page.component.html',
   styleUrl: './products-page.component.scss',
 })
 export class ProductsPageComponent implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
+  private readonly _auth = inject(AuthService);
+  /** Table columns: the purchase-price column is there only with products.viewCost. */
+  readonly columnCount = computed(() => (this._auth.has('products.viewCost') ? 8 : 7));
   private readonly _catalog = inject(CatalogStateService);
   private readonly _cateoryService = inject(CateoryService);
   private readonly _activatedRoute = inject(ActivatedRoute);

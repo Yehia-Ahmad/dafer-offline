@@ -5,9 +5,12 @@ import { Router, provideRouter } from '@angular/router';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule } from '@ngx-translate/core';
 
-import { CustomSidenavComponent, deviceLabelKey } from './custom-sidenav.component';
+import { CustomSidenavComponent, deviceLabelKey, userRoleLabelKey } from './custom-sidenav.component';
+import { AuthService } from '../../../core/auth/auth.service';
+import { fakeUser } from '../../../core/auth/testing/auth-fixtures';
 import { LanguageService } from '../../shared/services/translation.service';
 import { ThemeService } from '../../shared/services/theme.service';
+import { signInAs } from '../../../core/auth/testing/sign-in';
 
 describe('CustomSidenavComponent (Nota sidebar)', () => {
   let component: CustomSidenavComponent;
@@ -21,6 +24,8 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
     })
     .compileComponents();
 
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
+
     fixture = TestBed.createComponent(CustomSidenavComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
@@ -28,7 +33,8 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
 
   it('renders the menu from the config with grouped links', () => {
     const hrefs = Array.from(el().querySelectorAll('a.nota-nav__link')).map((a) => a.getAttribute('href'));
-    expect(hrefs).toEqual(['/home', '/selling', '/credit-sales', '/invoice-history', '/returns', '/customers', '/products', '/products/profit-report', '/shop-profile']);
+    // Stage 14 (owner): users and audit under الإدارة.
+    expect(hrefs).toEqual(['/home', '/selling', '/credit-sales', '/invoice-history', '/returns', '/customers', '/products', '/products/profit-report', '/users', '/audit', '/shop-profile']);
     // Stage 11: no category list or tools in the sidebar any more.
     expect(el().querySelector('app-sidebar-categories')).toBeNull();
     // Not the main PC outside the desktop app: no backup link.
@@ -65,5 +71,46 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
     expect(deviceLabelKey('main')).toBe('nav.deviceMain');
     expect(deviceLabelKey('client')).toBe('nav.deviceClient');
     expect(deviceLabelKey(null)).toBeNull();
+  });
+
+  // ---- Stage 14 ----
+
+  it('follows the signed-in user: a cashier sees only sales screens and products', () => {
+    signInAs('cashier');
+    fixture.detectChanges();
+    const hrefs = Array.from(el().querySelectorAll('a.nota-nav__link')).map((a) => a.getAttribute('href'));
+    expect(hrefs).toEqual(['/home', '/selling', '/credit-sales', '/invoice-history', '/returns', '/customers', '/products']);
+    expect(el().textContent).not.toContain('nav.groups.admin');
+  });
+
+  it('user card: name, role label and logout', () => {
+    const card = el().querySelector('.nota-user-card')!;
+    expect(card).not.toBeNull();
+    expect(card.querySelector('.nota-user-card__name')!.textContent).toContain('أحمد');
+    expect(card.querySelector('.nota-user-card__meta')!.textContent).toContain('auth.roles.owner');
+    expect(card.querySelector('.nota-user-card__logout')).not.toBeNull();
+  });
+
+  it('role label: template role, edited template → "صلاحيات مخصصة", custom role → the same', () => {
+    expect(userRoleLabelKey(fakeUser('cashier'))).toBe('auth.roles.cashier');
+    expect(userRoleLabelKey(fakeUser('cashier', { permissionsEdited: true }))).toBe('auth.roles.customized');
+    expect(userRoleLabelKey(fakeUser('custom'))).toBe('auth.roles.customized');
+    expect(userRoleLabelKey(fakeUser('owner', { permissionsEdited: true }))).toBe('auth.roles.owner');
+    expect(userRoleLabelKey(null)).toBe('');
+  });
+
+  it('logout clears the session (no confirmation: there is no unsaved-changes check to reuse) and goes to /login', () => {
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    (el().querySelector('.nota-user-card__logout') as HTMLButtonElement).click();
+    const auth = TestBed.inject(AuthService);
+    expect(auth.token()).toBeNull();
+    expect(auth.user()).toBeNull();
+    expect(navigate).toHaveBeenCalledWith(['/login']);
+  });
+
+  it('"change password" in the user card opens the dialog', () => {
+    (el().querySelector('.nota-user-card__link') as HTMLButtonElement).click();
+    expect(component.changePasswordOpen).toBeTrue();
   });
 });

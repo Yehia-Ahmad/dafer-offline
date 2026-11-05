@@ -6,6 +6,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule } from '@ngx-translate/core';
 import { environment } from '../../../../../environments/environment';
 import { ReturnsComponent } from './returns.component';
+import { signInAs } from '../../../../core/auth/testing/sign-in';
 
 /**
  * Stage 10 new-return wizard: invoice search uses the existing list endpoints, and the POST /returns bodies are
@@ -31,6 +32,7 @@ describe('ReturnsComponent new-return wizard (Stage 10)', () => {
       .compileComponents();
 
     http = TestBed.inject(HttpTestingController);
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     component = TestBed.createComponent(ReturnsComponent).componentInstance;
     component.ngOnInit();
     flushLog();

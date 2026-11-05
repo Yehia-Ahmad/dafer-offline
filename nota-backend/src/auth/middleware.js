@@ -71,6 +71,20 @@ const requireLogin = () =>
     return next(sessionExpired());
   }, AUTHENTICATED);
 
+/**
+ * Stage 14: did this request come from the main PC itself? The desktop app's own window calls the
+ * backend on 127.0.0.1; client PCs use the LAN address. There is no "trust proxy", so req.ip is
+ * the socket address.
+ */
+const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
+const isLoopback = (req) => LOOPBACK_ADDRESSES.has(String(req.ip || ""));
+
+/** Stage 14: 403 LOCAL_ONLY unless the request came over loopback (setup-owner, recover). */
+const localOnly = () => (req, _res, next) =>
+  isLoopback(req)
+    ? next()
+    : next(httpError(403, "LOCAL_ONLY", "العملية دي متاحة على الجهاز الرئيسي بس"));
+
 /** No login (the exempt list in requireAuth). Only a marker for the route-coverage test. */
 const publicRoute = () => tag((_req, _res, next) => next(), PUBLIC);
 
@@ -178,7 +192,9 @@ module.exports = {
   costStrip,
   forbidden,
   httpError,
+  isLoopback,
   isPublicPath,
+  localOnly,
   publicRoute,
   requireAuth,
   requireDiscountPermission,

@@ -7,7 +7,6 @@
 // discovery, shows the admin app, and keeps the server running in the tray.
 // Client PC: shows the admin app against the main PC's backend and watches the connection.
 
-const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -30,6 +29,7 @@ const { ensureLayout, layout, resolveHome, resolveResources } = require('./lib/p
 const { createLogger } = require('./lib/logger');
 const { MONGOD_PORT, SERVER_LOCK_PORT, readConfig, writeConfig } = require('./lib/config-store');
 const { protectSecret, unprotectSecret } = require('./lib/secret-store');
+const { loadJwtSecret } = require('./lib/jwt-secret');
 const { holdPortLock, isPortFree, requestQuit, waitFor } = require('./lib/net-utils');
 const { MongodManager } = require('./lib/mongod-manager');
 const { BackendManager, buildBackendEnv } = require('./lib/backend-manager');
@@ -750,24 +750,29 @@ async function attachToRunningServer() {
   });
 }
 
-// Stage 13: the backend's session-token secret (NOTA_JWT_SECRET), main PC only. Generated on the
-// first start in main-PC mode (32 random bytes, hex) and kept DPAPI-protected in config.json next
-// to the LAN secret, so tokens survive restarts. NOTA_AUTH is not set yet, so a failure here is
-// logged and the backend starts without it; Stage 14 (auth on) must treat it like SECRET_UNREADABLE.
-function loadJwtSecret() {
+// Stage 13/14: the backend's session-token secret (NOTA_JWT_SECRET), main PC only. Stage 14 runs
+// the backend with NOTA_AUTH=1, so a secret that cannot be read or created is fatal, like
+// SECRET_UNREADABLE: the error screen is shown and the backend is not started.
+function readJwtSecret() {
   try {
-    if (state.config.jwtSecretProtected) {
-      return unprotectSecret(state.config.jwtSecretProtected, { purpose: 'jwt' });
-    }
-    const secret = crypto.randomBytes(32).toString('hex');
-    state.config = writeConfig(state.paths.config, {
-      ...state.config,
-      jwtSecretProtected: protectSecret(secret, { purpose: 'jwt' }),
+    const result = loadJwtSecret({
+      config: state.config,
+      configPath: state.paths.config,
+      protectSecret,
+      unprotectSecret,
+      writeConfig,
+      log,
     });
-    log.info('generated the session-token secret');
-    return secret;
+    state.config = result.config;
+    return result.secret;
   } catch (error) {
     log.error(`session-token secret: ${error.message}`);
+    setStatus({
+      state: 'failed',
+      code: 'JWT_SECRET_UNREADABLE',
+      message: 'تعذر قراءة مفتاح تسجيل الدخول على هذا الجهاز، فلم يتم تشغيل الخادم. أعد إعداد البرنامج كجهاز رئيسي، أو اتصل بالدعم الفني.',
+      detail: error.message,
+    });
     return null;
   }
 }
@@ -778,7 +783,8 @@ async function startMainRole() {
     await attachToRunningServer();
     return;
   }
-  const jwtSecret = loadJwtSecret();
+  const jwtSecret = readJwtSecret();
+  if (!jwtSecret) return; // the error screen is showing; never start the backend without it
   const { paths, resources, config } = state;
   checkFirewall();
 

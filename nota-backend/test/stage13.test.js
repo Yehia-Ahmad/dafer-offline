@@ -147,7 +147,7 @@ const skip = { skip: mongodSkipReason };
 test("setup-owner: works once, bootstrap reflects it, a second call is 409 OWNER_EXISTS", skip, async () => {
   const before = await call(on, "GET", "/api/auth/bootstrap");
   assert.equal(before.status, 200);
-  assert.deepEqual(before.json, { hasOwner: false, shop: { name: "", logo: "" } });
+  assert.deepEqual(before.json, { hasOwner: false, isLocal: true, shop: { name: "", logo: "" } });
 
   const created = await setupOwner();
   assert.ok(created.token);
@@ -841,4 +841,99 @@ test("auth off: existing requests behave as before (no token, nothing stripped, 
   assert.equal((await call(off, "GET", "/api/dashboard/summary")).status, 200);
   assert.equal((await call(off, "PUT", "/api/shop-profile", { body: { name: "متجر" } })).status, 200);
   assert.equal(await AuditLog.countDocuments(), 0, "nothing is audited with auth off");
+});
+
+// ---- Stage 14: owner actions only from the main PC itself ---------------------------------
+
+// The whole auth app behind an outer app that overrides req.ip, to simulate a client PC.
+const withIp = async (ip) => {
+  const outer = express();
+  outer.use((req, _res, next) => {
+    Object.defineProperty(req, "ip", { value: ip, configurable: true });
+    next();
+  });
+  outer.use(appOn);
+  return listen(outer);
+};
+const closeTarget = (target) => new Promise((resolve) => target.server.close(resolve));
+
+test("stage 14: setup-owner and recover from loopback work (127.0.0.1, ::1, ::ffff:127.0.0.1)", skip, async () => {
+  for (const ip of ["::1", "::ffff:127.0.0.1"]) {
+    const target = await withIp(ip);
+    try {
+      const response = await call(target, "GET", "/api/auth/bootstrap");
+      assert.equal(response.json.isLocal, true, ip);
+    } finally {
+      await closeTarget(target);
+    }
+  }
+  const owner = await setupOwner(); // real 127.0.0.1
+  const recovered = await call(on, "POST", "/api/auth/recover", {
+    body: { username: OWNER.username, recoveryCode: owner.recoveryCode, newPassword: "recovered-pass" },
+  });
+  assert.equal(recovered.status, 200, recovered.text);
+});
+
+test("stage 14: setup-owner and recover from a non-loopback address get 403 LOCAL_ONLY; bootstrap isLocal is false", skip, async () => {
+  const target = await withIp("192.168.1.20");
+  try {
+    const boot = await call(target, "GET", "/api/auth/bootstrap");
+    assert.equal(boot.status, 200);
+    assert.equal(boot.json.isLocal, false);
+    assert.equal(boot.json.hasOwner, false);
+
+    const setup = await call(target, "POST", "/api/auth/setup-owner", { body: OWNER });
+    assert.equal(setup.status, 403);
+    assert.equal(setup.json.code, "LOCAL_ONLY");
+    assert.equal(await User.countDocuments(), 0, "no owner was created");
+
+    const owner = await setupOwner(); // from the main PC
+    const recover = await call(target, "POST", "/api/auth/recover", {
+      body: { username: OWNER.username, recoveryCode: owner.recoveryCode, newPassword: "stolen-pass" },
+    });
+    assert.equal(recover.status, 403);
+    assert.equal(recover.json.code, "LOCAL_ONLY");
+    assert.equal((await login(OWNER.username, OWNER.password)).status, 200, "the password did not change");
+
+    // Login itself still works from a client PC.
+    const clientLogin = await call(target, "POST", "/api/auth/login", { body: { username: OWNER.username, password: OWNER.password } });
+    assert.equal(clientLogin.status, 200);
+  } finally {
+    await closeTarget(target);
+  }
+});
+
+test("stage 14: creating a product needs products.viewCost; a custom role with products.manage but no viewCost gets 403 on POST, 200 on PUT, and the stored purchasePrice is kept", skip, async () => {
+  const owner = await setupOwner();
+  const { categoryId, productId } = await seedCatalog(owner.token, { purchasePrice: 61 });
+  const noCost = await addUser(owner.token, {
+    username: "no-cost",
+    role: "custom",
+    permissions: ["products.view", "products.manage", "categories.manage"],
+  });
+
+  const created = await call(on, "POST", "/api/products", {
+    token: noCost.token,
+    body: { name: "بدون تكلفة", code: "NC-1", inventoryCount: 1, categoryId, wholesalePrice: 80, retailPrice: 100 },
+  });
+  assert.equal(created.status, 403);
+  assert.equal(created.json.code, "FORBIDDEN");
+  assert.equal(await Product.countDocuments({ code: "NC-1" }), 0, "nothing was created");
+
+  const updated = await call(on, "PUT", `/api/products/${productId}`, {
+    token: noCost.token,
+    body: { name: "اسم جديد", retailPrice: 120 },
+  });
+  assert.equal(updated.status, 200, updated.text);
+  assert.equal(updated.json.purchasePrice, undefined, "the response is stripped for this user");
+  const stored = await Product.findById(productId).lean();
+  assert.equal(stored.name, "اسم جديد");
+  assert.equal(stored.purchasePrice, 61, "the stored purchase price is unchanged");
+
+  // The owner (viewCost) still creates products as before.
+  const byOwner = await call(on, "POST", "/api/products", {
+    token: owner.token,
+    body: { name: "بتكلفة", code: "OC-1", inventoryCount: 1, categoryId, wholesalePrice: 80, purchasePrice: 60, retailPrice: 100 },
+  });
+  assert.equal(byOwner.status, 201, byOwner.text);
 });

@@ -169,11 +169,17 @@
 
         <!-- Discount + shipping -->
         <div class="pos__fields">
-          <nota-form-field [label]="'sellingPage.fields.discountAmount' | translate" forId="posDiscount"
+          <!-- Stage 14: the invoice discount needs sales.discount; otherwise it stays 0 and shows the locked pattern. -->
+          <nota-form-field *notaCan="'sales.discount'; else posDiscountLocked" [label]="'sellingPage.fields.discountAmount' | translate" forId="posDiscount"
             [hint]="('sellingPage.fields.discountPercentage' | translate) + ': ' + (discountPercentageInfo | notaNumber) + '%'">
             <p-inputNumber inputId="posDiscount" formControlName="discountAmount" [mode]="'decimal'" [min]="0" [useGrouping]="false"
               styleClass="pos__control" inputStyleClass="pos__num-input" />
           </nota-form-field>
+          <ng-template #posDiscountLocked>
+            <nota-form-field [label]="'sellingPage.fields.discountAmount' | translate">
+              <nota-locked-action data-testid="discount-locked" note="auth.locked.discount" />
+            </nota-form-field>
+          </ng-template>
           <nota-form-field [label]="'sellingPage.fields.shippingFees' | translate" forId="posShipping">
             <p-inputNumber inputId="posShipping" formControlName="shippingFees" [mode]="'decimal'" [min]="0" [useGrouping]="false"
               styleClass="pos__control" inputStyleClass="pos__num-input" />

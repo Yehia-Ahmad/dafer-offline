@@ -125,11 +125,17 @@
           <div><dt>{{ 'creditSalePage.fields.subtotal' | translate }}</dt><dd class="nota-num">{{ itemsSubtotal | notaMoney }}</dd></div>
         </dl>
         <div class="cs__fields">
-          <nota-form-field [label]="'creditSalePage.fields.discountAmount' | translate" forId="csDiscount"
+          <!-- Stage 14: the invoice discount needs sales.discount (cash and credit); otherwise it stays 0, locked. -->
+          <nota-form-field *notaCan="'sales.discount'; else csDiscountLocked" [label]="'creditSalePage.fields.discountAmount' | translate" forId="csDiscount"
             [hint]="('creditSalePage.fields.discountPercentage' | translate) + ': ' + (discountPercentage | notaNumber) + '%'">
             <p-inputNumber inputId="csDiscount" formControlName="discountAmount" [min]="0" [mode]="'decimal'" [useGrouping]="false"
               styleClass="cs__control" inputStyleClass="cs__num-input" />
           </nota-form-field>
+          <ng-template #csDiscountLocked>
+            <nota-form-field [label]="'creditSalePage.fields.discountAmount' | translate">
+              <nota-locked-action data-testid="discount-locked" note="auth.locked.discount" />
+            </nota-form-field>
+          </ng-template>
           <nota-form-field [label]="'creditSalePage.fields.shippingFees' | translate" forId="csShipping">
             <p-inputNumber inputId="csShipping" formControlName="shippingFees" [min]="0" [mode]="'decimal'" [useGrouping]="false"
               styleClass="cs__control" inputStyleClass="cs__num-input" />

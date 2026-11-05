@@ -117,10 +117,10 @@ test('the backend gets only the variables it needs', () => {
   assert.equal(env.NOTA_LISTEN_HOST, '0.0.0.0');
   assert.equal(env.PORT, '5055');
   assert.equal('NOTA_JWT_SECRET' in env, false, 'no session-token secret given, none passed');
-  assert.equal('NOTA_AUTH' in env, false);
+  assert.equal(env.NOTA_AUTH, '1', 'Stage 14: auth is always on');
 });
 
-test('the main PC passes its session-token secret, but does not turn auth on yet (Stage 14)', () => {
+test('the main PC passes its session-token secret and turns auth on (Stage 14)', () => {
   const env = buildBackendEnv({
     port: 5055,
     mongoUri: 'mongodb://127.0.0.1:27217/nota',
@@ -128,10 +128,10 @@ test('the main PC passes its session-token secret, but does not turn auth on yet
     jwtSecret: 'a'.repeat(64),
     appVersion: '1.0.0',
     instanceId: 'id',
-    sourceEnv: { NOTA_AUTH: '1', NOTA_JWT_SECRET: 'from-the-user-environment' },
+    sourceEnv: { NOTA_AUTH: '0', NOTA_JWT_SECRET: 'from-the-user-environment' },
   });
   assert.equal(env.NOTA_JWT_SECRET, 'a'.repeat(64));
-  assert.equal('NOTA_AUTH' in env, false, 'never taken from the user environment either');
+  assert.equal(env.NOTA_AUTH, '1', 'the user environment cannot turn it off');
 });
 
 test('secret store: the session-token secret round-trips with its own entropy', { skip: process.platform !== 'win32' }, () => {

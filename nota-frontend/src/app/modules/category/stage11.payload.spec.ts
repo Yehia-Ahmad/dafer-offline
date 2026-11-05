@@ -12,6 +12,7 @@ import { ProductsPageComponent } from './components/products-page/products-page.
 import { ProductFormComponent } from './components/product-form/product-form.component';
 import { CategoryToolsComponent } from './components/category-tools/category-tools.component';
 import { ProductProfitReportComponent } from '../products/components/product-profit-report/product-profit-report.component';
+import { signInAs } from '../../core/auth/testing/sign-in';
 
 /**
  * Stage 11 payload safety, AFTER version. Same assertions as the BEFORE copy that ran against the old
@@ -61,6 +62,7 @@ describe('Stage 11 payloads — products list (AFTER: ProductsPageComponent)', (
   beforeEach(async () => {
     await configure(ProductsPageComponent, { queryParamMap: of(convertToParamMap({ category: 'c1' })) });
     http = TestBed.inject(HttpTestingController);
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     component = TestBed.createComponent(ProductsPageComponent).componentInstance;
     component.ngOnInit();
     const req = http.expectOne((r) => r.url === `${base}products` && r.params.get('page') === '1');
@@ -99,6 +101,7 @@ describe('Stage 11 payloads — create product (AFTER: ProductFormComponent, new
     http = TestBed.inject(HttpTestingController);
     navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
     catalogWith(specifications);
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     component = TestBed.createComponent(ProductFormComponent).componentInstance;
     component.ngOnInit();
     const req = http.expectOne((r) => r.url === `${base}products` && r.method === 'GET');
@@ -156,6 +159,7 @@ describe('Stage 11 — create product with codes passed by the products page', (
     const http = TestBed.inject(HttpTestingController);
     catalogWith([]);
     history.replaceState({ productCodes: ['A-7', 'A-9'] }, '');
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     const component = TestBed.createComponent(ProductFormComponent).componentInstance;
     component.ngOnInit();
     history.replaceState(null, '');
@@ -172,6 +176,7 @@ describe('Stage 11 payloads — edit product (AFTER: ProductFormComponent, edit)
     await configure(ProductFormComponent, { paramMap: of(convertToParamMap({ id: 'p1' })), snapshot: { params: { id: 'p1' } } });
     http = TestBed.inject(HttpTestingController);
     spyOn(TestBed.inject(Location), 'back');
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     component = TestBed.createComponent(ProductFormComponent).componentInstance;
     component.getProductById();
     http.expectOne(`${base}products/p1`).flush(JSON.parse(JSON.stringify(product)));
@@ -237,6 +242,7 @@ describe('Stage 11 payloads — category tools (AFTER: CategoryToolsComponent)',
     await configure(CategoryToolsComponent, {});
     http = TestBed.inject(HttpTestingController);
     spyOn(HTMLAnchorElement.prototype, 'click');
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     component = TestBed.createComponent(CategoryToolsComponent).componentInstance;
     component.ngOnInit();
     http.expectOne(`${base}categories`).flush([category]);
@@ -320,6 +326,7 @@ describe('Stage 11 payloads — profit report (AFTER)', () => {
   beforeEach(async () => {
     await configure(ProductProfitReportComponent, {});
     http = TestBed.inject(HttpTestingController);
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     component = TestBed.createComponent(ProductProfitReportComponent).componentInstance;
     component.ngOnInit();
     http.expectOne(`${base}categories`).flush([category]);

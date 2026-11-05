@@ -18,12 +18,6 @@
         "actions": "Actions"
     },
     "delete": "Delete",
-    "admin": {
-        "title": "system admins",
-        "change_Button": "Change",
-        "remove_Button": "Delete",
-        "add_Button": "Add Admin"
-    },
     "category": {
         "importExport": {
             "export": "Export Categories",
@@ -902,7 +896,8 @@
             "profit": "Profit report",
             "users": "Users & permissions",
             "shop": "Shop profile",
-            "backup": "Backup"
+            "backup": "Backup",
+            "audit": "Audit log"
         },
         "collapse": "Collapse menu",
         "expand": "Expand menu",
@@ -1027,6 +1022,266 @@
             "noWeekSalesText": "The chart appears with the first invoice.",
             "noLowStock": "Every product is above its alert level",
             "noInvoices": "No invoices yet"
+        }
+    },
+    "auth": {
+        "close": "Close",
+        "cancel": "Cancel",
+        "back": "Back",
+        "retry": "Try again",
+        "loading": "Loading...",
+        "logout": "Sign out",
+        "showPassword": "Show password",
+        "hidePassword": "Hide password",
+        "backToLogin": "Back to sign in",
+        "sessionExpired": "Your session ended. Please sign in again.",
+        "noPagePermission": "You don't have permission to open this page",
+        "brand": {
+            "headline": "All your shop's books in one place",
+            "tagline": "Sales, stock and credit, on every PC in the shop, without internet."
+        },
+        "device": {
+            "main": "Main PC",
+            "client": "Connected to the main PC"
+        },
+        "unreachable": {
+            "title": "Can't reach the main PC",
+            "text": "Make sure the app is running on the main PC and both PCs are on the same network, then try again."
+        },
+        "login": {
+            "title": "Sign in",
+            "lead": "Enter the username and password the shop owner gave you.",
+            "submit": "Sign in",
+            "forgot": "Forgot your password?",
+            "forgotHelp": "Ask the shop owner to change it from the Users page. If you are the owner, use your recovery code on the main PC."
+        },
+        "setup": {
+            "title": "Create the owner account",
+            "lead": "This is the first run. Create the shop owner's account: the owner adds the other users and sets their permissions.",
+            "submit": "Create owner account"
+        },
+        "noOwnerClient": {
+            "title": "No owner account yet",
+            "text": "There is no owner account yet. Open Nota on the main PC first and create the owner account, then come back here and press Try again."
+        },
+        "recover": {
+            "title": "Recover the owner account",
+            "lead": "Enter the owner's username, the recovery code you saved when the account was created, and a new password.",
+            "submit": "Recover account",
+            "codeHint": "Like: ABCD-EFGH-JKLM-NPQR",
+            "clientText": "The owner account can only be recovered with the recovery code on the main PC. If you are an employee, ask the shop owner to change your password from the Users page."
+        },
+        "recoveryCode": {
+            "title": "Recovery code",
+            "explain": "This code is the only way back into the owner account if you forget the password. Write it down or print it and keep it somewhere safe, away from this PC. It will not be shown again.",
+            "oldCodeInvalid": "The old code no longer works. Use this new code from now on.",
+            "printTitle": "Owner account recovery code · {{shop}}",
+            "printNote": "Keep this paper somewhere safe. The code only works on the main PC.",
+            "copy": "Copy code",
+            "copied": "Copied",
+            "print": "Print",
+            "mainPcOnly": "The code only works on the main PC, from the sign-in screen → Forgot your password?",
+            "ack": "I wrote the code down and kept it somewhere safe",
+            "continue": "Continue"
+        },
+        "fields": {
+            "name": "Name",
+            "username": "Username",
+            "password": "Password",
+            "confirm": "Confirm password",
+            "newPassword": "New password",
+            "recoveryCode": "Recovery code"
+        },
+        "validation": {
+            "nameRequired": "Enter the name",
+            "usernameRequired": "Enter the username",
+            "usernameSpaces": "No spaces in the username",
+            "usernameHint": "Latin letters, no spaces",
+            "passwordRequired": "Enter the password",
+            "passwordLength": "The password must be 6 to 128 characters",
+            "passwordHint": "At least 6 characters",
+            "passwordMismatch": "The passwords don't match",
+            "codeRequired": "Enter the recovery code"
+        },
+        "errors": {
+            "INVALID_CREDENTIALS": "Wrong username or password",
+            "LOGIN_LOCKED": "Too many failed attempts. Wait {{minutes}} minute(s) and try again",
+            "SESSION_EXPIRED": "Your session ended. Please sign in again.",
+            "FORBIDDEN": "You don't have permission for this action",
+            "LOCAL_ONLY": "This can only be done on the main PC",
+            "OWNER_EXISTS": "The owner account already exists. Please sign in.",
+            "WRONG_PASSWORD": "The current password is wrong",
+            "INVALID_RECOVERY": "Wrong username or recovery code",
+            "UNREACHABLE": "Can't reach the main PC. Try again.",
+            "generic": "Something went wrong. Try again."
+        },
+        "changePassword": {
+            "open": "Change password",
+            "title": "Change password",
+            "current": "Current password",
+            "new": "New password",
+            "confirm": "Confirm new password",
+            "note": "Other PCs will be signed out; you stay signed in on this one.",
+            "save": "Save",
+            "done": "Password changed"
+        },
+        "roles": {
+            "owner": "Owner",
+            "manager": "Manager",
+            "cashier": "Cashier",
+            "storekeeper": "Storekeeper",
+            "accountant": "Accountant",
+            "custom": "Custom permissions",
+            "customized": "Custom permissions"
+        },
+        "noAccess": {
+            "title": "No pages for your account",
+            "text": "Your account ({{name}}) can't open any page. Ask the shop owner to set your permissions."
+        },
+        "locked": {
+            "default": "Needs a manager or owner permission",
+            "delete": "Deleting needs a manager or owner permission",
+            "discount": "Discounts need a manager or owner permission"
+        },
+        "discountFixed": "The discount is fixed because you don't have permission to change discounts",
+        "createdBy": "By {{name}}"
+    },
+    "users": {
+        "title": "Users & permissions",
+        "subtitle": "Who uses the app, and what each one can do",
+        "newUser": "New user",
+        "you": "you",
+        "customized": "Customized",
+        "empty": "No users",
+        "neverLoggedIn": "Never",
+        "logoutEverywhere": "They will be signed out on every PC",
+        "columns": {
+            "name": "Name",
+            "username": "Username",
+            "role": "Role",
+            "status": "Status",
+            "lastLogin": "Last sign-in"
+        },
+        "status": {
+            "active": "Active",
+            "disabled": "Disabled"
+        },
+        "actions": {
+            "edit": "Edit",
+            "resetPassword": "Change password",
+            "disable": "Disable account",
+            "enable": "Enable account"
+        },
+        "messages": {
+            "created": "{{name}} was added",
+            "updated": "{{name}} was saved",
+            "enabled": "{{name}} was enabled",
+            "disabled": "{{name}} was disabled",
+            "passwordReset": "{{name}}'s password was changed"
+        },
+        "disableDialog": {
+            "title": "Disable account",
+            "text": "Disable {{name}}'s account? They can't sign in until you enable it again."
+        },
+        "resetDialog": {
+            "title": "Change {{name}}'s password"
+        },
+        "form": {
+            "newTitle": "New user",
+            "editTitle": "Edit user",
+            "usernameFixed": "The username can't be changed",
+            "role": "Role",
+            "ownerFixed": "The owner's role and permissions are fixed: everything.",
+            "roleHints": {
+                "cashier": "Selling, collecting and returns",
+                "storekeeper": "Products, categories and Excel",
+                "accountant": "Reports, profit and the audit log",
+                "manager": "Everything except users and backup",
+                "custom": "Pick the permissions yourself"
+            },
+            "roleTemplateHint": "Choosing a role fills in its permissions; you can then change them one by one.",
+            "permissions": "Permissions",
+            "revert": "Back to the role's permissions",
+            "unheldNote": "Greyed-out permissions are ones you don't have, so you can't give them.",
+            "confirmAccessTitle": "You are changing {{name}}'s role or permissions.",
+            "confirmSave": "Save changes",
+            "create": "Create user",
+            "save": "Save changes"
+        },
+        "errors": {
+            "USERNAME_TAKEN": "This username already exists",
+            "PERMISSION_NOT_HELD": "You can't give a permission you don't have (marked in red)",
+            "OWNER_PROTECTED": "The owner account can't be changed this way",
+            "CANNOT_CHANGE_SELF": "You can't remove your own users permission or disable yourself"
+        }
+    },
+    "audit": {
+        "title": "Audit log",
+        "subtitle": "Who did what, and when",
+        "empty": "No entries for these filters",
+        "filters": {
+            "from": "From",
+            "to": "To",
+            "user": "User",
+            "action": "Action",
+            "allUsers": "All users",
+            "allActions": "All actions",
+            "search": "Search",
+            "reset": "Clear filters"
+        },
+        "columns": {
+            "time": "Time",
+            "user": "User",
+            "action": "Action",
+            "entity": "On",
+            "details": "Details"
+        },
+        "pager": {
+            "label": "Pages",
+            "prev": "Previous",
+            "next": "Next",
+            "status": "Page {{page}} of {{pages}} · {{total}} entries"
+        },
+        "actions": {
+            "auth.login": "Sign in",
+            "auth.login_failed": "Failed sign-in",
+            "auth.locked": "Sign-in locked after failures",
+            "auth.setup_owner": "Owner account created",
+            "auth.recover": "Owner account recovered",
+            "auth.recover_failed": "Failed recovery",
+            "auth.password_changed": "Password changed",
+            "user.created": "User added",
+            "user.updated": "User edited",
+            "user.status_changed": "User enabled/disabled",
+            "user.password_reset": "User password changed",
+            "sale.updated": "Cash invoice edited",
+            "sale.deleted": "Cash invoice deleted",
+            "credit.updated": "Credit invoice edited",
+            "credit.deleted": "Credit invoice deleted",
+            "credit.payment": "Payment collected",
+            "return.created": "Return recorded",
+            "product.deleted": "Product deleted",
+            "product.sync_purchase_price": "Purchase price synced",
+            "category.import": "Categories imported from Excel",
+            "shop.updated": "Shop profile edited"
+        },
+        "entities": {
+            "User": "User",
+            "Selling": "Cash invoice",
+            "CreditSale": "Credit invoice",
+            "Customer": "Customer",
+            "ReturnLog": "Return",
+            "Product": "Product",
+            "Category": "Category",
+            "ShopProfile": "Shop profile"
+        },
+        "details": {
+            "username": "Username",
+            "role": "Role",
+            "changes": "Changes",
+            "isActive": "Active",
+            "flow": "Type",
+            "amount": "Amount"
         }
     }
 }

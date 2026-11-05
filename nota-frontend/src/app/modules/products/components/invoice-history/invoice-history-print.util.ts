@@ -22,6 +22,8 @@ export type InvoiceHistoryItem = {
 
 export type InvoiceHistoryRow = {
   id: string;
+  /** Stage 14: who created the invoice (sent by the backend with auth on). Display only. */
+  createdByName?: string | null;
   invoiceId: string;
   invoiceNumber: string;
   customerName: string;

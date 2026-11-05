@@ -19,11 +19,13 @@ import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
  * Renders the page-header tool buttons and the dialogs; the page opens the dialogs through the public methods.
  * The list and the product-exists flag live in CatalogStateService (shared with the POS category chips).
  */
+import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+
 @Component({
   selector: 'app-category-tools',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule, MatProgressSpinnerModule, MatSnackBarModule, DialogModule, TranslatePipe,
-    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent],
+    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaCanDirective],
   templateUrl: './category-tools.component.html',
   host: { class: 'cat-tools' },
 })

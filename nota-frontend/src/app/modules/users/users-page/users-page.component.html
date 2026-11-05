@@ -1,0 +1,117 @@
+<!-- Stage 14: users and permissions (Users.dc.html, AddUser.dc.html). The backend enforces every rule. -->
+<div class="up">
+  <nota-page-header [title]="'users.title' | translate" [subtitle]="'users.subtitle' | translate">
+    <div notaPageActions>
+      <button type="button" notaButton="primary" data-action="new-user" (click)="openCreate()" [disabled]="loading() || !catalog()">+ {{ 'users.newUser' | translate }}</button>
+    </div>
+  </nota-page-header>
+
+  <section class="nota-card up__card">
+    <div class="nota-table-wrap">
+      <table class="nota-table">
+        <thead><tr>
+          <th>{{ 'users.columns.name' | translate }}</th>
+          <th>{{ 'users.columns.username' | translate }}</th>
+          <th>{{ 'users.columns.role' | translate }}</th>
+          <th>{{ 'users.columns.status' | translate }}</th>
+          <th>{{ 'users.columns.lastLogin' | translate }}</th>
+          <th><span class="nota-sr-only">{{ 'tableHeaders.actions' | translate }}</span></th>
+        </tr></thead>
+        <tbody>
+          @if (loading()) {
+            <tr><td colspan="6" class="up__empty" role="status">{{ 'auth.loading' | translate }}</td></tr>
+          } @else if (loadError()) {
+            <tr><td colspan="6" class="up__empty">
+              <span class="nota-error">{{ loadError() }}</span>
+              <button type="button" notaButton (click)="load()">{{ 'auth.retry' | translate }}</button>
+            </td></tr>
+          } @else {
+            @for (row of rows(); track row.user._id) {
+              <tr [attr.data-user]="row.user.username" [class.up__row--off]="!row.user.isActive">
+                <td>
+                  <span class="up__name">
+                    <span class="up__avatar" aria-hidden="true">{{ row.user.name.charAt(0) }}</span>
+                    <span dir="auto">{{ row.user.name }}</span>
+                    @if (isMe(row.user)) { <span class="up__you">({{ 'users.you' | translate }})</span> }
+                  </span>
+                </td>
+                <td class="nota-num" dir="ltr">{{ row.user.username }}</td>
+                <td>
+                  <span class="up__role">
+                    <span class="nota-pill nota-pill--neutral">{{ roleLabel(row.user) }}</span>
+                    @if (isCustomized(row.user) && row.user.role !== 'custom') {
+                      <span class="nota-pill nota-pill--due" data-testid="customized-badge">{{ 'users.customized' | translate }}</span>
+                    }
+                  </span>
+                </td>
+                <td>
+                  <span class="nota-pill" [class.nota-pill--ok]="row.user.isActive" [class.nota-pill--overdue]="!row.user.isActive">
+                    {{ (row.user.isActive ? 'users.status.active' : 'users.status.disabled') | translate }}
+                  </span>
+                </td>
+                <td class="nota-num">{{ row.user.lastLoginAt ? (row.user.lastLoginAt | date: 'yyyy-MM-dd HH:mm') : ('users.neverLoggedIn' | translate) }}</td>
+                <td>
+                  <div class="up__actions">
+                    @if (row.actions.edit) {
+                      <button type="button" notaButton data-action="edit" (click)="openEdit(row.user)">{{ 'users.actions.edit' | translate }}</button>
+                    }
+                    @if (row.actions.resetPassword) {
+                      <button type="button" notaButton data-action="reset" (click)="askReset(row.user)">{{ 'users.actions.resetPassword' | translate }}</button>
+                    }
+                    @if (row.actions.toggleStatus) {
+                      <button type="button" [notaButton]="row.user.isActive ? 'danger' : 'secondary'" data-action="toggle-status"
+                        (click)="askStatus(row.user)" [disabled]="statusBusy()">
+                        {{ (row.user.isActive ? 'users.actions.disable' : 'users.actions.enable') | translate }}
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="6" class="up__empty">{{ 'users.empty' | translate }}</td></tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<nota-user-form-dialog [(open)]="formOpen" [user]="editing()" [catalog]="catalog()" (saved)="onSaved($event)" />
+
+<!-- Disable: logs the user out everywhere -->
+<p-dialog [visible]="!!statusTarget()" (visibleChange)="$event || statusTarget.set(null)" [modal]="true" [showHeader]="false"
+  [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog nota-p-dialog--sm">
+  <nota-dialog-shell [title]="'users.disableDialog.title' | translate" [closeLabel]="'auth.close' | translate" (closed)="statusTarget.set(null)">
+    <p>{{ 'users.disableDialog.text' | translate: { name: statusTarget()?.name ?? '' } }}</p>
+    <p class="up__warn" data-testid="logout-note">{{ 'users.logoutEverywhere' | translate }}</p>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="statusTarget.set(null)" [disabled]="statusBusy()">{{ 'auth.cancel' | translate }}</button>
+      <button type="button" notaButton="danger" data-action="confirm-disable" (click)="confirmDisable()" [disabled]="statusBusy()">{{ 'users.actions.disable' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Reset password: logs the user out everywhere -->
+<p-dialog [visible]="!!resetTarget()" (visibleChange)="$event || closeReset()" [modal]="true" [showHeader]="false"
+  [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog nota-p-dialog--sm">
+  <nota-dialog-shell [title]="'users.resetDialog.title' | translate: { name: resetTarget()?.name ?? '' }" [closeLabel]="'auth.close' | translate" (closed)="closeReset()">
+    <form class="up__reset" (ngSubmit)="confirmReset()" novalidate>
+      <nota-form-field [label]="'auth.fields.newPassword' | translate" forId="upResetPass" [required]="true" [hint]="'auth.validation.passwordHint' | translate">
+        <input id="upResetPass" name="password" type="password" class="nota-input" autocomplete="new-password"
+          [ngModel]="resetPassword()" (ngModelChange)="resetPassword.set($event)" />
+      </nota-form-field>
+      <nota-form-field [label]="'auth.fields.confirm' | translate" forId="upResetConfirm" [required]="true">
+        <input id="upResetConfirm" name="confirm" type="password" class="nota-input" autocomplete="new-password"
+          [ngModel]="resetConfirm()" (ngModelChange)="resetConfirm.set($event)" />
+      </nota-form-field>
+      <p class="up__warn">{{ 'users.logoutEverywhere' | translate }}</p>
+      @if (resetError()) { <p class="nota-error" role="alert">{{ resetError() }}</p> }
+      <button type="submit" hidden></button>
+    </form>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="closeReset()" [disabled]="resetBusy()">{{ 'auth.cancel' | translate }}</button>
+      <button type="button" notaButton="primary" data-action="confirm-reset" (click)="confirmReset()" [disabled]="resetBusy()">{{ 'users.actions.resetPassword' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>

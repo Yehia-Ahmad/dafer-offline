@@ -39,6 +39,8 @@ import { Subscription } from 'rxjs';
 import { ProductsService } from '../../services/products.service';
 import { format as formatDate } from 'date-fns';
 import { CustomersService } from '../../../customer/services/customers.service';
+import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 
 type PriceType = 'wholesalePrice' | 'retailPrice' | 'custom';
 
@@ -105,7 +107,7 @@ type InvoiceItemState = {
 @Component({
   selector: 'app-selling',
   standalone: true,
-  imports: [
+  imports: [LockedActionComponent, NotaCanDirective, 
     CommonModule,
     FormsModule,
     ReactiveFormsModule,

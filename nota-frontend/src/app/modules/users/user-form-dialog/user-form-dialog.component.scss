@@ -1,0 +1,130 @@
+.uf {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.uf__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.uf__readonly {
+  display: block;
+  padding: 11px 12px;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  text-align: start;
+}
+
+.uf__roles,
+.uf__group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.uf__legend {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.uf__role-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.uf__role {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: var(--touch-target);
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+
+  &.is-on {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+  }
+}
+
+.uf__role-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+
+  input { accent-color: var(--brand); width: 18px; height: 18px; }
+}
+
+.uf__perms-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+
+  .uf__legend { margin: 0; }
+}
+
+.uf__groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.uf__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control-lg);
+  background: var(--surface-2);
+}
+
+.uf__group-title {
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.uf__perm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  font-size: 14px;
+  cursor: pointer;
+
+  input { flex: none; width: 18px; height: 18px; accent-color: var(--brand); }
+
+  &.is-disabled { color: var(--text-muted); cursor: not-allowed; }
+  &.is-refused { color: var(--danger); font-weight: 700; }
+}
+
+.uf__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.uf__confirm-title { margin: 0; font-weight: 700; }
+
+.uf__confirm-note {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  font-weight: 700;
+}

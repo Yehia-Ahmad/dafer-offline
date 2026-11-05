@@ -29,7 +29,7 @@ const syncDetails = (_req, body) => ({
 router
   .route("/")
   .get(requirePermission("products.view"), getProducts)
-  .post(requirePermission("products.manage"), createProduct);
+  .post(requirePermission("products.manage", "products.viewCost"), createProduct); // Stage 14: creating a product needs its cost
 router.get("/search", requirePermission("products.view"), searchProducts);
 router.get("/export/excel", requirePermission("products.importExport", "products.viewCost"), exportProductsExcel);
 router.get("/profit-report", profit, getProductsProfitReport);

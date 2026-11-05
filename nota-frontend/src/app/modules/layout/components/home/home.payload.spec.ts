@@ -6,6 +6,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { environment } from '../../../../../environments/environment';
 import { DashboardSummary } from '../../services/dashboard.service';
 import { HomeComponent, salesChange } from './home.component';
+import { signInAs } from '../../../../core/auth/testing/sign-in';
 
 /** Stage 12 dashboard: one GET dashboard/summary (no params), KPIs, chart, lists and empty states (real template). */
 describe('HomeComponent (Stage 12 dashboard)', () => {
@@ -42,6 +43,7 @@ describe('HomeComponent (Stage 12 dashboard)', () => {
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     fixture = TestBed.createComponent(HomeComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();

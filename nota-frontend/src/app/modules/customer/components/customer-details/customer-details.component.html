@@ -25,7 +25,7 @@
       </div>
       <div class="cd__head-actions">
         @if (hasAvailablePaymentTargets()) {
-          <button type="button" notaButton="primary" (click)="openCustomerPaymentDialog()">{{ 'customerDetailsPage.s10.collect' | translate }}</button>
+          <button *notaCan="'credit.collect'" type="button" notaButton="primary" (click)="openCustomerPaymentDialog()">{{ 'customerDetailsPage.s10.collect' | translate }}</button>
         }
       </div>
       <dl class="cd__facts">
@@ -129,15 +129,17 @@
                   <div class="cd__invoice-actions">
                     @if (canAddPayment(entry)) {
                       <!-- Stage 11: per-invoice payment, same POST credit-sales/:id/payments as the credit list. -->
-                      <button type="button" notaButton="primary" data-action="invoice-payment" (click)="openPaymentDialog(entry)">{{ 'customerDetailsPage.actions.addPayment' | translate }}</button>
+                      <button *notaCan="'credit.collect'" type="button" notaButton="primary" data-action="invoice-payment" (click)="openPaymentDialog(entry)">{{ 'customerDetailsPage.actions.addPayment' | translate }}</button>
                     }
                     <button type="button" notaButton (click)="printCreditInvoice(entry)" [disabled]="isPrintingInvoice(entry.id)">
                       {{ (isPrintingInvoice(entry.id) ? 'actions.loading' : 'customerDetailsPage.actions.printInvoice') | translate }}
                     </button>
                     @if (canAddRefund(entry)) {
-                      <button type="button" notaButton (click)="openRefundDialog(entry)" [disabled]="isDeletingCreditSale">{{ 'customerDetailsPage.actions.addRefund' | translate }}</button>
+                      <button *notaCan="'returns.create'" type="button" notaButton (click)="openRefundDialog(entry)" [disabled]="isDeletingCreditSale">{{ 'customerDetailsPage.actions.addRefund' | translate }}</button>
                     }
-                    <button type="button" notaButton="danger" (click)="openDeleteCreditDialog(entry)" [disabled]="isDeletingCreditSale">{{ 'customerDetailsPage.actions.deleteInvoice' | translate }}</button>
+                    <!-- Stage 14: delete needs credit.delete; otherwise the permission-locked pattern. -->
+                    <button *notaCan="'credit.delete'; else cdDeleteLocked" type="button" notaButton="danger" (click)="openDeleteCreditDialog(entry)" [disabled]="isDeletingCreditSale">{{ 'customerDetailsPage.actions.deleteInvoice' | translate }}</button>
+                    <ng-template #cdDeleteLocked><nota-locked-action data-testid="delete-locked" note="auth.locked.delete" /></ng-template>
                   </div>
                 </header>
                 <dl class="cd__invoice-facts">

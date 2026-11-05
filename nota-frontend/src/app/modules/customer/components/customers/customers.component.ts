@@ -13,6 +13,7 @@ import {
 } from '../../../shared/ui';
 import { Customer, CustomerQueryParams, CustomersService } from '../../services/customers.service';
 import { LanguageService } from '../../../shared/services/translation.service';
+import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 
 interface CustomerDeleteConfirmation {
   message?: string;
@@ -24,7 +25,7 @@ interface CustomerDeleteConfirmation {
 @Component({
   selector: 'app-customers',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, DialogModule, TranslatePipe,
+  imports: [NotaCanDirective, CommonModule, FormsModule, ReactiveFormsModule, DialogModule, TranslatePipe,
     NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaNumberPipe, NotaPageHeaderComponent],
   templateUrl: './customers.component.html',
   styleUrl: './customers.component.scss'

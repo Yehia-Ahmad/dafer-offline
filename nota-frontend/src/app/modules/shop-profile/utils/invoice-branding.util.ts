@@ -102,7 +102,7 @@ function textOrEmpty(value: string | null | undefined): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function toImageSrc(logo: string | null | undefined): string {
+export function toImageSrc(logo: string | null | undefined): string {
   const value = textOrEmpty(logo);
   if (!value) return '';
   // The backend accepts raw base64 as well as data URIs.

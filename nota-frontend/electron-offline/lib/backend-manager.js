@@ -15,8 +15,9 @@ const STOP_TIMEOUT_MS = 15000;
 // so stray variables from the user's environment can never reach it.
 const PASSTHROUGH_ENV = ['SystemRoot', 'windir', 'TEMP', 'TMP', 'PATH'];
 
-// jwtSecret (Stage 13): the main PC's session-token secret, passed as NOTA_JWT_SECRET. NOTA_AUTH is
-// not set yet, so the backend does not enforce login (Stage 14 turns it on).
+// jwtSecret (Stage 13): the main PC's session-token secret, passed as NOTA_JWT_SECRET.
+// NOTA_AUTH=1 (Stage 14): login and permissions are enforced. The backend refuses to start
+// without a usable secret; main.js never starts it without one.
 function buildBackendEnv({ port, mongoUri, secret, jwtSecret, appVersion, instanceId, sourceEnv = process.env }) {
   const env = {};
   for (const key of PASSTHROUGH_ENV) {
@@ -30,6 +31,8 @@ function buildBackendEnv({ port, mongoUri, secret, jwtSecret, appVersion, instan
     MONGO_URI: mongoUri,
     NOTA_LAN_MODE: '1',
     NOTA_LAN_SECRET: secret,
+    // Stage 14: users and permissions are on (login, permissions, cost stripping, audit).
+    NOTA_AUTH: '1',
     ...(jwtSecret ? { NOTA_JWT_SECRET: jwtSecret } : {}),
     NOTA_APP_VERSION: appVersion,
     NOTA_INSTANCE_ID: instanceId,

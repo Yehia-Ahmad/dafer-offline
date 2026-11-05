@@ -26,6 +26,8 @@ import {
 import { ShopProfileService } from '../../../shop-profile/services/shop-profile.service';
 import { InvoiceBranding, toPrintableShop } from '../../../shop-profile/utils/invoice-branding.util';
 import { brandName } from '../../../../core/brand';
+import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 
 type SelectOption = {
   label: string;
@@ -62,7 +64,7 @@ const DEFAULT_SELLINGS_PAGINATION: SellingsPagination = {
 @Component({
   selector: 'app-invoice-history',
   standalone: true,
-  imports: [
+  imports: [LockedActionComponent, NotaCanDirective, 
     CommonModule,
     FormsModule,
     TranslatePipe,
@@ -386,6 +388,7 @@ export class InvoiceHistoryComponent implements OnInit {
     return {
       id: normalizedId,
       invoiceId: normalizedId,
+      createdByName: item.createdByName ? String(item.createdByName) : null,
       invoiceNumber,
       customerName: String(item.customerName || ''),
       customerPhone: String(item.customerPhone || item.customer?.phone || item.customer?.phoneNumber || ''),

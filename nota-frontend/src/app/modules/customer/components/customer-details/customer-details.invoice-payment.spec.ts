@@ -7,6 +7,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { of } from 'rxjs';
 import { environment } from '../../../../../environments/environment';
 import { CustomerDetailsComponent } from './customer-details.component';
+import { signInAs } from '../../../../core/auth/testing/sign-in';
 
 /** Stage 11: the per-invoice "إضافة دفعة" button is back on each open invoice card (real template). */
 describe('CustomerDetailsComponent invoice payment button (Stage 11)', () => {
@@ -34,6 +35,7 @@ describe('CustomerDetailsComponent invoice payment button (Stage 11)', () => {
     }).compileComponents();
 
     http = TestBed.inject(HttpTestingController);
+    signInAs('owner'); // Stage 14: as the owner, every action shows as before
     fixture = TestBed.createComponent(CustomerDetailsComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
