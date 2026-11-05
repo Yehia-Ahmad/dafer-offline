@@ -22,6 +22,33 @@ const badRequest = (message) => httpError(400, "VALIDATION_ERROR", message);
 const isOwner = (user) => user.role === "owner";
 const sameUser = (left, right) => String(left._id) === String(right._id);
 
+/**
+ * Stage 15: maxDiscountPercent from the body. undefined = not sent; null = no limit; else a number
+ * 0–100 (2 decimals). Never stored for the owner (no limit).
+ */
+const parseMaxDiscount = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const number = Number(value);
+  if (typeof value === "boolean" || !Number.isFinite(number) || number < 0 || number > 100) {
+    throw badRequest("أقصى خصم يجب أن يكون رقمًا بين 0 و 100");
+  }
+  return Math.round(number * 100) / 100;
+};
+
+/**
+ * A non-owner with users.manage cannot change their own limit, and cannot give anyone a higher
+ * limit (or no limit) than their own when they have one.
+ */
+const assertCanSetLimit = (actor, target, limit) => {
+  if (isOwner(actor)) return;
+  if (sameUser(actor, target)) throw cannotChangeSelf("لا يمكنك تعديل أقصى خصم لحسابك");
+  const own = typeof actor.maxDiscountPercent === "number" ? actor.maxDiscountPercent : null;
+  if (own !== null && (limit === null || limit > own)) throw notHeld(["sales.discount"]);
+};
+
+const currentLimit = (user) => (typeof user.maxDiscountPercent === "number" ? user.maxDiscountPercent : null);
+
 const loadTarget = async (id) => {
   const user = await User.findById(id);
   if (!user) throw notFound();
@@ -74,11 +101,19 @@ const createUser = asyncHandler(async (req, res) => {
   validatePassword(body.password);
   const access = resolveAccess(body.role, body.permissions);
   assertCanGrant(req.user, [], effectivePermissions(access));
+  const maxDiscount = parseMaxDiscount(body.maxDiscountPercent);
+  if (effectivePermissions(access).includes("sales.discount")) assertCanSetLimit(req.user, { _id: null }, maxDiscount ?? null);
   if (await User.exists({ username })) throw usernameTaken();
 
   let user;
   try {
-    user = await User.create({ name, username, passwordHash: await User.hashSecret(body.password), ...access });
+    user = await User.create({
+      name,
+      username,
+      passwordHash: await User.hashSecret(body.password),
+      ...access,
+      ...(maxDiscount !== undefined && maxDiscount !== null ? { maxDiscountPercent: maxDiscount } : {}),
+    });
   } catch (error) {
     if (error && error.code === 11000) throw usernameTaken();
     throw error;
@@ -128,6 +163,14 @@ const updateUser = asyncHandler(async (req, res) => {
       target.tokenVersion = Number(target.tokenVersion || 0) + 1; // the user is logged out now
       changes.push(roleChanged ? "role" : "permissions");
     }
+  }
+
+  // Stage 15: the discount limit. Read on every request by the discount check, so no logout needed.
+  const maxDiscount = isOwner(target) ? undefined : parseMaxDiscount(body.maxDiscountPercent);
+  if (maxDiscount !== undefined && maxDiscount !== currentLimit(target)) {
+    assertCanSetLimit(req.user, target, maxDiscount);
+    target.maxDiscountPercent = maxDiscount === null ? undefined : maxDiscount;
+    changes.push("maxDiscountPercent");
   }
 
   if (changes.length > 0) {

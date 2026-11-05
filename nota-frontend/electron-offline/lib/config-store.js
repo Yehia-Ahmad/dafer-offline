@@ -68,6 +68,11 @@ function normalizeConfig(raw) {
     if (typeof raw.jwtSecretProtected === 'string' && raw.jwtSecretProtected) {
       config.jwtSecretProtected = raw.jwtSecretProtected;
     }
+    // Stage 15: set when a backup is restored (ms since epoch). Sessions issued before it are
+    // refused by the backend (NOTA_SESSIONS_VALID_AFTER), because the users were replaced.
+    if (Number.isFinite(raw.sessionsValidAfter) && raw.sessionsValidAfter > 0) {
+      config.sessionsValidAfter = raw.sessionsValidAfter;
+    }
   }
 
   if (raw.role === 'client') {

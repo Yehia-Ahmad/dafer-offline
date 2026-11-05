@@ -2,6 +2,7 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectorRef,
   Component,
+  DestroyRef,
   ElementRef,
   HostListener,
   Inject,
@@ -15,6 +16,11 @@ import {
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
 import { CateoryService } from '../../../category/services/cateory.service';
+import { AuthService } from '../../../../core/auth/auth.service';
+import { CartRescueService } from '../../../../core/auth/cart-rescue.service';
+import { isOverDiscountLimit } from '../../../../core/auth/discount-limit';
+import { ToastService } from '../../../../core/auth/toast.service';
+import { UnsavedWorkService } from '../../../../core/unsaved-work/unsaved-work.service';
 import {
   NotaButtonDirective,
   NotaDialogShellComponent,
@@ -83,6 +89,16 @@ type SellingPayload = {
   }>;
 };
 
+/** Stage 15: an open invoice kept in memory when the session expires (CartRescueService). */
+export type PosSnapshot = {
+  customerName: string;
+  customerPhone: string;
+  customerSearch: string;
+  discountAmount: number;
+  shippingFees: number;
+  lines: Array<{ product: ProductSearchResult; priceType: PriceType; price: number | null; quantity: number }>;
+};
+
 type InventoryShortage = {
   productId: string;
   productName: string;
@@ -133,6 +149,12 @@ export class SellingComponent implements OnInit, OnDestroy {
   /** Category chips: the list the sidebar already loads (no extra request). */
   readonly categories = inject(CatalogStateService).categories;
   private readonly _cateoryService = inject(CateoryService);
+  private readonly _auth = inject(AuthService);
+  private readonly _unsaved = inject(UnsavedWorkService);
+  private readonly _cartRescue = inject(CartRescueService);
+  private readonly _toast = inject(ToastService);
+  /** Stage 15: "أقصى خصم: X٪" for this user, or null (no limit). */
+  readonly maxDiscountPercent = this._auth.maxDiscountPercent;
   @ViewChild('posSearch') private posSearch?: ElementRef<HTMLInputElement>;
   /** POS product grid (frontend only): fed by GET products/search or GET products?categoryId. */
   gridQuery = '';
@@ -180,9 +202,72 @@ export class SellingComponent implements OnInit, OnDestroy {
     this.isBrowser = isPlatformBrowser(platformId);
     this.sellingForm = this.initializeForm();
     this.addInvoiceItem(false);
+    // Stage 15: an open cart counts as unsaved work, and is kept if the session expires.
+    const destroyRef = inject(DestroyRef);
+    destroyRef.onDestroy(this._unsaved.register('pos', () => this.hasOpenCart()));
+    destroyRef.onDestroy(this._cartRescue.register(() => (this.hasOpenCart() ? this.snapshot() : null)));
+  }
+
+  /** Stage 15: at least one product on the invoice. */
+  hasOpenCart(): boolean {
+    return this.invoiceItemStates.some((state) => Boolean(state.selectedProduct));
+  }
+
+  /** Stage 15: the discount is above this user's limit; saving is blocked (the backend also refuses it). */
+  get discountOverLimit(): boolean {
+    return isOverDiscountLimit(this.invoiceDiscountAmount, this.invoiceSubtotal, this.maxDiscountPercent());
+  }
+
+  /** Stage 15: what CartRescueService keeps. */
+  snapshot(): PosSnapshot {
+    const raw = this.sellingForm.getRawValue();
+    return {
+      customerName: String(raw.customerName || ''),
+      customerPhone: String(raw.customerPhone || ''),
+      customerSearch: this.customerSearchInputValue,
+      discountAmount: this.invoiceDiscountAmount,
+      shippingFees: this.toNonNegativeNumber(raw.shippingFees),
+      lines: this.invoiceItemStates
+        .map((state, index) => ({ state, raw: this.getInvoiceItem(index).getRawValue() }))
+        .filter(({ state }) => Boolean(state.selectedProduct))
+        .map(({ state, raw: line }) => ({
+          product: state.selectedProduct as ProductSearchResult,
+          priceType: line.priceType as PriceType,
+          price: line.price === null || line.price === undefined ? null : Number(line.price),
+          quantity: Number(line.quantity) || 1,
+        })),
+    };
+  }
+
+  /** Stage 15: puts a kept invoice back (same user signed in again after the session expired). */
+  restoreSnapshot(saved: PosSnapshot): void {
+    this.resetSellingForm();
+    for (const line of saved.lines) {
+      this.addProductToInvoice(line.product);
+      const index = this.invoiceItemStates.findIndex((state) => state.selectedProduct?.id === line.product.id);
+      if (index < 0) continue;
+      const group = this.getInvoiceItem(index);
+      group.get('priceType')?.setValue(line.priceType);
+      if (line.priceType === 'custom') group.get('price')?.setValue(line.price);
+      group.get('quantity')?.setValue(line.quantity);
+    }
+    this.customerSearchInputValue = saved.customerSearch;
+    this.sellingForm.patchValue({
+      customerName: saved.customerName,
+      customerPhone: saved.customerPhone,
+      discountAmount: saved.discountAmount,
+      shippingFees: saved.shippingFees,
+    });
+    this.updateInvoiceTotals();
   }
 
   ngOnInit(): void {
+    // Stage 15: the invoice that was open when the session expired, for the same user only.
+    const saved = this._cartRescue.take<PosSnapshot>(this._auth.user()?._id);
+    if (saved) {
+      this.restoreSnapshot(saved);
+      this._toast.show(this.translateKey('session.cartRestored'), 'success');
+    }
     this.setPriceTypeOptions();
     this.subscriptions.add(
       this._translate.onLangChange.subscribe(() => {
@@ -534,6 +619,8 @@ export class SellingComponent implements OnInit, OnDestroy {
       this.sellingForm.markAllAsTouched();
       return;
     }
+    // Stage 15: blocked before sending (the hint under the discount says why).
+    if (this.discountOverLimit) return;
 
     const raw = this.sellingForm.getRawValue();
     const sellingDate = this.formatSellingDate(raw.sellingDate);

@@ -2,6 +2,10 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, UrlTree } from '@angular/router';
 import { provideTranslateService } from '@ngx-translate/core';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { AuthService } from '../core/auth/auth.service';
+import { signInAs } from '../core/auth/testing/sign-in';
 import { environment } from '../../environments/environment';
 import { mainPcGuard } from '../core/guards/main-pc.guard';
 import {
@@ -43,6 +47,17 @@ describe('BackupPageComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
   };
+  /** Stage 15: "استعادة" → password step → continue. */
+  const restoreWith = async (password: string) => {
+    button('backupPage.restore.button').click();
+    await settle();
+    const input = find('#bkRestorePass') as HTMLInputElement;
+    input.value = password;
+    input.dispatchEvent(new Event('input'));
+    await settle();
+    (find('[data-test="restore-continue"]') as HTMLButtonElement).click();
+    await settle();
+  };
 
   beforeEach(async () => {
     backup = jasmine.createSpyObj('backup', [
@@ -66,9 +81,10 @@ describe('BackupPageComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [BackupPageComponent],
-      providers: [provideZonelessChangeDetection(), provideTranslateService()],
+      providers: [provideZonelessChangeDetection(), provideTranslateService(), provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     })
       .compileComponents();
+    signInAs('owner');
     fixture = TestBed.createComponent(BackupPageComponent);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -82,31 +98,73 @@ describe('BackupPageComponent', () => {
     backup.create.and.resolveTo({ ok: true, value: { path: 'C:\\Users\\shop\\Documents\\nota-backup.archive.gz', sizeMb: 1.2, collections: 9, documents: 120 } });
     button('backupPage.create.button').click();
     await settle();
-    expect(backup.create).toHaveBeenCalled();
+    expect(backup.create).toHaveBeenCalledWith('test-token-owner');
     expect(text()).toContain('nota-backup.archive.gz');
     button('backupPage.showFile').click();
-    expect(backup.showFile).toHaveBeenCalledWith('C:\\Users\\shop\\Documents\\nota-backup.archive.gz');
+    expect(backup.showFile).toHaveBeenCalledWith('test-token-owner', 'C:\\Users\\shop\\Documents\\nota-backup.archive.gz');
   });
 
   it('shows the Arabic error from the desktop app', async () => {
     backup.restore.and.resolveTo({ ok: false, error: { message: 'فشلت استعادة النسخة الاحتياطية، وتمت إعادة البيانات السابقة كما كانت.', detail: 'tail' } });
-    button('backupPage.restore.button').click();
-    await settle();
+    await restoreWith('owner-pass');
     expect(text()).toContain('وتمت إعادة البيانات السابقة');
   });
 
   it('shows nothing when the dialog was cancelled', async () => {
     backup.restore.and.resolveTo({ ok: true, value: null });
-    button('backupPage.restore.button').click();
-    await settle();
+    await restoreWith('owner-pass');
     expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeNull();
   });
 
   it('shows where the pre-restore copy was saved', async () => {
     backup.restore.and.resolveTo({ ok: true, value: { restored: 10, collections: 2, safetyPath: 'C:\\ProgramData\\Nota\\backups\\before-restore-x.archive.gz' } });
+    spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    await restoreWith('owner-pass');
+    expect(text()).toContain('before-restore-x.archive.gz');
+  });
+
+  // ---- Stage 15 ----
+
+  it('restore asks for the password first; nothing is sent until it is entered', async () => {
     button('backupPage.restore.button').click();
     await settle();
-    expect(text()).toContain('before-restore-x.archive.gz');
+    expect(find('[data-test="restore-password"]')).not.toBeNull();
+    expect(backup.restore).not.toHaveBeenCalled();
+    (find('[data-test="restore-continue"]') as HTMLButtonElement).click();
+    await settle();
+    expect(backup.restore).not.toHaveBeenCalled();
+    expect(find('[data-test="restore-password"]')?.textContent).toContain('auth.validation.passwordRequired');
+  });
+
+  it('restore sends the token and the password; a wrong password keeps the dialog open with the message', async () => {
+    backup.restore.and.resolveTo({ ok: false, error: { message: 'كلمة المرور غير صحيحة', code: 'WRONG_PASSWORD' } });
+    await restoreWith('nope');
+    expect(backup.restore).toHaveBeenCalledWith('test-token-owner', 'nope');
+    expect(find('[data-test="restore-password"]')).not.toBeNull();
+    expect(find('[data-test="restore-password-error"]')?.textContent).toContain('session.lock.wrongPassword');
+    expect(find('.bk__alert--error')).toBeNull();
+  });
+
+  it('5 wrong passwords: the lockout message stays in the dialog', async () => {
+    backup.restore.and.resolveTo({ ok: false, error: { message: 'محاولات كثيرة غير صحيحة. حاول مرة أخرى بعد 5 دقائق', code: 'LOGIN_LOCKED' } });
+    await restoreWith('nope');
+    expect(find('[data-test="restore-password-error"]')?.textContent).toContain('محاولات كثيرة');
+  });
+
+  it('after a successful restore: signed out and sent to /login with the restore message', async () => {
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    backup.restore.and.resolveTo({ ok: true, value: { restored: 3, collections: 1, safetyPath: null } });
+    await restoreWith('owner-pass');
+    expect(navigate).toHaveBeenCalledWith(['/login'], { queryParams: { reason: 'restored' } });
+    expect(TestBed.inject(AuthService).token()).toBeNull();
+    expect(find('[data-test="restore-password"]')).toBeNull();
+  });
+
+  it('a refused call (no backup.manage) shows the desktop app message', async () => {
+    backup.create.and.resolveTo({ ok: false, error: { message: 'ليست لديك صلاحية للقيام بهذه العملية.', code: 'FORBIDDEN' } });
+    button('backupPage.create.button').click();
+    await settle();
+    expect(text()).toContain('ليست لديك صلاحية');
   });
 
   it('warns gently when nothing was saved outside this PC, and not once something was', async () => {
@@ -138,7 +196,7 @@ describe('BackupPageComponent', () => {
     await settle();
     button('backupPage.copy.choose').click();
     await settle();
-    expect(backup.chooseCopyFolder).toHaveBeenCalled();
+    expect(backup.chooseCopyFolder).toHaveBeenCalledWith('test-token-owner');
     expect(find('[data-test="copy-folder"]')?.textContent).toContain('E:\\Nota');
     expect(find('[data-test="copy-folder"]')?.textContent).toContain('backupPage.copy.unavailable');
 

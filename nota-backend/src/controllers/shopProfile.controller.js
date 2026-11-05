@@ -1,4 +1,5 @@
 const ShopProfile = require("../models/shopProfile.model");
+const { AUTO_LOCK_MINUTES, DEFAULT_AUTO_LOCK_MINUTES } = ShopProfile;
 const asyncHandler = require("../utils/asyncHandler");
 
 const SHOP_PROFILE_KEY = "default";
@@ -12,6 +13,7 @@ const EMPTY_PROFILE = Object.freeze({
   taxNumber: "",
   commercialRegister: "",
   invoiceFooter: "",
+  autoLockMinutes: DEFAULT_AUTO_LOCK_MINUTES,
 });
 
 const OPTIONAL_STRING_FIELDS = ["address", "logo", "taxNumber", "commercialRegister", "invoiceFooter"];
@@ -40,6 +42,16 @@ const updateShopProfile = asyncHandler(async (req, res) => {
   for (const field of OPTIONAL_STRING_FIELDS) {
     if (isBlank(body[field])) $unset[field] = 1;
     else $set[field] = body[field];
+  }
+
+  // Stage 15: additive. Not sent (an older screen) → the stored value is kept.
+  if (body.autoLockMinutes !== undefined) {
+    const minutes = Number(body.autoLockMinutes);
+    if (body.autoLockMinutes === null || body.autoLockMinutes === "" || !AUTO_LOCK_MINUTES.includes(minutes)) {
+      res.status(400);
+      throw new Error("مدة القفل التلقائي غير صالحة");
+    }
+    $set.autoLockMinutes = minutes;
   }
 
   const update = Object.keys($unset).length > 0 ? { $set, $unset } : { $set };

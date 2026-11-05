@@ -2,6 +2,8 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectorRef,
   Component,
+  DestroyRef,
+  inject,
   ElementRef,
   HostListener,
   Inject,
@@ -20,6 +22,9 @@ import { InputNumberModule } from 'primeng/inputnumber';
 import { Subscription } from 'rxjs';
 import { format as formatDate } from 'date-fns';
 import { CustomersService } from '../../../customer/services/customers.service';
+import { AuthService } from '../../../../core/auth/auth.service';
+import { UnsavedWorkService } from '../../../../core/unsaved-work/unsaved-work.service';
+import { isOverDiscountLimit } from '../../../../core/auth/discount-limit';
 import {
   NotaButtonDirective,
   NotaDialogShellComponent,
@@ -120,6 +125,8 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
   private customerSearchBlurTimer: ReturnType<typeof setTimeout> | null = null;
   private latestRequestedCustomerQuery = '';
   private lineItemSequence = 0;
+  /** Stage 15: "أقصى خصم: X٪" for this user, or null (no limit). */
+  readonly maxDiscountPercent = inject(AuthService).maxDiscountPercent;
 
   constructor(
     private readonly formBuilder: FormBuilder,
@@ -134,6 +141,23 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
     this.creditSaleForm = this.initializeForm();
     this.addLineItem(false);
     this.refreshDerivedState();
+    // Stage 15: a started credit sale counts as unsaved work (unsavedWorkGuard, logout).
+    inject(DestroyRef).onDestroy(inject(UnsavedWorkService).register('credit-sale', () => this.hasUnsavedWork()));
+  }
+
+  /** Stage 15: something was entered and not saved. */
+  hasUnsavedWork(): boolean {
+    if (this.isSaving) return false;
+    return (
+      this.creditSaleForm.dirty ||
+      this.lineItemStates.some((state) => Boolean(state.selectedProduct)) ||
+      Boolean(this.customerSearchInputValue.trim())
+    );
+  }
+
+  /** Stage 15: the discount is above this user's limit; review and save are blocked. */
+  get discountOverLimit(): boolean {
+    return isOverDiscountLimit(this.discountAmount, this.itemsSubtotal, this.maxDiscountPercent());
   }
 
   ngOnInit(): void {
@@ -471,7 +495,7 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
     this.errorDialogVisible = false;
     this.saveError = '';
 
-    if (this.creditSaleForm.invalid || this.itemsSubtotal <= 0 || this.isDownPaymentExceeded()) {
+    if (this.creditSaleForm.invalid || this.itemsSubtotal <= 0 || this.isDownPaymentExceeded() || this.discountOverLimit) {
       this.markAllControlsTouched(this.creditSaleForm);
       return;
     }
@@ -489,7 +513,7 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
     this.errorDialogVisible = false;
     this.saveError = '';
 
-    if (this.creditSaleForm.invalid || this.itemsSubtotal <= 0 || this.isDownPaymentExceeded()) {
+    if (this.creditSaleForm.invalid || this.itemsSubtotal <= 0 || this.isDownPaymentExceeded() || this.discountOverLimit) {
       this.markAllControlsTouched(this.creditSaleForm);
       return;
     }

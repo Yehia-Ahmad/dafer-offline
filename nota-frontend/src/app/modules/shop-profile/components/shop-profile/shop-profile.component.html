@@ -76,6 +76,27 @@
           <textarea id="sp-footer" rows="2" class="nota-textarea" formControlName="invoiceFooter" [maxLength]="limits.invoiceFooter"></textarea>
         </nota-form-field>
 
+        <!-- Stage 15: الأمان — auto-lock after idle minutes (every PC). -->
+        <section class="sp__security" data-test="security-card" aria-labelledby="sp-security-title">
+          <div class="sp__security-head">
+            <span class="sp__security-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+              </svg>
+            </span>
+            <h2 id="sp-security-title" class="nota-section-title sp__security-title">{{ 'session.security.title' | translate }}</h2>
+          </div>
+          <nota-form-field [label]="'session.security.autoLock' | translate" forId="sp-autolock" [hint]="'session.security.autoLockHint' | translate">
+            <select id="sp-autolock" class="nota-input sp__select" formControlName="autoLockMinutes">
+              @for (minutes of autoLockChoices; track minutes) {
+                <option [ngValue]="minutes">
+                  {{ (minutes === 0 ? 'session.security.off' : 'session.security.minutes') | translate: { count: minutes } }}
+                </option>
+              }
+            </select>
+          </nota-form-field>
+        </section>
+
         <div class="sp__footer">
           @if (outcome(); as result) {
             <span class="sp__status" role="status" [class.is-error]="result.kind === 'error'">

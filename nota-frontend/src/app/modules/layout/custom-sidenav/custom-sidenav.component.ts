@@ -13,6 +13,7 @@ import { NavIconComponent } from '../nav/nav-icon.component';
 import { SidebarStateService } from '../nav/sidebar-state.service';
 import { CatalogStateService } from '../nav/catalog-state.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { UnsavedWorkService } from '../../../core/unsaved-work/unsaved-work.service';
 import { ChangePasswordDialogComponent } from '../../auth/change-password-dialog/change-password-dialog.component';
 
 /**
@@ -32,6 +33,7 @@ export class CustomSidenavComponent implements OnInit {
   private readonly _languageService = inject(LanguageService);
   private readonly _themeService = inject(ThemeService);
   private readonly _router = inject(Router);
+  private readonly unsaved = inject(UnsavedWorkService);
   protected readonly state = inject(SidebarStateService);
   private readonly _catalog = inject(CatalogStateService);
   protected readonly auth = inject(AuthService);
@@ -87,13 +89,15 @@ export class CustomSidenavComponent implements OnInit {
   }
 
   /**
-   * Signs out on this PC. No confirmation: the app has no unsaved-changes check to reuse
-   * (Stage 14 STEP C.5 says not to invent one).
+   * Signs out on this PC. Stage 15: asks first when a screen has unsaved work (POS cart, a form
+   * being filled; UnsavedWorkService).
    */
-  logout(): void {
+  async logout(): Promise<void> {
+    if (!(await this.unsaved.confirm())) return;
+    this.unsaved.allowNextNavigation();
     this.state.closeDrawer();
     this.auth.logout();
-    this._router.navigate(['/login']);
+    await this._router.navigate(['/login']);
   }
 }
 

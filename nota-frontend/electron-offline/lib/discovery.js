@@ -148,8 +148,16 @@ function discoverServers({ timeoutMs = 2500, port = DISCOVERY_PORT, targets, int
   });
 }
 
+// Stage 15: the main PCs in a discovery answer other than this one. This PC answers its own
+// probe too (127.0.0.1 and its LAN address), always with its own instance id; that is not a
+// second main PC. Answers without an instance id are ignored (parseReply already refuses them).
+function otherMainPcs(found, { ownInstanceId } = {}) {
+  return (found || []).filter((server) => server && typeof server.instanceId === 'string' && server.instanceId && server.instanceId !== ownInstanceId);
+}
+
 module.exports = {
   DISCOVERY_PORT,
+  otherMainPcs,
   DiscoveryResponder,
   PROBE,
   broadcastAddresses,

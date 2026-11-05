@@ -6,6 +6,7 @@ import { isOfflineMainPc } from '../runtime/app-features';
 import { AuthResult, AuthUser, BootstrapInfo, PermissionCatalog } from './auth.models';
 import { LANDING_ORDER, NO_ACCESS_PATH, RouteRule, ruleAllows } from './route-permissions';
 import { readStoredToken, writeStoredToken } from './session-storage';
+import { LockStateService } from './lock-state.service';
 
 /**
  * Requests whose errors the screen shows itself (login, first run, recover, change password):
@@ -21,12 +22,23 @@ const ownErrors = () => ({ context: new HttpContext().set(HANDLES_OWN_ERRORS, tr
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
+  private readonly lockState = inject(LockStateService);
 
   readonly token = signal<string | null>(readStoredToken());
   readonly user = signal<AuthUser | null>(null);
   readonly permissions = signal<readonly string[]>([]);
   readonly signedIn = computed(() => Boolean(this.token() && this.user()));
   private readonly permissionSet = computed(() => new Set(this.permissions()));
+  /**
+   * Stage 15: the largest invoice discount (percent of the subtotal) this user may give, or null
+   * (no limit; always none for the owner). The backend enforces it (403 DISCOUNT_LIMIT).
+   */
+  readonly maxDiscountPercent = computed(() => {
+    const user = this.user();
+    if (!user || user.role === 'owner') return null;
+    const limit = user.maxDiscountPercent;
+    return typeof limit === 'number' && Number.isFinite(limit) ? limit : null;
+  });
 
   private get base(): string {
     return `${environment.api_base_url}auth/`;
@@ -87,6 +99,16 @@ export class AuthService {
       .pipe(tap((result) => this.apply(result)));
   }
 
+  /** Stage 15: the lock screen re-checks the password (204). The token is not changed. */
+  verifyPassword(password: string): Observable<void> {
+    return this.http.post<void>(`${this.base}verify-password`, { password }, ownErrors());
+  }
+
+  /** Stage 15: a new 12-hour token for the same session (IdleLockService calls it on activity). */
+  refreshToken(): Observable<AuthResult> {
+    return this.http.post<AuthResult>(`${this.base}refresh`, {}, ownErrors()).pipe(tap((result) => this.apply(result)));
+  }
+
   refreshMe(): Observable<{ user: AuthUser; permissions: string[] }> {
     return this.http.get<{ user: AuthUser; permissions: string[] }>(`${this.base}me`, ownErrors()).pipe(
       tap((result) => {
@@ -107,6 +129,7 @@ export class AuthService {
 
   /** Session ended by the server (SESSION_EXPIRED) or by logout. */
   clear(): void {
+    this.lockState.unlock(); // nothing left to lock: the next screen is the sign-in screen
     this.token.set(null);
     this.user.set(null);
     this.permissions.set([]);

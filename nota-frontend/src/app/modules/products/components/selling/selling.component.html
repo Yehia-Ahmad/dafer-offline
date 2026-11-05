@@ -171,9 +171,14 @@
         <div class="pos__fields">
           <!-- Stage 14: the invoice discount needs sales.discount; otherwise it stays 0 and shows the locked pattern. -->
           <nota-form-field *notaCan="'sales.discount'; else posDiscountLocked" [label]="'sellingPage.fields.discountAmount' | translate" forId="posDiscount"
-            [hint]="('sellingPage.fields.discountPercentage' | translate) + ': ' + (discountPercentageInfo | notaNumber) + '%'">
+            [hint]="('sellingPage.fields.discountPercentage' | translate) + ': ' + (discountPercentageInfo | notaNumber) + '%'"
+            [error]="discountOverLimit ? ('session.discount.overLimit' | translate: { limit: (maxDiscountPercent() | notaNumber) }) : null">
             <p-inputNumber inputId="posDiscount" formControlName="discountAmount" [mode]="'decimal'" [min]="0" [useGrouping]="false"
               styleClass="pos__control" inputStyleClass="pos__num-input" />
+            <!-- Stage 15: this user's discount limit. -->
+            @if (maxDiscountPercent() !== null) {
+              <span class="pos__limit" data-testid="discount-limit">{{ 'session.discount.limitHintShort' | translate: { limit: (maxDiscountPercent() | notaNumber) } }}</span>
+            }
           </nota-form-field>
           <ng-template #posDiscountLocked>
             <nota-form-field [label]="'sellingPage.fields.discountAmount' | translate">
@@ -201,7 +206,7 @@
           <p class="pos__note pos__note--error" role="alert">{{ saveError }}</p>
         }
 
-        <button type="submit" notaButton="primary" size="lg" class="pos__pay" [disabled]="isSaving || sellingForm.invalid">
+        <button type="submit" notaButton="primary" size="lg" class="pos__pay" [disabled]="isSaving || sellingForm.invalid || discountOverLimit">
           {{ (isSaving ? 'sellingPage.actions.saving' : 'sellingPage.actions.createSelling') | translate }}
           <span class="pos__kbd-inline" aria-hidden="true">(F9)</span>
         </button>

@@ -1,5 +1,6 @@
+import { UnsavedWorkService } from '../../../core/unsaved-work/unsaved-work.service';
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { DialogModule } from 'primeng/dialog';
@@ -58,7 +59,12 @@ export class UsersPageComponent {
 
   readonly rows = computed(() => this.users().map((user) => ({ user, actions: rowActions(user, this.me()) as RowActions })));
 
+  /** Stage 15: the add / edit form, for the unsaved-work check. */
+  private readonly form = viewChild(UserFormDialogComponent);
+
   constructor() {
+    // Stage 15: leaving with a half-filled user form asks first (unsavedWorkGuard, logout).
+    inject(DestroyRef).onDestroy(inject(UnsavedWorkService).register('user-form', () => Boolean(this.form()?.isDirty())));
     this.load();
   }
 

@@ -159,6 +159,11 @@ summary {
   margin: 0;
 }
 
+/* Stage 15: display:flex above would otherwise show a progress row that is [hidden]. */
+.progress[hidden] {
+  display: none;
+}
+
 .servers {
   list-style: none;
   margin: 0 0 0.5rem;
@@ -196,4 +201,19 @@ summary {
 
 footer {
   text-align: center;
+}
+
+/* Stage 15: another main PC answers on the LAN. */
+.warning-box {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: var(--error-bg);
+  color: var(--error-text);
+  line-height: 1.8;
+  font-weight: 600;
+}
+
+button.danger {
+  background: var(--error-text);
+  color: var(--card);
 }

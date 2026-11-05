@@ -1,53 +1,69 @@
-import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { Injector, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
-import { catchError, throwError } from 'rxjs';
+import { catchError, defer, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { UnsavedWorkService } from '../unsaved-work/unsaved-work.service';
 import { AuthService, HANDLES_OWN_ERRORS } from './auth.service';
 import { errorCode, errorMessage, lockedMinutes } from './auth-errors';
+import { CartRescueService } from './cart-rescue.service';
+import { LockStateService } from './lock-state.service';
 import { ToastService } from './toast.service';
+
+/**
+ * Stage 15: what a locked screen still sends: the unlock itself, and two read-only GETs the lock
+ * screen needs: the session check the app runs at startup (auth/me, so a reload of a locked window
+ * can boot and show the user's name) and the shop profile (logo and name). Everything else waits.
+ */
+const sentWhileLocked = (req: HttpRequest<unknown>) =>
+  /\/auth\/verify-password$/.test(req.url) || (req.method === 'GET' && /\/(auth\/me|shop-profile)$/.test(req.url));
 
 /**
  * Stage 14 (replaces the online edition's httpconfig/logout/request-online interceptors).
  * - Adds `Authorization: Bearer` to backend requests. The LAN key header is added by the desktop
  *   app itself (Electron session), so both are sent.
  * - 401 SESSION_EXPIRED → the session is cleared and the user goes to /login, keeping returnUrl.
- * - 403 FORBIDDEN → a toast with the server message; the user stays on the page.
+ *   Stage 15: an open POS invoice is kept for the same user (CartRescueService), the leave is not
+ *   asked about, and reason DATA_RESTORED (a backup was restored) shows the restore message.
+ * - 403 FORBIDDEN / DISCOUNT_LIMIT → a toast with the server message; the user stays on the page.
  * - 429 LOGIN_LOCKED → a toast with the minutes left.
- * Requests marked HANDLES_OWN_ERRORS (login screen, change password) show their errors themselves.
+ * - Stage 15: while the screen is locked, new backend requests wait until it is unlocked
+ *   (requests already running finish normally; the token never changes).
+ * Requests marked HANDLES_OWN_ERRORS (login screen, change password, unlock) show their errors themselves.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
+  const lockState = inject(LockStateService);
   // Resolved only when an error needs them: the translation files themselves load through this
   // interceptor while TranslateService is still being created (an eager inject would be circular).
   const injector = inject(Injector);
   const translate = () => injector.get(TranslateService);
   const toast = () => injector.get(ToastService);
 
-  const token = auth.token();
   const toBackend = Boolean(environment.api_base_url) && req.url.startsWith(environment.api_base_url);
-  const outgoing = token && toBackend ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req;
   const ownErrors = req.context.get(HANDLES_OWN_ERRORS);
+  const withToken = (request: HttpRequest<unknown>) => {
+    const token = auth.token();
+    return token && toBackend ? request.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : request;
+  };
 
-  return next(outgoing).pipe(
+  // Only a signed-in window is ever locked; without a session nothing waits (sign-in screen, bootstrap).
+  const waitsForUnlock = toBackend && Boolean(auth.token()) && lockState.locked() && !sentWhileLocked(req);
+  const send = waitsForUnlock
+    ? lockState.whenUnlocked().pipe(switchMap(() => next(withToken(req))))
+    : defer(() => next(withToken(req)));
+
+  return send.pipe(
     catchError((error: unknown) => {
       if (error instanceof HttpErrorResponse && toBackend && !ownErrors) {
         const code = errorCode(error);
         if (error.status === 401 && code === 'SESSION_EXPIRED') {
-          if (auth.token()) {
-            const router = injector.get(Router);
-            const current = router.url;
-            auth.clear();
-            const onLogin = current.startsWith('/login');
-            router.navigate(['/login'], {
-              queryParams: { reason: 'expired', ...(onLogin || current === '/' ? {} : { returnUrl: current }) },
-            });
-          }
-        } else if (error.status === 403 && code === 'FORBIDDEN') {
+          if (auth.token()) endSession(injector, auth, error);
+        } else if (error.status === 403 && (code === 'FORBIDDEN' || code === 'DISCOUNT_LIMIT')) {
           const message = errorMessage(error);
           if (message) toast().error(message);
-          else translate().get('auth.errors.FORBIDDEN').subscribe((text: string) => toast().error(text));
+          else translate().get(`auth.errors.${code}`).subscribe((text: string) => toast().error(text));
         } else if (error.status === 429 && code === 'LOGIN_LOCKED') {
           translate().get('auth.errors.LOGIN_LOCKED', { minutes: lockedMinutes(error) }).subscribe((text: string) => toast().error(text));
         }
@@ -56,3 +72,20 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     })
   );
 };
+
+function endSession(injector: Injector, auth: AuthService, error: HttpErrorResponse): void {
+  const router = injector.get(Router);
+  const restored = (error.error as { reason?: unknown } | null)?.reason === 'DATA_RESTORED';
+  const current = router.url;
+  // Stage 15: keep an open POS invoice for this user, then leave without the unsaved-work question.
+  if (!restored) injector.get(CartRescueService).capture(auth.user()?._id);
+  injector.get(UnsavedWorkService).allowNextNavigation();
+  auth.clear();
+  const onLogin = current.startsWith('/login');
+  router.navigate(['/login'], {
+    queryParams: {
+      reason: restored ? 'restored' : 'expired',
+      ...(restored || onLogin || current === '/' ? {} : { returnUrl: current }),
+    },
+  });
+}

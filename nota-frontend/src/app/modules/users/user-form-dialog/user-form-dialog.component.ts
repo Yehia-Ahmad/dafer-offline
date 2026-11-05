@@ -12,7 +12,7 @@ import { CreateUserPayload, UpdateUserPayload, UsersService } from '../users.ser
 import { sameKeys } from '../user-rules';
 
 type EditableRole = Exclude<RoleKey, 'owner'>;
-type FieldKey = 'name' | 'username' | 'password' | 'confirm' | 'role' | 'permissions' | 'general';
+type FieldKey = 'name' | 'username' | 'password' | 'confirm' | 'role' | 'permissions' | 'maxDiscount' | 'general';
 
 /** Roles offered in the form, in the design's order (no owner: there is only ever one). */
 export const FORM_ROLES: readonly EditableRole[] = ['cashier', 'storekeeper', 'accountant', 'manager', 'custom'];
@@ -57,6 +57,8 @@ export class UserFormDialogComponent {
   readonly confirm = signal('');
   readonly role = signal<EditableRole>('cashier');
   readonly selected = signal<readonly string[]>([]);
+  /** Stage 15: "أقصى خصم مسموح" in percent; empty = no limit. Only with sales.discount. */
+  readonly maxDiscount = signal('');
   readonly saving = signal(false);
   readonly confirming = signal(false);
   readonly errors = signal<Partial<Record<FieldKey, string>>>({});
@@ -68,6 +70,9 @@ export class UserFormDialogComponent {
   readonly template = computed(() => this.catalog()?.roles.find((entry) => entry.role === this.role())?.permissions ?? []);
   /** A template role whose list no longer equals the template. */
   readonly edited = computed(() => this.role() !== 'custom' && !sameKeys(this.selected(), this.template()));
+  /** Stage 15: the limit field shows under the discount permission (never for the owner). */
+  readonly showMaxDiscount = computed(() => !this.isOwnerRow() && this.effectiveSelection().includes('sales.discount'));
+  private initialState = '';
   readonly hasUnheld = computed(() => this.groups().some((group) => group.items.some((item) => !item.held)));
 
   readonly groups = computed<PermissionGroupView[]>(() => {
@@ -106,6 +111,7 @@ export class UserFormDialogComponent {
     this.saving.set(false);
     this.password.set('');
     this.confirm.set('');
+    this.maxDiscount.set(typeof user?.maxDiscountPercent === 'number' ? String(user.maxDiscountPercent) : '');
     if (user) {
       this.name.set(user.name);
       this.username.set(user.username);
@@ -117,6 +123,24 @@ export class UserFormDialogComponent {
       this.role.set('cashier');
       this.selected.set([...this.templateFor('cashier')]);
     }
+    this.initialState = this.formState();
+  }
+
+  private formState(): string {
+    return JSON.stringify([this.name(), this.username(), this.password(), this.confirm(), this.role(), this.selected(), this.maxDiscount()]);
+  }
+
+  /** Stage 15: the open form has changes that were not saved (UnsavedWorkService, via the users page). */
+  isDirty(): boolean {
+    return this.open() && !this.saving() && this.formState() !== this.initialState;
+  }
+
+  /** The limit as a number, null for none, or undefined when the text is not 0–100. */
+  private parsedMaxDiscount(): number | null | undefined {
+    const text = this.maxDiscount().trim().replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace('٫', '.');
+    if (!text) return null;
+    const value = Number(text);
+    return Number.isFinite(value) && value >= 0 && value <= 100 ? Math.round(value * 100) / 100 : undefined;
   }
 
   private templateFor(role: string): readonly string[] {
@@ -151,7 +175,7 @@ export class UserFormDialogComponent {
   }
 
   /** Effective permissions as the backend would store them. */
-  private effectiveSelection(): string[] {
+  effectiveSelection(): string[] {
     return this.role() === 'custom' || this.edited() ? [...this.selected()] : [...this.template()];
   }
 
@@ -175,6 +199,9 @@ export class UserFormDialogComponent {
       if (problem) errors.password = this.translate.instant(problem);
       if (this.confirm() !== this.password()) errors.confirm = this.translate.instant('auth.validation.passwordMismatch');
     }
+    if (this.showMaxDiscount() && this.parsedMaxDiscount() === undefined) {
+      errors.maxDiscount = this.translate.instant('session.discount.limitInvalid');
+    }
     this.errors.set(errors);
     this.refusedKeys.set([]);
     if (Object.keys(errors).length) return;
@@ -188,6 +215,7 @@ export class UserFormDialogComponent {
   /** The request body (also used by the payload specs). */
   buildPayload(): CreateUserPayload | UpdateUserPayload {
     const sendList = this.role() === 'custom' || this.edited();
+    const limit = this.showMaxDiscount() ? this.parsedMaxDiscount() : undefined;
     if (this.isNew()) {
       return {
         name: this.name().trim(),
@@ -195,10 +223,17 @@ export class UserFormDialogComponent {
         password: this.password(),
         role: this.role(),
         ...(sendList ? { permissions: [...this.selected()] } : {}),
+        ...(typeof limit === 'number' ? { maxDiscountPercent: limit } : {}),
       };
     }
     if (this.isOwnerRow()) return { name: this.name().trim() };
-    return { name: this.name().trim(), role: this.role(), ...(sendList ? { permissions: [...this.selected()] } : {}) };
+    const stored = typeof this.user()?.maxDiscountPercent === 'number' ? this.user()!.maxDiscountPercent : null;
+    return {
+      name: this.name().trim(),
+      role: this.role(),
+      ...(sendList ? { permissions: [...this.selected()] } : {}),
+      ...(limit !== undefined && limit !== stored ? { maxDiscountPercent: limit } : {}),
+    };
   }
 
   private save(): void {
@@ -242,6 +277,8 @@ export function mapUserError(error: unknown, translate: TranslateService): Parti
       return { username: text('users.errors.USERNAME_TAKEN') };
     case 'PERMISSION_NOT_HELD':
       return { permissions: text('users.errors.PERMISSION_NOT_HELD') };
+    case 'VALIDATION_ERROR':
+      return /خصم/.test(errorMessage(error)) ? { maxDiscount: errorMessage(error) } : { general: errorMessage(error) || text('auth.errors.generic') };
     case 'OWNER_PROTECTED':
       return { role: text('users.errors.OWNER_PROTECTED') };
     case 'CANNOT_CHANGE_SELF':

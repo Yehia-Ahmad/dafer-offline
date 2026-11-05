@@ -12,6 +12,8 @@ export interface AuthUser {
   /** A template role whose list was edited (owner/custom: always false). */
   permissionsEdited: boolean;
   isActive: boolean;
+  /** Stage 15: largest invoice discount in percent; absent = no limit (never set for the owner). */
+  maxDiscountPercent?: number | null;
   lastLoginAt?: string | null;
   createdAt?: string;
 }
@@ -69,4 +71,5 @@ export const AUTH_ERROR_CODES = [
   'PERMISSION_NOT_HELD',
   'OWNER_PROTECTED',
   'CANNOT_CHANGE_SELF',
+  'DISCOUNT_LIMIT',
 ] as const;

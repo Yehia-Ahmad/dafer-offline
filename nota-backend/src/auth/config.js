@@ -13,4 +13,11 @@ const requireJwtSecret = (env = process.env) => {
   return secret;
 };
 
-module.exports = { MIN_JWT_SECRET_LENGTH, isAuthMode, requireJwtSecret };
+// Stage 15: tokens issued before this time (ms since epoch) are refused: the desktop app sets it
+// when a backup is restored, so every session of the replaced users ends. 0 = no cut-off.
+const sessionsValidAfter = (env = process.env) => {
+  const value = Number(env.NOTA_SESSIONS_VALID_AFTER || 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+};
+
+module.exports = { MIN_JWT_SECRET_LENGTH, isAuthMode, requireJwtSecret, sessionsValidAfter };

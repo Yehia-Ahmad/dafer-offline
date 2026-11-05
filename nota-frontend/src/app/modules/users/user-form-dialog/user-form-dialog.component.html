@@ -86,6 +86,20 @@
             <p class="nota-error" role="alert" data-testid="permissions-error">{{ errors().permissions }}</p>
           }
         </section>
+
+        @if (showMaxDiscount()) {
+          <!-- Stage 15 (AddUser.dc.html "أقصى خصم مسموح"): under the discount permission. -->
+          <section class="uf__limit" data-testid="max-discount">
+            <nota-form-field [label]="'session.discount.limitLabel' | translate" forId="ufMaxDiscount"
+              [hint]="'session.discount.limitHint' | translate" [error]="errors().maxDiscount">
+              <div class="uf__limit-row">
+                <input id="ufMaxDiscount" name="maxDiscount" type="text" inputmode="decimal" class="nota-input uf__limit-input" dir="ltr"
+                  [placeholder]="'session.discount.noLimit' | translate" [ngModel]="maxDiscount()" (ngModelChange)="maxDiscount.set($event)" />
+                <span class="uf__limit-unit" aria-hidden="true">٪</span>
+              </div>
+            </nota-form-field>
+          </section>
+        }
         @if (errors().general) {
           <p class="nota-error" role="alert">{{ errors().general }}</p>
         }

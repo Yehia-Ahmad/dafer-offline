@@ -396,6 +396,28 @@ async function runAuthScenarios(ctx) {
     return describe(response);
   });
 
+  // Stage 15: the per-user max discount. Only the refused sale is sent, so stock is unchanged.
+  await step('Stage 15: a manager with a 10% limit is refused a 15% discount → 403 DISCOUNT_LIMIT, stock unchanged', async () => {
+    requireCtx(ctx, 'productId');
+    const manager = { name: 'Smoke Manager', username: 'smoke-manager', password: 'manager-pass-1', role: 'manager', maxDiscountPercent: 10 };
+    const created = await request('POST', '/api/users', { body: manager });
+    expectStatus(created, 201, 'POST /api/users (manager, maxDiscountPercent 10)');
+    expect(created.json.user.maxDiscountPercent === 10, `maxDiscountPercent expected 10, got ${created.json.user.maxDiscountPercent}`);
+    const session = await request('POST', '/api/auth/login', { body: { username: manager.username, password: manager.password }, token: null });
+    expectStatus(session, 200, 'POST /api/auth/login (manager)');
+    const before = await getStock(ctx.productId);
+    const response = await request('POST', '/api/sellings', {
+      token: session.json.token,
+      body: { customerName: 'Smoke Discount Customer', customerPhone: '01000000015', sellingDate: localDay(), discountAmount: 15, items: [{ productId: ctx.productId, quantity: 1, price: 100 }] },
+    });
+    expectStatus(response, 403, 'POST /api/sellings with 15% as a manager limited to 10%');
+    expect(response.json.code === 'DISCOUNT_LIMIT', `code expected DISCOUNT_LIMIT, got ${response.json.code}`);
+    expect(response.json.message === 'أقصى خصم مسموح لك 10٪', `message: ${response.json.message}`);
+    const after = await getStock(ctx.productId);
+    expect(after === before, `stock changed: ${before} → ${after}`);
+    return `${response.status} ${response.json.code} "${response.json.message}", stock ${after}`;
+  });
+
   await step('Auth: cashier opens the profit report → 403 FORBIDDEN', async () => {
     requireCtx(ctx, 'cashierToken');
     const response = await request('GET', '/api/products/profit-report', { token: ctx.cashierToken });

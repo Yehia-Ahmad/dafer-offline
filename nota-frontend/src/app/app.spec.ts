@@ -58,6 +58,8 @@ describe('App', () => {
 
     await router.navigateByUrl('/selling');
     fixture.detectChanges();
+    // Stage 15: the signed-in window reads the shop's auto-lock setting once.
+    TestBed.inject(HttpTestingController).expectOne((r) => r.url.endsWith('shop-profile')).flush({ autoLockMinutes: 10 });
     await fixture.whenStable();
     expect(el.querySelectorAll('app-side-nav').length).toBe(1);
     expect(el.querySelector('.nota-shell__content .page')).not.toBeNull();

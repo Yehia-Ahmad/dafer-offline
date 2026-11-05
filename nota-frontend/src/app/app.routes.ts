@@ -1,3 +1,4 @@
+import { unsavedWorkGuard } from './core/unsaved-work/unsaved-work.service';
 import { inject } from '@angular/core';
 import { Router, Routes } from '@angular/router';
 import { mainPcGuard } from './core/guards/main-pc.guard';
@@ -40,6 +41,7 @@ export const routes: Routes = [
     },
     {
         path: 'selling',
+        canDeactivate: [unsavedWorkGuard],
         canActivate: [permissionGuard(ROUTE_RULES.selling)],
         loadComponent: () => import('./modules/products/components/selling/selling.component').then(m => m.SellingComponent)
     },
@@ -51,6 +53,7 @@ export const routes: Routes = [
     },
     {
         path: 'credit-sales/new',
+        canDeactivate: [unsavedWorkGuard],
         canActivate: [permissionGuard(ROUTE_RULES.creditSaleNew)],
         loadComponent: () => import('./modules/products/components/credit-sales/credit-sales.component').then(m => m.CreditSalesComponent)
     },
@@ -78,11 +81,13 @@ export const routes: Routes = [
     },
     {
         path: 'products/new',
+        canDeactivate: [unsavedWorkGuard],
         canActivate: [permissionGuard(ROUTE_RULES.productNew)],
         loadComponent: () => import('./modules/category/components/product-form/product-form.component').then(m => m.ProductFormComponent)
     },
     {
         path: 'products/edit/:id',
+        canDeactivate: [unsavedWorkGuard],
         canActivate: [permissionGuard(ROUTE_RULES.productForm)],
         loadComponent: () => import('./modules/category/components/product-form/product-form.component').then(m => m.ProductFormComponent)
     },
@@ -93,11 +98,13 @@ export const routes: Routes = [
     },
     {
         path: 'shop-profile',
+        canDeactivate: [unsavedWorkGuard],
         canActivate: [permissionGuard(ROUTE_RULES.shopProfile)],
         loadComponent: () => import('./modules/shop-profile/components/shop-profile/shop-profile.component').then(m => m.ShopProfileComponent)
     },
     {
         path: 'users',
+        canDeactivate: [unsavedWorkGuard],
         canActivate: [permissionGuard(ROUTE_RULES.users)],
         loadComponent: () => import('./modules/users/users-page/users-page.component').then(m => m.UsersPageComponent)
     },

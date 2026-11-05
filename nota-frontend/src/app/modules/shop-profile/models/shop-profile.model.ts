@@ -7,6 +7,8 @@ export interface ShopProfile {
   taxNumber: string;
   commercialRegister: string;
   invoiceFooter: string;
+  /** Stage 15: lock the screen after this many idle minutes (0 = off). Absent on older servers. */
+  autoLockMinutes?: number;
 }
 
 export type ShopProfilePayload = ShopProfile;

@@ -37,7 +37,7 @@ describe('ShopProfileComponent payloads (Stage 11)', () => {
     const req = http.expectOne((r) => r.url === url && r.method === 'PUT');
     expect(JSON.stringify(req.request.body)).toBe(JSON.stringify({
       name: 'النور للأدوات', address: '١٢ شارع الجيش', phones: ['0100', '050 123'], logo: 'data:image/png;base64,AAAA',
-      taxNumber: '123', commercialRegister: '45', invoiceFooter: 'شكرا',
+      taxNumber: '123', commercialRegister: '45', invoiceFooter: 'شكرا', autoLockMinutes: 10,
     }));
     req.flush({ name: 'النور للأدوات', address: '', phones: [], logo: null, taxNumber: '', commercialRegister: '', invoiceFooter: '' });
     expect(component.outcome()).toEqual({ kind: 'saved' });

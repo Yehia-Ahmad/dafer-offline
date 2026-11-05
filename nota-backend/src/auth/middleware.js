@@ -21,6 +21,13 @@ const httpError = (statusCode, code, message) => {
 };
 
 const sessionExpired = () => httpError(401, SESSION_EXPIRED, "انتهت الجلسة. سجّل الدخول مرة أخرى");
+// Stage 15: a backup was restored on the main PC after this token was issued.
+const DATA_RESTORED = "DATA_RESTORED";
+const sessionEndedByRestore = () => {
+  const error = httpError(401, SESSION_EXPIRED, "تم استرجاع النسخة. سجّل الدخول بحساب من النسخة المسترجعة");
+  error.responseData.reason = DATA_RESTORED;
+  return error;
+};
 const forbidden = () => httpError(403, FORBIDDEN, "ليست لديك صلاحية للقيام بهذه العملية");
 
 // Paths under /api that need no login (relative to the /api mount).
@@ -36,12 +43,15 @@ const authFlag = (enabled) => (req, _res, next) => {
 /**
  * Mounted on /api after the LAN guard. Loads the user of the Bearer token on every request and
  * rejects a missing, disabled or outdated session (tv !== tokenVersion) with 401 SESSION_EXPIRED.
+ * Stage 15: `sessionsValidAfter` (ms, NOTA_SESSIONS_VALID_AFTER, set by the desktop app after a
+ * restore): a token issued before it gets 401 SESSION_EXPIRED with reason DATA_RESTORED, on every PC.
  */
-const requireAuth = (secret) => async (req, _res, next) => {
+const requireAuth = (secret, { sessionsValidAfter = 0 } = {}) => async (req, _res, next) => {
   if (req.method === "OPTIONS" || isPublicPath(req.path)) return next();
   try {
     const payload = verifyToken(bearerToken(req), secret);
     if (!payload || !mongoose.Types.ObjectId.isValid(payload.sub)) return next(sessionExpired());
+    if (sessionsValidAfter > 0 && Number(payload.iat || 0) * 1000 < sessionsValidAfter) return next(sessionEndedByRestore());
     const user = await User.findById(payload.sub);
     if (!user || !user.isActive || payload.tv !== Number(user.tokenVersion || 0)) return next(sessionExpired());
     req.user = user;
@@ -104,53 +114,102 @@ const given = (value) => value !== undefined && value !== null && value !== "";
 const money = (value) => Number(Number(value || 0).toFixed(2));
 const sameMoney = (left, right) => Math.abs(money(left) - money(right)) < 0.011;
 
-// The subtotal the edit will be priced on: the sent items, or the stored ones when none are sent.
-// null when it cannot be known here (the single-item price/quantity shortcut).
-const editSubtotal = (body, stored) => {
+// The subtotal the invoice will be priced on: the sent items; a single-item price/quantity
+// shortcut (on top of the stored item for edits); or the stored items when none are sent.
+// null when it cannot be known here.
+const requestSubtotal = (body, stored) => {
   if (Array.isArray(body.items)) {
     return money(body.items.reduce((sum, item) => sum + money(Number(item.price ?? item.unitPrice ?? 0) * Number(item.quantity ?? 0)), 0));
   }
-  if (given(body.price) || given(body.quantity)) return null;
-  return money((stored.items || []).reduce((sum, item) => sum + Number(item.totalPrice || 0), 0));
+  const items = (stored && stored.items) || [];
+  if (given(body.price) || given(body.quantity)) {
+    if (items.length > 1) return null;
+    const current = items[0] || {};
+    const price = given(body.price) ? body.price : current.unitPrice;
+    const quantity = given(body.quantity) ? body.quantity : current.quantity;
+    return given(price) && given(quantity) ? money(Number(price) * Number(quantity)) : null;
+  }
+  return money(items.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0));
 };
 
 /**
- * sales.discount (cash and credit), checked against what the user controls. The server applies an
- * invoice discount only from `discountAmount`; a sent `discountPercentage` is never used by it.
- * - New invoice: needed for any discount (discountAmount or discountPercentage > 0).
- * - Edit: never needed to keep the stored discount unchanged or to remove it (0). Otherwise:
+ * Does this request give a new or changed invoice discount (what sales.discount and the user's
+ * maxDiscountPercent judge)? The server applies an invoice discount only from `discountAmount`;
+ * a sent `discountPercentage` is never used by it.
+ * - New invoice: any discount (discountAmount or discountPercentage > 0).
+ * - Edit: keeping the stored discount unchanged or removing it (0) is not a new discount. Otherwise:
  *   - stored invoice uses a percentage (legacy records: no discountAmount, discountPercentage > 0):
- *     needed when the sent percentage differs; with the same (or no) percentage, a sent
+ *     new when the sent percentage differs; with the same (or no) percentage, a sent
  *     discountAmount must be that percentage of the new subtotal (recomputed, e.g. after a quantity
- *     change), else it is a new discount and needs the permission;
- *   - stored invoice uses an amount: needed when the sent discountAmount differs from the stored one.
+ *     change), else it is new;
+ *   - stored invoice uses an amount: new when the sent discountAmount differs from the stored one.
  * Item prices are not judged here (they stay bounded by the below-cost rule).
+ * Returns { changed, subtotal } (subtotal: what the discount is a share of, or null).
  */
-const requireDiscountPermission = (Model) => async (req, _res, next) => {
-  if (!req.authEnabled || hasPermission(req.user, "sales.discount")) return next();
+const discountDecision = async (req, Model) => {
   const body = req.body || {};
   if (req.method === "POST") {
-    return positive(body.discountAmount) || positive(body.discountPercentage) ? next(forbidden()) : next();
+    const changed = positive(body.discountAmount) || positive(body.discountPercentage);
+    return { changed, subtotal: changed ? requestSubtotal(body, null) : null };
   }
-  if (!positive(body.discountAmount) && !positive(body.discountPercentage)) return next(); // none, or removed
+  if (!positive(body.discountAmount) && !positive(body.discountPercentage)) return { changed: false }; // none, or removed
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return { changed: false };
+  const stored = await Model.findById(req.params.id, "discountAmount discountPercentage items.totalPrice items.unitPrice items.quantity").lean();
+  if (!stored) return { changed: false }; // the controller answers 404
+  const subtotal = requestSubtotal(body, stored);
+
+  const storedPercentage = Number(stored.discountPercentage || 0);
+  const usesPercentage = !given(stored.discountAmount) && storedPercentage > 0;
+
+  if (usesPercentage) {
+    if (given(body.discountPercentage) && Number(body.discountPercentage) !== storedPercentage) return { changed: true, subtotal };
+    if (!positive(body.discountAmount)) return { changed: false }; // the server recomputes from the stored percentage
+    const recomputed = subtotal === null ? null : money((subtotal * storedPercentage) / 100);
+    return { changed: !(recomputed !== null && sameMoney(body.discountAmount, recomputed)), subtotal };
+  }
+
+  if (!positive(body.discountAmount)) return { changed: false }; // the stored amount is kept (a percentage alone is ignored)
+  return { changed: !sameMoney(body.discountAmount, stored.discountAmount), subtotal };
+};
+
+/** Stage 15: the user's discount limit in percent, or null (no limit; always none for the owner). */
+const discountLimitOf = (user) => {
+  if (!user || user.role === "owner") return null;
+  const limit = user.maxDiscountPercent;
+  return typeof limit === "number" && Number.isFinite(limit) ? limit : null;
+};
+
+// The discount share of the subtotal, in percent. A percentage alone (never applied by the server)
+// is judged as sent; a discount on a zero or unknown subtotal counts as over any limit.
+const discountShare = (body, subtotal) => {
+  if (!positive(body.discountAmount)) return Number(body.discountPercentage || 0);
+  if (!(subtotal > 0)) return Infinity;
+  return (Number(body.discountAmount) / subtotal) * 100;
+};
+
+const DISCOUNT_LIMIT_TOLERANCE = 0.01;
+
+const discountLimitError = (limit) => {
+  const error = httpError(403, "DISCOUNT_LIMIT", `أقصى خصم مسموح لك ${limit}٪`);
+  error.responseData.maxDiscountPercent = limit;
+  return error;
+};
+
+/**
+ * Stage 13 + 15 (cash and credit, create and edit). A new or changed discount (discountDecision)
+ * needs sales.discount (403 FORBIDDEN) and must stay within the user's maxDiscountPercent:
+ * discountAmount / subtotal * 100 ≤ limit (+0.01 for rounding), else 403 DISCOUNT_LIMIT.
+ */
+const requireDiscountPermission = (Model) => async (req, _res, next) => {
+  if (!req.authEnabled) return next();
+  const allowed = hasPermission(req.user, "sales.discount");
+  const limit = discountLimitOf(req.user);
+  if (allowed && limit === null) return next();
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return next();
-    const stored = await Model.findById(req.params.id, "discountAmount discountPercentage items.totalPrice").lean();
-    if (!stored) return next(); // the controller answers 404
-
-    const storedPercentage = Number(stored.discountPercentage || 0);
-    const usesPercentage = !given(stored.discountAmount) && storedPercentage > 0;
-
-    if (usesPercentage) {
-      if (given(body.discountPercentage) && Number(body.discountPercentage) !== storedPercentage) return next(forbidden());
-      if (!positive(body.discountAmount)) return next(); // the server recomputes from the stored percentage
-      const subtotal = editSubtotal(body, stored);
-      const recomputed = subtotal === null ? null : money((subtotal * storedPercentage) / 100);
-      return recomputed !== null && sameMoney(body.discountAmount, recomputed) ? next() : next(forbidden());
-    }
-
-    if (!positive(body.discountAmount)) return next(); // the stored amount is kept (a percentage alone is ignored)
-    return sameMoney(body.discountAmount, stored.discountAmount) ? next() : next(forbidden());
+    const { changed, subtotal } = await discountDecision(req, Model);
+    if (!changed) return next();
+    if (!allowed) return next(forbidden());
+    return discountShare(req.body || {}, subtotal) > limit + DISCOUNT_LIMIT_TOLERANCE ? next(discountLimitError(limit)) : next();
   } catch (error) {
     return next(error);
   }
@@ -182,6 +241,7 @@ const costStrip = () => (req, res, next) => {
 
 module.exports = {
   AUTHENTICATED,
+  DATA_RESTORED,
   COST_FIELDS,
   FORBIDDEN,
   PERMISSION_TAG,
@@ -197,6 +257,7 @@ module.exports = {
   localOnly,
   publicRoute,
   requireAuth,
+  discountLimitOf,
   requireDiscountPermission,
   requireLogin,
   requirePermission,

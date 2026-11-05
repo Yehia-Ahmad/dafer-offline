@@ -57,6 +57,8 @@ export class LoginPageComponent implements AfterViewInit {
   readonly shopName = computed(() => this.info()?.shop.name || '');
   readonly logoSrc = computed(() => toImageSrc(this.info()?.shop.logo));
   readonly expired = this.route.snapshot.queryParamMap.get('reason') === 'expired';
+  /** Stage 15: a backup was restored; the accounts are now the ones in that backup. */
+  readonly restored = this.route.snapshot.queryParamMap.get('reason') === 'restored';
 
   // sign in
   readonly username = signal('');

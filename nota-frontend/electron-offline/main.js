@@ -42,6 +42,10 @@ const { SetupController, SetupError } = require('./lib/setup-controller');
 const { BackupService, backupFileName } = require('./lib/backup-service');
 const { AutoBackup, onSameDrive } = require('./lib/auto-backup');
 const { missingFirewallRules } = require('./lib/firewall');
+const { createBackendClient } = require('./lib/ipc-guard');
+const { createBackupHandlers } = require('./lib/backup-handlers');
+const { AUDIT_INBOX_NAME, appendAuditEntry } = require('./lib/audit-inbox');
+const { MainPcWatcher } = require('./lib/main-pc-watcher');
 
 const SHUTDOWN_WATCHDOG_MS = 90000;
 const ATTACH_TIMEOUT_MS = 30000;
@@ -81,6 +85,7 @@ const state = {
   apiOrigin: null,
   serverInfo: null, // client: the main PC's /api/lan/info answer
   supervisor: null,
+  backend: null, // main PC: the BackendManager (Stage 15: its env changes after a restore)
   serverLock: null,
   responder: null,
   monitor: null,
@@ -89,6 +94,8 @@ const state = {
   backups: null,
   backupBusy: false,
   autoBackup: null,
+  mainPcWatcher: null, // Stage 15: another main PC on the LAN
+  otherMainPcs: [],
   firewallMissing: null, // main PC: firewall rule names the installer should have added
   window: null,
   tray: null,
@@ -122,6 +129,7 @@ function setStatus(status) {
     if (state.powerBlocker === null) state.powerBlocker = powerSaveBlocker.start('prevent-app-suspension');
     startResponder();
     startAutoBackup();
+    startMainPcWatcher();
     if (!state.uiLoaded) loadUi();
   } else if (status.state === 'failed' || status.state === 'stopped') {
     stopPowerBlocker();
@@ -433,24 +441,6 @@ function handleSetup(channel, handler) {
   });
 }
 
-// Backup actions: only the copy that runs the server, and one at a time.
-function handleBackup(channel, handler) {
-  handle(channel, async (...args) => {
-    if (state.mode !== 'main' || !state.supervisor) {
-      return { ok: false, error: { message: 'النسخ الاحتياطي متاح فقط على حساب Windows الذي يشغّل الخادم.' } };
-    }
-    try {
-      return { ok: true, value: await handler(...args) };
-    } catch (error) {
-      if (!error.code) log.error(`backup: ${error.stack || error.message}`);
-      return {
-        ok: false,
-        error: { message: error.code ? error.message : `حدث خطأ غير متوقع: ${error.message}`, code: error.code, detail: error.detail },
-      };
-    }
-  });
-}
-
 function backupService() {
   if (!state.backups) {
     state.backups = new BackupService({
@@ -483,10 +473,58 @@ async function exclusive(task) {
 }
 
 // The backend is paused while mongodump runs, so no invoice is half-saved in the backup.
-function consistentBackup(file, { reason, onProgress }) {
+// Stage 15: a manual backup (caller = the signed-in user) is audited through the inbox file,
+// written before the backend starts again so it reads the entry at startup.
+function consistentBackup(file, { reason, onProgress, caller }) {
   return exclusive(() =>
-    state.supervisor.runMaintenance(() => backupService().createBackup(file, onProgress), { reason })
+    state.supervisor.runMaintenance(async () => {
+      const result = await backupService().createBackup(file, onProgress);
+      if (caller) auditBackup('backup.created', caller, file);
+      return result;
+    }, { reason })
   );
+}
+
+const auditInboxPath = () => path.join(state.paths.run, AUDIT_INBOX_NAME);
+
+function auditBackup(action, caller, file, error) {
+  try {
+    appendAuditEntry(auditInboxPath(), { action, user: caller && caller.user, backupFile: file, code: error && error.code, error: error && error.message });
+  } catch (writeError) {
+    log.error(`audit inbox: ${writeError.message}`);
+  }
+}
+
+// Stage 15: the restore replaced the users, so every session issued before now ends (on every PC):
+// the backend refuses older tokens (NOTA_SESSIONS_VALID_AFTER) from its next start on. Whole
+// seconds, because token times (iat) are whole seconds; the backend was stopped for the whole restore,
+// so no token was issued during it.
+function endSessionsBeforeNow() {
+  const validAfter = Math.floor(Date.now() / 1000) * 1000;
+  state.config = writeConfig(state.paths.config, { ...state.config, sessionsValidAfter: validAfter });
+  if (state.backend) state.backend.updateEnv({ NOTA_SESSIONS_VALID_AFTER: String(validAfter) });
+  log.info('restore: sessions issued before now are ended');
+}
+
+// Restore with the backend paused: inside the task, before the backend starts again, the audit
+// entry is written and (on success) older sessions are ended.
+function restoreArchive(archive, { caller, onProgress }) {
+  return exclusive(() => {
+    log.info(`restoring ${archive.path}`);
+    return state.supervisor.runMaintenance(async () => {
+      try {
+        const result = await backupService().restore(archive, { safety: true, onProgress });
+        auditBackup('backup.restored', caller, archive.path);
+        endSessionsBeforeNow();
+        return result;
+      } catch (error) {
+        auditBackup('backup.restore_failed', caller, archive.path, error);
+        // Rollback failed: the data may be the new backup's; end the sessions to be safe.
+        if (error.code === 'RESTORE_ROLLBACK_FAILED') endSessionsBeforeNow();
+        throw error;
+      }
+    }, { reason: 'restore' });
+  });
 }
 
 // Daily backup into backups\auto, started once the server first runs.
@@ -524,61 +562,44 @@ function setBackupCopyFolder(folder) {
   log.info(folder ? `extra backup folder: ${folder}` : 'extra backup folder cleared');
 }
 
+// Stage 15: every backup handler checks the caller in this process (lib/backup-handlers.js).
+function backendClient() {
+  return createBackendClient({ apiOrigin: state.apiOrigin, secret: state.secret });
+}
+
+function copyFolderInvalid(folder) {
+  const inside = path.relative(state.paths.home, folder);
+  return !inside || (!inside.startsWith('..') && !path.isAbsolute(inside));
+}
+
 function registerBackupIpc() {
-  const progress = (value) => send('backup:progress', value);
-
-  handleBackup('backup:create', async () => {
-    if (state.backupBusy) throw busyError();
-    if (state.status.state !== 'running') {
-      throw Object.assign(new Error('الخادم غير جاهز الآن. حاول مرة أخرى بعد قليل.'), { code: 'SERVER_BUSY' });
-    }
-    const file = await chooseSavePath('حفظ النسخة الاحتياطية', path.join(app.getPath('documents'), backupFileName()));
-    if (!file) return null;
-    const result = await consistentBackup(file, { reason: 'backup', onProgress: progress });
-    // On the data folder's drive it is not a copy outside this PC; the page says so.
-    const outside = state.autoBackup ? await state.autoBackup.recordManual(result) : true;
-    return { ...result, sameDrive: !outside };
+  const handlers = createBackupHandlers({
+    isServerCopy: () => state.mode === 'main' && Boolean(state.supervisor),
+    serverRunning: () => state.status.state === 'running',
+    isBusy: () => state.backupBusy,
+    busyError,
+    backend: backendClient,
+    chooseSavePath: (defaultPath) => chooseSavePath('حفظ النسخة الاحتياطية', defaultPath),
+    chooseOpenPath: () => chooseOpenPath('اختيار ملف النسخة الاحتياطية'),
+    chooseFolder: () => chooseFolder('اختيار مجلد إضافي لنسخ النسخة الاحتياطية اليومية (مثل فلاشة أو قرص آخر)'),
+    confirmRestore,
+    defaultBackupPath: () => path.join(app.getPath('documents'), backupFileName()),
+    createBackup: (file, { caller, onProgress }) => consistentBackup(file, { reason: 'backup', onProgress, caller }),
+    recordManual: (result) => (state.autoBackup ? state.autoBackup.recordManual(result) : Promise.resolve(true)),
+    inspect: (file) => backupService().inspect(file),
+    restoreArchive,
+    copyFolderInvalid,
+    setCopyFolder: setBackupCopyFolder,
+    copyNow: () => (state.autoBackup ? state.autoBackup.copyNow() : Promise.resolve()),
+    summary: () => (state.autoBackup ? state.autoBackup.summary() : null),
+    showItemInFolder: (file) => shell.showItemInFolder(file),
+    openBackupsFolder: () => shell.openPath(state.paths.backups),
+    onProgress: (value) => send('backup:progress', value),
+    // Every window of this PC goes to the sign-in screen with the restore message.
+    onRestored: () => setImmediate(() => send('nota:session-reset', { reason: 'restored' })),
+    log: state.logger('backup'),
   });
-
-  handleBackup('backup:restore', async () => {
-    if (state.backupBusy) throw busyError();
-    const file = await chooseOpenPath('اختيار ملف النسخة الاحتياطية');
-    if (!file) return null;
-    const archive = await backupService().inspect(file);
-    if (!(await confirmRestore(archive))) return null;
-    return exclusive(() => {
-      log.info(`restoring ${file}`);
-      return state.supervisor.runMaintenance(
-        () => backupService().restore(archive, { safety: true, onProgress: progress }),
-        { reason: 'restore' }
-      );
-    });
-  });
-
-  handleBackup('backup:status', () => (state.autoBackup ? state.autoBackup.summary() : null));
-
-  handleBackup('backup:choose-copy-folder', async () => {
-    const folder = await chooseFolder('اختيار مجلد إضافي لنسخ النسخة الاحتياطية اليومية (مثل فلاشة أو قرص آخر)');
-    if (!folder) return null;
-    const inside = path.relative(state.paths.home, folder);
-    if (!inside || (!inside.startsWith('..') && !path.isAbsolute(inside))) {
-      throw Object.assign(new Error('اختر مجلداً خارج مجلد بيانات البرنامج، ويفضل على فلاشة أو قرص آخر.'), { code: 'COPY_FOLDER_INVALID' });
-    }
-    setBackupCopyFolder(folder);
-    if (state.autoBackup) await state.autoBackup.copyNow(); // copies today's backup there right away
-    return state.autoBackup ? state.autoBackup.summary() : null;
-  });
-
-  handleBackup('backup:clear-copy-folder', async () => {
-    setBackupCopyFolder('');
-    return state.autoBackup ? state.autoBackup.summary() : null;
-  });
-
-  handleBackup('backup:show-file', (file) => {
-    if (typeof file === 'string' && fs.existsSync(file)) shell.showItemInFolder(file);
-    return true;
-  });
-  handleBackup('backup:open-folder', () => shell.openPath(state.paths.backups).then(() => true));
+  for (const [channel, handler] of Object.entries(handlers)) handle(channel, handler);
 }
 
 function registerIpc() {
@@ -600,6 +621,8 @@ function registerIpc() {
   handle('nota:change-address', () => changeAddress());
   handle('nota:open-logs', () => openLogs());
   handle('nota:quit', () => gracefulQuit('user pressed exit'));
+  // Stage 15: other main PCs answering on the LAN (main PC only; read-only).
+  handle('nota:other-main', () => (state.mode === 'main' ? state.otherMainPcs : []));
 
   handleSetup('setup:info', () => ({
     ...state.setup.info(),
@@ -610,6 +633,7 @@ function registerIpc() {
   handleSetup('setup:generate-secret', () => state.setup.generateSecret());
   handleSetup('setup:check-port', (port) => state.setup.checkPort(port));
   handleSetup('setup:discover', () => state.setup.discover());
+  handleSetup('setup:other-main', () => state.setup.findOtherMainPcs(state.config ? state.config.instanceId : null));
   handleSetup('setup:pick-backup', async () => {
     const file = await chooseOpenPath('اختيار ملف النسخة الاحتياطية');
     return file ? state.setup.inspectBackup(file) : null;
@@ -810,12 +834,15 @@ async function startMainRole() {
       jwtSecret,
       appVersion: EDITION.version,
       instanceId: config.instanceId,
+      sessionsValidAfter: config.sessionsValidAfter,
+      auditInbox: path.join(paths.run, AUDIT_INBOX_NAME),
     }),
     port: config.port,
     log: state.logger('backend'),
     output: backendLog.raw('[backend]'),
   });
 
+  state.backend = backend;
   state.supervisor = new MainPcSupervisor({ mongod, backend, log: state.logger('supervisor') });
   state.supervisor.on('status', setStatus);
   updateTray();
@@ -835,6 +862,21 @@ function startResponder() {
     }),
   });
   state.responder.start();
+}
+
+// Stage 15: warns (never stops anything) when another main PC answers on the LAN.
+function startMainPcWatcher() {
+  if (state.mode !== 'main' || state.mainPcWatcher) return;
+  state.mainPcWatcher = new MainPcWatcher({
+    discover: () => discoverServers(),
+    ownInstanceId: state.config.instanceId,
+    log: state.logger('discovery'),
+  });
+  state.mainPcWatcher.on('change', (others) => {
+    state.otherMainPcs = others;
+    send('nota:other-main', others);
+  });
+  state.mainPcWatcher.start();
 }
 
 function setClientAddress(host, port) {
@@ -950,6 +992,7 @@ function gracefulQuit(reason) {
   state.quitPromise = (async () => {
     if (state.monitor) state.monitor.stop();
     if (state.autoBackup) state.autoBackup.stop();
+    if (state.mainPcWatcher) state.mainPcWatcher.stop();
     if (state.responder) await state.responder.stop();
     try {
       if (state.supervisor) await state.supervisor.stop();

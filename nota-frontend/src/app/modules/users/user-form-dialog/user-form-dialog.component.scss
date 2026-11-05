@@ -128,3 +128,9 @@
   color: var(--warning-text);
   font-weight: 700;
 }
+
+// Stage 15: max discount (under the discount permission).
+.uf__limit { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-2); }
+.uf__limit-row { display: flex; align-items: center; gap: 8px; }
+.uf__limit-input { max-width: 140px; }
+.uf__limit-unit { font-weight: 700; color: var(--text-muted); }

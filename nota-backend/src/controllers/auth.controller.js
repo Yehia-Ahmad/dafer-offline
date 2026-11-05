@@ -162,6 +162,34 @@ function createAuthController({ secret, now = () => Date.now() } = {}) {
     res.json({ user: presentUser(user), token: issue(user), permissions: effectivePermissions(user) });
   });
 
+  // Stage 15: the lock screen (and the desktop app before a restore) asks the signed-in user for
+  // their password again. Same lockout as login (per username + IP, in memory). 204 when right;
+  // 400 WRONG_PASSWORD (not 401: the session itself is fine) or 429 LOGIN_LOCKED. The token is
+  // not changed.
+  const verifyPassword = asyncHandler(async (req, res) => {
+    const user = req.user;
+    const lockedMs = loginLimiter.lockedFor(user.username, req.ip);
+    if (lockedMs > 0) throw locked(lockedMs);
+    const password = (req.body || {}).password;
+    if (!(await User.compareSecret(String(password ?? ""), user.passwordHash))) {
+      const nowLocked = loginLimiter.fail(user.username, req.ip);
+      await audit(req, { action: "auth.unlock_failed", entity: "User", entityId: user._id });
+      if (nowLocked) {
+        await audit(req, { action: "auth.locked", entity: "User", details: { username: user.username, flow: "verify-password" } });
+        throw locked(loginLimiter.lockedFor(user.username, req.ip));
+      }
+      throw badRequest("WRONG_PASSWORD", "كلمة المرور غير صحيحة");
+    }
+    loginLimiter.succeed(user.username, req.ip);
+    res.status(204).end();
+  });
+
+  // Stage 15: a new 12-hour token for the same user and tokenVersion. requireAuth already refused
+  // an expired, wrongly signed or outdated (old tokenVersion, disabled user) token.
+  const refresh = asyncHandler(async (req, res) => {
+    res.json({ user: presentUser(req.user), token: issue(req.user), permissions: effectivePermissions(req.user) });
+  });
+
   const recover = asyncHandler(async (req, res) => {
     const body = req.body || {};
     const username = normalizeUsername(body.username);
@@ -206,7 +234,7 @@ function createAuthController({ secret, now = () => Date.now() } = {}) {
     });
   });
 
-  return { bootstrap, setupOwner, login, me, changePassword, recover, permissionsCatalog, loginLimiter, recoverLimiter };
+  return { bootstrap, setupOwner, login, me, changePassword, verifyPassword, refresh, recover, permissionsCatalog, loginLimiter, recoverLimiter };
 }
 
 module.exports = {

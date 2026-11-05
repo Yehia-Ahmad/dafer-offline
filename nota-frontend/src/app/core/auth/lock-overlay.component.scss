@@ -1,0 +1,82 @@
+// Stage 15: lock screen. Tokens only; light/dark via html.dark; logical properties for RTL/LTR.
+:host { display: contents; }
+
+.nota-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: var(--sidebar-bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  overflow-y: auto;
+}
+
+.nota-lock__card {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 32px 28px;
+  border-radius: var(--radius-dialog);
+  background: var(--surface);
+  box-shadow: var(--shadow-dialog);
+  text-align: center;
+}
+
+.nota-lock__brand { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.nota-lock__logo { width: 64px; height: 64px; object-fit: contain; border-radius: 16px; }
+.nota-lock__mark-tile { fill: var(--sidebar-bg); }
+.nota-lock__mark-noon { stroke: var(--on-brand); }
+.nota-lock__mark-coin { fill: var(--accent); }
+.nota-lock__shop { font-weight: 700; color: var(--text-muted); }
+
+.nota-lock__icon {
+  align-self: center;
+  width: 56px;
+  height: 56px;
+  margin-block-start: 8px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--brand-soft);
+  color: var(--brand-strong-text);
+}
+
+.nota-lock__title { margin: 4px 0 0; font-size: 24px; font-weight: 800; }
+.nota-lock__user { margin: 0; font-size: 18px; font-weight: 700; color: var(--brand-strong-text); }
+.nota-lock__lead { margin: 0 0 8px; color: var(--text-muted); line-height: 1.7; }
+
+.nota-lock .nota-label { text-align: start; }
+
+.nota-lock__pass { position: relative; display: flex; }
+.nota-lock__input { width: 100%; min-height: var(--touch-target); padding-inline-end: 48px; }
+.nota-lock__eye {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 44px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-control);
+  &:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+}
+
+.nota-lock__error {
+  min-height: 1.5em;
+  margin: 0;
+  color: var(--danger);
+  font-size: 14px;
+  text-align: start;
+  &:empty { visibility: hidden; }
+}
+
+.nota-lock__submit { min-height: var(--touch-target); font-size: 16px; }
+.nota-lock__switch { min-height: var(--touch-target); }

@@ -86,6 +86,8 @@ const EXPECTED_ROUTES = {
   "POST /api/auth/recover": "PUBLIC",
   "GET /api/auth/me": "AUTHENTICATED",
   "POST /api/auth/change-password": "AUTHENTICATED",
+  "POST /api/auth/verify-password": "AUTHENTICATED",
+  "POST /api/auth/refresh": "AUTHENTICATED",
   "GET /api/auth/permissions": "AUTHENTICATED",
   "GET /api/users": "users.manage",
   "POST /api/users": "users.manage",

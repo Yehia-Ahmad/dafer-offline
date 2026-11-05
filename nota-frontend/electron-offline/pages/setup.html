@@ -26,6 +26,30 @@
       </div>
     </section>
 
+    <!-- 1b. Stage 15: another main PC answers on the LAN -->
+    <section id="step-main-warning" hidden>
+      <div id="role-progress" class="progress" hidden>
+        <span class="spinner"></span>
+        <p>جاري البحث عن جهاز رئيسي آخر على الشبكة...</p>
+      </div>
+      <div id="other-main-box" hidden>
+        <h2>تنبيه: جهاز رئيسي آخر</h2>
+        <p id="other-main-message" class="warning-box" role="alert"></p>
+        <div class="actions" id="other-main-actions">
+          <button type="button" id="use-as-client">استخدم الجهاز ده كجهاز فرعي</button>
+          <button type="button" id="main-anyway" class="secondary">أنا متأكد، كمّل كجهاز رئيسي</button>
+          <button type="button" class="secondary back">رجوع</button>
+        </div>
+        <div id="main-anyway-confirm" hidden>
+          <p class="warning-box">متأكد؟ لو كمّلت هيبقى فيه جهازين رئيسيين، وكل جهاز هيحفظ فواتير ومخزون لوحده.</p>
+          <div class="actions">
+            <button type="button" id="main-anyway-confirmed" class="danger">نعم، كمّل كجهاز رئيسي</button>
+            <button type="button" id="main-anyway-cancel" class="secondary">لا، ارجع</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 2a. Main PC -->
     <form id="step-main" hidden novalidate>
       <h2>إعداد الجهاز الرئيسي</h2>
@@ -110,6 +134,7 @@
     <p id="form-error" class="error" role="alert" hidden></p>
     <footer>الإصدار <span id="version"></span></footer>
   </main>
+  <script src="setup-main-check.js"></script>
   <script src="setup.js"></script>
 </body>
 </html>

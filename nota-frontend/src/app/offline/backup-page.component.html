@@ -171,4 +171,27 @@
       </div>
     </section>
   </div>
+
+  <!-- Stage 15: restore asks for the signed-in user's password before anything is stopped or replaced. -->
+  @if (passwordOpen()) {
+    <div class="bk__modal" role="dialog" aria-modal="true" aria-labelledby="bkPassTitle" data-test="restore-password">
+      <form class="bk__modal-card" (ngSubmit)="confirmRestore()" novalidate>
+        <h2 id="bkPassTitle" class="bk__modal-title">{{ 'session.restore.title' | translate }}</h2>
+        <p class="bk__danger">{{ 'session.restore.warning' | translate }}</p>
+        <p class="bk__muted">{{ 'session.restore.lead' | translate }}</p>
+        <label class="nota-label" for="bkRestorePass">{{ 'auth.fields.password' | translate }}</label>
+        <input id="bkRestorePass" name="password" type="password" class="nota-input" autocomplete="current-password" [disabled]="!!busy()"
+          [ngModel]="restorePassword()" (ngModelChange)="restorePassword.set($event)" [attr.aria-invalid]="passwordError() ? 'true' : null" />
+        @if (passwordError()) {
+          <p class="bk__danger" role="alert" data-test="restore-password-error">{{ passwordError() }}</p>
+        }
+        <div class="bk__modal-actions">
+          <button type="button" notaButton [disabled]="!!busy()" (click)="cancelRestore()">{{ 'auth.cancel' | translate }}</button>
+          <button type="submit" notaButton="danger" [disabled]="!!busy()" data-test="restore-continue">
+            {{ (busy() === 'restore' ? 'backupPage.restore.working' : 'session.restore.continue') | translate }}
+          </button>
+        </div>
+      </form>
+    </div>
+  }
 </div>

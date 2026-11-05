@@ -41,6 +41,13 @@ const userSchema = new mongoose.Schema(
     // true when the owner saved an edited permissions list for a template role (manager, cashier,
     // storekeeper, accountant): that list then wins over the template. Not used for owner/custom.
     permissionsEdited: { type: Boolean, default: false },
+    // Stage 15: the largest invoice discount this user may give, as a percent of the subtotal.
+    // Unset = no limit. Only meaningful with sales.discount; never applied to the owner.
+    maxDiscountPercent: {
+      type: Number,
+      min: [0, "أقصى خصم يجب أن يكون بين 0 و 100"],
+      max: [100, "أقصى خصم يجب أن يكون بين 0 و 100"],
+    },
     isActive: { type: Boolean, default: true },
     tokenVersion: { type: Number, default: 0 },
     lastLoginAt: { type: Date },

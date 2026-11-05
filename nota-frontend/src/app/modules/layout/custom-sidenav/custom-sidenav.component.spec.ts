@@ -7,6 +7,7 @@ import { TranslateModule } from '@ngx-translate/core';
 
 import { CustomSidenavComponent, deviceLabelKey, userRoleLabelKey } from './custom-sidenav.component';
 import { AuthService } from '../../../core/auth/auth.service';
+import { UnsavedWorkService } from '../../../core/unsaved-work/unsaved-work.service';
 import { fakeUser } from '../../../core/auth/testing/auth-fixtures';
 import { LanguageService } from '../../shared/services/translation.service';
 import { ThemeService } from '../../shared/services/theme.service';
@@ -99,14 +100,39 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
     expect(userRoleLabelKey(null)).toBe('');
   });
 
-  it('logout clears the session (no confirmation: there is no unsaved-changes check to reuse) and goes to /login', () => {
+  it('logout with nothing unsaved clears the session without asking and goes to /login', async () => {
     const router = TestBed.inject(Router);
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     (el().querySelector('.nota-user-card__logout') as HTMLButtonElement).click();
+    await fixture.whenStable();
     const auth = TestBed.inject(AuthService);
     expect(auth.token()).toBeNull();
     expect(auth.user()).toBeNull();
     expect(navigate).toHaveBeenCalledWith(['/login']);
+  });
+
+  it('Stage 15: logout with unsaved work asks first; "back to work" keeps the session, "continue" signs out', async () => {
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const unsaved = TestBed.inject(UnsavedWorkService);
+    const unregister = unsaved.register('pos', () => true);
+    const auth = TestBed.inject(AuthService);
+
+    (el().querySelector('.nota-user-card__logout') as HTMLButtonElement).click();
+    await Promise.resolve();
+    expect(unsaved.prompt()).not.toBeNull();
+    unsaved.answer(false);
+    await fixture.whenStable();
+    expect(auth.token()).not.toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+
+    (el().querySelector('.nota-user-card__logout') as HTMLButtonElement).click();
+    await Promise.resolve();
+    unsaved.answer(true);
+    await fixture.whenStable();
+    expect(auth.token()).toBeNull();
+    expect(navigate).toHaveBeenCalledWith(['/login']);
+    unregister();
   });
 
   it('"change password" in the user card opens the dialog', () => {
