@@ -91,10 +91,15 @@
           <span class="cl__muted">{{ 'creditSalePage.list.panelTitle' | translate }}</span>
           <h2 class="cl__panel-title"><span class="nota-num" dir="ltr">{{ invoice.number || shortRef(invoice.invoiceId) }}</span> · <span dir="auto">{{ invoice.customerName }}</span></h2>
           <span [class]="statusPill(invoice)">{{ statusKey(invoice) | translate }}</span>
+          @if (invoice.status === 'cancelled' && invoice.cancellationReason) {
+            <p class="cl__msg" data-testid="credit-cancellation-reason">{{ 'invoiceHistoryPage.cancel.reason' | translate }}: {{ invoice.cancellationReason }}</p>
+          }
           @if (invoice.createdByName) {<span class="cl__muted cl__created-by" data-testid="created-by">{{ 'auth.createdBy' | translate: { name: invoice.createdByName } }}</span>}
         </div>
         <div class="cl__figures">
-          <div><span>{{ 'creditSalePage.list.total' | translate }}</span><strong class="nota-num">{{ invoice.totalPrice | notaMoney }}</strong></div>
+          <div><span>{{ 'invoiceHistoryPage.cancel.originalTotal' | translate }}</span><strong class="nota-num">{{ invoice.totalPrice | notaMoney }}</strong></div>
+          <div><span>{{ 'invoiceHistoryPage.s10.refundedAmount' | translate }}</span><strong class="nota-num">{{ invoice.refundedAmount | notaMoney }}</strong></div>
+          <div><span>{{ 'invoiceHistoryPage.cancel.netTotal' | translate }}</span><strong class="nota-num">{{ invoice.netTotal | notaMoney }}</strong></div>
           <div><span>{{ 'creditSalePage.list.paid' | translate }}</span><strong class="nota-num cl__in">{{ invoice.paidAmount | notaMoney }}</strong></div>
           <div><span>{{ 'creditSalePage.list.remaining' | translate }}</span><strong class="nota-num cl__due">{{ invoice.remainingAmount | notaMoney }}</strong></div>
         </div>

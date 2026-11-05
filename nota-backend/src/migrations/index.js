@@ -8,8 +8,12 @@ const Receipt = require("../models/receipt.model");
 const ReturnLog = require("../models/returnLog.model");
 const Selling = require("../models/selling.model");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
-const { PREFIXES, nextDocumentNumber } = require("../utils/documentNumber");
+const { PREFIXES, formatDocumentNumber } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
+
+const BATCH_SIZE = 500;
+const MIGRATION_TRANSACTION_LIFETIME_SECONDS = 600;
+const REALLOCATION_NOTE_PREFIX = "تسوية تلقائية من مرتجع الفاتورة";
 
 const failInvoice = (invoice, message) => {
   const error = new Error(`تعذر تحديث الفاتورة ${invoice.number || invoice._id}: ${message}`);
@@ -17,42 +21,107 @@ const failInvoice = (invoice, message) => {
   throw error;
 };
 
-async function backfillModelNumbers(Model, prefix, dateField, session) {
-  const documents = await Model.find({ $or: [{ number: { $exists: false } }, { number: null }, { number: "" }] })
-    .sort({ [dateField]: 1, createdAt: 1, _id: 1 }).session(session);
-  for (const document of documents) {
-    document.number = await nextDocumentNumber(prefix, session);
-    await document.save({ session, validateBeforeSave: false });
+const chunks = (items, size = BATCH_SIZE) => {
+  const result = [];
+  for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
+  return result;
+};
+
+async function reserveNumbers(prefix, count, session) {
+  if (!count) return [];
+  const counter = await Counter.findOneAndUpdate(
+    { _id: prefix },
+    { $inc: { seq: count } },
+    { new: true, upsert: true, setDefaultsOnInsert: true, session }
+  );
+  const first = counter.seq - count + 1;
+  return Array.from({ length: count }, (_, index) => formatDocumentNumber(prefix, first + index));
+}
+
+async function bulkWriteInChunks(Model, operations, session) {
+  for (const batch of chunks(operations)) {
+    await Model.bulkWrite(batch, { ordered: true, session });
   }
 }
+
+async function backfillModelNumbers(Model, prefix, dateField, session) {
+  const documents = await Model.find({ $or: [{ number: { $exists: false } }, { number: null }, { number: "" }] })
+    .sort({ [dateField]: 1, createdAt: 1, _id: 1 }).select("_id").lean().session(session);
+  const numbers = await reserveNumbers(prefix, documents.length, session);
+  await bulkWriteInChunks(Model, documents.map((document, index) => ({
+    updateOne: { filter: { _id: document._id }, update: { $set: { number: numbers[index] } } },
+  })), session);
+}
+
+const sameInstantWithin = (left, right, milliseconds) => {
+  const leftTime = left ? new Date(left).getTime() : NaN;
+  const rightTime = right ? new Date(right).getTime() : NaN;
+  return Number.isFinite(leftTime) && Number.isFinite(rightTime) && Math.abs(leftTime - rightTime) <= milliseconds;
+};
+
+const objectIdTime = (value) => {
+  try { return value ? new mongoose.Types.ObjectId(value).getTimestamp() : null; } catch (_error) { return null; }
+};
+
+const isOldDownPayment = (invoice, payment, index) => index === 0
+  && sameInstantWithin(payment.paymentDate, invoice.sellingDate, 1000)
+  && sameInstantWithin(objectIdTime(payment._id), invoice.createdAt || objectIdTime(invoice._id), 5000);
+
+const reallocationSourceId = (payment) => {
+  const note = typeof payment.note === "string" ? payment.note : "";
+  if (!note.startsWith(REALLOCATION_NOTE_PREFIX)) return null;
+  return note.slice(REALLOCATION_NOTE_PREFIX.length).match(/[a-f\d]{24}/i)?.[0] || null;
+};
 
 async function numbersMigration(session) {
   await backfillModelNumbers(Selling, PREFIXES.CASH_INVOICE, "sellingDate", session);
   await backfillModelNumbers(CreditSale, PREFIXES.CREDIT_INVOICE, "sellingDate", session);
   await backfillModelNumbers(ReturnLog, PREFIXES.RETURN, "returnDate", session);
 
-  const invoices = await CreditSale.find({ "payments.0": { $exists: true } }).sort({ sellingDate: 1, createdAt: 1, _id: 1 }).session(session);
+  const invoices = await CreditSale.collection.find(
+    { "payments.0": { $exists: true } },
+    { session }
+  ).sort({ sellingDate: 1, createdAt: 1, _id: 1 }).toArray();
+  const reallocationSources = await CreditSale.find({ reallocatedPaidAmount: { $gt: 0 } })
+    .select("_id").lean().session(session);
+  const confirmedReallocationSources = new Set(reallocationSources.map((invoice) => String(invoice._id)));
+  const numberedPayments = [];
   for (const invoice of invoices) {
-    let changed = false;
-    for (const payment of invoice.payments) {
-      if (payment.number) continue;
-      const number = await nextDocumentNumber(PREFIXES.RECEIPT, session);
-      const [receipt] = await Receipt.create([{
-        number,
-        customer: invoice.customer,
-        amount: roundMoney(payment.amount),
-        paymentDate: payment.paymentDate,
-        note: payment.note,
-        kind: "payment",
-        allocations: [{ creditSale: invoice._id, amount: roundMoney(payment.amount) }],
-      }], { session });
-      payment.number = number;
-      payment.receipt = receipt._id;
-      payment.source = "receipt";
-      changed = true;
+    for (const [index, payment] of (invoice.payments || []).entries()) {
+      const sourceId = reallocationSourceId(payment);
+      if (sourceId && confirmedReallocationSources.has(sourceId)) {
+        payment.source = "return_reallocation";
+        delete payment.receipt;
+        delete payment.number;
+        continue;
+      }
+      if (!payment.number) numberedPayments.push({ invoice, payment, index });
     }
-    if (changed) await invoice.save({ session, validateBeforeSave: false });
   }
+  const receiptNumbers = await reserveNumbers(PREFIXES.RECEIPT, numberedPayments.length, session);
+  const receiptDocuments = [];
+  numberedPayments.forEach(({ invoice, payment, index }, paymentIndex) => {
+    const number = receiptNumbers[paymentIndex];
+    const receiptId = new mongoose.Types.ObjectId();
+    const downPayment = isOldDownPayment(invoice, payment, index);
+    payment.number = number;
+    payment.receipt = receiptId;
+    payment.source = downPayment ? "down_payment" : "receipt";
+    receiptDocuments.push({
+      _id: receiptId,
+      number,
+      customer: invoice.customer,
+      amount: roundMoney(payment.amount),
+      paymentDate: payment.paymentDate,
+      note: payment.note,
+      kind: downPayment ? "down_payment" : "payment",
+      allocations: [{ creditSale: invoice._id, amount: roundMoney(payment.amount) }],
+    });
+  });
+  for (const batch of chunks(receiptDocuments)) await Receipt.insertMany(batch, { ordered: true, session });
+  await bulkWriteInChunks(CreditSale, invoices.map((invoice) => ({
+    updateOne: { filter: { _id: invoice._id }, update: { $set: { payments: invoice.payments } } },
+  })), session);
 }
 
 const productIdOf = (item) => String(item.product?._id || item.product || item.productId || "");
@@ -68,10 +137,18 @@ const historicalUnitCost = (item, unitPrice) => {
 };
 
 async function restoreCreditInvoice(invoice, session, estimatedInvoices) {
+  if (invoice.stage16OriginalTotalsRestored) return;
   const logs = await ReturnLog.find({ invoiceId: invoice._id, returnType: "credit" }).sort({ returnDate: 1, createdAt: 1 }).session(session);
   if (!logs.length) failInvoice(invoice, "سجل المرتجع غير موجود");
   if (logs.length !== (invoice.refunds || []).length) failInvoice(invoice, "عدد سجلات المرتجع لا يطابق الفاتورة");
   if ((invoice.refunds || []).some((refund) => !refund.returnLog)) failInvoice(invoice, "أحد المرتجعات غير مرتبط بسجل مرتجع");
+
+  const logsById = new Map(logs.map((log) => [String(log._id), log]));
+  for (const refund of invoice.refunds || []) {
+    const log = logsById.get(String(refund.returnLog));
+    if (!log) failInvoice(invoice, "أحد المرتجعات غير مرتبط بسجل المرتجع الصحيح");
+    refund.totalAmount = roundMoney(log.finalReturnedAmount);
+  }
 
   const netRefund = roundMoney(logs.reduce((sum, log) => sum + Number(log.finalReturnedAmount || 0), 0));
   const expectedOriginal = roundMoney(Number(invoice.totalPrice || 0) + netRefund);
@@ -89,6 +166,23 @@ async function restoreCreditInvoice(invoice, session, estimatedInvoices) {
       entry.samples.push(item);
       returnedById.set(key, entry);
     }
+  }
+
+  // Old partial returns replaced the invoice item subdocuments, giving the remaining line a new
+  // _id. Merge an unmatched returned line into exactly one same-product/same-price current line.
+  for (const [key, entry] of [...returnedById.entries()]) {
+    if (currentById.has(key)) continue;
+    const productIds = new Set(entry.samples.map(productIdOf));
+    const prices = new Set(entry.samples.map((item) => roundMoney(item.unitPrice)));
+    if (productIds.size !== 1 || prices.size !== 1) continue;
+    const productId = [...productIds][0];
+    const unitPrice = [...prices][0];
+    const matches = (invoice.items || []).filter((item) =>
+      productIdOf(item) === productId && roundMoney(item.unitPrice) === unitPrice
+    );
+    if (matches.length !== 1 || returnedById.has(String(matches[0]._id))) continue;
+    returnedById.set(String(matches[0]._id), entry);
+    returnedById.delete(key);
   }
 
   const restored = [];
@@ -175,6 +269,7 @@ async function restoreCreditInvoice(invoice, session, estimatedInvoices) {
   invoice.refundedAmount = netRefund;
   invoice.remainingAmount = roundMoney(Math.max(0, totals.totalPrice - Number(invoice.paidAmount || 0) - netRefund));
   invoice.refundDueAmount = roundMoney(Math.max(0, Number(invoice.paidAmount || 0) + netRefund - totals.totalPrice));
+  invoice.stage16OriginalTotalsRestored = true;
   if (invoice.refundStatus === "full" || invoice.status === "Reactionary") invoice.status = "returned";
   else invoice.status = invoice.remainingAmount === 0 ? "paid" : Number(invoice.paidAmount || 0) > 0 ? "partially_paid" : "pending";
   await invoice.save({ session });
@@ -186,6 +281,24 @@ async function originalTotalsMigration(session) {
   for (const invoice of cash) {
     const logs = await ReturnLog.find({ invoiceId: invoice._id, returnType: "cash" }).session(session);
     if (logs.length !== invoice.refunds.length) failInvoice(invoice, "سجل مرتجع كاش مفقود");
+    const returnedByItemId = new Map();
+    for (const refund of invoice.refunds || []) {
+      for (const item of refund.items || []) {
+        const key = item.invoiceItemId ? String(item.invoiceItemId) : null;
+        const current = key ? invoice.items?.id(item.invoiceItemId) : null;
+        let matched = current;
+        if (!matched) {
+          const matches = (invoice.items || []).filter((line) =>
+            productIdOf(line) === productIdOf(item) && roundMoney(line.unitPrice) === roundMoney(item.unitPrice)
+          );
+          if (matches.length === 1) matched = matches[0];
+        }
+        if (!matched) failInvoice(invoice, "تعذر مطابقة عنصر مرتجع كاش بسطر الفاتورة");
+        const matchedKey = String(matched._id);
+        returnedByItemId.set(matchedKey, Number(returnedByItemId.get(matchedKey) || 0) + Number(item.quantity || 0));
+      }
+    }
+    for (const item of invoice.items || []) item.returnedQuantity = Number(returnedByItemId.get(String(item._id)) || 0);
     invoice.refundedAmount = roundMoney(logs.reduce((sum, log) => sum + Number(log.finalReturnedAmount || 0), 0));
     await invoice.save({ session });
   }
@@ -221,18 +334,29 @@ async function recordMigration(migration, details, session) {
 async function runMigrations() {
   const schema = await Meta.findById("schema").lean();
   let version = Number(schema?.version || 0);
-  for (const migration of migrations) {
-    if (migration.version <= version) continue;
-    if (migration.outsideTransaction) {
-      await migration.run();
-      await withTransaction((session) => recordMigration(migration, {}, session));
-    } else {
-      await withTransaction(async (session) => {
-        const details = await migration.run(session) || {};
-        await recordMigration(migration, details, session);
-      });
+  const pending = migrations.filter((migration) => migration.version > version);
+  if (!pending.length) return version;
+  const admin = mongoose.connection.db.admin();
+  const parameter = await admin.command({ getParameter: 1, transactionLifetimeLimitSeconds: 1 });
+  const previousLifetime = Number(parameter.transactionLifetimeLimitSeconds);
+  await admin.command({ setParameter: 1, transactionLifetimeLimitSeconds: MIGRATION_TRANSACTION_LIFETIME_SECONDS });
+  try {
+    for (const migration of pending) {
+      if (migration.outsideTransaction) {
+        await migration.run();
+        await withTransaction((session) => recordMigration(migration, {}, session));
+      } else {
+        await withTransaction(async (session) => {
+          const details = await migration.run(session) || {};
+          await recordMigration(migration, details, session);
+        });
+      }
+      version = migration.version;
     }
-    version = migration.version;
+  } finally {
+    if (Number.isFinite(previousLifetime)) {
+      await admin.command({ setParameter: 1, transactionLifetimeLimitSeconds: previousLifetime });
+    }
   }
   return version;
 }

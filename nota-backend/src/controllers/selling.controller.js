@@ -633,8 +633,7 @@ const applyInventoryForInvoiceChange = async ({
     }
   }
 
-  try {
-    for (const productId of allProductIds) {
+  for (const productId of allProductIds) {
       const product = productsById.get(productId);
       if (!product) continue;
 
@@ -660,24 +659,6 @@ const applyInventoryForInvoiceChange = async ({
       }
       product.inventoryCount = originalState.inventoryCount + autoRestockedQuantity + inventoryDelta;
       product.soldItemCount = Math.max(0, originalState.soldItemCount + soldDelta);
-    }
-  } catch (error) {
-    for (const productId of allProductIds) {
-      const product = productsById.get(productId);
-      const originalState = originalStates.get(productId);
-      if (!product || !originalState) continue;
-
-      product.inventoryCount = originalState.inventoryCount;
-      product.soldItemCount = originalState.soldItemCount;
-
-      try {
-        await product.save({ session });
-      } catch (_saveError) {
-        // Best-effort rollback only; surface the original failure.
-      }
-    }
-
-    throw error;
   }
 
   productsById.autoRestockedByProductId = autoRestockedByProductId;
@@ -733,10 +714,7 @@ const createSellingInvoice = async ({ body, res, allowBelowCost = false, session
   });
   const persistedItems = buildPersistedItems(items, productsById);
   const invoiceTotals = buildInvoiceTotals(persistedItems, invoicePricing);
-  let selling;
-
-  try {
-    const created = await Selling.create([{
+  const created = await Selling.create([{
       number,
       customerName: normalizedCustomerName,
       customerPhone: normalizedCustomerPhone,
@@ -746,29 +724,8 @@ const createSellingInvoice = async ({ body, res, allowBelowCost = false, session
       discountAmount: invoiceTotals.discountAmount,
       shippingFees: invoiceTotals.shippingFees,
       totalPrice: invoiceTotals.totalPrice,
-    }], { session });
-    selling = created[0];
-  } catch (error) {
-    try {
-      await applyInventoryForInvoiceChange({
-        currentItems: items,
-        nextItems: [],
-        res,
-        session,
-        inventoryAdjustmentsByProductId: new Map(
-          [...productsById.autoRestockedByProductId.entries()].map(
-            ([productId, quantity]) => [productId, -quantity]
-          )
-        ),
-      });
-    } catch (_rollbackError) {
-      // Best-effort rollback only; surface the create failure.
-    }
-
-    throw error;
-  }
-
-  return selling;
+  }], { session });
+  return created[0];
 };
 
 const createSelling = asyncHandler(async (req, res) => {
@@ -1032,25 +989,7 @@ const updateSellingInTransaction = async (req, res, session) => {
   selling.customerPhone = normalizedCustomerPhone;
   selling.sellingDate = normalizedSellingDate;
 
-  let updatedSelling;
-  try {
-    updatedSelling = await selling.save({ session });
-  } catch (error) {
-    if (shouldUpdateItems) {
-      try {
-        await applyInventoryForInvoiceChange({
-          currentItems: nextItems,
-          nextItems: currentItems,
-          res,
-          session,
-        });
-      } catch (_rollbackError) {
-        // Best-effort rollback only; surface the update failure.
-      }
-    }
-
-    throw error;
-  }
+  const updatedSelling = await selling.save({ session });
 
   await audit(req, { action: "sale.updated", entity: "Selling", entityId: selling._id, session, strict: true });
   return updatedSelling;

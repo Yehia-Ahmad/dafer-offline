@@ -488,8 +488,7 @@ const applyInventoryForInvoiceChange = async ({ currentItems, nextItems, res, al
     }
   }
 
-  try {
-    for (const productId of allProductIds) {
+  for (const productId of allProductIds) {
       const product = productsById.get(productId);
       if (!product) continue;
 
@@ -509,24 +508,6 @@ const applyInventoryForInvoiceChange = async ({ currentItems, nextItems, res, al
       }
       product.inventoryCount = originalState.inventoryCount + inventoryDelta;
       product.soldItemCount = Math.max(0, originalState.soldItemCount + soldDelta);
-    }
-  } catch (error) {
-    for (const productId of allProductIds) {
-      const product = productsById.get(productId);
-      const originalState = originalStates.get(productId);
-      if (!product || !originalState) continue;
-
-      product.inventoryCount = originalState.inventoryCount;
-      product.soldItemCount = originalState.soldItemCount;
-
-      try {
-        await product.save({ session });
-      } catch (_saveError) {
-        // Best-effort rollback only; surface the original failure.
-      }
-    }
-
-    throw error;
   }
 
   return productsById;
@@ -625,41 +606,6 @@ const applyCreditAmountsToInvoice = (creditSale, creditAmounts, statusOverride) 
   creditSale.status = statusOverride ?? creditAmounts.status;
 };
 
-const createCreditSaleFinancialSnapshot = (creditSale) => ({
-  payments: Array.isArray(creditSale.payments)
-    ? creditSale.payments.map((payment) => ({
-        _id: payment._id,
-        amount: Number(payment.amount || 0),
-        paymentDate: payment.paymentDate,
-        note: payment.note,
-      }))
-    : [],
-  paidAmount: Number(creditSale.paidAmount || 0),
-  remainingAmount: Number(creditSale.remainingAmount || 0),
-  refundDueAmount: Number(creditSale.refundDueAmount || 0),
-  status: creditSale.status,
-});
-
-const restoreCreditSaleFinancialSnapshot = (creditSale, snapshot) => {
-  creditSale.payments = snapshot.payments.map((payment) => ({ ...payment }));
-  creditSale.paidAmount = snapshot.paidAmount;
-  creditSale.remainingAmount = snapshot.remainingAmount;
-  creditSale.refundDueAmount = snapshot.refundDueAmount;
-  creditSale.status = snapshot.status;
-};
-
-const rollbackCreditSaleFinancialUpdates = async (updates = []) => {
-  for (const update of [...updates].reverse()) {
-    restoreCreditSaleFinancialSnapshot(update.creditSale, update.snapshot);
-
-    try {
-      await update.creditSale.save();
-    } catch (_rollbackError) {
-      // Best-effort rollback only; surface the original failure.
-    }
-  }
-};
-
 const buildRefundReallocationPaymentNote = (sourceCreditSale, refundNote) => {
   const baseNote = `تسوية تلقائية من مرتجع الفاتورة ${sourceCreditSale._id}`;
 
@@ -696,8 +642,7 @@ const reallocateRefundCreditToOtherInvoices = async ({
   let remainingCredit = normalizedAvailableCredit;
   const paymentNote = buildRefundReallocationPaymentNote(sourceCreditSale, refundNote);
 
-  try {
-    const targetCreditSales = await CreditSale.find({
+  const targetCreditSales = await CreditSale.find({
       customer: sourceCreditSale.customer,
       _id: { $ne: sourceCreditSale._id },
       remainingAmount: { $gt: 0 },
@@ -715,8 +660,6 @@ const reallocateRefundCreditToOtherInvoices = async ({
       if (payableAmount <= MONEY_EPSILON) {
         continue;
       }
-
-      const snapshot = createCreditSaleFinancialSnapshot(targetCreditSale);
 
       targetCreditSale.payments.push({
         amount: payableAmount,
@@ -744,15 +687,8 @@ const reallocateRefundCreditToOtherInvoices = async ({
       applyCreditAmountsToInvoice(targetCreditSale, creditAmounts);
       await targetCreditSale.save({ session });
 
-      updatedInvoices.push({
-        creditSale: targetCreditSale,
-        snapshot,
-      });
+      updatedInvoices.push(targetCreditSale);
       remainingCredit = roundMoney(remainingCredit - payableAmount);
-    }
-  } catch (error) {
-    await rollbackCreditSaleFinancialUpdates(updatedInvoices);
-    throw error;
   }
 
   return {
@@ -1076,21 +1012,11 @@ const createCreditSaleInTransaction = async (req, res, session) => {
   const creditAmounts = calculateCreditAmounts(invoiceTotals.totalPrice, payments, 0, 0);
 
   if (creditAmounts.refundDueAmount > MONEY_EPSILON) {
-    await applyInventoryForInvoiceChange({
-      currentItems: items,
-      nextItems: [],
-      res,
-      session,
-    });
-
     res.status(400);
     throw new Error("المبلغ المدفوع مبدئيًا لا يمكن أن يتجاوز إجمالي الفاتورة");
   }
 
-  let creditSale;
-
-  try {
-    const created = await CreditSale.create([{
+  const created = await CreditSale.create([{
       _id: invoiceId,
       number: invoiceNumber,
       customer: customer._id,
@@ -1111,10 +1037,10 @@ const createCreditSaleInTransaction = async (req, res, session) => {
       status: creditAmounts.status,
       notes: normalizedNotes,
       payments,
-    }], { session });
-    creditSale = created[0];
-    if (initialPaidAmount > 0) {
-      await Receipt.create([{
+  }], { session });
+  const creditSale = created[0];
+  if (initialPaidAmount > 0) {
+    await Receipt.create([{
         _id: receiptId,
         number: receiptNumber,
         customer: customer._id,
@@ -1123,21 +1049,7 @@ const createCreditSaleInTransaction = async (req, res, session) => {
         note: initialPaymentNote,
         kind: "down_payment",
         allocations: [{ creditSale: invoiceId, amount: roundMoney(initialPaidAmount) }],
-      }], { session });
-    }
-  } catch (error) {
-    try {
-      await applyInventoryForInvoiceChange({
-        currentItems: items,
-        nextItems: [],
-        res,
-        session,
-      });
-    } catch (_rollbackError) {
-      // Best-effort rollback only; surface the create failure.
-    }
-
-    throw error;
+    }], { session });
   }
 
   await audit(req, { action: "credit.created", entity: "CreditSale", entityId: creditSale._id, session, strict: true });
@@ -1407,10 +1319,7 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
     });
   }
 
-  let updatedCreditSale;
-
-  try {
-    if (shouldUpdateItems) {
+  if (shouldUpdateItems) {
       persistedItems = buildPersistedItems(nextItems, productsById);
       creditSale.items = persistedItems;
     }
@@ -1457,23 +1366,7 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
     creditSale.dueDate = normalizedDueDate ?? undefined;
     creditSale.notes = normalizedNotes;
 
-    updatedCreditSale = await creditSale.save({ session });
-  } catch (error) {
-    if (shouldUpdateItems) {
-      try {
-        await applyInventoryForInvoiceChange({
-          currentItems: nextItems,
-          nextItems: currentItems,
-          res,
-          session,
-        });
-      } catch (_rollbackError) {
-        // Best-effort rollback only; surface the update failure.
-      }
-    }
-
-    throw error;
-  }
+  const updatedCreditSale = await creditSale.save({ session });
 
   await audit(req, { action: "credit.updated", entity: "CreditSale", entityId: creditSale._id, session, strict: true });
   return updatedCreditSale;
@@ -1529,21 +1422,25 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
   );
 
   if (selectedRemainingAmount <= MONEY_EPSILON) {
-    return res.status(400).json({
-      message: "لا يوجد مبلغ متبقٍ في هذه الفاتورة",
+    const error = new Error("لا يوجد مبلغ متبقٍ في هذه الفاتورة");
+    error.statusCode = 400;
+    error.responseData = {
       invoiceId: creditSale._id,
       remainingAmount: selectedRemainingAmount,
       totalRemainingAmount,
-    });
+    };
+    throw error;
   }
 
   if (amount - totalRemainingAmount > MONEY_EPSILON) {
-    return res.status(400).json({
-      message: "قيمة الدفعة لا يمكن أن تتجاوز إجمالي المبلغ المتبقي على كل الفواتير المفتوحة",
+    const error = new Error("قيمة الدفعة لا يمكن أن تتجاوز إجمالي المبلغ المتبقي على كل الفواتير المفتوحة");
+    error.statusCode = 400;
+    error.responseData = {
       invoiceId: creditSale._id,
       remainingAmount: selectedRemainingAmount,
       totalRemainingAmount,
-    });
+    };
+    throw error;
   }
 
   const targetCreditSales = [creditSale, ...otherOpenCreditSales];
@@ -1564,8 +1461,6 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
     if (payableAmount <= MONEY_EPSILON) {
       continue;
     }
-
-    const snapshot = createCreditSaleFinancialSnapshot(targetCreditSale);
 
     targetCreditSale.payments.push({
       amount: payableAmount,
@@ -1593,10 +1488,7 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
     }
 
     applyCreditAmountsToInvoice(targetCreditSale, creditAmounts);
-    pendingUpdates.push({
-      creditSale: targetCreditSale,
-      snapshot,
-    });
+    pendingUpdates.push(targetCreditSale);
     remainingPaymentAmount = roundMoney(remainingPaymentAmount - payableAmount);
   }
 
@@ -1605,19 +1497,9 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
     throw new Error("تعذر توزيع الدفعة على الفواتير المفتوحة");
   }
 
-  const savedUpdates = [];
+  for (const targetCreditSale of pendingUpdates) await targetCreditSale.save({ session });
 
-  try {
-    for (const update of pendingUpdates) {
-      await update.creditSale.save({ session });
-      savedUpdates.push(update);
-    }
-  } catch (error) {
-    await rollbackCreditSaleFinancialUpdates(savedUpdates);
-    throw error;
-  }
-
-  const updatedInvoices = pendingUpdates.map((update) => toCreditSaleInvoice(update.creditSale));
+  const updatedInvoices = pendingUpdates.map((targetCreditSale) => toCreditSaleInvoice(targetCreditSale));
   const primaryInvoice =
     updatedInvoices.find((invoice) => invoice._id.toString() === creditSale._id.toString()) ??
     toCreditSaleInvoice(creditSale);
@@ -1630,7 +1512,7 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
     paymentDate,
     note,
     kind: "payment",
-    allocations: pendingUpdates.map((update) => ({ creditSale: update.creditSale._id, amount: update.creditSale.payments.at(-1).amount })),
+    allocations: pendingUpdates.map((targetCreditSale) => ({ creditSale: targetCreditSale._id, amount: targetCreditSale.payments.at(-1).amount })),
   }], { session });
   await audit(req, { action: "credit.payment", entity: "CreditSale", entityId: creditSale._id, details: { amount, number: receiptNumber }, session, strict: true });
   return {

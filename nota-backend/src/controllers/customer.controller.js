@@ -1,6 +1,5 @@
 const CreditSale = require("../models/creditSale.model");
 const Customer = require("../models/customer.model");
-const Product = require("../models/product.model");
 const Selling = require("../models/selling.model");
 const Receipt = require("../models/receipt.model");
 const ReturnLog = require("../models/returnLog.model");
@@ -16,11 +15,6 @@ const { audit } = require("../auth/audit");
 
 const OPEN_CREDIT_SALE_STATUSES = ["pending", "partially_paid"];
 const MONEY_EPSILON = 1e-9;
-const CUSTOMER_DELETE_RESTORE_FLAGS = [
-  "restoreCreditInvoices",
-  "restoreCreditSales",
-  "restoreInvoices",
-];
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const getFirstDefined = (...values) => values.find((value) => value !== undefined);
@@ -147,41 +141,6 @@ const applyCreditAmountsToInvoice = (creditSale, creditAmounts) => {
   creditSale.status = creditAmounts.status;
 };
 
-const createCreditSaleFinancialSnapshot = (creditSale) => ({
-  payments: Array.isArray(creditSale.payments)
-    ? creditSale.payments.map((payment) => ({
-        _id: payment._id,
-        amount: Number(payment.amount || 0),
-        paymentDate: payment.paymentDate,
-        note: payment.note,
-      }))
-    : [],
-  paidAmount: Number(creditSale.paidAmount || 0),
-  remainingAmount: Number(creditSale.remainingAmount || 0),
-  refundDueAmount: Number(creditSale.refundDueAmount || 0),
-  status: creditSale.status,
-});
-
-const restoreCreditSaleFinancialSnapshot = (creditSale, snapshot) => {
-  creditSale.payments = snapshot.payments.map((payment) => ({ ...payment }));
-  creditSale.paidAmount = snapshot.paidAmount;
-  creditSale.remainingAmount = snapshot.remainingAmount;
-  creditSale.refundDueAmount = snapshot.refundDueAmount;
-  creditSale.status = snapshot.status;
-};
-
-const rollbackCreditSaleFinancialUpdates = async (updates = []) => {
-  for (const update of [...updates].reverse()) {
-    restoreCreditSaleFinancialSnapshot(update.creditSale, update.snapshot);
-
-    try {
-      await update.creditSale.save();
-    } catch (_rollbackError) {
-      // Best-effort rollback only; surface the original failure.
-    }
-  }
-};
-
 const parseInvoiceSelectionFlag = (value, fieldLabel, res) => {
   const parsedValue = parseBoolean(value);
   if (parsedValue === null) {
@@ -232,119 +191,6 @@ const getLatestDate = (dates) => {
   }
 
   return latestDate;
-};
-
-const getCreditSaleItemProductId = (item) => {
-  if (
-    item.product &&
-    typeof item.product === "object" &&
-    item.product._id !== undefined
-  ) {
-    return item.product._id;
-  }
-
-  return item.product;
-};
-
-const buildQuantityByProductId = (creditSales) => {
-  const quantityByProductId = new Map();
-
-  for (const creditSale of creditSales) {
-    const items = Array.isArray(creditSale.items) ? creditSale.items : [];
-
-    for (const item of items) {
-      const productId = getCreditSaleItemProductId(item)?.toString();
-      if (!productId) continue;
-
-      quantityByProductId.set(
-        productId,
-        Number(quantityByProductId.get(productId) || 0) + Number(item.quantity || 0)
-      );
-    }
-  }
-
-  return quantityByProductId;
-};
-
-const applyInventoryRestoreForCreditSales = async (creditSales, res) => {
-  const quantityByProductId = buildQuantityByProductId(creditSales);
-  const productIds = [...quantityByProductId.keys()];
-
-  if (productIds.length === 0) {
-    return { restoredProductCount: 0, restoredItemCount: 0, rollback: async () => {} };
-  }
-
-  const products = await Product.find({ _id: { $in: productIds } });
-  const productsById = new Map(products.map((product) => [product._id.toString(), product]));
-  const originalStates = new Map();
-
-  for (const productId of productIds) {
-    const product = productsById.get(productId);
-
-    if (!product) {
-      res.status(404);
-      throw new Error("المنتج المرتبط بإحدى فواتير البيع الآجل غير موجود");
-    }
-
-    originalStates.set(productId, {
-      inventoryCount: Number(product.inventoryCount || 0),
-      soldItemCount: Number(product.soldItemCount || 0),
-    });
-  }
-
-  const rollback = async () => {
-    for (const [productId, originalState] of originalStates.entries()) {
-      const product = productsById.get(productId);
-      if (!product) continue;
-
-      product.inventoryCount = originalState.inventoryCount;
-      product.soldItemCount = originalState.soldItemCount;
-
-      try {
-        await product.save();
-      } catch (_rollbackError) {
-        // Best-effort rollback only; surface the original failure.
-      }
-    }
-  };
-
-  try {
-    for (const [productId, quantity] of quantityByProductId.entries()) {
-      const product = productsById.get(productId);
-      const originalState = originalStates.get(productId);
-
-      product.inventoryCount = originalState.inventoryCount + quantity;
-      product.soldItemCount = Math.max(0, originalState.soldItemCount - quantity);
-      await product.save();
-    }
-  } catch (error) {
-    await rollback();
-    throw error;
-  }
-
-  return {
-    restoredProductCount: productIds.length,
-    restoredItemCount: [...quantityByProductId.values()].reduce(
-      (sum, quantity) => sum + Number(quantity || 0),
-      0
-    ),
-    rollback,
-  };
-};
-
-const getCustomerDeleteRestoreDecision = (body = {}, query = {}, res) => {
-  const rawDecision = getFirstDefined(
-    ...CUSTOMER_DELETE_RESTORE_FLAGS.map((field) => body[field]),
-    ...CUSTOMER_DELETE_RESTORE_FLAGS.map((field) => query[field])
-  );
-  const parsedDecision = parseBoolean(rawDecision);
-
-  if (parsedDecision === null) {
-    res.status(400);
-    throw new Error("قيمة restoreCreditInvoices غير صالحة");
-  }
-
-  return parsedDecision;
 };
 
 const getCustomers = asyncHandler(async (req, res) => {
@@ -545,26 +391,30 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
     paymentSelection === "firstInvoice" &&
     amount - selectedInvoiceRemainingAmount > MONEY_EPSILON
   ) {
-    return res.status(400).json({
-      message: "قيمة الدفعة لا يمكن أن تتجاوز المبلغ المتبقي في الفاتورة المحددة",
+    const error = new Error("قيمة الدفعة لا يمكن أن تتجاوز المبلغ المتبقي في الفاتورة المحددة");
+    error.statusCode = 400;
+    error.responseData = {
       invoiceId: selectedCreditSale._id,
       remainingAmount: selectedInvoiceRemainingAmount,
       totalRemainingAmount,
       paymentSelection,
-    });
+    };
+    throw error;
   }
 
   if (
     paymentSelection === "lastInvoice" &&
     amount - totalRemainingAmount > MONEY_EPSILON
   ) {
-    return res.status(400).json({
-      message: "قيمة الدفعة لا يمكن أن تتجاوز إجمالي المبلغ المتبقي على كل الفواتير المفتوحة",
+    const error = new Error("قيمة الدفعة لا يمكن أن تتجاوز إجمالي المبلغ المتبقي على كل الفواتير المفتوحة");
+    error.statusCode = 400;
+    error.responseData = {
       invoiceId: selectedCreditSale._id,
       remainingAmount: selectedInvoiceRemainingAmount,
       totalRemainingAmount,
       paymentSelection,
-    });
+    };
+    throw error;
   }
 
   const targetCreditSales =
@@ -586,8 +436,6 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
     if (payableAmount <= MONEY_EPSILON) {
       continue;
     }
-
-    const snapshot = createCreditSaleFinancialSnapshot(creditSale);
 
     creditSale.payments.push({
       amount: payableAmount,
@@ -616,7 +464,7 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
     }
 
     applyCreditAmountsToInvoice(creditSale, creditAmounts);
-    pendingUpdates.push({ creditSale, snapshot });
+    pendingUpdates.push(creditSale);
     remainingPaymentAmount = roundMoney(remainingPaymentAmount - payableAmount);
   }
 
@@ -625,21 +473,9 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
     throw new Error("تعذر توزيع الدفعة على الفواتير المفتوحة");
   }
 
-  const savedUpdates = [];
+  for (const creditSale of pendingUpdates) await creditSale.save({ session });
 
-  try {
-    for (const update of pendingUpdates) {
-      await update.creditSale.save({ session });
-      savedUpdates.push(update);
-    }
-  } catch (error) {
-    await rollbackCreditSaleFinancialUpdates(savedUpdates);
-    throw error;
-  }
-
-  const updatedInvoices = pendingUpdates.map((update) =>
-    toCreditSaleInvoice(update.creditSale)
-  );
+  const updatedInvoices = pendingUpdates.map(toCreditSaleInvoice);
 
   await Receipt.create([{
     _id: receiptId,
@@ -649,7 +485,7 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
     paymentDate,
     note,
     kind: "payment",
-    allocations: pendingUpdates.map((update) => ({ creditSale: update.creditSale._id, amount: update.creditSale.payments.at(-1).amount })),
+    allocations: pendingUpdates.map((creditSale) => ({ creditSale: creditSale._id, amount: creditSale.payments.at(-1).amount })),
   }], { session });
   await audit(req, { action: "credit.payment", entity: "Customer", entityId: customer._id, details: { amount, number: receiptNumber }, session, strict: true });
   return {
@@ -699,7 +535,7 @@ const getCustomerStatement = asyncHandler(async (req, res) => {
   const invoices = await CreditSale.find({ customer: customer._id }).sort({ sellingDate: 1, createdAt: 1, _id: 1 }).lean();
   const invoiceIds = invoices.map((invoice) => invoice._id);
   const returns = await ReturnLog.find({ returnType: "credit", invoiceId: { $in: invoiceIds } }).lean();
-  const returnNumberById = new Map(returns.map((entry) => [entry._id.toString(), entry.number]));
+  const returnById = new Map(returns.map((entry) => [entry._id.toString(), entry]));
   const lines = [];
   let sequence = 0;
   const add = (line) => lines.push({ ...line, debit: roundMoney(line.debit), credit: roundMoney(line.credit), _sequence: sequence++ });
@@ -718,10 +554,12 @@ const getCustomerStatement = asyncHandler(async (req, res) => {
       });
     }
     for (const refund of invoice.refunds || []) {
+      const returnLog = refund.returnLog ? returnById.get(refund.returnLog.toString()) : null;
       add({
         date: refund.refundDate, type: "return",
-        number: refund.returnLog ? returnNumberById.get(refund.returnLog.toString()) : null,
-        description: "مرتجع فاتورة آجل", debit: 0, credit: refund.totalAmount,
+        number: returnLog?.number ?? null,
+        description: "مرتجع فاتورة آجل", debit: 0,
+        credit: returnLog ? returnLog.finalReturnedAmount : refund.totalAmount,
       });
     }
     if (invoice.status === "cancelled") {

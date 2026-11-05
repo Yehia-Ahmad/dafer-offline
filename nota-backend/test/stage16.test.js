@@ -17,6 +17,9 @@ const AuditLog = require("../src/models/auditLog.model");
 const Meta = require("../src/models/meta.model");
 const Receipt = require("../src/models/receipt.model");
 const { runMigrations } = require("../src/migrations");
+const { withTransaction } = require("../src/utils/transaction");
+const { importCategories } = require("../src/services/categoryImportExport.service");
+const { createCategoryWorkbook } = require("../src/helpers/categoryWorkbook.helper");
 const { startMongod, clearDatabase, mongodSkipReason } = require("./helpers/mongod");
 
 let stop;
@@ -217,6 +220,32 @@ it("a normal payment blocks credit cancellation", async () => {
   assert.equal(cancelled.json.code, "HAS_PAYMENTS");
 });
 
+it("both payment routes return their original 400 body without writing inside the transaction callback", async () => {
+  const loggedErrors = [];
+  const originalConsoleError = console.error;
+  console.error = (...args) => loggedErrors.push(args.map(String).join(" "));
+  try {
+  const { product } = await catalog(2);
+  const customer = await Customer.create({ name: "عميل حد الدفعة", phone: "01222222223" });
+  const created = await call("POST", "/api/credit-sales", saleBody(product, 1, 100, {
+    customerId: String(customer._id), customerName: undefined, customerPhone: undefined,
+  }));
+  const direct = await call("POST", `/api/credit-sales/${created.json._id}/payments`, { amount: 101 });
+  assert.equal(direct.status, 400);
+  assert.equal(direct.json.message, "قيمة الدفعة لا يمكن أن تتجاوز إجمالي المبلغ المتبقي على كل الفواتير المفتوحة");
+  assert.equal(direct.json.remainingAmount, 100);
+  const customerRoute = await call("POST", `/api/customers/${customer._id}/payments`, { amount: 101, lastInvoice: true });
+  assert.equal(customerRoute.status, 400);
+  assert.equal(customerRoute.json.message, "قيمة الدفعة لا يمكن أن تتجاوز إجمالي المبلغ المتبقي على كل الفواتير المفتوحة");
+  assert.equal(customerRoute.json.remainingAmount, 100);
+  assert.equal((await CreditSale.findById(created.json._id)).payments.length, 0);
+  assert.equal(await Receipt.countDocuments(), 0);
+  } finally {
+    console.error = originalConsoleError;
+  }
+  assert.doesNotMatch(loggedErrors.join("\n"), /TypeError/);
+});
+
 it("credit returns preserve original lines and totals and reallocate overpayment atomically", async () => {
   const { product } = await catalog(5);
   const customer = await Customer.create({ name: "عميل آجل", phone: "01333333333" });
@@ -332,6 +361,200 @@ it("original-total migration preserves historical cost on a fully removed credit
   assert.deepEqual(migrated.migrationNotes || [], []);
   const migrationAudit = await AuditLog.findOne({ action: "system.migration", "details.version": 2 }).lean();
   assert.deepEqual(migrationAudit.details.estimatedCostInvoices, []);
+});
+
+it("original-total migration skips an invoice already marked as restored", async () => {
+  const customer = await Customer.create({ name: "ترحيل مكتمل", phone: "01777777778" });
+  const invoiceId = new (require("mongoose").Types.ObjectId)();
+  await CreditSale.collection.insertOne({
+    _id: invoiceId, customer: customer._id, customerName: customer.name, customerPhone: customer.phone,
+    sellingDate: new Date("2025-02-01"), items: [], totalQuantity: 0, totalPrice: 100, paidAmount: 0,
+    remainingAmount: 100, status: "pending", stage16OriginalTotalsRestored: true,
+    refunds: [{ returnLog: new (require("mongoose").Types.ObjectId)(), refundDate: new Date("2025-02-02"),
+      items: [], totalQuantity: 1, totalAmount: 50 }], createdAt: new Date("2025-02-01"), updatedAt: new Date("2025-02-02"),
+  });
+  await runMigrations();
+  const invoice = await CreditSale.findById(invoiceId).lean();
+  assert.equal(invoice.totalPrice, 100);
+  assert.equal(invoice.stage16OriginalTotalsRestored, true);
+});
+
+it("migration restores cash returnedQuantity so profit reports use the remaining quantity", async () => {
+  const { product } = await catalog(10);
+  const invoiceId = new (require("mongoose").Types.ObjectId)();
+  const itemId = new (require("mongoose").Types.ObjectId)();
+  const returnLogId = new (require("mongoose").Types.ObjectId)();
+  await Selling.collection.insertOne({
+    _id: invoiceId, customerName: "عميل كاش قديم", customerPhone: "01012345000", sellingDate: new Date("2025-03-01"),
+    items: [{ _id: itemId, product: product._id, productName: product.name, quantity: 3, unitPrice: 100,
+      totalPrice: 300, purchasePrice: 20, profitAmount: 240 }], totalQuantity: 3, discountAmount: 0,
+    shippingFees: 0, totalPrice: 300, refundStatus: "partial", refundedQuantity: 1, refundedAmount: 100,
+    refunds: [{ refundDate: new Date("2025-03-02"), returnLog: returnLogId, totalQuantity: 1, totalAmount: 100,
+      items: [{ invoiceItemId: itemId, product: product._id, productName: product.name, quantity: 1, unitPrice: 100, totalPrice: 100 }] }],
+    createdAt: new Date("2025-03-01"), updatedAt: new Date("2025-03-02"),
+  });
+  await ReturnLog.collection.insertOne({
+    _id: returnLogId, returnType: "cash", invoiceId, customerName: "عميل كاش قديم", returnDate: new Date("2025-03-02"),
+    items: [{ productId: product._id, productName: product.name, quantity: 1, price: 100, total: 100 }],
+    subtotalReturnedAmount: 100, discountAmount: 0, shippingFees: 0, finalReturnedAmount: 100,
+    createdAt: new Date("2025-03-02"), updatedAt: new Date("2025-03-02"),
+  });
+  await runMigrations();
+  assert.equal((await Selling.findById(invoiceId)).items[0].returnedQuantity, 1);
+  const report = await call("GET", `/api/products/${product._id}/profit-report`);
+  assert.equal(report.status, 200);
+  const migratedInvoice = report.json[0].invoices.find((invoice) => String(invoice.invoiceId) === String(invoiceId));
+  assert.equal(migratedInvoice.quantity, 2);
+  assert.equal(migratedInvoice.revenue, 200);
+  assert.equal(migratedInvoice.profit, 160);
+});
+
+it("migration uses final credit-return amounts and merges old partial-return lines", async () => {
+  const { product } = await catalog(10);
+  const customer = await Customer.create({ name: "عميل ترحيل خصم", phone: "01012345001" });
+  const fullId = new (require("mongoose").Types.ObjectId)();
+  const fullItemId = new (require("mongoose").Types.ObjectId)();
+  const fullLogId = new (require("mongoose").Types.ObjectId)();
+  await ReturnLog.collection.insertOne({
+    _id: fullLogId, returnType: "credit", invoiceId: fullId, customerName: customer.name, customerPhone: customer.phone,
+    returnDate: new Date("2025-04-02"), items: [{ productId: product._id, productName: product.name, quantity: 3, price: 100, total: 300, purchasePrice: 20 }],
+    subtotalReturnedAmount: 300, discountAmount: 10, shippingFees: 5, finalReturnedAmount: 295,
+    createdAt: new Date("2025-04-02"), updatedAt: new Date("2025-04-02"),
+  });
+  await CreditSale.collection.insertOne({
+    _id: fullId, customer: customer._id, customerName: customer.name, customerPhone: customer.phone,
+    sellingDate: new Date("2025-04-01"), items: [], totalQuantity: 0, discountAmount: 10, shippingFees: 0, totalPrice: 0,
+    paidAmount: 0, remainingAmount: 0, refundDueAmount: 0, status: "Reactionary", refundStatus: "full",
+    refundedQuantity: 3, refundedAmount: 300, returnedPaidAmount: 0, reallocatedPaidAmount: 0, payments: [],
+    refunds: [{ refundDate: new Date("2025-04-02"), returnLog: fullLogId, totalQuantity: 3, totalAmount: 300,
+      items: [{ invoiceItemId: fullItemId, product: product._id, productName: product.name, quantity: 3, unitPrice: 100, totalPrice: 300, purchasePrice: 20 }] }],
+    createdAt: new Date("2025-04-01"), updatedAt: new Date("2025-04-02"),
+  });
+
+  const partialId = new (require("mongoose").Types.ObjectId)();
+  const remainingItemId = new (require("mongoose").Types.ObjectId)();
+  const oldItemId = new (require("mongoose").Types.ObjectId)();
+  const partialLogId = new (require("mongoose").Types.ObjectId)();
+  await ReturnLog.collection.insertOne({
+    _id: partialLogId, returnType: "credit", invoiceId: partialId, customerName: customer.name, customerPhone: customer.phone,
+    returnDate: new Date("2025-05-02"), items: [{ productId: product._id, productName: product.name, quantity: 1, price: 100, total: 100 }],
+    subtotalReturnedAmount: 100, discountAmount: 0, shippingFees: 0, finalReturnedAmount: 100,
+    createdAt: new Date("2025-05-02"), updatedAt: new Date("2025-05-02"),
+  });
+  await CreditSale.collection.insertOne({
+    _id: partialId, customer: customer._id, customerName: customer.name, customerPhone: customer.phone,
+    sellingDate: new Date("2025-05-01"), items: [{ _id: remainingItemId, product: product._id, productName: product.name,
+      quantity: 2, unitPrice: 100, totalPrice: 200, purchasePrice: 20, profitAmount: 160 }], totalQuantity: 2,
+    discountAmount: 0, shippingFees: 0, totalPrice: 200, paidAmount: 0, remainingAmount: 200, refundDueAmount: 0,
+    status: "pending", refundStatus: "partial", refundedQuantity: 1, refundedAmount: 100, returnedPaidAmount: 0,
+    reallocatedPaidAmount: 0, payments: [], refunds: [{ refundDate: new Date("2025-05-02"), returnLog: partialLogId,
+      totalQuantity: 1, totalAmount: 100, items: [{ invoiceItemId: oldItemId, product: product._id, productName: product.name,
+        quantity: 1, unitPrice: 100, totalPrice: 100 }] }], createdAt: new Date("2025-05-01"), updatedAt: new Date("2025-05-02"),
+  });
+
+  await runMigrations();
+  const full = await CreditSale.findById(fullId).lean();
+  assert.equal(full.refunds[0].totalAmount, 295);
+  const statement = await call("GET", `/api/customers/${customer._id}/statement`);
+  assert.equal(statement.status, 200);
+  assert.equal(statement.json.totals.balance, 200);
+  const fullReturnLine = statement.json.lines.find((line) => line.type === "return" && line.number === "RT-000001");
+  assert.equal(fullReturnLine.credit, 295);
+  const partial = await CreditSale.findById(partialId).lean();
+  assert.equal(partial.items.length, 1);
+  assert.equal(partial.items[0].quantity, 3);
+  assert.equal(partial.items[0].returnedQuantity, 1);
+  assert.equal(partial.items[0].purchasePrice, 20);
+  assert.equal(partial.items[0].costEstimated, false);
+  assert.equal(partial.stage16OriginalTotalsRestored, true);
+});
+
+it("number migration skips old return reallocations and recognizes old down payments", async () => {
+  const { product } = await catalog(10);
+  const customer = await Customer.create({ name: "عميل دفعات قديمة", phone: "01012345002" });
+  const sourceId = new (require("mongoose").Types.ObjectId)();
+  const targetId = new (require("mongoose").Types.ObjectId)();
+  const downId = new (require("mongoose").Types.ObjectId)();
+  const createdAt = new Date();
+  const baseInvoice = { customer: customer._id, customerName: customer.name, customerPhone: customer.phone,
+    items: [{ product: product._id, productName: product.name, quantity: 1, unitPrice: 100, totalPrice: 100, purchasePrice: 20, profitAmount: 80 }],
+    totalQuantity: 1, discountAmount: 0, shippingFees: 0, totalPrice: 100, refundStatus: "none", refundedQuantity: 0,
+    refundedAmount: 0, returnedPaidAmount: 0, refunds: [], createdAt, updatedAt: createdAt };
+  await CreditSale.collection.insertMany([
+    { ...baseInvoice, _id: sourceId, sellingDate: createdAt, paidAmount: 0, remainingAmount: 100, refundDueAmount: 0,
+      status: "pending", reallocatedPaidAmount: 50, payments: [] },
+    { ...baseInvoice, _id: targetId, sellingDate: createdAt, paidAmount: 50, remainingAmount: 50, refundDueAmount: 0,
+      status: "partially_paid", reallocatedPaidAmount: 0, payments: [{ _id: new (require("mongoose").Types.ObjectId)(), amount: 50,
+        paymentDate: createdAt, note: `تسوية تلقائية من مرتجع الفاتورة ${sourceId}` }] },
+    { ...baseInvoice, _id: downId, sellingDate: createdAt, paidAmount: 20, remainingAmount: 80, refundDueAmount: 0,
+      status: "partially_paid", reallocatedPaidAmount: 0, payments: [{ _id: new (require("mongoose").Types.ObjectId)(), amount: 20, paymentDate: createdAt }] },
+  ]);
+  await runMigrations();
+  const target = await CreditSale.findById(targetId).lean();
+  assert.equal(target.payments[0].source, "return_reallocation");
+  assert.equal(target.payments[0].number, undefined);
+  const down = await CreditSale.findById(downId).lean();
+  assert.equal(down.payments[0].source, "down_payment");
+  assert.equal((await Receipt.findById(down.payments[0].receipt)).kind, "down_payment");
+  assert.equal(await Receipt.countDocuments(), 1);
+  const cancelled = await call("POST", `/api/credit-sales/${downId}/cancel`, { reason: "طلب العميل" });
+  assert.equal(cancelled.status, 200);
+});
+
+it("category import database write failures abort every inserted row", async () => {
+  const categoryId = new (require("mongoose").Types.ObjectId)();
+  const productId = new (require("mongoose").Types.ObjectId)();
+  const workbook = createCategoryWorkbook(
+    [{ _id: categoryId, name: "فئة استيراد", image: "", specifications: [] }],
+    [{ productId: String(productId), categoryId: String(categoryId), categoryName: "فئة استيراد", name: "صنف استيراد",
+      code: "IMP-1", inventoryCount: 2, imageBase64: "", wholesalePrice: 30, purchasePrice: 20, retailPrice: 40,
+      soldItemCount: 0, specifications: [] }]
+  );
+  const originalInsertMany = Product.insertMany;
+  Product.insertMany = async () => { const error = new Error("forced product insert failure"); error.code = 11000; throw error; };
+  try {
+    await assert.rejects(
+      withTransaction((session) => importCategories(workbook, session)),
+      (error) => error.statusCode === 400 && error.responseData?.code === "CATEGORY_IMPORT_FAILED"
+    );
+  } finally {
+    Product.insertMany = originalInsertMany;
+  }
+  assert.equal(await Category.countDocuments({ name: "فئة استيراد" }), 0);
+  assert.equal(await Product.countDocuments({ code: "IMP-1" }), 0);
+});
+
+it("batched migration numbers about 5,000 legacy documents well inside the raised limit", async (t) => {
+  const mongoose = require("mongoose");
+  const customerId = new mongoose.Types.ObjectId();
+  const now = new Date("2025-06-01");
+  const cash = Array.from({ length: 2000 }, (_, index) => ({
+    _id: new mongoose.Types.ObjectId(), customerName: `C${index}`, sellingDate: now, totalPrice: 1,
+    items: [], refunds: [], createdAt: now, updatedAt: now,
+  }));
+  const credit = Array.from({ length: 1500 }, (_, index) => ({
+    _id: new mongoose.Types.ObjectId(), customer: customerId, customerName: `D${index}`, customerPhone: "01099999999",
+    sellingDate: now, items: [], totalQuantity: 0, totalPrice: 1, paidAmount: 1, remainingAmount: 0,
+    status: "paid", refunds: [], payments: [{ _id: new mongoose.Types.ObjectId(), amount: 1,
+      paymentDate: new Date(now.getTime() + 86400000), note: "دفعة" }], createdAt: now, updatedAt: now,
+  }));
+  const returns = Array.from({ length: 1500 }, (_, index) => ({
+    _id: new mongoose.Types.ObjectId(), returnType: "cash", invoiceId: cash[index]._id, customerName: `C${index}`,
+    returnDate: now, items: [{ productId: new mongoose.Types.ObjectId(), productName: "x", quantity: 1, price: 1, total: 1 }],
+    subtotalReturnedAmount: 1, finalReturnedAmount: 1, createdAt: now, updatedAt: now,
+  }));
+  await Selling.collection.insertMany(cash);
+  await CreditSale.collection.insertMany(credit);
+  await ReturnLog.collection.insertMany(returns);
+  const started = Date.now();
+  await runMigrations();
+  const elapsed = Date.now() - started;
+  t.diagnostic(`5,000-document Stage 16 migration: ${elapsed} ms`);
+  assert.ok(elapsed < 120000, `migration took ${elapsed} ms`);
+  assert.equal(await Selling.countDocuments({ number: /^INV-/ }), 2000);
+  assert.equal(await CreditSale.countDocuments({ number: /^CR-/ }), 1500);
+  assert.equal(await ReturnLog.countDocuments({ number: /^RT-/ }), 1500);
+  assert.equal(await Receipt.countDocuments(), 1500);
 });
 
 it("a pre-Stage-16 restore fixture with a missing ReturnLog fails the migration atomically and names the invoice", async () => {

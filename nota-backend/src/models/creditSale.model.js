@@ -245,6 +245,7 @@ const creditSaleSchema = new mongoose.Schema(
     cancellationReason: { type: String, trim: true, maxlength: 500 },
     cancelRefundAmount: { type: Number, default: 0, min: 0 },
     migrationNotes: { type: [String], default: undefined },
+    stage16OriginalTotalsRestored: { type: Boolean, default: false },
     refundStatus: {
       type: String,
       enum: {

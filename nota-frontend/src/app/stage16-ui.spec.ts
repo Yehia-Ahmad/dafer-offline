@@ -184,6 +184,23 @@ describe('Stage 16 customer statement UI', () => {
     expect(text).toContain('customerDetailsPage.s10.statement.balance');
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="customer-credit-balance"]')?.textContent).toContain('Money owed to the customer');
   });
+
+  it('starts with statement loading and replaces stale data with an error and retry', () => {
+    const fixture = TestBed.createComponent(CustomerDetailsComponent);
+    fixture.detectChanges();
+    http.expectOne(`${base}shop-profile`).flush({});
+    http.expectOne(`${base}customers/cu1`).flush({ _id: 'cu1', name: 'سامي', phone: '0100', creditHistory: [], creditSummary: {} });
+    expect(fixture.componentInstance.statementLoading).toBeTrue();
+    const first = http.expectOne(`${base}customers/cu1/statement`);
+    first.flush({ message: 'statement unavailable' }, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.statement.rows).toEqual([]);
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="statement-error"]')?.textContent).toContain('statement unavailable');
+    fixture.componentInstance.retryStatement();
+    expect(fixture.componentInstance.statementLoading).toBeTrue();
+    http.expectOne(`${base}customers/cu1/statement`).flush({ lines: [], totals: { debit: 0, credit: 0, balance: 0 } });
+    expect(fixture.componentInstance.statementError).toBe('');
+  });
 });
 
 describe('Stage 16 labels and permission-sensitive notes', () => {
@@ -199,6 +216,25 @@ describe('Stage 16 labels and permission-sensitive notes', () => {
     }], pagination: { page: 1, limit: 10, totalItems: 1, totalPages: 1 } });
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('creditSalePage.list.status.returned');
+    http.verify();
+  });
+
+  it('credit panel shows original, returns, net, paid, remaining, and cancellation reason', async () => {
+    await TestBed.configureTestingModule({ imports: [CreditSalesListComponent, TranslateModule.forRoot()], providers: commonProviders() }).compileComponents();
+    signInWith(['credit.view']);
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(CreditSalesListComponent);
+    fixture.detectChanges();
+    http.expectOne(`${base}shop-profile`).flush({});
+    http.expectOne((r) => r.url === `${base}credit-sales`).flush({ success: true, data: [{
+      _id: 'c1', number: 'CR-1', status: 'cancelled', cancellationReason: 'فاتورة مكررة', totalPrice: 300,
+      refundedAmount: 50, netTotal: 250, paidAmount: 100, remainingAmount: 0, items: [], payments: [], refunds: [],
+    }], pagination: { page: 1, limit: 10, totalItems: 1, totalPages: 1 } });
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    for (const label of ['invoiceHistoryPage.cancel.originalTotal', 'invoiceHistoryPage.s10.refundedAmount', 'invoiceHistoryPage.cancel.netTotal', 'creditSalePage.list.paid', 'creditSalePage.list.remaining', 'فاتورة مكررة']) {
+      expect(text).toContain(label);
+    }
     http.verify();
   });
 

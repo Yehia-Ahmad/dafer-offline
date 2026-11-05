@@ -80,6 +80,14 @@
             </nota-form-field>
             <button type="button" notaButton (click)="applyStatementFilters()">{{ 'customerDetailsPage.s10.statement.apply' | translate }}</button>
           </div>
+          @if (statementLoading) {
+            <div class="cd__state" role="status" data-testid="statement-loading">{{ 'customerDetailsPage.s10.statement.loading' | translate }}</div>
+          } @else if (statementError) {
+            <div class="cd__state cd__state--error" role="alert" data-testid="statement-error">
+              <span>{{ statementError }}</span>
+              <button type="button" notaButton (click)="retryStatement()">{{ 'customerDetailsPage.s10.statement.retry' | translate }}</button>
+            </div>
+          } @else {
           <div class="nota-table-wrap">
             <table class="nota-table">
               <thead><tr>
@@ -116,6 +124,7 @@
           </div>
           @if (statement.balance < 0) {
             <p class="cd__msg" data-testid="customer-credit-balance">{{ 'customerDetailsPage.s10.statement.customerCredit' | translate: { amount: ((-statement.balance) | notaMoney) } }}</p>
+          }
           }
         }
 

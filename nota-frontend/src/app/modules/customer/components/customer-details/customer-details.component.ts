@@ -22,7 +22,6 @@ import {
   toCreditInvoicePrintData,
   toCreditSaleView
 } from '../../utils/credit-sale-view.util';
-import { buildCustomerStatement, CustomerStatement } from '../../utils/customer-statement.util';
 import {
   buildCreditInvoiceDocument,
   CreditInvoicePrintLanguage
@@ -52,6 +51,23 @@ type CustomerDetailsView = CustomerDetails & {
   creditHistory: CustomerHistoryView[];
 };
 
+interface CustomerStatement {
+  rows: Array<{
+    kind: 'opening' | 'invoice' | 'payment' | 'refund' | 'cancel';
+    date: string | null;
+    invoiceId: string;
+    number: string | null;
+    description: string;
+    detail: string;
+    debit: number;
+    credit: number;
+    balance: number;
+  }>;
+  totalDebit: number;
+  totalCredit: number;
+  balance: number;
+}
+
 @Component({
   selector: 'app-customer-details',
   standalone: true,
@@ -63,8 +79,9 @@ type CustomerDetailsView = CustomerDetails & {
 export class CustomerDetailsComponent implements OnInit, OnDestroy {
   /** Stage 10 tabs (frontend only). */
   activeTab: CustomerTab = 'statement';
-  /** Running-balance statement computed from the loaded credit history (no extra request). */
   statement: CustomerStatement = { rows: [], totalDebit: 0, totalCredit: 0, balance: 0 };
+  statementLoading = true;
+  statementError = '';
   allPayments: Array<CustomerHistoryView['payments'][number] & { invoiceId: string; invoiceNumber: string }> = [];
   allRefunds: Array<CustomerHistoryView['refunds'][number] & { invoiceId: string; invoiceNumber: string }> = [];
   direction: 'rtl' | 'ltr' = 'ltr';
@@ -159,6 +176,10 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   }
 
   applyStatementFilters(): void {
+    if (this.currentCustomerId) this.loadStatement(this.currentCustomerId);
+  }
+
+  retryStatement(): void {
     if (this.currentCustomerId) this.loadStatement(this.currentCustomerId);
   }
 
@@ -592,6 +613,9 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   }
 
   private loadStatement(customerId: string): void {
+    this.statementLoading = true;
+    this.statementError = '';
+    this.statement = { rows: [], totalDebit: 0, totalCredit: 0, balance: 0 };
     const params = {
       ...(this.statementFrom ? { from: this.statementFrom } : {}),
       ...(this.statementTo ? { to: this.statementTo } : {}),
@@ -613,10 +637,13 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
           totalCredit: Number(source.totals?.credit || 0),
           balance: Number(source.totals?.balance || 0),
         };
+        this.statementLoading = false;
         this.cdr.detectChanges();
       },
       error: (error: any) => {
-        this.historyActionError = this.extractErrorMessage(error, 'customerDetailsPage.messages.loadFailed');
+        this.statementLoading = false;
+        this.statementError = this.extractErrorMessage(error, 'customerDetailsPage.s10.statement.loadFailed');
+        this.statement = { rows: [], totalDebit: 0, totalCredit: 0, balance: 0 };
         this.cdr.detectChanges();
       },
     });
@@ -674,7 +701,6 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   /** Statement, flattened payments and refunds for the tabs. */
   private rebuildDerivedViews(): void {
     const history = (this.customer?.creditHistory ?? []) as CustomerHistoryView[];
-    this.statement = buildCustomerStatement(history);
     this.allPayments = history
       .flatMap((entry) => entry.payments.map((payment) => ({ ...payment, invoiceId: entry.invoiceId, invoiceNumber: entry.number })))
       .sort((a, b) => String(b.paymentDate || '').localeCompare(String(a.paymentDate || '')));

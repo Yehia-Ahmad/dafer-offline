@@ -24,6 +24,7 @@ describe('authInterceptor (Stage 14)', () => {
     http = TestBed.inject(HttpTestingController);
     client = TestBed.inject(HttpClient);
     router = TestBed.inject(Router);
+    TestBed.inject(AuthService).clear();
     navigate = spyOn(router, 'navigate').and.resolveTo(true);
   });
 

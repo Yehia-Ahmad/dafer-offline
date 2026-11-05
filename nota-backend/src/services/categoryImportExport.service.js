@@ -13,6 +13,20 @@ const MAX_PRODUCT_CODE_LENGTH = 100;
 
 const normalizeStringCell = (value) => String(value ?? "").trim();
 
+const importWriteFailure = (details = {}) => {
+  const error = new Error("تعذر استيراد الملف. لم يتم حفظ أي صف.");
+  error.statusCode = 400;
+  error.responseData = {
+    success: false,
+    code: "CATEGORY_IMPORT_FAILED",
+    importedCount: 0,
+    productImportedCount: 0,
+    errors: details.errors || [],
+    productErrors: details.productErrors || [],
+  };
+  return error;
+};
+
 // Reassemble values that the exporter split to respect Excel's 32,767-character
 // cell limit. Regular user-created files with only the base column still work.
 const readChunkedCell = (values, baseHeader) =>
@@ -279,33 +293,17 @@ const importCategories = async (buffer, session) => {
     try {
       const insertedCategories = await Category.insertMany(
         rowsToInsert.map(({ category }) => category),
-        { ordered: false, session }
+        { ordered: true, session }
       );
       importedCount = insertedCategories.length;
     } catch (error) {
-      // A concurrent request can create a category after the duplicate lookup.
-      // Unordered insertion retains successful rows and maps failed writes back
-      // to their source rows.
-      if (!Array.isArray(error.writeErrors)) throw error;
-
-      const failedIndexes = new Set();
-      for (const writeError of error.writeErrors) {
-        const failedIndex = writeError.index ?? writeError.err?.index;
-        if (!Number.isInteger(failedIndex) || !rowsToInsert[failedIndex]) {
-          throw error;
-        }
-
-        failedIndexes.add(failedIndex);
-        errors.push({
-          row: rowsToInsert[failedIndex].rowNumber,
-          message:
-            writeError.code === 11000
-              ? `Duplicate category name: ${rowsToInsert[failedIndex].category.name}`
-              : writeError.errmsg || writeError.message || "Database insert failed",
-        });
-      }
-
-      importedCount = rowsToInsert.length - failedIndexes.size;
+      const failedIndex = error.writeErrors?.[0]?.index ?? error.index ?? 0;
+      const row = rowsToInsert[failedIndex] || rowsToInsert[0];
+      throw importWriteFailure({
+        errors: [{ row: row?.rowNumber || 0, message: error.code === 11000
+          ? `Duplicate category name: ${row?.category?.name || ""}`
+          : error.message || "Database insert failed" }],
+      });
     }
   }
 
@@ -371,30 +369,17 @@ const importCategories = async (buffer, session) => {
     try {
       const insertedProducts = await Product.insertMany(
         productRowsToInsert.map((row) => row.product),
-        { ordered: false, session }
+        { ordered: true, session }
       );
       productImportedCount = insertedProducts.length;
     } catch (error) {
-      if (!Array.isArray(error.writeErrors)) throw error;
-
-      const failedIndexes = new Set();
-      for (const writeError of error.writeErrors) {
-        const failedIndex = writeError.index ?? writeError.err?.index;
-        if (!Number.isInteger(failedIndex) || !productRowsToInsert[failedIndex]) {
-          throw error;
-        }
-
-        failedIndexes.add(failedIndex);
-        productErrors.push({
-          row: productRowsToInsert[failedIndex].rowNumber,
-          message:
-            writeError.code === 11000
-              ? `Duplicate product ID: ${productRowsToInsert[failedIndex].product._id}`
-              : writeError.errmsg || writeError.message || "Database insert failed",
-        });
-      }
-
-      productImportedCount = productRowsToInsert.length - failedIndexes.size;
+      const failedIndex = error.writeErrors?.[0]?.index ?? error.index ?? 0;
+      const row = productRowsToInsert[failedIndex] || productRowsToInsert[0];
+      throw importWriteFailure({
+        productErrors: [{ row: row?.rowNumber || 0, message: error.code === 11000
+          ? `Duplicate product ID: ${row?.product?._id || ""}`
+          : error.message || "Database insert failed" }],
+      });
     }
   }
 
