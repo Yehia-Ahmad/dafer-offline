@@ -564,6 +564,7 @@ async function runScenarios() {
     });
     expectStatus(response, 403, 'POST /api/sellings with a 15% discount');
     expect(response.json.code === 'DISCOUNT_LIMIT', `code expected DISCOUNT_LIMIT, got ${response.json.code}`);
+    expect(response.json.message === 'أقصى خصم مسموح لك 10٪', `message: ${response.json.message}`);
     expect(response.json.maxDiscountPercent === 10, `limit expected 10, got ${response.json.maxDiscountPercent}`);
     return `${describe(response)}, limit ${response.json.maxDiscountPercent}%, ${await expectStock(ctx, 10)}`;
   });

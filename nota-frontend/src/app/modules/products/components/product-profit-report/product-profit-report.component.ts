@@ -229,7 +229,8 @@ export class ProductProfitReportComponent implements OnInit {
     const year = this.normalizeYear(this.profitYear);
 
     try {
-      const response = await firstValueFrom(this.profitBarService.getYearProfitBar({ year }));
+      const response = await firstValueFrom(this.profitBarService.getYearProfitBar({ year }), { defaultValue: null });
+      if (!response) return;
       const chartData = this.extractProfitBarChartData(response);
 
       const [{ jsPDF }, { default: ChartJS }] = await Promise.all([

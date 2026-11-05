@@ -129,7 +129,7 @@ export class AuthService {
 
   /** Session ended by the server (SESSION_EXPIRED) or by logout. */
   clear(): void {
-    this.lockState.unlock(); // nothing left to lock: the next screen is the sign-in screen
+    this.lockState.clear(); // unlock the UI but cancel requests that were waiting behind the lock
     this.token.set(null);
     this.user.set(null);
     this.permissions.set([]);

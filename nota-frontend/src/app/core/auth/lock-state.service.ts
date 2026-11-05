@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { BehaviorSubject, Observable, filter, map, take } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, filter, map, race, take } from 'rxjs';
 import { readLockedFlag, writeLockedFlag } from './session-storage';
 
 /**
@@ -11,6 +11,7 @@ import { readLockedFlag, writeLockedFlag } from './session-storage';
 export class LockStateService {
   readonly locked = signal(readLockedFlag());
   private readonly open$ = new BehaviorSubject<boolean>(!this.locked());
+  private readonly sessionCleared$ = new Subject<void>();
 
   lock(): void {
     if (this.locked()) return;
@@ -26,8 +27,24 @@ export class LockStateService {
     this.open$.next(true);
   }
 
-  /** Emits once, when the screen is (or becomes) unlocked. */
+  /** Ends the lock because the session ended. Waiting requests are cancelled, not released. */
+  clear(): void {
+    this.locked.set(false);
+    writeLockedFlag(false);
+    this.sessionCleared$.next();
+    // Keep the state accurate for future subscribers; existing waiters already chose sessionCleared$.
+    this.open$.next(true);
+  }
+
+  /** Emits only for a real unlock; completes without emitting when the session is cleared. */
   whenUnlocked(): Observable<void> {
-    return this.open$.pipe(filter(Boolean), take(1), map(() => undefined));
+    return race(
+      this.open$.pipe(filter(Boolean), map(() => true as const)),
+      this.sessionCleared$.pipe(map(() => false as const))
+    ).pipe(
+      take(1),
+      filter((released) => released),
+      map(() => undefined)
+    );
   }
 }

@@ -159,6 +159,11 @@ summary {
   margin: 0;
 }
 
+/* Stage 15: display:flex above would otherwise show a progress row that is [hidden]. */
+.progress[hidden] {
+  display: none;
+}
+
 .servers {
   list-style: none;
   margin: 0 0 0.5rem;

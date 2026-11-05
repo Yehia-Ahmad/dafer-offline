@@ -12,11 +12,12 @@ import { LockStateService } from './lock-state.service';
 import { ToastService } from './toast.service';
 
 /**
- * Stage 15: requests that must still run while locked. verify-password opens the screen; /me is
- * the read-only startup check needed after a locked-window reload so the user and overlay can be
- * restored. Everything else waits for unlock.
+ * Stage 15: what a locked screen still sends: the unlock itself, and two read-only GETs the lock
+ * screen needs: the session check the app runs at startup (auth/me, so a reload of a locked window
+ * can boot and show the user's name) and the shop profile (logo and name). Everything else waits.
  */
-const ALLOWED_WHILE_LOCKED = /\/auth\/(?:verify-password|me)$/;
+const sentWhileLocked = (req: HttpRequest<unknown>) =>
+  /\/auth\/verify-password$/.test(req.url) || (req.method === 'GET' && /\/(auth\/me|shop-profile)$/.test(req.url));
 
 /**
  * Stage 14 (replaces the online edition's httpconfig/logout/request-online interceptors).
@@ -47,7 +48,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     return token && toBackend ? request.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : request;
   };
 
-  const waitsForUnlock = toBackend && lockState.locked() && !ALLOWED_WHILE_LOCKED.test(req.url);
+  // Only a signed-in window is ever locked; without a session nothing waits (sign-in screen, bootstrap).
+  const waitsForUnlock = toBackend && Boolean(auth.token()) && lockState.locked() && !sentWhileLocked(req);
   const send = waitsForUnlock
     ? lockState.whenUnlocked().pipe(switchMap(() => next(withToken(req))))
     : defer(() => next(withToken(req)));

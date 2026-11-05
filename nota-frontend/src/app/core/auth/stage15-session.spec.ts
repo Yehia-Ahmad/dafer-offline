@@ -17,6 +17,7 @@ import { LockOverlayComponent } from './lock-overlay.component';
 import { LockStateService } from './lock-state.service';
 import { signInAs } from './testing/sign-in';
 import { tokenExpiresAt } from './token-expiry';
+import { ToastService } from './toast.service';
 
 /** Timers driven by the spec: `advance(ms)` runs what is due. */
 class FakeTimers implements IdleTimers {
@@ -164,6 +165,22 @@ describe('Stage 15: idle auto-lock', () => {
     await restoring;
     expect(TestBed.inject(LockStateService).locked()).toBeTrue();
     expect(auth.signedIn()).toBeTrue();
+  });
+
+  it('restore() clears a persisted lock when /auth/me returns 401', async () => {
+    sessionStorage.setItem('nota.locked', '1');
+    sessionStorage.setItem('nota.session', 'expired-reload-token');
+    TestBed.resetTestingModule();
+    configure();
+    const auth = TestBed.inject(AuthService);
+    const restoring = auth.restore();
+    TestBed.inject(HttpTestingController)
+      .expectOne(`${base}auth/me`)
+      .flush({ code: 'SESSION_EXPIRED' }, { status: 401, statusText: 'Unauthorized' });
+    await restoring;
+    expect(auth.token()).toBeNull();
+    expect(TestBed.inject(LockStateService).locked()).toBeFalse();
+    expect(sessionStorage.getItem('nota.locked')).toBeNull();
   });
 
   it('refreshes the token on activity when less than 2h is left; not with more left; never while locked', () => {
@@ -385,11 +402,129 @@ describe('Stage 15: interceptor (session end, restore, discount limit)', () => {
   let http: HttpTestingController;
   let navigate: jasmine.Spy;
   beforeEach(() => {
+    sessionStorage.removeItem('nota.locked');
+    sessionStorage.removeItem('nota.session');
     configure();
     http = TestBed.inject(HttpTestingController);
     navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
   });
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    sessionStorage.removeItem('nota.locked');
+    sessionStorage.removeItem('nota.session');
+  });
+
+  it('a stale locked flag without a session does not hold bootstrap or login', () => {
+    const lockState = TestBed.inject(LockStateService);
+    lockState.lock();
+    expect(TestBed.inject(AuthService).token()).toBeNull();
+
+    const client = TestBed.inject(HttpClient);
+    client.get(`${base}auth/bootstrap`).subscribe();
+    client.post(`${base}auth/login`, { username: 'cashier', password: 'secret' }).subscribe();
+
+    const bootstrap = http.expectOne(`${base}auth/bootstrap`);
+    expect(bootstrap.request.method).toBe('GET');
+    bootstrap.flush({ hasOwner: true });
+    const login = http.expectOne(`${base}auth/login`);
+    expect(login.request.method).toBe('POST');
+    login.flush({});
+  });
+
+  it('while locked POST /auth/verify-password is sent immediately', () => {
+    const auth = signInAs('cashier');
+    TestBed.inject(LockStateService).lock();
+    auth.verifyPassword('secret').subscribe();
+    const verify = http.expectOne(`${base}auth/verify-password`);
+    expect(verify.request.method).toBe('POST');
+    expect(verify.request.headers.get('Authorization')).toBe('Bearer test-token-cashier');
+    verify.flush(null, { status: 204, statusText: 'No Content' });
+  });
+
+  it('logout while locked cancels held requests without expired navigation', () => {
+    const auth = signInAs('cashier');
+    const lockState = TestBed.inject(LockStateService);
+    const toastError = spyOn(TestBed.inject(ToastService), 'error');
+    lockState.lock();
+    let completed = false;
+    let failed = false;
+    TestBed.inject(HttpClient).get(`${base}products`).subscribe({
+      error: () => (failed = true),
+      complete: () => (completed = true),
+    });
+    http.expectNone(`${base}products`);
+
+    auth.logout();
+
+    http.expectNone(`${base}products`);
+    expect(completed).toBeTrue();
+    expect(failed).toBeFalse();
+    expect(toastError).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('while locked shop-profile is sent, but products waits until unlock', () => {
+    signInAs('cashier');
+    const lockState = TestBed.inject(LockStateService);
+    lockState.lock();
+    const client = TestBed.inject(HttpClient);
+
+    client.get(`${base}shop-profile`).subscribe();
+    client.get(`${base}products`).subscribe();
+
+    const profile = http.expectOne(`${base}shop-profile`);
+    expect(profile.request.method).toBe('GET');
+    profile.flush({ name: 'محل النور', autoLockMinutes: 10 });
+    http.expectNone(`${base}products`);
+    expect(lockState.locked()).toBeTrue();
+    lockState.unlock();
+    const products = http.expectOne(`${base}products`);
+    expect(products.request.method).toBe('GET');
+    products.flush({ products: [] });
+  });
+
+  it('SESSION_EXPIRED while locked clears the lock and lets the login request through', () => {
+    const auth = signInAs('cashier');
+    const user = auth.user()!;
+    const lockState = TestBed.inject(LockStateService);
+    lockState.lock();
+    expect(sessionStorage.getItem('nota.locked')).toBe('1');
+
+    TestBed.inject(HttpClient).get(`${base}shop-profile`).subscribe({ error: () => undefined });
+    http.expectOne(`${base}shop-profile`).flush({ code: 'SESSION_EXPIRED' }, { status: 401, statusText: 'Unauthorized' });
+    expect(lockState.locked()).toBeFalse();
+    expect(sessionStorage.getItem('nota.locked')).toBeNull();
+    expect(auth.token()).toBeNull();
+
+    auth.login('cashier', 'secret').subscribe();
+    http.expectOne(`${base}auth/login`).flush({ token: 'new-session-token', user, permissions: user.permissions });
+  });
+
+  it('SESSION_EXPIRED from shop-profile cancels a held products request quietly', () => {
+    signInAs('cashier');
+    const lockState = TestBed.inject(LockStateService);
+    lockState.lock();
+    let productsCompleted = false;
+    let productsFailed = false;
+    const client = TestBed.inject(HttpClient);
+    client.get(`${base}products`).subscribe({
+      error: () => (productsFailed = true),
+      complete: () => (productsCompleted = true),
+    });
+    client.get(`${base}shop-profile`).subscribe({ error: () => undefined });
+    http.expectNone(`${base}products`);
+
+    http.expectOne(`${base}shop-profile`).flush(
+      { code: 'SESSION_EXPIRED' },
+      { status: 401, statusText: 'Unauthorized' }
+    );
+
+    http.expectNone(`${base}products`);
+    expect(productsCompleted).toBeTrue();
+    expect(productsFailed).toBeFalse();
+    expect(lockState.locked()).toBeFalse();
+    expect(sessionStorage.getItem('nota.locked')).toBeNull();
+  });
 
   it('SESSION_EXPIRED with an open POS cart: the cart is kept for the same user, the leave is not asked', () => {
     signInAs('cashier');
@@ -428,7 +563,6 @@ describe('Stage 15: interceptor (session end, restore, discount limit)', () => {
     signInAs('manager');
     TestBed.inject(HttpClient).post(`${base}sellings`, {}).subscribe({ error: () => undefined });
     http.expectOne(`${base}sellings`).flush({ code: 'DISCOUNT_LIMIT', message: 'أقصى خصم مسموح لك 10٪' }, { status: 403, statusText: 'Forbidden' });
-    const { ToastService } = await import('./toast.service');
     expect(TestBed.inject(ToastService).toasts().map((t) => t.text)).toContain('أقصى خصم مسموح لك 10٪');
   });
 });
