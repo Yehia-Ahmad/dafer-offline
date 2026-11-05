@@ -1113,7 +1113,8 @@
             "WRONG_PASSWORD": "The current password is wrong",
             "INVALID_RECOVERY": "Wrong username or recovery code",
             "UNREACHABLE": "Can't reach the main PC. Try again.",
-            "generic": "Something went wrong. Try again."
+            "generic": "Something went wrong. Try again.",
+            "DISCOUNT_LIMIT": "This discount is above your maximum allowed discount"
         },
         "changePassword": {
             "open": "Change password",
@@ -1282,6 +1283,54 @@
             "isActive": "Active",
             "flow": "Type",
             "amount": "Amount"
+        }
+    },
+    "session": {
+        "restoredNotice": "The backup was restored. Sign in with an account from the restored backup",
+        "cartRestored": "Your open invoice is back",
+        "lock": {
+            "title": "Screen locked",
+            "lead": "Enter your password to continue where you left off.",
+            "unlock": "Unlock",
+            "checking": "Checking...",
+            "switchUser": "Sign in as another user",
+            "wrongPassword": "Wrong password",
+            "failed": "Could not check the password. Try again."
+        },
+        "unsaved": {
+            "title": "Unsaved work",
+            "text": "There is an open invoice or data that was not saved. It will be lost if you continue.",
+            "stay": "Back to work",
+            "leave": "Continue and discard"
+        },
+        "security": {
+            "title": "Security",
+            "autoLock": "Lock the screen automatically after",
+            "autoLockHint": "If nobody touches the PC for this long, the screen locks and asks for the password. An open invoice stays as it was. Applies to every PC.",
+            "off": "Off (no auto-lock)",
+            "minutes": "{{count}} minutes"
+        },
+        "restore": {
+            "title": "Confirm restore",
+            "warning": "Restoring replaces all current data, including users, with the backup's.",
+            "lead": "Enter your password to confirm. After the restore you sign in again with an account from the restored backup.",
+            "continue": "Confirm and choose the file"
+        },
+        "discount": {
+            "limitLabel": "Maximum discount",
+            "limitHint": "Percent of the invoice subtotal. Leave empty for no limit.",
+            "noLimit": "No limit",
+            "limitInvalid": "Enter a number from 0 to 100, or leave it empty",
+            "limitHintShort": "Max discount: {{limit}}%",
+            "overLimit": "Your maximum allowed discount is {{limit}}%"
+        },
+        "otherMain": {
+            "banner": "Another main PC is running on the network:",
+            "whatToDo": "What should I do?",
+            "why": "A shop must have only one main PC. With two, each one saves its own invoices and stock and the data is split.",
+            "step1": "Decide which PC has the right shop data and keep it as the main PC.",
+            "step2": "On the other PC: make a backup first, then set it up again as a client PC connected to the main PC.",
+            "step3": "If you are not sure, call support before deleting anything."
         }
     }
 }

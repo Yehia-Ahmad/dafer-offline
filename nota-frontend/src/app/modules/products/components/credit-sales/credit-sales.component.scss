@@ -27,3 +27,6 @@
 .cs__dialog-text{margin:0;color:var(--text-muted);line-height:1.6}
 .cs{.cs__control{width:100%}.cs__num-input{width:100%;font-variant-numeric:tabular-nums}}
 @container (max-width:900px){.cs__layout{grid-template-columns:minmax(0,1fr)}.cs__summary{position:static}}
+
+/* Stage 15: "أقصى خصم: X٪" under the discount field. */
+.cs__limit { display: block; margin-block-start: 4px; font-size: 13px; font-weight: 600; color: var(--warning-text); }

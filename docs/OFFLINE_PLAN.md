@@ -28,7 +28,7 @@ Reference: docs/design/NOTA_DESIGN_SYSTEM.md and docs/design/screens/.
 9. Sales screens redesign.
 10. Remaining screens redesign + dashboard.
 
-Later phases (decisions below): Users & permissions (Stage 13 backend done; Stage 14 frontend + auth on done; Stage 15 next), then Accounting.
+Later phases (decisions below): Users & permissions (Stages 13–15 done), then Accounting.
 
 ## Agreed decisions for later phases (after cleanup)
 
@@ -154,16 +154,19 @@ Everything is behind the **`NOTA_AUTH` switch**. With `NOTA_AUTH=1` every rule b
 - **`createdByName`** shows in the cash and credit invoice detail panels when the server sends it. No print had a printed-by line, so prints are unchanged.
 - **No invoice edit screen exists in the frontend** (no `PUT /sellings`; `updateCreditSale` is unused), so "resend the stored discount on edits" had nothing to attach to.
 
-**Stage 15 must:**
-- Auto-lock (sign out after idle time on shared PCs).
-- Enforce `backup.manage` in Electron IPC: backup/restore must check the signed-in user (e.g. a token check against the backend), not just the hidden UI.
-- Warn when another main PC answers on the LAN (two owners/databases in one shop).
-- If an invoice edit screen is ever added: send the stored discount unchanged when the user didn't touch it (Stage 13 discount rule), and show "الخصم ثابت لأنك مش عندك صلاحية تعديل الخصم" without `sales.discount`.
-- Logout and session expiry drop an unsaved POS cart or form: there is no unsaved-changes check yet; add one and ask before logout.
-- The design's "يقدر يدخل من" (per-device login) and "أقصى خصم مسموح" (max discount) on the users screens have no backend; skipped.
-- The login lockout counters are in memory (lost on restart); the setup-owner/recover loopback check relies on there being no proxy in front of the backend.
+#### Stage 15 — auto-lock, protected backup, one main PC, session polish (done)
+- **Auto-lock:** `ShopProfile.autoLockMinutes` is 0 (off), 5, 10, 15, 30 or 60. Every signed-in window observes activity and shows an overlay after the configured idle time without navigating away, so the open page and POS cart remain. The overlay survives a reload of that window. `POST /api/auth/verify-password` verifies the current user and uses the same `(username, IP)` five-attempt/five-minute login lockout; unlocking does not issue a new token. "دخول بمستخدم تاني" and logout use the unsaved-work confirmation.
+- **Protected desktop backup:** every create/status/copy/open-folder/restore Electron IPC handler sends the page's session token to the main process. The main process calls the backend and checks `backup.manage` (status needs any valid session); hidden UI is not the security boundary. Restore additionally re-checks the signed-in user's password immediately before choosing or changing anything. After a successful restore, all pre-restore sessions are invalidated, every open window is sent to login, and the login page explains that an account from the restored backup is required. If an old backup has no users, the local bootstrap check naturally shows first-run owner creation instead.
+- **Backup audit:** the main process writes manual backup success, restore success and restore failure events to a local audit inbox. The backend imports the inbox into the normal audit log as `backup.created`, `backup.restored` or `backup.restore_failed`, then removes imported entries; details contain the file name, not its secret path.
+- **One main PC:** setup discovers main PCs before accepting main-PC mode, shows the exact shop/address warning, can prefill client setup, and requires a second confirmation to continue as another main PC. A configured main PC checks at startup and every few minutes; users with `shop.manage` see a persistent banner when another main PC answers. Discovery results carry `instanceId`, `shopName`, `address` and `port`, and exclude the current instance.
+- **Unsaved work and expiry:** one `UnsavedWorkService` covers POS, new credit sale, product form, shop profile and an open add/edit-user form. It confirms before logout, switching user or route loss. A session nearing expiry refreshes through `/auth/refresh`; a cart present when expiry still occurs is kept in memory for the same user and offered after that user signs in again.
+- **Maximum discount:** `User.maxDiscountPercent` is optional, 0–100, never applies to the owner and is meaningful only with `sales.discount`. It appears beneath that permission in the user form. POS and new credit sale show the limit and block excessive discounts; the backend independently rejects excessive cash/credit create and edit requests with `DISCOUNT_LIMIT` before stock or invoice changes.
+- **Per-device login is not planned.** The AddUser design showed "يقدر يدخل من" with "أي جهاز في المحل" or one named device such as "جهاز الكاشير ١ بس". No device identity/access-control field or backend rule was added.
+- **Security assumptions retained:** login/recovery lockout counters remain in process memory and reset when the app restarts. Express still does not enable `trust proxy`; local-only owner setup/recovery uses the direct socket address (`req.ip`) and assumes no proxy in front of the backend.
+- **Still later:** invoice editing remains an Accounting-phase concern because there is still no frontend invoice-edit flow; see the note below.
 
 ### Accounting (double-entry)
+- If an invoice edit screen is added, send the stored discount unchanged when the user did not touch it (the Stage 13 discount rule), and show "الخصم ثابت لأنك مش عندك صلاحية تعديل الخصم" when the user lacks `sales.discount`.
 - MongoDB runs as a single-member replica set so transactions work. An invoice and its journal entry are saved together or not at all.
 - Journal entries are generated automatically from cash sales, credit sales, payments, returns, discounts, purchases, and expenses.
 - Posted entries are never edited or deleted. Edit = reversing entry + new entry. Deleting an invoice becomes cancelling it (status: cancelled) with a reversing entry.

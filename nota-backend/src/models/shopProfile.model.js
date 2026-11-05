@@ -3,6 +3,9 @@ const isBase64Image = require("../utils/isBase64Image");
 
 const MAX_LOGO_BYTES = 500 * 1024;
 const MAX_PHONES = 3;
+// Stage 15: auto-lock choices in minutes (0 = off).
+const AUTO_LOCK_MINUTES = [0, 5, 10, 15, 30, 60];
+const DEFAULT_AUTO_LOCK_MINUTES = 10;
 
 // Decoded size of a base64 image (raw or data URI), without decoding it.
 const getBase64DecodedBytes = (value) => {
@@ -81,8 +84,16 @@ const shopProfileSchema = new mongoose.Schema(
       trim: true,
       maxlength: [500, "يجب ألا يزيد نص تذييل الفاتورة عن 500 حرف"],
     },
+    // Stage 15: lock the screen after this many idle minutes, on every PC (0 = off).
+    autoLockMinutes: {
+      type: Number,
+      enum: { values: AUTO_LOCK_MINUTES, message: "مدة القفل التلقائي غير صالحة" },
+      default: DEFAULT_AUTO_LOCK_MINUTES,
+    },
   },
   { timestamps: true }
 );
 
 module.exports = mongoose.model("ShopProfile", shopProfileSchema);
+module.exports.AUTO_LOCK_MINUTES = AUTO_LOCK_MINUTES;
+module.exports.DEFAULT_AUTO_LOCK_MINUTES = DEFAULT_AUTO_LOCK_MINUTES;

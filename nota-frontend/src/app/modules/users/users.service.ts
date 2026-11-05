@@ -11,12 +11,16 @@ export interface CreateUserPayload {
   role: Exclude<RoleKey, 'owner'>;
   /** Sent only when the list differs from the role template (or for a custom role). */
   permissions?: string[];
+  /** Stage 15: largest invoice discount in percent (only with sales.discount); not sent = no limit. */
+  maxDiscountPercent?: number;
 }
 
 export interface UpdateUserPayload {
   name?: string;
   role?: Exclude<RoleKey, 'owner'>;
   permissions?: string[];
+  /** Stage 15: sent only when changed; null removes the limit. */
+  maxDiscountPercent?: number | null;
 }
 
 /** Stage 14: /api/users (users.manage). There is no DELETE: users are disabled instead. */

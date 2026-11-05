@@ -7,6 +7,8 @@ import { brandName } from '../../../../core/brand';
 import { NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent } from '../../../shared/ui';
 import { SHOP_PROFILE_LIMITS, ShopProfile } from '../../models/shop-profile.model';
 import { ShopProfileService } from '../../services/shop-profile.service';
+import { AUTO_LOCK_CHOICES, DEFAULT_AUTO_LOCK_MINUTES, normalizeAutoLock } from '../../../../core/auth/idle-lock.service';
+import { UnsavedWorkService } from '../../../../core/unsaved-work/unsaved-work.service';
 
 type Outcome = { kind: 'saved' } | { kind: 'error'; message: string };
 
@@ -25,6 +27,8 @@ export class ShopProfileComponent implements OnInit {
   private readonly language = inject(LanguageService);
   protected readonly appName = computed(() => brandName(this.language.selectedLanguage()));
   protected readonly limits = SHOP_PROFILE_LIMITS;
+  /** Stage 15: the "الأمان" card (auto-lock after N idle minutes, 0 = off). */
+  protected readonly autoLockChoices = AUTO_LOCK_CHOICES;
   /** Last profile loaded or saved; "Cancel" (frontend only) puts the form back to it. */
   private lastProfile: ShopProfile | null = null;
 
@@ -42,7 +46,19 @@ export class ShopProfileComponent implements OnInit {
     taxNumber: ['', Validators.maxLength(SHOP_PROFILE_LIMITS.taxNumber)],
     commercialRegister: ['', Validators.maxLength(SHOP_PROFILE_LIMITS.commercialRegister)],
     invoiceFooter: ['', Validators.maxLength(SHOP_PROFILE_LIMITS.invoiceFooter)],
+    autoLockMinutes: [DEFAULT_AUTO_LOCK_MINUTES as number],
   });
+
+  constructor() {
+    // Stage 15: leaving with unsaved changes asks first (unsavedWorkGuard, logout).
+    this.destroyRef.onDestroy(inject(UnsavedWorkService).register('shop-profile', () => this.hasUnsavedChanges()));
+  }
+
+  /** Stage 15: a field or the logo changed since the last load / save. */
+  hasUnsavedChanges(): boolean {
+    if (this.loading() || this.saving()) return false;
+    return this.form.dirty || (this.logo() || null) !== (this.lastProfile?.logo || null);
+  }
 
   protected get phones(): FormArray<FormControl<string>> {
     return this.form.controls.phones;
@@ -148,6 +164,7 @@ export class ShopProfileComponent implements OnInit {
         taxNumber: raw.taxNumber.trim(),
         commercialRegister: raw.commercialRegister.trim(),
         invoiceFooter: raw.invoiceFooter.trim(),
+        autoLockMinutes: normalizeAutoLock(raw.autoLockMinutes),
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
@@ -174,6 +191,7 @@ export class ShopProfileComponent implements OnInit {
       taxNumber: profile.taxNumber || '',
       commercialRegister: profile.commercialRegister || '',
       invoiceFooter: profile.invoiceFooter || '',
+      autoLockMinutes: normalizeAutoLock(profile.autoLockMinutes),
     });
     this.form.markAsPristine();
     this.logo.set(profile.logo || null);

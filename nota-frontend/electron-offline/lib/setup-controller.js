@@ -13,7 +13,7 @@ const EDITION = require('../edition.json');
 const { DEFAULT_PORT, MONGOD_PORT, validPort, writeConfig } = require('./config-store');
 const { protectSecret } = require('./secret-store');
 const { isPortFree } = require('./net-utils');
-const { discoverServers } = require('./discovery');
+const { discoverServers, otherMainPcs } = require('./discovery');
 const { isValidHost, probeServer } = require('./client-link');
 const { ArchiveError, readArchiveSummary } = require('./backup-archive');
 const { MongodManager } = require('./mongod-manager');
@@ -97,6 +97,12 @@ class SetupController {
 
   discover() {
     return discoverServers();
+  }
+
+  // Stage 15: main PCs already answering on the LAN, before this PC becomes a main PC.
+  // ownInstanceId: this PC's id when it was set up before (its own answer is not another PC).
+  async findOtherMainPcs(ownInstanceId, discover = discoverServers) {
+    return otherMainPcs(await discover(), { ownInstanceId });
   }
 
   // Main PC: optionally restore a backup, then save the config.

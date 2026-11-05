@@ -7,6 +7,7 @@ const { createGracefulShutdown } = require("./utils/gracefulShutdown");
 const { isAuthMode } = require("./auth/config");
 const User = require("./models/user.model");
 const AuditLog = require("./models/auditLog.model");
+const { drainAuditInbox } = require("./auth/auditInbox");
 
 const PORT = process.env.PORT || 5000;
 // Optional bind address. Unset in the online deployment, which keeps listening on all
@@ -28,6 +29,12 @@ const startServer = async () => {
   // first setup-owner request, so two racing requests can never both create an owner.
   if (isAuthMode()) {
     await Promise.all([User.init(), AuditLog.init()]);
+    // Stage 15: backup/restore entries the desktop app wrote while the backend was stopped.
+    try {
+      await drainAuditInbox(process.env.NOTA_AUDIT_INBOX);
+    } catch (error) {
+      console.error(`audit inbox: ${error.message}`);
+    }
   }
 
   const server = LISTEN_HOST

@@ -64,6 +64,7 @@ const EMPTY_PROFILE = {
   taxNumber: "",
   commercialRegister: "",
   invoiceFooter: "",
+  autoLockMinutes: 10, // Stage 15 default
 };
 
 const PNG_DATA_URI =

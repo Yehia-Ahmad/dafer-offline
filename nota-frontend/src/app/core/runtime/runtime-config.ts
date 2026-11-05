@@ -80,16 +80,30 @@ export interface BackupStatus {
   externalOverdue: boolean;
 }
 
+/**
+ * Stage 15: every call passes the page's session token first; the desktop app checks it with the
+ * backend (backup.manage, or a valid session for status) before anything runs, and answers
+ * SESSION_EXPIRED / FORBIDDEN otherwise. restore also takes the user's password (WRONG_PASSWORD,
+ * LOGIN_LOCKED).
+ */
 export interface DesktopBackupBridge {
-  create(): Promise<DesktopResult<BackupCreated>>;
-  restore(): Promise<DesktopResult<BackupRestored>>;
-  showFile(path: string): Promise<DesktopResult<boolean>>;
-  openFolder(): Promise<DesktopResult<boolean>>;
+  create(token: string | null): Promise<DesktopResult<BackupCreated>>;
+  restore(token: string | null, password: string): Promise<DesktopResult<BackupRestored>>;
+  showFile(token: string | null, path: string): Promise<DesktopResult<boolean>>;
+  openFolder(token: string | null): Promise<DesktopResult<boolean>>;
   onProgress(callback: (progress: BackupProgress) => void): () => void;
-  status(): Promise<DesktopResult<BackupStatus>>;
+  status(token: string | null): Promise<DesktopResult<BackupStatus>>;
   onStatus(callback: (status: BackupStatus) => void): () => void;
-  chooseCopyFolder(): Promise<DesktopResult<BackupStatus>>;
-  clearCopyFolder(): Promise<DesktopResult<BackupStatus>>;
+  chooseCopyFolder(token: string | null): Promise<DesktopResult<BackupStatus>>;
+  clearCopyFolder(token: string | null): Promise<DesktopResult<BackupStatus>>;
+}
+
+/** Stage 15: another main PC answering on the LAN (the main PC's own answer is never listed). */
+export interface OtherMainPc {
+  instanceId: string;
+  shopName: string;
+  address: string;
+  port: number;
 }
 
 /** Exposed by the offline edition's Electron preload script. */
@@ -101,6 +115,11 @@ export interface NotaDesktopBridge {
   changeServerAddress?(): Promise<void>;
   onNavigate?(callback: (url: string) => void): () => void;
   backup?: DesktopBackupBridge;
+  /** Stage 15: after a restore every window goes to the sign-in screen. */
+  onSessionReset?(callback: (event: { reason: 'restored' }) => void): () => void;
+  /** Stage 15 (main PC): other main PCs answering on the LAN. */
+  getOtherMainPcs?(): Promise<OtherMainPc[]>;
+  onOtherMainPcs?(callback: (list: OtherMainPc[]) => void): () => void;
 }
 
 /** The desktop bridge, or undefined outside the offline desktop edition. */

@@ -17,7 +17,7 @@ const auditRoutes = require("./routes/audit.routes");
 const { createLanSecretGuard, isLanMode } = require("./middlewares/lanSecret.middleware");
 const notFound = require("./middlewares/notFound.middleware");
 const errorHandler = require("./middlewares/error.middleware");
-const { isAuthMode, requireJwtSecret } = require("./auth/config");
+const { isAuthMode, requireJwtSecret, sessionsValidAfter } = require("./auth/config");
 const { authFlag, costStrip, requireAuth } = require("./auth/middleware");
 
 const app = express();
@@ -45,7 +45,7 @@ if (lanMode) {
 if (authMode) {
   // LAN key first (above), then the session token. /api/lan/* and the login screen's own
   // endpoints (bootstrap, login, setup-owner, recover) need no token.
-  app.use("/api", requireAuth(jwtSecret));
+  app.use("/api", requireAuth(jwtSecret, { sessionsValidAfter: sessionsValidAfter() }));
   app.use("/api", costStrip());
   const authRouter = createAuthRouter({ secret: jwtSecret });
   app.locals.auth = authRouter.controller; // the lockout counters, for tests

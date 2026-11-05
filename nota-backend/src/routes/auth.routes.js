@@ -15,6 +15,9 @@ function createAuthRouter({ secret, now } = {}) {
 
   router.get("/me", requireLogin(), controller.me);
   router.post("/change-password", requireLogin(), controller.changePassword);
+  // Stage 15: lock screen / restore password check, and the 12-hour token refresh.
+  router.post("/verify-password", requireLogin(), controller.verifyPassword);
+  router.post("/refresh", requireLogin(), controller.refresh);
   router.get("/permissions", requireLogin(), controller.permissionsCatalog);
 
   router.controller = controller;

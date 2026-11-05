@@ -18,7 +18,7 @@ const PASSTHROUGH_ENV = ['SystemRoot', 'windir', 'TEMP', 'TMP', 'PATH'];
 // jwtSecret (Stage 13): the main PC's session-token secret, passed as NOTA_JWT_SECRET.
 // NOTA_AUTH=1 (Stage 14): login and permissions are enforced. The backend refuses to start
 // without a usable secret; main.js never starts it without one.
-function buildBackendEnv({ port, mongoUri, secret, jwtSecret, appVersion, instanceId, sourceEnv = process.env }) {
+function buildBackendEnv({ port, mongoUri, secret, jwtSecret, appVersion, instanceId, sessionsValidAfter, auditInbox, sourceEnv = process.env }) {
   const env = {};
   for (const key of PASSTHROUGH_ENV) {
     if (sourceEnv[key] !== undefined) env[key] = sourceEnv[key];
@@ -36,6 +36,10 @@ function buildBackendEnv({ port, mongoUri, secret, jwtSecret, appVersion, instan
     ...(jwtSecret ? { NOTA_JWT_SECRET: jwtSecret } : {}),
     NOTA_APP_VERSION: appVersion,
     NOTA_INSTANCE_ID: instanceId,
+    // Stage 15: tokens issued before the last restore are refused; backup audit entries written
+    // while the backend was stopped are read from this file at startup.
+    ...(sessionsValidAfter ? { NOTA_SESSIONS_VALID_AFTER: String(sessionsValidAfter) } : {}),
+    ...(auditInbox ? { NOTA_AUDIT_INBOX: auditInbox } : {}),
   };
 }
 
@@ -55,6 +59,11 @@ class BackendManager extends EventEmitter {
 
   get running() {
     return Boolean(this.child);
+  }
+
+  // Stage 15: e.g. NOTA_SESSIONS_VALID_AFTER after a restore. Used from the next start on.
+  updateEnv(patch) {
+    this.env = { ...this.env, ...patch };
   }
 
   start() {

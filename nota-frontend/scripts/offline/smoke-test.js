@@ -535,6 +535,39 @@ async function runScenarios() {
     return `id ${ctx.productId}, ${await expectStock(ctx, 10)}`;
   });
 
+  // Stage 15: the backend, not just the POS field, enforces each user's maximum discount.
+  await step('Max discount: manager limited to 10% is refused at 15%', async () => {
+    requireCtx(ctx, 'productId');
+    const manager = {
+      name: 'Smoke Limited Manager',
+      username: 'smoke-limited-manager',
+      password: 'manager-pass-1',
+      role: 'manager',
+      maxDiscountPercent: 10,
+    };
+    const created = await request('POST', '/api/users', { body: manager });
+    expectStatus(created, 201, 'POST /api/users (limited manager)');
+    const login = await request('POST', '/api/auth/login', {
+      body: { username: manager.username, password: manager.password },
+      token: null,
+    });
+    expectStatus(login, 200, 'limited manager login');
+    const response = await request('POST', '/api/sellings', {
+      token: login.json.token,
+      body: {
+        customerName: 'Smoke Discount Customer',
+        customerPhone: '01000000008',
+        sellingDate: today,
+        items: [{ productId: ctx.productId, quantity: 1, price: 100 }],
+        discountAmount: 15,
+      },
+    });
+    expectStatus(response, 403, 'POST /api/sellings with a 15% discount');
+    expect(response.json.code === 'DISCOUNT_LIMIT', `code expected DISCOUNT_LIMIT, got ${response.json.code}`);
+    expect(response.json.maxDiscountPercent === 10, `limit expected 10, got ${response.json.maxDiscountPercent}`);
+    return `${describe(response)}, limit ${response.json.maxDiscountPercent}%, ${await expectStock(ctx, 10)}`;
+  });
+
   await step('Cash sale, quantity 2 → stock 8', async () => {
     requireCtx(ctx, 'productId');
     const response = await request('POST', '/api/sellings', {

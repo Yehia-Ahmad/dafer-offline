@@ -3,7 +3,7 @@
 (() => {
   const setup = window.notaDesktop.setup;
   const $ = (id) => document.getElementById(id);
-  const steps = ['step-role', 'step-main', 'step-client'];
+  const steps = ['step-role', 'step-main-warning', 'step-main', 'step-client'];
   let info = null;
   let backup = null;
   let selectedServer = null;
@@ -169,6 +169,40 @@
     }
   }
 
+  // ------------------------------------------------------------ one main PC (Stage 15)
+
+  let otherMainPrefill = null;
+
+  // "جهاز رئيسي": look for a main PC already on the LAN first.
+  async function chooseMain() {
+    if (busy) return;
+    showStep('step-main-warning');
+    $('other-main-box').hidden = true;
+    $('main-anyway-confirm').hidden = true;
+    $('other-main-actions').hidden = false;
+    setBusy(true, 'role-progress');
+    const result = await setup.otherMain();
+    setBusy(false, 'role-progress');
+    const warning = window.NotaSetupMainCheck.mainPcWarning(result.ok ? result.value : []);
+    if (!warning) {
+      showStep('step-main');
+      return;
+    }
+    otherMainPrefill = warning.prefill;
+    $('other-main-message').textContent = warning.message;
+    $('other-main-box').hidden = false;
+  }
+
+  function useAsClient() {
+    showStep('step-client');
+    if (otherMainPrefill) {
+      $('host').value = otherMainPrefill.host;
+      $('client-port').value = otherMainPrefill.port;
+      selectedServer = { address: otherMainPrefill.host, port: otherMainPrefill.port, shopName: otherMainPrefill.shopName };
+    }
+    $('client-secret').focus();
+  }
+
   // ------------------------------------------------------------ start
 
   async function init() {
@@ -186,7 +220,18 @@
     $('choice-existing-row').hidden = !info.hasExistingData;
     document.querySelector(`input[name="data"][value="${info.hasExistingData ? 'existing' : 'empty'}"]`).checked = true;
 
-    $('choose-main').addEventListener('click', () => showStep('step-main'));
+    $('choose-main').addEventListener('click', chooseMain);
+    $('use-as-client').addEventListener('click', useAsClient);
+    // A second confirmation before a second main PC.
+    $('main-anyway').addEventListener('click', () => {
+      $('other-main-actions').hidden = true;
+      $('main-anyway-confirm').hidden = false;
+    });
+    $('main-anyway-cancel').addEventListener('click', () => {
+      $('main-anyway-confirm').hidden = true;
+      $('other-main-actions').hidden = false;
+    });
+    $('main-anyway-confirmed').addEventListener('click', () => showStep('step-main'));
     $('choose-client').addEventListener('click', () => {
       showStep('step-client');
       search();

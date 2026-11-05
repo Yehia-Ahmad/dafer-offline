@@ -24,18 +24,26 @@ contextBridge.exposeInMainWorld('notaDesktop', {
 
   // Backup page (main PC only). Each call resolves to { ok, value } or { ok: false, error };
   // value is null when the user cancelled the file dialog or the confirmation.
+  // Stage 15: the first argument is the page's session token; the main process checks it with the
+  // backend (backup.manage) before anything runs. restore also takes the user's password.
   backup: {
-    create: () => ipcRenderer.invoke('backup:create'),
-    restore: () => ipcRenderer.invoke('backup:restore'),
-    showFile: (file) => ipcRenderer.invoke('backup:show-file', file),
-    openFolder: () => ipcRenderer.invoke('backup:open-folder'),
+    create: (token) => ipcRenderer.invoke('backup:create', token),
+    restore: (token, password) => ipcRenderer.invoke('backup:restore', token, password),
+    showFile: (token, file) => ipcRenderer.invoke('backup:show-file', token, file),
+    openFolder: (token) => ipcRenderer.invoke('backup:open-folder', token),
     onProgress: (callback) => subscribe('backup:progress', callback),
     // Daily backup: last backups, the extra copy folder, the "copy outside this PC" warning.
-    status: () => ipcRenderer.invoke('backup:status'),
+    status: (token) => ipcRenderer.invoke('backup:status', token),
     onStatus: (callback) => subscribe('backup:status', callback),
-    chooseCopyFolder: () => ipcRenderer.invoke('backup:choose-copy-folder'),
-    clearCopyFolder: () => ipcRenderer.invoke('backup:clear-copy-folder'),
+    chooseCopyFolder: (token) => ipcRenderer.invoke('backup:choose-copy-folder', token),
+    clearCopyFolder: (token) => ipcRenderer.invoke('backup:clear-copy-folder', token),
   },
+
+  // Stage 15: after a restore every window goes to the sign-in screen ({ reason: 'restored' }).
+  onSessionReset: (callback) => subscribe('nota:session-reset', callback),
+  // Stage 15 (main PC): other main PCs answering on the LAN: [{ instanceId, shopName, address, port }].
+  getOtherMainPcs: () => ipcRenderer.invoke('nota:other-main'),
+  onOtherMainPcs: (callback) => subscribe('nota:other-main', callback),
 
   // Status page.
   getStatus: () => ipcRenderer.invoke('nota:status'),
@@ -51,6 +59,8 @@ contextBridge.exposeInMainWorld('notaDesktop', {
     checkPort: (port) => ipcRenderer.invoke('setup:check-port', port),
     pickBackup: () => ipcRenderer.invoke('setup:pick-backup'),
     discover: () => ipcRenderer.invoke('setup:discover'),
+    // Stage 15: other main PCs on the LAN, checked before this PC becomes the main PC.
+    otherMain: () => ipcRenderer.invoke('setup:other-main'),
     completeMain: (input) => ipcRenderer.invoke('setup:complete-main', input),
     completeClient: (input) => ipcRenderer.invoke('setup:complete-client', input),
     onProgress: (callback) => subscribe('setup:progress', callback),

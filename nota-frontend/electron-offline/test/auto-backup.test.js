@@ -212,7 +212,9 @@ test('an extra folder on the data drive gets the copy but is flagged and does no
   assert.equal(moved.externalOverdue, false);
 });
 
-test('real drive check: by volume, missing paths by their parent, unknown drives by letter', async () => {
+test('real drive check: by volume, missing paths by their parent, unknown drives by letter', {
+  skip: process.platform === 'win32' ? false : 'Windows volume/drive-letter check',
+}, async () => {
   const systemDrive = path.parse(os.tmpdir()).root;
   assert.equal(await onSameDrive(os.tmpdir(), path.join(systemDrive, 'Windows')), true);
   assert.equal(await onSameDrive(path.join(os.tmpdir(), 'not', 'created', 'yet'), os.tmpdir()), true);

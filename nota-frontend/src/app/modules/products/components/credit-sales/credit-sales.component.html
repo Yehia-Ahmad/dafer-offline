@@ -127,9 +127,14 @@
         <div class="cs__fields">
           <!-- Stage 14: the invoice discount needs sales.discount (cash and credit); otherwise it stays 0, locked. -->
           <nota-form-field *notaCan="'sales.discount'; else csDiscountLocked" [label]="'creditSalePage.fields.discountAmount' | translate" forId="csDiscount"
-            [hint]="('creditSalePage.fields.discountPercentage' | translate) + ': ' + (discountPercentage | notaNumber) + '%'">
+            [hint]="('creditSalePage.fields.discountPercentage' | translate) + ': ' + (discountPercentage | notaNumber) + '%'"
+            [error]="discountOverLimit ? ('session.discount.overLimit' | translate: { limit: (maxDiscountPercent() | notaNumber) }) : null">
             <p-inputNumber inputId="csDiscount" formControlName="discountAmount" [min]="0" [mode]="'decimal'" [useGrouping]="false"
               styleClass="cs__control" inputStyleClass="cs__num-input" />
+            <!-- Stage 15: this user's discount limit. -->
+            @if (maxDiscountPercent() !== null) {
+              <span class="cs__limit" data-testid="discount-limit">{{ 'session.discount.limitHintShort' | translate: { limit: (maxDiscountPercent() | notaNumber) } }}</span>
+            }
           </nota-form-field>
           <ng-template #csDiscountLocked>
             <nota-form-field [label]="'creditSalePage.fields.discountAmount' | translate">
@@ -171,7 +176,7 @@
           <p class="cs__msg" role="alert">{{ saveError }}</p>
         }
 
-        <button type="button" notaButton="primary" size="lg" class="cs__primary" (click)="openReviewDialog()">
+        <button type="button" notaButton="primary" size="lg" class="cs__primary" [disabled]="discountOverLimit" (click)="openReviewDialog()">
           {{ 'creditSalePage.actions.reviewCreditSale' | translate }} <span class="cs__kbd" aria-hidden="true">(F9)</span>
         </button>
         <button type="button" notaButton (click)="resetDraft()">{{ 'creditSalePage.actions.resetDraft' | translate }}</button>

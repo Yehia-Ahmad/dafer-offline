@@ -10,10 +10,25 @@ import { ConnectionOverlayComponent } from './offline/connection-overlay.compone
 import { VersionNoticeComponent } from './offline/version-notice.component';
 import { SideNavComponent } from './modules/layout/components/side-nav/side-nav.component';
 import { ToastsComponent } from './core/auth/toasts.component';
+import { LockOverlayComponent } from './core/auth/lock-overlay.component';
+import { IdleLockService } from './core/auth/idle-lock.service';
+import { AuthService } from './core/auth/auth.service';
+import { UnsavedWorkDialogComponent } from './core/unsaved-work/unsaved-work-dialog.component';
+import { UnsavedWorkService } from './core/unsaved-work/unsaved-work.service';
+import { OtherMainBannerComponent } from './offline/other-main-banner.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, SideNavComponent, ConnectionOverlayComponent, VersionNoticeComponent, ToastsComponent],
+  imports: [
+    RouterOutlet,
+    SideNavComponent,
+    ConnectionOverlayComponent,
+    VersionNoticeComponent,
+    ToastsComponent,
+    LockOverlayComponent,
+    UnsavedWorkDialogComponent,
+    OtherMainBannerComponent,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
@@ -33,11 +48,29 @@ export class App {
       .pipe(filter((event) => event instanceof NavigationEnd), takeUntilDestroyed())
       .subscribe(() => this.framed.set(routeWantsFrame(router.routerState.snapshot.root)));
 
+    const destroyRef = inject(DestroyRef);
     // Offline edition: the tray menu can open a page, e.g. backup and restore.
     const onNavigate = this.offline ? getDesktopBridge()?.onNavigate : undefined;
     if (onNavigate) {
       const unsubscribe = onNavigate((url) => router.navigateByUrl(url));
-      inject(DestroyRef).onDestroy(unsubscribe);
+      destroyRef.onDestroy(unsubscribe);
+    }
+
+    // Stage 15: idle auto-lock (and the token refresh on activity) for this window.
+    inject(IdleLockService).start(destroyRef);
+
+    // Stage 15: a backup was restored on the main PC: its users replaced ours, so sign in again.
+    const onSessionReset = this.offline ? getDesktopBridge()?.onSessionReset : undefined;
+    if (onSessionReset) {
+      const auth = inject(AuthService);
+      const unsaved = inject(UnsavedWorkService);
+      destroyRef.onDestroy(
+        onSessionReset(() => {
+          unsaved.allowNextNavigation();
+          auth.clear();
+          router.navigate(['/login'], { queryParams: { reason: 'restored' } });
+        })
+      );
     }
   }
 }

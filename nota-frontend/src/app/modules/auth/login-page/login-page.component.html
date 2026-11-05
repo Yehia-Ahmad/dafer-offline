@@ -69,7 +69,9 @@
             <h2 class="nota-auth__title">{{ 'auth.login.title' | translate }}</h2>
             <p class="nota-auth__lead">{{ 'auth.login.lead' | translate }}</p>
           </div>
-          @if (expired && !error()) {
+          @if (restored && !error()) {
+            <p class="nota-auth__notice" role="status" data-test="restored-notice">{{ 'session.restoredNotice' | translate }}</p>
+          } @else if (expired && !error()) {
             <p class="nota-auth__notice" role="status">{{ 'auth.sessionExpired' | translate }}</p>
           }
           <nota-form-field [label]="'auth.fields.username' | translate" forId="loginUser" [error]="fieldErrors()['username'] | translate">

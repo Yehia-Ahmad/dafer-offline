@@ -1,3 +1,4 @@
+import { UnsavedWorkService } from '../../../../core/unsaved-work/unsaved-work.service';
 import { ChangeDetectorRef, Component, DestroyRef, effect, inject, OnInit, untracked } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -46,6 +47,11 @@ export class ProductFormComponent implements OnInit {
   private readonly location = inject(Location);
   private readonly fb = inject(FormBuilder);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly unsaved = inject(UnsavedWorkService);
+  /** Stage 15: the edit fields as loaded, to tell whether anything was changed. */
+  private editSnapshot: string | null = null;
+  /** Stage 15: saved or deleted; leaving does not ask. */
+  private leaving = false;
 
   readonly mode: ProductFormMode = this._activatedRoute.snapshot.params['id'] ? 'edit' : 'new';
   readonly categories = this._catalog.categories;
@@ -83,6 +89,8 @@ export class ProductFormComponent implements OnInit {
   editLowStockThreshold: number | string | null = '';
 
   constructor() {
+    // Stage 15: leaving with unsaved changes asks first (unsavedWorkGuard, logout).
+    this.destroyRef.onDestroy(this.unsaved.register('product-form', () => this.hasUnsavedChanges()));
     this.productId = this._activatedRoute.snapshot.params['id'];
     this.initlizeAddProduct(null);
     // Opened directly (category list not loaded yet): fill the specification fields once it arrives.
@@ -113,6 +121,17 @@ export class ProductFormComponent implements OnInit {
     const categoryId = this._activatedRoute.snapshot.queryParamMap.get('category') ?? '';
     const passedCodes = (typeof history !== 'undefined' ? history.state?.productCodes : null) as unknown[] | null;
     this.setNewCategory(categoryId, Array.isArray(passedCodes) ? passedCodes : null);
+  }
+
+  /** Stage 15: something typed that was not saved. */
+  hasUnsavedChanges(): boolean {
+    if (this.leaving) return false;
+    if (this.mode === 'edit') return this.editSnapshot !== null && this.editSnapshot !== this.editState();
+    return this.addProductForm.dirty || Boolean(this.imagePreview) || isFilled(this.newDiscountPercentage) || isFilled(this.newLowStockThreshold);
+  }
+
+  private editState(): string {
+    return JSON.stringify({ product: this.product, details: this.productDetails, newInventory: this.newInventory, threshold: this.editLowStockThreshold });
   }
 
   /** Back link / cancel target: the product's category on /products. */
@@ -242,6 +261,7 @@ export class ProductFormComponent implements OnInit {
         this._catalog.refresh();
         this.isAddingProduct = false;
         if (!addAnother) {
+          this.leaving = true;
           this._router.navigate(['/products'], { queryParams: { category: this.categoryId } });
           return;
         }
@@ -250,6 +270,7 @@ export class ProductFormComponent implements OnInit {
         this.resetForm();
         this.resetProductDetailsControls(this.buildProductDetailsFromCategory(this.findCategory(this.categoryId)));
         this.addProductForm.patchValue({ code: this.getNextProductCode(), categoryId: this.categoryId });
+        this.addProductForm.markAsPristine();
         this.cdr.detectChanges();
       },
       error: (err: any) => {
@@ -356,6 +377,7 @@ export class ProductFormComponent implements OnInit {
         this.productDetails = this.buildProductDetails(this.product);
         this.newInventory = null;
         this.editLowStockThreshold = isFilled(this.product?.lowStockThreshold) ? this.product.lowStockThreshold : '';
+        this.editSnapshot = this.editState();
         this.cdr.detectChanges();
       }, error: (err: any) => {
         this.loading = false;
@@ -371,6 +393,7 @@ export class ProductFormComponent implements OnInit {
     this._cateoryService.deleteProduct(this.productId).subscribe({
       next: () => {
         this.loading = false;
+        this.leaving = true;
         this._catalog.refresh();
         this.cdr.detectChanges();
         this.location.back();
@@ -409,6 +432,7 @@ export class ProductFormComponent implements OnInit {
     this._cateoryService.updateProduct(this.productId, payload).subscribe({
       next: () => {
         this.loading = false;
+        this.leaving = true;
         this.cdr.detectChanges();
         this.location.back();
       }, error: (err: any) => {
