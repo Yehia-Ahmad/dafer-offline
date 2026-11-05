@@ -3,10 +3,12 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const app = require("./app");
 const connectDB = require("./config/db");
+const { ensureIndexes } = connectDB;
+// Registered here explicitly so ensureIndexes() always covers the auth models.
+require("./models/user.model");
+require("./models/auditLog.model");
 const { createGracefulShutdown } = require("./utils/gracefulShutdown");
 const { isAuthMode } = require("./auth/config");
-const User = require("./models/user.model");
-const AuditLog = require("./models/auditLog.model");
 const { drainAuditInbox } = require("./auth/auditInbox");
 const { assertTransactionsSupported } = require("./utils/transaction");
 const { runMigrations } = require("./migrations");
@@ -29,10 +31,11 @@ const startServer = async () => {
   await assertTransactionsSupported();
   await runMigrations();
 
-  // Stage 13: with auth on, the user indexes (one owner, unique usernames) must exist before the
-  // first setup-owner request, so two racing requests can never both create an owner.
+  // Every start: build all model indexes (autoIndex is off in LAN mode). This also guarantees the
+  // Stage 13 user indexes (one owner, unique usernames) exist before the first setup-owner request.
+  await ensureIndexes();
+
   if (isAuthMode()) {
-    await Promise.all([User.init(), AuditLog.init()]);
     // Stage 15: backup/restore entries the desktop app wrote while the backend was stopped.
     try {
       await drainAuditInbox(process.env.NOTA_AUDIT_INBOX);

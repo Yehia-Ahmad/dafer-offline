@@ -26,7 +26,9 @@ const connectDB = async () => {
       console.warn("MONGO_URI غير موجود. سيتم استخدام رابط MongoDB المحلي الافتراضي.");
     }
 
-    await mongoose.connect(resolved.uri);
+    // Desktop migrations may kill stale sessions left by a crashed backend. Avoid starting
+    // Mongoose's background index sessions before that cleanup; migration 4 creates them.
+    await mongoose.connect(resolved.uri, { autoIndex: !isLanMode() });
     console.log("MongoDB connected");
   } catch (error) {
     console.error("فشل الاتصال بـ MongoDB:", error.message);
@@ -34,6 +36,26 @@ const connectDB = async () => {
   }
 };
 
+// LAN mode runs with autoIndex off, so Model.init() builds nothing there. Build every registered
+// model's indexes explicitly on each start (createIndexes is idempotent). A failed build (e.g. a
+// unique index blocked by duplicate data) aborts startup; no data is ever dropped to make it pass.
+const ensureIndexes = async (connection = mongoose) => {
+  for (const name of connection.modelNames()) {
+    const model = connection.model(name);
+    try {
+      await model.createIndexes();
+    } catch (error) {
+      const wrapped = new Error(
+        `فشل بناء فهرس في المجموعة "${model.collection.collectionName}" (النموذج ${name}): ${error.message}. لم يتم حذف أي بيانات.`
+      );
+      wrapped.cause = error;
+      wrapped.collection = model.collection.collectionName;
+      throw wrapped;
+    }
+  }
+};
+
 module.exports = connectDB;
+module.exports.ensureIndexes = ensureIndexes;
 module.exports.resolveMongoUri = resolveMongoUri;
 module.exports.DEFAULT_MONGO_URI = DEFAULT_MONGO_URI;

@@ -475,7 +475,7 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
 
   for (const creditSale of pendingUpdates) await creditSale.save({ session });
 
-  const updatedInvoices = pendingUpdates.map(toCreditSaleInvoice);
+  const updatedInvoices = pendingUpdates.map((sale) => toCreditSaleInvoice(sale));
 
   await Receipt.create([{
     _id: receiptId,

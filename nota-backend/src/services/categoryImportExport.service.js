@@ -297,6 +297,7 @@ const importCategories = async (buffer, session) => {
       );
       importedCount = insertedCategories.length;
     } catch (error) {
+      if (error?.hasErrorLabel?.("TransientTransactionError")) throw error;
       const failedIndex = error.writeErrors?.[0]?.index ?? error.index ?? 0;
       const row = rowsToInsert[failedIndex] || rowsToInsert[0];
       throw importWriteFailure({
@@ -373,6 +374,7 @@ const importCategories = async (buffer, session) => {
       );
       productImportedCount = insertedProducts.length;
     } catch (error) {
+      if (error?.hasErrorLabel?.("TransientTransactionError")) throw error;
       const failedIndex = error.writeErrors?.[0]?.index ?? error.index ?? 0;
       const row = productRowsToInsert[failedIndex] || productRowsToInsert[0];
       throw importWriteFailure({

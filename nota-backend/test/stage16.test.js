@@ -246,6 +246,20 @@ it("both payment routes return their original 400 body without writing inside th
   assert.doesNotMatch(loggedErrors.join("\n"), /TypeError/);
 });
 
+it("customer payment formats every updated invoice without passing the array index as options", async () => {
+  const { product } = await catalog(3);
+  const customer = await Customer.create({ name: "formatted payment", phone: "01222222224" });
+  const created = await call("POST", "/api/credit-sales", saleBody(product, 1, 100, {
+    customerId: String(customer._id), customerName: undefined, customerPhone: undefined,
+  }));
+  assert.equal(created.status, 201);
+  const paid = await call("POST", `/api/customers/${customer._id}/payments`, { amount: 25, lastInvoice: true });
+  assert.equal(paid.status, 201);
+  assert.equal(paid.json.invoices.length, 1);
+  assert.equal(paid.json.invoices[0].invoiceId, created.json.invoiceId);
+  assert.equal(paid.json.invoices[0].paidAmount, 25);
+});
+
 it("credit returns preserve original lines and totals and reallocate overpayment atomically", async () => {
   const { product } = await catalog(5);
   const customer = await Customer.create({ name: "عميل آجل", phone: "01333333333" });
@@ -363,6 +377,39 @@ it("original-total migration preserves historical cost on a fully removed credit
   assert.deepEqual(migrationAudit.details.estimatedCostInvoices, []);
 });
 
+it("migration flags a removed-line cost inferred only from legacy return profit", async () => {
+  const { product } = await catalog(10);
+  const customer = await Customer.create({ name: "legacy return cost", phone: "01777777779" });
+  const mongoose = require("mongoose");
+  const invoiceId = new mongoose.Types.ObjectId();
+  const itemId = new mongoose.Types.ObjectId();
+  const returnLogId = new mongoose.Types.ObjectId();
+  const returned = { productId: product._id, product: product._id, productName: product.name,
+    quantity: 1, price: 100, unitPrice: 100, total: 100, totalPrice: 100, profitAmount: 60 };
+  await ReturnLog.collection.insertOne({
+    _id: returnLogId, returnType: "credit", invoiceId, customerName: customer.name, customerPhone: customer.phone,
+    returnDate: new Date("2025-01-02"), items: [returned], subtotalReturnedAmount: 100,
+    discountAmount: 0, shippingFees: 0, finalReturnedAmount: 100,
+    createdAt: new Date("2025-01-02"), updatedAt: new Date("2025-01-02"),
+  });
+  await CreditSale.collection.insertOne({
+    _id: invoiceId, customer: customer._id, customerName: customer.name, customerPhone: customer.phone,
+    sellingDate: new Date("2025-01-01"), items: [], totalQuantity: 0, discountAmount: 0, shippingFees: 0,
+    totalPrice: 0, paidAmount: 0, remainingAmount: 0, refundDueAmount: 0, status: "Reactionary",
+    refundStatus: "full", refundedQuantity: 1, refundedAmount: 100, returnedPaidAmount: 0,
+    reallocatedPaidAmount: 0, payments: [], refunds: [{ refundDate: new Date("2025-01-02"),
+      returnLog: returnLogId, totalQuantity: 1, totalAmount: 100,
+      items: [{ ...returned, invoiceItemId: itemId }] }],
+    createdAt: new Date("2025-01-01"), updatedAt: new Date("2025-01-02"),
+  });
+
+  await runMigrations();
+  const migrated = await CreditSale.findById(invoiceId).lean();
+  assert.equal(migrated.items[0].purchasePrice, 40);
+  assert.equal(migrated.items[0].costEstimated, true);
+  assert.deepEqual(migrated.migrationNotes, [`cost estimated for ${product.name}`]);
+});
+
 it("original-total migration skips an invoice already marked as restored", async () => {
   const customer = await Customer.create({ name: "ترحيل مكتمل", phone: "01777777778" });
   const invoiceId = new (require("mongoose").Types.ObjectId)();
@@ -407,6 +454,43 @@ it("migration restores cash returnedQuantity so profit reports use the remaining
   assert.equal(migratedInvoice.quantity, 2);
   assert.equal(migratedInvoice.revenue, 200);
   assert.equal(migratedInvoice.profit, 160);
+});
+
+it("migration converts a returned legacy single-product cash sale before restoring totals", async () => {
+  const { product } = await catalog(10);
+  const mongoose = require("mongoose");
+  const invoiceId = new mongoose.Types.ObjectId();
+  const oldItemId = new mongoose.Types.ObjectId();
+  const returnLogId = new mongoose.Types.ObjectId();
+  await Selling.collection.insertOne({
+    _id: invoiceId, customerName: "legacy cash", sellingDate: new Date("2025-03-01"),
+    product: product._id, productName: product.name, productCode: product.code, categoryName: "legacy",
+    quantity: 3, unitPrice: 100, profitAmount: 240, totalPrice: 300,
+    refunds: [{ refundDate: new Date("2025-03-02"), returnLog: returnLogId, totalQuantity: 1, totalAmount: 100,
+      items: [{ invoiceItemId: oldItemId, product: product._id, productName: product.name, quantity: 1, unitPrice: 100, totalPrice: 100 }] }],
+    refundStatus: "partial", refundedQuantity: 1, refundedAmount: 100,
+    createdAt: new Date("2025-03-01"), updatedAt: new Date("2025-03-02"),
+  });
+  await ReturnLog.collection.insertOne({
+    _id: returnLogId, returnType: "cash", invoiceId, customerName: "legacy cash", returnDate: new Date("2025-03-02"),
+    items: [{ productId: product._id, productName: product.name, quantity: 1, price: 100, total: 100 }],
+    subtotalReturnedAmount: 100, discountAmount: 0, shippingFees: 0, finalReturnedAmount: 100,
+    createdAt: new Date("2025-03-02"), updatedAt: new Date("2025-03-02"),
+  });
+
+  await runMigrations();
+  const migrated = await Selling.collection.findOne({ _id: invoiceId });
+  assert.equal(migrated.items.length, 1);
+  assert.equal(String(migrated.items[0]._id), String(invoiceId));
+  assert.equal(migrated.items[0].quantity, 3);
+  assert.equal(migrated.items[0].returnedQuantity, 1);
+  assert.equal(migrated.items[0].purchasePrice, product.purchasePrice);
+  assert.ok(product.purchasePrice > 0);
+  assert.notEqual(migrated.items[0].profitAmount, migrated.items[0].totalPrice, "profit must not equal revenue");
+  assert.equal(migrated.items[0].costEstimated, true);
+  for (const field of ["product", "productName", "productCode", "categoryName", "quantity", "unitPrice", "purchasePrice", "profitAmount"]) {
+    assert.equal(migrated[field], undefined, `${field} should be removed from the invoice root`);
+  }
 });
 
 it("migration uses final credit-return amounts and merges old partial-return lines", async () => {
@@ -465,8 +549,44 @@ it("migration uses final credit-return amounts and merges old partial-return lin
   assert.equal(partial.items[0].quantity, 3);
   assert.equal(partial.items[0].returnedQuantity, 1);
   assert.equal(partial.items[0].purchasePrice, 20);
-  assert.equal(partial.items[0].costEstimated, false);
+  assert.equal(partial.items[0].costEstimated, true);
+  assert.match(partial.migrationNotes.join("|"), /merged/);
   assert.equal(partial.stage16OriginalTotalsRestored, true);
+});
+
+it("migration combines two legacy partial returns into the one current invoice line", async () => {
+  const { product } = await catalog(10);
+  const customer = await Customer.create({ name: "two returns", phone: "01012345999" });
+  const mongoose = require("mongoose");
+  const invoiceId = new mongoose.Types.ObjectId();
+  const currentItemId = new mongoose.Types.ObjectId();
+  const oldItemIds = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
+  const logIds = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
+  await ReturnLog.collection.insertMany(logIds.map((logId, index) => ({
+    _id: logId, returnType: "credit", invoiceId, customerName: customer.name, customerPhone: customer.phone,
+    returnDate: new Date(`2025-05-0${index + 2}`),
+    items: [{ productId: product._id, productName: product.name, quantity: 1, price: 100, total: 100 }],
+    subtotalReturnedAmount: 100, discountAmount: 0, shippingFees: 0, finalReturnedAmount: 100,
+    createdAt: new Date(`2025-05-0${index + 2}`), updatedAt: new Date(`2025-05-0${index + 2}`),
+  })));
+  await CreditSale.collection.insertOne({
+    _id: invoiceId, customer: customer._id, customerName: customer.name, customerPhone: customer.phone,
+    sellingDate: new Date("2025-05-01"), items: [{ _id: currentItemId, product: product._id, productName: product.name,
+      quantity: 1, unitPrice: 100, totalPrice: 100, purchasePrice: 20, profitAmount: 80 }], totalQuantity: 1,
+    discountAmount: 0, shippingFees: 0, totalPrice: 100, paidAmount: 0, remainingAmount: 100, refundDueAmount: 0,
+    status: "pending", refundStatus: "partial", refundedQuantity: 2, refundedAmount: 200,
+    returnedPaidAmount: 0, reallocatedPaidAmount: 0, payments: [],
+    refunds: logIds.map((logId, index) => ({ refundDate: new Date(`2025-05-0${index + 2}`), returnLog: logId,
+      totalQuantity: 1, totalAmount: 100, items: [{ invoiceItemId: oldItemIds[index], product: product._id,
+        productName: product.name, quantity: 1, unitPrice: 100, totalPrice: 100 }] })),
+    createdAt: new Date("2025-05-01"), updatedAt: new Date("2025-05-03"),
+  });
+
+  await runMigrations();
+  const migrated = await CreditSale.findById(invoiceId).lean();
+  assert.equal(migrated.items.length, 1);
+  assert.equal(migrated.items[0].quantity, 3);
+  assert.equal(migrated.items[0].returnedQuantity, 2);
 });
 
 it("number migration skips old return reallocations and recognizes old down payments", async () => {
@@ -524,7 +644,24 @@ it("category import database write failures abort every inserted row", async () 
   assert.equal(await Product.countDocuments({ code: "IMP-1" }), 0);
 });
 
-it("batched migration numbers about 5,000 legacy documents well inside the raised limit", async (t) => {
+it("category import preserves TransientTransactionError for withTransaction retry", async () => {
+  const categoryId = new (require("mongoose").Types.ObjectId)();
+  const workbook = createCategoryWorkbook(
+    [{ _id: categoryId, name: "transient import", image: "", specifications: [] }],
+    []
+  );
+  const transient = new Error("retry this transaction");
+  transient.hasErrorLabel = (label) => label === "TransientTransactionError";
+  const originalInsertMany = Category.insertMany;
+  Category.insertMany = async () => { throw transient; };
+  try {
+    await assert.rejects(importCategories(workbook, null), (error) => error === transient);
+  } finally {
+    Category.insertMany = originalInsertMany;
+  }
+});
+
+it("batched migration numbers about 5,000 legacy documents under the default transaction limit", async (t) => {
   const mongoose = require("mongoose");
   const customerId = new mongoose.Types.ObjectId();
   const now = new Date("2025-06-01");
@@ -555,6 +692,102 @@ it("batched migration numbers about 5,000 legacy documents well inside the raise
   assert.equal(await CreditSale.countDocuments({ number: /^CR-/ }), 1500);
   assert.equal(await ReturnLog.countDocuments({ number: /^RT-/ }), 1500);
   assert.equal(await Receipt.countDocuments(), 1500);
+});
+
+it("original-total migration resumes after a committed first chunk and matches a clean run", async () => {
+  const mongoose = require("mongoose");
+  const now = new Date("2025-07-01");
+  const productId = new mongoose.Types.ObjectId();
+  const fixtures = Array.from({ length: 501 }, (_, index) => {
+    const invoiceId = new mongoose.Types.ObjectId();
+    const itemId = new mongoose.Types.ObjectId();
+    const returnLogId = new mongoose.Types.ObjectId();
+    return {
+      sale: {
+        _id: invoiceId, number: `INV-R-${index}`, customerName: `resume ${index}`, sellingDate: now,
+        items: [{ _id: itemId, product: productId, productName: "resume product", quantity: 2,
+          unitPrice: 10, totalPrice: 20, purchasePrice: 3, profitAmount: 14 }], totalQuantity: 2,
+        totalPrice: 20, refunds: [{ refundDate: now, returnLog: returnLogId, totalQuantity: 1, totalAmount: 10,
+          items: [{ invoiceItemId: itemId, product: productId, productName: "resume product",
+            quantity: 1, unitPrice: 10, totalPrice: 10 }] }], refundStatus: "partial",
+        refundedQuantity: 1, refundedAmount: 10, createdAt: now, updatedAt: now,
+      },
+      log: {
+        _id: returnLogId, number: `RT-R-${index}`, returnType: "cash", invoiceId,
+        customerName: `resume ${index}`, returnDate: now,
+        items: [{ productId, productName: "resume product", quantity: 1, price: 10, total: 10 }],
+        subtotalReturnedAmount: 10, discountAmount: 0, shippingFees: 0, finalReturnedAmount: 10,
+        createdAt: now, updatedAt: now,
+      },
+    };
+  });
+  const seed = async () => {
+    await Meta.create({ _id: "schema", version: 1 });
+    await Selling.collection.insertMany(fixtures.map(({ sale }) => sale));
+    await ReturnLog.collection.insertMany(fixtures.map(({ log }) => log));
+  };
+  const snapshot = async () => Selling.collection.find({}, {
+    projection: { _id: 1, refundedAmount: 1, stage16OriginalTotalsRestored: 1, "items.returnedQuantity": 1 },
+  }).sort({ _id: 1 }).toArray();
+
+  await seed();
+  let stage16Chunks = 0;
+  await assert.rejects(
+    runMigrations({ afterChunk: ({ migration }) => {
+      if (migration.version === 2 && ++stage16Chunks === 1) throw new Error("simulated migration crash");
+    } }),
+    /simulated migration crash/
+  );
+  const interruptedMeta = await Meta.findById("schema").lean();
+  assert.equal(interruptedMeta.version, 1);
+  assert.equal(interruptedMeta.migrationProgress.migration, 2);
+  assert.equal(interruptedMeta.migrationProgress.phase, "cash");
+  assert.equal(await Selling.countDocuments({ stage16OriginalTotalsRestored: true }), 500);
+
+  await runMigrations();
+  const resumed = await snapshot();
+  assert.equal((await Meta.findById("schema")).version, 4);
+  assert.equal((await Meta.findById("schema")).migrationProgress, undefined);
+
+  await clearDatabase();
+  await seed();
+  await runMigrations();
+  const clean = await snapshot();
+  assert.deepEqual(resumed, clean);
+});
+
+it("desktop startup kills a leftover transaction before resuming migrations", async () => {
+  const mongoose = require("mongoose");
+  await Meta.create({ _id: "schema", version: 1 });
+  const invoiceId = new mongoose.Types.ObjectId();
+  await Selling.collection.insertOne({
+    _id: invoiceId, number: "INV-LOCKED", customerName: "locked migrated invoice",
+    sellingDate: new Date("2025-08-01"), totalPrice: 1, items: [], refunds: [],
+    stage16OriginalTotalsRestored: true, shippingLocation: "old", createdAt: new Date(), updatedAt: new Date(),
+  });
+  const uri = `mongodb://127.0.0.1:${mongoose.connection.port}/${mongoose.connection.name}?replicaSet=rs0&directConnection=true`;
+  const client = new mongoose.mongo.MongoClient(uri);
+  await client.connect();
+  const session = client.startSession();
+  session.startTransaction();
+  await client.db().collection("sellings").updateOne(
+    { _id: invoiceId }, { $set: { customerName: "uncommitted lock" } }, { session }
+  );
+  const oldLanMode = process.env.NOTA_LAN_MODE;
+  const oldMongoUri = process.env.MONGO_URI;
+  process.env.NOTA_LAN_MODE = "1";
+  process.env.MONGO_URI = uri;
+  try {
+    assert.equal(await runMigrations(), 4);
+  } finally {
+    if (oldLanMode === undefined) delete process.env.NOTA_LAN_MODE; else process.env.NOTA_LAN_MODE = oldLanMode;
+    if (oldMongoUri === undefined) delete process.env.MONGO_URI; else process.env.MONGO_URI = oldMongoUri;
+    await session.abortTransaction().catch(() => {});
+    await session.endSession().catch(() => {});
+    await client.close();
+  }
+  assert.equal((await Meta.findById("schema")).version, 4);
+  assert.equal((await Selling.collection.findOne({ _id: invoiceId })).shippingLocation, undefined);
 });
 
 it("a pre-Stage-16 restore fixture with a missing ReturnLog fails the migration atomically and names the invoice", async () => {
@@ -590,4 +823,35 @@ it("a pre-Stage-16 restore fixture with a missing ReturnLog fails the migration 
   assert.equal(unchanged.items[0].quantity, 1);
   assert.equal((await Meta.findById("schema")).version, 1, "only the earlier number migration may be committed");
   assert.equal(await AuditLog.countDocuments({ action: "system.migration", "details.version": 2 }), 0);
+});
+
+test("ensureIndexes builds late-added indexes with autoIndex off and refuses to start on a blocked unique index", { skip: mongodSkipReason }, async () => {
+  const mongoose = require("mongoose");
+  const { ensureIndexes } = require("../src/config/db");
+  const User = require("../src/models/user.model");
+  await User.collection.dropIndexes().catch(() => {});
+  const schema = new mongoose.Schema({ code: String }, { autoIndex: false, collection: "ensure_idx_probe" });
+  const Probe = mongoose.model("EnsureIdxProbe", schema);
+  await Probe.createCollection();
+  await Probe.collection.insertMany([{ code: "x" }, { code: "x" }]);
+  await Probe.init();
+  assert.equal((await Probe.collection.indexes()).some((index) => index.name === "code_1"), false);
+
+  // Standing in for an index added by a later stage: it does not exist until the next start.
+  Probe.schema.index({ code: 1 }, { unique: true });
+  await assert.rejects(ensureIndexes(), (error) => {
+    assert.match(error.message, /ensure_idx_probe/);
+    assert.match(error.message, /EnsureIdxProbe/);
+    return true;
+  });
+  assert.equal(await Probe.collection.countDocuments(), 2, "no data is dropped");
+
+  await Probe.collection.deleteOne({});
+  await ensureIndexes();
+  assert.equal((await Probe.collection.indexes()).some((index) => index.name === "code_1"), true);
+  const userIndexes = (await User.collection.indexes()).map((index) => index.name);
+  assert.ok(userIndexes.includes("username_1"));
+  assert.ok(userIndexes.includes("one_owner"));
+  mongoose.deleteModel("EnsureIdxProbe");
+  await Probe.collection.drop();
 });

@@ -7,7 +7,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "test": "node --test",
-    "test:legacy-migration": "node test/legacy-migration.js"
+    "test:legacy-migration": "node scripts/legacy-migration.js"
   },
   "keywords": [
     "nodejs",

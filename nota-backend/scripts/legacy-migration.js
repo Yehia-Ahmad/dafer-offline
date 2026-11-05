@@ -63,6 +63,11 @@ const request = async (baseUrl, method, route, body) => {
 };
 
 async function main() {
+  const commit = spawnSync("git", ["cat-file", "-e", `${OLD_COMMIT}^{commit}`], { cwd: REPO, encoding: "utf8" });
+  if (commit.status !== 0) {
+    console.log(`SKIP: legacy migration fixture commit ${OLD_COMMIT} is not available in this clone`);
+    return;
+  }
   assert.ok(fs.existsSync(MONGOD), `real mongod not found: ${MONGOD}`);
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "nota-stage16-legacy-"));
   const archive = path.join(temp, "old-backend.tar");
@@ -74,7 +79,7 @@ async function main() {
   try {
     const archived = spawnSync("git", ["archive", "--format=tar", "--output", archive, OLD_COMMIT, "nota-backend"], { cwd: REPO, encoding: "utf8" });
     assert.equal(archived.status, 0, archived.stderr);
-    const extracted = spawnSync("tar", ["-xf", archive, "-C", temp], { encoding: "utf8" });
+    const extracted = spawnSync("tar", ["-xf", "old-backend.tar", "-C", "."], { cwd: temp, encoding: "utf8" });
     assert.equal(extracted.status, 0, extracted.stderr);
 
     const mongoPort = await freePort();
@@ -120,6 +125,34 @@ async function main() {
     await makeReturn("cash", cashPartial, 1);
     const cashFull = await sale("Cash full", "01010000002", 2);
     await makeReturn("cash", cashFull, 2);
+    const cashSingle = await sale("Cash legacy single", "01010000006", 3);
+    await makeReturn("cash", cashSingle, 1);
+    const legacyDb = new mongoose.mongo.MongoClient(mongoUri);
+    await legacyDb.connect();
+    await legacyDb.db().collection("sellings").updateOne(
+      { _id: new mongoose.Types.ObjectId(cashSingle._id) },
+      {
+        $set: {
+          product: new mongoose.Types.ObjectId(product._id), productName: product.name,
+          productCode: product.code, categoryName: "Legacy fixtures", quantity: 3,
+          unitPrice: 100, purchasePrice: 20, profitAmount: 240,
+        },
+        $unset: { items: "", totalQuantity: "" },
+      }
+    );
+    const cashNoCost = await sale("Cash legacy no cost", "01010000008", 3);
+    await makeReturn("cash", cashNoCost, 1);
+    await legacyDb.db().collection("sellings").updateOne(
+      { _id: new mongoose.Types.ObjectId(cashNoCost._id) },
+      {
+        $set: {
+          product: new mongoose.Types.ObjectId(product._id), productName: product.name,
+          productCode: product.code, categoryName: "Legacy fixtures", quantity: 3, unitPrice: 100,
+        },
+        $unset: { items: "", totalQuantity: "", purchasePrice: "", profitAmount: "" },
+      }
+    );
+    await legacyDb.close();
 
     const discountCustomer = await customer("Discount return", "01010000003");
     const discountCredit = await credit(discountCustomer._id, 3, { discountAmount: 10, shippingFees: 5 });
@@ -133,6 +166,11 @@ async function main() {
 
     const downCustomer = await customer("Down payment", "01010000005");
     const down = await credit(downCustomer._id, 1, { initialPaidAmount: 20, initialPaymentDate: "2025-01-01" });
+    const repeatedCustomer = await customer("Repeated partial", "01010000007");
+    const repeated = await credit(repeatedCustomer._id, 3);
+    await makeReturn("credit", repeated, 1);
+    const repeatedAfterFirst = await request(oldBase, "GET", `/api/credit-sales/${repeated._id}`);
+    await makeReturn("credit", repeatedAfterFirst, 1);
     await stopChild(oldBackend);
     oldBackend = null;
 
@@ -156,6 +194,12 @@ async function main() {
     const profit = await request(currentBase, "GET", `/api/products/${product._id}/profit-report`);
     const partialProfit = profit[0].invoices.find((invoice) => String(invoice.invoiceId) === String(partialInvoice.invoiceId));
     assert.deepEqual({ quantity: partialProfit.quantity, revenue: partialProfit.revenue, profit: partialProfit.profit }, { quantity: 2, revenue: 200, profit: 160 });
+    const singleRow = sellings.data.find((invoice) => invoice.customerName === "Cash legacy single");
+    const migratedSingle = await request(currentBase, "GET", `/api/sellings/${singleRow._id}`);
+    assert.equal(migratedSingle.items.length, 1);
+    assert.equal(migratedSingle.items[0]._id, cashSingle._id);
+    assert.equal(migratedSingle.items[0].returnedQuantity, 1);
+    assert.equal(migratedSingle.items[0].purchasePrice, 20);
 
     const discountStatement = await request(currentBase, "GET", `/api/customers/${discountCustomer._id}/statement`);
     assert.equal(discountStatement.totals.balance, 0);
@@ -165,11 +209,23 @@ async function main() {
     assert.equal(migratedD1.items.length, 1);
     assert.equal(migratedD1.items[0].productQuantity, 2);
     assert.equal(migratedD1.items[0].returnedQuantity, 1);
-    assert.equal(migratedD1.items[0].costEstimated, false);
+    assert.equal(migratedD1.items[0].costEstimated, true);
     const migratedD2 = await request(currentBase, "GET", `/api/credit-sales/${d2._id}`);
     assert.equal(migratedD2.remainingAmount, 50);
     const cancelledDown = await request(currentBase, "POST", `/api/credit-sales/${down._id}/cancel`, { reason: "legacy down payment" });
     assert.equal(cancelledDown.cancelRefundAmount, 20);
+    const migratedRepeated = await request(currentBase, "GET", `/api/credit-sales/${repeated._id}`);
+    assert.equal(migratedRepeated.items.length, 1);
+    assert.equal(migratedRepeated.items[0].productQuantity, 3);
+    assert.equal(migratedRepeated.items[0].returnedQuantity, 2);
+    assert.equal(migratedRepeated.items[0].costEstimated, true);
+    const noCostRow = sellings.data.find((invoice) => invoice.customerName === "Cash legacy no cost");
+    const migratedNoCost = await request(currentBase, "GET", `/api/sellings/${noCostRow._id}`);
+    assert.equal(migratedNoCost.items[0].purchasePrice, 20);
+    const profitAfter = await request(currentBase, "GET", `/api/products/${product._id}/profit-report`);
+    const noCostProfit = profitAfter[0].invoices.find((invoice) => String(invoice.invoiceId) === String(migratedNoCost.invoiceId));
+    assert.equal(noCostProfit.costEstimated, true);
+    assert.notEqual(noCostProfit.profit, noCostProfit.revenue, "profit must not equal revenue");
 
     const db = new mongoose.mongo.MongoClient(mongoUri);
     await db.connect();
@@ -177,7 +233,7 @@ async function main() {
     assert.equal(receiptCount, 1, "the automatic reallocation must not create an RC receipt");
     await db.close();
     assert.doesNotMatch(currentErrors, /TypeError/);
-    console.log("legacy migration scenarios passed: cash partial/full, discount+shipping credit return, reallocation, down payment, partial-line merge");
+    console.log("legacy migration scenarios passed: cash partial/full/single-line, discount+shipping credit return, reallocation, down payment, repeated partial-line merge");
   } finally {
     await stopChild(oldBackend);
     await stopChild(currentBackend);

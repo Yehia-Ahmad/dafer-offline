@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const mongoose = require("mongoose");
 const { withTransaction } = require("../src/utils/transaction");
+const { isDesktopMongo } = require("../src/migrations");
 
 test("withTransaction caps UnknownTransactionCommitResult retries", async () => {
   const originalStartSession = mongoose.startSession;
@@ -25,4 +26,10 @@ test("withTransaction caps UnknownTransactionCommitResult retries", async () => 
   } finally {
     mongoose.startSession = originalStartSession;
   }
+});
+
+test("killAllSessions is limited to LAN mode with a loopback MongoDB", () => {
+  assert.equal(isDesktopMongo({ NOTA_LAN_MODE: "1", MONGO_URI: "mongodb://127.0.0.1:27099/nota" }), true);
+  assert.equal(isDesktopMongo({ NOTA_LAN_MODE: "", MONGO_URI: "mongodb://127.0.0.1:27099/nota" }), false);
+  assert.equal(isDesktopMongo({ NOTA_LAN_MODE: "1", MONGO_URI: "mongodb+srv://cluster.example/nota" }), false);
 });

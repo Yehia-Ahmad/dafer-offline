@@ -12,6 +12,7 @@ const sellingItemSchema = new mongoose.Schema(
       trim: true,
       maxlength: [200, "يجب ألا يزيد اسم المنتج عن 200 حرف"],
     },
+    productCode: { type: String, trim: true, maxlength: 100 },
     categoryName: {
       type: String,
       trim: true,
@@ -150,6 +151,7 @@ const sellingSchema = new mongoose.Schema(
     refundedQuantity: { type: Number, default: 0, min: 0 },
     refundedAmount: { type: Number, default: 0, min: 0 },
     refunds: { type: [sellingRefundSchema], default: [] },
+    stage16OriginalTotalsRestored: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
