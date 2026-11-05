@@ -17,6 +17,9 @@ const creditSalePaymentSchema = new mongoose.Schema(
       trim: true,
       maxlength: [500, "يجب ألا يزيد وصف الدفعة عن 500 حرف"],
     },
+    number: { type: String, trim: true },
+    receipt: { type: mongoose.Schema.Types.ObjectId, ref: "Receipt" },
+    source: { type: String, enum: ["receipt", "down_payment", "return_reallocation"], default: "receipt" },
   },
   { _id: true }
 );
@@ -35,6 +38,7 @@ const creditSaleItemSchema = new mongoose.Schema(
       trim: true,
       maxlength: [200, "يجب ألا يزيد اسم المنتج عن 200 حرف"],
     },
+    productCode: { type: String, trim: true, maxlength: 100 },
     categoryName: {
       type: String,
       trim: true,
@@ -64,6 +68,8 @@ const creditSaleItemSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    returnedQuantity: { type: Number, default: 0, min: 0 },
+    costEstimated: { type: Boolean, default: false },
   },
   { _id: true }
 );
@@ -105,6 +111,8 @@ const creditSaleRefundItemSchema = new mongoose.Schema(
       required: [true, "إجمالي قيمة المرتجع مطلوبة"],
       min: [0, "إجمالي قيمة المرتجع لا يمكن أن يكون سالبًا"],
     },
+    purchasePrice: { type: Number, min: 0 },
+    profitAmount: { type: Number },
   },
   { _id: true }
 );
@@ -151,6 +159,7 @@ const creditSaleRefundSchema = new mongoose.Schema(
 
 const creditSaleSchema = new mongoose.Schema(
   {
+    number: { type: String, trim: true, unique: true, sparse: true, index: true },
     customer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
@@ -224,12 +233,18 @@ const creditSaleSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ["pending", "partially_paid", "paid", "Reactionary"],
+        values: ["pending", "partially_paid", "paid", "returned", "cancelled"],
         message: "حالة البيع الآجل غير صالحة",
       },
       default: "pending",
       index: true,
     },
+    cancelledAt: Date,
+    cancelledBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    cancelledByName: { type: String, trim: true, maxlength: 100 },
+    cancellationReason: { type: String, trim: true, maxlength: 500 },
+    cancelRefundAmount: { type: Number, default: 0, min: 0 },
+    migrationNotes: { type: [String], default: undefined },
     refundStatus: {
       type: String,
       enum: {

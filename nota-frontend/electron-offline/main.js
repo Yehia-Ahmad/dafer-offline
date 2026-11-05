@@ -31,7 +31,7 @@ const { MONGOD_PORT, SERVER_LOCK_PORT, readConfig, writeConfig } = require('./li
 const { protectSecret, unprotectSecret } = require('./lib/secret-store');
 const { loadJwtSecret } = require('./lib/jwt-secret');
 const { holdPortLock, isPortFree, requestQuit, waitFor } = require('./lib/net-utils');
-const { MongodManager } = require('./lib/mongod-manager');
+const { MongodManager, ServiceError } = require('./lib/mongod-manager');
 const { BackendManager, buildBackendEnv } = require('./lib/backend-manager');
 const { MainPcSupervisor } = require('./lib/supervisor');
 const { LAN_KEY_HEADER, installSecretHeader } = require('./lib/lan-auth');
@@ -523,7 +523,30 @@ function restoreArchive(archive, { caller, onProgress }) {
         if (error.code === 'RESTORE_ROLLBACK_FAILED') endSessionsBeforeNow();
         throw error;
       }
-    }, { reason: 'restore' });
+    }, {
+      reason: 'restore',
+      recoverRestart: async (startupError, result) => {
+        if (!result?.safetyPath) throw startupError;
+        log.error(`restore migration/startup failed, restoring safety backup: ${startupError.message}`);
+        onProgress({ phase: 'rolling-back' });
+        auditBackup('backup.restore_failed', caller, archive.path, startupError);
+        try {
+          await backupService().replaceWith(await backupService().inspect(result.safetyPath));
+          endSessionsBeforeNow();
+        } catch (rollbackError) {
+          throw new ServiceError(
+            'RESTORE_ROLLBACK_FAILED',
+            `فشل تحديث النسخة المسترجعة وتعذر إرجاع البيانات السابقة تلقائياً. نسخة الأمان محفوظة في: ${result.safetyPath}`,
+            `${startupError.detail || startupError.message}\n${rollbackError.detail || rollbackError.message}`
+          );
+        }
+        return new ServiceError(
+          'RESTORE_MIGRATION_FAILED_ROLLED_BACK',
+          `النسخة المسترجعة محتاجة تحديث فشل. رجّعنا البيانات زي ما كانت قبل الاسترجاع\n${startupError.message}`,
+          startupError.detail || startupError.message
+        );
+      },
+    });
   });
 }
 

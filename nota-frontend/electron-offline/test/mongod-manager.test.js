@@ -13,9 +13,9 @@ const { MongodManager, explainMongodExit } = require('../lib/mongod-manager');
 const { resolveResources } = require('../lib/paths');
 
 const resources = resolveResources({ isPackaged: false });
-const mongodPath = path.join(resources.mongodbBin, 'mongod.exe');
+const mongodPath = process.env.NOTA_TEST_MONGOD || path.join(resources.mongodbBin, 'mongod.exe');
 const driverPath = path.join(resources.backendDir, 'node_modules', 'mongodb');
-const canRun = process.platform === 'win32' && fs.existsSync(mongodPath) && fs.existsSync(driverPath);
+const canRun = fs.existsSync(mongodPath) && fs.existsSync(driverPath);
 const silentLog = { info() {}, warn() {}, error() {} };
 
 // Every mongod a test starts is killed afterwards, even when the test fails, so a failure
@@ -92,6 +92,57 @@ test('real mongod: start, write, clean stop, and recovery from an orphan', { ski
     const logText = fs.readFileSync(options.logFile, 'utf8');
     assert.equal((logText.match(/"msg":"Now exiting"/g) || []).length, 2, 'both mongod runs shut down cleanly');
     assert.ok(!logText.includes('"Startup from clean shutdown?":false'), 'no unclean-shutdown recovery was needed');
+  })
+);
+
+test('real mongod: an existing standalone data folder converts to rs0 without data loss', { skip: !canRun, timeout: 180000 }, () =>
+  withHome(async (home, track) => {
+    const { spawn } = require('node:child_process');
+    const mongodb = require(driverPath);
+    const dbPath = path.join(home, 'standalone-db');
+    fs.mkdirSync(dbPath, { recursive: true });
+    const port = 27318;
+    const standalone = spawn(mongodPath, [
+      '--dbpath', dbPath, '--port', String(port), '--bind_ip', '127.0.0.1',
+      '--logpath', path.join(home, 'standalone.log'), '--wiredTigerCacheSizeGB', '0.25',
+    ], { stdio: 'ignore', windowsHide: true });
+    let standaloneClient;
+    try {
+      const deadline = Date.now() + 60000;
+      while (Date.now() < deadline) {
+        try {
+          standaloneClient = new mongodb.MongoClient(`mongodb://127.0.0.1:${port}/nota`, { directConnection: true });
+          await standaloneClient.connect();
+          break;
+        } catch {
+          await standaloneClient?.close().catch(() => {});
+          standaloneClient = null;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+      assert.ok(standaloneClient, 'standalone mongod became ready');
+      await standaloneClient.db().collection('conversion').insertOne({ kept: true });
+      const exited = new Promise((resolve) => standalone.once('exit', resolve));
+      await standaloneClient.db('admin').command({ shutdown: 1 }).catch(() => {});
+      await standaloneClient.close().catch(() => {});
+      standaloneClient = null;
+      await exited;
+
+      const manager = track(new MongodManager({
+        mongodPath, dbPath, port, mongodb, log: silentLog,
+        logFile: path.join(home, 'replica.log'), pidFile: path.join(home, 'replica.pid'),
+      }));
+      await manager.start();
+      const client = new mongodb.MongoClient(manager.uri);
+      await client.connect();
+      assert.equal((await client.db().admin().command({ hello: 1 })).setName, 'rs0');
+      assert.equal(await client.db().collection('conversion').countDocuments({ kept: true }), 1);
+      await client.close();
+      await manager.stop();
+    } finally {
+      await standaloneClient?.close().catch(() => {});
+      if (standalone.exitCode === null) standalone.kill();
+    }
   })
 );
 
@@ -266,7 +317,7 @@ test('on Windows, a server whose dbPath differs from ours only in case or slashe
   assert.deepEqual(otherFolder.commands, ['serverStatus', 'getCmdLineOpts']);
 });
 
-test('processImagePath reads the full path of a running process', { skip: process.platform !== 'win32' }, () => {
+test('processImagePath reads the full path of a running process', () => {
   const { processImagePath } = require('../lib/mongod-manager');
   assert.equal(processImagePath(process.pid).toLowerCase(), process.execPath.toLowerCase());
   assert.equal(processImagePath(0), '');

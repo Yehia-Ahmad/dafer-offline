@@ -30,7 +30,6 @@ router.get("/export", requirePermission("products.importExport", "products.viewC
 router.post(
   "/import",
   requirePermission("products.importExport", "categories.manage"),
-  auditOnSuccess("category.import", "Category", importCounts),
   uploadCategoryWorkbook,
   importCategoriesExcel
 );

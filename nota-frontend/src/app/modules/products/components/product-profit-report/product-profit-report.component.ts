@@ -722,7 +722,8 @@ export class ProductProfitReportComponent implements OnInit {
       quantity: this.toNullableNumber(source.quantity),
       purchasePrice: this.toNullableNumber(source.purchasePrice),
       profit: this.toNullableNumber(source.profit),
-      customerName: this.toNullableString(source.customerName)
+      customerName: this.toNullableString(source.customerName),
+      costEstimated: Boolean(source.costEstimated)
     };
   }
 

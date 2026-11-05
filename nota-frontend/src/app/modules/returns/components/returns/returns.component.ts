@@ -408,8 +408,9 @@ export class ReturnsComponent implements OnInit {
   searchWizardInvoices(): void {
     const query = this.wizardQuery.trim();
     if (!query || this.wizardSearching) return;
-    const byPhone = /^[\d\s+()-]+$/.test(query);
-    const filter = byPhone ? { customerPhone: query } : { customerName: query };
+    const byNumber = /^(INV|CR)-\d+$/i.test(query);
+    const byPhone = !byNumber && /^[\d\s+()-]+$/.test(query);
+    const filter = byNumber ? { number: query } : byPhone ? { customerPhone: query } : { customerName: query };
     this.wizardSearching = true;
     this.wizardError = '';
     const type = this.wizardType;
@@ -555,7 +556,7 @@ export class ReturnsComponent implements OnInit {
 
   private toCashWizardInvoice(source: any): WizardInvoice | null {
     const id = String(source?.invoiceId || source?._id || source?.id || '');
-    if (!id) return null;
+    if (!id || source?.status === 'cancelled' || source?.refundStatus === 'full') return null;
     const items = (Array.isArray(source?.items) ? source.items : []).map((item: any) => ({
       productId: String(item?.productId || ''),
       productName: String(item?.productName || ''),
@@ -564,7 +565,7 @@ export class ReturnsComponent implements OnInit {
       unitPrice: Number(item?.productPricePerEach ?? item?.price) || 0
     }));
     return {
-      id, type: 'cash', label: String(source?.invoiceNumber || id),
+      id, type: 'cash', label: String(source?.number || source?.invoiceNumber || id),
       customerName: String(source?.customerName || ''), customerPhone: String(source?.customerPhone || ''),
       date: source?.sellingDate ? String(source.sellingDate) : null, total: Number(source?.totalPrice) || 0, remaining: null,
       items, returnedByProduct: this.sumReturned(source?.refunds)
@@ -573,9 +574,9 @@ export class ReturnsComponent implements OnInit {
 
   private toCreditWizardInvoice(source: any): WizardInvoice | null {
     const view = toCreditSaleView(source);
-    if (!view) return null;
+    if (!view || view.status === 'cancelled' || view.status === 'returned') return null;
     return {
-      id: view.id, type: 'credit', label: view.invoiceId,
+      id: view.id, type: 'credit', label: view.number,
       customerName: view.customerName, customerPhone: view.customerPhone, date: view.sellingDate,
       total: view.totalPrice, remaining: view.remainingAmount,
       items: view.items.map((item) => ({

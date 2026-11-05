@@ -11,12 +11,14 @@ import { CreditSaleView } from './credit-sale-view.util';
  * amount (the matching payment, if reallocated, appears on the other invoice) · other refunds → info row (0/0).
  * The closing balance therefore equals Σ remainingAmount. Cash sales are not part of the customer balance.
  */
-export type StatementRowKind = 'invoice' | 'payment' | 'refund';
+export type StatementRowKind = 'opening' | 'invoice' | 'payment' | 'refund' | 'cancel';
 
 export interface StatementRow {
   kind: StatementRowKind;
   date: string | null;
   invoiceId: string;
+  number?: string | null;
+  description?: string;
   /** Extra text: item list of a refund, the payment note, "after returns" flag. */
   detail: string;
   debit: number;
@@ -38,7 +40,7 @@ const time = (value: string | null): number => {
   const t = value ? new Date(value).getTime() : NaN;
   return Number.isFinite(t) ? t : 0;
 };
-const ORDER: Record<StatementRowKind, number> = { invoice: 0, refund: 1, payment: 2 };
+const ORDER: Record<StatementRowKind, number> = { opening: 0, invoice: 1, refund: 2, payment: 3, cancel: 4 };
 
 export function buildCustomerStatement(invoices: CreditSaleView[]): CustomerStatement {
   const raw: Omit<StatementRow, 'balance'>[] = [];

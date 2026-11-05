@@ -235,7 +235,7 @@ const exportCategories = async () => {
   return createCategoryWorkbook(categories, exportedProducts);
 };
 
-const importCategories = async (buffer) => {
+const importCategories = async (buffer, session) => {
   const { categoryRows: workbookRows, productRows } =
     readCategoryAndProductWorkbook(buffer);
   const errors = [];
@@ -254,7 +254,7 @@ const importCategories = async (buffer) => {
     ...new Set(validatedRows.map(({ category }) => category.name)),
   ];
   const existingCategories = candidateNames.length
-    ? await Category.find({ name: { $in: candidateNames } }).select("name").lean()
+    ? await Category.find({ name: { $in: candidateNames } }).select("name").session(session || null).lean()
     : [];
   const usedNames = new Set(existingCategories.map((category) => category.name));
   const rowsToInsert = [];
@@ -279,7 +279,7 @@ const importCategories = async (buffer) => {
     try {
       const insertedCategories = await Category.insertMany(
         rowsToInsert.map(({ category }) => category),
-        { ordered: false }
+        { ordered: false, session }
       );
       importedCount = insertedCategories.length;
     } catch (error) {
@@ -325,7 +325,7 @@ const importCategories = async (buffer) => {
   ];
   const productCategories = productCategoryNames.length
     ? await Category.find({ name: { $in: productCategoryNames } })
-        .select("name")
+        .select("name").session(session || null)
         .lean()
     : [];
   const categoriesByName = new Map(
@@ -336,7 +336,7 @@ const importCategories = async (buffer) => {
     .map((row) => row.productId)
     .filter(Boolean);
   const existingProducts = candidateProductIds.length
-    ? await Product.find({ _id: { $in: candidateProductIds } }).select("_id").lean()
+    ? await Product.find({ _id: { $in: candidateProductIds } }).select("_id").session(session || null).lean()
     : [];
   const usedProductIds = new Set(
     existingProducts.map((product) => product._id.toString())
@@ -371,7 +371,7 @@ const importCategories = async (buffer) => {
     try {
       const insertedProducts = await Product.insertMany(
         productRowsToInsert.map((row) => row.product),
-        { ordered: false }
+        { ordered: false, session }
       );
       productImportedCount = insertedProducts.length;
     } catch (error) {

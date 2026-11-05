@@ -53,7 +53,7 @@
               @for (row of rows; track row.id) {
                 <tr class="cl__row" [class.is-selected]="selected?.id === row.id" tabindex="0" (click)="select(row)" (keydown.enter)="select(row)"
                   [attr.aria-selected]="selected?.id === row.id">
-                  <td class="nota-num" dir="ltr">{{ shortRef(row.invoiceId) }}</td>
+                  <td class="nota-num" dir="ltr">{{ row.number || shortRef(row.invoiceId) }}</td>
                   <td><span class="cl__cust" dir="auto">{{ row.customerName || '—' }}</span><span class="cl__muted" dir="ltr">{{ row.customerPhone }}</span></td>
                   <td class="nota-num">{{ formatDate(row.sellingDate) }}
                     @if (row.dueDate) {<span class="cl__muted">{{ 'creditSalePage.list.due' | translate }} {{ formatDate(row.dueDate) }}</span>}</td>
@@ -89,7 +89,7 @@
       @if (selected; as invoice) {
         <div>
           <span class="cl__muted">{{ 'creditSalePage.list.panelTitle' | translate }}</span>
-          <h2 class="cl__panel-title"><span class="nota-num" dir="ltr">{{ shortRef(invoice.invoiceId) }}</span> · <span dir="auto">{{ invoice.customerName }}</span></h2>
+          <h2 class="cl__panel-title"><span class="nota-num" dir="ltr">{{ invoice.number || shortRef(invoice.invoiceId) }}</span> · <span dir="auto">{{ invoice.customerName }}</span></h2>
           <span [class]="statusPill(invoice)">{{ statusKey(invoice) | translate }}</span>
           @if (invoice.createdByName) {<span class="cl__muted cl__created-by" data-testid="created-by">{{ 'auth.createdBy' | translate: { name: invoice.createdByName } }}</span>}
         </div>

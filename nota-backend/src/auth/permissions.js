@@ -6,14 +6,14 @@ const PERMISSIONS = {
   "sales.create": { group: "sales", ar: "إنشاء فاتورة نقدية", en: "Create cash sales" },
   "sales.view": { group: "sales", ar: "عرض الفواتير النقدية", en: "View cash sales" },
   "sales.edit": { group: "sales", ar: "تعديل الفواتير النقدية", en: "Edit cash sales" },
-  "sales.delete": { group: "sales", ar: "حذف الفواتير النقدية", en: "Delete cash sales" },
+  "sales.delete": { group: "sales", ar: "إلغاء فاتورة كاش", en: "Cancel cash invoice" },
   "sales.discount": { group: "sales", ar: "منح خصم على الفاتورة (نقدي وآجل)", en: "Give invoice discounts (cash and credit)" },
   "sales.priceBelowCost": { group: "sales", ar: "البيع بأقل من سعر الشراء (نقدي وآجل)", en: "Sell below purchase price (cash and credit)" },
 
   "credit.create": { group: "credit", ar: "إنشاء فاتورة آجلة", en: "Create credit sales" },
   "credit.view": { group: "credit", ar: "عرض الفواتير الآجلة", en: "View credit sales" },
   "credit.edit": { group: "credit", ar: "تعديل الفواتير الآجلة", en: "Edit credit sales" },
-  "credit.delete": { group: "credit", ar: "حذف الفواتير الآجلة", en: "Delete credit sales" },
+  "credit.delete": { group: "credit", ar: "إلغاء فاتورة آجل", en: "Cancel credit invoice" },
   "credit.collect": { group: "credit", ar: "تحصيل الدفعات", en: "Collect payments" },
 
   "returns.create": { group: "returns", ar: "تسجيل مرتجع", en: "Create returns" },

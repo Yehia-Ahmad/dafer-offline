@@ -1,0 +1,26 @@
+const Counter = require("../models/counter.model");
+
+const PREFIXES = Object.freeze({
+  CASH_INVOICE: "INV", CREDIT_INVOICE: "CR", RETURN: "RT", RECEIPT: "RC",
+  PAYMENT_VOUCHER: "PV", PURCHASE_ORDER: "PO", JOURNAL: "JE", SHIFT: "SH",
+  EXPENSE: "EX", OPENING_BALANCE: "OB",
+});
+
+const formatDocumentNumber = (prefix, seq) => `${prefix}-${String(seq).padStart(6, "0")}`;
+
+async function nextDocumentNumber(prefix, session) {
+  const counter = await Counter.findOneAndUpdate(
+    { _id: prefix },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true, setDefaultsOnInsert: true, session }
+  );
+  return formatDocumentNumber(prefix, counter.seq);
+}
+
+const normalizeNumberSearch = (value, prefix) => {
+  if (typeof value !== "string") return null;
+  const match = new RegExp(`^${prefix}-(\\d+)$`, "i").exec(value.trim());
+  return match ? formatDocumentNumber(prefix, Number(match[1])) : value.trim().toUpperCase();
+};
+
+module.exports = { PREFIXES, formatDocumentNumber, nextDocumentNumber, normalizeNumberSearch };

@@ -38,7 +38,7 @@
                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
             </button>
             @if (category.id !== categoryId) {
-              <!-- Deleting a category deletes its products: categories.manage + products.manage. -->
+              <!-- Stage 16: only an empty category can be deleted. -->
               <button *notaCan="['categories.manage', 'products.manage']" type="button" class="pp__cat-btn pp__cat-btn--danger" (click)="deleteCategory(category)"
                 [attr.aria-label]="('nav.categories.delete' | translate) + ' ' + category.label" [title]="'nav.categories.delete' | translate">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -63,6 +63,9 @@
           <input type="checkbox" [(ngModel)]="lowStockOnly" [ngModelOptions]="{ standalone: true }" />
           {{ 'productsPage.lowStockOnly' | translate }}
         </label>
+        <button *notaCan="'products.manage'" type="button" notaButton (click)="toggleArchived()">
+          {{ (includeArchived ? 'productsPage.hideArchived' : 'productsPage.showArchived') | translate }}
+        </button>
       </div>
 
       <div class="nota-table-wrap">
@@ -89,7 +92,13 @@
                 <td class="nota-num pp__strong">{{ product?.['retailPrice'] | notaMoney }}</td>
                 <td class="nota-num">{{ product?.['wholesalePrice'] | notaMoney }}</td>
                 <td class="nota-num pp__muted-cell">{{ product?.discountPercentage ? ('productsPage.percent' | translate: { value: (product.discountPercentage | notaNumber) }) : '—' }}</td>
-                <td><a *notaCan="'products.manage'" notaButton class="pp__edit" [routerLink]="['/products/edit', product._id]">{{ 'category.editProduct.title' | translate }}</a></td>
+                <td>
+                  @if (product.isArchived) {
+                    <button *notaCan="'products.manage'" type="button" notaButton (click)="restoreProduct(product)">{{ 'productsPage.restore' | translate }}</button>
+                  } @else {
+                    <a *notaCan="'products.manage'" notaButton class="pp__edit" [routerLink]="['/products/edit', product._id]">{{ 'category.editProduct.title' | translate }}</a>
+                  }
+                </td>
               </tr>
             } @empty {
               @if (hasLoadedProducts && !isLoadingProducts) {

@@ -34,8 +34,11 @@ export interface AuditPage {
 export const AUDIT_ACTIONS = [
   'auth.login', 'auth.login_failed', 'auth.locked', 'auth.setup_owner', 'auth.recover', 'auth.recover_failed', 'auth.password_changed',
   'user.created', 'user.updated', 'user.status_changed', 'user.password_reset',
-  'sale.updated', 'sale.deleted', 'credit.updated', 'credit.deleted', 'credit.payment', 'return.created',
-  'product.deleted', 'product.sync_purchase_price', 'category.import', 'shop.updated',
+  'sale.created', 'sale.updated', 'sale.returned', 'sale.cancelled',
+  'credit.created', 'credit.updated', 'credit.payment', 'credit.returned', 'credit.cancelled',
+  'product.archived', 'product.deleted', 'product.restored', 'product.sync_purchase_price',
+  'category.import', 'category.deleted', 'customer.deleted', 'shop.updated',
+  'backup.created', 'backup.restored', 'backup.restore_failed', 'system.migration',
 ] as const;
 
 /** Stage 14: GET /api/audit (audit.view): newest first, paginated. Empty filters are not sent. */

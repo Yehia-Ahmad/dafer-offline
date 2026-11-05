@@ -90,6 +90,7 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   products: Product[] = [];
   searchTerm = '';
   lowStockOnly = false;
+  includeArchived = false;
   errorVisible = false;
   errorMessage = '';
   isLoadingProducts = false;
@@ -198,7 +199,8 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
     const requestedCategoryId = this.categoryId;
     this._cateoryService.getProductsPage(requestedCategoryId || null, {
       page: requestedPage,
-      limit: this.pageSize
+      limit: this.pageSize,
+      includeArchived: this.includeArchived,
     }).pipe(
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({
@@ -234,6 +236,19 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   retryProductsLoad(): void {
     this.errorVisible = false;
     this.loadNextPage();
+  }
+
+  toggleArchived(): void {
+    this.includeArchived = !this.includeArchived;
+    this.resetProductsPagination();
+    this.loadNextPage();
+  }
+
+  restoreProduct(product: Product): void {
+    this._cateoryService.restoreProduct(product._id).subscribe({
+      next: () => { this.resetProductsPagination(); this.loadNextPage(); },
+      error: (err) => { this.errorMessage = err?.error?.message || err?.message; this.errorVisible = true; },
+    });
   }
 
   private resetProductsPagination(): void {

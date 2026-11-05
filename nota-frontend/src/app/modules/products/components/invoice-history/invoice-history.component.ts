@@ -101,6 +101,8 @@ export class InvoiceHistoryComponent implements OnInit {
   filterCustomerName = '';
   filterCustomerPhone = '';
   filterSellingDate: Date | null = null;
+  filterNumber = '';
+  cancelReason = '';
   deletingSellingId = '';
   downloadingInvoiceId = '';
   deleteDialogVisible = false;
@@ -145,6 +147,7 @@ export class InvoiceHistoryComponent implements OnInit {
     this.filterCustomerName = '';
     this.filterCustomerPhone = '';
     this.filterSellingDate = null;
+    this.filterNumber = '';
     this.loadSellings(1, false);
   }
 
@@ -186,6 +189,7 @@ export class InvoiceHistoryComponent implements OnInit {
   }
 
   statusPill(selling: InvoiceHistoryRow): string {
+    if (selling.status === 'cancelled') return 'nota-pill nota-pill--danger';
     return selling.refundStatus === 'partial' || selling.refundStatus === 'full'
       ? 'nota-pill nota-pill--info'
       : 'nota-pill nota-pill--ok';
@@ -234,6 +238,7 @@ export class InvoiceHistoryComponent implements OnInit {
     customerName?: string;
     customerPhone?: string;
     sellingDate?: string;
+    number?: string;
     page: number;
     limit: number;
   } {
@@ -242,6 +247,7 @@ export class InvoiceHistoryComponent implements OnInit {
     const customerName = this.filterCustomerName.trim();
     const customerPhone = this.filterCustomerPhone.trim();
     const sellingDate = this.formatDateParam(this.filterSellingDate);
+    const number = this.filterNumber.trim();
 
     return {
       ...(categoryId ? { categoryId } : {}),
@@ -249,6 +255,7 @@ export class InvoiceHistoryComponent implements OnInit {
       ...(customerName ? { customerName } : {}),
       ...(customerPhone ? { customerPhone } : {}),
       ...(sellingDate ? { sellingDate } : {}),
+      ...(number ? { number } : {}),
       page,
       limit: this.pagination.limit
     };
@@ -400,6 +407,9 @@ export class InvoiceHistoryComponent implements OnInit {
       discountPercentage: this.resolveDiscountPercentage(item, subtotal),
       shippingFees: this.toNumber(item.shippingFees),
       totalPrice: this.resolveInvoiceTotal(item, items),
+      netTotal: this.toNumber(item.netTotal),
+      status: String(item.status || 'active'),
+      cancellationReason: item.cancellationReason ? String(item.cancellationReason) : null,
       items,
       refundStatus: String(item.refundStatus || 'none'),
       refundedAmount: this.toNumber(item.refundedAmount),
@@ -455,6 +465,7 @@ export class InvoiceHistoryComponent implements OnInit {
       ),
       sellingDate: item.sellingDate ? String(item.sellingDate) : (parentInvoice?.sellingDate ? String(parentInvoice.sellingDate) : null),
       quantity: this.toNumber(item.productQuantity ?? item.productQuentity ?? item.quantity),
+      returnedQuantity: this.toNumber(item.returnedQuantity),
       unitPrice: this.toNumber(item.productPricePerEach ?? item.price),
       totalPrice: this.toNumber(item.totalPrice ?? item.total)
     };
@@ -503,7 +514,7 @@ export class InvoiceHistoryComponent implements OnInit {
   }
 
   canReturnSelling(selling: InvoiceHistoryRow): boolean {
-    return !!selling?.id && selling.items.some((item) => !!item.productId && Number(item.quantity) > 0);
+    return !!selling?.id && selling.status !== 'cancelled' && selling.refundStatus !== 'full' && selling.items.some((item) => !!item.productId && Number(item.quantity) > 0);
   }
 
   openReturnDialog(selling: InvoiceHistoryRow): void {
@@ -519,7 +530,7 @@ export class InvoiceHistoryComponent implements OnInit {
         productId: item.productId,
         productName: item.productName,
         productCode: item.productCode,
-        availableQuantity: Math.max(0, Math.floor(Number(item.quantity) || 0)),
+        availableQuantity: Math.max(0, Math.floor(Number(item.quantity) || 0) - Math.floor(Number(item.returnedQuantity) || 0)),
         quantity: 0,
         returnReason: ''
       }));
@@ -597,6 +608,7 @@ export class InvoiceHistoryComponent implements OnInit {
     }
 
     this.selectedSellingToDelete = selling;
+    this.cancelReason = '';
     this.deleteDialogVisible = true;
   }
 
@@ -618,14 +630,15 @@ export class InvoiceHistoryComponent implements OnInit {
     this.deletingSellingId = selling.id;
     this.loadError = '';
 
-    this._productsService.deleteSelling(selling.id).subscribe({
+    const reason = this.cancelReason.trim();
+    if (reason.length < 3) return;
+    this._productsService.cancelSelling(selling.id, reason).subscribe({
       next: () => {
-        this.sellings = this.sellings.filter((item) => item.id !== selling.id);
-        if (this.selectedSelling?.id === selling.id) this.selectedSelling = this.sellings[0] ?? null;
         this.deletingSellingId = '';
         this.deleteDialogVisible = false;
         this.selectedSellingToDelete = null;
-        this._cdr.detectChanges();
+        this.cancelReason = '';
+        this.loadSellings(this.pagination.page, false);
       },
       error: (err: any) => {
         this.deletingSellingId = '';

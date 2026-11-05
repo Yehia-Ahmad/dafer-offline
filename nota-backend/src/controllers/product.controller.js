@@ -4,9 +4,13 @@ const Category = require("../models/category.model");
 const CreditSale = require("../models/creditSale.model");
 const Product = require("../models/product.model");
 const Selling = require("../models/selling.model");
+const ReturnLog = require("../models/returnLog.model");
 const asyncHandler = require("../utils/asyncHandler");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { calculatePriceAfterDiscount } = require("../utils/productPricing");
+const { withTransaction } = require("../utils/transaction");
+const { audit } = require("../auth/audit");
+const { hasPermission } = require("../auth/middleware");
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -260,6 +264,8 @@ const addInvoiceToProductProfitReport = ({
   revenue,
   purchasePrice,
   profit,
+  number,
+  costEstimated,
 }) => {
   row.totalProfit = roundMoney(Number(row.totalProfit || 0) + Number(profit || 0));
   row.profitValue = row.totalProfit;
@@ -279,11 +285,13 @@ const addInvoiceToProductProfitReport = ({
     existingInvoice.sellingPrice = nextQuantity > 0 ? roundMoney(grossAmount / nextQuantity) : 0;
     existingInvoice.revenue = roundMoney(Number(existingInvoice.revenue || 0) + Number(revenue || 0));
     existingInvoice.profit = roundMoney(Number(existingInvoice.profit || 0) + Number(profit || 0));
+    existingInvoice.costEstimated = existingInvoice.costEstimated || Boolean(costEstimated);
     return;
   }
 
   row.invoices.push({
     invoiceId,
+    number: number ?? null,
     type: invoiceType,
     sellingDate,
     sellingPrice: roundMoney(sellingPrice || 0),
@@ -291,6 +299,7 @@ const addInvoiceToProductProfitReport = ({
     revenue: roundMoney(revenue || 0),
     purchasePrice: roundMoney(purchasePrice || 0),
     profit: roundMoney(profit || 0),
+    costEstimated: Boolean(costEstimated),
   });
 };
 
@@ -313,10 +322,12 @@ const buildProductProfitRows = async ({ products, startDate, endDate }) => {
   const [sellings, creditSales] = await Promise.all([
     Selling.find({
       ...dateQuery,
+      status: { $ne: "cancelled" },
       $or: [{ "items.product": { $in: productIds } }, { product: { $in: productIds } }],
     }).lean(),
     CreditSale.find({
       ...dateQuery,
+      status: { $ne: "cancelled" },
       "items.product": { $in: productIds },
     }).lean(),
   ]);
@@ -335,19 +346,24 @@ const buildProductProfitRows = async ({ products, startDate, endDate }) => {
       const row = rowsByProductId.get(productId);
       if (!row) return;
 
-      const quantity = Number(item.quantity || 0);
+      const originalQuantity = Number(item.quantity || 0);
+      const quantity = Math.max(0, originalQuantity - Number(item.returnedQuantity || 0));
+      if (quantity <= 0) return;
       const sellingPrice = roundMoney(Number(item.unitPrice || 0));
-      const totalPrice = roundMoney(Number(item.totalPrice || 0));
+      const totalPrice = roundMoney(Number(item.unitPrice || 0) * quantity);
       const purchasePrice = roundMoney(Number(item.purchasePrice ?? 0));
-      const revenue = roundMoney(totalPrice - Number(itemDiscounts[index] || 0));
+      const remainingRatio = originalQuantity > 0 ? quantity / originalQuantity : 0;
+      const remainingDiscount = roundMoney(Number(itemDiscounts[index] || 0) * remainingRatio);
+      const revenue = roundMoney(totalPrice - remainingDiscount);
       const profit =
         item.profitAmount !== undefined && item.profitAmount !== null
-          ? roundMoney(Number(item.profitAmount || 0) - Number(itemDiscounts[index] || 0))
+          ? roundMoney((Number(item.profitAmount || 0) - Number(itemDiscounts[index] || 0)) * remainingRatio)
           : roundMoney(revenue - purchasePrice * quantity);
 
       addInvoiceToProductProfitReport({
         row,
         invoiceId: selling.invoiceId ?? selling._id,
+        number: selling.number,
         invoiceType: "cash",
         sellingDate: selling.sellingDate,
         quantity,
@@ -355,6 +371,7 @@ const buildProductProfitRows = async ({ products, startDate, endDate }) => {
         revenue,
         purchasePrice,
         profit,
+        costEstimated: item.costEstimated,
       });
     });
   }
@@ -373,19 +390,24 @@ const buildProductProfitRows = async ({ products, startDate, endDate }) => {
       const row = rowsByProductId.get(productId);
       if (!row) return;
 
-      const quantity = Number(item.quantity || 0);
+      const originalQuantity = Number(item.quantity || 0);
+      const quantity = Math.max(0, originalQuantity - Number(item.returnedQuantity || 0));
+      if (quantity <= 0) return;
       const sellingPrice = roundMoney(Number(item.unitPrice || 0));
-      const totalPrice = roundMoney(Number(item.totalPrice || 0));
+      const totalPrice = roundMoney(Number(item.unitPrice || 0) * quantity);
       const purchasePrice = roundMoney(Number(item.purchasePrice ?? 0));
-      const revenue = roundMoney(totalPrice - Number(itemDiscounts[index] || 0));
+      const remainingRatio = originalQuantity > 0 ? quantity / originalQuantity : 0;
+      const remainingDiscount = roundMoney(Number(itemDiscounts[index] || 0) * remainingRatio);
+      const revenue = roundMoney(totalPrice - remainingDiscount);
       const profit =
         item.profitAmount !== undefined && item.profitAmount !== null
-          ? roundMoney(Number(item.profitAmount || 0) - Number(itemDiscounts[index] || 0))
+          ? roundMoney((Number(item.profitAmount || 0) - Number(itemDiscounts[index] || 0)) * remainingRatio)
           : roundMoney(revenue - purchasePrice * quantity);
 
       addInvoiceToProductProfitReport({
         row,
         invoiceId: creditSale._id,
+        number: creditSale.number,
         invoiceType: "credit",
         sellingDate: creditSale.sellingDate,
         quantity,
@@ -393,6 +415,7 @@ const buildProductProfitRows = async ({ products, startDate, endDate }) => {
         revenue,
         purchasePrice,
         profit,
+        costEstimated: item.costEstimated,
       });
     });
   }
@@ -417,7 +440,11 @@ const getProducts = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
 
   // Stage 12: without categoryId the list covers all products (same paging and shape).
-  const filter = {};
+  const includeArchived = req.query.includeArchived === "1";
+  if (includeArchived && req.authEnabled && !hasPermission(req.user, "products.manage")) {
+    const error = new Error("ليست لديك صلاحية لعرض المنتجات المؤرشفة"); error.statusCode = 403; throw error;
+  }
+  const filter = includeArchived ? {} : { isArchived: { $ne: true } };
   if (categoryId) {
     const category = await Category.findById(categoryId);
     if (!category) {
@@ -486,7 +513,7 @@ const searchProducts = asyncHandler(async (req, res) => {
     throw new Error("مطلوب أحد معاملات الاستعلام q أو name أو code");
   }
 
-  const products = await Product.find({ $or: searchFilters })
+  const products = await Product.find({ $or: searchFilters, isArchived: { $ne: true } })
     .populate("category", CATEGORY_PRODUCT_FIELDS)
     .sort({ createdAt: -1 });
 
@@ -880,8 +907,8 @@ const getProductProfitReportById = asyncHandler(async (req, res) => {
   return getProductsProfitReport(req, res);
 });
 
-const syncProductPurchasePriceToInvoices = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id).populate("category", "name");
+const syncProductPurchasePriceInTransaction = async (req, res, session) => {
+  const product = await Product.findById(req.params.id).populate("category", "name").session(session);
 
   if (!product) {
     res.status(404);
@@ -909,11 +936,11 @@ const syncProductPurchasePriceToInvoices = asyncHandler(async (req, res) => {
     Selling.find({
       ...dateQuery,
       $or: [{ "items.product": product._id }, { product: product._id }],
-    }),
+    }).session(session),
     CreditSale.find({
       ...dateQuery,
       "items.product": product._id,
-    }),
+    }).session(session),
   ]);
 
   let updatedCashInvoices = 0;
@@ -959,7 +986,7 @@ const syncProductPurchasePriceToInvoices = asyncHandler(async (req, res) => {
     }
 
     if (didUpdateInvoice) {
-      await selling.save();
+      await selling.save({ session });
       updatedCashInvoices += 1;
     }
   }
@@ -978,12 +1005,13 @@ const syncProductPurchasePriceToInvoices = asyncHandler(async (req, res) => {
     }
 
     if (didUpdateInvoice) {
-      await creditSale.save();
+      await creditSale.save({ session });
       updatedCreditInvoices += 1;
     }
   }
 
-  res.json({
+  await audit(req, { action: "product.sync_purchase_price", entity: "Product", entityId: product._id, details: { updatedItemsCount }, session, strict: true });
+  return {
     message: "Purchase price synced to matching invoices successfully",
     productId: product._id,
     productName: product.name,
@@ -994,19 +1022,49 @@ const syncProductPurchasePriceToInvoices = asyncHandler(async (req, res) => {
     updatedCreditInvoices,
     updatedInvoices: updatedCashInvoices + updatedCreditInvoices,
     updatedItemsCount,
-  });
+  };
+};
+
+const syncProductPurchasePriceToInvoices = asyncHandler(async (req, res) => {
+  const result = await withTransaction((session) => syncProductPurchasePriceInTransaction(req, res, session));
+  res.json(result);
 });
 
 const deleteProduct = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id);
+  const result = await withTransaction(async (session) => {
+    const product = await Product.findById(req.params.id).session(session);
+    if (!product) { const error = new Error("المنتج غير موجود"); error.statusCode = 404; throw error; }
+    const id = product._id;
+    const referenced = await Promise.all([
+      Selling.exists({ $or: [{ product: id }, { "items.product": id }, { "refunds.items.product": id }] }).session(session),
+      CreditSale.exists({ $or: [{ "items.product": id }, { "refunds.items.product": id }] }).session(session),
+      ReturnLog.exists({ "items.productId": id }).session(session),
+    ]);
+    if (referenced.some(Boolean)) {
+      product.isArchived = true;
+      product.archivedAt = new Date();
+      product.archivedBy = req.user?._id ?? req.user?.id;
+      await product.save({ session });
+      await audit(req, { action: "product.archived", entity: "Product", entityId: id, session, strict: true });
+      return { action: "archived", message: "Product archived successfully", product };
+    }
+    await product.deleteOne({ session });
+    await audit(req, { action: "product.deleted", entity: "Product", entityId: id, session, strict: true });
+    return { action: "deleted", message: "Product deleted successfully" };
+  });
+  res.json(result);
+});
 
-  if (!product) {
-    res.status(404);
-    throw new Error("المنتج غير موجود");
-  }
-
-  await product.deleteOne();
-  res.json({ message: "Product deleted successfully" });
+const restoreProduct = asyncHandler(async (req, res) => {
+  const product = await withTransaction(async (session) => {
+    const found = await Product.findById(req.params.id).session(session);
+    if (!found) { const error = new Error("المنتج غير موجود"); error.statusCode = 404; throw error; }
+    found.isArchived = false; found.archivedAt = undefined; found.archivedBy = undefined;
+    await found.save({ session });
+    await audit(req, { action: "product.restored", entity: "Product", entityId: found._id, session, strict: true });
+    return found;
+  });
+  res.json(product);
 });
 
 const getYearProfitBarChart = asyncHandler(async (req, res) => {
@@ -1017,6 +1075,7 @@ const getYearProfitBarChart = asyncHandler(async (req, res) => {
   const basePipeline = [
     {
       $match: {
+        status: { $ne: "cancelled" },
         sellingDate: {
           $gte: startDate,
           $lt: endDate,
@@ -1032,9 +1091,32 @@ const getYearProfitBarChart = asyncHandler(async (req, res) => {
             $map: {
               input: { $ifNull: ["$items", []] },
               as: "item",
-              in: { $ifNull: ["$$item.profitAmount", 0] },
+              in: {
+                $multiply: [
+                  { $ifNull: ["$$item.profitAmount", 0] },
+                  {
+                    $cond: [
+                      { $gt: [{ $ifNull: ["$$item.quantity", 0] }, 0] },
+                      {
+                        $divide: [
+                          { $max: [0, { $subtract: [{ $ifNull: ["$$item.quantity", 0] }, { $ifNull: ["$$item.returnedQuantity", 0] }] }] },
+                          "$$item.quantity",
+                        ],
+                      },
+                      0,
+                    ],
+                  },
+                ],
+              },
             },
           },
+        },
+        remainingRatio: {
+          $cond: [
+            { $gt: [{ $ifNull: ["$totalQuantity", 0] }, 0] },
+            { $divide: [{ $max: [0, { $subtract: ["$totalQuantity", { $ifNull: ["$refundedQuantity", 0] }] }] }, "$totalQuantity"] },
+            0,
+          ],
         },
       },
     },
@@ -1043,7 +1125,7 @@ const getYearProfitBarChart = asyncHandler(async (req, res) => {
         _id: "$month",
         profit: {
           $sum: {
-            $subtract: ["$itemsProfit", "$discountAmount"],
+            $subtract: ["$itemsProfit", { $multiply: ["$discountAmount", "$remainingRatio"] }],
           },
         },
       },
@@ -1127,4 +1209,5 @@ module.exports = {
   createProduct,
   updateProduct,
   deleteProduct,
+  restoreProduct,
 };

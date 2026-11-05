@@ -18,6 +18,8 @@ const toCreditSalePayment = (payment) => ({
   amount: payment.amount,
   paymentDate: payment.paymentDate,
   note: payment.note ?? null,
+  number: payment.number ?? null,
+  source: payment.source ?? "receipt",
   ...actorFields(payment),
 });
 
@@ -72,6 +74,8 @@ const toCreditSaleInvoiceItem = (item, creditSale, options = {}) => {
     productPricePerEach: item.unitPrice,
     purchasePrice: item.purchasePrice ?? 0,
     profitAmount: item.profitAmount ?? 0,
+    returnedQuantity: item.returnedQuantity ?? 0,
+    costEstimated: item.costEstimated === true,
     totalPrice: item.totalPrice,
   };
 
@@ -101,6 +105,7 @@ const toCreditSaleInvoice = (creditSale, options = {}) => {
 
   return {
     _id: creditSale._id,
+    number: creditSale.number ?? null,
     invoiceId: creditSale._id,
     customerId: creditSale.customer,
     customerName: creditSale.customerName,
@@ -115,6 +120,7 @@ const toCreditSaleInvoice = (creditSale, options = {}) => {
     discountAmount: totals.discountAmount,
     shippingFees: creditSale.shippingFees ?? totals.shippingFees,
     totalPrice: creditSale.totalPrice ?? totals.totalPrice,
+    netTotal: Number(Math.max(0, Number(creditSale.totalPrice ?? totals.totalPrice) - Number(creditSale.refundedAmount || 0)).toFixed(2)),
     totalProfit: Number(
       (
         items.reduce((sum, item) => sum + Number(item.profitAmount || 0), 0) - totals.discountAmount
@@ -128,6 +134,12 @@ const toCreditSaleInvoice = (creditSale, options = {}) => {
     refundedAmount: creditSale.refundedAmount ?? 0,
     returnedPaidAmount: creditSale.returnedPaidAmount ?? 0,
     reallocatedPaidAmount: creditSale.reallocatedPaidAmount ?? 0,
+    cancelledAt: creditSale.cancelledAt ?? null,
+    cancelledBy: creditSale.cancelledBy ?? null,
+    cancelledByName: creditSale.cancelledByName ?? null,
+    cancellationReason: creditSale.cancellationReason ?? null,
+    cancelRefundAmount: creditSale.cancelRefundAmount ?? 0,
+    migrationNotes: creditSale.migrationNotes ?? [],
     payments,
     refunds,
     items,
@@ -141,6 +153,7 @@ const buildCreditSaleSummary = (creditSales) =>
   creditSales.reduce(
     (summary, creditSale) => {
       const totalPrice = Number(creditSale.totalPrice || 0);
+      const netTotal = Math.max(0, totalPrice - Number(creditSale.refundedAmount || 0));
       const paidAmount = Number(creditSale.paidAmount || 0);
       const remainingAmount = Number(creditSale.remainingAmount || 0);
       const refundDueAmount = Number(creditSale.refundDueAmount || 0);
@@ -148,22 +161,26 @@ const buildCreditSaleSummary = (creditSales) =>
       const reallocatedPaidAmount = Number(creditSale.reallocatedPaidAmount || 0);
 
       summary.totalInvoices += 1;
-      summary.totalCreditAmount += totalPrice;
+      if (creditSale.status === "cancelled") {
+        summary.cancelledInvoices += 1;
+        return summary;
+      }
+      summary.totalCreditAmount += netTotal;
       summary.totalPaidAmount += paidAmount;
       summary.totalRemainingAmount += remainingAmount;
       summary.totalRefundDueAmount += refundDueAmount;
       summary.totalReturnedPaidAmount += returnedPaidAmount;
       summary.totalReallocatedPaidAmount += reallocatedPaidAmount;
-      summary.totalDebtAmount += totalPrice;
+      summary.totalDebtAmount += netTotal;
       summary.paidAmount += paidAmount;
       summary.remainingAmount += remainingAmount;
 
       if (creditSale.status === "paid") {
         summary.paidInvoices += 1;
         summary.debtStatusSummary.paid += 1;
-      } else if (creditSale.status === "Reactionary") {
-        summary.reactionaryInvoices += 1;
-        summary.debtStatusSummary.reactionary += 1;
+      } else if (creditSale.status === "returned") {
+        summary.returnedInvoices += 1;
+        summary.debtStatusSummary.returned += 1;
       } else if (creditSale.status === "partially_paid") {
         summary.openInvoices += 1;
         summary.debtStatusSummary.partiallyPaid += 1;
@@ -178,7 +195,8 @@ const buildCreditSaleSummary = (creditSales) =>
       totalInvoices: 0,
       openInvoices: 0,
       paidInvoices: 0,
-      reactionaryInvoices: 0,
+      returnedInvoices: 0,
+      cancelledInvoices: 0,
       totalCreditAmount: 0,
       totalPaidAmount: 0,
       totalRemainingAmount: 0,
@@ -192,7 +210,7 @@ const buildCreditSaleSummary = (creditSales) =>
         pending: 0,
         partiallyPaid: 0,
         paid: 0,
-        reactionary: 0,
+        returned: 0,
       },
     }
   );

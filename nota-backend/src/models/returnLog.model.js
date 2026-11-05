@@ -8,10 +8,13 @@ const itemSchema = new mongoose.Schema({
   quantity: { type: Number, required: true, min: 1 },
   price: { type: Number, required: true, min: 0 },
   total: { type: Number, required: true, min: 0 },
+  purchasePrice: { type: Number, min: 0 },
+  profitAmount: { type: Number },
   returnReason: { type: String, trim: true, maxlength: 500 },
 }, { _id: false });
 
 const returnLogSchema = new mongoose.Schema({
+  number: { type: String, trim: true, unique: true, sparse: true, index: true },
   returnType: { type: String, enum: ["cash", "credit"], required: true, index: true },
   invoiceId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
   invoiceNumber: { type: String, trim: true, maxlength: 150 },

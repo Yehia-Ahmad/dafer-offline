@@ -222,6 +222,38 @@ test('a failed maintenance task still brings the server back', async () => {
   assert.equal(supervisor.status.state, 'running');
 });
 
+test('a migration failure after restore runs safety-backup recovery, restarts, and reports the restore failure', async () => {
+  const { calls, backend, supervisor } = setup();
+  await supervisor.start();
+  calls.length = 0;
+  backend.failStarts = 1;
+  const recoveryError = new Error('النسخة المسترجعة محتاجة تحديث فشل. رجّعنا البيانات زي ما كانت قبل الاسترجاع\nmigration fixture failed');
+  recoveryError.code = 'RESTORE_MIGRATION_FAILED_ROLLED_BACK';
+
+  await assert.rejects(
+    supervisor.runMaintenance(
+      async () => ({ safetyPath: '/fixtures/before-restore.archive.gz' }),
+      {
+        reason: 'restore',
+        recoverRestart: async (startupError, result) => {
+          calls.push(`restore-safety:${result.safetyPath}`);
+          calls.push(`audit:backup.restore_failed:${startupError.code}`);
+          return recoveryError;
+        },
+      }
+    ),
+    (error) => error === recoveryError
+  );
+  assert.deepEqual(calls, [
+    'backend.stop',
+    'backend.start',
+    'restore-safety:/fixtures/before-restore.archive.gz',
+    'audit:backup.restore_failed:FAKE_FAIL',
+    'backend.start',
+  ]);
+  assert.equal(supervisor.status.state, 'running');
+});
+
 test('maintenance is refused unless the server runs, and only one at a time', async () => {
   const { supervisor } = setup();
   await assert.rejects(supervisor.runMaintenance(async () => {}), (error) => error.code === 'SERVER_BUSY');

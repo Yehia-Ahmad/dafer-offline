@@ -14,6 +14,7 @@ export interface ProductProfitReportInvoice {
   purchasePrice: number | null;
   profit: number | null;
   customerName: string | null;
+  costEstimated?: boolean;
 }
 
 export interface ProductProfitReportRow {
@@ -63,14 +64,15 @@ export class ProductsService {
     customerName?: string;
     customerPhone?: string;
     sellingDate?: string;
+    number?: string;
     page?: number;
     limit?: number;
   }) {
     return this._http.get(`${this._baseUrl}sellings`, { params });
   }
 
-  deleteSelling(id: string) {
-    return this._http.delete(`${this._baseUrl}sellings/${id}`);
+  cancelSelling(id: string, reason: string) {
+    return this._http.post(`${this._baseUrl}sellings/${id}/cancel`, { reason });
   }
 
   getProductsProfitReport(params?: {

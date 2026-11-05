@@ -9,13 +9,19 @@ const { toCreditSaleInvoice } = require("../utils/creditSaleFormatter");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { buildPaginatedResponse, getPaginationParams } = require("../utils/pagination");
 const { canSellBelowCost } = require("../auth/middleware");
+const { PREFIXES, normalizeNumberSearch } = require("../utils/documentNumber");
+const { withTransaction } = require("../utils/transaction");
+const { audit } = require("../auth/audit");
+const Receipt = require("../models/receipt.model");
+const { nextDocumentNumber } = require("../utils/documentNumber");
 
-const REACTIONARY_CREDIT_SALE_STATUS = "Reactionary";
+const REACTIONARY_CREDIT_SALE_STATUS = "returned";
 const CREDIT_SALE_STATUSES = new Set([
   "pending",
   "partially_paid",
   "paid",
   REACTIONARY_CREDIT_SALE_STATUS,
+  "cancelled",
 ]);
 const OPEN_CREDIT_SALE_STATUSES = ["pending", "partially_paid"];
 const MONEY_EPSILON = 1e-9;
@@ -348,6 +354,7 @@ const ensureCustomerExistsForCreditSale = async ({
   customerName,
   customerPhone,
   res,
+  session,
 }) => {
   if (customerId !== undefined && customerId !== null) {
     if (typeof customerId !== "string" || !customerId.trim()) {
@@ -362,7 +369,7 @@ const ensureCustomerExistsForCreditSale = async ({
       throw new Error("تنسيق معرّف العميل غير صالح");
     }
 
-    const customer = await Customer.findById(normalizedCustomerId);
+    const customer = await Customer.findById(normalizedCustomerId).session(session || null);
     if (!customer) {
       res.status(404);
       throw new Error("العميل غير موجود");
@@ -376,7 +383,7 @@ const ensureCustomerExistsForCreditSale = async ({
   const existingCustomer = await Customer.findOne({
     name: normalizedCustomerName,
     phone: normalizedCustomerPhone,
-  });
+  }).session(session || null);
 
   if (existingCustomer) {
     return existingCustomer;
@@ -393,6 +400,7 @@ const ensureCustomerExistsForCreditSale = async ({
       runValidators: true,
       upsert: true,
       setDefaultsOnInsert: true,
+      session,
     }
   );
 };
@@ -425,7 +433,7 @@ const buildQuantityByProductId = (items) => {
 
 // Stage 13: allowBelowCost is true on create/edit only with NOTA_AUTH=1 for a user with
 // sales.priceBelowCost, and always on returns (they keep the original prices).
-const applyInventoryForInvoiceChange = async ({ currentItems, nextItems, res, allowBelowCost = false }) => {
+const applyInventoryForInvoiceChange = async ({ currentItems, nextItems, res, allowBelowCost = false, session }) => {
   const currentQuantityByProductId = buildQuantityByProductId(currentItems);
   const nextQuantityByProductId = buildQuantityByProductId(nextItems);
   const allProductIds = [...new Set([
@@ -437,7 +445,7 @@ const applyInventoryForInvoiceChange = async ({ currentItems, nextItems, res, al
     return new Map();
   }
 
-  const products = await Product.find({ _id: { $in: allProductIds } }).populate("category", "name");
+  const products = await Product.find({ _id: { $in: allProductIds } }).populate("category", "name").session(session || null);
   const productsById = new Map(products.map((product) => [product._id.toString(), product]));
   const originalStates = new Map();
 
@@ -489,12 +497,18 @@ const applyInventoryForInvoiceChange = async ({ currentItems, nextItems, res, al
       const currentQuantity = Number(currentQuantityByProductId.get(productId) || 0);
       const nextQuantity = Number(nextQuantityByProductId.get(productId) || 0);
 
-      product.inventoryCount = originalState.inventoryCount + currentQuantity - nextQuantity;
-      product.soldItemCount = Math.max(
-        0,
-        originalState.soldItemCount - currentQuantity + nextQuantity
-      );
-      await product.save();
+      const inventoryDelta = currentQuantity - nextQuantity;
+      const soldDelta = nextQuantity - currentQuantity;
+      const filter = { _id: product._id };
+      if (inventoryDelta < 0) filter.inventoryCount = { $gte: -inventoryDelta };
+      const result = await Product.updateOne(filter, { $inc: { inventoryCount: inventoryDelta, soldItemCount: soldDelta } }, { session });
+      if (result.matchedCount === 0) {
+        const stockError = new Error("المخزون غير كافٍ للمنتج");
+        stockError.statusCode = 400;
+        throw stockError;
+      }
+      product.inventoryCount = originalState.inventoryCount + inventoryDelta;
+      product.soldItemCount = Math.max(0, originalState.soldItemCount + soldDelta);
     }
   } catch (error) {
     for (const productId of allProductIds) {
@@ -506,7 +520,7 @@ const applyInventoryForInvoiceChange = async ({ currentItems, nextItems, res, al
       product.soldItemCount = originalState.soldItemCount;
 
       try {
-        await product.save();
+        await product.save({ session });
       } catch (_saveError) {
         // Best-effort rollback only; surface the original failure.
       }
@@ -555,12 +569,12 @@ const buildRefundHistoryTotals = (refunds = []) =>
     }
   );
 
-const getRefundStatus = (refunds = [], totalQuantity = 0) => {
+const getRefundStatus = (refunds = [], originalTotalQuantity = 0) => {
   if (!Array.isArray(refunds) || refunds.length === 0) {
     return "none";
   }
-
-  return Number(totalQuantity || 0) === 0 ? "full" : "partial";
+  const refundedQuantity = refunds.reduce((sum, refund) => sum + Number(refund.totalQuantity || 0), 0);
+  return refundedQuantity >= Number(originalTotalQuantity || 0) ? "full" : "partial";
 };
 
 const getTotalPaymentsAmount = (payments = []) =>
@@ -666,6 +680,8 @@ const reallocateRefundCreditToOtherInvoices = async ({
   refundDate,
   refundNote,
   availableCredit,
+  returnNumber,
+  session,
 }) => {
   const normalizedAvailableCredit = roundMoney(availableCredit);
   if (normalizedAvailableCredit <= MONEY_EPSILON) {
@@ -686,7 +702,7 @@ const reallocateRefundCreditToOtherInvoices = async ({
       _id: { $ne: sourceCreditSale._id },
       remainingAmount: { $gt: 0 },
       status: { $in: OPEN_CREDIT_SALE_STATUSES },
-    }).sort({ sellingDate: 1, createdAt: 1, _id: 1 });
+    }).sort({ sellingDate: 1, createdAt: 1, _id: 1 }).session(session);
 
     for (const targetCreditSale of targetCreditSales) {
       if (remainingCredit <= MONEY_EPSILON) {
@@ -706,10 +722,12 @@ const reallocateRefundCreditToOtherInvoices = async ({
         amount: payableAmount,
         paymentDate: refundDate,
         note: paymentNote,
+        number: returnNumber,
+        source: "return_reallocation",
       });
 
       const creditAmounts = calculateCreditAmounts(
-        targetCreditSale.totalPrice,
+        roundMoney(Number(targetCreditSale.totalPrice || 0) - Number(targetCreditSale.refundedAmount || 0)),
         targetCreditSale.payments,
         targetCreditSale.returnedPaidAmount,
         targetCreditSale.reallocatedPaidAmount
@@ -724,7 +742,7 @@ const reallocateRefundCreditToOtherInvoices = async ({
       }
 
       applyCreditAmountsToInvoice(targetCreditSale, creditAmounts);
-      await targetCreditSale.save();
+      await targetCreditSale.save({ session });
 
       updatedInvoices.push({
         creditSale: targetCreditSale,
@@ -872,9 +890,9 @@ const normalizeCreditSaleRefundItems = (creditSale, body, res) => {
   if (refundAll === true) {
     return currentItems.map((item) => ({
       invoiceItem: item,
-      quantity: Number(item.quantity),
+      quantity: Number(item.quantity) - Number(item.returnedQuantity || 0),
       returnReason: undefined,
-    }));
+    })).filter((item) => item.quantity > 0);
   }
 
   if (!Array.isArray(body.items)) {
@@ -929,7 +947,8 @@ const normalizeCreditSaleRefundItems = (creditSale, body, res) => {
     };
     const nextQuantity = existingSelection.quantity + quantity;
 
-    if (nextQuantity > Number(invoiceItem.quantity || 0)) {
+    const availableQuantity = Number(invoiceItem.quantity || 0) - Number(invoiceItem.returnedQuantity || 0);
+    if (nextQuantity > availableQuantity) {
       res.status(400);
       throw new Error(`كمية المرتجع تتجاوز الكمية المتاحة في العنصر رقم ${itemNumber}`);
     }
@@ -983,7 +1002,7 @@ const buildNextCreditSaleItemsAfterRefund = (creditSale, refundSelections) => {
   });
 };
 
-const createCreditSale = asyncHandler(async (req, res) => {
+const createCreditSaleInTransaction = async (req, res, session) => {
   validateCreateOnlyFields(req.body, res);
 
   const customer = await ensureCustomerExistsForCreditSale({
@@ -991,6 +1010,7 @@ const createCreditSale = asyncHandler(async (req, res) => {
     customerName: req.body.customerName,
     customerPhone: req.body.customerPhone,
     res,
+    session,
   });
   const normalizedSellingDate = normalizeRequiredDate(req.body.sellingDate, "تاريخ البيع", res);
   const normalizedDueDate = normalizeOptionalDate(req.body.dueDate, "تاريخ الاستحقاق", res);
@@ -1032,9 +1052,14 @@ const createCreditSale = asyncHandler(async (req, res) => {
     nextItems: items,
     res,
     allowBelowCost: canSellBelowCost(req),
+    session,
   });
   const persistedItems = buildPersistedItems(items, productsById);
   const invoiceTotals = buildInvoiceTotals(persistedItems, invoicePricing);
+  const invoiceId = new mongoose.Types.ObjectId();
+  const invoiceNumber = await nextDocumentNumber(PREFIXES.CREDIT_INVOICE, session);
+  const receiptNumber = initialPaidAmount > 0 ? await nextDocumentNumber(PREFIXES.RECEIPT, session) : null;
+  const receiptId = initialPaidAmount > 0 ? new mongoose.Types.ObjectId() : null;
   const payments =
     initialPaidAmount > 0
       ? [
@@ -1042,6 +1067,9 @@ const createCreditSale = asyncHandler(async (req, res) => {
             amount: initialPaidAmount,
             paymentDate: initialPaymentDate,
             note: initialPaymentNote,
+            number: receiptNumber,
+            receipt: receiptId,
+            source: "down_payment",
           },
         ]
       : [];
@@ -1052,6 +1080,7 @@ const createCreditSale = asyncHandler(async (req, res) => {
       currentItems: items,
       nextItems: [],
       res,
+      session,
     });
 
     res.status(400);
@@ -1061,7 +1090,9 @@ const createCreditSale = asyncHandler(async (req, res) => {
   let creditSale;
 
   try {
-    creditSale = await CreditSale.create({
+    const created = await CreditSale.create([{
+      _id: invoiceId,
+      number: invoiceNumber,
       customer: customer._id,
       customerName: customer.name,
       customerPhone: customer.phone,
@@ -1080,13 +1111,27 @@ const createCreditSale = asyncHandler(async (req, res) => {
       status: creditAmounts.status,
       notes: normalizedNotes,
       payments,
-    });
+    }], { session });
+    creditSale = created[0];
+    if (initialPaidAmount > 0) {
+      await Receipt.create([{
+        _id: receiptId,
+        number: receiptNumber,
+        customer: customer._id,
+        amount: roundMoney(initialPaidAmount),
+        paymentDate: initialPaymentDate,
+        note: initialPaymentNote,
+        kind: "down_payment",
+        allocations: [{ creditSale: invoiceId, amount: roundMoney(initialPaidAmount) }],
+      }], { session });
+    }
   } catch (error) {
     try {
       await applyInventoryForInvoiceChange({
         currentItems: items,
         nextItems: [],
         res,
+        session,
       });
     } catch (_rollbackError) {
       // Best-effort rollback only; surface the create failure.
@@ -1095,13 +1140,21 @@ const createCreditSale = asyncHandler(async (req, res) => {
     throw error;
   }
 
+  await audit(req, { action: "credit.created", entity: "CreditSale", entityId: creditSale._id, session, strict: true });
+  return creditSale;
+};
+
+const createCreditSale = asyncHandler(async (req, res) => {
+  const creditSale = await withTransaction((session) => createCreditSaleInTransaction(req, res, session));
   res.status(201).json(toCreditSaleInvoice(creditSale));
 });
 
 const getCreditSales = asyncHandler(async (req, res) => {
-  const { customerId, customerName, customerPhone, status, sellingDate, dueDate } = req.query;
+  const { customerId, customerName, customerPhone, status, sellingDate, dueDate, number } = req.query;
   const creditSaleQuery = {};
   const { page, limit, skip } = getPaginationParams(req.query);
+
+  if (number !== undefined) creditSaleQuery.number = normalizeNumberSearch(number, PREFIXES.CREDIT_INVOICE);
 
   if (
     customerId !== undefined &&
@@ -1221,18 +1274,25 @@ const getCreditSaleById = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("سجل البيع الآجل غير موجود");
   }
-
   res.json(toCreditSaleInvoice(creditSale, { includeProductCode: true }));
 });
 
-const updateCreditSale = asyncHandler(async (req, res) => {
+const updateCreditSaleInTransaction = async (req, res, session) => {
   validateUpdateRestrictedFields(req.body, res);
 
-  const creditSale = await CreditSale.findById(req.params.id);
+  const creditSale = await CreditSale.findById(req.params.id).session(session);
 
   if (!creditSale) {
     res.status(404);
     throw new Error("سجل البيع الآجل غير موجود");
+  }
+  if (creditSale.status === "cancelled") {
+    const error = new Error("لا يمكن تعديل فاتورة ملغية");
+    error.statusCode = 409; error.responseData = { code: "CANCELLED" }; throw error;
+  }
+  if (creditSale.status === REACTIONARY_CREDIT_SALE_STATUS) {
+    const error = new Error("لا يمكن تعديل فاتورة مرتجعة بالكامل");
+    error.statusCode = 409; error.responseData = { code: "RETURNED" }; throw error;
   }
 
   const normalizedSellingDate =
@@ -1259,6 +1319,7 @@ const updateCreditSale = asyncHandler(async (req, res) => {
     customer = await ensureCustomerExistsForCreditSale({
       customerId: req.body.customerId,
       res,
+      session,
     });
     nextCustomerName = customer.name;
     nextCustomerPhone = customer.phone;
@@ -1276,6 +1337,7 @@ const updateCreditSale = asyncHandler(async (req, res) => {
       customerName: nextCustomerName,
       customerPhone: nextCustomerPhone,
       res,
+      session,
     });
     nextCustomerName = customer.name;
     nextCustomerPhone = customer.phone;
@@ -1341,6 +1403,7 @@ const updateCreditSale = asyncHandler(async (req, res) => {
       nextItems,
       res,
       allowBelowCost: canSellBelowCost(req),
+      session,
     });
   }
 
@@ -1394,7 +1457,7 @@ const updateCreditSale = asyncHandler(async (req, res) => {
     creditSale.dueDate = normalizedDueDate ?? undefined;
     creditSale.notes = normalizedNotes;
 
-    updatedCreditSale = await creditSale.save();
+    updatedCreditSale = await creditSale.save({ session });
   } catch (error) {
     if (shouldUpdateItems) {
       try {
@@ -1402,6 +1465,7 @@ const updateCreditSale = asyncHandler(async (req, res) => {
           currentItems: nextItems,
           nextItems: currentItems,
           res,
+          session,
         });
       } catch (_rollbackError) {
         // Best-effort rollback only; surface the update failure.
@@ -1411,15 +1475,29 @@ const updateCreditSale = asyncHandler(async (req, res) => {
     throw error;
   }
 
-  res.json(toCreditSaleInvoice(updatedCreditSale));
+  await audit(req, { action: "credit.updated", entity: "CreditSale", entityId: creditSale._id, session, strict: true });
+  return updatedCreditSale;
+};
+
+const updateCreditSale = asyncHandler(async (req, res) => {
+  const updated = await withTransaction((session) => updateCreditSaleInTransaction(req, res, session));
+  res.json(toCreditSaleInvoice(updated));
 });
 
-const addCreditSalePayment = asyncHandler(async (req, res) => {
-  const creditSale = await CreditSale.findById(req.params.id);
+const addCreditSalePaymentInTransaction = async (req, res, session) => {
+  const creditSale = await CreditSale.findById(req.params.id).session(session);
 
   if (!creditSale) {
     res.status(404);
     throw new Error("سجل البيع الآجل غير موجود");
+  }
+  if (creditSale.status === "cancelled") {
+    const error = new Error("لا يمكن تسجيل دفعة على فاتورة ملغية");
+    error.statusCode = 409; error.responseData = { code: "CANCELLED" }; throw error;
+  }
+  if (creditSale.status === REACTIONARY_CREDIT_SALE_STATUS) {
+    const error = new Error("لا يمكن تسجيل دفعة على فاتورة مرتجعة بالكامل");
+    error.statusCode = 409; error.responseData = { code: "RETURNED" }; throw error;
   }
 
   const amount = parsePositiveNumber(req.body.amount);
@@ -1440,7 +1518,7 @@ const addCreditSalePayment = asyncHandler(async (req, res) => {
     _id: { $ne: creditSale._id },
     remainingAmount: { $gt: 0 },
     status: { $in: OPEN_CREDIT_SALE_STATUSES },
-  }).sort({ sellingDate: -1, createdAt: -1, _id: -1 });
+  }).sort({ sellingDate: -1, createdAt: -1, _id: -1 }).session(session);
 
   const totalRemainingAmount = roundMoney(
     selectedRemainingAmount +
@@ -1470,6 +1548,8 @@ const addCreditSalePayment = asyncHandler(async (req, res) => {
 
   const targetCreditSales = [creditSale, ...otherOpenCreditSales];
   const pendingUpdates = [];
+  const receiptNumber = await nextDocumentNumber(PREFIXES.RECEIPT, session);
+  const receiptId = new mongoose.Types.ObjectId();
   let remainingPaymentAmount = roundMoney(amount);
 
   for (const targetCreditSale of targetCreditSales) {
@@ -1491,10 +1571,13 @@ const addCreditSalePayment = asyncHandler(async (req, res) => {
       amount: payableAmount,
       paymentDate,
       note,
+      number: receiptNumber,
+      receipt: receiptId,
+      source: "receipt",
     });
 
     const creditAmounts = calculateCreditAmounts(
-      targetCreditSale.totalPrice,
+      roundMoney(Number(targetCreditSale.totalPrice || 0) - Number(targetCreditSale.refundedAmount || 0)),
       targetCreditSale.payments,
       targetCreditSale.returnedPaidAmount,
       targetCreditSale.reallocatedPaidAmount
@@ -1526,7 +1609,7 @@ const addCreditSalePayment = asyncHandler(async (req, res) => {
 
   try {
     for (const update of pendingUpdates) {
-      await update.creditSale.save();
+      await update.creditSale.save({ session });
       savedUpdates.push(update);
     }
   } catch (error) {
@@ -1539,149 +1622,117 @@ const addCreditSalePayment = asyncHandler(async (req, res) => {
     updatedInvoices.find((invoice) => invoice._id.toString() === creditSale._id.toString()) ??
     toCreditSaleInvoice(creditSale);
 
-  res.status(201).json({
+  await Receipt.create([{
+    _id: receiptId,
+    number: receiptNumber,
+    customer: creditSale.customer,
+    amount: roundMoney(amount),
+    paymentDate,
+    note,
+    kind: "payment",
+    allocations: pendingUpdates.map((update) => ({ creditSale: update.creditSale._id, amount: update.creditSale.payments.at(-1).amount })),
+  }], { session });
+  await audit(req, { action: "credit.payment", entity: "CreditSale", entityId: creditSale._id, details: { amount, number: receiptNumber }, session, strict: true });
+  return {
     ...primaryInvoice,
     allocatedInvoices: updatedInvoices,
     totalAppliedAmount: roundMoney(amount),
-  });
+    receiptNumber,
+  };
+};
+
+const addCreditSalePayment = asyncHandler(async (req, res) => {
+  const result = await withTransaction((session) => addCreditSalePaymentInTransaction(req, res, session));
+  if (result !== undefined) res.status(201).json(result);
 });
 
 const addCreditSaleRefund = asyncHandler(async (req, res) => {
-  const creditSale = await CreditSale.findById(req.params.id);
+  const updatedCreditSale = await withTransaction(async (session) => {
+    const creditSale = await CreditSale.findById(req.params.id).session(session);
+    if (!creditSale) { const error = new Error("سجل البيع الآجل غير موجود"); error.statusCode = 404; throw error; }
+    if (creditSale.status === "cancelled") {
+      const error = new Error("لا يمكن عمل مرتجع لفاتورة ملغية");
+      error.statusCode = 409; error.responseData = { code: "CANCELLED" }; throw error;
+    }
+    if (creditSale.status === REACTIONARY_CREDIT_SALE_STATUS || creditSale.refundStatus === "full") {
+      const error = new Error("تم إرجاع الفاتورة بالكامل بالفعل");
+      error.statusCode = 409; error.responseData = { code: "FULLY_RETURNED" }; throw error;
+    }
 
-  if (!creditSale) {
-    res.status(404);
-    throw new Error("سجل البيع الآجل غير موجود");
-  }
-
-  const refundSelections = normalizeCreditSaleRefundItems(creditSale, req.body, res);
-  const rawRefundDate = getFirstDefined(req.body.returnDate, req.body.refundDate);
-  const refundDate =
-    rawRefundDate !== undefined
+    const refundSelections = normalizeCreditSaleRefundItems(creditSale, req.body, res);
+    const rawRefundDate = getFirstDefined(req.body.returnDate, req.body.refundDate);
+    const refundDate = rawRefundDate !== undefined
       ? normalizeRequiredDate(rawRefundDate, "تاريخ المرتجع", res)
       : new Date();
-  const refundNote = normalizeOptionalString(
-    getFirstDefined(req.body.note, req.body.reason),
-    "ملاحظة المرتجع",
-    res
-  );
-
-  const currentItems = getCreditSaleItemInputs(creditSale);
-  const originalTotalPrice = Number(creditSale.totalPrice || 0);
-  const originalShippingFees = Number(creditSale.shippingFees || 0);
-  const nextItems = buildNextCreditSaleItemsAfterRefund(creditSale, refundSelections);
-  // A return keeps the original invoice prices and never sets new ones, so the below-cost rule
-  // (a selling rule) does not apply here.
-  const productsById = await applyInventoryForInvoiceChange({
-    currentItems,
-    nextItems,
-    res,
-    allowBelowCost: true,
-  });
-
-  let updatedCreditSale;
-  let reallocatedUpdates = [];
-  let returnLog;
-
-  try {
-    const persistedItems = buildPersistedItems(nextItems, productsById);
+    const refundNote = normalizeOptionalString(getFirstDefined(req.body.note, req.body.reason), "ملاحظة المرتجع", res);
+    const productIds = [...new Set(refundSelections.map(({ invoiceItem }) => getCreditSaleItemProductId(invoiceItem).toString()))];
+    const products = await Product.find({ _id: { $in: productIds } }).session(session);
+    if (products.length !== productIds.length) { res.status(404); throw new Error("تعذر العثور على أحد منتجات المرتجع"); }
+    const productsById = new Map(products.map((product) => [product._id.toString(), product]));
     const refundItems = buildPersistedRefundItems(refundSelections);
-    const invoiceTotals = buildInvoiceTotals(persistedItems, {
+    const refundTotals = buildRefundTotals(refundItems);
+    const previousRefundedQuantity = Number(creditSale.refundedQuantity || 0);
+    const previousRefundedAmount = roundMoney(creditSale.refundedAmount || 0);
+    const nextRefundedQuantity = previousRefundedQuantity + refundTotals.totalQuantity;
+    const isFullRefund = nextRefundedQuantity === Number(creditSale.totalQuantity || 0);
+
+    const selectedByItem = new Map(refundSelections.map(({ invoiceItem, quantity }) => [invoiceItem._id.toString(), quantity]));
+    const remainingItems = creditSale.items.flatMap((item) => {
+      const returned = Number(item.returnedQuantity || 0) + Number(selectedByItem.get(item._id.toString()) || 0);
+      const quantity = Number(item.quantity || 0) - returned;
+      return quantity > 0 ? [{ quantity, totalPrice: roundMoney(Number(item.unitPrice || 0) * quantity) }] : [];
+    });
+    const remainingTotals = buildInvoiceTotals(remainingItems, {
       discountAmount: creditSale.discountAmount,
       discountPercentage: creditSale.discountPercentage,
-      shippingFees: creditSale.shippingFees ?? 0,
+      shippingFees: creditSale.shippingFees,
     });
-    const refundTotals = buildRefundTotals(refundItems);
-    const isFullRefund = invoiceTotals.totalQuantity === 0;
-    const currentReturnedPaidAmount = roundMoney(creditSale.returnedPaidAmount || 0);
-    const currentReallocatedPaidAmount = roundMoney(creditSale.reallocatedPaidAmount || 0);
-    let returnedPaidAmountForThisRefund = 0;
-    let reallocatedPaidAmountForThisRefund = 0;
-    let nextReturnedPaidAmount = currentReturnedPaidAmount;
-    let nextReallocatedPaidAmount = currentReallocatedPaidAmount;
+    const currentNetTotal = roundMoney(Math.max(0, Number(creditSale.totalPrice || 0) - previousRefundedAmount));
+    const nextNetTotal = isFullRefund ? 0 : remainingTotals.totalPrice;
+    const finalReturnedAmount = roundMoney(currentNetTotal - nextNetTotal);
+    if (finalReturnedAmount < 0) { res.status(400); throw new Error("قيمة المرتجع غير صالحة"); }
 
-    if (isFullRefund) {
-      returnedPaidAmountForThisRefund = roundMoney(creditSale.paidAmount || 0);
-      nextReturnedPaidAmount = roundMoney(
-        currentReturnedPaidAmount + returnedPaidAmountForThisRefund
+    for (const { invoiceItem, quantity } of refundSelections) {
+      const productId = getCreditSaleItemProductId(invoiceItem);
+      await Product.updateOne(
+        { _id: productId },
+        { $inc: { inventoryCount: quantity, soldItemCount: -quantity } },
+        { session }
       );
-    } else {
-      const provisionalCreditAmounts = calculateCreditAmounts(
-        invoiceTotals.totalPrice,
-        creditSale.payments,
-        currentReturnedPaidAmount,
-        currentReallocatedPaidAmount
-      );
-
-      if (!provisionalCreditAmounts) {
-        res.status(400);
-        throw new Error("المبلغ المدفوع المُعاد أو المُعاد توزيعه لا يمكن أن يتجاوز إجمالي الدفعات");
-      }
-
-      const refundSettlement = await reallocateRefundCreditToOtherInvoices({
-        sourceCreditSale: creditSale,
-        refundDate,
-        refundNote,
-        availableCredit: provisionalCreditAmounts.refundDueAmount,
-      });
-
-      reallocatedUpdates = refundSettlement.updatedInvoices;
-      returnedPaidAmountForThisRefund = refundSettlement.returnedPaidAmount;
-      reallocatedPaidAmountForThisRefund = refundSettlement.reallocatedPaidAmount;
-      nextReturnedPaidAmount = roundMoney(
-        currentReturnedPaidAmount + returnedPaidAmountForThisRefund
-      );
-      nextReallocatedPaidAmount = roundMoney(
-        currentReallocatedPaidAmount + reallocatedPaidAmountForThisRefund
-      );
+      invoiceItem.returnedQuantity = Number(invoiceItem.returnedQuantity || 0) + quantity;
     }
 
-    const creditAmounts = calculateCreditAmounts(
-      invoiceTotals.totalPrice,
+    const number = await nextDocumentNumber(PREFIXES.RETURN, session);
+    const provisionalCreditAmounts = calculateCreditAmounts(
+      nextNetTotal,
       creditSale.payments,
-      nextReturnedPaidAmount,
-      nextReallocatedPaidAmount
+      creditSale.returnedPaidAmount,
+      creditSale.reallocatedPaidAmount
     );
-
-    if (!creditAmounts) {
-      res.status(400);
-      throw new Error("المبلغ المدفوع المُعاد أو المُعاد توزيعه لا يمكن أن يتجاوز إجمالي الدفعات");
-    }
-
-    if (creditAmounts.refundDueAmount > MONEY_EPSILON) {
-      res.status(400);
-      throw new Error("تعذر تسوية الرصيد الناتج عن المرتجع بالكامل");
-    }
-
-    creditSale.items = persistedItems;
-    creditSale.totalQuantity = invoiceTotals.totalQuantity;
-    creditSale.discountAmount = invoiceTotals.discountAmount;
-    creditSale.discountPercentage = undefined;
-    creditSale.shippingFees = invoiceTotals.shippingFees;
-    creditSale.totalPrice = invoiceTotals.totalPrice;
-    creditSale.returnedPaidAmount = nextReturnedPaidAmount;
-    creditSale.reallocatedPaidAmount = nextReallocatedPaidAmount;
-    applyCreditAmountsToInvoice(
-      creditSale,
-      creditAmounts,
-      isFullRefund ? REACTIONARY_CREDIT_SALE_STATUS : undefined
-    );
-    creditSale.refunds.push({
+    if (!provisionalCreditAmounts) { res.status(400); throw new Error("تعذر حساب رصيد المرتجع"); }
+    const settlement = await reallocateRefundCreditToOtherInvoices({
+      sourceCreditSale: creditSale,
       refundDate,
-      note: refundNote,
-      items: refundItems,
-      totalQuantity: refundTotals.totalQuantity,
-      totalAmount: refundTotals.totalAmount,
-      returnedPaidAmount: returnedPaidAmountForThisRefund,
-      reallocatedPaidAmount: reallocatedPaidAmountForThisRefund,
+      refundNote,
+      availableCredit: provisionalCreditAmounts.refundDueAmount,
+      returnNumber: number,
+      session,
     });
+    creditSale.returnedPaidAmount = roundMoney(Number(creditSale.returnedPaidAmount || 0) + settlement.returnedPaidAmount);
+    creditSale.reallocatedPaidAmount = roundMoney(Number(creditSale.reallocatedPaidAmount || 0) + settlement.reallocatedPaidAmount);
+    const creditAmounts = calculateCreditAmounts(
+      nextNetTotal,
+      creditSale.payments,
+      creditSale.returnedPaidAmount,
+      creditSale.reallocatedPaidAmount
+    );
+    if (!creditAmounts) { res.status(400); throw new Error("تعذر حساب رصيد المرتجع"); }
 
     const subtotalReturnedAmount = roundMoney(refundTotals.totalAmount);
-    const finalReturnedAmount = roundMoney(Math.max(0, originalTotalPrice - Number(invoiceTotals.totalPrice || 0)));
-    const returnedShippingFees = isFullRefund ? roundMoney(originalShippingFees) : 0;
+    const returnedShippingFees = isFullRefund ? roundMoney(creditSale.shippingFees || 0) : 0;
     const returnedDiscountAmount = roundMoney(Math.max(0, subtotalReturnedAmount + returnedShippingFees - finalReturnedAmount));
-    returnLog = await createReturnLog({
-      returnType: "credit", invoiceId: creditSale._id,
+    const returnLog = await createReturnLog({
+      number, returnType: "credit", invoiceId: creditSale._id, invoiceNumber: creditSale.number,
       customerName: creditSale.customerName, customerPhone: creditSale.customerPhone,
       returnDate: refundDate, note: refundNote,
       items: refundSelections.map(({ invoiceItem, quantity, returnReason }) => {
@@ -1692,49 +1743,56 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
       subtotalReturnedAmount, discountAmount: returnedDiscountAmount,
       shippingFees: returnedShippingFees, finalReturnedAmount,
       createdBy: req.user?._id ?? req.user?.id,
+    }, session);
+
+    creditSale.refunds.push({
+      refundDate, note: refundNote, items: refundItems,
+      totalQuantity: refundTotals.totalQuantity, totalAmount: finalReturnedAmount,
+      returnedPaidAmount: settlement.returnedPaidAmount,
+      reallocatedPaidAmount: settlement.reallocatedPaidAmount,
+      returnLog: returnLog._id,
     });
-    creditSale.refunds[creditSale.refunds.length - 1].returnLog = returnLog._id;
-
-    const refundHistoryTotals = buildRefundHistoryTotals(creditSale.refunds);
-    creditSale.refundedQuantity = refundHistoryTotals.refundedQuantity;
-    creditSale.refundedAmount = refundHistoryTotals.refundedAmount;
-    creditSale.refundStatus = getRefundStatus(creditSale.refunds, invoiceTotals.totalQuantity);
-
-    updatedCreditSale = await creditSale.save();
-  } catch (error) {
-    if (returnLog) { try { await ReturnLog.deleteOne({ _id: returnLog._id }); } catch (_rollbackError) {} }
-    if (reallocatedUpdates.length > 0) {
-      await rollbackCreditSaleFinancialUpdates(reallocatedUpdates);
-    }
-
-    try {
-      // Rollback of a return: back to the original invoice prices (no below-cost rule either).
-      await applyInventoryForInvoiceChange({
-        currentItems: nextItems,
-        nextItems: currentItems,
-        res,
-        allowBelowCost: true,
-      });
-    } catch (_rollbackError) {
-      // Best-effort rollback only; surface the refund failure.
-    }
-
-    throw error;
-  }
+    creditSale.refundedQuantity = nextRefundedQuantity;
+    creditSale.refundedAmount = roundMoney(previousRefundedAmount + finalReturnedAmount);
+    creditSale.refundStatus = getRefundStatus(creditSale.refunds, creditSale.totalQuantity);
+    applyCreditAmountsToInvoice(creditSale, creditAmounts, isFullRefund ? REACTIONARY_CREDIT_SALE_STATUS : undefined);
+    await creditSale.save({ session });
+    await audit(req, { action: "credit.returned", entity: "CreditSale", entityId: creditSale._id, details: { number, amount: finalReturnedAmount }, session, strict: true });
+    return creditSale;
+  });
 
   res.status(201).json(toCreditSaleInvoice(updatedCreditSale));
 });
 
-const deleteCreditSale = asyncHandler(async (req, res) => {
-  const creditSale = await CreditSale.findById(req.params.id);
-
-  if (!creditSale) {
-    res.status(404);
-    throw new Error("سجل البيع الآجل غير موجود");
+const cancelCreditSale = asyncHandler(async (req, res) => {
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (reason.length < 3 || reason.length > 500) {
+    res.status(400); throw new Error("سبب الإلغاء مطلوب ويجب أن يكون بين 3 و500 حرف");
   }
-
-  await creditSale.deleteOne();
-  res.json({ message: "Credit sale invoice deleted successfully" });
+  const updated = await withTransaction(async (session) => {
+    const invoice = await CreditSale.findById(req.params.id).session(session);
+    if (!invoice) { const error = new Error("سجل البيع الآجل غير موجود"); error.statusCode = 404; throw error; }
+    const conflict = (code, message) => { const error = new Error(message); error.statusCode = 409; error.responseData = { code }; return error; };
+    if (invoice.status === "cancelled") throw conflict("ALREADY_CANCELLED", "الفاتورة ملغية بالفعل");
+    if ((invoice.refunds || []).length) throw conflict("HAS_RETURNS", "اعمل مرتجع بدل الإلغاء");
+    const payments = invoice.payments || [];
+    if (payments.some((payment) => payment.source !== "down_payment")) throw conflict("HAS_PAYMENTS", "اعمل مرتجع بدل الإلغاء");
+    for (const item of invoice.items || []) {
+      const quantity = Number(item.quantity || 0);
+      await Product.updateOne({ _id: getCreditSaleItemProductId(item) }, { $inc: { inventoryCount: quantity, soldItemCount: -quantity } }, { session });
+    }
+    invoice.status = "cancelled";
+    invoice.cancelledAt = new Date();
+    invoice.cancelledBy = req.user?._id ?? req.user?.id;
+    invoice.cancelledByName = req.user?.name;
+    invoice.cancellationReason = reason;
+    invoice.cancelRefundAmount = roundMoney(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
+    invoice.remainingAmount = 0;
+    await invoice.save({ session });
+    await audit(req, { action: "credit.cancelled", entity: "CreditSale", entityId: invoice._id, details: { reason }, session, strict: true });
+    return invoice;
+  });
+  res.json(toCreditSaleInvoice(updated));
 });
 
 module.exports = {
@@ -1744,5 +1802,5 @@ module.exports = {
   updateCreditSale,
   addCreditSalePayment,
   addCreditSaleRefund,
-  deleteCreditSale,
+  cancelCreditSale,
 };

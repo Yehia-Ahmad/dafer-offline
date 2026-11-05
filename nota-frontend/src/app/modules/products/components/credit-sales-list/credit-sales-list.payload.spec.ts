@@ -61,12 +61,12 @@ describe('CreditSalesListComponent payloads (Stage 10)', () => {
     flushList({ customerPhone: '0100 123', page: '1', limit: '10' });
     component.setStatus('partially_paid');
     flushList({ customerPhone: '0100 123', status: 'partially_paid', page: '1', limit: '10' });
-    component.setStatus('Reactionary');
-    flushList({ customerPhone: '0100 123', status: 'Reactionary', page: '1', limit: '10' });
+    component.setStatus('returned');
+    flushList({ customerPhone: '0100 123', status: 'returned', page: '1', limit: '10' });
     component.goToPage(2);
-    flushList({ customerPhone: '0100 123', status: 'Reactionary', page: '2', limit: '10' });
+    flushList({ customerPhone: '0100 123', status: 'returned', page: '2', limit: '10' });
     component.clearSearch();
-    flushList({ status: 'Reactionary', page: '1', limit: '10' });
+    flushList({ status: 'returned', page: '1', limit: '10' });
   });
 
   it('payment: POST credit-sales/:id/payments {amount, paymentDate, note}, then the page reloads', () => {

@@ -4,6 +4,7 @@ const { ROLES, effectivePermissions, isValidPermission, normalizePermissionList,
 const { audit } = require("../auth/audit");
 const { httpError } = require("../auth/middleware");
 const { normalizeName, normalizeUsername, presentUser, validateName, validatePassword, validateUsername } = require("./auth.controller");
+const { withTransaction } = require("../utils/transaction");
 
 // Stage 13: /api/users (all routes need users.manage). There is no DELETE route: users are
 // disabled instead, so createdBy on invoices keeps pointing at a real account.
@@ -49,8 +50,8 @@ const assertCanSetLimit = (actor, target, limit) => {
 
 const currentLimit = (user) => (typeof user.maxDiscountPercent === "number" ? user.maxDiscountPercent : null);
 
-const loadTarget = async (id) => {
-  const user = await User.findById(id);
+const loadTarget = async (id, session = null) => {
+  const user = await User.findById(id).session(session);
   if (!user) throw notFound();
   return user;
 };
@@ -103,50 +104,55 @@ const createUser = asyncHandler(async (req, res) => {
   assertCanGrant(req.user, [], effectivePermissions(access));
   const maxDiscount = parseMaxDiscount(body.maxDiscountPercent);
   if (effectivePermissions(access).includes("sales.discount")) assertCanSetLimit(req.user, { _id: null }, maxDiscount ?? null);
-  if (await User.exists({ username })) throw usernameTaken();
+  const passwordHash = await User.hashSecret(body.password);
 
   let user;
   try {
-    user = await User.create({
-      name,
-      username,
-      passwordHash: await User.hashSecret(body.password),
-      ...access,
-      ...(maxDiscount !== undefined && maxDiscount !== null ? { maxDiscountPercent: maxDiscount } : {}),
+    user = await withTransaction(async (session) => {
+      if (await User.exists({ username }).session(session)) throw usernameTaken();
+      const [created] = await User.create([{
+        name,
+        username,
+        passwordHash,
+        ...access,
+        ...(maxDiscount !== undefined && maxDiscount !== null ? { maxDiscountPercent: maxDiscount } : {}),
+      }], { session });
+      await audit(req, { action: "user.created", entity: "User", entityId: created._id, details: { username, role: created.role }, session, strict: true });
+      return created;
     });
   } catch (error) {
     if (error && error.code === 11000) throw usernameTaken();
     throw error;
   }
-  await audit(req, { action: "user.created", entity: "User", entityId: user._id, details: { username, role: user.role } });
   res.status(201).json({ user: presentUser(user) });
 });
 
 const updateUser = asyncHandler(async (req, res) => {
   const body = req.body || {};
-  const target = await loadTarget(req.params.id);
-  const changes = [];
+  const target = await withTransaction(async (session) => {
+    const target = await loadTarget(req.params.id, session);
+    const changes = [];
 
-  if (isOwner(target)) {
+    if (isOwner(target)) {
     // Only the owner edits the owner, and only the name: the owner's role and permissions are fixed.
     if (!isOwner(req.user)) throw ownerProtected("فقط المالك يمكنه تعديل حساب المالك");
     if ((body.role !== undefined && body.role !== "owner") || body.permissions !== undefined) {
       throw ownerProtected("دور المالك وصلاحياته ثابتة");
     }
-  } else if (body.role === "owner") {
-    throw ownerProtected("لا يمكن تحويل مستخدم إلى مالك");
-  }
+    } else if (body.role === "owner") {
+      throw ownerProtected("لا يمكن تحويل مستخدم إلى مالك");
+    }
 
-  if (body.name !== undefined) {
+    if (body.name !== undefined) {
     const name = normalizeName(body.name);
     validateName(name);
     if (name !== target.name) {
       target.name = name;
       changes.push("name");
     }
-  }
+    }
 
-  if (!isOwner(target) && (body.role !== undefined || body.permissions !== undefined)) {
+    if (!isOwner(target) && (body.role !== undefined || body.permissions !== undefined)) {
     const before = effectivePermissions(target);
     const access = resolveAccess(body.role !== undefined ? body.role : target.role, body.permissions);
     const after = effectivePermissions(access);
@@ -163,37 +169,41 @@ const updateUser = asyncHandler(async (req, res) => {
       target.tokenVersion = Number(target.tokenVersion || 0) + 1; // the user is logged out now
       changes.push(roleChanged ? "role" : "permissions");
     }
-  }
+    }
 
   // Stage 15: the discount limit. Read on every request by the discount check, so no logout needed.
-  const maxDiscount = isOwner(target) ? undefined : parseMaxDiscount(body.maxDiscountPercent);
-  if (maxDiscount !== undefined && maxDiscount !== currentLimit(target)) {
-    assertCanSetLimit(req.user, target, maxDiscount);
-    target.maxDiscountPercent = maxDiscount === null ? undefined : maxDiscount;
-    changes.push("maxDiscountPercent");
-  }
+    const maxDiscount = isOwner(target) ? undefined : parseMaxDiscount(body.maxDiscountPercent);
+    if (maxDiscount !== undefined && maxDiscount !== currentLimit(target)) {
+      assertCanSetLimit(req.user, target, maxDiscount);
+      target.maxDiscountPercent = maxDiscount === null ? undefined : maxDiscount;
+      changes.push("maxDiscountPercent");
+    }
 
-  if (changes.length > 0) {
-    await target.save();
-    await audit(req, { action: "user.updated", entity: "User", entityId: target._id, details: { changes, role: target.role } });
-  }
+    if (changes.length > 0) {
+      await target.save({ session });
+      await audit(req, { action: "user.updated", entity: "User", entityId: target._id, details: { changes, role: target.role }, session, strict: true });
+    }
+    return target;
+  });
   res.json({ user: presentUser(target) });
 });
 
 const setUserStatus = asyncHandler(async (req, res) => {
   const body = req.body || {};
   if (typeof body.isActive !== "boolean") throw badRequest("قيمة الحالة يجب أن تكون true أو false");
-  const target = await loadTarget(req.params.id);
-  if (isOwner(target) && !isOwner(req.user)) throw ownerProtected("فقط المالك يمكنه تعديل حساب المالك");
-  if (isOwner(target) && body.isActive === false) throw ownerProtected("لا يمكن إيقاف حساب المالك");
-  if (sameUser(req.user, target) && body.isActive === false) throw cannotChangeSelf("لا يمكنك إيقاف حسابك");
-
-  if (target.isActive !== body.isActive) {
-    target.isActive = body.isActive;
-    if (!body.isActive) target.tokenVersion = Number(target.tokenVersion || 0) + 1; // logged out now
-    await target.save();
-    await audit(req, { action: "user.status_changed", entity: "User", entityId: target._id, details: { isActive: target.isActive } });
-  }
+  const target = await withTransaction(async (session) => {
+    const target = await loadTarget(req.params.id, session);
+    if (isOwner(target) && !isOwner(req.user)) throw ownerProtected("فقط المالك يمكنه تعديل حساب المالك");
+    if (isOwner(target) && body.isActive === false) throw ownerProtected("لا يمكن إيقاف حساب المالك");
+    if (sameUser(req.user, target) && body.isActive === false) throw cannotChangeSelf("لا يمكنك إيقاف حسابك");
+    if (target.isActive !== body.isActive) {
+      target.isActive = body.isActive;
+      if (!body.isActive) target.tokenVersion = Number(target.tokenVersion || 0) + 1;
+      await target.save({ session });
+      await audit(req, { action: "user.status_changed", entity: "User", entityId: target._id, details: { isActive: target.isActive }, session, strict: true });
+    }
+    return target;
+  });
   res.json({ user: presentUser(target) });
 });
 
@@ -206,11 +216,16 @@ const resetUserPassword = asyncHandler(async (req, res) => {
   }
   if (isOwner(target) && !isOwner(req.user)) throw ownerProtected("فقط المالك يمكنه تغيير كلمة مرور المالك");
   validatePassword(body.newPassword);
-  target.passwordHash = await User.hashSecret(body.newPassword);
-  target.tokenVersion = Number(target.tokenVersion || 0) + 1; // logged out now
-  await target.save();
-  await audit(req, { action: "user.password_reset", entity: "User", entityId: target._id });
-  res.json({ user: presentUser(target) });
+  const passwordHash = await User.hashSecret(body.newPassword);
+  const updated = await withTransaction(async (session) => {
+    const current = await loadTarget(target._id, session);
+    current.passwordHash = passwordHash;
+    current.tokenVersion = Number(current.tokenVersion || 0) + 1;
+    await current.save({ session });
+    await audit(req, { action: "user.password_reset", entity: "User", entityId: current._id, session, strict: true });
+    return current;
+  });
+  res.json({ user: presentUser(updated) });
 });
 
 module.exports = { createUser, getUser, listUsers, resetUserPassword, setUserStatus, updateUser };

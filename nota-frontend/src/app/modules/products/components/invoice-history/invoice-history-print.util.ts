@@ -16,6 +16,7 @@ export type InvoiceHistoryItem = {
   customerPhone: string;
   sellingDate: string | null;
   quantity: number | null;
+  returnedQuantity?: number | null;
   unitPrice: number | null;
   totalPrice: number | null;
 };
@@ -37,6 +38,9 @@ export type InvoiceHistoryRow = {
   discountPercentage: number | null;
   shippingFees: number | null;
   totalPrice: number | null;
+  netTotal?: number | null;
+  status?: 'active' | 'cancelled' | string;
+  cancellationReason?: string | null;
   items: InvoiceHistoryItem[];
   /** Display only (Stage 10 detail panel); not used by the print. */
   refundStatus?: 'none' | 'partial' | 'full' | string;

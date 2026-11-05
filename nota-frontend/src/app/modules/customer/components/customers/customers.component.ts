@@ -15,13 +15,6 @@ import { Customer, CustomerQueryParams, CustomersService } from '../../services/
 import { LanguageService } from '../../../shared/services/translation.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 
-interface CustomerDeleteConfirmation {
-  message?: string;
-  relatedCreditInvoiceCount?: number;
-  deletedCreditInvoiceCount?: number;
-  confirmationField?: string;
-}
-
 @Component({
   selector: 'app-customers',
   standalone: true,
@@ -42,8 +35,6 @@ export class CustomersComponent implements OnInit {
   selectedCustomerId: string | null = null;
   customerToDelete: Customer | null = null;
   deleteVisible = false;
-  restoreCreditInvoicesVisible = false;
-  deleteConfirmation: CustomerDeleteConfirmation | null = null;
   errorVisible = false;
   errorMessage = '';
   isFetching = false;
@@ -189,18 +180,6 @@ export class CustomersComponent implements OnInit {
 
   closeDeleteDialog(): void {
     this.deleteVisible = false;
-    if (!this.restoreCreditInvoicesVisible) {
-      this.customerToDelete = null;
-    }
-  }
-
-  closeRestoreCreditInvoicesDialog(): void {
-    if (this.isDeleting) {
-      return;
-    }
-
-    this.restoreCreditInvoicesVisible = false;
-    this.deleteConfirmation = null;
     this.customerToDelete = null;
   }
 
@@ -212,30 +191,6 @@ export class CustomersComponent implements OnInit {
 
     this.isDeleting = true;
     this._customersService.deleteCustomer(customerId).subscribe({
-      next: () => {
-        this.completeCustomerDeletion(customerId);
-        this._cdr.markForCheck();
-      },
-      error: (error: any) => {
-        this.isDeleting = false;
-        if (this.shouldAskForCreditInvoiceRestore(error)) {
-          this.openRestoreCreditInvoicesDialog(error);
-          return;
-        }
-        this.showError(this.extractErrorMessage(error, 'delete'));
-        this._cdr.markForCheck();
-      }
-    });
-  }
-
-  confirmDeleteWithCreditInvoices(restoreCreditInvoices: boolean): void {
-    const customerId = this.customerToDelete?._id;
-    if (!customerId || this.isDeleting) {
-      return;
-    }
-
-    this.isDeleting = true;
-    this._customersService.deleteCustomer(customerId, { restoreCreditInvoices }).subscribe({
       next: () => {
         this.completeCustomerDeletion(customerId);
         this._cdr.markForCheck();
@@ -304,51 +259,14 @@ export class CustomersComponent implements OnInit {
     return isArabic ? 'فشل حذف العميل.' : 'Failed to delete customer.';
   }
 
-  private shouldAskForCreditInvoiceRestore(error: any): boolean {
-    const payload = this.extractErrorPayload(error);
-    return error?.status === 409 && payload?.requiresConfirmation === true;
-  }
-
-  private openRestoreCreditInvoicesDialog(error: any): void {
-    this.deleteConfirmation = this.extractDeleteConfirmation(error);
-
-    setTimeout(() => {
-      this.deleteVisible = false;
-      this.restoreCreditInvoicesVisible = true;
-      this._cdr.markForCheck();
-    });
-  }
-
-  private extractDeleteConfirmation(error: any): CustomerDeleteConfirmation {
-    const payload = this.extractErrorPayload(error);
-    return {
-      message: typeof payload?.message === 'string' ? payload.message : undefined,
-      relatedCreditInvoiceCount: this.toOptionalNumber(payload?.relatedCreditInvoiceCount ?? payload?.creditInvoiceCount),
-      deletedCreditInvoiceCount: this.toOptionalNumber(payload?.deletedCreditInvoiceCount),
-      confirmationField: typeof payload?.confirmationField === 'string' ? payload.confirmationField : undefined
-    };
-  }
-
-  private extractErrorPayload(error: any): any {
-    if (typeof error?.error === 'object' && error.error !== null) return error.error;
-    return error;
-  }
-
   private completeCustomerDeletion(customerId: string): void {
     this.isDeleting = false;
-    this.restoreCreditInvoicesVisible = false;
-    this.deleteConfirmation = null;
     if (this.selectedCustomerId === customerId) {
       this.resetForm();
     }
     this.closeDeleteDialog();
     this.customerToDelete = null;
     this.loadCustomers(this.buildListParams());
-  }
-
-  private toOptionalNumber(value: any): number | undefined {
-    const numericValue = Number(value);
-    return Number.isFinite(numericValue) ? numericValue : undefined;
   }
 
   private showError(message: string): void {

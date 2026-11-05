@@ -12,6 +12,7 @@ export interface ReturnItem {
 
 export interface ReturnLog {
   _id: string;
+  number: string;
   returnType: ReturnType;
   invoiceId: string;
   invoiceNumber: string;

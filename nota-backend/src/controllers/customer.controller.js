@@ -2,11 +2,17 @@ const CreditSale = require("../models/creditSale.model");
 const Customer = require("../models/customer.model");
 const Product = require("../models/product.model");
 const Selling = require("../models/selling.model");
+const Receipt = require("../models/receipt.model");
+const ReturnLog = require("../models/returnLog.model");
+const mongoose = require("mongoose");
 const {
   buildCreditSaleSummary,
   toCreditSaleInvoice,
 } = require("../utils/creditSaleFormatter");
 const asyncHandler = require("../utils/asyncHandler");
+const { withTransaction } = require("../utils/transaction");
+const { PREFIXES, nextDocumentNumber } = require("../utils/documentNumber");
+const { audit } = require("../auth/audit");
 
 const OPEN_CREDIT_SALE_STATUSES = ["pending", "partially_paid"];
 const MONEY_EPSILON = 1e-9;
@@ -488,8 +494,8 @@ const updateCustomer = asyncHandler(async (req, res) => {
   res.json(updatedCustomer);
 });
 
-const addCustomerCreditSalePayment = asyncHandler(async (req, res) => {
-  const customer = await Customer.findById(req.params.id);
+const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
+  const customer = await Customer.findById(req.params.id).session(session);
 
   if (!customer) {
     res.status(404);
@@ -517,7 +523,7 @@ const addCustomerCreditSalePayment = asyncHandler(async (req, res) => {
     paymentSelection === "firstInvoice"
       ? { sellingDate: 1, createdAt: 1, _id: 1 }
       : { sellingDate: -1, createdAt: -1, _id: -1 }
-  );
+  ).session(session);
 
   if (openCreditSales.length === 0) {
     res.status(404);
@@ -564,6 +570,8 @@ const addCustomerCreditSalePayment = asyncHandler(async (req, res) => {
   const targetCreditSales =
     paymentSelection === "lastInvoice" ? openCreditSales : [selectedCreditSale];
   const pendingUpdates = [];
+  const receiptNumber = await nextDocumentNumber(PREFIXES.RECEIPT, session);
+  const receiptId = new mongoose.Types.ObjectId();
   let remainingPaymentAmount = roundMoney(amount);
 
   for (const creditSale of targetCreditSales) {
@@ -585,10 +593,13 @@ const addCustomerCreditSalePayment = asyncHandler(async (req, res) => {
       amount: payableAmount,
       paymentDate,
       note,
+      number: receiptNumber,
+      receipt: receiptId,
+      source: "receipt",
     });
 
     const creditAmounts = calculateCreditAmounts(
-      creditSale.totalPrice,
+      roundMoney(Number(creditSale.totalPrice || 0) - Number(creditSale.refundedAmount || 0)),
       creditSale.payments,
       creditSale.returnedPaidAmount,
       creditSale.reallocatedPaidAmount
@@ -618,7 +629,7 @@ const addCustomerCreditSalePayment = asyncHandler(async (req, res) => {
 
   try {
     for (const update of pendingUpdates) {
-      await update.creditSale.save();
+      await update.creditSale.save({ session });
       savedUpdates.push(update);
     }
   } catch (error) {
@@ -630,107 +641,124 @@ const addCustomerCreditSalePayment = asyncHandler(async (req, res) => {
     toCreditSaleInvoice(update.creditSale)
   );
 
-  res.status(201).json({
+  await Receipt.create([{
+    _id: receiptId,
+    number: receiptNumber,
+    customer: customer._id,
+    amount: roundMoney(amount),
+    paymentDate,
+    note,
+    kind: "payment",
+    allocations: pendingUpdates.map((update) => ({ creditSale: update.creditSale._id, amount: update.creditSale.payments.at(-1).amount })),
+  }], { session });
+  await audit(req, { action: "credit.payment", entity: "Customer", entityId: customer._id, details: { amount, number: receiptNumber }, session, strict: true });
+  return {
     message: "تم تسجيل الدفعة بنجاح",
     paymentSelection,
     invoice: updatedInvoices[0],
     invoices: updatedInvoices,
-  });
+    receiptNumber,
+  };
+};
+
+const addCustomerCreditSalePayment = asyncHandler(async (req, res) => {
+  const result = await withTransaction((session) => addCustomerCreditSalePaymentInTransaction(req, res, session));
+  if (result !== undefined) res.status(201).json(result);
 });
 
 const deleteCustomer = asyncHandler(async (req, res) => {
-  const customer = await Customer.findById(req.params.id);
+  await withTransaction(async (session) => {
+    const customer = await Customer.findById(req.params.id).session(session);
+    if (!customer) { const error = new Error("العميل غير موجود"); error.statusCode = 404; throw error; }
+    if (await CreditSale.exists({ customer: customer._id }).session(session)) {
+      const error = new Error("لا يمكن حذف العميل لوجود فواتير مرتبطة به");
+      error.statusCode = 409;
+      error.responseData = { code: "CUSTOMER_HAS_INVOICES" };
+      throw error;
+    }
+    await customer.deleteOne({ session });
+    await audit(req, { action: "customer.deleted", entity: "Customer", entityId: customer._id, session, strict: true });
+  });
+  res.json({ message: "Customer deleted successfully" });
+});
 
-  if (!customer) {
-    res.status(404);
-    throw new Error("العميل غير موجود");
-  }
+const getCustomerStatement = asyncHandler(async (req, res) => {
+  const customer = await Customer.findById(req.params.id).lean();
+  if (!customer) { res.status(404); throw new Error("العميل غير موجود"); }
+  const parseBoundary = (value, endOfDay) => {
+    if (value === undefined) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) { res.status(400); throw new Error("تنسيق التاريخ غير صالح"); }
+    if (endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(String(value))) date.setUTCHours(23, 59, 59, 999);
+    return date;
+  };
+  const from = parseBoundary(req.query.from, false);
+  const to = parseBoundary(req.query.to, true);
+  if (from && to && from > to) { res.status(400); throw new Error("from يجب أن يكون قبل to"); }
 
-  const outstandingCreditSales = await CreditSale.find({
-    customer: customer._id,
-    remainingAmount: { $gt: MONEY_EPSILON },
-  })
-    .select("_id remainingAmount status sellingDate totalPrice paidAmount")
-    .sort({ sellingDate: -1, createdAt: -1 })
-    .lean();
+  const invoices = await CreditSale.find({ customer: customer._id }).sort({ sellingDate: 1, createdAt: 1, _id: 1 }).lean();
+  const invoiceIds = invoices.map((invoice) => invoice._id);
+  const returns = await ReturnLog.find({ returnType: "credit", invoiceId: { $in: invoiceIds } }).lean();
+  const returnNumberById = new Map(returns.map((entry) => [entry._id.toString(), entry.number]));
+  const lines = [];
+  let sequence = 0;
+  const add = (line) => lines.push({ ...line, debit: roundMoney(line.debit), credit: roundMoney(line.credit), _sequence: sequence++ });
 
-  if (outstandingCreditSales.length > 0) {
-    return res.status(400).json({
-      message: "لا يمكن حذف العميل لوجود فواتير بيع آجل عليها مبالغ متبقية",
-      outstandingInvoiceCount: outstandingCreditSales.length,
-      outstandingAmount: roundMoney(
-        outstandingCreditSales.reduce(
-          (sum, creditSale) => sum + Number(creditSale.remainingAmount || 0),
-          0
-        )
-      ),
-      outstandingInvoices: outstandingCreditSales.map((creditSale) => ({
-        invoiceId: creditSale._id,
-        sellingDate: creditSale.sellingDate,
-        status: creditSale.status,
-        totalPrice: creditSale.totalPrice,
-        paidAmount: creditSale.paidAmount,
-        remainingAmount: creditSale.remainingAmount,
-      })),
+  for (const invoice of invoices) {
+    add({
+      date: invoice.sellingDate, type: "invoice", number: invoice.number,
+      description: `فاتورة آجل ${invoice.number || ""}`.trim(), debit: invoice.totalPrice, credit: 0,
     });
+    for (const payment of invoice.payments || []) {
+      if (payment.source === "return_reallocation") continue;
+      add({
+        date: payment.paymentDate, type: "payment", number: payment.number,
+        description: payment.source === "down_payment" ? "دفعة مقدمة" : "دفعة عميل",
+        debit: 0, credit: payment.amount,
+      });
+    }
+    for (const refund of invoice.refunds || []) {
+      add({
+        date: refund.refundDate, type: "return",
+        number: refund.returnLog ? returnNumberById.get(refund.returnLog.toString()) : null,
+        description: "مرتجع فاتورة آجل", debit: 0, credit: refund.totalAmount,
+      });
+    }
+    if (invoice.status === "cancelled") {
+      add({
+        date: invoice.cancelledAt || invoice.updatedAt, type: "cancel", number: invoice.number,
+        description: "إلغاء فاتورة آجل", debit: 0, credit: invoice.totalPrice,
+      });
+      const downPayment = (invoice.payments || []).find((payment) => payment.source === "down_payment");
+      if (Number(invoice.cancelRefundAmount || 0) > 0) {
+        add({
+          date: invoice.cancelledAt || invoice.updatedAt, type: "cancel", number: downPayment?.number || null,
+          description: "رد المقدم", debit: invoice.cancelRefundAmount, credit: 0,
+        });
+      }
+    }
   }
 
-  const relatedCreditSales = await CreditSale.find({ customer: customer._id });
-  const restoreCreditInvoices = getCustomerDeleteRestoreDecision(
-    req.body,
-    req.query,
-    res
-  );
-
-  if (relatedCreditSales.length > 0 && restoreCreditInvoices === undefined) {
-    return res.status(409).json({
-      message:
-        "كل فواتير البيع الآجل لهذا العميل تم تحصيلها. أكد هل تريد استرجاع هذه الفواتير إلى المخزون قبل حذف العميل.",
-      requiresConfirmation: true,
-      canDeleteCustomer: true,
-      canRestoreCreditInvoices: true,
-      confirmationField: "restoreCreditInvoices",
-      creditInvoiceCount: relatedCreditSales.length,
-      creditInvoices: relatedCreditSales.map((creditSale) => ({
-        invoiceId: creditSale._id,
-        sellingDate: creditSale.sellingDate,
-        status: creditSale.status,
-        totalPrice: creditSale.totalPrice,
-        paidAmount: creditSale.paidAmount,
-        remainingAmount: creditSale.remainingAmount,
-      })),
-    });
+  lines.sort((left, right) => new Date(left.date) - new Date(right.date) || left._sequence - right._sequence);
+  const openingBalance = roundMoney(lines.filter((line) => from && new Date(line.date) < from)
+    .reduce((balance, line) => balance + line.debit - line.credit, 0));
+  const visible = lines.filter((line) => (!from || new Date(line.date) >= from) && (!to || new Date(line.date) <= to));
+  let balance = openingBalance;
+  const responseLines = [];
+  if (from) {
+    responseLines.push({ date: from, type: "opening", number: null, description: "رصيد افتتاحي", debit: 0, credit: 0, balance });
   }
-
-  if (!restoreCreditInvoices) {
-    await CreditSale.deleteMany({ customer: customer._id });
-    await customer.deleteOne();
-    return res.json({
-      message: "Customer deleted successfully",
-      creditInvoicesRestored: false,
-      deletedCreditInvoiceCount: relatedCreditSales.length,
-    });
+  for (const line of visible) {
+    balance = roundMoney(balance + line.debit - line.credit);
+    const { _sequence, ...publicLine } = line;
+    responseLines.push({ ...publicLine, balance });
   }
-
-  const inventoryRestore = await applyInventoryRestoreForCreditSales(
-    relatedCreditSales,
-    res
-  );
-
-  try {
-    await CreditSale.deleteMany({ customer: customer._id });
-    await customer.deleteOne();
-  } catch (error) {
-    await inventoryRestore.rollback();
-    throw error;
-  }
-
+  const totalDebit = roundMoney(visible.reduce((sum, line) => sum + line.debit, 0));
+  const totalCredit = roundMoney(visible.reduce((sum, line) => sum + line.credit, 0));
   res.json({
-    message: "Customer deleted successfully",
-    creditInvoicesRestored: true,
-    deletedCreditInvoiceCount: relatedCreditSales.length,
-    restoredProductCount: inventoryRestore.restoredProductCount,
-    restoredItemCount: inventoryRestore.restoredItemCount,
+    customer: { _id: customer._id, name: customer.name, phone: customer.phone },
+    lines: responseLines,
+    totals: { openingBalance, debit: totalDebit, credit: totalCredit, balance },
   });
 });
 
@@ -740,5 +768,6 @@ module.exports = {
   createCustomer,
   updateCustomer,
   addCustomerCreditSalePayment,
+  getCustomerStatement,
   deleteCustomer,
 };

@@ -105,24 +105,6 @@
   </nota-dialog-shell>
 </p-dialog>
 
-<!-- Customer with credit invoices: restore stock or not -->
-<p-dialog [(visible)]="restoreCreditInvoicesVisible" [modal]="true" [showHeader]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
-  <nota-dialog-shell [title]="'customerPage.messages.restoreCreditInvoicesTitle' | translate" [closeLabel]="'actions.cancelButton' | translate"
-    (closed)="closeRestoreCreditInvoicesDialog()">
-    <p>{{ 'customerPage.messages.restoreCreditInvoicesConfirm' | translate }}</p>
-    @if (customerToDelete?.name) {<p class="cu__strong" dir="auto">{{ customerToDelete?.name }}</p>}
-    @if (deleteConfirmation?.message) {<p class="cu__muted">{{ deleteConfirmation?.message }}</p>}
-    @if (deleteConfirmation?.relatedCreditInvoiceCount !== undefined) {
-      <p>{{ 'customerPage.messages.relatedCreditInvoices' | translate }}: <strong class="nota-num">{{ deleteConfirmation?.relatedCreditInvoiceCount | notaNumber }}</strong></p>
-    }
-    <ng-container notaDialogFooter>
-      <button type="button" notaButton (click)="closeRestoreCreditInvoicesDialog()" [disabled]="isDeleting">{{ 'actions.cancelButton' | translate }}</button>
-      <button type="button" notaButton (click)="confirmDeleteWithCreditInvoices(false)" [disabled]="isDeleting">{{ 'customerPage.actions.deleteWithoutRestore' | translate }}</button>
-      <button type="button" notaButton="danger" (click)="confirmDeleteWithCreditInvoices(true)" [disabled]="isDeleting">{{ 'customerPage.actions.deleteWithRestore' | translate }}</button>
-    </ng-container>
-  </nota-dialog-shell>
-</p-dialog>
-
 <!-- Load / delete errors -->
 <p-dialog [(visible)]="errorVisible" [modal]="true" [showHeader]="false" [dismissableMask]="true" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
   <nota-dialog-shell [title]="'customerPage.s10.errorTitle' | translate" [closeLabel]="'customerPage.s10.ok' | translate" (closed)="closeErrorDialog()">

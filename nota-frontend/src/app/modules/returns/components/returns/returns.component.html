@@ -59,6 +59,7 @@
             <thead><tr>
               <th>{{ 'returnsPage.fields.returnDate' | translate }}</th>
               <th>{{ 'returnsPage.fields.type' | translate }}</th>
+              <th>{{ 'returnsPage.fields.returnNumber' | translate }}</th>
               <th>{{ 'returnsPage.fields.invoiceNumber' | translate }}</th>
               <th>{{ 'returnsPage.fields.customerName' | translate }}</th>
               <th>{{ 'returnsPage.fields.customerPhone' | translate }}</th>
@@ -71,6 +72,7 @@
                 <tr>
                   <td class="nota-num">{{ formatDisplayDate(item.returnDate) }}</td>
                   <td><span class="nota-pill" [class.nota-pill--info]="item.returnType === 'credit'" [class.nota-pill--neutral]="item.returnType !== 'credit'">{{ formatType(item.returnType) }}</span></td>
+                  <td class="nota-num" dir="ltr">{{ item.number || '—' }}</td>
                   <td class="nota-num" dir="ltr">{{ item.invoiceNumber || '—' }}</td>
                   <td dir="auto">{{ item.customerName || '—' }}</td>
                   <td class="nota-num" dir="ltr">{{ item.customerPhone || '—' }}</td>
@@ -223,7 +225,7 @@
 <!-- Return details (GET returns/:id) -->
 <p-dialog [visible]="detailsVisible" (visibleChange)="!$event && closeDetails()" [modal]="true" [showHeader]="false" [dismissableMask]="true"
   [draggable]="false" [resizable]="false" styleClass="nota-p-dialog rt-wide">
-  <nota-dialog-shell [title]="(selectedReturn?.invoiceNumber || ('returnsPage.dialog.invoice' | translate)) + ' · ' + ('returnsPage.dialog.title' | translate)"
+  <nota-dialog-shell [title]="(selectedReturn?.number || selectedReturn?.invoiceNumber || ('returnsPage.dialog.invoice' | translate)) + ' · ' + ('returnsPage.dialog.title' | translate)"
     [closeLabel]="'returnsPage.dialog.closeAria' | translate" (closed)="closeDetails()">
     @if (isDetailsLoading) {
       <p class="rt__state" role="status">{{ 'returnsPage.messages.loadingDetails' | translate }}</p>
@@ -231,6 +233,7 @@
       <p class="rt__msg" role="alert">{{ detailsErrorMessage }}</p>
     } @else if (selectedReturn; as item) {
       <dl class="rt__info">
+        <div><dt>{{ 'returnsPage.fields.returnNumber' | translate }}</dt><dd dir="ltr">{{ item.number || '—' }}</dd></div>
         <div><dt>{{ 'returnsPage.fields.invoiceNumber' | translate }}</dt><dd dir="ltr">{{ item.invoiceNumber || '—' }}</dd></div>
         <div><dt>{{ 'returnsPage.fields.invoiceId' | translate }}</dt><dd dir="ltr">{{ item.invoiceId || '—' }}</dd></div>
         <div><dt>{{ 'returnsPage.fields.customerName' | translate }}</dt><dd dir="auto">{{ item.customerName || '—' }}</dd></div>

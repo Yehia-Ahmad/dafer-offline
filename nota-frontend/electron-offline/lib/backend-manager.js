@@ -118,9 +118,9 @@ class BackendManager extends EventEmitter {
                     `المنفذ ${this.port} مستخدم من برنامج آخر على هذا الجهاز. غيّر المنفذ من الإعدادات أو أغلق البرنامج الآخر.`
                   )
                 : new ServiceError(
-                    'BACKEND_FAILED',
-                    `تعذر تشغيل الخادم (رمز الخروج ${code}).`,
-                    reportedError ? reportedError.message : ''
+                    reportedError?.code || 'BACKEND_FAILED',
+                    reportedError?.message || `تعذر تشغيل الخادم (رمز الخروج ${code}).`,
+                    reportedError?.detail || reportedError?.message || ''
                   )
             );
             return;

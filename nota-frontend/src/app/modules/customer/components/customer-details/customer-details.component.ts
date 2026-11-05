@@ -1,6 +1,6 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectorRef, Component, Inject, OnDestroy, OnInit, PLATFORM_ID, inject } from '@angular/core';
-import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { DatePickerModule } from 'primeng/datepicker';
@@ -55,7 +55,7 @@ type CustomerDetailsView = CustomerDetails & {
 @Component({
   selector: 'app-customer-details',
   standalone: true,
-  imports: [LockedActionComponent, NotaCanDirective, CommonModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
+  imports: [LockedActionComponent, NotaCanDirective, CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
     NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
   templateUrl: './customer-details.component.html',
   styleUrl: './customer-details.component.scss'
@@ -65,8 +65,8 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   activeTab: CustomerTab = 'statement';
   /** Running-balance statement computed from the loaded credit history (no extra request). */
   statement: CustomerStatement = { rows: [], totalDebit: 0, totalCredit: 0, balance: 0 };
-  allPayments: Array<CustomerHistoryView['payments'][number] & { invoiceId: string }> = [];
-  allRefunds: Array<CustomerHistoryView['refunds'][number] & { invoiceId: string }> = [];
+  allPayments: Array<CustomerHistoryView['payments'][number] & { invoiceId: string; invoiceNumber: string }> = [];
+  allRefunds: Array<CustomerHistoryView['refunds'][number] & { invoiceId: string; invoiceNumber: string }> = [];
   direction: 'rtl' | 'ltr' = 'ltr';
   customer: CustomerDetailsView | null = null;
   paymentForm: FormGroup;
@@ -90,6 +90,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   selectedInvoiceForPayment: CustomerHistoryView | null = null;
   selectedInvoiceForRefund: CustomerHistoryView | null = null;
   selectedInvoiceForDelete: CustomerHistoryView | null = null;
+  cancelReason = '';
   private readonly isBrowser: boolean;
   private currentCustomerId: string | null = null;
   private readonly subscriptions = new Subscription();
@@ -186,11 +187,11 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   }
 
   canAddPayment(entry: CustomerHistoryView): boolean {
-    return !!entry.id && entry.remainingAmount > 0 && entry.status !== 'paid';
+    return !!entry.id && entry.remainingAmount > 0 && !['paid', 'returned', 'cancelled'].includes(entry.status);
   }
 
   canAddRefund(entry: CustomerHistoryView): boolean {
-    return !!entry.id && entry.items.some((item) => item.productId && item.quantity > 0);
+    return !!entry.id && !['returned', 'cancelled'].includes(entry.status) && entry.items.some((item) => item.productId && item.quantity > 0);
   }
 
   printCreditInvoice(entry: CustomerHistoryView): void {
@@ -311,6 +312,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     if (!entry?.id || this.isDeletingCreditSale) return;
     this.selectedInvoiceForDelete = entry;
     this.deleteCreditErrorMessage = '';
+    this.cancelReason = '';
     this.deleteCreditDialogVisible = true;
   }
 
@@ -327,11 +329,14 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
 
     this.isDeletingCreditSale = true;
     this.deleteCreditErrorMessage = '';
-    this.creditSalesService.deleteCreditSale(invoice.id).subscribe({
+    const reason = this.cancelReason.trim();
+    if (reason.length < 3) return;
+    this.creditSalesService.cancelCreditSale(invoice.id, reason).subscribe({
       next: () => {
         this.isDeletingCreditSale = false;
         this.deleteCreditDialogVisible = false;
         this.selectedInvoiceForDelete = null;
+        this.cancelReason = '';
         if (this.currentCustomerId) this.loadCustomer(this.currentCustomerId);
       },
       error: (error: any) => {
@@ -561,6 +566,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
         const normalized = this.normalizeCustomerResponse(response);
         this.customer = normalized;
         this.rebuildDerivedViews();
+        this.loadStatement(customerId);
         this.isLoading = false;
         this.cdr.detectChanges();
       },
@@ -568,6 +574,33 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
         this.isLoading = false;
         this.errorMessage = this.extractErrorMessage(error, 'customerDetailsPage.messages.loadFailed');
       }
+    });
+  }
+
+  private loadStatement(customerId: string): void {
+    this.customersService.getCustomerStatement(customerId).subscribe({
+      next: (response: any) => {
+        const source = response?.data ?? response ?? {};
+        const lines = Array.isArray(source.lines) ? source.lines : [];
+        this.statement = {
+          rows: lines.map((line: any) => ({
+            kind: line.type === 'return' ? 'refund' : line.type,
+            date: line.date ? String(line.date) : null,
+            invoiceId: String(line.number || ''),
+            number: line.number ? String(line.number) : null,
+            description: String(line.description || ''),
+            detail: '', debit: Number(line.debit || 0), credit: Number(line.credit || 0), balance: Number(line.balance || 0),
+          })),
+          totalDebit: Number(source.totals?.debit || 0),
+          totalCredit: Number(source.totals?.credit || 0),
+          balance: Number(source.totals?.balance || 0),
+        };
+        this.cdr.detectChanges();
+      },
+      error: (error: any) => {
+        this.historyActionError = this.extractErrorMessage(error, 'customerDetailsPage.messages.loadFailed');
+        this.cdr.detectChanges();
+      },
     });
   }
 
@@ -625,10 +658,10 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     const history = (this.customer?.creditHistory ?? []) as CustomerHistoryView[];
     this.statement = buildCustomerStatement(history);
     this.allPayments = history
-      .flatMap((entry) => entry.payments.map((payment) => ({ ...payment, invoiceId: entry.invoiceId })))
+      .flatMap((entry) => entry.payments.map((payment) => ({ ...payment, invoiceId: entry.invoiceId, invoiceNumber: entry.number })))
       .sort((a, b) => String(b.paymentDate || '').localeCompare(String(a.paymentDate || '')));
     this.allRefunds = history
-      .flatMap((entry) => entry.refunds.map((refund) => ({ ...refund, invoiceId: entry.invoiceId })))
+      .flatMap((entry) => entry.refunds.map((refund) => ({ ...refund, invoiceId: entry.invoiceId, invoiceNumber: entry.number })))
       .sort((a, b) => String(b.refundDate || '').localeCompare(String(a.refundDate || '')));
   }
 

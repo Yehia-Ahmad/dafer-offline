@@ -59,7 +59,7 @@ Backend API for a warehouse system with:
 - `remainingAmount` (auto)
 - `returnedPaidAmount` (cash returned to the customer because of refunds)
 - `reallocatedPaidAmount` (paid amount moved from this invoice to later open invoices after a refund)
-- `status` (`pending`, `partially_paid`, `paid`, `Reactionary`)
+- `status` (`pending`, `partially_paid`, `paid`, `returned`)
 - `payments` (array of recorded payments)
 - `notes` (optional)
 
@@ -310,7 +310,7 @@ Sample customer payment payload:
 
 ### Credit Sales
 - `GET /api/credit-sales`
-- `GET /api/credit-sales?customerId=<customer_id>&status=<pending|partially_paid|paid|Reactionary>&sellingDate=<YYYY-MM-DD>`
+- `GET /api/credit-sales?customerId=<customer_id>&status=<pending|partially_paid|paid|returned>&sellingDate=<YYYY-MM-DD>`
 - `GET /api/credit-sales/:id`
 - `POST /api/credit-sales`
 - `PUT /api/credit-sales/:id`
@@ -457,7 +457,7 @@ Sample full refund payload:
 ```
 
 When the full invoice is returned, the backend also returns the invoice `paidAmount` automatically and stores it in `returnedPaidAmount`, so the invoice net `paidAmount` becomes `0`.
-When the full invoice is returned, the invoice `status` becomes `Reactionary`.
+When the full invoice is returned, the invoice `status` becomes `returned`.
 When a partial return makes the invoice overpaid, the backend reallocates that overpaid amount to the customer's other open credit invoices before returning any leftover cash.
 
 ### Sellings

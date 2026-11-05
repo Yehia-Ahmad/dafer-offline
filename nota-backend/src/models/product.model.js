@@ -5,6 +5,9 @@ const { calculatePriceAfterDiscount } = require("../utils/productPricing");
 
 const productSchema = new mongoose.Schema(
   {
+    isArchived: { type: Boolean, index: true },
+    archivedAt: Date,
+    archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     name: {
       type: String,
       required: [true, "اسم المنتج مطلوب"],

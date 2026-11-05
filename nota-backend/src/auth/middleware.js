@@ -252,6 +252,7 @@ module.exports = {
   costStrip,
   forbidden,
   httpError,
+  hasPermission,
   isLoopback,
   isPublicPath,
   localOnly,

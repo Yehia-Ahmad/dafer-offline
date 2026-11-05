@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { removeNullishFieldsParams } from '../../../core/utilities/helper-function';
 
-export type CreditSaleStatus = 'pending' | 'partially_paid' | 'paid';
+export type CreditSaleStatus = 'pending' | 'partially_paid' | 'paid' | 'returned' | 'cancelled';
 
 export interface CreditSaleFilters {
   customerId?: string;
@@ -14,6 +14,7 @@ export interface CreditSaleFilters {
   dueDate?: string;
   page?: number;
   limit?: number;
+  number?: string;
 }
 
 export interface CreditSaleItemPayload {
@@ -67,8 +68,8 @@ export class CreditSalesService {
     return this._http.put(`${this._baseUrl}credit-sales/${id}`, payload);
   }
 
-  deleteCreditSale(id: string) {
-    return this._http.delete(`${this._baseUrl}credit-sales/${id}`);
+  cancelCreditSale(id: string, reason: string) {
+    return this._http.post(`${this._baseUrl}credit-sales/${id}/cancel`, { reason });
   }
 
   recordPayment(id: string, payload: CreditSalePaymentPayload) {

@@ -115,7 +115,8 @@ it("dashboard summary: a cash invoice with a return counts net of the returned i
   const shown = await call("GET", `/api/sellings/${selling._id}`);
   const { json } = await call("GET", "/api/dashboard/summary");
   assert.equal(shown.status, 200, JSON.stringify(shown.json));
-  assert.equal(shown.json.totalPrice, 200);
+  assert.equal(shown.json.totalPrice, 300);
+  assert.equal(shown.json.netTotal, 200);
   assert.deepEqual(json.today.cash, { total: 200, count: 1 });
   assert.equal(json.recentInvoices[0].total, 200);
 });

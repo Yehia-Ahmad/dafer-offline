@@ -1,6 +1,8 @@
 const Category = require("../models/category.model");
 const Product = require("../models/product.model");
 const asyncHandler = require("../utils/asyncHandler");
+const { withTransaction } = require("../utils/transaction");
+const { audit } = require("../auth/audit");
 
 const getSpecificationsFromBody = (body) =>
   body.specifications !== undefined ? body.specifications : body.Specifications;
@@ -98,16 +100,16 @@ const updateCategory = asyncHandler(async (req, res) => {
 });
 
 const deleteCategory = asyncHandler(async (req, res) => {
-  const category = await Category.findById(req.params.id);
-
-  if (!category) {
-    res.status(404);
-    throw new Error("الفئة غير موجودة");
-  }
-
-  await Product.deleteMany({ category: category._id });
-
-  await category.deleteOne();
+  await withTransaction(async (session) => {
+    const category = await Category.findById(req.params.id).session(session);
+    if (!category) { const error = new Error("الفئة غير موجودة"); error.statusCode = 404; throw error; }
+    if (await Product.exists({ category: category._id }).session(session)) {
+      const error = new Error("لا يمكن حذف فئة تحتوي على منتجات");
+      error.statusCode = 409; error.responseData = { code: "CATEGORY_NOT_EMPTY" }; throw error;
+    }
+    await category.deleteOne({ session });
+    await audit(req, { action: "category.deleted", entity: "Category", entityId: category._id, session, strict: true });
+  });
   res.json({ message: "Category deleted successfully" });
 });
 

@@ -9,6 +9,9 @@ const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { buildPaginatedResponse, getPaginationParams } = require("../utils/pagination");
 const { canSellBelowCost } = require("../auth/middleware");
 const { actorFields } = require("../utils/actorFields");
+const { PREFIXES, nextDocumentNumber, normalizeNumberSearch } = require("../utils/documentNumber");
+const { withTransaction } = require("../utils/transaction");
+const { audit } = require("../auth/audit");
 
 const getRawQuantity = (body) => {
   if (body.quantity !== undefined) return body.quantity;
@@ -367,6 +370,7 @@ const toSellingInvoiceItem = (item, selling, options = {}) => {
     productPricePerEach: item.unitPrice,
     purchasePrice: item.purchasePrice ?? 0,
     profitAmount: item.profitAmount ?? 0,
+    returnedQuantity: item.returnedQuantity ?? refundedForItem(selling, item._id),
     totalPrice: item.totalPrice,
   };
 
@@ -391,11 +395,10 @@ const toSellingInvoice = (selling, options = {}) => {
 
   return {
     _id: selling._id,
+    number: selling.number ?? null,
     invoiceId: getInvoiceIdentifier(selling),
     customerName: selling.customerName,
     customerPhone: selling.customerPhone ?? null,
-    shippingLocation: selling.shippingLocation ?? null,
-    government: selling.government ?? null,
     sellingDate: selling.sellingDate,
     itemCount: items.length,
     totalQuantity: options.excludeRefundedItems
@@ -403,13 +406,20 @@ const toSellingInvoice = (selling, options = {}) => {
       : selling.totalQuantity ?? totals.totalQuantity,
     discountAmount: totals.discountAmount,
     shippingFees: selling.shippingFees ?? totals.shippingFees,
-    totalPrice: options.excludeRefundedItems ? totals.totalPrice : selling.totalPrice ?? totals.totalPrice,
+    totalPrice: selling.totalPrice ?? totals.totalPrice,
+    netTotal: roundMoney(Math.max(0, Number(selling.totalPrice ?? totals.totalPrice) - Number(selling.refundedAmount || 0))),
     totalProfit: roundMoney(
       items.reduce((sum, item) => sum + Number(item.profitAmount || 0), 0) - totals.discountAmount
     ),
     refundStatus: selling.refundStatus ?? "none",
     refundedQuantity: selling.refundedQuantity ?? 0,
     refundedAmount: selling.refundedAmount ?? 0,
+    status: selling.status ?? "active",
+    cancelledAt: selling.cancelledAt ?? null,
+    cancelledBy: selling.cancelledBy ?? null,
+    cancelledByName: selling.cancelledByName ?? null,
+    cancellationReason: selling.cancellationReason ?? null,
+    cancelRefundAmount: selling.cancelRefundAmount ?? 0,
     refunds: (selling.refunds || []).map((refund) => ({
       _id: refund._id,
       refundDate: refund.refundDate,
@@ -476,7 +486,7 @@ const normalizeRefundSelections = (selling, body, res) => {
   return [...selections.values()];
 };
 
-const ensureCustomerExistsForSelling = async ({ customerName, customerPhone }) => {
+const ensureCustomerExistsForSelling = async ({ customerName, customerPhone, session }) => {
   if (
     typeof customerName !== "string" ||
     !customerName.trim() ||
@@ -489,7 +499,7 @@ const ensureCustomerExistsForSelling = async ({ customerName, customerPhone }) =
   const existingCustomer = await Customer.findOne({
     name: customerName,
     phone: customerPhone,
-  });
+  }).session(session || null);
 
   if (existingCustomer) {
     return existingCustomer;
@@ -506,6 +516,7 @@ const ensureCustomerExistsForSelling = async ({ customerName, customerPhone }) =
       runValidators: true,
       upsert: true,
       setDefaultsOnInsert: true,
+      session,
     }
   );
 };
@@ -544,6 +555,7 @@ const applyInventoryForInvoiceChange = async ({
   inventoryAdjustmentsByProductId = new Map(),
   // Stage 13: true only with NOTA_AUTH=1 for a user with sales.priceBelowCost (canSellBelowCost).
   allowBelowCost = false,
+  session,
 }) => {
   const currentQuantityByProductId = buildQuantityByProductId(currentItems);
   const nextQuantityByProductId = buildQuantityByProductId(nextItems);
@@ -556,7 +568,7 @@ const applyInventoryForInvoiceChange = async ({
     return new Map();
   }
 
-  const products = await Product.find({ _id: { $in: allProductIds } }).populate("category", "name");
+  const products = await Product.find({ _id: { $in: allProductIds } }).populate("category", "name").session(session || null);
   const productsById = new Map(products.map((product) => [product._id.toString(), product]));
   const originalStates = new Map();
 
@@ -632,17 +644,22 @@ const applyInventoryForInvoiceChange = async ({
       const autoRestockedQuantity = Number(autoRestockedByProductId.get(productId) || 0);
       const inventoryAdjustment = Number(inventoryAdjustmentsByProductId.get(productId) || 0);
 
-      product.inventoryCount =
-        originalState.inventoryCount +
-        currentQuantity -
-        nextQuantity +
-        autoRestockedQuantity +
-        inventoryAdjustment;
-      product.soldItemCount = Math.max(
-        0,
-        originalState.soldItemCount - currentQuantity + nextQuantity
-      );
-      await product.save();
+      if (autoRestockedQuantity > 0) {
+        await Product.updateOne({ _id: product._id }, { $inc: { inventoryCount: autoRestockedQuantity } }, { session });
+      }
+      const inventoryDelta = currentQuantity - nextQuantity + inventoryAdjustment;
+      const soldDelta = nextQuantity - currentQuantity;
+      const filter = { _id: product._id };
+      if (inventoryDelta < 0) filter.inventoryCount = { $gte: -inventoryDelta };
+      const result = await Product.updateOne(filter, { $inc: { inventoryCount: inventoryDelta, soldItemCount: soldDelta } }, { session });
+      if (result.matchedCount === 0) {
+        const stockError = new Error("الكمية المطلوبة غير متوفرة بالكامل في المخزون");
+        stockError.statusCode = 409;
+        stockError.responseData = { code: "INSUFFICIENT_INVENTORY" };
+        throw stockError;
+      }
+      product.inventoryCount = originalState.inventoryCount + autoRestockedQuantity + inventoryDelta;
+      product.soldItemCount = Math.max(0, originalState.soldItemCount + soldDelta);
     }
   } catch (error) {
     for (const productId of allProductIds) {
@@ -654,7 +671,7 @@ const applyInventoryForInvoiceChange = async ({
       product.soldItemCount = originalState.soldItemCount;
 
       try {
-        await product.save();
+        await product.save({ session });
       } catch (_saveError) {
         // Best-effort rollback only; surface the original failure.
       }
@@ -692,28 +709,18 @@ const hasLineItemChanges = (body) =>
   body.price !== undefined ||
   getRawQuantity(body) !== undefined;
 
-const createSellingInvoice = async ({ body, res, options = {}, allowBelowCost = false }) => {
+const createSellingInvoice = async ({ body, res, allowBelowCost = false, session, number }) => {
   const { customerName, customerPhone } = body;
   const normalizedCustomerName = normalizeRequiredString(customerName, "اسم العميل", res);
   const normalizedCustomerPhone = normalizeRequiredString(customerPhone, "رقم هاتف العميل", res);
-  const normalizedShippingLocation = options.requireShippingLocation
-    ? normalizeRequiredString(body.shippingLocation, "عنوان الشحن", res)
-    : normalizeOptionalString(body.shippingLocation, "عنوان الشحن", res);
-  const normalizedGovernment = options.requireGovernment
-    ? normalizeRequiredString(body.government, "المحافظة", res)
-    : normalizeOptionalString(body.government, "المحافظة", res);
-  const normalizedSellingDate =
-    body.sellingDate === undefined && options.defaultSellingDate
-      ? options.defaultSellingDate
-      : normalizeSellingDate(body.sellingDate, res);
-  const items = normalizeSellingItems(body, res, {
-    defaultQuantity: options.defaultQuantity,
-  });
+  const normalizedSellingDate = normalizeSellingDate(body.sellingDate, res);
+  const items = normalizeSellingItems(body, res);
   const invoicePricing = resolveInvoicePricing(body, {}, res);
 
   await ensureCustomerExistsForSelling({
     customerName: normalizedCustomerName,
     customerPhone: normalizedCustomerPhone,
+    session,
   });
 
   const productsById = await applyInventoryForInvoiceChange({
@@ -722,30 +729,32 @@ const createSellingInvoice = async ({ body, res, options = {}, allowBelowCost = 
     res,
     allowInsufficientInventory: body.confirmInsufficientInventory === true,
     allowBelowCost,
+    session,
   });
   const persistedItems = buildPersistedItems(items, productsById);
   const invoiceTotals = buildInvoiceTotals(persistedItems, invoicePricing);
   let selling;
 
   try {
-    selling = await Selling.create({
+    const created = await Selling.create([{
+      number,
       customerName: normalizedCustomerName,
       customerPhone: normalizedCustomerPhone,
-      shippingLocation: normalizedShippingLocation,
-      government: normalizedGovernment,
       sellingDate: normalizedSellingDate,
       items: persistedItems,
       totalQuantity: invoiceTotals.totalQuantity,
       discountAmount: invoiceTotals.discountAmount,
       shippingFees: invoiceTotals.shippingFees,
       totalPrice: invoiceTotals.totalPrice,
-    });
+    }], { session });
+    selling = created[0];
   } catch (error) {
     try {
       await applyInventoryForInvoiceChange({
         currentItems: items,
         nextItems: [],
         res,
+        session,
         inventoryAdjustmentsByProductId: new Map(
           [...productsById.autoRestockedByProductId.entries()].map(
             ([productId, quantity]) => [productId, -quantity]
@@ -763,19 +772,28 @@ const createSellingInvoice = async ({ body, res, options = {}, allowBelowCost = 
 };
 
 const createSelling = asyncHandler(async (req, res) => {
-  const selling = await createSellingInvoice({
-    body: req.body,
-    res,
-    allowBelowCost: canSellBelowCost(req),
+  const selling = await withTransaction(async (session) => {
+    const number = await require("../utils/documentNumber").nextDocumentNumber(PREFIXES.CASH_INVOICE, session);
+    const created = await createSellingInvoice({
+      body: req.body,
+      res,
+      allowBelowCost: canSellBelowCost(req),
+      session,
+      number,
+    });
+    await audit(req, { action: "sale.created", entity: "Selling", entityId: created._id, session, strict: true });
+    return created;
   });
 
   res.status(201).json(toSellingInvoice(selling));
 });
 
 const getSellings = asyncHandler(async (req, res) => {
-  const { categoryId, productId, customerName, customerPhone, sellingDate } = req.query;
-  const sellingQuery = { refundStatus: { $ne: "full" } };
+  const { categoryId, productId, customerName, customerPhone, sellingDate, number } = req.query;
+  const sellingQuery = {};
   const { page, limit, skip } = getPaginationParams(req.query);
+
+  if (number !== undefined) sellingQuery.number = normalizeNumberSearch(number, PREFIXES.CASH_INVOICE);
 
   if (
     categoryId !== undefined &&
@@ -895,25 +913,23 @@ const getSellingById = asyncHandler(async (req, res) => {
     throw new Error("سجل البيع غير موجود");
   }
 
-  if (selling.refundStatus === "full") {
-    res.status(404);
-    throw new Error("سجل البيع غير موجود");
-  }
-
   res.json(
     toSellingInvoice(selling, {
       includeProductCode: true,
-      excludeRefundedItems: true,
     })
   );
 });
 
-const updateSelling = asyncHandler(async (req, res) => {
-  const selling = await Selling.findById(req.params.id);
+const updateSellingInTransaction = async (req, res, session) => {
+  const selling = await Selling.findById(req.params.id).session(session);
 
   if (!selling) {
     res.status(404);
     throw new Error("سجل البيع غير موجود");
+  }
+  if (selling.status === "cancelled") {
+    const error = new Error("لا يمكن تعديل فاتورة ملغية");
+    error.statusCode = 409; error.responseData = { code: "CANCELLED" }; throw error;
   }
 
   const normalizedCustomerName =
@@ -924,10 +940,6 @@ const updateSelling = asyncHandler(async (req, res) => {
     req.body.customerPhone !== undefined
       ? normalizeRequiredString(req.body.customerPhone, "رقم هاتف العميل", res)
       : selling.customerPhone;
-  const normalizedShippingLocation =
-    req.body.shippingLocation !== undefined
-      ? normalizeOptionalString(req.body.shippingLocation, "عنوان الشحن", res)
-      : selling.shippingLocation;
   const normalizedSellingDate =
     req.body.sellingDate !== undefined
       ? normalizeSellingDate(req.body.sellingDate, res)
@@ -983,12 +995,14 @@ const updateSelling = asyncHandler(async (req, res) => {
       nextItems,
       res,
       allowBelowCost: canSellBelowCost(req),
+      session,
     });
   }
 
   await ensureCustomerExistsForSelling({
     customerName: normalizedCustomerName,
     customerPhone: normalizedCustomerPhone,
+    session,
   });
 
   if (shouldUpdateItems) {
@@ -1016,12 +1030,11 @@ const updateSelling = asyncHandler(async (req, res) => {
 
   selling.customerName = normalizedCustomerName;
   selling.customerPhone = normalizedCustomerPhone;
-  selling.shippingLocation = normalizedShippingLocation;
   selling.sellingDate = normalizedSellingDate;
 
   let updatedSelling;
   try {
-    updatedSelling = await selling.save();
+    updatedSelling = await selling.save({ session });
   } catch (error) {
     if (shouldUpdateItems) {
       try {
@@ -1029,6 +1042,7 @@ const updateSelling = asyncHandler(async (req, res) => {
           currentItems: nextItems,
           nextItems: currentItems,
           res,
+          session,
         });
       } catch (_rollbackError) {
         // Best-effort rollback only; surface the update failure.
@@ -1038,117 +1052,129 @@ const updateSelling = asyncHandler(async (req, res) => {
     throw error;
   }
 
-  res.json(toSellingInvoice(updatedSelling));
+  await audit(req, { action: "sale.updated", entity: "Selling", entityId: selling._id, session, strict: true });
+  return updatedSelling;
+};
+
+const updateSelling = asyncHandler(async (req, res) => {
+  const updated = await withTransaction((session) => updateSellingInTransaction(req, res, session));
+  res.json(toSellingInvoice(updated));
 });
 
-const deleteSelling = asyncHandler(async (req, res) => {
-  const selling = await Selling.findById(req.params.id);
-
-  if (!selling) {
-    res.status(404);
-    throw new Error("سجل البيع غير موجود");
+const cancelSelling = asyncHandler(async (req, res) => {
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (reason.length < 3 || reason.length > 500) {
+    res.status(400);
+    throw new Error("سبب الإلغاء مطلوب ويجب أن يكون بين 3 و500 حرف");
   }
-
-  await selling.deleteOne();
-  res.json({ message: "Selling invoice deleted successfully" });
+  const updated = await withTransaction(async (session) => {
+    const selling = await Selling.findById(req.params.id).session(session);
+    if (!selling) { const error = new Error("سجل البيع غير موجود"); error.statusCode = 404; throw error; }
+    if (selling.status === "cancelled") {
+      const error = new Error("الفاتورة ملغية بالفعل");
+      error.statusCode = 409; error.responseData = { code: "ALREADY_CANCELLED" }; throw error;
+    }
+    for (const item of getSellingItems(selling)) {
+      const returned = refundedForItem(selling, item._id);
+      const quantity = Math.max(0, Number(item.quantity || 0) - returned);
+      if (!quantity) continue;
+      await Product.updateOne(
+        { _id: getSellingItemProductId(item) },
+        { $inc: { inventoryCount: quantity, soldItemCount: -quantity } },
+        { session }
+      );
+    }
+    selling.status = "cancelled";
+    selling.cancelledAt = new Date();
+    selling.cancelledBy = req.user?._id ?? req.user?.id;
+    selling.cancelledByName = req.user?.name;
+    selling.cancellationReason = reason;
+    selling.cancelRefundAmount = roundMoney(Math.max(0, Number(selling.totalPrice || 0) - Number(selling.refundedAmount || 0)));
+    await selling.save({ session });
+    await audit(req, { action: "sale.cancelled", entity: "Selling", entityId: selling._id, details: { reason }, session, strict: true });
+    return selling;
+  });
+  res.json(toSellingInvoice(updated));
 });
 
 const addSellingRefund = asyncHandler(async (req, res) => {
-  const selling = await Selling.findById(req.params.id);
-  if (!selling) { res.status(404); throw new Error("سجل البيع غير موجود"); }
-
-  const selections = normalizeRefundSelections(selling, req.body, res);
-  const refundDate = new Date(req.body.returnDate ?? req.body.refundDate ?? Date.now());
-  if (Number.isNaN(refundDate.getTime())) { res.status(400); throw new Error("تنسيق تاريخ المرتجع غير صالح"); }
-  const note = req.body.note;
-  if (note !== undefined && (typeof note !== "string" || note.trim().length > 1000)) { res.status(400); throw new Error("ملاحظة المرتجع غير صالحة"); }
-
-  const productIds = [...new Set(selections.map(({ invoiceItem }) => getSellingItemProductId(invoiceItem).toString()))];
-  const products = await Product.find({ _id: { $in: productIds } });
-  if (products.length !== productIds.length) { res.status(404); throw new Error("تعذر العثور على أحد منتجات المرتجع"); }
-  const productsById = new Map(products.map((product) => [product._id.toString(), product]));
-  const snapshots = products.map((product) => ({ product, inventoryCount: Number(product.inventoryCount || 0), soldItemCount: Number(product.soldItemCount || 0) }));
-  const refundItems = selections.map(({ invoiceItem, quantity, returnReason }) => {
-    const unitPrice = roundMoney(invoiceItem.unitPrice || 0);
-    return { invoiceItemId: invoiceItem._id, product: getSellingItemProductId(invoiceItem), productName: invoiceItem.productName, quantity, unitPrice, totalPrice: roundMoney(unitPrice * quantity), returnReason };
-  });
-  const totalQuantity = refundItems.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotalReturnedAmount = roundMoney(refundItems.reduce((sum, item) => sum + item.totalPrice, 0));
-  const originalInvoiceTotals = buildInvoiceTotals(getSellingItems(selling), {
-    discountAmount: selling.discountAmount,
-    discountPercentage: selling.discountPercentage,
-    shippingFees: selling.shippingFees,
-  });
-  const invoiceQuantity = Number(selling.totalQuantity ?? originalInvoiceTotals.totalQuantity);
-  const previousRefundedQuantity = (selling.refunds || []).reduce(
-    (sum, refund) => sum + Number(refund.totalQuantity || 0),
-    0
-  );
-  const previousRefundedAmount = (selling.refunds || []).reduce(
-    (sum, refund) => sum + Number(refund.totalAmount || 0),
-    0
-  );
-  const isFull = previousRefundedQuantity + totalQuantity === invoiceQuantity;
-  const discountAmount = isFull ? originalInvoiceTotals.discountAmount : 0;
-  const shippingFees = isFull ? originalInvoiceTotals.shippingFees : 0;
-  const finalReturnedAmount = roundMoney(Math.max(0, subtotalReturnedAmount - discountAmount + shippingFees));
-  let returnLog;
-
-  try {
-    for (const { invoiceItem, quantity } of selections) {
-      const product = productsById.get(getSellingItemProductId(invoiceItem).toString());
-      product.inventoryCount = Number(product.inventoryCount || 0) + quantity;
-      product.soldItemCount = Math.max(0, Number(product.soldItemCount || 0) - quantity);
+  const result = await withTransaction(async (session) => {
+    const selling = await Selling.findById(req.params.id).session(session);
+    if (!selling) { const error = new Error("سجل البيع غير موجود"); error.statusCode = 404; throw error; }
+    if (selling.status === "cancelled") {
+      const error = new Error("لا يمكن عمل مرتجع لفاتورة ملغية");
+      error.statusCode = 409; error.responseData = { code: "CANCELLED" }; throw error;
     }
-    for (const product of products) await product.save();
+    if (selling.refundStatus === "full") {
+      const error = new Error("تم إرجاع الفاتورة بالكامل بالفعل");
+      error.statusCode = 409; error.responseData = { code: "FULLY_RETURNED" }; throw error;
+    }
 
-    returnLog = await createReturnLog({
-      returnType: "cash", invoiceId: selling._id, invoiceNumber: selling.invoiceId?.toString(),
+    const selections = normalizeRefundSelections(selling, req.body, res);
+    const refundDate = new Date(req.body.returnDate ?? req.body.refundDate ?? Date.now());
+    if (Number.isNaN(refundDate.getTime())) { res.status(400); throw new Error("تنسيق تاريخ المرتجع غير صالح"); }
+    const note = req.body.note;
+    if (note !== undefined && (typeof note !== "string" || note.trim().length > 1000)) { res.status(400); throw new Error("ملاحظة المرتجع غير صالحة"); }
+
+    const productIds = [...new Set(selections.map(({ invoiceItem }) => getSellingItemProductId(invoiceItem).toString()))];
+    const products = await Product.find({ _id: { $in: productIds } }).session(session);
+    if (products.length !== productIds.length) { res.status(404); throw new Error("تعذر العثور على أحد منتجات المرتجع"); }
+    const productsById = new Map(products.map((product) => [product._id.toString(), product]));
+    const refundItems = selections.map(({ invoiceItem, quantity, returnReason }) => {
+      const unitPrice = roundMoney(invoiceItem.unitPrice || 0);
+      return { invoiceItemId: invoiceItem._id, product: getSellingItemProductId(invoiceItem), productName: invoiceItem.productName, quantity, unitPrice, totalPrice: roundMoney(unitPrice * quantity), returnReason };
+    });
+    const totalQuantity = refundItems.reduce((sum, item) => sum + item.quantity, 0);
+    const subtotalReturnedAmount = roundMoney(refundItems.reduce((sum, item) => sum + item.totalPrice, 0));
+    const previousRefundedQuantity = Number(selling.refundedQuantity || 0);
+    const previousRefundedAmount = roundMoney(selling.refundedAmount || 0);
+    const invoiceQuantity = Number(selling.totalQuantity ?? getSellingItems(selling).reduce((sum, item) => sum + Number(item.quantity || 0), 0));
+    const isFull = previousRefundedQuantity + totalQuantity === invoiceQuantity;
+    const finalReturnedAmount = isFull
+      ? roundMoney(Math.max(0, Number(selling.totalPrice || 0) - previousRefundedAmount))
+      : subtotalReturnedAmount;
+    const discountAmount = roundMoney(Math.max(0, subtotalReturnedAmount - finalReturnedAmount));
+    const shippingFees = roundMoney(Math.max(0, finalReturnedAmount - subtotalReturnedAmount));
+
+    for (const { invoiceItem, quantity } of selections) {
+      const productId = getSellingItemProductId(invoiceItem);
+      await Product.updateOne(
+        { _id: productId },
+        { $inc: { inventoryCount: quantity, soldItemCount: -quantity } },
+        { session }
+      );
+      const storedItem = selling.items?.id(invoiceItem._id);
+      if (storedItem) storedItem.returnedQuantity = Number(storedItem.returnedQuantity || 0) + quantity;
+    }
+
+    const number = await nextDocumentNumber(PREFIXES.RETURN, session);
+    const returnLog = await createReturnLog({
+      number, returnType: "cash", invoiceId: selling._id, invoiceNumber: selling.number,
       customerName: selling.customerName, customerPhone: selling.customerPhone,
       returnDate: refundDate, note: note?.trim() || undefined,
       items: refundItems.map((item) => ({ productId: item.product, productName: item.productName, productCode: productsById.get(item.product.toString()).code, quantity: item.quantity, price: item.unitPrice, total: item.totalPrice, returnReason: item.returnReason })),
       subtotalReturnedAmount, discountAmount, shippingFees, finalReturnedAmount,
       createdBy: req.user?._id ?? req.user?.id,
-    });
+    }, session);
     selling.refunds.push({ refundDate, note: note?.trim() || undefined, items: refundItems, totalQuantity, totalAmount: finalReturnedAmount, returnLog: returnLog._id });
     selling.refundedQuantity = previousRefundedQuantity + totalQuantity;
     selling.refundedAmount = roundMoney(previousRefundedAmount + finalReturnedAmount);
     selling.refundStatus = isFull ? "full" : "partial";
-    await selling.save();
-    if (isFull) {
-      await selling.deleteOne();
-    }
-  } catch (error) {
-    if (returnLog) { try { await ReturnLog.deleteOne({ _id: returnLog._id }); } catch (_rollbackError) {} }
-    for (const snapshot of snapshots) {
-      snapshot.product.inventoryCount = snapshot.inventoryCount;
-      snapshot.product.soldItemCount = snapshot.soldItemCount;
-      try { await snapshot.product.save(); } catch (_rollbackError) {}
-    }
-    throw error;
-  }
+    await selling.save({ session });
+    await audit(req, { action: "sale.returned", entity: "Selling", entityId: selling._id, details: { number, amount: finalReturnedAmount }, session, strict: true });
+    return { selling, returnLog };
+  });
 
-  if (isFull) {
-    return res.status(201).json({
-      success: true,
-      data: {
-        deletedInvoiceId: selling._id,
-        returnLog,
-      },
-    });
-  }
-
-  await selling.populate("items.product", "code");
-  await selling.populate("product", "code");
-  await selling.populate("refunds.items.product", "code");
+  await result.selling.populate("items.product", "code");
+  await result.selling.populate("product", "code");
+  await result.selling.populate("refunds.items.product", "code");
   res.status(201).json({
     success: true,
     data: {
-      invoice: toSellingInvoice(selling, {
+      invoice: toSellingInvoice(result.selling, {
         includeProductCode: true,
-        excludeRefundedItems: true,
       }),
-      returnLog,
+      returnLog: result.returnLog,
     },
   });
 });
@@ -1160,6 +1186,6 @@ module.exports = {
   getSellingById,
   updateSelling,
   addSellingRefund,
-  deleteSelling,
+  cancelSelling,
   toSellingInvoice,
 };

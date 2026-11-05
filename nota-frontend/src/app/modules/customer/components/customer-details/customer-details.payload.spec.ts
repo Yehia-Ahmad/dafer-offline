@@ -31,6 +31,9 @@ describe('CustomerDetailsComponent payloads (Stage 10 safety)', () => {
     const req = http.expectOne(`${base}customers/cu1`);
     expect(req.request.method).toBe('GET');
     req.flush(customer);
+    const statement = http.expectOne(`${base}customers/cu1/statement`);
+    expect(statement.request.method).toBe('GET');
+    statement.flush({ lines: [], totals: { debit: 0, credit: 0, balance: 0 } });
   };
   const history = () => component.customer!.creditHistory as any[];
 
@@ -121,11 +124,13 @@ describe('CustomerDetailsComponent payloads (Stage 10 safety)', () => {
     http.expectNone(`${base}returns`);
   });
 
-  it('delete credit invoice: DELETE credit-sales/:id, then reload', () => {
+  it('cancel credit invoice: POST credit-sales/:id/cancel with reason, then reload', () => {
     component.openDeleteCreditDialog(history()[1]);
+    component.cancelReason = '  إدخال خاطئ  ';
     component.deleteCreditInvoice();
-    const req = http.expectOne(`${base}credit-sales/cs1`);
-    expect(req.request.method).toBe('DELETE');
+    const req = http.expectOne(`${base}credit-sales/cs1/cancel`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ reason: 'إدخال خاطئ' });
     req.flush({});
     flushCustomer();
   });

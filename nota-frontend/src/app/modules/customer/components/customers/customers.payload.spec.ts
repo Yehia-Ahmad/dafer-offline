@@ -96,23 +96,15 @@ describe('CustomersComponent payloads (Stage 10 safety)', () => {
     expectList({});
   });
 
-  it('delete with credit invoices: 409 → resend with {restoreCreditInvoices}', (done) => {
+  it('delete with credit invoices: 409 is shown and is not retried', () => {
     component.promptDelete(customers[0]);
     component.deleteCustomer();
     http.expectOne(`${base}customers/cu1`).flush(
-      { message: 'له فواتير آجلة', requiresConfirmation: true, relatedCreditInvoiceCount: 2 },
+      { code: 'CUSTOMER_HAS_INVOICES', message: 'له فواتير آجلة' },
       { status: 409, statusText: 'Conflict' }
     );
-    setTimeout(() => {
-      expect(component.restoreCreditInvoicesVisible).toBeTrue();
-      expect(component.deleteConfirmation?.relatedCreditInvoiceCount).toBe(2);
-      component.confirmDeleteWithCreditInvoices(true);
-      const req = http.expectOne(`${base}customers/cu1`);
-      expect(req.request.method).toBe('DELETE');
-      expect(JSON.stringify(req.request.body)).toBe(JSON.stringify({ restoreCreditInvoices: true }));
-      req.flush({});
-      expectList({});
-      done();
-    });
+    expect(component.errorVisible).toBeTrue();
+    expect(component.errorMessage).toBe('له فواتير آجلة');
+    http.expectNone(`${base}customers/cu1`);
   });
 });

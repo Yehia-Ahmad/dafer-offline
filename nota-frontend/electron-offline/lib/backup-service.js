@@ -12,7 +12,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { chooseSourceDatabase, readArchiveSummary } = require('./backup-archive');
-const { DATABASE_NAME, ServiceError } = require('./mongod-manager');
+const { DATABASE_NAME, REPLICA_SET_NAME, ServiceError } = require('./mongod-manager');
 const { runRestore } = require('./restore');
 
 const SAFETY_PREFIX = 'before-restore-';
@@ -64,7 +64,7 @@ class BackupService {
   }
 
   async withClient(callback) {
-    const client = new this.mongodb.MongoClient(`mongodb://127.0.0.1:${this.port}`, {
+    const client = new this.mongodb.MongoClient(`mongodb://127.0.0.1:${this.port}/?replicaSet=${REPLICA_SET_NAME}&directConnection=true`, {
       directConnection: true,
       serverSelectionTimeoutMS: 5000,
     });
@@ -97,7 +97,7 @@ class BackupService {
     const dumped = await new Promise((resolve, reject) => {
       const child = spawn(
         path.join(this.mongodbBin, 'mongodump.exe'),
-        ['--host=127.0.0.1', `--port=${this.port}`, `--db=${this.dbName}`, `--archive=${partial}`, '--gzip'],
+        [`--uri=mongodb://127.0.0.1:${this.port}/${this.dbName}?replicaSet=${REPLICA_SET_NAME}&directConnection=true`, `--archive=${partial}`, '--gzip'],
         { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }
       );
       let output = '';

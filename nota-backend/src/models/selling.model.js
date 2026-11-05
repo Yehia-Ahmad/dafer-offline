@@ -41,6 +41,8 @@ const sellingItemSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    returnedQuantity: { type: Number, default: 0, min: 0 },
+    costEstimated: { type: Boolean, default: false },
   },
   { _id: true }
 );
@@ -66,6 +68,7 @@ const sellingRefundSchema = new mongoose.Schema({
 
 const sellingSchema = new mongoose.Schema(
   {
+    number: { type: String, trim: true, unique: true, sparse: true, index: true },
     invoiceId: {
       type: mongoose.Schema.Types.ObjectId,
       index: true,
@@ -94,16 +97,6 @@ const sellingSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: [30, "يجب ألا يزيد رقم هاتف العميل عن 30 حرف"],
-    },
-    shippingLocation: {
-      type: String,
-      trim: true,
-      maxlength: [500, "يجب ألا يزيد عنوان الشحن عن 500 حرف"],
-    },
-    government: {
-      type: String,
-      trim: true,
-      maxlength: [120, "يجب ألا يزيد اسم المحافظة عن 120 حرف"],
     },
     sellingDate: {
       type: Date,
@@ -147,6 +140,12 @@ const sellingSchema = new mongoose.Schema(
       required: [true, "السعر الإجمالي مطلوب"],
       min: [0, "السعر الإجمالي لا يمكن أن يكون سالبًا"],
     },
+    status: { type: String, enum: ["active", "cancelled"], default: "active", index: true },
+    cancelledAt: Date,
+    cancelledBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    cancelledByName: { type: String, trim: true, maxlength: 100 },
+    cancellationReason: { type: String, trim: true, maxlength: 500 },
+    cancelRefundAmount: { type: Number, default: 0, min: 0 },
     refundStatus: { type: String, enum: ["none", "partial", "full"], default: "none", index: true },
     refundedQuantity: { type: Number, default: 0, min: 0 },
     refundedAmount: { type: Number, default: 0, min: 0 },

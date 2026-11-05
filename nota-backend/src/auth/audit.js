@@ -32,11 +32,11 @@ const safeDetails = (value, depth = 0) => {
  * Records one action. `user` defaults to req.user. Failures are logged and swallowed: an audit
  * problem must never break the request it describes.
  */
-async function audit(req, { action, entity, entityId, details, user } = {}) {
+async function audit(req, { action, entity, entityId, details, user, session, strict = false } = {}) {
   if (!req || !req.authEnabled) return;
   const actor = user || (req && req.user) || null;
   try {
-    await AuditLog.create({
+    const entry = {
       at: new Date(),
       userId: actor ? actor._id : undefined,
       userName: actor ? actor.name : undefined,
@@ -45,8 +45,11 @@ async function audit(req, { action, entity, entityId, details, user } = {}) {
       entityId: entityId === undefined || entityId === null ? undefined : String(entityId),
       details: safeDetails(details),
       ip: req ? req.ip : undefined,
-    });
+    };
+    if (session) await AuditLog.create([entry], { session });
+    else await AuditLog.create(entry);
   } catch (error) {
+    if (strict) throw error;
     console.error(`audit log failed for ${action}: ${error.message}`);
   }
 }

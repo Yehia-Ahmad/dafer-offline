@@ -462,8 +462,9 @@ export class CategoryToolsComponent implements OnInit {
         this.closeDeleteCategoryDialog();
       },
       error: (err) => {
-        console.error(err);
         this.closeDeleteCategoryDialog();
+        this.errorMessage.set(this.extractErrorMessage(err, 'لا يمكن حذف فئة تحتوي على أصناف'));
+        this.errorVisible.set(true);
       }
     });
   }

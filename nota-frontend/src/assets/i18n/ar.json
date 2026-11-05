@@ -262,7 +262,8 @@
         "pending": "مستحقة",
         "partially_paid": "مدفوعة جزئي",
         "paid": "مدفوعة",
-        "Reactionary": "مرتجعة"
+        "returned": "مرتجعة",
+        "cancelled": "ملغية"
       },
       "number": "رقم",
       "customer": "العميل",
@@ -276,7 +277,7 @@
       "panelTitle": "تسجيل دفعة على فاتورة",
       "nothingDue": "الفاتورة دي مفيش عليها فلوس.",
       "paymentSaved": "تم حفظ الدفعة.",
-      "customerPage": "صفحة العميل (مرتجع / حذف)",
+      "customerPage": "صفحة العميل (مرتجع / إلغاء)",
       "previousPayments": "الدفعات السابقة",
       "pick": "اختار فاتورة من الجدول.",
       "loadFailed": "تعذر تحميل فواتير الآجل.",
@@ -284,7 +285,7 @@
         "pending": "مستحقة",
         "partially_paid": "مدفوعة جزئي",
         "paid": "مدفوعة",
-        "reactionary": "مرتجعة",
+        "returned": "مرتجعة",
         "unknown": "غير معروف",
         "overdue": "متأخرة"
       }
@@ -342,6 +343,15 @@
       "invoiceWindowBlocked": "يرجى السماح بالنوافذ المنبثقة لفتح الفاتورة وحفظها.",
       "invoiceDownloadFailed": "فشل فتح الفاتورة.",
       "returnFailed": "فشل إنشاء المرتجع."
+    },
+    "cancel": {
+      "action": "إلغاء الفاتورة",
+      "cancelled": "ملغية",
+      "reason": "سبب الإلغاء",
+      "summary": "ترجع الأصناف غير المرتجعة للمخزون وتظل الفاتورة محفوظة في السجل.",
+      "number": "رقم الفاتورة",
+      "originalTotal": "الإجمالي الأصلي",
+      "netTotal": "الصافي بعد المرتجعات"
     },
     "s10": {
       "subtitle": "فواتير البيع الكاش، مع المرتجعات منها.",
@@ -408,7 +418,8 @@
       "purchasePrice": "سعر الشراء",
       "quantity": "الكمية",
       "profit": "الربح",
-      "customerName": "العميل"
+      "customerName": "العميل",
+      "costEstimated": "تكلفة تقديرية"
     },
     "messages": {
       "empty": "لا توجد صفوف أرباح للمنتجات.",
@@ -548,14 +559,15 @@
       "pending": "معلق",
       "partially_paid": "مدفوع جزئياً",
       "paid": "مسدد",
-      "reactionary": "مرتجع",
+      "returned": "مرتجعة",
+      "cancelled": "ملغية",
       "unknown": "غير معروف"
     },
     "actions": {
       "addPayment": "إضافة دفعة",
       "addRefund": "إرجاع أصناف",
       "printInvoice": "طباعة الفاتورة",
-      "deleteInvoice": "حذف الفاتورة"
+      "deleteInvoice": "إلغاء الفاتورة"
     },
     "deleteDialog": {
       "title": "حذف فاتورة آجل",
@@ -657,6 +669,7 @@
       "returnDate": "تاريخ المرتجع",
       "returnType": "نوع المرتجع",
       "type": "النوع",
+      "returnNumber": "رقم المرتجع",
       "invoiceNumber": "رقم الفاتورة",
       "invoiceId": "معرّف الفاتورة",
       "customerName": "اسم العميل",
@@ -932,6 +945,9 @@
     "categories": "الفئات",
     "searchPlaceholder": "بحث بالاسم أو الكود",
     "lowStockOnly": "التي قاربت على النفاد فقط",
+    "showArchived": "عرض المؤرشف",
+    "hideArchived": "إخفاء المؤرشف",
+    "restore": "استرجاع",
     "columns": {
       "code": "الكود",
       "name": "الصنف",
@@ -1255,16 +1271,27 @@
       "user.updated": "تعديل مستخدم",
       "user.status_changed": "إيقاف/تشغيل مستخدم",
       "user.password_reset": "تغيير كلمة سر مستخدم",
+      "sale.created": "إنشاء فاتورة نقدية",
       "sale.updated": "تعديل فاتورة نقدية",
-      "sale.deleted": "حذف فاتورة نقدية",
+      "sale.returned": "مرتجع فاتورة نقدية",
+      "sale.cancelled": "إلغاء فاتورة نقدية",
+      "credit.created": "إنشاء فاتورة آجلة",
       "credit.updated": "تعديل فاتورة آجلة",
-      "credit.deleted": "حذف فاتورة آجلة",
       "credit.payment": "تحصيل دفعة",
-      "return.created": "تسجيل مرتجع",
+      "credit.returned": "مرتجع فاتورة آجلة",
+      "credit.cancelled": "إلغاء فاتورة آجلة",
+      "product.archived": "أرشفة صنف",
       "product.deleted": "حذف صنف",
+      "product.restored": "استرجاع صنف مؤرشف",
       "product.sync_purchase_price": "مزامنة سعر الشراء",
       "category.import": "استيراد فئات من Excel",
-      "shop.updated": "تعديل بيانات المحل"
+      "category.deleted": "حذف فئة",
+      "customer.deleted": "حذف عميل",
+      "shop.updated": "تعديل بيانات المحل",
+      "backup.created": "إنشاء نسخة احتياطية",
+      "backup.restored": "استرجاع نسخة احتياطية",
+      "backup.restore_failed": "فشل استرجاع نسخة احتياطية",
+      "system.migration": "تحديث بنية البيانات"
     },
     "entities": {
       "User": "مستخدم",

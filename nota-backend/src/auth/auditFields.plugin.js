@@ -37,7 +37,8 @@ function auditFieldsPlugin(schema, options = {}) {
     }
     if (createdOnly) return next();
     // updatedAt/createdAt are set by Mongoose's timestamps before this hook: not an edit by themselves.
-    const changed = this.modifiedPaths().filter((p) => !p.startsWith("updatedBy") && p !== "updatedAt" && p !== "createdAt");    if (changed.length > 0 && changed.some((p) => !ignorePaths.has(p.split(".")[0]))) {
+    const changed = this.modifiedPaths().filter((p) => !p.startsWith("updatedBy") && p !== "updatedAt" && p !== "createdAt");
+    if (changed.length > 0 && changed.some((p) => !ignorePaths.has(p.split(".")[0]))) {
       this.updatedBy = actor.id;
       this.updatedByName = actor.name;
     }
@@ -66,6 +67,11 @@ function auditFieldsPlugin(schema, options = {}) {
     if (!actor) return next();
     const update = this.getUpdate() || {};
     if (Array.isArray(update)) return next(); // aggregation-pipeline updates are not used for these models
+    const changedPaths = Object.entries(update)
+      .flatMap(([operator, values]) => operator.startsWith("$") && values && typeof values === "object" ? Object.keys(values) : [operator])
+      .map((path) => path.split(".")[0])
+      .filter((path) => !["updatedAt", "createdAt", "updatedBy", "updatedByName"].includes(path));
+    if (changedPaths.length > 0 && changedPaths.every((path) => ignorePaths.has(path))) return next();
     update.$set = { ...(update.$set || {}), updatedBy: actor.id, updatedByName: actor.name };
     if (this.getOptions().upsert) {
       update.$setOnInsert = { ...(update.$setOnInsert || {}), createdBy: actor.id, createdByName: actor.name };

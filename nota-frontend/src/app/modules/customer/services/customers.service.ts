@@ -83,8 +83,14 @@ export interface CustomerQueryParams {
   phone?: string;
 }
 
-export interface DeleteCustomerOptions {
-  restoreCreditInvoices?: boolean;
+export interface CustomerStatementLine {
+  date: string;
+  type: 'opening' | 'invoice' | 'payment' | 'return' | 'cancel';
+  number: string | null;
+  description: string;
+  debit: number;
+  credit: number;
+  balance: number;
 }
 
 @Injectable({
@@ -104,6 +110,10 @@ export class CustomersService {
     return this._http.get(`${this._baseUrl}customers/${id}`);
   }
 
+  getCustomerStatement(id: string, params?: { from?: string; to?: string }) {
+    return this._http.get(`${this._baseUrl}customers/${id}/statement`, { params: removeNullishFieldsParams({ ...(params ?? {}) }) });
+  }
+
   createCustomer(payload: Pick<Customer, 'name' | 'phone'>) {
     return this._http.post(`${this._baseUrl}customers`, payload);
   }
@@ -112,8 +122,7 @@ export class CustomersService {
     return this._http.put(`${this._baseUrl}customers/${id}`, payload);
   }
 
-  deleteCustomer(id: string, options?: DeleteCustomerOptions) {
-    const requestOptions = options ? { body: options } : undefined;
-    return this._http.delete(`${this._baseUrl}customers/${id}`, requestOptions);
+  deleteCustomer(id: string) {
+    return this._http.delete(`${this._baseUrl}customers/${id}`);
   }
 }

@@ -13,6 +13,7 @@ export interface Product {
   priceAfterDiscount?: number;
   /** Stage 12 (optional): low stock when inventoryCount <= this; missing → 5. */
   lowStockThreshold?: number;
+  isArchived?: boolean;
   [key: string]: unknown;
 }
 
@@ -122,13 +123,14 @@ export class CateoryService {
   /** Stage 12: an empty categoryId lists all products (GET products?page&limit, no categoryId). */
   getProductsPage(
     categoryId: number | string | null,
-    options: { page?: number; limit?: number } = {}
+    options: { page?: number; limit?: number; includeArchived?: boolean } = {}
   ): Observable<ProductsPage> {
     const page = options.page ?? 1;
     const limit = options.limit ?? 10;
-    const params = (categoryId ? new HttpParams().set('categoryId', String(categoryId)) : new HttpParams())
+    let params = (categoryId ? new HttpParams().set('categoryId', String(categoryId)) : new HttpParams())
       .set('page', page)
       .set('limit', limit);
+    if (options.includeArchived) params = params.set('includeArchived', '1');
 
     return this._http
       .get<RawProductsResponse | Product[]>(`${this._baseUrl}products`, { params })
@@ -156,6 +158,10 @@ export class CateoryService {
 
   deleteProduct(id: number) {
     return this._http.delete(`${this._baseUrl}products/${id}`);
+  }
+
+  restoreProduct(id: number | string) {
+    return this._http.post(`${this._baseUrl}products/${id}/restore`, {});
   }
 
   private normalizeProductsPage(

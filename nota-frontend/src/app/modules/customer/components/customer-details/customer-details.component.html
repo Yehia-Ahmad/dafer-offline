@@ -85,14 +85,8 @@
                 @for (row of statement.rows; track $index) {
                   <tr>
                     <td class="nota-num">{{ formatDate(row.date) }}</td>
-                    <td>
-                      @switch (row.kind) {
-                        @case ('invoice') { {{ 'customerDetailsPage.s10.statement.invoice' | translate }} @if (row.afterReturns) {<span class="cd__muted">{{ 'customerDetailsPage.s10.statement.afterReturns' | translate }}</span>} }
-                        @case ('payment') { {{ 'customerDetailsPage.s10.statement.payment' | translate }} @if (row.detail) {<span class="cd__muted">— {{ row.detail }}</span>} }
-                        @case ('refund') { {{ (row.debit ? 'customerDetailsPage.s10.statement.refundReleased' : 'customerDetailsPage.s10.statement.refund') | translate }} <span class="cd__muted" dir="auto">{{ row.detail }}</span> }
-                      }
-                    </td>
-                    <td class="nota-num" dir="ltr">{{ shortRef(row.invoiceId) }}</td>
+                    <td>{{ row.description || row.detail }}</td>
+                    <td class="nota-num" dir="ltr">{{ row.number || '—' }}</td>
                     <td class="num">{{ row.debit ? (row.debit | notaMoney) : '—' }}</td>
                     <td class="num cd__in">{{ row.credit ? (row.credit | notaMoney) : '—' }}</td>
                     <td class="num cd__strong">{{ row.balance | notaMoney }}</td>
@@ -122,7 +116,7 @@
               <article class="cd__invoice">
                 <header class="cd__invoice-head">
                   <div class="cd__invoice-id">
-                    <strong class="nota-num" dir="ltr">{{ shortRef(entry.invoiceId) }}</strong>
+                    <strong class="nota-num" dir="ltr">{{ entry.number }}</strong>
                     <span [class]="statusPill(entry)">{{ (isInvoiceOverdue(entry) ? 'customerDetailsPage.labels.overdue' : 'customerDetailsPage.status.' + entry.status) | translate }}</span>
                     @if (isInvoiceOverdue(entry)) {<span class="nota-pill nota-pill--neutral">{{ getStatusLabel(entry.status) }}</span>}
                   </div>
@@ -138,7 +132,7 @@
                       <button *notaCan="'returns.create'" type="button" notaButton (click)="openRefundDialog(entry)" [disabled]="isDeletingCreditSale">{{ 'customerDetailsPage.actions.addRefund' | translate }}</button>
                     }
                     <!-- Stage 14: delete needs credit.delete; otherwise the permission-locked pattern. -->
-                    <button *notaCan="'credit.delete'; else cdDeleteLocked" type="button" notaButton="danger" (click)="openDeleteCreditDialog(entry)" [disabled]="isDeletingCreditSale">{{ 'customerDetailsPage.actions.deleteInvoice' | translate }}</button>
+                    <button *notaCan="'credit.delete'; else cdDeleteLocked" type="button" notaButton="danger" (click)="openDeleteCreditDialog(entry)" [disabled]="isDeletingCreditSale || entry.status === 'cancelled'">{{ 'invoiceHistoryPage.cancel.action' | translate }}</button>
                     <ng-template #cdDeleteLocked><nota-locked-action data-testid="delete-locked" note="auth.locked.delete" /></ng-template>
                   </div>
                 </header>
@@ -148,6 +142,7 @@
                   <div><dt>{{ 'customerDetailsPage.history.items' | translate }}</dt><dd class="nota-num">{{ entry.itemCount | notaNumber }} / {{ entry.totalQuantity | notaNumber }}</dd></div>
                   <div><dt>{{ 'customerDetailsPage.history.paymentsCount' | translate }}</dt><dd class="nota-num">{{ entry.paymentsCount | notaNumber }}</dd></div>
                   <div><dt>{{ 'customerDetailsPage.history.totalPrice' | translate }}</dt><dd class="nota-num">{{ entry.totalPrice | notaMoney }}</dd></div>
+                  <div><dt>{{ 'invoiceHistoryPage.cancel.netTotal' | translate }}</dt><dd class="nota-num">{{ entry.netTotal | notaMoney }}</dd></div>
                   <div><dt>{{ 'customerDetailsPage.history.paidAmount' | translate }}</dt><dd class="nota-num cd__in">{{ entry.paidAmount | notaMoney }}</dd></div>
                   <div><dt>{{ 'customerDetailsPage.history.remainingAmount' | translate }}</dt><dd class="nota-num cd__due">{{ entry.remainingAmount | notaMoney }}</dd></div>
                   <div><dt>{{ 'customerDetailsPage.history.discountAmount' | translate }}</dt><dd class="nota-num">{{ entry.discountAmount | notaMoney }}</dd></div>
@@ -157,6 +152,7 @@
                 @if (entry.notes) {
                   <p class="cd__notes"><strong>{{ 'customerDetailsPage.history.notes' | translate }}:</strong> {{ entry.notes }}</p>
                 }
+                @if (entry.status === 'cancelled') {<p class="cd__msg">{{ 'invoiceHistoryPage.cancel.reason' | translate }}: {{ entry.cancellationReason }}</p>}
                 @if (entry.items.length) {
                   <div class="nota-table-wrap">
                     <table class="nota-table cd__lines">
@@ -204,7 +200,7 @@
               </tr></thead>
               <tbody>
                 @for (payment of allPayments; track $index) {
-                  <tr><td class="nota-num">{{ formatDate(payment.paymentDate) }}</td><td class="nota-num" dir="ltr">{{ shortRef(payment.invoiceId) }}</td>
+                  <tr><td class="nota-num">{{ formatDate(payment.paymentDate) }}</td><td class="nota-num" dir="ltr">{{ payment.number || payment.invoiceNumber || shortRef(payment.invoiceId) }}</td>
                     <td class="num cd__in">{{ payment.amount | notaMoney }}</td><td>{{ payment.note || '—' }}</td></tr>
                 } @empty {
                   <tr><td colspan="4" class="cd__empty">{{ 'customerDetailsPage.s10.noPayments' | translate }}</td></tr>
@@ -226,7 +222,7 @@
               </tr></thead>
               <tbody>
                 @for (refund of allRefunds; track $index) {
-                  <tr><td class="nota-num">{{ formatDate(refund.refundDate) }}</td><td class="nota-num" dir="ltr">{{ shortRef(refund.invoiceId) }}</td>
+                  <tr><td class="nota-num">{{ formatDate(refund.refundDate) }}</td><td class="nota-num" dir="ltr">{{ refund.invoiceNumber || shortRef(refund.invoiceId) }}</td>
                     <td dir="auto">@for (item of refund.items; track $index) {<span class="cd__chip">{{ item.productName }} × {{ item.quantity | notaNumber }}</span>}</td>
                     <td class="num">{{ refund.totalAmount | notaMoney }}</td><td>{{ refund.note || '—' }}</td></tr>
                 } @empty {
@@ -277,7 +273,7 @@
     (closed)="closeRefundDialog()">
     <p class="cd__dialog-text">{{ 'customerDetailsPage.refundDialog.subtitle' | translate }}</p>
     <dl class="cd__invoice-facts">
-      <div><dt>{{ 'customerDetailsPage.s10.invoice' | translate }}</dt><dd class="nota-num" dir="ltr">{{ selectedInvoiceForRefund?.invoiceId || '-' }}</dd></div>
+      <div><dt>{{ 'customerDetailsPage.s10.invoice' | translate }}</dt><dd class="nota-num" dir="ltr">{{ selectedInvoiceForRefund?.number || selectedInvoiceForRefund?.invoiceId || '-' }}</dd></div>
       <div><dt>{{ 'customerDetailsPage.history.totalPrice' | translate }}</dt><dd class="nota-num">{{ selectedInvoiceForRefund?.totalPrice || 0 | notaMoney }}</dd></div>
     </dl>
     <form [formGroup]="refundForm" class="cd__form" (ngSubmit)="saveRefund()" novalidate>
@@ -335,17 +331,19 @@
   </nota-dialog-shell>
 </p-dialog>
 
-<!-- Delete credit invoice (warning text about stock unchanged) -->
+<!-- Cancel credit invoice -->
 <p-dialog [(visible)]="deleteCreditDialogVisible" [modal]="true" [showHeader]="false" [closable]="!isDeletingCreditSale" [dismissableMask]="!isDeletingCreditSale"
   [draggable]="false" [resizable]="false" styleClass="nota-p-dialog" (onHide)="closeDeleteCreditDialog()">
   <nota-dialog-shell [title]="'customerDetailsPage.deleteDialog.title' | translate" [closeLabel]="'actions.cancelButton' | translate" (closed)="closeDeleteCreditDialog()">
-    <p>{{ 'customerDetailsPage.deleteDialog.confirm' | translate }}</p>
-    <p class="cd__dialog-text">{{ 'customerDetailsPage.deleteDialog.inventoryWarning' | translate }}</p>
+    <p>{{ 'invoiceHistoryPage.cancel.summary' | translate }}</p>
+    <nota-form-field [label]="'invoiceHistoryPage.cancel.reason' | translate" forId="creditCancelReason">
+      <textarea id="creditCancelReason" class="nota-input" [(ngModel)]="cancelReason" maxlength="500"></textarea>
+    </nota-form-field>
     @if (deleteCreditErrorMessage) {<p class="cd__msg" role="alert">{{ deleteCreditErrorMessage }}</p>}
     <ng-container notaDialogFooter>
       <button type="button" notaButton (click)="closeDeleteCreditDialog()" [disabled]="isDeletingCreditSale">{{ 'actions.cancelButton' | translate }}</button>
-      <button type="button" notaButton="danger" (click)="deleteCreditInvoice()" [disabled]="isDeletingCreditSale">
-        {{ (isDeletingCreditSale ? 'actions.loading' : 'customerDetailsPage.actions.deleteInvoice') | translate }}
+      <button type="button" notaButton="danger" (click)="deleteCreditInvoice()" [disabled]="isDeletingCreditSale || cancelReason.trim().length < 3">
+        {{ (isDeletingCreditSale ? 'actions.loading' : 'invoiceHistoryPage.cancel.action') | translate }}
       </button>
     </ng-container>
   </nota-dialog-shell>

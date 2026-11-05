@@ -8,6 +8,8 @@ const { isAuthMode } = require("./auth/config");
 const User = require("./models/user.model");
 const AuditLog = require("./models/auditLog.model");
 const { drainAuditInbox } = require("./auth/auditInbox");
+const { assertTransactionsSupported } = require("./utils/transaction");
+const { runMigrations } = require("./migrations");
 
 const PORT = process.env.PORT || 5000;
 // Optional bind address. Unset in the online deployment, which keeps listening on all
@@ -24,6 +26,8 @@ const onListening = () => {
 
 const startServer = async () => {
   await connectDB();
+  await assertTransactionsSupported();
+  await runMigrations();
 
   // Stage 13: with auth on, the user indexes (one owner, unique usernames) must exist before the
   // first setup-owner request, so two racing requests can never both create an owner.
@@ -60,4 +64,13 @@ const startServer = async () => {
   }
 };
 
-startServer();
+startServer().catch((error) => {
+  console.error("فشل بدء الخادم:", error.stack || error.message);
+  if (parentPort) parentPort.postMessage({
+    type: "error",
+    code: error.code || "STARTUP_FAILED",
+    message: error.message,
+    detail: error.stack || error.message,
+  });
+  setTimeout(() => process.exit(1), 10);
+});

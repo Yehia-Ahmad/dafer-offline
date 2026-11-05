@@ -10,6 +10,7 @@ const { rotateIfLarge } = require('./logger');
 const { isPortFree, sleep, waitFor } = require('./net-utils');
 
 const DATABASE_NAME = 'nota';
+const REPLICA_SET_NAME = 'rs0';
 const START_TIMEOUT_MS = 120000; // crash recovery on a large database can take a while
 const SHUTDOWN_RETRY_MS = 10000; // retry a normal shutdown while index builds finish
 const EXIT_TIMEOUT_MS = 30000;
@@ -86,6 +87,13 @@ function removePidFileIfOwn(pidFile, pid) {
 // one this Windows account may not inspect). UTF-8 output keeps non-English folder names intact.
 function processImagePath(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return '';
+  if (process.platform !== 'win32') {
+    try {
+      return fs.readlinkSync(`/proc/${pid}/exe`);
+    } catch {
+      return '';
+    }
+  }
   const script =
     "$ErrorActionPreference = 'SilentlyContinue'; [Console]::OutputEncoding = [Text.Encoding]::UTF8; " +
     `$p = Get-Process -Id ${pid}; if ($p) { $p.Path }`;
@@ -146,6 +154,10 @@ class MongodManager extends EventEmitter {
   }
 
   get uri() {
+    return `mongodb://127.0.0.1:${this.port}/${DATABASE_NAME}?replicaSet=${REPLICA_SET_NAME}&directConnection=true`;
+  }
+
+  get bootstrapUri() {
     return `mongodb://127.0.0.1:${this.port}/${DATABASE_NAME}`;
   }
 
@@ -156,11 +168,46 @@ class MongodManager extends EventEmitter {
   // One connection only (maxPoolSize 1), so an identity check and the command after it go over
   // the same socket, to the same server.
   newClient(timeoutMs) {
-    return new this.mongodb.MongoClient(this.uri, {
+    return new this.mongodb.MongoClient(this.bootstrapUri, {
       serverSelectionTimeoutMS: timeoutMs,
       directConnection: true,
       maxPoolSize: 1,
     });
+  }
+
+  async ensureReplicaSet() {
+    const client = this.newClient(5000);
+    try {
+      const admin = client.db('admin');
+      let hello = await admin.command({ hello: 1 });
+      if (hello.setName && hello.setName !== REPLICA_SET_NAME) {
+        throw new ServiceError('REPLICA_SET_WRONG', 'إعداد قاعدة البيانات غير صالح.', `expected ${REPLICA_SET_NAME}, found ${hello.setName}`);
+      }
+      if (!hello.setName) {
+        try {
+          await admin.command({
+            replSetInitiate: {
+              _id: REPLICA_SET_NAME,
+              members: [{ _id: 0, host: `127.0.0.1:${this.port}` }],
+            },
+          });
+          this.log.info(`initialized replica set ${REPLICA_SET_NAME}`);
+        } catch (error) {
+          if (!/already initialized|already initiated/i.test(error.message || '')) throw error;
+        }
+      }
+      const primary = await waitFor(async () => {
+        try {
+          hello = await admin.command({ hello: 1 });
+          return hello.setName === REPLICA_SET_NAME && hello.isWritablePrimary === true;
+        } catch {
+          return false;
+        }
+      }, { timeoutMs: START_TIMEOUT_MS });
+      if (!primary) throw new ServiceError('REPLICA_SET_TIMEOUT', 'تعذر تجهيز قاعدة البيانات للمعاملات.');
+    } finally {
+      await client.close().catch(() => {});
+    }
   }
 
   // Which process answers on our port: { answered: false } when nothing does, otherwise
@@ -301,6 +348,7 @@ class MongodManager extends EventEmitter {
       '--bind_ip', '127.0.0.1',
       '--logpath', this.logFile,
       '--logappend',
+      '--replSet', REPLICA_SET_NAME,
       '--wiredTigerCacheSizeGB', String(this.cacheSizeGB),
     ];
     this.log.info(`starting ${this.mongodPath} on 127.0.0.1:${this.port}`);
@@ -355,7 +403,17 @@ class MongodManager extends EventEmitter {
       throw error;
     }
 
-    this.log.info(`mongod is ready (pid ${child.pid})`);
+    try {
+      await this.ensureReplicaSet();
+    } catch (error) {
+      child.kill();
+      await exited;
+      this.child = null;
+      removePidFileIfOwn(this.pidFile, child.pid);
+      throw error;
+    }
+
+    this.log.info(`mongod is PRIMARY in ${REPLICA_SET_NAME} (pid ${child.pid})`);
     exited.then(() => {
       if (this.child === child) this.child = null;
       removePidFileIfOwn(this.pidFile, child.pid);
@@ -388,4 +446,4 @@ class MongodManager extends EventEmitter {
   }
 }
 
-module.exports = { DATABASE_NAME, MongodManager, ServiceError, explainMongodExit, processImagePath, samePath };
+module.exports = { DATABASE_NAME, REPLICA_SET_NAME, MongodManager, ServiceError, explainMongodExit, processImagePath, samePath };

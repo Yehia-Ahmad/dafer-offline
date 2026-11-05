@@ -4,13 +4,14 @@ import { CreditInvoicePrintData } from '../components/customer-details/credit-in
  * One credit invoice as the screens show it (moved unchanged from CustomerDetailsComponent in Stage 10 so the
  * customer page and the /credit-sales list read GET responses the same way). Refund fields are display only.
  */
-export type CreditSaleStatusView = 'pending' | 'partially_paid' | 'paid' | 'reactionary' | 'unknown';
+export type CreditSaleStatusView = 'pending' | 'partially_paid' | 'paid' | 'returned' | 'cancelled' | 'unknown';
 
 export type CreditSaleView = {
   id: string;
   /** Stage 14: who created the invoice (sent by the backend with auth on). Display only. */
   createdByName?: string | null;
   invoiceId: string;
+  number: string;
   customerId: string;
   customerName: string;
   customerPhone: string;
@@ -22,6 +23,7 @@ export type CreditSaleView = {
   discountPercentage: number | null;
   shippingFees: number | null;
   totalPrice: number;
+  netTotal: number;
   paidAmount: number;
   remainingAmount: number;
   itemCount: number;
@@ -40,6 +42,7 @@ export type CreditSaleView = {
   }>;
   payments: Array<{
     id: string;
+    number: string;
     amount: number;
     paymentDate: string | null;
     note: string;
@@ -55,6 +58,7 @@ export type CreditSaleView = {
     items: Array<{ productId: string; productName: string; productCode: string; quantity: number; totalPrice: number }>;
   }>;
   refundedAmount: number;
+  cancellationReason: string;
 };
 
 const toNumber = (value: unknown): number => {
@@ -84,9 +88,9 @@ const calculateDiscountPercentageFromAmount = (subtotal: number, discountAmount:
 };
 
 export function normalizeCreditSaleStatus(value: unknown): CreditSaleStatusView {
-  if (value === 'pending' || value === 'partially_paid' || value === 'paid' || value === 'reactionary') return value;
+  if (value === 'pending' || value === 'partially_paid' || value === 'paid' || value === 'returned' || value === 'cancelled') return value;
   if (value === 'partiallyPaid') return 'partially_paid';
-  if (value === 'Reactionary') return 'reactionary';
+  if (value === 'Reactionary' || value === 'reactionary') return 'returned';
   return 'unknown';
 }
 
@@ -121,7 +125,7 @@ function normalizePayments(source: any): CreditSaleView['payments'] {
       const paymentDate = payment?.paymentDate ? String(payment.paymentDate) : null;
       const note = String(payment?.note || '').trim();
       if (amount <= 0 && !paymentDate && !note) return null;
-      return { id: String(payment?._id || `${index}`), amount, paymentDate, note };
+      return { id: String(payment?._id || `${index}`), number: String(payment?.number || ''), amount, paymentDate, note };
     })
     .filter((item): item is CreditSaleView['payments'][number] => item !== null);
 }
@@ -172,6 +176,7 @@ export function toCreditSaleView(source: any): CreditSaleView | null {
   return {
     id: id || invoiceId,
     invoiceId: invoiceId || id,
+    number: String(source.number || invoiceId || id),
     customerId: String(source.customerId?._id || source.customerId || source.customer?._id || source.customer || ''),
     customerName: String(source.customerName || ''),
     customerPhone: String(source.customerPhone || ''),
@@ -184,6 +189,7 @@ export function toCreditSaleView(source: any): CreditSaleView | null {
     discountPercentage: discountPercentageValue,
     shippingFees: shippingFeesValue,
     totalPrice,
+    netTotal: toNumber(source.netTotal ?? totalPrice - toNumber(source.refundedAmount)),
     paidAmount,
     remainingAmount,
     itemCount: toInteger(source.itemCount ?? source.items?.length),
@@ -193,7 +199,8 @@ export function toCreditSaleView(source: any): CreditSaleView | null {
     items,
     payments,
     refunds: normalizeRefunds(source.refunds),
-    refundedAmount: toNumber(source.refundedAmount)
+    refundedAmount: toNumber(source.refundedAmount),
+    cancellationReason: String(source.cancellationReason || '')
   };
 }
 
@@ -218,7 +225,7 @@ export function toCreditInvoicePrintData(
   return {
     id: entry.id,
     invoiceId: entry.invoiceId || entry.id,
-    invoiceNumber: entry.invoiceId || entry.id,
+    invoiceNumber: entry.number || entry.invoiceId || entry.id,
     customerName: customerName || '',
     customerPhone: customerPhone || '',
     sellingDate: entry.sellingDate,
@@ -251,7 +258,8 @@ export function creditSaleStatusPill(status: CreditSaleStatusView, overdue: bool
     case 'paid': return 'nota-pill nota-pill--ok';
     case 'partially_paid': return 'nota-pill nota-pill--info';
     case 'pending': return 'nota-pill nota-pill--due';
-    case 'reactionary': return 'nota-pill nota-pill--neutral';
+    case 'returned': return 'nota-pill nota-pill--neutral';
+    case 'cancelled': return 'nota-pill nota-pill--danger';
     default: return 'nota-pill nota-pill--neutral';
   }
 }

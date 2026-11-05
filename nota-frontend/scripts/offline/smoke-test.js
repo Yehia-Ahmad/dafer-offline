@@ -43,7 +43,8 @@ const MONGOD_PATH = MONGOD_OVERRIDE || path.join(ROOT, 'vendor', 'mongodb', 'bin
 const MONGO_PORT = 27099;
 const BACKEND_PORT = 5099;
 const DB_NAME = 'dafer_smoke';
-const MONGO_URI = `mongodb://127.0.0.1:${MONGO_PORT}/${DB_NAME}`;
+const REPLICA_SET = 'rs0';
+const MONGO_URI = `mongodb://127.0.0.1:${MONGO_PORT}/${DB_NAME}?replicaSet=${REPLICA_SET}&directConnection=true`;
 // Stage 13: the main run is with NOTA_AUTH=1; a short second run (fresh database on the same
 // mongod) proves that with NOTA_AUTH unset the backend behaves as before.
 const NOAUTH_DB_NAME = 'dafer_smoke_noauth';
@@ -132,12 +133,25 @@ async function startMongod() {
   const logFile = path.join(tempDir, 'mongod.log');
   const child = startChild(
     MONGOD_PATH,
-    ['--dbpath', dbPath, '--port', String(MONGO_PORT), '--bind_ip', '127.0.0.1', '--logpath', logFile, '--wiredTigerCacheSizeGB', '0.25'],
+    ['--dbpath', dbPath, '--port', String(MONGO_PORT), '--bind_ip', '127.0.0.1', '--replSet', REPLICA_SET, '--logpath', logFile, '--wiredTigerCacheSizeGB', '0.25'],
     {},
     path.join(tempDir, 'mongod.stdout.log')
   );
   try {
     await waitFor('mongod', () => isPortOpen(MONGO_PORT), child);
+    const { MongoClient } = require(path.join(BACKEND_DIR, 'node_modules', 'mongodb'));
+    const client = new MongoClient(`mongodb://127.0.0.1:${MONGO_PORT}`, { directConnection: true });
+    await client.connect();
+    try {
+      const admin = client.db('admin');
+      const hello = await admin.command({ hello: 1 });
+      if (!hello.setName) {
+        await admin.command({ replSetInitiate: { _id: REPLICA_SET, members: [{ _id: 0, host: `127.0.0.1:${MONGO_PORT}` }] } });
+      }
+      await waitFor('mongod PRIMARY', async () => (await admin.command({ hello: 1 })).isWritablePrimary === true, child);
+    } finally {
+      await client.close();
+    }
   } catch (error) {
     throw new Error(`${error.message}\n--- mongod log ---\n${tail(logFile)}`);
   }
@@ -146,7 +160,7 @@ async function startMongod() {
 
 async function startBackend({ auth = true, dbName = DB_NAME } = {}) {
   const logFile = path.join(tempDir, `backend-${auth ? 'auth' : 'noauth'}.log`);
-  const mongoUri = `mongodb://127.0.0.1:${MONGO_PORT}/${dbName}`;
+  const mongoUri = `mongodb://127.0.0.1:${MONGO_PORT}/${dbName}?replicaSet=${REPLICA_SET}&directConnection=true`;
   const env = {
     ...process.env,
     PORT: String(BACKEND_PORT),
@@ -461,8 +475,8 @@ async function runAuthScenarios(ctx) {
     const actions = new Set(response.json.data.map((entry) => entry.action));
     const expected = [
       'auth.setup_owner', 'auth.login', 'user.created', 'user.status_changed', 'auth.password_changed',
-      'auth.recover', 'auth.recover_failed', 'sale.updated', 'sale.deleted', 'credit.payment', 'return.created',
-      'credit.deleted', 'shop.updated',
+      'auth.recover', 'auth.recover_failed', 'sale.updated', 'sale.returned', 'sale.cancelled',
+      'credit.payment', 'credit.returned', 'credit.cancelled', 'shop.updated',
     ];
     const missing = expected.filter((action) => !actions.has(action));
     expect(missing.length === 0, `missing actions: ${missing.join(', ')}`);
@@ -581,7 +595,9 @@ async function runScenarios() {
     });
     expectStatus(response, 201, 'POST /api/sellings');
     ctx.cashInvoiceId = response.json && response.json._id;
+    ctx.cashInvoiceNumber = response.json && response.json.number;
     expect(ctx.cashInvoiceId, 'response has no _id');
+    expect(/^INV-\d{6,}$/.test(ctx.cashInvoiceNumber || ''), `cash invoice number is invalid: ${ctx.cashInvoiceNumber}`);
     expect(Number(response.json.totalPrice) === 200, `totalPrice expected 200, got ${response.json.totalPrice}`);
     return `invoice ${ctx.cashInvoiceId}, ${await expectStock(ctx, 8)}`;
   });
@@ -624,6 +640,8 @@ async function runScenarios() {
       },
     });
     expectStatus(response, 201, 'POST /api/returns (cash)');
+    ctx.cashReturnNumber = response.json?.data?.returnLog?.number;
+    expect(/^RT-\d{6,}$/.test(ctx.cashReturnNumber || ''), `cash return number is invalid: ${ctx.cashReturnNumber}`);
     const stock = await expectStock(ctx, 8);
     const list = await request('GET', `/api/returns?returnType=cash&invoiceId=${ctx.cashInvoiceId}`);
     expectStatus(list, 200, 'GET /api/returns');
@@ -649,8 +667,10 @@ async function runScenarios() {
     });
     expectStatus(response, 201, 'POST /api/credit-sales');
     ctx.creditInvoiceId = response.json && response.json._id;
+    ctx.creditInvoiceNumber = response.json && response.json.number;
     ctx.customerId = response.json && response.json.customerId && String(response.json.customerId);
     expect(ctx.creditInvoiceId, 'response has no _id');
+    expect(/^CR-\d{6,}$/.test(ctx.creditInvoiceNumber || ''), `credit invoice number is invalid: ${ctx.creditInvoiceNumber}`);
     expect(ctx.customerId, 'response has no customerId');
     expect(Number(response.json.remainingAmount) === 200, `remainingAmount expected 200, got ${response.json.remainingAmount}`);
     const stock = await expectStock(ctx, 6);
@@ -666,6 +686,7 @@ async function runScenarios() {
       body: { amount: 50, note: 'smoke payment' },
     });
     expectStatus(response, 201, 'POST /api/credit-sales/:id/payments');
+    expect(/^RC-\d{6,}$/.test(response.json.receiptNumber || ''), `receipt number is invalid: ${response.json.receiptNumber}`);
     expect(Number(response.json.paidAmount) === 50, `paidAmount expected 50, got ${response.json.paidAmount}`);
     expect(Number(response.json.remainingAmount) === 150, `remainingAmount expected 150, got ${response.json.remainingAmount}`);
     return `paid 50, remaining ${response.json.remainingAmount}, status ${response.json.status}`;
@@ -677,6 +698,7 @@ async function runScenarios() {
       body: { amount: 30, lastInvoice: true, note: 'smoke customer payment' },
     });
     expectStatus(response, 201, 'POST /api/customers/:id/payments');
+    expect(/^RC-\d{6,}$/.test(response.json.receiptNumber || ''), `customer receipt number is invalid: ${response.json.receiptNumber}`);
     const invoice = await request('GET', `/api/credit-sales/${ctx.creditInvoiceId}`);
     expectStatus(invoice, 200, 'GET /api/credit-sales/:id');
     expect(Number(invoice.json.paidAmount) === 80, `paidAmount expected 80, got ${invoice.json.paidAmount}`);
@@ -694,7 +716,25 @@ async function runScenarios() {
       },
     });
     expectStatus(response, 201, 'POST /api/returns (credit)');
+    const returns = await request('GET', `/api/returns?returnType=credit&invoiceId=${ctx.creditInvoiceId}`);
+    expectStatus(returns, 200, 'GET /api/returns (credit)');
+    const returnNumber = returns.json.data?.at(-1)?.number;
+    expect(/^RT-\d{6,}$/.test(returnNumber || ''), `credit return number is invalid: ${returnNumber}`);
     return `${await expectStock(ctx, 7)}, invoice total ${response.json.totalPrice}, remaining ${response.json.remainingAmount}`;
+  });
+
+  await step('Search cash, credit and return documents by number', async () => {
+    requireCtx(ctx, 'cashInvoiceNumber', 'creditInvoiceNumber', 'cashReturnNumber');
+    const cash = await request('GET', `/api/sellings?number=${encodeURIComponent(ctx.cashInvoiceNumber.replace(/^INV-0+/, 'INV-'))}`);
+    const credit = await request('GET', `/api/credit-sales?number=${encodeURIComponent(ctx.creditInvoiceNumber.toLowerCase())}`);
+    const returned = await request('GET', `/api/returns?number=${encodeURIComponent(ctx.cashReturnNumber)}`);
+    expectStatus(cash, 200, 'GET /api/sellings?number');
+    expectStatus(credit, 200, 'GET /api/credit-sales?number');
+    expectStatus(returned, 200, 'GET /api/returns?number');
+    expect(cash.json.data?.some((row) => row.number === ctx.cashInvoiceNumber), 'cash number search did not find the invoice');
+    expect(credit.json.data?.some((row) => row.number === ctx.creditInvoiceNumber), 'credit number search did not find the invoice');
+    expect(returned.json.data?.some((row) => row.number === ctx.cashReturnNumber), 'return number search did not find the return');
+    return `${ctx.cashInvoiceNumber}, ${ctx.creditInvoiceNumber}, ${ctx.cashReturnNumber}`;
   });
 
   // Stage 12: dashboard summary, low-stock threshold, category product counts, all-products list.
@@ -708,8 +748,8 @@ async function runScenarios() {
     const response = await request('GET', '/api/dashboard/summary');
     expectStatus(response, 200, 'GET /api/dashboard/summary');
     const summary = response.json;
-    const cashTotal = Number(cashInvoice.json.totalPrice);
-    const creditTotal = Number(creditInvoice.json.totalPrice);
+    const cashTotal = Number(cashInvoice.json.netTotal);
+    const creditTotal = Number(creditInvoice.json.netTotal);
     const remaining = Number(creditInvoice.json.remainingAmount);
     expect(summary.today.cash.count === 1 && summary.today.cash.total === cashTotal,
       `today cash expected 1 × ${cashTotal}, got ${summary.today.cash.count} × ${summary.today.cash.total}`);
@@ -758,27 +798,82 @@ async function runScenarios() {
     return `totalItems ${response.json.pagination.totalItems}`;
   });
 
-  await step('Delete cash invoice → stock unchanged (7)', async () => {
+  await step('Cancel cash invoice → restore 2 not-returned units, cancelRefundAmount 200', async () => {
     requireCtx(ctx, 'cashInvoiceId');
-    // Intended behavior: delete removes only the invoice record and does not restore stock.
-    // The UI warns about this before deleting (i18n invoiceHistoryPage.messages.deleteInventoryWarning:
-    // "use Return Items to restore inventory"). See docs/OFFLINE_PLAN.md, Accounting.
-    const response = await request('DELETE', `/api/sellings/${ctx.cashInvoiceId}`);
-    expectStatus(response, 200, 'DELETE /api/sellings/:id');
-    const gone = await request('GET', `/api/sellings/${ctx.cashInvoiceId}`);
-    expect(gone.status === 404, `invoice still readable after delete (${describe(gone)})`);
-    return await expectStock(ctx, 7);
+    const response = await request('POST', `/api/sellings/${ctx.cashInvoiceId}/cancel`, { body: { reason: 'smoke cancellation' } });
+    expectStatus(response, 200, 'POST /api/sellings/:id/cancel');
+    expect(response.json.status === 'cancelled', `cash status expected cancelled, got ${response.json.status}`);
+    expect(Number(response.json.cancelRefundAmount) === 200, `cancelRefundAmount expected 200, got ${response.json.cancelRefundAmount}`);
+    const readable = await request('GET', `/api/sellings/${ctx.cashInvoiceId}`);
+    expectStatus(readable, 200, 'GET cancelled cash invoice');
+    return await expectStock(ctx, 9);
   });
 
-  await step('Delete credit invoice → stock unchanged (7)', async () => {
+  await step('Credit invoice with payments/return cannot be cancelled', async () => {
     requireCtx(ctx, 'creditInvoiceId');
-    // Intended behavior, same as the cash delete: delete removes only the invoice record and does not
-    // restore stock. The UI warns users to process returns first. See docs/OFFLINE_PLAN.md, Accounting.
-    const response = await request('DELETE', `/api/credit-sales/${ctx.creditInvoiceId}`);
-    expectStatus(response, 200, 'DELETE /api/credit-sales/:id');
-    const gone = await request('GET', `/api/credit-sales/${ctx.creditInvoiceId}`);
-    expect(gone.status === 404, `invoice still readable after delete (${describe(gone)})`);
-    return await expectStock(ctx, 7);
+    const response = await request('POST', `/api/credit-sales/${ctx.creditInvoiceId}/cancel`, { body: { reason: 'smoke cancellation' } });
+    expectStatus(response, 409, 'POST /api/credit-sales/:id/cancel with return');
+    expect(['HAS_RETURNS', 'HAS_PAYMENTS'].includes(response.json.code), `expected cancellation conflict code, got ${response.json.code}`);
+    return await expectStock(ctx, 9);
+  });
+
+  await step('Credit invoice with down payment cancels, restores stock, and statement nets to zero', async () => {
+    requireCtx(ctx, 'productId', 'customerId');
+    const created = await request('POST', '/api/credit-sales', { body: {
+      customerId: ctx.customerId, sellingDate: today,
+      items: [{ productId: ctx.productId, quantity: 1, price: 790 }], initialPaidAmount: 200,
+    } });
+    expectStatus(created, 201, 'POST /api/credit-sales (cancel fixture)');
+    expect(/^CR-\d{6,}$/.test(created.json.number || ''), `credit cancel fixture number invalid: ${created.json.number}`);
+    expect(/^RC-\d{6,}$/.test(created.json.payments?.[0]?.number || ''), `down-payment receipt invalid: ${created.json.payments?.[0]?.number}`);
+    expect((await expectStock(ctx, 8)), 'stock after cancel fixture create');
+    const cancelled = await request('POST', `/api/credit-sales/${created.json._id}/cancel`, { body: { reason: 'smoke down payment cancel' } });
+    expectStatus(cancelled, 200, 'POST /api/credit-sales/:id/cancel');
+    expect(cancelled.json.status === 'cancelled', `credit status expected cancelled, got ${cancelled.json.status}`);
+    expect(Number(cancelled.json.cancelRefundAmount) === 200, `credit cancelRefundAmount expected 200, got ${cancelled.json.cancelRefundAmount}`);
+    expect(await expectStock(ctx, 9), 'stock after credit cancel');
+    const statement = await request('GET', `/api/customers/${ctx.customerId}/statement`);
+    expectStatus(statement, 200, 'GET /api/customers/:id/statement');
+    const lines = statement.json.lines || statement.json.data?.lines || [];
+    const fixtureLines = lines.filter((line) => line.number === created.json.number || line.number === created.json.payments[0].number);
+    expect(fixtureLines.some((line) => line.type === 'invoice' && Number(line.debit) === 790), 'statement is missing the 790 invoice debit');
+    expect(fixtureLines.some((line) => line.type === 'payment' && Number(line.credit) === 200), 'statement is missing the 200 payment credit');
+    expect(fixtureLines.some((line) => line.type === 'cancel' && Number(line.credit) === 790), 'statement is missing the 790 cancel credit');
+    expect(fixtureLines.some((line) => line.description === 'رد المقدم' && Number(line.debit) === 200), 'statement is missing the 200 down-payment refund debit');
+    return `${created.json.number}, ${created.json.payments[0].number}, four statement lines, stock 9`;
+  });
+
+  await step('Product with sales archives; archived product is hidden by default and restorable', async () => {
+    requireCtx(ctx, 'productId');
+    const archived = await request('DELETE', `/api/products/${ctx.productId}`);
+    expectStatus(archived, 200, 'DELETE /api/products/:id');
+    expect(archived.json.action === 'archived', `expected archived action, got ${archived.json.action}`);
+    const hidden = await request('GET', '/api/products?page=1&limit=10');
+    expect(!(hidden.json.data || []).some((row) => row._id === ctx.productId), 'archived product is visible in the default list');
+    const included = await request('GET', '/api/products?page=1&limit=10&includeArchived=1');
+    expect((included.json.data || []).some((row) => row._id === ctx.productId && row.isArchived), 'archived product missing from includeArchived list');
+    const restored = await request('POST', `/api/products/${ctx.productId}/restore`);
+    expectStatus(restored, 200, 'POST /api/products/:id/restore');
+    return 'archived, hidden, included, restored';
+  });
+
+  await step('Deleting a non-empty category is refused with CATEGORY_NOT_EMPTY', async () => {
+    requireCtx(ctx, 'categoryId');
+    const response = await request('DELETE', `/api/categories/${ctx.categoryId}`);
+    expectStatus(response, 409, 'DELETE /api/categories/:id');
+    expect(response.json.code === 'CATEGORY_NOT_EMPTY', `code expected CATEGORY_NOT_EMPTY, got ${response.json.code}`);
+    return describe(response);
+  });
+
+  await step('Dashboard excludes cancelled cash and uses net credit totals after return/cancel', async () => {
+    const response = await request('GET', '/api/dashboard/summary');
+    expectStatus(response, 200, 'GET /api/dashboard/summary after cancellation');
+    expect(response.json.today.cash.count === 0 && Number(response.json.today.cash.total) === 0,
+      `cancelled cash still counted: ${JSON.stringify(response.json.today.cash)}`);
+    expect(response.json.today.credit.count === 1 && Number(response.json.today.credit.total) === 100,
+      `credit net total expected 100: ${JSON.stringify(response.json.today.credit)}`);
+    expect(Number(response.json.credit.outstanding) === 20, `outstanding expected 20, got ${response.json.credit.outstanding}`);
+    return `cash 0, credit net 100, outstanding ${response.json.credit.outstanding}`;
   });
 
   // GET /api/products with a categoryId (the per-category list; without one, see the Stage 12 step above).

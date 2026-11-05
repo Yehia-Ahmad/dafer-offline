@@ -28,8 +28,8 @@ import {
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 
-/** Status pills map to the API `status` values (Reactionary = fully returned). */
-export type CreditListStatusFilter = '' | CreditSaleStatus | 'Reactionary';
+/** Status pills map to the API `status` values. */
+export type CreditListStatusFilter = '' | CreditSaleStatus;
 
 type ListPagination = { page: number; limit: number; totalItems: number; totalPages: number; hasNextPage: boolean; hasPrevPage: boolean };
 
@@ -56,7 +56,7 @@ export class CreditSalesListComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-  readonly statusFilters: CreditListStatusFilter[] = ['', 'pending', 'partially_paid', 'paid', 'Reactionary'];
+  readonly statusFilters: CreditListStatusFilter[] = ['', 'pending', 'partially_paid', 'paid', 'returned', 'cancelled'];
 
   query = '';
   status: CreditListStatusFilter = '';

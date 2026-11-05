@@ -12,6 +12,7 @@ const mongoose = require("mongoose");
 
 const PORT = 27098;
 const DB_NAME = "nota_test";
+const REPLICA_SET = "rs0";
 
 const candidate = () =>
   process.env.NOTA_TEST_MONGOD ||
@@ -35,7 +36,7 @@ async function startMongod({ port = PORT } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nota-test-mongo-"));
   const dbPath = path.join(dir, "db");
   fs.mkdirSync(dbPath);
-  const child = spawn(mongodPath, ["--dbpath", dbPath, "--port", String(port), "--bind_ip", "127.0.0.1",
+  const child = spawn(mongodPath, ["--dbpath", dbPath, "--port", String(port), "--bind_ip", "127.0.0.1", "--replSet", REPLICA_SET,
     "--logpath", path.join(dir, "mongod.log"), "--wiredTigerCacheSizeGB", "0.25"], { stdio: "ignore", windowsHide: true });
   const deadline = Date.now() + 60000;
   while (!(await isPortOpen(port))) {
@@ -43,7 +44,25 @@ async function startMongod({ port = PORT } = {}) {
     if (Date.now() > deadline) throw new Error("mongod did not start in 60 s");
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
-  await mongoose.connect(`mongodb://127.0.0.1:${port}/${DB_NAME}`);
+  const bootstrap = new mongoose.mongo.MongoClient(`mongodb://127.0.0.1:${port}`, { directConnection: true });
+  await bootstrap.connect();
+  try {
+    const admin = bootstrap.db("admin");
+    const hello = await admin.command({ hello: 1 });
+    if (!hello.setName) {
+      await admin.command({ replSetInitiate: { _id: REPLICA_SET, members: [{ _id: 0, host: `127.0.0.1:${port}` }] } });
+    }
+    const deadlinePrimary = Date.now() + 60000;
+    for (;;) {
+      const state = await admin.command({ hello: 1 });
+      if (state.setName === REPLICA_SET && state.isWritablePrimary) break;
+      if (Date.now() > deadlinePrimary) throw new Error("mongod replica set did not become PRIMARY in 60 s");
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  } finally {
+    await bootstrap.close();
+  }
+  await mongoose.connect(`mongodb://127.0.0.1:${port}/${DB_NAME}?replicaSet=${REPLICA_SET}&directConnection=true`);
   // Build the indexes the models declare (the dashboard relies on them being valid).
   await Promise.all(Object.values(mongoose.models).map((model) => model.init()));
 

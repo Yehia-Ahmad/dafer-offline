@@ -6,11 +6,11 @@
 
 const { spawn } = require('node:child_process');
 const { ServiceError } = require('./mongod-manager');
+const { REPLICA_SET_NAME } = require('./mongod-manager');
 
 function buildRestoreArgs({ port, archivePath, gzip, sourceDb, targetDb }) {
   const args = [
-    '--host=127.0.0.1',
-    `--port=${port}`,
+    `--uri=mongodb://127.0.0.1:${port}/?replicaSet=${REPLICA_SET_NAME}&directConnection=true`,
     `--archive=${archivePath}`,
     '--drop',
     '--stopOnError',

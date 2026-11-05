@@ -262,7 +262,8 @@
                 "pending": "Due",
                 "partially_paid": "Partly paid",
                 "paid": "Paid",
-                "Reactionary": "Returned"
+                "returned": "Returned",
+                "cancelled": "Cancelled"
             },
             "number": "No.",
             "customer": "Customer",
@@ -276,7 +277,7 @@
             "panelTitle": "Record a payment on an invoice",
             "nothingDue": "Nothing is due on this invoice.",
             "paymentSaved": "Payment saved.",
-            "customerPage": "Customer page (return / delete)",
+            "customerPage": "Customer page (return / cancel)",
             "previousPayments": "Previous payments",
             "pick": "Pick an invoice from the table.",
             "loadFailed": "Could not load credit invoices.",
@@ -284,7 +285,7 @@
                 "pending": "Due",
                 "partially_paid": "Partly paid",
                 "paid": "Paid",
-                "reactionary": "Returned",
+                "returned": "Returned",
                 "unknown": "Unknown",
                 "overdue": "Overdue"
             }
@@ -342,6 +343,15 @@
             "invoiceWindowBlocked": "Allow pop-ups to open and save the invoice.",
             "invoiceDownloadFailed": "Failed to open the invoice.",
             "returnFailed": "Failed to create the return."
+        },
+        "cancel": {
+            "action": "Cancel invoice",
+            "cancelled": "Cancelled",
+            "reason": "Cancellation reason",
+            "summary": "Unreturned items go back to stock and the invoice remains in history.",
+            "number": "Invoice number",
+            "originalTotal": "Original total",
+            "netTotal": "Net after returns"
         },
         "s10": {
             "subtitle": "Cash sale invoices, with their returns.",
@@ -408,7 +418,8 @@
             "purchasePrice": "Purchase Price",
             "quantity": "Quantity",
             "profit": "Profit",
-            "customerName": "Customer"
+            "customerName": "Customer",
+            "costEstimated": "Estimated cost"
         },
         "messages": {
             "empty": "No product profit rows found.",
@@ -548,14 +559,15 @@
             "pending": "Pending",
             "partially_paid": "Partially Paid",
             "paid": "Paid",
-            "reactionary": "Reactionary",
+            "returned": "Returned",
+            "cancelled": "Cancelled",
             "unknown": "Unknown"
         },
         "actions": {
             "addPayment": "Add Payment",
             "addRefund": "Return Items",
             "printInvoice": "Print Invoice",
-            "deleteInvoice": "Delete Invoice"
+            "deleteInvoice": "Cancel Invoice"
         },
         "deleteDialog": {
             "title": "Delete Credit Invoice",
@@ -657,6 +669,7 @@
             "returnDate": "Return Date",
             "returnType": "Return Type",
             "type": "Type",
+            "returnNumber": "Return Number",
             "invoiceNumber": "Invoice Number",
             "invoiceId": "Invoice ID",
             "customerName": "Customer Name",
@@ -932,6 +945,9 @@
         "categories": "Categories",
         "searchPlaceholder": "Search by name or code",
         "lowStockOnly": "Low stock only",
+        "showArchived": "Show archived",
+        "hideArchived": "Hide archived",
+        "restore": "Restore",
         "columns": {
             "code": "Code",
             "name": "Product",
@@ -1255,16 +1271,27 @@
             "user.updated": "User edited",
             "user.status_changed": "User enabled/disabled",
             "user.password_reset": "User password changed",
+            "sale.created": "Cash invoice created",
             "sale.updated": "Cash invoice edited",
-            "sale.deleted": "Cash invoice deleted",
+            "sale.returned": "Cash invoice returned",
+            "sale.cancelled": "Cash invoice cancelled",
+            "credit.created": "Credit invoice created",
             "credit.updated": "Credit invoice edited",
-            "credit.deleted": "Credit invoice deleted",
             "credit.payment": "Payment collected",
-            "return.created": "Return recorded",
+            "credit.returned": "Credit invoice returned",
+            "credit.cancelled": "Credit invoice cancelled",
+            "product.archived": "Product archived",
             "product.deleted": "Product deleted",
+            "product.restored": "Archived product restored",
             "product.sync_purchase_price": "Purchase price synced",
             "category.import": "Categories imported from Excel",
-            "shop.updated": "Shop profile edited"
+            "category.deleted": "Category deleted",
+            "customer.deleted": "Customer deleted",
+            "shop.updated": "Shop profile edited",
+            "backup.created": "Backup created",
+            "backup.restored": "Backup restored",
+            "backup.restore_failed": "Backup restore failed",
+            "system.migration": "Data schema migrated"
         },
         "entities": {
             "User": "User",

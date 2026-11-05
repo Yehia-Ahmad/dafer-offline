@@ -66,12 +66,13 @@ describe('InvoiceHistoryComponent payloads (Stage 10 safety)', () => {
     products.flush({ success: true, data: [{ _id: 'p1', name: 'لمبة' }] });
 
     component.filterProductId = 'p1';
+    component.filterNumber = ' INV-12 ';
     component.filterCustomerName = '  سامي ';
     component.filterCustomerPhone = ' 0100 ';
     component.filterSellingDate = new Date(Date.UTC(2026, 10, 3, 12));
     component.applyFilters();
     expectSellings({
-      categoryId: 'c1', productId: 'p1', customerName: 'سامي', customerPhone: '0100', sellingDate: '2026-11-03', page: '1', limit: '10',
+      categoryId: 'c1', productId: 'p1', customerName: 'سامي', customerPhone: '0100', sellingDate: '2026-11-03', number: 'INV-12', page: '1', limit: '10',
     });
   });
 
@@ -119,13 +120,14 @@ describe('InvoiceHistoryComponent payloads (Stage 10 safety)', () => {
     expect(component.returnError).toBe('x');
   });
 
-  it('delete: DELETE sellings/:id and the row is removed', () => {
+  it('cancel: POST sellings/:id/cancel with the required reason and reloads', () => {
     component.openDeleteDialog(component.sellings[0]);
+    component.cancelReason = '  خطأ في الفاتورة  ';
     component.deleteSelling();
-    const req = http.expectOne(`${base}sellings/s1`);
-    expect(req.request.method).toBe('DELETE');
-    expect(req.request.body).toBeNull();
+    const req = http.expectOne(`${base}sellings/s1/cancel`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ reason: 'خطأ في الفاتورة' });
     req.flush({ message: 'ok' });
-    expect(component.sellings.length).toBe(0);
+    expectSellings({ page: '1', limit: '10' });
   });
 });

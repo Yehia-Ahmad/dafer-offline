@@ -5,6 +5,7 @@ const {
   createCustomer,
   updateCustomer,
   addCustomerCreditSalePayment,
+  getCustomerStatement,
   deleteCustomer,
 } = require("../controllers/customer.controller");
 const { requirePermission } = require("../auth/middleware");
@@ -22,9 +23,9 @@ router
 router.post(
   "/:id/payments",
   requirePermission("credit.collect"),
-  auditOnSuccess("credit.payment", "Customer", paymentDetails),
   addCustomerCreditSalePayment
 );
+router.get("/:id/statement", requirePermission("customers.view"), getCustomerStatement);
 router
   .route("/:id")
   .get(requirePermission("customers.view"), getCustomerById)

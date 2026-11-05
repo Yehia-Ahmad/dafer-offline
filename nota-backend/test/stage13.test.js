@@ -774,12 +774,13 @@ test("audit: entries for auth, users and business actions; filters, newest first
   const cash = await call(on, "POST", "/api/sellings", { token, body: sale(productId) });
   await call(on, "PUT", `/api/sellings/${cash.json._id}`, { token, body: { customerName: "عميل 2" } });
   const credit = await call(on, "POST", "/api/credit-sales", { token, body: sale(productId, 120, { customerPhone: "01000000020" }) });
+  const cancellableCredit = await call(on, "POST", "/api/credit-sales", { token, body: sale(productId, 120, { customerPhone: "01000000021" }) });
   await call(on, "POST", `/api/credit-sales/${credit.json._id}/payments`, { token, body: { amount: 10 } });
   await call(on, "POST", "/api/returns", { token, body: { returnType: "credit", invoiceId: credit.json._id, items: [{ productId, quantity: 1, returnReason: "x" }] } });
   await call(on, "POST", `/api/products/${productId}/sync-purchase-price`, { token, body: {} });
   await call(on, "PUT", "/api/shop-profile", { token, body: { name: "متجر" } });
-  await call(on, "DELETE", `/api/sellings/${cash.json._id}`, { token });
-  await call(on, "DELETE", `/api/credit-sales/${credit.json._id}`, { token });
+  await call(on, "POST", `/api/sellings/${cash.json._id}/cancel`, { token, body: { reason: "اختبار الإلغاء" } });
+  await call(on, "POST", `/api/credit-sales/${cancellableCredit.json._id}/cancel`, { token, body: { reason: "اختبار الإلغاء" } });
   await call(on, "DELETE", `/api/products/${productId}`, { token });
   const changed = await call(on, "POST", "/api/auth/change-password", { token, body: { currentPassword: OWNER.password, newPassword: "changed-secret-1" } });
   const finalToken = changed.json.token;
@@ -789,8 +790,8 @@ test("audit: entries for auth, users and business actions; filters, newest first
   const actions = page.json.data.map((entry) => entry.action);
   for (const action of [
     "auth.setup_owner", "auth.login_failed", "auth.login", "user.created", "user.updated", "user.status_changed",
-    "user.password_reset", "sale.updated", "sale.deleted", "credit.payment", "return.created", "credit.deleted",
-    "product.sync_purchase_price", "product.deleted", "shop.updated", "auth.password_changed",
+    "user.password_reset", "sale.updated", "sale.cancelled", "credit.payment", "credit.returned", "credit.cancelled",
+    "product.sync_purchase_price", "product.archived", "shop.updated", "auth.password_changed",
   ]) {
     assert.ok(actions.includes(action), `${action} is logged (got ${actions.join(", ")})`);
   }

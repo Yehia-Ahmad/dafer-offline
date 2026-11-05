@@ -78,7 +78,7 @@ class MainPcSupervisor extends EventEmitter {
   // writes meanwhile), then starts the backend again, whether or not the task succeeded.
   // Client PCs are cut off meanwhile. reason ('backup', 'auto-backup', 'restore') is reported
   // in the status.
-  runMaintenance(task, { reason = 'restore' } = {}) {
+  runMaintenance(task, { reason = 'restore', recoverRestart } = {}) {
     if (this.status.state !== 'running' || this.maintenancePromise) {
       const error = new Error('الخادم غير جاهز الآن أو توجد عملية أخرى قيد التنفيذ. حاول مرة أخرى بعد قليل.');
       error.code = 'SERVER_BUSY';
@@ -86,23 +86,43 @@ class MainPcSupervisor extends EventEmitter {
     }
     this.maintenancePromise = (async () => {
       this.setStatus({ state: 'maintenance', reason });
+      let result;
+      let failure;
       try {
         await this.backend.stop();
-        return await task();
-      } finally {
-        if (!this.stopping) {
-          try {
-            if (!this.mongod.running) await this.mongod.start();
-            await this.backend.start();
-            this.lastHealthyAt = this.now();
-            this.setStatus({ state: 'running' });
-          } catch (error) {
+        result = await task();
+      } catch (error) {
+        failure = error;
+      }
+      if (!this.stopping) {
+        try {
+          if (!this.mongod.running) await this.mongod.start();
+          await this.backend.start();
+          this.lastHealthyAt = this.now();
+          this.setStatus({ state: 'running' });
+        } catch (error) {
+          if (!failure && recoverRestart) {
+            try {
+              failure = await recoverRestart(error, result) || error;
+              if (!this.mongod.running) await this.mongod.start();
+              await this.backend.start();
+              this.lastHealthyAt = this.now();
+              this.setStatus({ state: 'running' });
+            } catch (recoveryError) {
+              failure = recoveryError;
+            }
+          } else {
+            failure = failure || error;
+          }
+          if (this.status.state !== 'running') {
             this.log.error(`could not restart after maintenance: ${error.message}`);
-            this.setStatus({ state: 'failed', code: error.code || 'START_FAILED', message: error.message, detail: error.detail });
+            this.setStatus({ state: 'failed', code: failure.code || 'START_FAILED', message: failure.message, detail: failure.detail });
           }
         }
-        this.maintenancePromise = null;
       }
+      this.maintenancePromise = null;
+      if (failure) throw failure;
+      return result;
     })();
     return this.maintenancePromise;
   }

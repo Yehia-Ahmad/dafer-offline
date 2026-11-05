@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const ReturnLog = require("../models/returnLog.model");
+const { PREFIXES, normalizeNumberSearch } = require("../utils/documentNumber");
 
 const badRequest = (message) => Object.assign(new Error(message), { statusCode: 400 });
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -24,6 +25,7 @@ const buildDateFilter = ({ dateFrom, dateTo } = {}) => {
 
 const buildQuery = (filters = {}) => {
   const query = buildDateFilter(filters);
+  if (filters.number !== undefined) query.number = normalizeNumberSearch(filters.number, PREFIXES.RETURN);
   if (filters.returnType !== undefined) {
     if (!["cash", "credit"].includes(filters.returnType)) throw badRequest("returnType يجب أن يكون cash أو credit");
     query.returnType = filters.returnType;
@@ -48,7 +50,11 @@ const buildQuery = (filters = {}) => {
   return query;
 };
 
-const createReturnLog = (payload) => ReturnLog.create(payload);
+const createReturnLog = async (payload, session) => {
+  if (!session) return ReturnLog.create(payload);
+  const [created] = await ReturnLog.create([payload], { session });
+  return created;
+};
 
 const listReturns = async (filters = {}) => {
   const page = Number(filters.page ?? 1);

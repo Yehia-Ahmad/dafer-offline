@@ -14,10 +14,8 @@ const { toSellingInvoice } = require("./selling.controller");
 // list filters use. dueDate is stored the same way; a credit invoice is overdue when its dueDate is
 // before today and money remains.
 //
-// Amounts are what the invoice screens show: a cash invoice keeps its original totalPrice in the
-// database and the API reports it net of returned items (toSellingInvoice with excludeRefundedItems),
-// so cash totals reuse that same function; a credit invoice's stored totalPrice already drops on a
-// return, so credit totals sum it directly.
+// Stage 16: invoices keep original totals. Dashboard figures use totalPrice - refundedAmount and
+// omit cancelled invoices.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LAST_DAYS = 7;
@@ -31,11 +29,14 @@ const localTodayAsUtcDay = (now = new Date()) =>
   new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
 /** Cash invoice total as GET /api/sellings shows it (net of returned items). */
-const cashInvoiceTotal = (selling) => Number(toSellingInvoice(selling, { excludeRefundedItems: true }).totalPrice || 0);
+const cashInvoiceTotal = (selling) => {
+  const refundedAmount = selling.refundedAmount ?? (selling.refunds || []).reduce((sum, refund) => sum + Number(refund.totalAmount || 0), 0);
+  return roundMoney(Math.max(0, Number(selling.totalPrice || 0) - Number(refundedAmount || 0)));
+};
 
 /** Same as totalsByDay, for cash invoices (net of returns, computed per invoice). */
 const cashTotalsByDay = async (from, to) => {
-  const sellings = await Selling.find({ sellingDate: { $gte: from, $lt: to } }).lean();
+  const sellings = await Selling.find({ sellingDate: { $gte: from, $lt: to }, status: { $ne: "cancelled" } }).lean();
   const byDay = new Map();
   for (const selling of sellings) {
     const key = toDateKey(new Date(selling.sellingDate));
@@ -51,11 +52,11 @@ const cashTotalsByDay = async (from, to) => {
 /** { 'YYYY-MM-DD': { total, count } } of invoices whose sellingDate falls in [from, to). */
 const totalsByDay = async (Model, from, to) => {
   const rows = await Model.aggregate([
-    { $match: { sellingDate: { $gte: from, $lt: to } } },
+    { $match: { sellingDate: { $gte: from, $lt: to }, status: { $ne: "cancelled" } } },
     {
       $group: {
         _id: { $dateToString: { format: "%Y-%m-%d", date: "$sellingDate", timezone: "UTC" } },
-        total: { $sum: { $ifNull: ["$totalPrice", 0] } },
+        total: { $sum: { $max: [0, { $subtract: [{ $ifNull: ["$totalPrice", 0] }, { $ifNull: ["$refundedAmount", 0] }] }] } },
         count: { $sum: 1 },
       },
     },
@@ -77,7 +78,7 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
     cashTotalsByDay(firstDay, tomorrow),
     totalsByDay(CreditSale, firstDay, tomorrow),
     CreditSale.aggregate([
-      { $match: { remainingAmount: { $gt: 0 } } },
+      { $match: { remainingAmount: { $gt: 0 }, status: { $nin: ["cancelled", "returned"] } } },
       {
         $group: {
           _id: null,
@@ -96,10 +97,10 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
         },
       },
     ]),
-    Selling.find({}).sort({ createdAt: -1, _id: -1 }).limit(RECENT_LIMIT).lean(),
-    CreditSale.find({}, "customer customerName totalPrice createdAt sellingDate").sort({ createdAt: -1, _id: -1 }).limit(RECENT_LIMIT).lean(),
+    Selling.find({ status: { $ne: "cancelled" } }).sort({ createdAt: -1, _id: -1 }).limit(RECENT_LIMIT).lean(),
+    CreditSale.find({ status: { $ne: "cancelled" } }, "customer customerName number totalPrice refundedAmount createdAt sellingDate").sort({ createdAt: -1, _id: -1 }).limit(RECENT_LIMIT).lean(),
     Product.aggregate([
-      { $match: { $expr: { $lte: ["$inventoryCount", { $ifNull: ["$lowStockThreshold", DEFAULT_LOW_STOCK_THRESHOLD] }] } } },
+      { $match: { isArchived: { $ne: true }, $expr: { $lte: ["$inventoryCount", { $ifNull: ["$lowStockThreshold", DEFAULT_LOW_STOCK_THRESHOLD] }] } } },
       { $sort: { inventoryCount: 1, name: 1, _id: 1 } },
       { $limit: LOW_STOCK_LIMIT },
       {
@@ -126,7 +127,7 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
     ...recentCash.map((selling) => ({
       id: String(selling._id),
       type: "cash",
-      reference: String(selling.invoiceId ?? selling._id),
+      reference: selling.number ?? String(selling.invoiceId ?? selling._id),
       customerName: selling.customerName || "",
       customerId: null,
       total: roundMoney(cashInvoiceTotal(selling)),
@@ -136,10 +137,10 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
     ...recentCredit.map((creditSale) => ({
       id: String(creditSale._id),
       type: "credit",
-      reference: String(creditSale._id),
+      reference: creditSale.number ?? String(creditSale._id),
       customerName: creditSale.customerName || "",
       customerId: creditSale.customer ? String(creditSale.customer) : null,
-      total: roundMoney(Number(creditSale.totalPrice || 0)),
+      total: roundMoney(Math.max(0, Number(creditSale.totalPrice || 0) - Number(creditSale.refundedAmount || 0))),
       sellingDate: creditSale.sellingDate,
       createdAt: creditSale.createdAt,
     })),
