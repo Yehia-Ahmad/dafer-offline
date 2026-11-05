@@ -71,6 +71,15 @@
       @switch (activeTab) {
         @case ('statement') {
           <p class="cd__legend">{{ 'customerDetailsPage.s10.statement.legend' | translate }} · {{ 'customerDetailsPage.s10.statement.note' | translate }}</p>
+          <div class="cd__form-row" data-testid="statement-filters">
+            <nota-form-field [label]="'customerDetailsPage.s10.statement.from' | translate" forId="statementFrom">
+              <input id="statementFrom" type="date" class="nota-input" [(ngModel)]="statementFrom" />
+            </nota-form-field>
+            <nota-form-field [label]="'customerDetailsPage.s10.statement.to' | translate" forId="statementTo">
+              <input id="statementTo" type="date" class="nota-input" [(ngModel)]="statementTo" />
+            </nota-form-field>
+            <button type="button" notaButton (click)="applyStatementFilters()">{{ 'customerDetailsPage.s10.statement.apply' | translate }}</button>
+          </div>
           <div class="nota-table-wrap">
             <table class="nota-table">
               <thead><tr>
@@ -105,6 +114,9 @@
               }
             </table>
           </div>
+          @if (statement.balance < 0) {
+            <p class="cd__msg" data-testid="customer-credit-balance">{{ 'customerDetailsPage.s10.statement.customerCredit' | translate: { amount: ((-statement.balance) | notaMoney) } }}</p>
+          }
         }
 
         @case ('invoices') {
@@ -141,7 +153,8 @@
                   <div><dt>{{ 'customerDetailsPage.history.dueDate' | translate }}</dt><dd>{{ formatDate(entry.dueDate) }}</dd></div>
                   <div><dt>{{ 'customerDetailsPage.history.items' | translate }}</dt><dd class="nota-num">{{ entry.itemCount | notaNumber }} / {{ entry.totalQuantity | notaNumber }}</dd></div>
                   <div><dt>{{ 'customerDetailsPage.history.paymentsCount' | translate }}</dt><dd class="nota-num">{{ entry.paymentsCount | notaNumber }}</dd></div>
-                  <div><dt>{{ 'customerDetailsPage.history.totalPrice' | translate }}</dt><dd class="nota-num">{{ entry.totalPrice | notaMoney }}</dd></div>
+                  <div><dt>{{ 'invoiceHistoryPage.cancel.originalTotal' | translate }}</dt><dd class="nota-num">{{ entry.totalPrice | notaMoney }}</dd></div>
+                  <div><dt>{{ 'invoiceHistoryPage.s10.refundedAmount' | translate }}</dt><dd class="nota-num">{{ entry.refundedAmount | notaMoney }}</dd></div>
                   <div><dt>{{ 'invoiceHistoryPage.cancel.netTotal' | translate }}</dt><dd class="nota-num">{{ entry.netTotal | notaMoney }}</dd></div>
                   <div><dt>{{ 'customerDetailsPage.history.paidAmount' | translate }}</dt><dd class="nota-num cd__in">{{ entry.paidAmount | notaMoney }}</dd></div>
                   <div><dt>{{ 'customerDetailsPage.history.remainingAmount' | translate }}</dt><dd class="nota-num cd__due">{{ entry.remainingAmount | notaMoney }}</dd></div>

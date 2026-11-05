@@ -90,7 +90,6 @@ const calculateDiscountPercentageFromAmount = (subtotal: number, discountAmount:
 export function normalizeCreditSaleStatus(value: unknown): CreditSaleStatusView {
   if (value === 'pending' || value === 'partially_paid' || value === 'paid' || value === 'returned' || value === 'cancelled') return value;
   if (value === 'partiallyPaid') return 'partially_paid';
-  if (value === 'Reactionary' || value === 'reactionary') return 'returned';
   return 'unknown';
 }
 

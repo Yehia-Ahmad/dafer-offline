@@ -406,7 +406,8 @@ export class ReturnsComponent implements OnInit {
 
   /** Same list endpoints the other screens use: GET sellings (cash) / GET credit-sales (credit). Digits → phone. */
   searchWizardInvoices(): void {
-    const query = this.wizardQuery.trim();
+    const rawQuery = this.wizardQuery.trim();
+    const query = /^(INV|CR)-\d+$/i.test(rawQuery) ? rawQuery.toUpperCase() : rawQuery;
     if (!query || this.wizardSearching) return;
     const byNumber = /^(INV|CR)-\d+$/i.test(query);
     const byPhone = !byNumber && /^[\d\s+()-]+$/.test(query);

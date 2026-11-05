@@ -23,6 +23,7 @@ import {
   NotaNumberPipe,
   NotaPageHeaderComponent,
 } from '../../../shared/ui';
+import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 
 /** Stage 11 period pills; each one only sets the existing dateFrom / dateTo filters. */
 export type ProfitPeriod = 'all' | 'month' | 'sixMonths' | 'year' | 'custom';
@@ -58,7 +59,8 @@ type SelectOption = {
     NotaKpiCardComponent,
     NotaMoneyPipe,
     NotaNumberPipe,
-    NotaPageHeaderComponent
+    NotaPageHeaderComponent,
+    NotaCanDirective
   ],
   templateUrl: './product-profit-report.component.html',
   styleUrl: './product-profit-report.component.scss'

@@ -156,7 +156,7 @@
 <p-dialog [(visible)]="deleteDialogVisible" [modal]="true" [showHeader]="false" [closable]="!isDeletingSelectedSelling" [dismissableMask]="!isDeletingSelectedSelling"
   [draggable]="false" [resizable]="false" styleClass="nota-p-dialog" (onHide)="closeDeleteDialog()">
   <nota-dialog-shell [title]="'invoiceHistoryPage.cancel.action' | translate" [closeLabel]="'actions.cancelButton' | translate" (closed)="closeDeleteDialog()">
-    <p>{{ 'invoiceHistoryPage.cancel.summary' | translate }}</p>
+    <p data-testid="cash-cancel-summary">{{ 'invoiceHistoryPage.cancel.cashSummary' | translate: { amount: (cashCancelRefundAmount | notaMoney) } }}</p>
     <nota-form-field [label]="'invoiceHistoryPage.cancel.reason' | translate" forId="cashCancelReason">
       <textarea id="cashCancelReason" class="nota-input" [(ngModel)]="cancelReason" maxlength="500"></textarea>
     </nota-form-field>

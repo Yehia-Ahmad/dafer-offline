@@ -463,7 +463,9 @@ export class CategoryToolsComponent implements OnInit {
       },
       error: (err) => {
         this.closeDeleteCategoryDialog();
-        this.errorMessage.set(this.extractErrorMessage(err, 'لا يمكن حذف فئة تحتوي على أصناف'));
+        this.errorMessage.set(err?.error?.code === 'CATEGORY_NOT_EMPTY'
+          ? this.localizedMessage('This category cannot be deleted because it contains products.', 'لا يمكن حذف فئة تحتوي على أصناف')
+          : this.extractErrorMessage(err, 'لا يمكن حذف فئة تحتوي على أصناف'));
         this.errorVisible.set(true);
       }
     });

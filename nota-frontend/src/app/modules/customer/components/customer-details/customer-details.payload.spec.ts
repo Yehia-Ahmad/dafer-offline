@@ -134,4 +134,37 @@ describe('CustomerDetailsComponent payloads (Stage 10 safety)', () => {
     req.flush({});
     flushCustomer();
   });
+
+  it('statement filters call customers/:id/statement with from/to', () => {
+    component.statementFrom = '2026-10-01';
+    component.statementTo = '2026-10-31';
+    component.applyStatementFilters();
+    const req = http.expectOne((r) => r.url === `${base}customers/cu1/statement`);
+    expect(req.request.params.get('from')).toBe('2026-10-01');
+    expect(req.request.params.get('to')).toBe('2026-10-31');
+    req.flush({ lines: [], totals: { debit: 0, credit: 0, balance: 0 } });
+  });
+
+  for (const [code, key] of [
+    ['HAS_PAYMENTS', 'invoiceHistoryPage.cancel.blocked.hasPayments'],
+    ['HAS_RETURNS', 'invoiceHistoryPage.cancel.blocked.hasReturns'],
+    ['ALREADY_CANCELLED', 'invoiceHistoryPage.cancel.blocked.alreadyCancelled'],
+  ] as const) {
+    it(`cancel conflict ${code} shows its blocked message and keeps the dialog open`, () => {
+      component.openDeleteCreditDialog(history()[0]);
+      component.cancelReason = 'valid reason';
+      component.deleteCreditInvoice();
+      http.expectOne(`${base}credit-sales/cs2/cancel`).flush({ code }, { status: 409, statusText: 'Conflict' });
+      expect(component.deleteCreditErrorMessage).toBe(key);
+      expect(component.deleteCreditDialogVisible).toBeTrue();
+    });
+  }
+
+  it('a cancel reason shorter than three characters sends nothing and does not lock the dialog', () => {
+    component.openDeleteCreditDialog(history()[0]);
+    component.cancelReason = ' x ';
+    component.deleteCreditInvoice();
+    http.expectNone((r) => r.url.includes('/cancel'));
+    expect(component.isDeletingCreditSale).toBeFalse();
+  });
 });

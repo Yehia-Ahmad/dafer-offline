@@ -20,7 +20,7 @@ describe('InvoiceHistoryComponent payloads (Stage 10 safety)', () => {
     Object.fromEntries(req.request.params.keys().map((key) => [key, req.request.params.get(key)]));
 
   const selling = {
-    _id: 's1', invoiceId: 's1', customerName: 'زبون نقدي', customerPhone: '01001234567', sellingDate: '2026-11-03T10:00:00.000Z',
+    _id: 's1', invoiceId: 's1', number: 'INV-12', customerName: 'زبون نقدي', customerPhone: '01001234567', sellingDate: '2026-11-03T10:00:00.000Z',
     itemCount: 2, totalQuantity: 4, discountAmount: 0, shippingFees: 0, totalPrice: 300, refundStatus: 'none', refunds: [],
     items: [
       { _id: 'i1', productId: 'p1', productName: 'لمبة', productCode: 'LED-18', productQuantity: 3, productPricePerEach: 60, totalPrice: 180 },
@@ -66,7 +66,7 @@ describe('InvoiceHistoryComponent payloads (Stage 10 safety)', () => {
     products.flush({ success: true, data: [{ _id: 'p1', name: 'لمبة' }] });
 
     component.filterProductId = 'p1';
-    component.filterNumber = ' INV-12 ';
+    component.filterNumber = ' inv-12 ';
     component.filterCustomerName = '  سامي ';
     component.filterCustomerPhone = ' 0100 ';
     component.filterSellingDate = new Date(Date.UTC(2026, 10, 3, 12));
@@ -129,5 +129,20 @@ describe('InvoiceHistoryComponent payloads (Stage 10 safety)', () => {
     expect(req.request.body).toEqual({ reason: 'خطأ في الفاتورة' });
     req.flush({ message: 'ok' });
     expectSellings({ page: '1', limit: '10' });
+  });
+
+  it('maps the canonical invoice number; a short cancel reason sends nothing and does not lock', () => {
+    expect(component.sellings[0].invoiceNumber).toBe('INV-12');
+    component.openDeleteDialog(component.sellings[0]);
+    component.cancelReason = ' x ';
+    component.deleteSelling();
+    http.expectNone((r) => r.url.includes('/cancel'));
+    expect(component.deletingSellingId).toBe('');
+  });
+
+  it('a fully returned cash invoice has net zero and cannot be returned again', () => {
+    const invoice = { ...component.sellings[0], refundStatus: 'full', refundedAmount: 300, netTotal: 0 } as any;
+    expect([invoice.totalPrice, invoice.refundedAmount, invoice.netTotal]).toEqual([300, 300, 0]);
+    expect(component.canReturnSelling(invoice)).toBeFalse();
   });
 });

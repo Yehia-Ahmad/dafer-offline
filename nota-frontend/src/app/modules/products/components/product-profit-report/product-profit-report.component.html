@@ -154,7 +154,7 @@
             <div><dt>{{ 'profitReportPage.dialog.profit' | translate }}</dt><dd class="nota-num pr__profit">{{ invoice.profit !== null ? (invoice.profit | notaMoney) : '-' }}</dd></div>
           </dl>
           <p class="pr__muted">{{ 'profitReportPage.dialog.customerName' | translate }}: {{ invoice.customerName || '-' }}</p>
-          @if (invoice.costEstimated) {<small class="pr__muted">{{ 'profitReportPage.dialog.costEstimated' | translate }}</small>}
+          @if (invoice.costEstimated) {<small *notaCan="'products.viewCost'" class="pr__muted">{{ 'profitReportPage.dialog.costEstimated' | translate }}</small>}
         </div>
       }
     </div>

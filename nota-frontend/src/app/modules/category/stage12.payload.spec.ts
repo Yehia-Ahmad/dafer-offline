@@ -77,6 +77,20 @@ describe('Stage 12 — products page "كل الأصناف"', () => {
     component.newProduct();
     expect(navigate).toHaveBeenCalledWith(['/products/new']);
   });
+
+  it('archived toggle sends includeArchived=1 and restore POSTs to products/:id/restore', () => {
+    http.expectOne((r) => r.url === `${base}products`).flush(page([]));
+    component.toggleArchived();
+    const archived = http.expectOne((r) => r.url === `${base}products`);
+    expect(params(archived)).toEqual({ page: '1', limit: '10', includeArchived: '1' });
+    archived.flush(page([{ _id: 'p1', name: 'قديم', isArchived: true }]));
+    component.restoreProduct(component.products[0]);
+    const restore = http.expectOne(`${base}products/p1/restore`);
+    expect(restore.request.method).toBe('POST');
+    expect(restore.request.body).toEqual({});
+    restore.flush({});
+    http.expectOne((r) => r.url === `${base}products` && r.params.get('includeArchived') === '1').flush(page([]));
+  });
 });
 
 describe('Stage 12 — catalog keeps productCount (same GET categories)', () => {

@@ -201,11 +201,14 @@
 <!-- Delete product -->
 <p-dialog [(visible)]="deleteVisible" [modal]="true" [showHeader]="false" styleClass="nota-p-dialog nota-p-dialog--sm" appendTo="body">
   <nota-dialog-shell [title]="'category.deleteProduct.title' | translate" [closeLabel]="'nav.categories.close' | translate" (closed)="closeDialog()">
-    <p class="pf__message">{{ 'category.deleteProduct.deleteMessage' | translate }} <strong>{{ product?.name }}</strong></p>
+    <p class="pf__message" data-testid="product-delete-kind">
+      {{ ((product?.soldItemCount || 0) > 0 ? 'category.deleteProduct.archiveMessage' : 'category.deleteProduct.deleteMessage') | translate }}
+      <strong>{{ product?.name }}</strong>
+    </p>
     <ng-container notaDialogFooter>
       <button type="button" notaButton (click)="closeDialog()">{{ 'category.deleteProduct.actions.cancelButton' | translate }}</button>
       <button type="button" notaButton="danger" data-action="confirm-delete-product" (click)="deleteProduct()" [disabled]="isLoading">
-        {{ !isLoading ? ('category.deleteProduct.actions.deleteButton' | translate) : ('actions.loading' | translate) }}
+        {{ !isLoading ? (((product?.soldItemCount || 0) > 0 ? 'category.deleteProduct.actions.archiveButton' : 'category.deleteProduct.actions.deleteButton') | translate) : ('actions.loading' | translate) }}
       </button>
     </ng-container>
   </nota-dialog-shell>

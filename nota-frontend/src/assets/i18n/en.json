@@ -86,9 +86,11 @@
         },
         "deleteProduct": {
             "title": "Delete Product",
-            "deleteMessage": "Do you want to delete this product?",
+            "deleteMessage": "Delete this product permanently? It has no recorded sales.",
+            "archiveMessage": "This product has recorded sales, so it will be archived instead of deleted and kept on old invoices.",
             "actions": {
                 "deleteButton": "Delete Product",
+                "archiveButton": "Archive Product",
                 "cancelButton": "No Cancel"
             }
         },
@@ -349,6 +351,12 @@
             "cancelled": "Cancelled",
             "reason": "Cancellation reason",
             "summary": "Unreturned items go back to stock and the invoice remains in history.",
+            "cashSummary": "Unreturned items go back to stock, {{amount}} is refunded to the customer, and the invoice remains in history.",
+            "blocked": {
+                "hasPayments": "An invoice with payments cannot be cancelled. Create a return instead.",
+                "hasReturns": "An invoice with returns cannot be cancelled. Create a return instead.",
+                "alreadyCancelled": "This invoice is already cancelled."
+            },
             "number": "Invoice number",
             "originalTotal": "Original total",
             "netTotal": "Net after returns"
@@ -570,7 +578,7 @@
             "deleteInvoice": "Cancel Invoice"
         },
         "deleteDialog": {
-            "title": "Delete Credit Invoice",
+            "title": "Cancel Credit Invoice",
             "confirm": "Do you want to delete this credit invoice?",
             "inventoryWarning": "This deletes only the invoice row. Use Return Items to restore inventory."
         },
@@ -641,7 +649,11 @@
                 "payment": "Payment",
                 "refund": "Return",
                 "refundReleased": "Return — paid money released",
-                "empty": "No transactions."
+                "empty": "No transactions.",
+                "from": "From",
+                "to": "To",
+                "apply": "Apply",
+                "customerCredit": "Money owed to the customer: {{amount}}"
             },
             "invoice": "Invoice",
             "amount": "Amount",

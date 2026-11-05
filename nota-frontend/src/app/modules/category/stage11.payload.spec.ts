@@ -288,6 +288,14 @@ describe('Stage 11 payloads — category tools (AFTER: CategoryToolsComponent)',
     drain(http);
   });
 
+  it('CATEGORY_NOT_EMPTY shows the category-specific message', () => {
+    component.promptForCategoryDeletion({ id: 'c1', label: 'لمبات' });
+    component.confirmDeleteCategory();
+    http.expectOne(`${base}categories/c1`).flush({ code: 'CATEGORY_NOT_EMPTY' }, { status: 409, statusText: 'Conflict' });
+    expect(component.errorVisible()).toBeTrue();
+    expect(component.errorMessage()).toContain('لا يمكن حذف فئة تحتوي على أصناف');
+  });
+
   it('export categories: GET categories/export as blob; export products: GET products/export/excel as blob', () => {
     component.exportCategories();
     const a = http.expectOne(`${base}categories/export`);
@@ -315,6 +323,19 @@ describe('Stage 11 payloads — category tools (AFTER: CategoryToolsComponent)',
     req.flush({ success: true, importedCount: 2, skippedCount: 0, errors: [] });
     expect(http.match(`${base}categories`).map((r) => (r.flush([category]), r)).length).toBe(1);
     drain(http);
+  });
+
+  it('all-or-nothing import keeps every error row and reports zero imported rows', () => {
+    const input = document.createElement('input');
+    Object.defineProperty(input, 'files', { value: [new File(['x'], 'invalid.xlsx')] });
+    component.onCategoryImportSelected({ target: input } as unknown as Event);
+    http.expectOne(`${base}categories/import`).flush({
+      success: false, importedCount: 0, skippedCount: 2,
+      errors: [{ row: 2, message: 'الاسم مطلوب' }, { row: 4, message: 'اسم مكرر' }],
+    });
+    expect(component.categoryImportResult()?.importedCount).toBe(0);
+    expect(component.categoryImportResult()?.errors.map((error) => component.formatImportError(error)))
+      .toEqual(['الاسم مطلوب', 'اسم مكرر']);
   });
 });
 

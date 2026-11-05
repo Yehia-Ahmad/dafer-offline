@@ -103,6 +103,14 @@ describe('ReturnsComponent new-return wizard (Stage 10)', () => {
     expect(component.view).toBe('wizard');
   });
 
+  it('invoice-number search trims and normalizes the number', () => {
+    component.wizardQuery = ' inv-12 ';
+    component.searchWizardInvoices();
+    const search = http.expectOne((r) => r.url === `${base}sellings`);
+    expect(params(search)).toEqual({ number: 'INV-12', page: '1', limit: '10' });
+    search.flush({ success: true, data: [], pagination: {} });
+  });
+
   it('no POST without selected quantities; empty search sends nothing', () => {
     component.searchWizardInvoices();
     http.expectNone((r) => r.url === `${base}sellings`);

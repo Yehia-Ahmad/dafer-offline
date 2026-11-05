@@ -91,6 +91,8 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   selectedInvoiceForRefund: CustomerHistoryView | null = null;
   selectedInvoiceForDelete: CustomerHistoryView | null = null;
   cancelReason = '';
+  statementFrom = '';
+  statementTo = '';
   private readonly isBrowser: boolean;
   private currentCustomerId: string | null = null;
   private readonly subscriptions = new Subscription();
@@ -154,6 +156,10 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
 
   setTab(tab: CustomerTab): void {
     this.activeTab = tab;
+  }
+
+  applyStatementFilters(): void {
+    if (this.currentCustomerId) this.loadStatement(this.currentCustomerId);
   }
 
   statusPill(entry: CustomerHistoryView): string {
@@ -327,10 +333,10 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     const invoice = this.selectedInvoiceForDelete;
     if (!invoice?.id || this.isDeletingCreditSale) return;
 
-    this.isDeletingCreditSale = true;
-    this.deleteCreditErrorMessage = '';
     const reason = this.cancelReason.trim();
     if (reason.length < 3) return;
+    this.isDeletingCreditSale = true;
+    this.deleteCreditErrorMessage = '';
     this.creditSalesService.cancelCreditSale(invoice.id, reason).subscribe({
       next: () => {
         this.isDeletingCreditSale = false;
@@ -341,7 +347,15 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         this.isDeletingCreditSale = false;
-        this.deleteCreditErrorMessage = this.extractErrorMessage(error, 'customerDetailsPage.messages.deleteInvoiceFailed');
+        const code = String(error?.error?.code || '');
+        const blockedKey: Record<string, string> = {
+          HAS_PAYMENTS: 'invoiceHistoryPage.cancel.blocked.hasPayments',
+          HAS_RETURNS: 'invoiceHistoryPage.cancel.blocked.hasReturns',
+          ALREADY_CANCELLED: 'invoiceHistoryPage.cancel.blocked.alreadyCancelled',
+        };
+        this.deleteCreditErrorMessage = blockedKey[code]
+          ? this.translate.instant(blockedKey[code])
+          : this.extractErrorMessage(error, 'customerDetailsPage.messages.deleteInvoiceFailed');
         this.cdr.detectChanges();
       }
     });
@@ -578,7 +592,11 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   }
 
   private loadStatement(customerId: string): void {
-    this.customersService.getCustomerStatement(customerId).subscribe({
+    const params = {
+      ...(this.statementFrom ? { from: this.statementFrom } : {}),
+      ...(this.statementTo ? { to: this.statementTo } : {}),
+    };
+    this.customersService.getCustomerStatement(customerId, params).subscribe({
       next: (response: any) => {
         const source = response?.data ?? response ?? {};
         const lines = Array.isArray(source.lines) ? source.lines : [];

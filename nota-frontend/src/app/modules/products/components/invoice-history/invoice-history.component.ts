@@ -247,7 +247,7 @@ export class InvoiceHistoryComponent implements OnInit {
     const customerName = this.filterCustomerName.trim();
     const customerPhone = this.filterCustomerPhone.trim();
     const sellingDate = this.formatDateParam(this.filterSellingDate);
-    const number = this.filterNumber.trim();
+    const number = this.filterNumber.trim().toUpperCase();
 
     return {
       ...(categoryId ? { categoryId } : {}),
@@ -612,6 +612,13 @@ export class InvoiceHistoryComponent implements OnInit {
     this.deleteDialogVisible = true;
   }
 
+  /** Amount handed back when a cash invoice is cancelled (net of returns already made). */
+  get cashCancelRefundAmount(): number {
+    const selling = this.selectedSellingToDelete;
+    if (!selling) return 0;
+    return Math.max(0, Number(selling.netTotal ?? Number(selling.totalPrice || 0) - Number(selling.refundedAmount || 0)));
+  }
+
   closeDeleteDialog(): void {
     if (this.isDeletingSelectedSelling) {
       return;
@@ -627,11 +634,10 @@ export class InvoiceHistoryComponent implements OnInit {
       return;
     }
 
-    this.deletingSellingId = selling.id;
-    this.loadError = '';
-
     const reason = this.cancelReason.trim();
     if (reason.length < 3) return;
+    this.deletingSellingId = selling.id;
+    this.loadError = '';
     this._productsService.cancelSelling(selling.id, reason).subscribe({
       next: () => {
         this.deletingSellingId = '';
