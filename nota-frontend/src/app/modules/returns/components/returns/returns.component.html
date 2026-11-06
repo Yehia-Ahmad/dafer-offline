@@ -78,7 +78,7 @@
                   <td class="nota-num" dir="ltr">{{ item.customerPhone || '—' }}</td>
                   <td class="num">{{ item.items.length | notaNumber }}</td>
                   <td class="num rt__strong">{{ item.finalReturnedAmount | notaMoney }}</td>
-                  <td><button type="button" notaButton (click)="viewDetails(item)">{{ 'returnsPage.actions.viewDetails' | translate }}</button></td>
+                  <td><a *notaCan="'accounting.view'" notaButton [routerLink]="['/accounting/journal']" [queryParams]="{ sourceType: 'return', sourceId: item._id }">{{ 'accounting.viewEntry' | translate }}</a><button type="button" notaButton (click)="viewDetails(item)">{{ 'returnsPage.actions.viewDetails' | translate }}</button></td>
                 </tr>
               }
             </tbody>

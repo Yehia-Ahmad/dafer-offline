@@ -4,6 +4,8 @@ const lineSchema = new mongoose.Schema({
   accountId: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true },
   accountCode: { type: String, required: true },
   accountName: { type: String, required: true },
+  accountNameAr: { type: String, required: true },
+  accountNameEn: { type: String, required: true },
   debit: { type: Number, default: 0, min: 0 },
   credit: { type: Number, default: 0, min: 0 },
   partyType: { type: String, enum: ["customer", "supplier", null], default: null },

@@ -1,0 +1,11 @@
+<section class="accounting-page">
+  <header class="page-head"><a routerLink="/accounting/accounts">← {{ 'accounting.accounts.title' | translate }}</a><h1><span dir="ltr">{{ account?.code }}</span> {{ accountName }}</h1></header>
+  <form class="filters card" (ngSubmit)="load()">
+    <label>{{ 'accounting.from' | translate }}<input type="date" name="from" [(ngModel)]="from"></label>
+    <label>{{ 'accounting.to' | translate }}<input type="date" name="to" [(ngModel)]="to"></label>
+    <label *ngIf="account?.systemKey === 'CUSTOMERS'">{{ 'accounting.party' | translate }}<select name="party" [(ngModel)]="partyId"><option value="">{{ 'accounting.all' | translate }}</option><option *ngFor="let party of parties" [value]="party._id">{{ party.name }} · {{ party.phone }}</option></select></label>
+    <button class="primary" type="submit">{{ 'accounting.apply' | translate }}</button>
+  </form>
+  <div class="summary"><span>{{ 'accounting.opening' | translate }} <strong>{{ openingBalance | number:'1.2-2' }}</strong></span><span>{{ 'accounting.balance' | translate }} <strong>{{ balance | number:'1.2-2' }}</strong></span></div>
+  <div class="card table-wrap"><table><thead><tr><th>{{ 'accounting.date' | translate }}</th><th>{{ 'accounting.number' | translate }}</th><th>{{ 'accounting.source' | translate }}</th><th>{{ 'accounting.party' | translate }}</th><th>{{ 'accounting.debit' | translate }}</th><th>{{ 'accounting.credit' | translate }}</th><th>{{ 'accounting.balance' | translate }}</th></tr></thead><tbody><tr *ngFor="let line of lines"><td>{{ line.date | date:'mediumDate' }}</td><td><a [routerLink]="['/accounting/journal', line.entryId]" dir="ltr">{{ line.number }}</a></td><td dir="ltr"><a *ngIf="sourceLink(line); else sourceText" [routerLink]="sourceLink(line)">{{ line.source?.number }}</a><ng-template #sourceText>{{ line.source?.number }}</ng-template></td><td>{{ line.partyName }}</td><td>{{ line.debit | number:'1.2-2' }}</td><td>{{ line.credit | number:'1.2-2' }}</td><td>{{ line.balance | number:'1.2-2' }}</td></tr></tbody></table></div>
+</section>

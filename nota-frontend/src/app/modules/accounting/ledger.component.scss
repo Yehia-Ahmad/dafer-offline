@@ -1,0 +1,1 @@
+@use './accounting-table';.page-head a{color:var(--brand)}.summary{display:flex;gap:1rem;justify-content:flex-end;margin-block:1rem}.summary span{background:var(--surface-2);border-radius:var(--radius-control);padding:.7rem 1rem}@media(max-width:390px){.summary{justify-content:stretch;flex-direction:column}}

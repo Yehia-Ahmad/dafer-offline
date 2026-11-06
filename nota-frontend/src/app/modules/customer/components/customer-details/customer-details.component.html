@@ -142,6 +142,7 @@
                     @if (isInvoiceOverdue(entry)) {<span class="nota-pill nota-pill--neutral">{{ getStatusLabel(entry.status) }}</span>}
                   </div>
                   <div class="cd__invoice-actions">
+                    <a *notaCan="'accounting.view'" notaButton [routerLink]="['/accounting/journal']" [queryParams]="{ sourceType: 'credit_sale', sourceId: entry.id }">{{ 'accounting.viewEntry' | translate }}</a>
                     @if (canAddPayment(entry)) {
                       <!-- Stage 11: per-invoice payment, same POST credit-sales/:id/payments as the credit list. -->
                       <button *notaCan="'credit.collect'" type="button" notaButton="primary" data-action="invoice-payment" (click)="openPaymentDialog(entry)">{{ 'customerDetailsPage.actions.addPayment' | translate }}</button>
@@ -202,7 +203,7 @@
                   <div class="cd__pays">
                     <span class="cd__muted">{{ 'customerDetailsPage.history.payments' | translate }}</span>
                     @for (payment of entry.payments; track trackPayment($index, payment)) {
-                      <span class="cd__pay"><span class="nota-num">{{ formatDate(payment.paymentDate) }}</span><strong class="nota-num">{{ payment.amount | notaMoney }}</strong>@if (payment.note) {<span class="cd__muted">{{ payment.note }}</span>}</span>
+                      <span class="cd__pay"><span class="nota-num">{{ formatDate(payment.paymentDate) }}</span><strong class="nota-num">{{ payment.amount | notaMoney }}</strong>@if (payment.note) {<span class="cd__muted">{{ payment.note }}</span>}<a *notaCan="'accounting.view'" [routerLink]="['/accounting/journal']" [queryParams]="{ sourceType: 'receipt', sourceNumber: payment.number }">{{ 'accounting.viewEntry' | translate }}</a></span>
                     }
                   </div>
                 }

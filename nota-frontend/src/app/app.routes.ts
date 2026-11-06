@@ -107,6 +107,16 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/accounting/journal.component').then(m => m.JournalComponent)
     },
     {
+        path: 'accounting/accounts/:id/ledger',
+        canActivate: [permissionGuard(ROUTE_RULES.accounting)],
+        loadComponent: () => import('./modules/accounting/ledger.component').then(m => m.LedgerComponent)
+    },
+    {
+        path: 'accounting/journal/:id',
+        canActivate: [permissionGuard(ROUTE_RULES.accounting)],
+        loadComponent: () => import('./modules/accounting/journal-detail.component').then(m => m.JournalDetailComponent)
+    },
+    {
         path: 'shop-profile',
         canDeactivate: [unsavedWorkGuard],
         canActivate: [permissionGuard(ROUTE_RULES.shopProfile)],

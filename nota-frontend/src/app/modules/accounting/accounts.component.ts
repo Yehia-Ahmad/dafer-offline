@@ -1,16 +1,18 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { TranslateModule } from '@ngx-translate/core';
+import { Router } from '@angular/router';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../../environments/environment';
 
-@Component({ selector: 'app-accounting-accounts', standalone: true, imports: [CommonModule, TranslateModule], template: `
-<section class="nota-page accounting-page"><header><h1>{{ 'accounting.accounts.title' | translate }}</h1><label>{{ 'accounting.asOf' | translate }} <input type="date" [value]="asOf" (change)="load($any($event.target).value)"></label></header>
-<div *ngIf="loading" role="status">{{ 'common.loading' | translate }}</div><div *ngIf="error" role="alert">{{ error }}</div>
-<ul *ngIf="!loading"><ng-container *ngFor="let account of accounts"><li><button type="button" (click)="open(account)"><span dir="ltr">{{ account.code }}</span> {{ account.nameEn }} <strong>{{ account.balance | number:'1.2-2' }}</strong></button><ul *ngIf="account.children?.length"><li *ngFor="let child of account.children"><span dir="ltr">{{ child.code }}</span> {{ child.nameEn }} <strong>{{ child.balance | number:'1.2-2' }}</strong></li></ul><ul *ngIf="account.virtualCustomers?.length"><li *ngFor="let customer of account.virtualCustomers">{{ customer.name }} <strong>{{ customer.balance | number:'1.2-2' }}</strong></li></ul></li></ng-container></ul></section>` })
+@Component({ selector: 'app-accounting-accounts', standalone: true, imports: [CommonModule, FormsModule, TranslateModule], templateUrl: './accounts.component.html', styleUrl: './accounts.component.scss' })
 export class AccountsComponent {
-  private http = inject(HttpClient); accounts: any[] = []; loading = true; error = ''; asOf = new Date().toISOString().slice(0, 10);
-  ngOnInit(): void { this.load(this.asOf); }
-  load(asOf: string): void { this.asOf = asOf; this.loading = true; this.error = ''; this.http.get<any>(`${environment.api_base_url}accounting/accounts`, { params: { asOf } }).subscribe({ next: (r) => { this.accounts = r.accounts || []; this.loading = false; }, error: (e) => { this.error = e?.error?.message || 'Unable to load accounts'; this.loading = false; } }); }
-  open(account: any): void { if (!account.isGroup) account.open = !account.open; }
+  private http = inject(HttpClient); private router = inject(Router); private translate = inject(TranslateService); private cdr = inject(ChangeDetectorRef);
+  accounts: any[] = []; loading = true; error = ''; asOf = new Date().toISOString().slice(0, 10); expanded = new Set<string>();
+  ngOnInit(): void { this.load(); }
+  get rows(): any[] { const out: any[] = []; const visit = (items: any[], level: number) => items.forEach(account => { out.push({ ...account, level }); if (this.expanded.has(account._id)) visit(account.children || [], level + 1); if (account.systemKey === 'CUSTOMERS' && this.expanded.has(account._id)) (account.virtualCustomers || []).forEach((customer: any) => out.push({ ...customer, level: level + 1, customer: true, parentAccountId: account._id, code: '' })); }); visit(this.accounts, 0); return out; }
+  name(row: any): string { return row.customer ? row.name : (this.translate.currentLang || this.translate.defaultLang) === 'en' ? row.nameEn : row.nameAr; }
+  load(): void { this.loading = true; this.error = ''; this.http.get<any>(`${environment.api_base_url}accounting/accounts`, { params: { asOf: this.asOf } }).subscribe({ next: response => { this.accounts = response.accounts || []; this.accounts.forEach(account => this.expanded.add(account._id)); this.loading = false; this.cdr.detectChanges(); }, error: error => { this.error = error?.error?.message || 'Unable to load accounts'; this.loading = false; this.cdr.detectChanges(); } }); }
+  activate(row: any): void { if (row.customer) { this.router.navigate(['/accounting/accounts', row.parentAccountId, 'ledger'], { queryParams: { partyId: row._id } }); return; } if (row.isGroup || row.systemKey === 'CUSTOMERS') { this.expanded.has(row._id) ? this.expanded.delete(row._id) : this.expanded.add(row._id); return; } this.router.navigate(['/accounting/accounts', row._id, 'ledger']); }
 }

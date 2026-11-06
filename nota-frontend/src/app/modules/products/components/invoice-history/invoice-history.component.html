@@ -129,6 +129,7 @@
         </dl>
         @if (selling.status === 'cancelled') {<p class="ih__msg">{{ 'invoiceHistoryPage.cancel.reason' | translate }}: {{ selling.cancellationReason }}</p>}
         <div class="ih__actions">
+          <a *notaCan="'accounting.view'" notaButton [routerLink]="['/accounting/journal']" [queryParams]="{ sourceType: 'sale', sourceId: selling.id }">{{ 'accounting.viewEntry' | translate }}</a>
           <button type="button" notaButton="primary" (click)="downloadInvoice(selling)"
             [disabled]="isDeletingSelling(selling.id) || isReturningSelling(selling.id) || isDownloadingInvoice(selling.id)">
             {{ (isDownloadingInvoice(selling.id) ? 'actions.loading' : 'invoiceHistoryPage.s10.print') | translate }}

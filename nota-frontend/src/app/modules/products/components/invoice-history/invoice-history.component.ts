@@ -28,6 +28,7 @@ import { InvoiceBranding, toPrintableShop } from '../../../shop-profile/utils/in
 import { brandName } from '../../../../core/brand';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
+import { RouterLink } from '@angular/router';
 
 type SelectOption = {
   label: string;
@@ -64,7 +65,7 @@ const DEFAULT_SELLINGS_PAGINATION: SellingsPagination = {
 @Component({
   selector: 'app-invoice-history',
   standalone: true,
-  imports: [LockedActionComponent, NotaCanDirective, 
+  imports: [LockedActionComponent, NotaCanDirective, RouterLink,
     CommonModule,
     FormsModule,
     TranslatePipe,

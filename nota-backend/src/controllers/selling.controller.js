@@ -11,7 +11,7 @@ const { canSellBelowCost } = require("../auth/middleware");
 const { actorFields } = require("../utils/actorFields");
 const { PREFIXES, nextDocumentNumber, normalizeNumberSearch } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
-const { postSale, postReturn, postInventoryAdjustment, reverseAllFor } = require("../accounting/posting");
+const { postSale, postReturn, postInventoryAdjustment, reverseSaleEntry, reverseAllFor, postLegacySaleReversal, postSaleDifference, postCancelInventoryValueAdjustment } = require("../accounting/posting");
 const { audit } = require("../auth/audit");
 
 const getRawQuantity = (body) => {
@@ -897,6 +897,7 @@ const updateSellingInTransaction = async (req, res, session) => {
     error.statusCode = 409; error.responseData = { code: "CANCELLED" }; throw error;
   }
 
+  const oldSelling = selling.toObject();
   const normalizedCustomerName =
     req.body.customerName !== undefined
       ? normalizeRequiredString(req.body.customerName, "اسم العميل", res)
@@ -916,10 +917,6 @@ const updateSellingInTransaction = async (req, res, session) => {
     shouldUpdateItems ||
     req.body.discountAmount !== undefined ||
     req.body.shippingFees !== undefined;
-  if (shouldUpdateInvoicePricing && selling.refunds?.length) {
-    res.status(400);
-    throw new Error("لا يمكن تعديل عناصر أو تسعير فاتورة تحتوي على مرتجعات");
-  }
   const currentItems = getSellingItemInputs(selling);
 
   let nextItems = currentItems;
@@ -972,6 +969,14 @@ const updateSellingInTransaction = async (req, res, session) => {
 
   if (shouldUpdateItems) {
     persistedItems = buildPersistedItems(nextItems, productsById);
+    const previousByProduct = new Map(getSellingItems(selling).map((item) => [String(getSellingItemProductId(item)), item]));
+    for (const item of persistedItems) {
+      const previous = previousByProduct.get(String(item.product));
+      const returnedQuantity = Number(previous?.returnedQuantity || 0);
+      if (!previous && selling.refunds?.length) { res.status(400); throw new Error("Cannot replace a returned invoice line"); }
+      if (Number(item.quantity) < returnedQuantity) { res.status(400); throw new Error("Invoice quantity cannot be below returned quantity"); }
+      if (previous) { item._id = previous._id; item.returnedQuantity = returnedQuantity; }
+    }
     selling.items = persistedItems;
 
     // Clear legacy top-level line-item fields after converting to invoice storage.
@@ -999,8 +1004,10 @@ const updateSellingInTransaction = async (req, res, session) => {
 
   const updatedSelling = await selling.save({ session });
 
-  await reverseAllFor("sale", selling._id, { date: new Date(), memo: "Sale edit", session });
-  await postSale({ sale: updatedSelling, session });
+  const editDate = new Date();
+  const reversed = await reverseSaleEntry("sale", selling._id, { date: editDate, memo: "Sale edit", session });
+  if (reversed) await postSale({ sale: updatedSelling, session });
+  else await postSaleDifference({ oldSale: oldSelling, newSale: updatedSelling, date: editDate, session });
   await audit(req, { action: "sale.updated", entity: "Selling", entityId: selling._id, session, strict: true });
   return updatedSelling;
 };
@@ -1040,7 +1047,9 @@ const cancelSelling = asyncHandler(async (req, res) => {
     selling.cancellationReason = reason;
     selling.cancelRefundAmount = roundMoney(Math.max(0, Number(selling.totalPrice || 0) - Number(selling.refundedAmount || 0)));
     await selling.save({ session });
-    await reverseAllFor("sale", selling._id, { date: selling.cancelledAt, memo: "Sale cancellation", session });
+    const reversals = await reverseAllFor("sale", selling._id, { date: selling.cancelledAt, memo: "Sale cancellation", session });
+    if (!reversals.some((entry) => entry?.source?.type === "sale")) reversals.push(await postLegacySaleReversal({ sale: selling, date: selling.cancelledAt, memo: "Pre-ledger sale cancellation", session }));
+    await postCancelInventoryValueAdjustment({ sale: selling, reversalEntries: reversals, session });
     await audit(req, { action: "sale.cancelled", entity: "Selling", entityId: selling._id, details: { reason }, session, strict: true });
     return selling;
   });
@@ -1073,7 +1082,7 @@ const addSellingRefund = asyncHandler(async (req, res) => {
     const refundItems = selections.map(({ invoiceItem, quantity, returnReason }) => {
       const unitPrice = roundMoney(invoiceItem.unitPrice || 0);
       const product = productsById.get(getSellingItemProductId(invoiceItem).toString());
-      return { invoiceItemId: invoiceItem._id, product: getSellingItemProductId(invoiceItem), productName: invoiceItem.productName, purchasePrice: roundMoney(product?.purchasePrice || invoiceItem.purchasePrice || 0), quantity, unitPrice, totalPrice: roundMoney(unitPrice * quantity), returnReason };
+      return { invoiceItemId: invoiceItem._id, product: getSellingItemProductId(invoiceItem), productName: invoiceItem.productName, purchasePrice: roundMoney(invoiceItem.purchasePrice || 0), quantity, unitPrice, totalPrice: roundMoney(unitPrice * quantity), returnReason };
     });
     const totalQuantity = refundItems.reduce((sum, item) => sum + item.quantity, 0);
     const subtotalReturnedAmount = roundMoney(refundItems.reduce((sum, item) => sum + item.totalPrice, 0));
@@ -1103,7 +1112,7 @@ const addSellingRefund = asyncHandler(async (req, res) => {
       number, returnType: "cash", invoiceId: selling._id, invoiceNumber: selling.number,
       customerName: selling.customerName, customerPhone: selling.customerPhone,
       returnDate: refundDate, note: note?.trim() || undefined,
-      items: refundItems.map((item) => ({ productId: item.product, productName: item.productName, productCode: productsById.get(item.product.toString()).code, purchasePrice: item.purchasePrice, quantity: item.quantity, price: item.unitPrice, total: item.totalPrice, returnReason: item.returnReason })),
+      items: refundItems.map((item) => ({ invoiceItemId: item.invoiceItemId, productId: item.product, productName: item.productName, productCode: productsById.get(item.product.toString()).code, purchasePrice: item.purchasePrice, quantity: item.quantity, price: item.unitPrice, total: item.totalPrice, returnReason: item.returnReason })),
       subtotalReturnedAmount, discountAmount, shippingFees, finalReturnedAmount,
       createdBy: req.user?._id ?? req.user?.id,
     }, session);

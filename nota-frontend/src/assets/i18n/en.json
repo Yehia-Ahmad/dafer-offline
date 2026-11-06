@@ -919,7 +919,8 @@
             "suppliers": "Suppliers",
             "cash": "Cash boxes & shift",
             "expenses": "Expenses",
-            "accounts": "Accounts & entries",
+            "accounts": "Chart of accounts",
+            "journal": "Journal entries",
             "reports": "Financial reports",
             "profit": "Profit report",
             "users": "Users & permissions",
@@ -1376,11 +1377,12 @@
         }
     },
     "accounting": {
+        "viewEntry": "View journal entry",
         "accounts": { "title": "Chart of accounts" },
         "journal": { "title": "Journal entries" },
         "asOf": "As of",
         "number": "Number",
         "date": "Date",
-        "total": "Total"
+        "total": "Total", "section": "Accounting", "account": "Account", "balance": "Balance", "from": "From", "to": "To", "type": "Type", "source": "Source", "all": "All", "apply": "Apply", "empty": "No entries found", "party": "Party", "opening": "Opening balance", "debit": "Debit", "credit": "Credit", "memo": "Memo", "description": "Description", "reversalOf": "Reversal of", "reversedBy": "Reversed by"
     }
 }

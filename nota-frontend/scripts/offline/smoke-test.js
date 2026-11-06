@@ -417,6 +417,14 @@ async function runAuthScenarios(ctx) {
     return describe(response);
   });
 
+  await step('Auth: cashier gets 403 on every accounting route', async () => {
+    requireCtx(ctx, 'cashierToken');
+    for (const path of ['/api/accounting/accounts', '/api/accounting/journal', '/api/accounting/health']) {
+      const response = await request('GET', path, { token: ctx.cashierToken }); expectStatus(response, 403, `GET ${path} as cashier`);
+    }
+    return 'accounts, journal and health all forbidden';
+  });
+
   await step('Auth: cashier sees no purchasePrice on products (the owner does)', async () => {
     requireCtx(ctx, 'cashierToken', 'productId');
     const asCashier = await request('GET', `/api/products/${ctx.productId}`, { token: ctx.cashierToken });
@@ -641,6 +649,7 @@ async function runScenarios() {
     });
     expectStatus(response, 201, 'POST /api/returns (cash)');
     ctx.cashReturnNumber = response.json?.data?.returnLog?.number;
+    ctx.cashReturnId = response.json?.data?.returnLog?._id;
     expect(/^RT-\d{6,}$/.test(ctx.cashReturnNumber || ''), `cash return number is invalid: ${ctx.cashReturnNumber}`);
     const stock = await expectStock(ctx, 8);
     const list = await request('GET', `/api/returns?returnType=cash&invoiceId=${ctx.cashInvoiceId}`);
@@ -687,6 +696,7 @@ async function runScenarios() {
     });
     expectStatus(response, 201, 'POST /api/credit-sales/:id/payments');
     expect(/^RC-\d{6,}$/.test(response.json.receiptNumber || ''), `receipt number is invalid: ${response.json.receiptNumber}`);
+    ctx.receiptNumbers = [...(ctx.receiptNumbers || []), response.json.receiptNumber];
     expect(Number(response.json.paidAmount) === 50, `paidAmount expected 50, got ${response.json.paidAmount}`);
     expect(Number(response.json.remainingAmount) === 150, `remainingAmount expected 150, got ${response.json.remainingAmount}`);
     return `paid 50, remaining ${response.json.remainingAmount}, status ${response.json.status}`;
@@ -699,6 +709,7 @@ async function runScenarios() {
     });
     expectStatus(response, 201, 'POST /api/customers/:id/payments');
     expect(/^RC-\d{6,}$/.test(response.json.receiptNumber || ''), `customer receipt number is invalid: ${response.json.receiptNumber}`);
+    ctx.receiptNumbers = [...(ctx.receiptNumbers || []), response.json.receiptNumber];
     const invoice = await request('GET', `/api/credit-sales/${ctx.creditInvoiceId}`);
     expectStatus(invoice, 200, 'GET /api/credit-sales/:id');
     expect(Number(invoice.json.paidAmount) === 80, `paidAmount expected 80, got ${invoice.json.paidAmount}`);
@@ -719,6 +730,8 @@ async function runScenarios() {
     const returns = await request('GET', `/api/returns?returnType=credit&invoiceId=${ctx.creditInvoiceId}`);
     expectStatus(returns, 200, 'GET /api/returns (credit)');
     const returnNumber = returns.json.data?.at(-1)?.number;
+    ctx.creditReturnNumber = returnNumber;
+    ctx.creditReturnId = returns.json.data?.at(-1)?._id;
     expect(/^RT-\d{6,}$/.test(returnNumber || ''), `credit return number is invalid: ${returnNumber}`);
     return `${await expectStock(ctx, 7)}, invoice total ${response.json.totalPrice}, remaining ${response.json.remainingAmount}`;
   });
@@ -832,6 +845,9 @@ async function runScenarios() {
     expect(cancelled.json.status === 'cancelled', `credit status expected cancelled, got ${cancelled.json.status}`);
     expect(Number(cancelled.json.cancelRefundAmount) === 200, `credit cancelRefundAmount expected 200, got ${cancelled.json.cancelRefundAmount}`);
     expect(await expectStock(ctx, 9), 'stock after credit cancel');
+    ctx.cancelledCreditId = created.json._id;
+    ctx.cancelledCreditNumber = created.json.number;
+    ctx.cancelledDownPaymentNumber = created.json.payments[0].number;
     const statement = await request('GET', `/api/customers/${ctx.customerId}/statement`);
     expectStatus(statement, 200, 'GET /api/customers/:id/statement');
     const lines = statement.json.lines || statement.json.data?.lines || [];
@@ -874,6 +890,39 @@ async function runScenarios() {
       `credit net total expected 100: ${JSON.stringify(response.json.today.credit)}`);
     expect(Number(response.json.credit.outstanding) === 20, `outstanding expected 20, got ${response.json.credit.outstanding}`);
     return `cash 0, credit net 100, outstanding ${response.json.credit.outstanding}`;
+  });
+
+  await step('Accounting: every smoke INV/CR/RC/RT has a journal entry', async () => {
+    const sources = [
+      ['sale', ctx.cashInvoiceId], ['credit_sale', ctx.creditInvoiceId], ['return', ctx.cashReturnId], ['return', ctx.creditReturnId],
+    ];
+    for (const [sourceType, sourceId] of sources) {
+      const response = await request('GET', `/api/accounting/journal?sourceType=${sourceType}&sourceId=${sourceId}&limit=100`);
+      expectStatus(response, 200, 'GET /api/accounting/journal by source'); expect(response.json.data.length > 0, `missing JE for ${sourceType} ${sourceId}`);
+    }
+    for (const number of ctx.receiptNumbers || []) { const response = await request('GET', `/api/accounting/journal?sourceType=receipt&sourceNumber=${number}`); expect(response.json.data.length === 1, `missing or duplicate receipt JE ${number}`); }
+    return `${sources.length} documents and ${(ctx.receiptNumbers || []).length} receipts linked`;
+  });
+
+  await step('Accounting: edited cash-sale journal lines are exact', async () => {
+    const response = await request('GET', `/api/accounting/journal?sourceType=sale&sourceId=${ctx.cashInvoiceId}&limit=100`); const entry = response.json.data.find(row => row.type === 'auto' && row.lines.some(line => line.accountCode === '1111' && Number(line.debit) === 300));
+    expect(entry, 'edited cash-sale entry missing'); const byCode = new Map(entry.lines.map(line => [line.accountCode, line]));
+    expect(byCode.get('1111')?.debit === 300, 'CASH_MAIN debit is not 300'); expect(byCode.get('410')?.credit === 300, 'SALES credit is not 300'); expect(byCode.get('510')?.debit === 150, 'COGS debit is not 150'); expect(byCode.get('114')?.credit === 150, 'INVENTORY credit is not 150');
+    return 'Dr cash 300, Cr sales 300, Dr COGS 150, Cr inventory 150';
+  });
+
+  await step('Accounting: credit cancel with down payment nets customer party to 0', async () => {
+    const response = await request('GET', `/api/accounting/journal?sourceId=${ctx.cancelledCreditId}&limit=100`); expectStatus(response, 200, 'journal for cancelled credit');
+    const customerNet = response.json.data.flatMap(entry => entry.lines).filter(line => line.accountCode === '113').reduce((sum, line) => sum + Number(line.debit || 0) - Number(line.credit || 0), 0);
+    const receipt = await request('GET', `/api/accounting/journal?sourceType=receipt&sourceNumber=${ctx.cancelledDownPaymentNumber}`); const receiptCustomer = receipt.json.data.flatMap(entry => entry.lines).filter(line => line.accountCode === '113').reduce((sum,line)=>sum+Number(line.debit||0)-Number(line.credit||0),0);
+    expect(customerNet + receiptCustomer === 0, `customer party net expected 0, got ${customerNet + receiptCustomer}`); return `party net ${customerNet + receiptCustomer}`;
+  });
+
+  await step('Accounting health: every expected/actual/difference is printed and difference is 0', async () => {
+    const response = await request('GET', '/api/accounting/health'); expectStatus(response, 200, 'GET /api/accounting/health');
+    const details = Object.entries(response.json).map(([name, check]) => `${name}: expected=${check.expected}, actual=${check.actual}, difference=${check.difference}`);
+    for (const [name, check] of Object.entries(response.json)) expect(Number(check.difference) === 0, `${name} difference ${check.difference}`);
+    return details.join(' | ');
   });
 
   // GET /api/products with a categoryId (the per-category list; without one, see the Stage 12 step above).

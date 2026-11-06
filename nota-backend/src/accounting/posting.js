@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Account = require("../models/account.model");
 const JournalEntry = require("../models/journalEntry.model");
 const ReturnLog = require("../models/returnLog.model");
+const Product = require("../models/product.model");
 const { nextDocumentNumber, PREFIXES } = require("../utils/documentNumber");
 const { roundMoney } = require("../utils/invoicePricing");
 
@@ -62,6 +63,7 @@ const accountMap = async (keys, session) => {
 
 const line = (account, amount, side, extra = {}) => ({
   accountId: account._id, accountCode: account.code, accountName: account.nameEn,
+  accountNameAr: account.nameAr, accountNameEn: account.nameEn,
   debit: side === "debit" ? roundMoney(amount) : 0, credit: side === "credit" ? roundMoney(amount) : 0,
   ...extra,
 });
@@ -74,6 +76,10 @@ const postEntry = async ({ date, type = "auto", source, lines, memo = "", sessio
     if ((row.debit > 0) === (row.credit > 0)) throw new Error("Journal line must have exactly one side");
     const account = await Account.findById(row.accountId).session(session).lean();
     if (!account || account.isGroup || !account.isActive) throw new Error("Cannot post to inactive or group account");
+    row.accountCode ||= account.code;
+    row.accountNameAr ||= account.nameAr;
+    row.accountNameEn ||= account.nameEn;
+    row.accountName ||= account.nameEn;
     if (account.systemKey === "CUSTOMERS" && (row.partyType !== "customer" || !row.partyId)) throw new Error("Customer party is required");
     if (account.systemKey !== "CUSTOMERS" && row.partyType === "customer") throw new Error("Party is only allowed on control accounts");
   }
@@ -101,7 +107,7 @@ const postCostSync = async ({ date, source, amount, increase, session, memo }) =
   ] });
 };
 
-const postSale = async ({ sale, credit = false, customer, session, sourceType = credit ? "credit_sale" : "sale" }) => {
+const buildSaleLines = async ({ sale, credit = false, customer, session }) => {
   const keys = ["CASH_MAIN", "CUSTOMERS", "SALES", "SALES_DISCOUNT", "SHIPPING_INCOME", "COGS", "INVENTORY"];
   const accounts = await accountMap(keys, session);
   const total = roundMoney(sale.totalPrice || 0);
@@ -113,7 +119,56 @@ const postSale = async ({ sale, credit = false, customer, session, sourceType = 
   if (discount > 0) lines.push(line(accounts.get("SALES_DISCOUNT"), discount, "debit"));
   if (shipping > 0) lines.push(line(accounts.get("SHIPPING_INCOME"), shipping, "credit"));
   if (cost > 0) { lines.push(line(accounts.get("COGS"), cost, "debit")); lines.push(line(accounts.get("INVENTORY"), cost, "credit")); }
+  return lines;
+};
+
+const postSale = async ({ sale, credit = false, customer, session, sourceType = credit ? "credit_sale" : "sale" }) => {
+  const lines = await buildSaleLines({ sale, credit, customer, session });
   return postEntry({ date: sale.sellingDate, source: { type: sourceType, id: sale._id, number: sale.number }, lines, session });
+};
+
+const findSaleEntry = (sourceType, sourceId, session) => JournalEntry.findOne({
+  "source.type": sourceType, "source.id": sourceId, type: "auto", reversedBy: null,
+}).session(session);
+
+const reverseSaleEntry = async (sourceType, sourceId, options) => {
+  const entry = await findSaleEntry(sourceType, sourceId, options.session);
+  return entry ? reverseEntry(entry._id, options) : null;
+};
+
+const postLegacySaleReversal = async ({ sale, credit = false, customer, date, memo, session }) => {
+  const original = await buildSaleLines({ sale, credit, customer, session });
+  return postEntry({ date, type: "reversal", source: { type: credit ? "credit_sale" : "sale", id: sale._id, number: sale.number }, memo, session,
+    lines: original.map((row) => ({ ...row, debit: row.credit, credit: row.debit })) });
+};
+
+const postSaleDifference = async ({ oldSale, newSale, credit = false, customer, date, session }) => {
+  const [oldLines, newLines] = await Promise.all([
+    buildSaleLines({ sale: oldSale, credit, customer, session }),
+    buildSaleLines({ sale: newSale, credit, customer, session }),
+  ]);
+  const totals = new Map();
+  const add = (row, factor) => {
+    const key = `${row.accountId}:${row.partyId || ""}`;
+    const current = totals.get(key) || { ...row, amount: 0 };
+    current.amount = roundMoney(current.amount + factor * (Number(row.debit || 0) - Number(row.credit || 0)));
+    totals.set(key, current);
+  };
+  oldLines.forEach((row) => add(row, -1)); newLines.forEach((row) => add(row, 1));
+  const lines = [...totals.values()].filter((row) => row.amount !== 0).map((row) => ({ ...row, debit: row.amount > 0 ? row.amount : 0, credit: row.amount < 0 ? Math.abs(row.amount) : 0 }));
+  if (!lines.length) return null;
+  return postEntry({ date, source: { type: credit ? "credit_sale_edit" : "sale_edit", id: newSale._id, number: newSale.number }, memo: "Pre-ledger invoice edit difference", lines, session });
+};
+
+const postCancelInventoryValueAdjustment = async ({ sale, reversalEntries, session }) => {
+  const productIds = [...new Set((sale.items || []).map((item) => String(item.product || item.productId)).filter(Boolean))];
+  const products = await Product.find({ _id: { $in: productIds } }).select("purchasePrice").session(session).lean();
+  const current = new Map(products.map((product) => [String(product._id), Number(product.purchasePrice || 0)]));
+  const desired = roundMoney((sale.items || []).reduce((sum, item) => sum + Math.max(0, Number(item.quantity || 0) - Number(item.returnedQuantity || 0)) * Number(current.get(String(item.product || item.productId)) || 0), 0));
+  const posted = roundMoney((reversalEntries || []).reduce((sum, entry) => sum + (entry?.lines || []).filter((row) => row.accountCode === "114").reduce((inner, row) => inner + Number(row.debit || 0) - Number(row.credit || 0), 0), 0));
+  const difference = roundMoney(desired - posted);
+  if (!difference) return null;
+  return postInventoryAdjustment({ date: sale.cancelledAt || new Date(), source: { type: "cancel_cost_adjustment", id: sale._id, number: sale.number }, amount: Math.abs(difference), increase: difference > 0, session, memo: "Cancel stock restored at current purchase price" });
 };
 
 const postReceipt = async ({ receipt, customer, session }) => {
@@ -124,18 +179,26 @@ const postReceipt = async ({ receipt, customer, session }) => {
 };
 
 const postReturn = async ({ returnLog, sale, customer, session }) => {
-  const accounts = await accountMap(["SALES_RETURNS", "SHIPPING_INCOME", "SALES_DISCOUNT", "CASH_MAIN", "CUSTOMERS", "INVENTORY", "COGS"], session);
+  const accounts = await accountMap(["SALES_RETURNS", "SHIPPING_INCOME", "SALES_DISCOUNT", "CASH_MAIN", "CUSTOMERS", "INVENTORY", "COGS", "INVENTORY_ADJUSTMENT"], session);
   const subtotal = roundMoney(returnLog.subtotalReturnedAmount || 0); const discount = roundMoney(returnLog.discountAmount || 0); const shipping = roundMoney(returnLog.shippingFees || 0); const total = roundMoney(returnLog.finalReturnedAmount || 0);
   const lines = [line(accounts.get("SALES_RETURNS"), subtotal, "debit"), line(accounts.get(returnLog.returnType === "cash" ? "CASH_MAIN" : "CUSTOMERS"), total, "credit", returnLog.returnType === "credit" ? { partyType: "customer", partyId: customer?._id, partyName: customer?.name } : {})];
   if (discount > 0) lines.push(line(accounts.get("SALES_DISCOUNT"), discount, "credit"));
   if (shipping > 0) lines.push(line(accounts.get("SHIPPING_INCOME"), shipping, "debit"));
-  const cost = roundMoney((returnLog.items || []).reduce((sum, item) => {
+  const originalCost = roundMoney((returnLog.items || []).reduce((sum, item) => {
     const stored = Number(item.purchasePrice);
     if (Number.isFinite(stored) && stored >= 0) return sum + stored * Number(item.quantity || 0);
     const original = (sale.items || []).find((lineItem) => String(lineItem._id) === String(item.invoiceItemId) || String(lineItem.productId || lineItem.product) === String(item.productId || item.product));
     return sum + Number(original?.purchasePrice || 0) * Number(item.quantity || 0);
   }, 0));
-  if (cost > 0) { lines.push(line(accounts.get("INVENTORY"), cost, "debit")); lines.push(line(accounts.get("COGS"), cost, "credit")); }
+  const productIds = [...new Set((returnLog.items || []).map((item) => String(item.productId || item.product)).filter(Boolean))];
+  const products = await Product.find({ _id: { $in: productIds } }).select("purchasePrice").session(session).lean();
+  const currentById = new Map(products.map((product) => [String(product._id), Number(product.purchasePrice || 0)]));
+  const inventoryCost = roundMoney((returnLog.items || []).reduce((sum, item) => sum + Number(item.quantity || 0) * Number(currentById.get(String(item.productId || item.product)) || 0), 0));
+  if (inventoryCost > 0) lines.push(line(accounts.get("INVENTORY"), inventoryCost, "debit"));
+  if (originalCost > 0) lines.push(line(accounts.get("COGS"), originalCost, "credit"));
+  const costDifference = roundMoney(inventoryCost - originalCost);
+  if (costDifference > 0) lines.push(line(accounts.get("INVENTORY_ADJUSTMENT"), costDifference, "credit"));
+  if (costDifference < 0) lines.push(line(accounts.get("INVENTORY_ADJUSTMENT"), Math.abs(costDifference), "debit"));
   return postEntry({ date: returnLog.returnDate, source: { type: "return", id: returnLog._id, number: returnLog.number }, lines, session });
 };
 
@@ -163,4 +226,4 @@ const reverseAllFor = async (sourceType, sourceId, options) => {
   return results;
 };
 
-module.exports = { ACCOUNT_DEFINITIONS, seedAccounts, postEntry, postSale, postReceipt, postReturn, postInventoryAdjustment, postCostSync, reverseEntry, reverseAllFor, accountMap };
+module.exports = { ACCOUNT_DEFINITIONS, seedAccounts, postEntry, postSale, postReceipt, postReturn, postInventoryAdjustment, postCostSync, reverseEntry, reverseSaleEntry, reverseAllFor, postLegacySaleReversal, postSaleDifference, postCancelInventoryValueAdjustment, accountMap, line, buildSaleLines };

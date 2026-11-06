@@ -43,6 +43,7 @@ import {
 import { ReturnsService } from '../../services/returns.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { RouterLink } from '@angular/router';
 
 type FilterFormValue = {
   returnType: ReturnType | '';
@@ -134,7 +135,7 @@ class ReturnsPaginatorIntl extends MatPaginatorIntl {
 @Component({
   selector: 'app-returns',
   standalone: true,
-  imports: [NotaCanDirective, 
+  imports: [NotaCanDirective, RouterLink,
     CommonModule,
     TranslatePipe,
     ReactiveFormsModule,

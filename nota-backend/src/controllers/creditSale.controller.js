@@ -11,7 +11,7 @@ const { buildPaginatedResponse, getPaginationParams } = require("../utils/pagina
 const { canSellBelowCost } = require("../auth/middleware");
 const { PREFIXES, normalizeNumberSearch } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
-const { postSale, postReceipt, postReturn, reverseAllFor, postEntry, accountMap } = require("../accounting/posting");
+const { postSale, postReceipt, postReturn, reverseSaleEntry, reverseAllFor, postLegacySaleReversal, postSaleDifference, postCancelInventoryValueAdjustment, postEntry, accountMap } = require("../accounting/posting");
 const { audit } = require("../auth/audit");
 const Receipt = require("../models/receipt.model");
 const { nextDocumentNumber } = require("../utils/documentNumber");
@@ -694,7 +694,9 @@ const reallocateRefundCreditToOtherInvoices = async ({
 
   return {
     reallocatedPaidAmount: roundMoney(normalizedAvailableCredit - remainingCredit),
-    returnedPaidAmount: remainingCredit,
+    // No cash leaves the business here. Any amount that cannot be reallocated
+    // remains refundDue (a credit on the customer's control-account party).
+    returnedPaidAmount: 0,
     updatedInvoices,
   };
 };
@@ -1212,6 +1214,7 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
     const error = new Error("لا يمكن تعديل فاتورة مرتجعة بالكامل");
     error.statusCode = 409; error.responseData = { code: "RETURNED" }; throw error;
   }
+  const oldCreditSale = creditSale.toObject();
 
   const normalizedSellingDate =
     req.body.sellingDate !== undefined
@@ -1271,17 +1274,6 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
     req.body.discountAmount !== undefined ||
     req.body.shippingFees !== undefined;
 
-  if (
-    shouldUpdateInvoicePricing &&
-    Array.isArray(creditSale.refunds) &&
-    creditSale.refunds.length > 0
-  ) {
-    res.status(400);
-    throw new Error(
-      "لا يمكن تعديل عناصر أو تسعير فاتورة تحتوي على مرتجعات. استخدم مسار المرتجع أو أنشئ فاتورة جديدة"
-    );
-  }
-
   const currentItems = getCreditSaleItemInputs(creditSale);
   let nextItems = currentItems;
   let productsById = new Map();
@@ -1327,6 +1319,14 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
 
   if (shouldUpdateItems) {
       persistedItems = buildPersistedItems(nextItems, productsById);
+      const previousByProduct = new Map((creditSale.items || []).map((item) => [String(getCreditSaleItemProductId(item)), item]));
+      for (const item of persistedItems) {
+        const previous = previousByProduct.get(String(item.product));
+        const returnedQuantity = Number(previous?.returnedQuantity || 0);
+        if (!previous && creditSale.refunds?.length) { res.status(400); throw new Error("Cannot replace a returned invoice line"); }
+        if (Number(item.quantity) < returnedQuantity) { res.status(400); throw new Error("Invoice quantity cannot be below returned quantity"); }
+        if (previous) { item._id = previous._id; item.returnedQuantity = returnedQuantity; }
+      }
       creditSale.items = persistedItems;
     }
 
@@ -1374,8 +1374,11 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
 
   const updatedCreditSale = await creditSale.save({ session });
 
-  await reverseAllFor("credit_sale", creditSale._id, { date: new Date(), memo: "Credit sale edit", session });
-  await postSale({ sale: updatedCreditSale, credit: true, customer: customer || { _id: updatedCreditSale.customer, name: updatedCreditSale.customerName }, session });
+  const editDate = new Date();
+  const party = customer || { _id: updatedCreditSale.customer, name: updatedCreditSale.customerName };
+  const reversed = await reverseSaleEntry("credit_sale", creditSale._id, { date: editDate, memo: "Credit sale edit", session });
+  if (reversed) await postSale({ sale: updatedCreditSale, credit: true, customer: party, session });
+  else await postSaleDifference({ oldSale: oldCreditSale, newSale: updatedCreditSale, credit: true, customer: party, date: editDate, session });
   await audit(req, { action: "credit.updated", entity: "CreditSale", entityId: creditSale._id, session, strict: true });
   return updatedCreditSale;
 };
@@ -1631,7 +1634,7 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
       items: refundSelections.map(({ invoiceItem, quantity, returnReason }) => {
         const productId = getCreditSaleItemProductId(invoiceItem);
         const price = roundMoney(invoiceItem.unitPrice || 0);
-        return { productId, productName: invoiceItem.productName, productCode: productsById.get(productId.toString())?.code, purchasePrice: roundMoney(productsById.get(productId.toString())?.purchasePrice || invoiceItem.purchasePrice || 0), quantity, price, total: roundMoney(price * quantity), returnReason };
+        return { invoiceItemId: invoiceItem._id, productId, productName: invoiceItem.productName, productCode: productsById.get(productId.toString())?.code, purchasePrice: roundMoney(invoiceItem.purchasePrice || 0), quantity, price, total: roundMoney(price * quantity), returnReason };
       }),
       subtotalReturnedAmount, discountAmount: returnedDiscountAmount,
       shippingFees: returnedShippingFees, finalReturnedAmount,
@@ -1683,7 +1686,10 @@ const cancelCreditSale = asyncHandler(async (req, res) => {
     invoice.cancelRefundAmount = roundMoney(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
     invoice.remainingAmount = 0;
     await invoice.save({ session });
-    await reverseAllFor("credit_sale", invoice._id, { date: invoice.cancelledAt, memo: "Credit sale cancellation", session });
+    const reversals = await reverseAllFor("credit_sale", invoice._id, { date: invoice.cancelledAt, memo: "Credit sale cancellation", session });
+    const party = { _id: invoice.customer, name: invoice.customerName };
+    if (!reversals.some((entry) => entry?.source?.type === "credit_sale")) reversals.push(await postLegacySaleReversal({ sale: invoice, credit: true, customer: party, date: invoice.cancelledAt, memo: "Pre-ledger credit cancellation", session }));
+    await postCancelInventoryValueAdjustment({ sale: invoice, reversalEntries: reversals, session });
     const downPayment = payments.find((payment) => payment.source === "down_payment");
     if (invoice.cancelRefundAmount > 0 && downPayment) {
       const accounts = await accountMap(["CUSTOMERS", "CASH_MAIN"], session);

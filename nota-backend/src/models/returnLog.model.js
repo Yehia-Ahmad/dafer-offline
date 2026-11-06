@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const auditFieldsPlugin = require("../auth/auditFields.plugin");
 
 const itemSchema = new mongoose.Schema({
+  invoiceItemId: { type: mongoose.Schema.Types.ObjectId },
   productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
   productName: { type: String, required: true, trim: true, maxlength: 200 },
   productCode: { type: String, trim: true, maxlength: 100 },
