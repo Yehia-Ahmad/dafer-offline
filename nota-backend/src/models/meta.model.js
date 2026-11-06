@@ -14,6 +14,10 @@ const metaSchema = new mongoose.Schema({
       finalizedAt: { type: Date, default: undefined },
       finalizedBy: { type: mongoose.Schema.Types.ObjectId, default: undefined },
       finalizedByName: { type: String, default: undefined },
+      // Setup mode ends with a write: the first sale/credit sale/return/receipt sets setupEndedAt;
+      // every setup-mode stock posting touches lastSetupPostingAt (so the two conflict and one retries).
+      setupEndedAt: { type: Date, default: undefined },
+      lastSetupPostingAt: { type: Date, default: undefined },
       // What the current opening entry was built from (the health "opening" check compares against it).
       data: {
         type: new mongoose.Schema({

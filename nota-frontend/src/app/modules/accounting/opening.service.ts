@@ -29,7 +29,7 @@ export interface OpeningFigures {
   customers: OpeningPartyFigure[];
   suppliers: OpeningPartyFigure[];
   /** Customer balances from invoices before the ledger start; carried as they are. */
-  carriedCustomers: { customerId: string; amount: number }[];
+  carriedCustomers: { customerId: string; name?: string; phone?: string; amount: number }[];
 }
 
 export interface OpeningTotals {

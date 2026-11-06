@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const auditFieldsPlugin = require("../auth/auditFields.plugin");
+const { endsSetupModePlugin } = require("../accounting/setupState");
 
 const sellingItemSchema = new mongoose.Schema(
   {
@@ -176,4 +177,5 @@ sellingSchema.index({ sellingDate: -1 });
 
 // Stage 13: createdBy / updatedBy from the signed-in user (nothing when auth is off).
 sellingSchema.plugin(auditFieldsPlugin);
+sellingSchema.plugin(endsSetupModePlugin);
 module.exports = mongoose.model("Selling", sellingSchema);

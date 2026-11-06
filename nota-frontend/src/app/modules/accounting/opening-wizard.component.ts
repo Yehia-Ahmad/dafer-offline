@@ -295,7 +295,7 @@ export class OpeningWizardComponent implements OnInit {
 
   // ------------------------------------------------------------ validation
 
-  private amountOf(value: number | null): number {
+  amountOf(value: number | null): number {
     return Number(value ?? 0);
   }
 
@@ -364,6 +364,16 @@ export class OpeningWizardComponent implements OnInit {
       carriedCustomers: carried,
       suppliers: this.suppliers.map((row) => this.amountOf(row.amount)),
     });
+  }
+
+  /** Pre-ledger invoice balances carried into every opening entry, listed read-only so the owner does not type them again. */
+  get carriedRows(): { customerId: string; name: string; phone: string; amount: number }[] {
+    return (this.state?.figures.carriedCustomers ?? []).map((row) => ({ customerId: row.customerId, name: row.name ?? '', phone: row.phone ?? '', amount: row.amount }));
+  }
+
+  /** The carried balance of a customer row, or 0: used for the "already carried" warning (a warning, not a block). */
+  carriedOf(row: { id: string }): number {
+    return this.carriedRows.find((carried) => carried.customerId === row.id)?.amount ?? 0;
   }
 
   get customerCount(): number {

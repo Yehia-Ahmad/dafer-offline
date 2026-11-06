@@ -49,3 +49,8 @@ td.ow__empty { display: table-cell; }
   .ow__capital-value { font-size: 26px; }
   .ow__footer > * { flex: 1 1 100%; }
 }
+
+.ow__warn { flex-basis: 100%; color: var(--warning-text); font-size: 13px; }
+.ow__carried { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.ow__h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-muted); }
+.ow__sub { color: var(--text-muted); font-size: 13px; padding-inline-start: 12px; }

@@ -304,8 +304,11 @@ const signedKey = (accountId, partyId) => `${accountId}:${partyId || ""}`;
 
 const buildOpeningCheck = async ({ meta, byKey, supplierOpenings }) => {
   const stored = meta?.opening?.data;
-  if (!stored) return { expected: 0, actual: 0, difference: 0, saved: false, byLine: [] };
-  const [customerOpenings, entry] = await Promise.all([PartyOpening.find({ partyType: "customer" }).lean(), currentOpeningEntry(meta.opening)]);
+  if (!stored) return { expected: 0, actual: 0, difference: 0, saved: false, byLine: [], entryReversed: false, unreversedEntries: 0, countOk: true, ok: true };
+  const [customerOpenings, entry, unreversedCount] = await Promise.all([
+    PartyOpening.find({ partyType: "customer" }).lean(), currentOpeningEntry(meta.opening),
+    JournalEntry.countDocuments({ type: "opening", reversedBy: null }),
+  ]);
   const expected = new Map();
   const add = (map, key, amount) => map.set(key, roundMoney((map.get(key) || 0) + amount));
   const account = (key) => String(byKey.get(key)?._id);
@@ -330,7 +333,14 @@ const buildOpeningCheck = async ({ meta, byKey, supplierOpenings }) => {
     if (delta) { difference += Math.abs(delta); byLine.push({ key, expected: expectedAmount, actual: actualAmount, difference: delta }); }
   }
   const absTotal = (map) => roundMoney([...map.values()].reduce((total, value) => total + Math.abs(value), 0));
-  return { expected: absTotal(expected), actual: absTotal(actualMap), difference: roundMoney(difference), saved: true, byLine };
+  // Ledger side: the current opening entry must not be reversed, and exactly one opening entry may be unreversed
+  // (none only when there is no opening data at all).
+  const hasData = [...expected.values()].some((value) => value !== 0);
+  const entryReversed = Boolean(entry?.reversedBy);
+  const countOk = hasData ? unreversedCount === 1 : unreversedCount <= 1;
+  // `difference` is money only; the structural failures are separate flags and `ok` covers both.
+  const moneyDifference = roundMoney(difference);
+  return { expected: absTotal(expected), actual: absTotal(actualMap), difference: moneyDifference, saved: true, byLine, entryReversed, unreversedEntries: unreversedCount, countOk, ok: moneyDifference === 0 && !entryReversed && countOk };
 };
 
 // ---------------------------------------------------------------- Stage 18 opening wizard

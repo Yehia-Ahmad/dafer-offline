@@ -14,12 +14,13 @@ const { roundMoney } = require("../utils/invoicePricing");
 const { PREFIXES, nextDocumentNumber } = require("../utils/documentNumber");
 const { postEntry, reverseEntry, accountMap, line, getLedgerStartAt, postInventoryAdjustment } = require("./posting");
 const { collectedOf } = require("../services/customerOpenItems.service");
+const { touchSetupPosting } = require("./setupState");
 
 // Stage 18: the opening-balance wizard.
 //
 // Setup mode: the opening has not been finalized AND no sale, credit sale,
-// return or receipt belongs to the ledger yet (created on/after ledgerStartAt;
-// opening documents do not count). While in setup mode, stock a shop types in
+// return or receipt has ended it (meta.opening.setupEndedAt, written by the first
+// such document in its own transaction; see setupState.js). While in setup mode, stock a shop types in
 // is its opening stock: stock postings go against CAPITAL (source type
 // "opening_inventory") instead of INVENTORY_ADJUSTMENT.
 
@@ -37,19 +38,16 @@ const getOpeningMeta = async (session) => {
   return { ledgerStartAt: meta?.ledgerStartAt ? new Date(meta.ledgerStartAt) : null, opening: meta?.opening || null };
 };
 
-/** True when any real operational document belongs to the ledger period. */
+/** True when any real operational document belongs to the ledger period (used by the upgrade migration only). */
 const hasLedgerActivity = async (ledgerStartAt, session) => {
   const filter = { createdAt: { $gte: ledgerStartAt } };
   const checks = await Promise.all([Selling, CreditSale, ReturnLog, Receipt].map((model) => model.exists(filter).session(session || null)));
   return checks.some(Boolean);
 };
 
-/** Setup mode (see the header comment). Before the ledger start exists there is no setup mode. */
-const isSetupMode = async (session) => {
-  const { ledgerStartAt, opening } = await getOpeningMeta(session);
-  if (!ledgerStartAt || opening?.status === "finalized") return false;
-  return !(await hasLedgerActivity(ledgerStartAt, session));
-};
+/** Setup mode, read from meta only (no collection scan). Before the ledger start exists there is no setup mode. */
+const setupModeOf = ({ ledgerStartAt, opening }) => Boolean(ledgerStartAt) && opening?.status !== "finalized" && !opening?.setupEndedAt;
+const isSetupMode = async (session) => setupModeOf(await getOpeningMeta(session));
 
 /**
  * Posts a stock value change. In setup mode: Dr/Cr INVENTORY against CAPITAL
@@ -62,6 +60,7 @@ const postStockAdjustment = async ({ date, source, amount, increase, session, me
   if (!inSetup) {
     return postInventoryAdjustment({ date, source, amount, increase, session, memo });
   }
+  await touchSetupPosting(session);
   const accounts = await accountMap(["INVENTORY", "CAPITAL"], session);
   return postEntry({
     date, session, memo: memo || "Opening inventory",
@@ -104,6 +103,27 @@ const inventoryOutsideOpening = async (inventoryAccountId, session) => {
   return roundMoney(Number(rows[0]?.balance || 0) - folded);
 };
 
+/** INVENTORY the foldable entries carry (the opening entry plus every opening_inventory entry): what a re-save outside setup mode keeps. */
+const foldedInventory = async (inventoryAccountId, session) => {
+  const folded = await foldableEntries(session);
+  return roundMoney(folded.reduce((sum, entry) => sum + sumLines(entry, inventoryAccountId), 0));
+};
+
+/**
+ * Customer balances that came from invoices before the ledger start (the Stage 17 OB).
+ * Once the wizard saved, they are what it stored; before the first save they are read
+ * from the OB entry itself. One helper for the review (GET) and the save (POST).
+ */
+const carriedCustomersOf = async (opening, previous, customersAccountId, session) => {
+  if (Array.isArray(opening?.data?.carriedCustomers)) return opening.data.carriedCustomers.map((row) => ({ customerId: row.customerId, amount: roundMoney(row.amount) }));
+  const byCustomer = new Map();
+  for (const row of previous?.lines || []) {
+    if (String(row.accountId) !== String(customersAccountId) || !row.partyId) continue;
+    byCustomer.set(String(row.partyId), roundMoney((byCustomer.get(String(row.partyId)) || 0) + row.debit - row.credit));
+  }
+  return [...byCustomer].filter(([, amount]) => amount !== 0).map(([customerId, amount]) => ({ customerId, amount }));
+};
+
 const bankAccounts = async (session) => {
   const parent = await Account.findOne({ code: "112" }).session(session || null).lean();
   if (!parent) return [];
@@ -114,10 +134,10 @@ const bankAccounts = async (session) => {
 const loadOpeningState = async (session = null) => {
   const { ledgerStartAt, opening } = await getOpeningMeta(session);
   const status = opening?.status || "setup";
-  const setupMode = Boolean(ledgerStartAt) && status !== "finalized" && !(await hasLedgerActivity(ledgerStartAt, session));
+  const setupMode = setupModeOf({ ledgerStartAt, opening });
   const entry = await currentOpeningEntry(opening, session);
   const data = opening?.data || {};
-  const accounts = await accountMap(["INVENTORY"], session).catch(() => null);
+  const accounts = await accountMap(["INVENTORY", "CUSTOMERS"], session).catch(() => null);
   const banks = (await bankAccounts(session)).map((account) => ({
     accountId: account._id, code: account.code, name: account.nameAr, kind: account.kind,
     amount: roundMoney((data.banks || []).find((row) => String(row.accountId) === String(account._id))?.amount || 0),
@@ -127,7 +147,7 @@ const loadOpeningState = async (session = null) => {
     const outside = accounts ? await inventoryOutsideOpening(accounts.get("INVENTORY")._id, session) : 0;
     inventory = { mode: "live", editable: true, amount: roundMoney(await stockValue(session) - outside), stockValue: await stockValue(session) };
   } else {
-    inventory = { mode: "carried", editable: false, amount: accounts && entry ? sumLines(entry, accounts.get("INVENTORY")._id) : 0 };
+    inventory = { mode: "carried", editable: false, amount: accounts ? await foldedInventory(accounts.get("INVENTORY")._id, session) : 0 };
   }
   const [customerRows, supplierRows] = await Promise.all([
     PartyOpening.find({ partyType: "customer" }).session(session).lean(),
@@ -139,7 +159,9 @@ const loadOpeningState = async (session = null) => {
   ]);
   const customerName = new Map(customers.map((row) => [String(row._id), row]));
   const supplierName = new Map(suppliers.map((row) => [String(row._id), row]));
-  const carriedCustomers = (data.carriedCustomers || []).map((row) => ({ customerId: row.customerId, amount: roundMoney(row.amount) }));
+  const carriedRaw = accounts ? await carriedCustomersOf(opening, entry, accounts.get("CUSTOMERS")._id, session) : [];
+  const carriedNames = new Map((await Customer.find({ _id: { $in: carriedRaw.map((row) => row.customerId) } }).select("name phone").session(session).lean()).map((row) => [String(row._id), row]));
+  const carriedCustomers = carriedRaw.map((row) => ({ customerId: row.customerId, name: carriedNames.get(String(row.customerId))?.name || "", phone: carriedNames.get(String(row.customerId))?.phone || "", amount: row.amount }));
   const figures = {
     cash: roundMoney(data.cash || 0),
     banks,
@@ -195,7 +217,7 @@ const parseRows = (rows, { idKey, label, allowNegative }) => {
 const nextBankCode = async (session) => {
   const parent = await Account.findOne({ code: "112" }).session(session).lean();
   const children = await Account.find({ parentId: parent._id }).select("code").session(session).lean();
-  const max = children.reduce((top, child) => Math.max(top, Number(child.code) || 0), 1120);
+  const max = children.reduce((top, child) => Math.max(top, Number(child.code) || 0), 11200);
   return { parent, code: String(max + 1) };
 };
 
@@ -270,21 +292,14 @@ const saveOpening = async (body, { session, actor = null }) => {
 
   const banks = await resolveBanks(input.banks, session);
   const accounts = await accountMap(["CASH_MAIN", "INVENTORY", "FIXED_ASSETS", "CUSTOMERS", "SUPPLIERS", "CAPITAL"], session);
-  const setupMode = !(await hasLedgerActivity(meta.ledgerStartAt, session));
+  const setupMode = setupModeOf(meta);
   const previous = await currentOpeningEntry(meta.opening, session);
 
   // Customer balances that came from invoices before the ledger start (Stage 17 OB) stay as they are.
-  let carried = meta.opening?.data?.carriedCustomers;
-  if (!carried) {
-    const byCustomer = new Map();
-    for (const row of previous?.lines || []) {
-      if (String(row.accountId) !== String(accounts.get("CUSTOMERS")._id) || !row.partyId) continue;
-      byCustomer.set(String(row.partyId), roundMoney((byCustomer.get(String(row.partyId)) || 0) + row.debit - row.credit));
-    }
-    carried = [...byCustomer].filter(([, amount]) => amount !== 0).map(([customerId, amount]) => ({ customerId, amount }));
-  }
+  const carried = await carriedCustomersOf(meta.opening, previous, accounts.get("CUSTOMERS")._id, session);
 
-  const carriedInventory = previous ? sumLines(previous, accounts.get("INVENTORY")._id) : 0;
+  // Outside setup mode the new OB carries every INVENTORY line it folds (the previous OB plus the opening_inventory entries).
+  const carriedInventory = await foldedInventory(accounts.get("INVENTORY")._id, session);
   const folded = await foldableEntries(session);
   const date = meta.ledgerStartAt;
   // Each reversal carries its original's date, so the pair nets out in the same period.
@@ -337,7 +352,8 @@ const saveOpening = async (body, { session, actor = null }) => {
     banks: banks.map(({ account, amount }) => ({ accountId: account._id, amount })),
     carriedCustomers: carried.map((row) => ({ customerId: row.customerId, amount: row.amount })),
   };
-  await Meta.updateOne({ _id: "schema" }, { $set: { opening: { status: "setup", entryId: entry?._id || null, savedAt: new Date(), data } } }, { session });
+  // Field-level $set: setupEndedAt and the other markers stay.
+  await Meta.updateOne({ _id: "schema" }, { $set: { "opening.status": "setup", "opening.entryId": entry?._id || null, "opening.savedAt": new Date(), "opening.data": data } }, { session });
   const totals = openingTotals({
     cash, banks: banks.map(({ amount }) => ({ amount })), fixedAssets, inventory: { amount: inventory },
     customers: customerRows.map((row) => ({ amount: row.amount })), carriedCustomers: carried, suppliers: supplierRows.map((row) => ({ amount: row.amount })),

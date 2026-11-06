@@ -1499,7 +1499,10 @@
             "create": "Create and add",
             "duplicate": "This customer is already in the list.",
             "nameAndPhone": "Enter the customer name and phone.",
-            "createFailed": "Could not create the customer."
+            "createFailed": "Could not create the customer.",
+            "carriedTitle": "Balances carried from earlier invoices",
+            "carriedLabel": "From invoices before the ledger start",
+            "carriedWarning": "This customer already carries {{amount}} from earlier invoices. Check you are not entering it again."
         },
         "suppliers": {
             "title": "Money you owe suppliers",
@@ -1519,7 +1522,7 @@
             "oweTitle": "What you owe (liabilities)",
             "cash": "Main cash",
             "inventory": "Inventory ({{count}} products × purchase price)",
-      "inventoryCarried": "Inventory (from the opening entry)",
+            "inventoryCarried": "Inventory (from the opening entry)",
             "customers": "Money owed by customers ({{count}})",
             "fixedAssets": "Fixed assets",
             "supplierAdvances": "Advances with suppliers",

@@ -51,7 +51,8 @@ const buildQuery = (filters = {}) => {
 };
 
 const createReturnLog = async (payload, session) => {
-  if (!session) return ReturnLog.create(payload);
+  // A return log is created together with its ledger entry: it needs the caller's transaction.
+  if (!session) throw new Error("createReturnLog requires a transaction session");
   const [created] = await ReturnLog.create([payload], { session });
   return created;
 };

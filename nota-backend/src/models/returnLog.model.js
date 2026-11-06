@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const auditFieldsPlugin = require("../auth/auditFields.plugin");
+const { endsSetupModePlugin } = require("../accounting/setupState");
 
 const itemSchema = new mongoose.Schema({
   invoiceItemId: { type: mongoose.Schema.Types.ObjectId },
@@ -42,4 +43,5 @@ returnLogSchema.index({ "items.productCode": 1 });
 
 // Stage 13: createdBy / updatedBy from the signed-in user (nothing when auth is off).
 returnLogSchema.plugin(auditFieldsPlugin);
+returnLogSchema.plugin(endsSetupModePlugin);
 module.exports = mongoose.model("ReturnLog", returnLogSchema);

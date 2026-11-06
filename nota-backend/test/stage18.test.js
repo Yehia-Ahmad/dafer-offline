@@ -66,7 +66,10 @@ async function keyedLines(entry) {
 const find = (rows, key, party = null) => rows.find((row) => row.key === key && (party === null || row.party === party));
 async function assertHealthy() {
   const response = await call("GET", "/api/accounting/health"); assert.equal(response.status, 200);
-  for (const [name, check] of Object.entries(response.json)) assert.equal(check.difference, 0, `${name}: ${JSON.stringify(check)}`);
+  for (const [name, check] of Object.entries(response.json)) {
+    assert.equal(check.difference, 0, `${name}: ${JSON.stringify(check)}`);
+    if ("ok" in check) assert.equal(check.ok, true, `${name}: ${JSON.stringify(check)}`);
+  }
   return response.json;
 }
 const customer = (name, phone) => Customer.create({ name, phone });
@@ -168,14 +171,14 @@ it("wizard save posts the design's numbers: cash 15,000 + bank 30,000 + inventor
   const lines = await keyedLines(entry);
   assert.equal(lines.length, 8);
   assert.deepEqual(find(lines, "CASH_MAIN"), { key: "CASH_MAIN", debit: 15000, credit: 0, party: null });
-  assert.deepEqual(find(lines, "1121"), { key: "1121", debit: 30000, credit: 0, party: null });
+  assert.deepEqual(find(lines, "11201"), { key: "11201", debit: 30000, credit: 0, party: null });
   assert.deepEqual(find(lines, "INVENTORY"), { key: "INVENTORY", debit: 84200, credit: 0, party: null });
   assert.equal(lines.filter((row) => row.key === "CUSTOMERS").reduce((sum, row) => sum + row.debit, 0), 6300);
   assert.equal(lines.filter((row) => row.key === "SUPPLIERS").reduce((sum, row) => sum + row.credit, 0), 8500);
   assert.deepEqual(find(lines, "CAPITAL"), { key: "CAPITAL", debit: 0, credit: 127000, party: null });
   assert.equal(entry.totalDebit, entry.totalCredit);
   assert.equal(entry.date.toISOString(), (await Meta.findById("schema").lean()).ledgerStartAt.toISOString());
-  const bank = await Account.findOne({ code: "1121" }).lean();
+  const bank = await Account.findOne({ code: "11201" }).lean();
   assert.equal(bank.kind, "bank"); assert.equal(bank.isSystem, false); assert.equal(bank.isGroup, false);
   const supplierLine = entry.lines.find((row) => row.partyType === "supplier" && String(row.partyId) === String(s1._id));
   assert.equal(supplierLine.credit, 6650);
@@ -238,11 +241,11 @@ it("wizard validation: decimals, negatives for cash, duplicates, unknown parties
   const ok = await post({ cash: 100, customers: [{ customerId: String(c._id), amount: 0 }], banks: [{ name: "Empty", type: "wallet", amount: 0 }] });
   assert.equal(ok.status, 200);
   assert.equal(await PartyOpening.countDocuments(), 0, "zero rows are dropped");
-  assert.equal(await Account.countDocuments({ code: "1121" }), 0);
+  assert.equal(await Account.countDocuments({ code: "11201" }), 0);
   assert.equal(await JournalEntry.countDocuments({ type: "opening" }), 1);
   assert.equal((await post({ cash: 5, banks: [{ name: "W", type: "wallet", amount: 7 }, { name: "B", type: "bank", amount: 9 }] })).status, 200);
-  assert.deepEqual((await Account.find({ code: { $in: ["1121", "1122"] } }).sort({ code: 1 }).lean()).map((row) => row.kind), ["wallet", "bank"]);
-  assert.equal((await post({ banks: [{ accountId: String((await Account.findOne({ code: "1121" }))._id), amount: 11 }] })).status, 200);
+  assert.deepEqual((await Account.find({ code: { $in: ["11201", "11202"] } }).sort({ code: 1 }).lean()).map((row) => row.kind), ["wallet", "bank"]);
+  assert.equal((await post({ banks: [{ accountId: String((await Account.findOne({ code: "11201" }))._id), amount: 11 }] })).status, 200);
   await assertHealthy();
 });
 
@@ -440,7 +443,7 @@ it("health can fail: the suppliers check and the opening check catch tampering",
   await PartyOpening.updateOne({ partyType: "supplier", partyId: s1._id }, { $set: { amount: 7000 } });
   const bad = (await call("GET", "/api/accounting/health")).json;
   assert.equal(bad.suppliers.difference, 350); assert.equal(bad.suppliers.bySupplier[0].name, "Light Co");
-  assert.equal(bad.opening.difference > 0, true, "the stored opening data no longer matches the posted entry");
+  assert.equal(bad.opening.ok, false); assert.equal(bad.opening.difference > 0, true, "the stored opening data no longer matches the posted entry");
   await PartyOpening.updateOne({ partyType: "supplier", partyId: s1._id }, { $set: { amount: 6650 } });
   await assertHealthy();
   await Meta.updateOne({ _id: "schema" }, { $set: { "opening.data.cash": 14000 } });
@@ -558,7 +561,7 @@ it("GET /api/accounting/opening reports the status, figures, totals and the post
   await call("POST", "/api/accounting/opening", body);
   const state = (await call("GET", "/api/accounting/opening")).json;
   assert.equal(state.status, "setup"); assert.equal(state.setupMode, true);
-  assert.equal(state.figures.cash, 15000); assert.equal(state.figures.banks.length, 1); assert.equal(state.figures.banks[0].code, "1121");
+  assert.equal(state.figures.cash, 15000); assert.equal(state.figures.banks.length, 1); assert.equal(state.figures.banks[0].code, "11201");
   assert.equal(state.figures.inventory.amount, 84200); assert.equal(state.figures.inventory.mode, "live");
   assert.equal(state.figures.customers.length, 2); assert.equal(state.figures.suppliers.length, 2);
   assert.deepEqual({ assets: state.totals.assets, liabilities: state.totals.liabilities, capital: state.totals.capital }, { assets: 135500, liabilities: 8500, capital: 127000 });
@@ -585,4 +588,225 @@ it("accounts and ledger keep the raw signed balance and add side and absBalance"
   const suppliers = flat.find((row) => row.systemKey === "SUPPLIERS");
   const supplierLedger = (await call("GET", `/api/accounting/accounts/${suppliers._id}/ledger`)).json;
   assert.equal(supplierLedger.parties.length, 2, "the supplier ledger lists suppliers for the party filter");
+});
+
+// ------------------------------------------------------------ Stage 18 review fixes
+
+const { isSetupMode, postStockAdjustment } = require("../src/accounting/opening");
+const { reverseEntry } = require("../src/accounting/posting");
+const inventoryLedger = async () => {
+  const account = await Account.findOne({ systemKey: "INVENTORY" }).lean();
+  const rows = await JournalEntry.aggregate([{ $match: { status: "posted" } }, { $unwind: "$lines" }, { $match: { "lines.accountId": account._id } }, { $group: { _id: null, balance: { $sum: { $subtract: ["$lines.debit", "$lines.credit"] } } } }]);
+  return rows[0]?.balance || 0;
+};
+const stockWorth = async () => (await Product.find({}).lean()).reduce((sum, row) => sum + row.inventoryCount * row.purchasePrice, 0);
+const obInventory = async () => (find(await keyedLines(await currentOpening()), "INVENTORY") || { debit: 0 }).debit;
+
+it("repro A: setup products, then a sale, then the first wizard save keeps the inventory (INVENTORY = sum of stock x price, health 0)", async () => {
+  await startLedger();
+  const p = await product({ code: "REPRO-A", stock: 10, cost: 20 });
+  await sell(p);
+  assert.equal(await inventoryLedger(), 180);
+  const before = (await call("GET", "/api/accounting/opening")).json;
+  assert.equal(before.setupMode, false); assert.equal(before.figures.inventory.amount, 200, "the read-only amount shown = the folded opening inventory");
+  assert.equal((await call("POST", "/api/accounting/opening", { cash: 100 })).status, 200);
+  assert.equal(await obInventory(), 200, "the amount posted equals the amount shown");
+  assert.equal(await inventoryLedger(), await stockWorth());
+  await assertHealthy();
+  const after = (await call("GET", "/api/accounting/opening")).json;
+  assert.equal(after.figures.inventory.amount, 200);
+});
+
+it("repro B: save, add a product while still in setup, then a sale, then a re-save keeps every inventory line", async () => {
+  await startLedger();
+  const first = await product({ code: "REPRO-B1", stock: 10, cost: 20 });
+  assert.equal((await call("POST", "/api/accounting/opening", { cash: 50 })).status, 200);
+  assert.equal(await obInventory(), 200);
+  await assertHealthy();
+  await product({ code: "REPRO-B2", stock: 5, cost: 40 }); // still setup: an opening_inventory entry beside the OB
+  assert.equal((await call("GET", "/api/accounting/opening")).json.setupMode, true);
+  assert.equal(await JournalEntry.countDocuments({ type: "auto", "source.type": "opening_inventory", reversedBy: null }), 1);
+  await sell(first); // ends setup mode
+  const shown = (await call("GET", "/api/accounting/opening")).json;
+  assert.equal(shown.setupMode, false); assert.equal(shown.figures.inventory.amount, 400, "OB 200 + the later 200 (the sale cost stays outside the opening entries)");
+  assert.equal((await call("POST", "/api/accounting/opening", { cash: 60 })).status, 200);
+  assert.equal(await obInventory(), 400, "carried inventory = previous OB + every folded opening_inventory entry");
+  assert.equal(await JournalEntry.countDocuments({ type: "auto", "source.type": "opening_inventory", reversedBy: null }), 0);
+  assert.equal(await inventoryLedger(), await stockWorth());
+  await assertHealthy();
+  assert.equal((await call("POST", "/api/accounting/opening", { cash: 61 })).status, 200);
+  assert.equal(await obInventory(), 400); assert.equal(await inventoryLedger(), await stockWorth());
+  await assertHealthy();
+});
+
+it("repro C: on an upgraded install GET /opening's capital equals the posted CAPITAL line before and after the first save", async () => {
+  const p = await product({ code: "REPRO-C", stock: 10, cost: 20 });
+  const c = await customer("Legacy C", "01010000611");
+  assert.equal((await call("POST", "/api/credit-sales", { customerId: String(c._id), sellingDate: "2026-11-01", items: [{ productId: p._id, quantity: 2, price: 100 }] })).status, 201);
+  await JournalEntry.deleteMany({}); await Account.deleteMany({}); await Counter.deleteMany({ _id: { $in: ["JE", "OB"] } }); await Meta.deleteMany({});
+  await Meta.create({ _id: "schema", version: 4 }); await runMigrations();
+  const capitalOf = async (entry) => { const row = find(await keyedLines(entry), "CAPITAL"); return row.credit - row.debit; };
+  const ob = await JournalEntry.findOne({ number: "OB-000001" }).lean();
+  assert.equal(await capitalOf(ob), 360);
+  const before = (await call("GET", "/api/accounting/opening")).json;
+  assert.equal(before.setupMode, true);
+  assert.equal(before.totals.capital, 360, "the review before the first save");
+  assert.deepEqual(before.figures.carriedCustomers.map((row) => [String(row.customerId), row.amount, row.name]), [[String(c._id), 200, "Legacy C"]], "carried balances are listed with the customer name");
+  assert.equal((await call("POST", "/api/accounting/opening", {})).status, 200);
+  assert.equal(await capitalOf(await currentOpening()), 360, "the posted capital");
+  const after = (await call("GET", "/api/accounting/opening")).json;
+  assert.equal(after.totals.capital, 360);
+  await assertHealthy();
+});
+
+it("setup mode ends with a write: the first sale/credit sale/receipt sets setupEndedAt; setup postings touch lastSetupPostingAt", async () => {
+  await startLedger();
+  const p = await product({ code: "WRITE-END", stock: 10, cost: 20 });
+  let meta = await Meta.findById("schema").lean();
+  assert.ok(meta.opening.lastSetupPostingAt, "a setup-mode stock posting writes meta"); assert.equal(meta.opening.setupEndedAt, undefined);
+  const c = await customer("Write End", "01010000621");
+  await sell(p);
+  meta = await Meta.findById("schema").lean();
+  assert.ok(meta.opening.setupEndedAt, "the first sale wrote setupEndedAt in its own transaction");
+  const endedAt = String(meta.opening.setupEndedAt);
+  const touched = String(meta.opening.lastSetupPostingAt);
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  assert.equal((await call("PUT", `/api/products/${p._id}`, { inventoryCount: 5 })).status, 200);
+  meta = await Meta.findById("schema").lean();
+  assert.equal(String(meta.opening.lastSetupPostingAt), touched, "after the end, stock postings no longer write meta");
+  assert.equal(String(meta.opening.setupEndedAt), endedAt, "set once, never moved");
+  assert.equal(await JournalEntry.countDocuments({ "source.type": "inventory_adjustment" }), 1);
+  // A credit sale and a receipt each end it as well.
+  for (const make of [
+    () => call("POST", "/api/credit-sales", { customerId: String(c._id), sellingDate: "2026-11-05", items: [{ productId: p._id, quantity: 1, price: 100 }] }),
+    () => Receipt.create({ number: "RC-000950", customer: c._id, amount: 5, paymentDate: new Date(), kind: "payment", allocations: [] }),
+  ]) {
+    await Meta.updateOne({ _id: "schema" }, { $unset: { "opening.setupEndedAt": "" } });
+    assert.equal(await isSetupMode(), true);
+    await make();
+    assert.ok((await Meta.findById("schema").lean()).opening?.setupEndedAt);
+  }
+});
+
+it("after setupEndedAt the answer comes from meta only: deleting every document does not bring setup mode back", async () => {
+  await startLedger();
+  const p = await product({ code: "META-ONLY", stock: 3, cost: 10 });
+  await sell(p);
+  assert.equal(await isSetupMode(), false);
+  await Selling.deleteMany({}); await CreditSale.deleteMany({}); await Receipt.deleteMany({});
+  assert.equal(await isSetupMode(), false, "no collection scan: the marker decides");
+  const source = require("fs").readFileSync(require("path").join(__dirname, "../src/accounting/opening.js"), "utf8");
+  assert.ok(/const isSetupMode = async \(session\) => setupModeOf\(await getOpeningMeta\(session\)\)/.test(source));
+});
+
+it("concurrent first sale and stock edit: the stock edit conflicts on meta, retries and posts to INVENTORY_ADJUSTMENT", async () => {
+  await startLedger();
+  const stockProduct = await product({ code: "CONC-STOCK", stock: 10, cost: 20 });
+  const soldProduct = await product({ code: "CONC-SOLD", stock: 10, cost: 20 });
+  let attempts = 0; let release; const gate = new Promise((resolve) => { release = resolve; });
+  const edit = withTransaction(async (session) => {
+    attempts += 1;
+    assert.equal(await isSetupMode(session), attempts === 1, "attempt 1 starts in setup mode; the retry sees the end");
+    if (attempts === 1) await gate; // hold the snapshot open until the sale has committed
+    return postStockAdjustment({ date: new Date(), source: { type: "inventory_adjustment", id: stockProduct._id, number: "CONC" }, amount: 50, increase: true, session });
+  });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  await sell(soldProduct); // a different product: only meta is shared
+  release();
+  const entry = await edit;
+  assert.equal(attempts, 2, "the stock edit conflicted once and retried");
+  const accounts = await Account.find({ _id: { $in: entry.lines.map((row) => row.accountId) } }).lean();
+  assert.deepEqual(accounts.map((row) => row.systemKey).sort(), ["INVENTORY", "INVENTORY_ADJUSTMENT"]);
+  assert.equal(entry.source.type, "inventory_adjustment");
+});
+
+it("health: the opening check fails when the OB is reversed or the unreversed opening entries are not exactly one", async () => {
+  const { body } = await designNumbers();
+  assert.equal((await call("POST", "/api/accounting/opening", body)).status, 200);
+  const health = await assertHealthy();
+  assert.equal(health.opening.unreversedEntries, 1); assert.equal(health.opening.countOk, true);
+  const ob = await currentOpening();
+  await withTransaction((session) => reverseEntry(ob._id, { date: ob.date, memo: "tamper", session }));
+  const reversed = (await call("GET", "/api/accounting/health")).json.opening;
+  assert.equal(reversed.entryReversed, true); assert.equal(reversed.countOk, false); assert.equal(reversed.ok, false); assert.equal(reversed.difference, 0, "money still matches: the failure is structural");
+  // Undo, then add a second unreversed opening entry.
+  await JournalEntry.updateOne({ _id: ob._id }, { $set: { reversedBy: null } });
+  await JournalEntry.deleteOne({ reversalOf: ob._id });
+  const restored = (await call("GET", "/api/accounting/health")).json.opening;
+  assert.equal(restored.difference, 0); assert.equal(restored.ok, true);
+  const accounts = await accountMap(["CASH_MAIN", "CAPITAL"]);
+  await withTransaction((session) => postEntry({ date: ob.date, type: "opening", memo: "stray", session, source: { type: "opening", id: new mongoose.Types.ObjectId(), number: "OB-STRAY" }, lines: [line(accounts.get("CASH_MAIN"), 5, "debit"), line(accounts.get("CAPITAL"), 5, "credit")] }));
+  const two = (await call("GET", "/api/accounting/health")).json.opening;
+  assert.equal(two.unreversedEntries, 2); assert.equal(two.countOk, false); assert.equal(two.entryReversed, false); assert.equal(two.ok, false);
+});
+
+it("health: a stray SUPPLIERS party line (no supplier opening behind it) fails the suppliers check", async () => {
+  const { body } = await designNumbers();
+  assert.equal((await call("POST", "/api/accounting/opening", body)).status, 200);
+  await assertHealthy();
+  const stray = await supplier("Stray Co");
+  const accounts = await accountMap(["SUPPLIERS", "CASH_MAIN"]);
+  await withTransaction((session) => postEntry({ date: new Date(), memo: "stray supplier line", session, source: { type: "manual", id: new mongoose.Types.ObjectId(), number: "M-1" }, lines: [line(accounts.get("CASH_MAIN"), 90, "debit"), line(accounts.get("SUPPLIERS"), 90, "credit", { partyType: "supplier", partyId: stray._id, partyName: "Stray Co" })] }));
+  const bad = (await call("GET", "/api/accounting/health")).json.suppliers;
+  assert.equal(bad.difference, 90); assert.equal(bad.bySupplier[0].name, "Stray Co");
+});
+
+it("credit return: the refund credit pays the other invoices first, then the customer's opening, then the remainder is refunded", async () => {
+  await startLedger();
+  const p = await product({ code: "RET-OPEN", stock: 50, cost: 20 });
+  const c = await customer("Return Opening", "01010000631");
+  assert.equal((await call("POST", "/api/accounting/opening", { customers: [{ customerId: String(c._id), amount: 500 }] })).status, 200);
+  const credit = (quantity, downPayment) => call("POST", "/api/credit-sales", { customerId: String(c._id), sellingDate: "2026-11-05", items: [{ productId: p._id, quantity, price: 100 }], ...(downPayment ? { downPayment } : {}) });
+  const paid = await credit(3, 300); assert.equal(paid.status, 201, JSON.stringify(paid.json));
+  const open = await credit(1); assert.equal(open.status, 201);
+  const returned = await call("POST", "/api/returns", { returnType: "credit", invoiceId: paid.json._id, items: [{ productId: p._id, quantity: 3, returnReason: "x" }] });
+  assert.equal(returned.status, 201, JSON.stringify(returned.json));
+  const second = (await call("GET", `/api/credit-sales/${open.json._id}`)).json;
+  assert.equal(second.remainingAmount, 0, "the other invoice is paid first (100)");
+  const opening = await PartyOpening.findOne({ partyId: c._id }).lean();
+  assert.deepEqual(opening.payments.map((row) => [row.amount, row.source]), [[200, "return_reallocation"]], "then the opening (the remaining 200 of the 300 credit)");
+  const statement = (await call("GET", `/api/customers/${c._id}/statement`)).json;
+  assert.equal(statement.outstanding, 300);
+  assert.equal(statement.lines.filter((row) => row.type === "payment").length, 1, "only the down payment shows; the reallocation is already on the statement as the return");
+  await assertHealthy();
+  const low = await call("POST", "/api/accounting/opening", { customers: [{ customerId: String(c._id), amount: 100 }] });
+  assert.equal(low.status, 409); assert.equal(low.json.code, "OPENING_BELOW_COLLECTED");
+});
+
+it("bank and wallet accounts are 5-digit children of 112 and the migration renames old 4-digit leaves, journal lines included", async () => {
+  await startLedger();
+  const created = await call("POST", "/api/accounting/opening", { banks: [{ name: "Bank A", type: "bank", amount: 100 }, { name: "Wallet B", type: "wallet", amount: 50 }] });
+  assert.equal(created.status, 200);
+  assert.deepEqual((await Account.find({ kind: { $in: ["bank", "wallet"] } }).sort({ code: 1 }).lean()).map((row) => row.code), ["11201", "11202"]);
+  // Put the data back into the old scheme, then run the migration.
+  const bank = await Account.findOne({ code: "11201" });
+  await Account.collection.updateOne({ _id: bank._id }, { $set: { code: "1121" } });
+  await JournalEntry.collection.updateMany({ "lines.accountId": bank._id }, { $set: { "lines.$[row].accountCode": "1121" } }, { arrayFilters: [{ "row.accountId": bank._id }] });
+  await Meta.updateOne({ _id: "schema" }, { $set: { version: 5 } });
+  assert.equal(await runMigrations(), 6);
+  assert.equal((await Account.findById(bank._id).lean()).code, "11201");
+  const entry = await currentOpening();
+  assert.equal(entry.lines.find((row) => String(row.accountId) === String(bank._id)).accountCode, "11201");
+  const more = await call("POST", "/api/accounting/opening", { banks: [{ name: "Bank C", type: "bank", amount: 10 }] });
+  assert.equal(more.status, 200);
+  assert.ok(await Account.findOne({ code: "11203" }), "a new bank continues after the highest code");
+  await assertHealthy();
+});
+
+it("the migration marks setupEndedAt for installs that already have documents after the ledger start", async () => {
+  await startLedger();
+  const p = await product({ code: "MIG-END", stock: 4, cost: 10 });
+  await sell(p);
+  await Meta.updateOne({ _id: "schema" }, { $unset: { "opening.setupEndedAt": "" }, $set: { version: 5 } });
+  assert.equal(await isSetupMode(), true, "the marker is missing");
+  assert.equal(await runMigrations(), 6);
+  assert.equal(await isSetupMode(), false);
+  assert.ok((await Meta.findById("schema").lean()).opening.setupEndedAt);
+});
+
+it("createReturnLog requires a transaction session", async () => {
+  const { createReturnLog } = require("../src/services/returns.service");
+  const ReturnLog = require("../src/models/returnLog.model");
+  await assert.rejects(() => createReturnLog({}), /requires a transaction session/);
+  assert.equal(await ReturnLog.countDocuments(), 0, "nothing was written");
 });

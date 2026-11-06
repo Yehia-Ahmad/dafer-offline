@@ -194,7 +194,7 @@ async function main() {
 
     const health = await request(currentBase, "GET", "/api/accounting/health");
     for (const [name, check] of Object.entries(health)) {
-      if (check && typeof check === "object" && "difference" in check) assert.equal(Number(check.difference), 0, `accounting health ${name}`);
+      if (check && typeof check === "object" && "difference" in check) { assert.equal(Number(check.difference), 0, `accounting health ${name}`); assert.notEqual(check.ok, false, `accounting health ${name} ok`); }
     }
     const indexDb = new mongoose.mongo.MongoClient(mongoUri);
     await indexDb.connect();
@@ -292,7 +292,7 @@ async function main() {
     assert.equal((await request(currentBase, "GET", `/api/customers/${reallocCustomer._id}/statement`)).totals.balance, 50);
     const afterWizard = await request(currentBase, "GET", "/api/accounting/health");
     for (const [name, check] of Object.entries(afterWizard)) {
-      if (check && typeof check === "object" && "difference" in check) assert.equal(Number(check.difference), 0, `accounting health after the wizard: ${name}`);
+      if (check && typeof check === "object" && "difference" in check) { assert.equal(Number(check.difference), 0, `accounting health after the wizard: ${name}`); assert.notEqual(check.ok, false, `accounting health after the wizard: ${name} ok`); }
     }
     console.log(`opening wizard after the upgrade: OB ${saved.number}, capital ${saved.totals.capital}, health 0`);
 

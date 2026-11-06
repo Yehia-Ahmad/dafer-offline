@@ -126,9 +126,22 @@
               @if (!readOnly) { <button type="button" notaButton icon [attr.aria-label]="'openingWizard.remove' | translate" (click)="removeCustomer(row)">×</button> }
               @if (row.collected) { <span class="ow__meta">{{ 'openingWizard.customers.collected' | translate: { amount: money(row.collected) } }}</span> }
               @if (partyAmountError(row); as error) { <span class="nota-error">{{ error | translate }}</span> }
+              @if (carriedOf(row) && amountOf(row.amount)) { <span class="ow__warn" role="status" data-test="carried-warning">{{ 'openingWizard.customers.carriedWarning' | translate: { amount: money(carriedOf(row)) } }}</span> }
             </div>
           } @empty {
             <p class="ow__empty" data-test="customers-empty">{{ 'openingWizard.customers.empty' | translate }}</p>
+          }
+          @if (carriedRows.length) {
+            <div class="ow__carried" data-test="carried-customers">
+              <h3 class="ow__h3">{{ 'openingWizard.customers.carriedTitle' | translate }}</h3>
+              @for (row of carriedRows; track row.customerId) {
+                <div class="ow__row" [attr.data-carried]="row.name">
+                  <span class="ow__fixed">{{ row.name }} <span class="ow__meta" dir="ltr">{{ row.phone }}</span></span>
+                  <span class="nota-num">{{ row.amount | notaMoney }}</span>
+                  <span class="ow__meta">{{ 'openingWizard.customers.carriedLabel' | translate }}</span>
+                </div>
+              }
+            </div>
           }
           @if (!readOnly) {
             <div class="ow__row">
@@ -192,6 +205,9 @@
                 }
                 <li><span>@if (inventoryEditable) { {{ 'openingWizard.review.inventory' | translate: { count: stockLines } }} } @else { {{ 'openingWizard.review.inventoryCarried' | translate }} }</span><span class="nota-num">{{ review.inventory | notaMoney }}</span></li>
                 <li><span>{{ 'openingWizard.review.customers' | translate: { count: customerCount } }}</span><span class="nota-num">{{ review.customers | notaMoney }}</span></li>
+                @for (row of carriedRows; track row.customerId) {
+                  <li class="ow__sub" data-test="review-carried"><span>{{ row.name }} · {{ 'openingWizard.customers.carriedLabel' | translate }}</span><span class="nota-num">{{ row.amount | notaMoney }}</span></li>
+                }
                 @if (review.fixedAssets) { <li><span>{{ 'openingWizard.review.fixedAssets' | translate }}</span><span class="nota-num">{{ review.fixedAssets | notaMoney }}</span></li> }
                 @if (review.supplierAdvances) { <li><span>{{ 'openingWizard.review.supplierAdvances' | translate }}</span><span class="nota-num">{{ review.supplierAdvances | notaMoney }}</span></li> }
                 <li class="ow__sum"><span>{{ 'openingWizard.review.total' | translate }}</span><span class="nota-num" data-test="total-assets">{{ review.assets | notaMoney }}</span></li>

@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const auditFieldsPlugin = require("../auth/auditFields.plugin");
+const { endsSetupModePlugin } = require("../accounting/setupState");
 
 const allocationSchema = new mongoose.Schema({
   // Exactly one of creditSale / opening (a customer opening balance, Stage 18).
@@ -23,4 +24,5 @@ const receiptSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 receiptSchema.plugin(auditFieldsPlugin);
+receiptSchema.plugin(endsSetupModePlugin);
 module.exports = mongoose.model("Receipt", receiptSchema);

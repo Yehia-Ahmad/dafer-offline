@@ -12,6 +12,8 @@ const paymentSchema = new mongoose.Schema({
   note: { type: String, trim: true, maxlength: 500 },
   number: { type: String, trim: true },
   receipt: { type: mongoose.Schema.Types.ObjectId, ref: "Receipt" },
+  // "return_reallocation": credit moved here from a returned invoice (already on the statement as that return); absent = a receipt.
+  source: { type: String, enum: ["return_reallocation"], default: undefined },
 }, { _id: true });
 
 const partyOpeningSchema = new mongoose.Schema({

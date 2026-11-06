@@ -33,6 +33,7 @@ function computeCustomerStatement({ invoices, returnById, opening = null, from =
       debit: opening.amount > 0 ? opening.amount : 0, credit: opening.amount < 0 ? -opening.amount : 0, _pinned: true,
     });
     for (const payment of opening.payments || []) {
+      if (payment.source === "return_reallocation") continue;
       add({ date: payment.paymentDate, type: "payment", number: payment.number, description: "دفعة عميل", debit: 0, credit: payment.amount });
     }
   }

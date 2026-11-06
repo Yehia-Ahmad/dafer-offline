@@ -63,27 +63,23 @@ const readSupplierBody = (body, { creating }) => {
 /** Ledger party balance per supplier: positive = we owe the supplier (credit side of 21). */
 const supplierBalances = async (supplierIds, session = null) => {
   const account = await Account.findOne({ systemKey: "SUPPLIERS" }).lean().session(session);
-  if (!account) return new Map();
-  ledgerAccountIds.set("SUPPLIERS", String(account._id));
+  if (!account) return { balances: new Map(), accountId: null };
   const rows = await JournalEntry.aggregate([
     { $match: { status: "posted", "lines.accountId": account._id } },
     { $unwind: "$lines" },
     { $match: { "lines.accountId": account._id, "lines.partyId": { $in: supplierIds } } },
     { $group: { _id: "$lines.partyId", balance: { $sum: { $subtract: ["$lines.credit", "$lines.debit"] } } } },
   ]).session(session);
-  return new Map(rows.map((row) => [String(row._id), roundMoney(row.balance)]));
+  return { balances: new Map(rows.map((row) => [String(row._id), roundMoney(row.balance)])), accountId: String(account._id) };
 };
-
-// The ledger account the rows link to (account 21), learned while computing the balances.
-const ledgerAccountIds = new Map();
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const present = (supplier, balances, openings) => ({
+const present = (supplier, { balances, accountId }, openings) => ({
   ...supplier,
   balance: balances.get(String(supplier._id)) || 0,
   openingAmount: openings.get(String(supplier._id)) || 0,
-  ledgerAccountId: ledgerAccountIds.get("SUPPLIERS") || null,
+  ledgerAccountId: accountId,
 });
 
 const getSuppliers = asyncHandler(async (req, res) => {

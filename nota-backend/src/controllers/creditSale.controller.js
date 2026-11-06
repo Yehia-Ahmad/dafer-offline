@@ -694,6 +694,17 @@ const reallocateRefundCreditToOtherInvoices = async ({
       remainingCredit = roundMoney(remainingCredit - payableAmount);
   }
 
+  // The customer's opening balance is the last open item: after the other invoices, before the refund remainder.
+  if (remainingCredit > MONEY_EPSILON) {
+    const opening = await PartyOpening.findOne({ partyType: "customer", partyId: sourceCreditSale.customer }).session(session);
+    const openingPayable = roundMoney(Math.min(remainingCredit, openingRemaining(opening)));
+    if (openingPayable > MONEY_EPSILON) {
+      opening.payments.push({ amount: openingPayable, paymentDate: refundDate, note: paymentNote, number: returnNumber, source: "return_reallocation" });
+      await opening.save({ session });
+      remainingCredit = roundMoney(remainingCredit - openingPayable);
+    }
+  }
+
   return {
     reallocatedPaidAmount: roundMoney(normalizedAvailableCredit - remainingCredit),
     returnedPaidAmount: remainingCredit,

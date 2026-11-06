@@ -11,6 +11,7 @@ const Customer = require("../models/customer.model");
 const Account = require("../models/account.model");
 const JournalEntry = require("../models/journalEntry.model");
 const { seedAccounts, postEntry, accountMap } = require("../accounting/posting");
+const { hasLedgerActivity } = require("../accounting/opening");
 const { customerStatementBalances } = require("../services/customerStatement.service");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { PREFIXES, formatDocumentNumber, nextDocumentNumber } = require("../utils/documentNumber");
@@ -500,12 +501,38 @@ async function ledgerStartMigration(session) {
   return { ledgerStartAt: now, openingCapital: capital };
 }
 
+// Stage 18 review fixes: bank/wallet leaf accounts become 5-digit children of 112 (11201, 11202, …)
+// so they can never collide with 113; and installs that already have post-ledger documents get
+// meta.opening.setupEndedAt, because setup mode now ends with a write instead of a collection scan.
+async function stage18FixesMigration(session) {
+  const parent = await Account.findOne({ code: "112" }).session(session).lean();
+  const renamed = [];
+  if (parent) {
+    const children = await Account.find({ parentId: parent._id }).session(session).lean();
+    for (const child of children) {
+      if (!/^112[0-9]$/.test(child.code)) continue;
+      const code = `112${String(Number(child.code.slice(3))).padStart(2, "0")}`;
+      await Account.collection.updateOne({ _id: child._id }, { $set: { code } }, { session });
+      await JournalEntry.collection.updateMany({ "lines.accountId": child._id }, { $set: { "lines.$[row].accountCode": code } }, { arrayFilters: [{ "row.accountId": child._id }], session });
+      renamed.push(`${child.code}->${code}`);
+    }
+  }
+  const meta = await Meta.findOne({ _id: "schema" }).session(session).lean();
+  let setupEnded = false;
+  if (meta?.ledgerStartAt && !meta.opening?.setupEndedAt && meta.opening?.status !== "finalized" && await hasLedgerActivity(new Date(meta.ledgerStartAt), session)) {
+    await Meta.updateOne({ _id: "schema" }, { $set: { "opening.setupEndedAt": new Date() } }, { session });
+    setupEnded = true;
+  }
+  return { renamed, setupEnded };
+}
+
 const migrations = [
   { version: 1, name: "document numbers and receipts", run: numbersMigration },
   { version: 2, name: "original invoice totals and returned status", chunked: true, runChunk: originalTotalsMigrationChunk },
   { version: 3, name: "remove selling leftovers", run: removeLeftoversMigration },
   { version: 4, name: "stage 16 indexes", outsideTransaction: true, run: indexesMigration },
   { version: 5, name: "stage 17 chart of accounts and ledger start", run: ledgerStartMigration },
+  { version: 6, name: "stage 18 review fixes: bank codes and setup end marker", run: stage18FixesMigration },
 ];
 
 async function recordMigration(migration, details, session) {

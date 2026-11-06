@@ -244,7 +244,7 @@ describe('OpeningWizardComponent', () => {
   });
 
   it('save posts the amounts: zero rows dropped, existing bank accounts by id, new ones by name and type', async () => {
-    await open(stateOf({}, { banks: [{ accountId: 'a1', code: '1121', name: 'بنك قديم', kind: 'bank', amount: 100 }] }));
+    await open(stateOf({}, { banks: [{ accountId: 'a1', code: '11201', name: 'بنك قديم', kind: 'bank', amount: 100 }] }));
     component.cash = 15000;
     component.fixedAssets = 500;
     component.banks = [...component.banks, { name: ' محفظة ', type: 'wallet', amount: 25.5 }];
@@ -304,7 +304,7 @@ describe('OpeningWizardComponent', () => {
 
   it('a finalized opening is read-only on every step', async () => {
     await open(stateOf({ status: 'finalized', setupMode: false, finalizedAt: '2026-11-05T10:00:00.000Z', savedAt: '2026-11-05T09:00:00.000Z', entry: { _id: 'e1', number: 'OB-000002' } },
-      { cash: 15000, banks: [{ accountId: 'a1', code: '1121', name: 'بنك', kind: 'bank', amount: 30000 }], inventory: { mode: 'carried', editable: false, amount: 84200 }, customers: [{ customerId: 'c1', name: 'أحمد', amount: 6300 }] }));
+      { cash: 15000, banks: [{ accountId: 'a1', code: '11201', name: 'بنك', kind: 'bank', amount: 30000 }], inventory: { mode: 'carried', editable: false, amount: 84200 }, customers: [{ customerId: 'c1', name: 'أحمد', amount: 6300 }] }));
     expect(fixture.nativeElement.querySelector('[data-test="finalized-banner"]')).toBeTruthy();
     expect((fixture.nativeElement.querySelector('[data-field="cash"]') as HTMLInputElement).disabled).toBeTrue();
     expect(fixture.nativeElement.querySelector('[data-action="add-bank"]')).toBeNull();
@@ -316,5 +316,46 @@ describe('OpeningWizardComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-action="save"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('[data-action="finalize"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('[data-field="confirm"]')).toBeNull();
+  });
+  describe('carried pre-ledger balances', () => {
+    const carried = [{ customerId: 'c1', name: 'أحمد', phone: '0100', amount: 200 }, { customerId: 'c9', name: 'سلوى', phone: '0109', amount: -50 }];
+
+    it('lists them read-only per customer on the customers step, labelled as coming from invoices before the ledger start', async () => {
+      await open(stateOf({}, { carriedCustomers: carried }));
+      click('[data-step="3"]');
+      await settle();
+      const rows = Array.from(fixture.nativeElement.querySelectorAll('[data-carried]')) as HTMLElement[];
+      expect(rows.length).toBe(2);
+      expect(rows[0].textContent).toContain('أحمد');
+      expect(rows[0].textContent).toContain('200');
+      expect(rows[0].textContent).toContain('openingWizard.customers.carriedLabel');
+      expect(rows[0].querySelector('input')).toBeNull();
+    });
+
+    it('lists them in the review too, and they are part of the review customers total', async () => {
+      await open(stateOf({}, { carriedCustomers: carried }));
+      click('[data-step="5"]');
+      await settle();
+      expect(fixture.nativeElement.querySelectorAll('[data-test="review-carried"]').length).toBe(2);
+      expect(component.review.customers).toBe(200);
+      expect(component.review.customerCredits).toBe(50);
+    });
+
+    it('warns (does not block) when an opening is entered for a customer who already has a carried balance', async () => {
+      await open(stateOf({}, { carriedCustomers: carried, customers: [{ customerId: 'c1', name: 'أحمد', phone: '0100', amount: 500, collected: 0 }, { customerId: 'c2', name: 'منى', phone: '0101', amount: 300, collected: 0 }] }));
+      click('[data-step="3"]');
+      await settle();
+      const warnings = fixture.nativeElement.querySelectorAll('[data-test="carried-warning"]');
+      expect(warnings.length).toBe(1);
+      expect(warnings[0].textContent).toContain('openingWizard.customers.carriedWarning');
+      expect(component.stepValid(3)).toBeTrue();
+    });
+
+    it('shows no warning when the carried customer has no opening amount', async () => {
+      await open(stateOf({}, { carriedCustomers: carried, customers: [{ customerId: 'c1', name: 'أحمد', phone: '0100', amount: 0, collected: 0 }] }));
+      click('[data-step="3"]');
+      await settle();
+      expect(fixture.nativeElement.querySelector('[data-test="carried-warning"]')).toBeNull();
+    });
   });
 });

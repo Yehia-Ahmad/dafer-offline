@@ -570,7 +570,17 @@ async function runOpeningScenarios() {
     return 'Dr 114 200 / Cr 31 200';
   });
 
-  await step('Opening: wizard save — cash 1,000, bank 2,000, customer 500, supplier 300 → capital 2,400 (inventory 200 folded in)', async () => {
+  await step('Opening: the first sale ends setup mode (written to meta), before the wizard has ever been saved', async () => {
+    const sale = await request('POST', '/api/sellings', { body: { customerName: 'First Walk-in', customerPhone: '01099990004', sellingDate: today, items: [{ productId: ctx.productId, quantity: 1, price: 40 }] } });
+    expectStatus(sale, 201, 'POST /api/sellings (first sale)');
+    const state = await request('GET', '/api/accounting/opening');
+    expectStatus(state, 200, 'GET /api/accounting/opening');
+    expect(state.json.setupMode === false, 'the first sale should have ended setup mode');
+    expect(state.json.figures.inventory.mode === 'carried' && state.json.figures.inventory.amount === 200, `read-only inventory expected 200 (the folded opening stock), got ${state.json.figures.inventory.amount}`);
+    return 'setupMode false; the read-only inventory shows the folded opening stock 200';
+  });
+
+  await step('Opening: wizard save after a sale — cash 1,000, bank 2,000, customer 500, supplier 300 → capital 3,400 (assets 3,700 − liabilities 300; the typed-in stock 200 folded in)', async () => {
     const customer = await request('POST', '/api/customers', { body: { name: 'Opening Customer', phone: '01099990001' } });
     expectStatus(customer, 201, 'POST /api/customers');
     ctx.customerId = customer.json._id;
@@ -591,11 +601,24 @@ async function runOpeningScenarios() {
     const response = await request('GET', '/api/accounting/health');
     expectStatus(response, 200, 'GET /api/accounting/health');
     const details = Object.entries(response.json).map(([name, check]) => `${name}=${check.difference}`);
-    for (const [name, check] of Object.entries(response.json)) expect(Number(check.difference) === 0, `${label}: ${name} difference ${check.difference}`);
+    for (const [name, check] of Object.entries(response.json)) expect(Number(check.difference) === 0 && check.ok !== false, `${label}: ${name} difference ${check.difference} ok ${check.ok}`);
     return details.join(', ');
   };
 
   await step('Opening: health is 0 after the wizard save (every check, including suppliers and opening)', () => healthIsZero('after save'));
+
+  await step('Opening: INVENTORY = sum of stock × price after the save (the sale before the wizard did not lose the stock)', async () => {
+    const tree = await request('GET', '/api/accounting/accounts');
+    expectStatus(tree, 200, 'GET /api/accounting/accounts');
+    const flat = []; const walk = (rows) => rows.forEach((row) => { flat.push(row); walk(row.children || []); }); walk(tree.json.accounts);
+    const inventory = flat.find((row) => row.systemKey === 'INVENTORY');
+    const products = await request('GET', '/api/products?limit=100');
+    expectStatus(products, 200, 'GET /api/products');
+    const rows = Array.isArray(products.json) ? products.json : products.json.data;
+    const worth = rows.reduce((sum, item) => sum + item.inventoryCount * item.purchasePrice, 0);
+    expect(inventory.balance === worth && worth === 180, `INVENTORY ${inventory.balance} vs stock × price ${worth} (expected 180)`);
+    return `INVENTORY ${inventory.balance} = stock × price ${worth}`;
+  });
 
   await step('Opening: the accounts tree shows capital as a credit balance with side and absBalance', async () => {
     const response = await request('GET', '/api/accounting/accounts');
@@ -603,9 +626,9 @@ async function runOpeningScenarios() {
     const flat = []; const walk = (rows) => rows.forEach((row) => { flat.push(row); walk(row.children || []); }); walk(response.json.accounts);
     const capital = flat.find((row) => row.systemKey === 'CAPITAL');
     expect(capital.balance === -3400 && capital.side === 'credit' && capital.absBalance === 3400, `capital ${JSON.stringify({ b: capital.balance, s: capital.side, a: capital.absBalance })}`);
-    const bank = flat.find((row) => row.code === '1121');
-    expect(bank && bank.kind === 'bank' && bank.absBalance === 2000, 'bank account 1121 missing or wrong');
-    return 'capital 3,400 credit; bank 1121 2,000 debit';
+    const bank = flat.find((row) => row.code === '11201');
+    expect(bank && bank.kind === 'bank' && bank.absBalance === 2000, 'bank account 11201 missing or wrong');
+    return 'capital 3,400 credit; bank 11201 2,000 debit';
   });
 
   await step('Opening: a customer opening is collected by a receipt and the statement shows رصيد أول المدة', async () => {
@@ -619,12 +642,6 @@ async function runOpeningScenarios() {
     return `balance ${statement.json.totals.balance}, aging total ${statement.json.aging.total}`;
   });
 
-  await step('Opening: a receipt that ended setup mode — the first receipt counts as activity', async () => {
-    const response = await request('GET', '/api/accounting/opening');
-    expect(response.json.setupMode === false, 'setup mode should have ended with the first receipt');
-    return 'setupMode false';
-  });
-
   await step('Opening: a stock edit now posts to the adjustment account, not capital', async () => {
     const edit = await request('PUT', `/api/products/${ctx.productId}`, { body: { inventoryCount: 12 } });
     expectStatus(edit, 200, 'PUT /api/products/:id');
@@ -632,7 +649,7 @@ async function runOpeningScenarios() {
     expect(adjustment.json.data.length === 1, 'no inventory_adjustment entry');
     const opening = await request('GET', `/api/accounting/journal?sourceType=opening_inventory&sourceId=${ctx.productId}`);
     expect(opening.json.data.every((entry) => entry.type !== 'auto' || entry.reversedBy), 'a new opening_inventory entry was posted');
-    return 'inventory_adjustment 40';
+    return 'inventory_adjustment 60 (3 units × 20)';
   });
 
   await step('Opening: a sale after the opening is not touched by it and health stays 0', async () => {
@@ -1095,7 +1112,7 @@ async function runScenarios() {
   await step('Accounting health: every expected/actual/difference is printed and difference is 0', async () => {
     const response = await request('GET', '/api/accounting/health'); expectStatus(response, 200, 'GET /api/accounting/health');
     const details = Object.entries(response.json).map(([name, check]) => `${name}: expected=${check.expected}, actual=${check.actual}, difference=${check.difference}`);
-    for (const [name, check] of Object.entries(response.json)) expect(Number(check.difference) === 0, `${name} difference ${check.difference}`);
+    for (const [name, check] of Object.entries(response.json)) expect(Number(check.difference) === 0 && check.ok !== false, `${name} difference ${check.difference} ok ${check.ok}`);
     return details.join(' | ');
   });
 

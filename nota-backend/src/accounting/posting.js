@@ -114,7 +114,6 @@ const postEntry = async ({ date, type = "auto", source, lines, memo = "", sessio
       if (row.partyType !== "supplier" || !row.partyId) throw new Error("Supplier party is required");
       if (!(await Supplier.exists({ _id: row.partyId }).session(session))) throw new Error("Supplier party does not exist");
     }
-    if (account.systemKey === "CUSTOMERS" && row.partyType !== "customer") throw new Error("Customer party is required");
     if (account.systemKey !== "CUSTOMERS" && account.systemKey !== "SUPPLIERS" && (row.partyType || row.partyId)) throw new Error("Party is only allowed on control accounts");
   }
   const totalDebit = roundMoney(clean.reduce((sum, row) => sum + row.debit, 0));
