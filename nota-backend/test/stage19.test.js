@@ -123,7 +123,7 @@ it("the migration creates the main box (account 1111) and a box per 112xx leaf, 
   // Make it look like an install from before Stage 19, then upgrade.
   await forgetBoxes(); await Meta.updateOne({ _id: "schema" }, { $set: { version: 6 } });
   assert.equal(await CashBox.countDocuments({}), 0); assert.equal(await Selling.countDocuments({ boxId: { $exists: true } }), 0);
-  assert.equal(await runMigrations(), 7);
+  assert.equal(await runMigrations(), 8);
   const boxes = await CashBox.find({}).sort({ sortOrder: 1 }).lean();
   assert.deepEqual(boxes.map((box) => [box.name, box.type, box.isMain, box.shiftsEnabled]), [["الخزنة الرئيسية", "cash", true, false], ["Vodafone Cash", "wallet", false, false]]);
   const main = boxes[0];
@@ -135,7 +135,7 @@ it("the migration creates the main box (account 1111) and a box per 112xx leaf, 
     assert.ok(docs.length > 0); assert.ok(docs.every((doc) => String(doc.boxId) === String(main._id)), Model.modelName);
   }
   assert.equal(String((await CreditSale.findById(credit._id).lean()).cancelRefundBoxId), String(main._id));
-  assert.equal(await runMigrations(), 7, "idempotent");
+  assert.equal(await runMigrations(), 8, "idempotent");
   assert.equal(await CashBox.countDocuments({}), 2);
   await assertHealthy();
 });
@@ -303,7 +303,7 @@ it("every money document posts to its box: cash sale, down payment, receipt, cas
 
   // Cancel of a cash sale reverses on its own box.
   const cancelSale = await sold(p, 100, { boxId: wallet._id });
-  assert.equal((await call("POST", `/api/sellings/${cancelSale._id}/cancel`, { reason: "wrong item" })).status, 200);
+  assert.equal((await call("POST", `/api/sellings/${cancelSale._id}/cancel`, { reason: "wrong item", boxId: wallet._id })).status, 200);
   const cancelEntries = await entriesOf("sale", cancelSale._id);
   assert.equal(cancelEntries.length, 2);
   assert.deepEqual(lineOf(cancelEntries[1], "11201"), { key: "11201", debit: 0, credit: 100 });
@@ -437,17 +437,21 @@ it("shift close: a zero difference posts nothing, an overage credits 530, and th
   const mismatch = await openShift(drawer, 480);
   assert.equal(mismatch.status, 409); assert.equal(mismatch.json.code, "FLOAT_MISMATCH");
   assert.deepEqual([mismatch.json.balance, mismatch.json.openingFloat, mismatch.json.difference], [500, 480, -20]);
-  const second = await openShift(drawer, 480, { confirmFloat: true });
-  assert.equal(second.status, 201); assert.equal(second.json.openingBalance, 500);
+  const noNote = await openShift(drawer, 480, { confirmFloat: true });
+  assert.equal(noNote.status, 400); assert.equal(noNote.json.code, "NOTE_REQUIRED");
+  const second = await openShift(drawer, 480, { confirmFloat: true, openingNote: "20 ناقصة في العد" });
+  assert.equal(second.status, 201); assert.equal(second.json.openingBalance, 500); assert.equal(second.json.openingDifference, -20);
+  assert.equal(await balanceOf(drawer), 480, "the opening shortage is posted: the box balance is the float");
+  const [openEntry] = await entriesOf("shift_open", second.json._id);
+  assert.deepEqual(openEntry.lines.map((row) => [row.key, row.debit, row.credit]), [["CASH_OVER_SHORT", 20, 0], ["11102", 0, 20]]);
   assert.equal((await openShift(drawer, 500)).json.code, "SHIFT_ALREADY_OPEN");
-  assert.equal(await JournalEntry.countDocuments({ "source.type": "shift" }), 0, "opening posts nothing");
+  assert.equal(await JournalEntry.countDocuments({ "source.type": "shift" }), 0, "opening an even float posts nothing at close");
   await sold(p, 100, { boxId: drawer._id });
   const over = await call("POST", `/api/shifts/${second.json._id}/close`, { counted: 600, differenceNote: "زيادة" });
   assert.equal(over.json.expected, 580); assert.equal(over.json.difference, 20);
   const [entry] = await entriesOf("shift", second.json._id);
   assert.deepEqual(entry.lines.map((row) => [row.key, row.debit, row.credit]), [["11102", 20, 0], ["CASH_OVER_SHORT", 0, 20]]);
-  // The confirmed 20 gap at opening is carried in the difference: the documents (and health) agree with the ledger.
-  assert.equal(await balanceOf(drawer), 620);
+  assert.equal(await balanceOf(drawer), 600, "ledger = counted");
   assert.equal((await openShift(main, 0)).json.code, "SHIFTS_DISABLED");
   await assertHealthy();
 });
@@ -555,10 +559,10 @@ it("expenses: Dr category / Cr box, INSUFFICIENT_BALANCE, cancel is a reversal; 
   assert.equal((await call("POST", `/api/expenses/${made.json._id}/cancel`, { reason: "again again" })).json.code, "ALREADY_CANCELLED");
 
   const added = await call("POST", "/api/expenses/categories", { nameAr: "صيانة", nameEn: "Maintenance" });
-  assert.equal(added.status, 201, JSON.stringify(added.json)); assert.equal(added.json.code, "526");
+  assert.equal(added.status, 201, JSON.stringify(added.json)); assert.equal(added.json.code, "52001");
   const second = await call("POST", "/api/expenses/categories", { nameAr: "دعاية" });
-  assert.equal(second.json.code, "527"); assert.equal(second.json.nameEn, "دعاية");
-  const account = await Account.findOne({ code: "526" }).lean();
+  assert.equal(second.json.code, "52002"); assert.equal(second.json.nameEn, "دعاية");
+  const account = await Account.findOne({ code: "52001" }).lean();
   assert.deepEqual([account.type, account.normalSide, account.isSystem, account.isGroup], ["expense", "debit", false, false]);
   assert.equal((await call("PUT", `/api/expenses/categories/${added.json._id}`, { nameAr: "صيانة وإصلاح" })).json.nameAr, "صيانة وإصلاح");
   assert.equal((await call("PUT", `/api/expenses/categories/${rent}`, { nameAr: "x" })).json.code, "SYSTEM_CATEGORY");
@@ -568,8 +572,8 @@ it("expenses: Dr category / Cr box, INSUFFICIENT_BALANCE, cancel is a reversal; 
   assert.equal((await call("PUT", `/api/expenses/categories/${second.json._id}`, { isActive: false })).json.isActive, false);
   assert.equal((await call("POST", "/api/expenses", { accountId: second.json._id, amount: 5 })).json.code, "INVALID_CATEGORY", "a stopped category takes no expense");
   const cats = (await call("GET", "/api/expenses/categories")).json.data;
-  assert.deepEqual(cats.map((row) => row.code), ["521", "522", "523", "524", "525", "526", "527"]);
-  assert.equal(cats.find((row) => row.code === "526").hasLines, true);
+  assert.deepEqual(cats.map((row) => row.code), ["521", "522", "523", "524", "525", "52001", "52002"]);
+  assert.equal(cats.find((row) => row.code === "52001").hasLines, true);
   await assertHealthy();
 });
 
@@ -721,8 +725,8 @@ it("permissions per role: templates, 403s and the cashier's own boxes", async ()
     };
   }
   token = ownerToken;
-  assert.deepEqual(seen.cashier, { boxes: 403, createBox: 403, transfer: 403, devices: 403, shifts: 200, paymentBoxes: 200, expenseList: 200, expenseCreate: 201, category: 403, drawings: 403 });
-  assert.deepEqual(seen.accountant, { boxes: 200, createBox: 403, transfer: 403, devices: 403, shifts: 403, paymentBoxes: 200, expenseList: 200, expenseCreate: 201, category: 201, drawings: 403 });
+  assert.deepEqual(seen.cashier, { boxes: 403, createBox: 403, transfer: 403, devices: 403, shifts: 200, paymentBoxes: 200, expenseList: 200, expenseCreate: 403, category: 403, drawings: 403 });
+  assert.deepEqual(seen.accountant, { boxes: 200, createBox: 403, transfer: 403, devices: 403, shifts: 403, paymentBoxes: 200, expenseList: 200, expenseCreate: 403, category: 201, drawings: 403 });
   assert.deepEqual(seen.storekeeper, { boxes: 403, createBox: 403, transfer: 403, devices: 403, shifts: 403, paymentBoxes: 200, expenseList: 403, expenseCreate: 403, category: 403, drawings: 403 });
   assert.deepEqual(seen.manager, { boxes: 200, createBox: 201, transfer: 201, devices: 200, shifts: 200, paymentBoxes: 200, expenseList: 200, expenseCreate: 201, category: 201, drawings: 403 });
   assert.deepEqual(ROLE_TEMPLATES.cashier.filter((key) => /cashbox|shift|expenses|owner/.test(key)), ["shift.operate", "expenses.create"]);
@@ -839,4 +843,401 @@ it("stage 19 audit entries and numbers: TR, DR, CP, SH, EX prefixes start at 000
   const counters = Object.fromEntries((await Counter.find({}).lean()).map((row) => [row._id, row.seq]));
   assert.deepEqual([counters.TR, counters.DR, counters.EX], [1, 1, 1]);
   for (const action of ["transfer.created", "drawing.created", "expense.created"]) assert.ok(await AuditLog.findOne({ action }), action);
+});
+
+// ================================================================== Stage 19 review fixes
+
+const healthOf = async () => (await call("GET", "/api/accounting/health")).json;
+const closeShift = (shift, counted, extra = {}) => call("POST", `/api/shifts/${shift._id}/close`, { counted, ...extra });
+const ledgerOf = async (box) => (await call("GET", `/api/cashbox/boxes/${box._id}`)).json.balance;
+const ObjectId = (value) => new (require("mongoose").Types.ObjectId)(value);
+
+// ---- 1. a confirmed float difference is posted at opening
+
+it("review 1: balance 960, float 930 confirmed with a note, a sale of 100, an honest count of 1,030: opening diff 30 posted, close diff 0, ledger 1,030", async () => {
+  const { main } = await shop();
+  const drawer = await createBox({ name: "درج", type: "cash" });
+  await transfer(main, drawer, 960);
+  assert.equal((await openShift(drawer, 930)).json.code, "FLOAT_MISMATCH");
+  assert.equal((await openShift(drawer, 930, { confirmFloat: true })).json.code, "NOTE_REQUIRED");
+  const opened = await openShift(drawer, 930, { confirmFloat: true, openingNote: "30 ناقصة" });
+  assert.equal(opened.status, 201, JSON.stringify(opened.json));
+  assert.deepEqual([opened.json.openingDifference, opened.json.openingNote], [-30, "30 ناقصة"]);
+  const [entry] = await entriesOf("shift_open", opened.json._id);
+  assert.deepEqual(entry.lines.map((row) => [row.key, row.debit, row.credit]), [["CASH_OVER_SHORT", 30, 0], ["11102", 0, 30]]);
+  assert.equal(await ledgerOf(drawer), 930, "after opening the box balance is the float");
+  const p = await product({ code: "REV-1" });
+  await sold(p, 100, { boxId: drawer._id });
+  const report = (await call("GET", `/api/shifts/${opened.json._id}`)).json;
+  assert.deepEqual([report.expected, report.openingDifference], [1030, -30]);
+  const closed = await closeShift(opened.json, 1030);
+  assert.equal(closed.status, 200, JSON.stringify(closed.json)); assert.equal(closed.json.difference, 0);
+  assert.equal(await ledgerOf(drawer), 1030);
+  const health = await assertHealthy();
+  assert.deepEqual(health.shifts.byShift.map((row) => [row.phase, row.expected, row.actual]), [["open", 930, 930], ["close", 1030, 1030]]);
+  // An overage at opening is the reverse.
+  const second = await openShift(drawer, 1050, { confirmFloat: true, openingNote: "20 زيادة" });
+  assert.equal(second.json.openingDifference, 20);
+  assert.deepEqual((await entriesOf("shift_open", second.json._id))[0].lines.map((row) => [row.key, row.debit, row.credit]), [["11102", 20, 0], ["CASH_OVER_SHORT", 0, 20]]);
+  assert.equal(await ledgerOf(drawer), 1050);
+  await assertHealthy();
+});
+
+it("review 1, can fail: an opening difference that was never posted (the old behaviour) leaves the drawer 30 off: only the shifts check sees it", async () => {
+  const { main } = await shop();
+  const drawer = await createBox({ name: "درج", type: "cash" });
+  await transfer(main, drawer, 960);
+  const opened = (await openShift(drawer, 930, { confirmFloat: true, openingNote: "30 ناقصة" })).json;
+  // Old code: nothing posted, nothing recorded.
+  await JournalEntry.deleteMany({ "source.type": "shift_open" });
+  await Shift.updateOne({ _id: opened._id }, { $unset: { openingDifference: "", openingNote: "" } });
+  const p = await product({ code: "REV-1B" });
+  await sold(p, 100, { boxId: drawer._id });
+  assert.equal((await closeShift(opened, 1030)).json.difference, 0, "930 + 100 = 1,030 counted: nothing to post");
+  const health = await healthOf();
+  assert.equal(health.boxes.difference, 0, "the documents agree with the ledger (both miss the 30)");
+  assert.equal(health.shifts.difference, 60, "but the ledger holds 960 at opening instead of 930 and 1,060 at close instead of 1,030");
+  assert.deepEqual(health.shifts.byShift.map((row) => [row.phase, row.difference]), [["open", 30], ["close", 30]]);
+});
+
+// ---- 2. an edit made in a later shift
+
+const twoShifts = async () => {
+  const { main } = await shop();
+  const drawer = await createBox({ name: "درج", type: "cash" });
+  const p = await product({ code: "REV-2" });
+  const one = (await openShift(drawer, 0)).json;
+  const sale = await sold(p, 300, { boxId: drawer._id });
+  assert.equal((await closeShift(one, 300)).status, 200);
+  const two = (await openShift(drawer, 300)).json;
+  return { main, drawer, sale, two };
+};
+
+it("review 2: a sale of 300 in shift 1 edited to 250 during shift 2: shift 2 expected includes -50, an honest close posts 0, health stays 0", async () => {
+  const { drawer, sale, two } = await twoShifts();
+  const edited = await call("PUT", `/api/sellings/${sale._id}`, { price: 250 });
+  assert.equal(edited.status, 200, JSON.stringify(edited.json));
+  const stored = await Selling.findById(sale._id).lean();
+  assert.deepEqual(stored.boxMoves.map((move) => [move.delta, String(move.boxId)]), [[-50, String(drawer._id)]]);
+  const report = (await call("GET", `/api/shifts/${two._id}`)).json;
+  assert.equal(Object.fromEntries(report.lines.map((row) => [row.key, row.amount])).sales, -50);
+  assert.equal(report.expected, 250);
+  const closed = await closeShift(two, 250);
+  assert.equal(closed.json.difference, 0);
+  assert.equal(await ledgerOf(drawer), 250);
+  await assertHealthy();
+  // A second edit is a second move.
+  assert.equal((await openShift(drawer, 250)).status, 201);
+  assert.equal((await call("PUT", `/api/sellings/${sale._id}`, { price: 260 })).status, 200);
+  assert.deepEqual((await Selling.findById(sale._id).lean()).boxMoves.map((move) => move.delta), [-50, 10]);
+  await assertHealthy();
+});
+
+it("review 2, can fail: an edit the shift did not know about (old behaviour) makes the honest close post a wrong difference; the shifts check sees it", async () => {
+  const { drawer, sale, two } = await twoShifts();
+  assert.equal((await call("PUT", `/api/sellings/${sale._id}`, { price: 250 })).status, 200);
+  await Selling.collection.updateOne({ _id: ObjectId(sale._id) }, { $unset: { boxMoves: "" } });
+  const closed = await closeShift(two, 250, { differenceNote: "عجز" });
+  assert.equal(closed.json.difference, -50, "expected stayed 300: the -50 edit was missed");
+  const health = await healthOf();
+  assert.equal(await ledgerOf(drawer), 200);
+  assert.equal(health.shifts.difference, 50);
+  assert.deepEqual(health.shifts.byShift.filter((row) => row.difference).map((row) => [row.phase, row.expected, row.actual]), [["close", 250, 200]]);
+});
+
+// ---- 3. the refund box of a cash-sale cancel
+
+const twoDrawers = async () => {
+  const { main } = await shop();
+  const d1 = await createBox({ name: "درج ١", type: "cash", deviceId: DEVICE_A });
+  const d2 = await createBox({ name: "درج ٢", type: "cash", deviceId: DEVICE_B, openingAmount: 500 });
+  const s1 = (await openShift(d1, 0, {}, asDevice(DEVICE_A))).json;
+  const s2 = (await openShift(d2, 500, {}, asDevice(DEVICE_B))).json;
+  const p = await product({ code: "REV-3" });
+  const sale = await sold(p, 100, {}, asDevice(DEVICE_A));
+  assert.equal(String(sale.boxId), String(d1._id));
+  return { main, d1, d2, s1, s2, sale };
+};
+
+it("review 3: a cancel from PC 2 of a drawer-1 sale: drawer 1 keeps the +100, drawer 2 pays it, every shift closes honestly, health 0", async () => {
+  const { d1, d2, s1, s2, sale } = await twoDrawers();
+  const cancelled = await call("POST", `/api/sellings/${sale._id}/cancel`, { reason: "عميل غير رأيه" }, asDevice(DEVICE_B));
+  assert.equal(cancelled.status, 200, JSON.stringify(cancelled.json));
+  const stored = await Selling.findById(sale._id).lean();
+  assert.equal(String(stored.cancelRefundBoxId), String(d2._id));
+  const [original, reversal] = await entriesOf("sale", sale._id);
+  assert.deepEqual(lineOf(original, "11102"), { key: "11102", debit: 100, credit: 0 });
+  assert.equal(lineOf(reversal, "11102"), undefined, "the sale's box line is not reversed");
+  assert.deepEqual(lineOf(reversal, "11103"), { key: "11103", debit: 0, credit: 100 }, "the refund box pays");
+  assert.equal(await ledgerOf(d1), 100); assert.equal(await ledgerOf(d2), 400);
+  assert.equal((await closeShift(s1, 100)).json.difference, 0);
+  assert.equal((await closeShift(s2, 400)).json.difference, 0);
+  await assertHealthy();
+});
+
+it("review 3, with a return: the return box keeps -r and the refund box pays total - r", async () => {
+  const { main, wallet } = await shop();
+  const p = await product({ code: "REV-3B", stock: 10 });
+  const sale = await call("POST", "/api/sellings", { ...sellBody(p, 100), items: [{ productId: p._id, quantity: 3, price: 100 }], boxId: main._id });
+  assert.equal((await call("POST", "/api/returns", { returnType: "cash", invoiceId: sale.json._id, items: [{ productId: p._id, quantity: 1, returnReason: "x" }], boxId: wallet._id })).status, 201);
+  assert.equal((await call("POST", `/api/sellings/${sale.json._id}/cancel`, { reason: "cancel after return", boxId: wallet._id })).status, 200);
+  assert.equal(await balanceOf(main), 20000 + 300, "the sale's box keeps the +300 it took");
+  assert.equal(await balanceOf(wallet), 5000 - 100 - 200, "the return and the cancel refund both came out of the wallet");
+  await assertHealthy();
+});
+
+it("review 3, can fail: with the refund box forgotten (old fallback to the sale's box) the honest close of the paying drawer posts a wrong difference", async () => {
+  const { s1, s2, sale } = await twoDrawers();
+  assert.equal((await call("POST", `/api/sellings/${sale._id}/cancel`, { reason: "عميل غير رأيه" }, asDevice(DEVICE_B))).status, 200);
+  await Selling.collection.updateOne({ _id: ObjectId(sale._id) }, { $unset: { cancelRefundBoxId: "" } });
+  assert.equal((await closeShift(s1, 100, { differenceNote: "x" })).status, 200);
+  assert.equal((await closeShift(s2, 400, { differenceNote: "x" })).json.difference, -100, "drawer 2 expected 500: the refund it paid was missed");
+  const health = await healthOf();
+  assert.ok(health.shifts.difference > 0, JSON.stringify(health.shifts));
+  assert.ok(health.shifts.byShift.some((row) => row.number === s2.number && row.phase === "close" && row.difference === -100));
+});
+
+it("review 3: a cancel refund into an inactive box, or without an open shift, is refused (409); the cashier cannot pay it from the main box", async () => {
+  const { main } = await shop();
+  const p = await product({ code: "REV-3C" });
+  const stopped = await createBox({ name: "قديمة", type: "wallet" });
+  assert.equal((await call("PUT", `/api/cashbox/boxes/${stopped._id}`, { isActive: false })).status, 200);
+  const sale = await sold(p, 100, { boxId: main._id });
+  const inactive = await call("POST", `/api/sellings/${sale._id}/cancel`, { reason: "غلط في الفاتورة", boxId: stopped._id });
+  assert.equal(inactive.status, 409); assert.equal(inactive.json.code, "BOX_INACTIVE");
+  assert.equal((await Selling.findById(sale._id).lean()).status, "active", "all or nothing");
+  const drawer = await createBox({ name: "درج", type: "cash" });
+  const noShift = await call("POST", `/api/sellings/${sale._id}/cancel`, { reason: "غلط في الفاتورة", boxId: drawer._id });
+  assert.equal(noShift.json.code, "NO_OPEN_SHIFT");
+  const created = await call("POST", "/api/users", { name: "canceller", username: "cancel-rev3", password: "secret-pass-1", role: "custom", permissions: ["sales.delete"] });
+  assert.equal(created.status, 201, JSON.stringify(created.json));
+  token = await login("cancel-rev3", "secret-pass-1");
+  const notAllowed = await call("POST", `/api/sellings/${sale._id}/cancel`, { reason: "غلط في الفاتورة" });
+  assert.equal(notAllowed.status, 403); assert.equal(notAllowed.json.code, "BOX_NOT_ALLOWED");
+  token = ownerToken;
+  assert.equal((await call("POST", `/api/sellings/${sale._id}/cancel`, { reason: "غلط في الفاتورة" })).status, 200);
+});
+
+it("review 3: an edit that changes the cash is refused when the original box is inactive (BOX_INACTIVE) or has no open shift (NO_OPEN_SHIFT)", async () => {
+  const { main, wallet } = await shop();
+  const p = await product({ code: "REV-3D" });
+  const walletSale = await sold(p, 100, { boxId: wallet._id });
+  await transfer(wallet, main, 5100);
+  assert.equal((await call("PUT", `/api/cashbox/boxes/${wallet._id}`, { isActive: false })).status, 200);
+  const inactive = await call("PUT", `/api/sellings/${walletSale._id}`, { price: 120 });
+  assert.equal(inactive.status, 409); assert.equal(inactive.json.code, "BOX_INACTIVE");
+  // The same edit that changes no money is fine.
+  assert.equal((await call("PUT", `/api/sellings/${walletSale._id}`, { customerName: "اسم جديد" })).status, 200);
+  const drawer = await createBox({ name: "درج", type: "cash" });
+  const shift = (await openShift(drawer, 0)).json;
+  const drawerSale = await sold(p, 100, { boxId: drawer._id });
+  assert.equal((await closeShift(shift, 100)).status, 200);
+  const noShift = await call("PUT", `/api/sellings/${drawerSale._id}`, { price: 90 });
+  assert.equal(noShift.status, 409); assert.equal(noShift.json.code, "NO_OPEN_SHIFT");
+});
+
+// ---- 4. the customer list shows the statement balance
+
+it("review 4: opening -400, a payout of 150 and an apply of 100: the list shows -150 = the statement; a credit return shows on the list too", async () => {
+  const { main } = await shop();
+  const c = await customer("List Credit", "01010000199"); const d = await customer("Returned", "01010000198");
+  const p = await product({ code: "REV-4" });
+  assert.equal((await call("POST", "/api/accounting/opening", { cash: 20000, customers: [{ customerId: String(c._id), amount: -400 }] })).status, 200);
+  assert.equal((await call("POST", `/api/customers/${c._id}/payouts`, { amount: 150, boxId: main._id })).status, 201);
+  await creditSale(c, p, 100);
+  assert.equal((await call("POST", `/api/customers/${c._id}/apply-credit`, { amount: 100 })).status, 200);
+  const statement = (await call("GET", `/api/customers/${c._id}/statement`)).json;
+  const row = (await call("GET", "/api/customers")).json.find((item) => item._id === String(c._id));
+  assert.deepEqual([statement.totals.balance, row.balance, row.credit, row.outstanding], [-150, -150, 150, 0]);
+  assert.equal(statement.aging.credit, 150);
+  const detail = (await call("GET", `/api/customers/${c._id}`)).json;
+  assert.equal(detail.credit, 150);
+  // A credit return: 100 paid, 100 returned: we owe the customer 100.
+  const paid = await creditSale(d, p, 100, { downPayment: 100, boxId: main._id });
+  assert.equal((await call("POST", "/api/returns", { returnType: "credit", invoiceId: paid._id, items: [{ productId: p._id, quantity: 1, returnReason: "x" }] })).status, 201);
+  const second = (await call("GET", "/api/customers")).json.find((item) => item._id === String(d._id));
+  assert.deepEqual([second.balance, second.credit], [-100, 100]);
+  assert.equal((await call("GET", `/api/customers/${d._id}/statement?from=2026-11-01`)).json.aging.credit, 100, "a period filter does not change the credit");
+  await assertHealthy();
+});
+
+// ---- 5. expense category codes
+
+it("review 5: 12 new categories are 52001 to 52012 and none collides with 530; migration 8 renames old custom 526-529 and their journal lines", async () => {
+  await shop();
+  for (let index = 1; index <= 12; index += 1) {
+    const made = await call("POST", "/api/expenses/categories", { nameAr: `بند ${index}` });
+    assert.equal(made.status, 201, JSON.stringify(made.json));
+    assert.equal(made.json.code, `520${String(index).padStart(2, "0")}`);
+  }
+  assert.equal(await Account.countDocuments({ code: "530" }), 1);
+  assert.equal((await Account.findOne({ code: "530" }).lean()).systemKey, "CASH_OVER_SHORT");
+  assert.equal(await Account.countDocuments({ code: { $in: ["526", "527", "528", "529"] } }), 0);
+  // Data from before the fix: custom categories 526 and 527, one with a journal line.
+  const parent = await Account.findOne({ code: "520" }).lean();
+  const old = await Account.create([{ code: "526", nameAr: "قديم ١", nameEn: "Old 1", type: "expense", normalSide: "debit", parentId: parent._id, isSystem: false }, { code: "527", nameAr: "قديم ٢", nameEn: "Old 2", type: "expense", normalSide: "debit", parentId: parent._id, isSystem: false }]);
+  const oldId = old[0]._id;
+  await withTransaction(async (session) => {
+    const accounts = await accountMap(["CASH_MAIN"], session);
+    await postEntry({ date: new Date(), source: { type: "expense", id: ObjectId(), number: "EX-OLD" }, session, lines: [line(old[0].toObject(), 10, "debit"), line(accounts.get("CASH_MAIN"), 10, "credit")] });
+  });
+  await Meta.updateOne({ _id: "schema" }, { $set: { version: 7 } });
+  assert.equal(await runMigrations(), 8);
+  assert.deepEqual((await Account.find({ _id: { $in: old.map((row) => row._id) } }).sort({ nameAr: 1 }).lean()).map((row) => row.code), ["52013", "52014"]);
+  assert.equal(await Account.countDocuments({ code: { $in: ["526", "527"] } }), 0);
+  const entry = await JournalEntry.findOne({ "lines.accountId": oldId }).lean();
+  assert.equal(entry.lines.find((row) => String(row.accountId) === String(oldId)).accountCode, "52013");
+  assert.equal((await call("GET", "/api/expenses/categories")).json.data.some((row) => row.code === "521"), true, "system categories keep their codes");
+});
+
+// ---- 6. money out of the main box needs cashbox.manage
+
+it("review 6: the device header never unlocks the main box: expenses, payouts, refunds from it need cashbox.manage; drawings need owner.drawings", async () => {
+  const { main, wallet } = await shop();
+  const p = await product({ code: "REV-6" }); const c = await customer("Six", "01010000196");
+  assert.equal((await call("POST", "/api/accounting/opening", { cash: 20000, banks: [{ accountId: String(wallet.accountId), amount: 5000 }], customers: [{ customerId: String(c._id), amount: -300 }] })).status, 200);
+  const sale = await sold(p, 100, { boxId: main._id });
+  const cashier = await makeUser("cash-rev6", "cashier");
+  const rent = await category("522");
+  token = cashier;
+  // A PC with no drawer: sales may land in the main box, nothing may leave it.
+  const noDrawer = asDevice("device-nodrawer-0009");
+  assert.equal((await sell(p, 100, {}, noDrawer)).status, 201, "money in is not restricted");
+  for (const result of [
+    await call("POST", "/api/expenses", { accountId: rent, amount: 5 }, noDrawer),
+    await call("POST", "/api/expenses", { accountId: rent, amount: 5, boxId: main._id }, noDrawer),
+    await call("POST", `/api/customers/${c._id}/payouts`, { amount: 5 }, noDrawer),
+    await call("POST", "/api/returns", { returnType: "cash", invoiceId: sale._id, items: [{ productId: p._id, quantity: 1, returnReason: "x" }] }, noDrawer),
+    await call("POST", `/api/sellings/${sale._id}/cancel`, { reason: "لا يجوز" }, noDrawer),
+    await call("POST", "/api/cashbox/transfers", { fromBoxId: main._id, toBoxId: wallet._id, amount: 1 }, noDrawer),
+  ]) { assert.equal(result.status, 403, JSON.stringify(result.json)); }
+  // Wallets and banks are not the main box.
+  assert.equal((await call("POST", "/api/expenses", { accountId: rent, amount: 5, boxId: wallet._id }, noDrawer)).status, 201);
+  token = ownerToken;
+  const manager = await makeUser("mgr-rev6", "manager");
+  token = manager;
+  assert.equal((await call("POST", "/api/expenses", { accountId: rent, amount: 5, boxId: main._id })).status, 201);
+  assert.equal((await call("POST", `/api/customers/${c._id}/payouts`, { amount: 5, boxId: main._id })).status, 201);
+  token = ownerToken;
+  assert.equal((await call("POST", "/api/cashbox/drawings", { amount: 5, boxId: main._id })).status, 201);
+});
+
+// ---- 7. a sale and a close conflict
+
+it("review 7: a sale and a close at the same time: either the sale is in the expected cash, or it is refused NO_OPEN_SHIFT; the ledger always equals the count", async () => {
+  const { main } = await shop();
+  const drawer = await createBox({ name: "درج", type: "cash" });
+  const p = await product({ code: "REV-7", stock: 200 });
+  await transfer(main, drawer, 500);
+  for (let round = 0; round < 6; round += 1) {
+    const counted = await ledgerOf(drawer);
+    const shift = (await openShift(drawer, counted)).json;
+    const [sale, close] = await Promise.all([sell(p, 100, { boxId: drawer._id }), closeShift(shift, counted, { differenceNote: "وردية متزامنة" })]);
+    assert.equal(close.status, 200, JSON.stringify(close.json));
+    if (sale.status === 201) assert.equal(close.json.difference, -100, "the close saw the sale: counted against expected + 100");
+    else { assert.equal(sale.json.code, "NO_OPEN_SHIFT"); assert.equal(close.json.difference, 0); }
+    const health = await healthOf();
+    assert.equal(health.shifts.difference, 0, JSON.stringify(health.shifts));
+    assert.equal(health.boxes.difference, 0, JSON.stringify(health.boxes));
+  }
+});
+
+// ---- 8. the deposit of a shift cannot be cancelled alone; 9. reversals into an inactive box
+
+it("review 8: a shift_deposit transfer cannot be cancelled (409 SHIFT_DEPOSIT)", async () => {
+  const { main } = await shop();
+  const drawer = await createBox({ name: "درج", type: "cash" });
+  const shift = (await openShift(drawer, 0)).json;
+  const p = await product({ code: "REV-8" });
+  await sold(p, 100, { boxId: drawer._id });
+  assert.equal((await closeShift(shift, 100, { depositBoxId: main._id, depositAmount: 100 })).status, 200);
+  const deposit = await Selling.db.collection("transfers").findOne({ kind: "shift_deposit" });
+  const refused = await call("POST", `/api/cashbox/transfers/${deposit._id}/cancel`, { reason: "غلطة في التوريد" });
+  assert.equal(refused.status, 409); assert.equal(refused.json.code, "SHIFT_DEPOSIT");
+  assert.equal((await Selling.db.collection("transfers").findOne({ _id: deposit._id })).status, "posted");
+  await assertHealthy();
+});
+
+it("review 9: cancelling an expense, a payout, a drawing or a transfer into a stopped box is refused (409 BOX_INACTIVE)", async () => {
+  const { main } = await shop();
+  const c = await customer("Nine", "01010000195");
+  assert.equal((await call("POST", "/api/accounting/opening", { cash: 20000, customers: [{ customerId: String(c._id), amount: -300 }] })).status, 200);
+  const stopBox = async (box) => { assert.equal((await call("PUT", `/api/cashbox/boxes/${box._id}`, { isActive: false })).status, 200); };
+  const rent = await category("522");
+  const refusal = async (path, body) => { const response = await call("POST", path, body); assert.equal(response.status, 409, `${path} ${JSON.stringify(response.json)}`); assert.equal(response.json.code, "BOX_INACTIVE"); };
+  const fresh = (name) => createBox({ name, type: "wallet", openingAmount: 100 });
+
+  const w1 = await fresh("محفظة ١");
+  const expense = (await call("POST", "/api/expenses", { accountId: rent, amount: 100, boxId: w1._id })).json;
+  await stopBox(w1);
+  await refusal(`/api/expenses/${expense._id}/cancel`, { reason: "اتسجل غلط" });
+
+  const w2 = await fresh("محفظة ٢");
+  const payout = (await call("POST", `/api/customers/${c._id}/payouts`, { amount: 100, boxId: w2._id })).json.payout;
+  await stopBox(w2);
+  await refusal(`/api/customers/${c._id}/payouts/${payout._id}/cancel`, { reason: "اتصرف غلط" });
+
+  const w3 = await fresh("محفظة ٣");
+  const drawing = (await call("POST", "/api/cashbox/drawings", { amount: 100, boxId: w3._id })).json;
+  await stopBox(w3);
+  await refusal(`/api/cashbox/drawings/${drawing._id}/cancel`, { reason: "اتسحب غلط" });
+
+  const w4 = await fresh("محفظة ٤");
+  const move = await transfer(w4, main, 100);
+  await stopBox(w4);
+  await refusal(`/api/cashbox/transfers/${move._id}/cancel`, { reason: "تحويل غلط" });
+  assert.equal(await Expense.countDocuments({ status: "cancelled" }), 0, "nothing was reversed");
+});
+
+// ---- 10. boxes are synced by account, not by count
+
+it("review 10: a 112xx leaf with no box gets its box even when other boxes (drawers) make the counts look complete", async () => {
+  await shop();
+  await createBox({ name: "درج", type: "cash" });
+  const parent = await Account.findOne({ code: "112" }).lean();
+  const stray = await Account.create({ code: "11299", nameAr: "حساب بدون خزنة", nameEn: "Stray", type: "asset", normalSide: "debit", parentId: parent._id, isGroup: false, isSystem: false, kind: "bank" });
+  assert.equal(await CashBox.countDocuments({ accountId: stray._id }), 0);
+  const list = (await call("GET", "/api/cashbox/boxes")).json.data;
+  const found = list.find((row) => row.accountCode === "11299");
+  assert.ok(found, "the stray account now has a box");
+  assert.deepEqual([found.name, found.type], ["حساب بدون خزنة", "bank"]);
+  assert.equal(await CashBox.countDocuments({ accountId: stray._id }), 1);
+});
+
+// ---- 11. an expense with no box line fails the boxes check
+
+it("review 11, can fail: an expense posted as Dr 521 / Cr CAPITAL (no box line) fails the boxes check", async () => {
+  const { main } = await shop();
+  const salaries = await Account.findOne({ code: "521" }).lean();
+  const expense = await Expense.create({ number: "EX-900002", date: new Date(), accountId: salaries._id, amount: 70, boxId: main._id });
+  await withTransaction(async (session) => {
+    const accounts = await accountMap(["CAPITAL"], session);
+    await postEntry({ date: new Date(), source: { type: "expense", id: expense._id, number: "EX-900002" }, session, lines: [line(salaries, 70, "debit"), line(accounts.get("CAPITAL"), 70, "credit")] });
+  });
+  const health = await healthOf();
+  assert.equal(health.boxes.difference, 70);
+  assert.deepEqual(health.boxes.byBox.filter((row) => row.difference).map((row) => [row.name, row.expected, row.actual]), [["الخزنة الرئيسية", 19930, 20000]]);
+  assert.equal(health.trialBalance.difference, 0, "the entry itself balances: only the boxes check can see it");
+});
+
+// ---- 12. the device registry without users, and its cap
+
+it("review 12: with users off (no req.user) a PC still registers; with users on, an unsigned request does not; the throttle map is capped (LRU)", async () => {
+  await shop();
+  const { deviceContext, rememberedCount, resetDeviceThrottle: reset } = require("../src/middlewares/device.middleware");
+  const requestFor = (id, extra = {}) => ({ get: (name) => ({ "x-nota-device-id": id, "x-nota-device-name": "PC" })[name.toLowerCase()], ...extra });
+  reset();
+  await deviceContext()(requestFor("device-authoff-0001", { authEnabled: false }), {}, () => {});
+  assert.equal(await Device.countDocuments({ deviceId: "device-authoff-0001" }), 1, "NOTA_AUTH off: registered");
+  await deviceContext()(requestFor("device-unsigned-0002", { authEnabled: true }), {}, () => {});
+  assert.equal(await Device.countDocuments({ deviceId: "device-unsigned-0002" }), 0, "users on, nobody signed in: not registered");
+  await deviceContext()(requestFor("device-signed-0003", { authEnabled: true, user: { _id: "u" } }), {}, () => {});
+  assert.equal(await Device.countDocuments({ deviceId: "device-signed-0003" }), 1);
+  reset();
+  const capped = deviceContext({ maxEntries: 3 });
+  for (let index = 1; index <= 8; index += 1) await capped(requestFor(`device-cap-${String(index).padStart(4, "0")}`, { authEnabled: false }), {}, () => {});
+  assert.equal(rememberedCount(), 3, "only the 3 most recent ids are remembered");
+  assert.equal(await Device.countDocuments({ deviceId: /^device-cap-/ }), 8, "every one was still registered");
+  reset();
+  assert.equal(rememberedCount(), 0);
 });

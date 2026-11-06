@@ -71,3 +71,14 @@ test('the id sent is the config instanceId of this PC: main.js builds it from st
   assert.equal((main.match(/installSecretHeader\(session\.defaultSession, deviceHeaderOptions\(\)\)/g) || []).length, 3, 'main PC, client start and address change all send it');
   assert.equal(/installSecretHeader\(session\.defaultSession, \{ origin: state\.apiOrigin, secret: state\.secret \}\)/.test(main), false, 'no call site is left without the device');
 });
+
+test('a client PC sends its OWN id, never the main PC\'s (mainInstanceId): the default drawer follows the cashier PC', () => {
+  const main = fs.readFileSync(path.resolve(__dirname, '..', 'main.js'), 'utf8');
+  const block = main.slice(main.indexOf('function deviceHeaderOptions()'), main.indexOf('function registerIpc()'));
+  assert.match(block, /state\.config\.instanceId/);
+  assert.equal(/mainInstanceId/.test(block), false);
+  // The client's config keeps both: its own instanceId and the main PC's mainInstanceId.
+  const store = fs.readFileSync(path.resolve(__dirname, '..', 'lib', 'config-store.js'), 'utf8');
+  assert.match(store, /instanceId: raw\.instanceId/);
+  assert.match(store, /config\.mainInstanceId/);
+});

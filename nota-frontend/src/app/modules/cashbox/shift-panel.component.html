@@ -16,6 +16,12 @@
         </span>
       </header>
 
+      @if (r.openingDifference) {
+        <div class="sp__row" data-line="openingDifference" [attr.title]="r.openingNote">
+          <span class="sp__label">{{ 'cashbox.shift.openingDifferenceLine' | translate }}{{ r.openingNote ? ' · ' + r.openingNote : '' }}</span>
+          <span class="nota-num" [class.sp__minus]="r.openingDifference < 0" [class.sp__plus]="r.openingDifference > 0">{{ r.openingDifference | notaMoney }}</span>
+        </div>
+      }
       @for (line of lines(); track line.key) {
         <div class="sp__row" [attr.data-line]="line.key">
           <span class="sp__label">{{ (isMinus(line.key) ? '− ' : line.key === 'float' ? '' : '+ ') }}{{ 'cashbox.shift.lines.' + line.key | translate }}</span>

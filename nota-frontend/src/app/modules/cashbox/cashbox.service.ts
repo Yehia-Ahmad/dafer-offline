@@ -45,6 +45,8 @@ export interface OpenShiftPayload {
   openingFloat: number;
   /** Set after FLOAT_MISMATCH, once the user confirmed the difference. */
   confirmFloat?: boolean;
+  /** Required with confirmFloat: why the drawer differs from the system. */
+  openingNote?: string;
 }
 
 export interface CloseShiftPayload {

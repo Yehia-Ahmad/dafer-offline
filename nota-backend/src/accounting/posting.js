@@ -233,9 +233,9 @@ const reverseSaleAndCostSync = async (sourceType, sourceId, options) => {
 
 /**
  * Cancel: reverses the invoice's sale, cost_sync and return entries.
- * Stage 19: for a cash invoice (options.saleBoxId given, null = main box), a cash return's refund line is
- * reversed on the SALE's box. The cancel then pays the customer (total - already returned) out of the sale's
- * box, so every box ends where the cash really is whichever box each refund came from.
+ * Stage 19: for a cash invoice (options.refundBoxId given, null = main box) the cash lines of the sale entry and of its
+ * return entries are reversed on the REFUND box (the box that pays the customer). The sale box keeps the +total it took,
+ * each return box keeps its -r, and the refund box pays total - r, so every box ends where the cash really is.
  */
 const reverseAllFor = async (sourceType, sourceId, options) => {
   const filters = [{ "source.type": sourceType, "source.id": sourceId }];
@@ -245,14 +245,14 @@ const reverseAllFor = async (sourceType, sourceId, options) => {
     if (logs.length) filters.push({ "source.type": "return", "source.id": { $in: logs.map((log) => log._id) } });
   }
   const entries = await openAutoEntries(filters, options.session);
-  const { saleBoxId, ...reverseOptions } = options;
+  const { refundBoxId, ...reverseOptions } = options;
   let redirect = null;
-  if (saleBoxId !== undefined && sourceType === "sale") {
+  if (refundBoxId !== undefined && sourceType === "sale") {
     const boxes = await CashBox.find({}).select("accountId").session(options.session || null).lean();
-    redirect = { from: new Set(boxes.map((box) => String(box.accountId))), to: await boxAccount(saleBoxId, options.session) };
+    redirect = { from: new Set(boxes.map((box) => String(box.accountId))), to: await boxAccount(refundBoxId, options.session) };
   }
   const results = [];
-  for (const entry of entries) results.push(await reverseEntry(entry._id, { ...reverseOptions, redirect: entry.source.type === "return" ? redirect : null }));
+  for (const entry of entries) results.push(await reverseEntry(entry._id, { ...reverseOptions, redirect: entry.source.type === "return" || entry.source.type === "sale" ? redirect : null }));
   return results;
 };
 
@@ -288,7 +288,7 @@ const preLedgerReturnedUnits = async (sale, ledgerStartAt, session) => {
  * held at the ledger start (the sale less returns made before the ledger).
  * Its type is "legacy_reversal": it has no original entry, so no reversalOf.
  */
-const postLegacySaleReversal = async ({ sale, credit = false, customer, date, memo, session }) => {
+const postLegacySaleReversal = async ({ sale, credit = false, customer, date, memo, session, refundBoxId }) => {
   const ledgerStartAt = await getLedgerStartAt(session);
   const accounts = await accountMap(["CASH_MAIN", "CUSTOMERS", "SALES", "SALES_DISCOUNT", "SHIPPING_INCOME", "COGS", "INVENTORY"], session);
   const { units, money } = await preLedgerReturnedUnits(sale, ledgerStartAt, session);
@@ -297,7 +297,7 @@ const postLegacySaleReversal = async ({ sale, credit = false, customer, date, me
   const discount = roundMoney(Number(sale.discountAmount || 0) - money.discount);
   const shipping = roundMoney(Number(sale.shippingFees || 0) - money.shipping);
   const total = roundMoney(Number(sale.totalPrice || 0) - money.total);
-  const legacyPayAccount = credit ? accounts.get("CUSTOMERS") : await boxAccount(sale.boxId, session);
+  const legacyPayAccount = credit ? accounts.get("CUSTOMERS") : await boxAccount(refundBoxId !== undefined ? refundBoxId : sale.boxId, session);
   const position = [
     line(legacyPayAccount, total, "debit", credit ? customerParty(customer) : {}),
     line(accounts.get("SALES"), subtotal, "credit"),
@@ -416,15 +416,15 @@ const postCustomerTransfer = async ({ sale, from, to, date, session }) => {
  * All ledger postings for an invoice cancel (cash or credit), except the
  * down-payment refund which only credit cancels have.
  */
-const postInvoiceCancel = async ({ Model, sale, credit = false, customer, session }) => {
+const postInvoiceCancel = async ({ Model, sale, credit = false, customer, session, refundBoxId }) => {
   const sourceType = credit ? "credit_sale" : "sale";
   const date = sale.cancelledAt || new Date();
   const memo = credit ? "Credit sale cancellation" : "Sale cancellation";
   const ledgerStartAt = await getLedgerStartAt(session);
-  const reversals = await reverseAllFor(sourceType, sale._id, { date, memo, session, ...(credit ? {} : { saleBoxId: sale.boxId || null }) });
+  const reversals = await reverseAllFor(sourceType, sale._id, { date, memo, session, ...(credit ? {} : { refundBoxId: refundBoxId || sale.boxId || null }) });
   if (!isLedgerDocument(sale, ledgerStartAt)) {
     const memoText = `${credit ? "Pre-ledger credit invoice" : "Pre-ledger invoice"} cancelled: reverses the position held at the ledger start (no original entry to link)`;
-    reversals.push(await postLegacySaleReversal({ sale, credit, customer, date, memo: memoText, session }));
+    reversals.push(await postLegacySaleReversal({ sale, credit, customer, date, memo: memoText, session, refundBoxId: refundBoxId || sale.boxId || null }));
     // Operational snapshot only: each line's purchasePrice now (a later sync
     // rewrites it). Health derives the expected cost from it independently.
     const cancelLines = (sale.items || []).map((item) => ({ invoiceItemId: item._id, purchasePrice: Number(item.purchasePrice || 0) }));

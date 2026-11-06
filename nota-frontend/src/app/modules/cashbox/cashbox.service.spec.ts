@@ -64,6 +64,7 @@ describe('Stage 19 payloads — cash boxes, shifts, devices', () => {
   it('shifts: open (and confirm the float), read, close with a note and a deposit', () => {
     service.openShift({ boxId: 'b1', openingFloat: 500 }).subscribe(); expectCall('POST', `${base}shifts`, { boxId: 'b1', openingFloat: 500 });
     service.openShift({ boxId: 'b1', openingFloat: 480, confirmFloat: true }).subscribe(); expectCall('POST', `${base}shifts`, { boxId: 'b1', openingFloat: 480, confirmFloat: true });
+    service.openShift({ boxId: 'b1', openingFloat: 930, confirmFloat: true, openingNote: '30 ناقصة' }).subscribe(); expectCall('POST', `${base}shifts`, { boxId: 'b1', openingFloat: 930, confirmFloat: true, openingNote: '30 ناقصة' });
     service.shift('s1').subscribe(); expectCall('GET', `${base}shifts/s1`);
     service.closeShift('s1', { counted: 7500, differenceNote: 'عجز', depositBoxId: 'main', depositAmount: 7000 }).subscribe();
     expectCall('POST', `${base}shifts/s1/close`, { counted: 7500, differenceNote: 'عجز', depositBoxId: 'main', depositAmount: 7000 });
@@ -143,6 +144,14 @@ describe('Stage 19 payloads — the box on existing money calls', () => {
     expect(body(`${base}credit-sales/i1/cancel`)).toEqual({ reason: 'سبب', boxId: 'w1' });
     credit.cancelCreditSale('i1', 'سبب').subscribe();
     expect(body(`${base}credit-sales/i1/cancel`)).toEqual({ reason: 'سبب' });
+  });
+
+  it('a cash-sale cancel names the box that pays the refund; without one the body is just the reason', () => {
+    const products = TestBed.inject(ProductsService);
+    products.cancelSelling('s1', 'سبب', 'w1').subscribe();
+    expect(body(`${base}sellings/s1/cancel`)).toEqual({ reason: 'سبب', boxId: 'w1' });
+    products.cancelSelling('s1', 'سبب').subscribe();
+    expect(body(`${base}sellings/s1/cancel`)).toEqual({ reason: 'سبب' });
   });
 
   it('a cash return carries the box it is refunded from', () => {

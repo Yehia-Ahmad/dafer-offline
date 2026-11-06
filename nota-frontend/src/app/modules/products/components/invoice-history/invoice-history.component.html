@@ -161,6 +161,7 @@
     <nota-form-field [label]="'invoiceHistoryPage.cancel.reason' | translate" forId="cashCancelReason">
       <textarea id="cashCancelReason" class="nota-input" [(ngModel)]="cancelReason" maxlength="500"></textarea>
     </nota-form-field>
+    @if (cashCancelRefundAmount > 0) { <nota-payment-box-select labelKey="cashbox.refundFrom" /> }
     <ng-container notaDialogFooter>
       <button type="button" notaButton (click)="closeDeleteDialog()" [disabled]="isDeletingSelectedSelling">{{ 'actions.cancelButton' | translate }}</button>
       <button type="button" notaButton="danger" (click)="deleteSelling()" [disabled]="isDeletingSelectedSelling || cancelReason.trim().length < 3">

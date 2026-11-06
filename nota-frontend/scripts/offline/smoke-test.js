@@ -938,16 +938,44 @@ async function runStage19Scenarios() {
     return `expense ${response.json.status}, drawer ${drawer.balance}`;
   });
 
+  await step('Stage 19 review: a cashier cannot spend from the main box whatever the device header says → 403 BOX_NOT_ALLOWED', async () => {
+    const categories = await request('GET', '/api/expenses/categories', { token: ctx.cashierToken });
+    const response = await request('POST', '/api/expenses', { token: ctx.cashierToken, headers: DEVICE_HEADERS, body: { accountId: categories.json.data[0]._id, amount: 1, boxId: ctx.main._id } });
+    expectStatus(response, 403, 'cashier expense from the main box');
+    expect(response.json.code === 'BOX_NOT_ALLOWED', describe(response));
+    return describe(response);
+  });
+
+  await step('Stage 19 review: a shift opened on a float that differs from the drawer needs a note, then posts the difference (float 80 against 90)', async () => {
+    const refused = await request('POST', '/api/shifts', { token: ctx.cashierToken, headers: DEVICE_HEADERS, body: { boxId: ctx.drawer._id, openingFloat: 80 } });
+    expectStatus(refused, 409, 'float mismatch');
+    expect(refused.json.code === 'FLOAT_MISMATCH' && refused.json.balance === 90, JSON.stringify(refused.json));
+    const noNote = await request('POST', '/api/shifts', { token: ctx.cashierToken, headers: DEVICE_HEADERS, body: { boxId: ctx.drawer._id, openingFloat: 80, confirmFloat: true } });
+    expectStatus(noNote, 400, 'confirmed without a note');
+    expect(noNote.json.code === 'NOTE_REQUIRED', describe(noNote));
+    const opened = await request('POST', '/api/shifts', { token: ctx.cashierToken, headers: DEVICE_HEADERS, body: { boxId: ctx.drawer._id, openingFloat: 80, confirmFloat: true, openingNote: 'smoke 10 missing' } });
+    expectStatus(opened, 201, 'confirmed with a note');
+    expect(opened.json.openingDifference === -10, JSON.stringify(opened.json));
+    const journal = await request('GET', `/api/accounting/journal?sourceType=shift_open&sourceId=${opened.json._id}`);
+    const entry = journal.json.data[0];
+    const byCode = new Map(entry.lines.map((line) => [line.accountCode, line]));
+    expect(byCode.get('530')?.debit === 10 && byCode.get('11102')?.credit === 10, 'expected Dr 530 10 / Cr 11102 10');
+    const boxes = await request('GET', '/api/cashbox/boxes');
+    expect(boxes.json.data.find((box) => String(box._id) === String(ctx.drawer._id)).balance === 80, 'the drawer balance is the float');
+    return `${opened.json.number}: Dr 530 10 / Cr 11102 10, drawer 80`;
+  });
+
   const health = await request('GET', '/api/accounting/health');
-  await step('Stage 19: GET /api/accounting/health answers with every check including boxes', async () => {
+  await step('Stage 19: GET /api/accounting/health answers with every check including boxes and shifts', async () => {
     expectStatus(health, 200, 'GET /api/accounting/health');
     expect(health.json.boxes && Array.isArray(health.json.boxes.byBox), 'no boxes check');
+    expect(health.json.shifts && Array.isArray(health.json.shifts.byShift), 'no shifts check');
     return `${Object.keys(health.json).join(', ')}`;
   });
   for (const [name, check] of Object.entries(health.json || {})) {
     await step(`Stage 19: health ${name}: difference 0`, async () => {
       expect(Number(check.difference) === 0 && check.ok !== false, JSON.stringify(check));
-      return name === 'boxes' ? check.byBox.map((row) => `${row.name} ${row.actual}=${row.expected}`).join(' | ') : `expected ${check.expected ?? '-'}, actual ${check.actual ?? '-'}`;
+      return name === 'shifts' ? check.byShift.map((row) => `${row.number} ${row.phase} ${row.actual}=${row.expected}`).join(' | ') : name === 'boxes' ? check.byBox.map((row) => `${row.name} ${row.actual}=${row.expected}`).join(' | ') : `expected ${check.expected ?? '-'}, actual ${check.actual ?? '-'}`;
     });
   }
 

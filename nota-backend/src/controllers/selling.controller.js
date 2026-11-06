@@ -12,7 +12,7 @@ const { actorFields } = require("../utils/actorFields");
 const { PREFIXES, nextDocumentNumber, normalizeNumberSearch } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
 const { postSale, postReturn, postInventoryAdjustment, postInvoiceEdit, postInvoiceCancel } = require("../accounting/posting");
-const { resolveBox } = require("../cashbox/boxes");
+const { resolveBox, usableBoxOf } = require("../cashbox/boxes");
 const { audit } = require("../auth/audit");
 
 const getRawQuantity = (body) => {
@@ -1004,6 +1004,13 @@ const updateSellingInTransaction = async (req, res, session) => {
   selling.customerPhone = normalizedCustomerPhone;
   selling.sellingDate = normalizedSellingDate;
 
+  // Stage 19: an edit that changes the cash moves money in the sale's ORIGINAL box. That box must still be active and,
+  // when it uses shifts, have an open shift. The change is recorded with its time so a shift counts it when it happened.
+  const cashDelta = roundMoney(Number(selling.totalPrice || 0) - Number(oldSelling.totalPrice || 0));
+  if (cashDelta !== 0) {
+    await usableBoxOf(selling.boxId, session);
+    selling.boxMoves = [...(selling.boxMoves || []), { at: new Date(), delta: cashDelta, ...(selling.boxId ? { boxId: selling.boxId } : {}) }];
+  }
   const updatedSelling = await selling.save({ session });
 
   await postInvoiceEdit({ Model: Selling, oldSale: oldSelling, newSale: updatedSelling, date: new Date(), session });
@@ -1045,8 +1052,12 @@ const cancelSelling = asyncHandler(async (req, res) => {
     selling.cancelledByName = req.user?.name;
     selling.cancellationReason = reason;
     selling.cancelRefundAmount = roundMoney(Math.max(0, Number(selling.totalPrice || 0) - Number(selling.refundedAmount || 0)));
+    // Stage 19: the customer is paid back (total - already returned) out of a box: the request's boxId, else this PC's
+    // drawer, else the main box. Nothing to pay back (everything was returned) needs no box.
+    const refundBox = selling.cancelRefundAmount > 0 ? await resolveBox({ req, boxId: req.body && req.body.boxId, session, direction: "out" }) : null;
+    if (refundBox) selling.cancelRefundBoxId = refundBox._id;
     await selling.save({ session });
-    await postInvoiceCancel({ Model: Selling, sale: selling, session });
+    await postInvoiceCancel({ Model: Selling, sale: selling, session, refundBoxId: refundBox ? refundBox._id : selling.boxId || null });
     await audit(req, { action: "sale.cancelled", entity: "Selling", entityId: selling._id, details: { reason }, session, strict: true });
     return selling;
   });
@@ -1105,7 +1116,7 @@ const addSellingRefund = asyncHandler(async (req, res) => {
     }
 
     // Stage 19: the cash refund comes out of a box (request boxId, else this PC's drawer, else the main box).
-    const refundBox = await resolveBox({ req, boxId: req.body && req.body.boxId, session });
+    const refundBox = await resolveBox({ req, boxId: req.body && req.body.boxId, session, direction: "out" });
     const number = await nextDocumentNumber(PREFIXES.RETURN, session);
     const returnLog = await createReturnLog({
       number, returnType: "cash", invoiceId: selling._id, invoiceNumber: selling.number,

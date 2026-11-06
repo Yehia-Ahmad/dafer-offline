@@ -311,6 +311,7 @@ async function main() {
     console.log(`opening wizard after the upgrade: OB ${saved.number}, capital ${saved.totals.capital}, health 0`);
     const finalHealth = await request(currentBase, "GET", "/api/accounting/health");
     assert.equal(finalHealth.boxes.difference, 0, "the boxes check is 0 after the upgrade");
+    assert.equal(finalHealth.shifts.difference, 0, "the shifts check is 0 after the upgrade");
     console.log(`boxes check after the upgrade: ${JSON.stringify(finalHealth.boxes.byBox.map((row) => [row.name, row.expected, row.actual, row.difference]))}`);
 
     assert.doesNotMatch(currentErrors, /TypeError/);

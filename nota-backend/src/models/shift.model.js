@@ -16,6 +16,15 @@ const shiftSchema = new mongoose.Schema({
   openingFloat: { type: Number, required: true, min: 0 },
   // The box's ledger balance when the shift opened (shown next to the float).
   openingBalance: { type: Number, default: 0 },
+  // Stage 19 review: a float that differs from the box balance is confirmed with a note and posted (shift_open) to CASH_OVER_SHORT.
+  openingDifference: { type: Number, default: 0 },
+  openingNote: { type: String, trim: true, maxlength: 500 },
+  // Ledger cut points for the "shifts" health check: entries created up to these instants make the box balance the
+  // float (after the opening difference) and the counted amount (after the over/short, before the deposit).
+  openCutAt: { type: Date },
+  closeCutAt: { type: Date },
+  // Touched by every money document written into the box, so a sale and a close conflict and one retries.
+  lastActivityAt: { type: Date },
   closedAt: { type: Date },
   closedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   closedByName: { type: String, trim: true },

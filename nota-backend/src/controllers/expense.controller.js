@@ -27,7 +27,8 @@ const categoryView = (account, usedIds) => ({
 const categoriesWithUsage = async () => {
   const parent = await loadParent();
   if (!parent) return [];
-  const accounts = await Account.find({ parentId: parent._id, isGroup: false }).sort({ code: 1 }).lean();
+  // Numeric order: the seeded 521-525 first, then 52001, 52002, ...
+  const accounts = (await Account.find({ parentId: parent._id, isGroup: false }).lean()).sort((left, right) => Number(left.code) - Number(right.code));
   const used = await JournalEntry.aggregate([
     { $match: { "lines.accountId": { $in: accounts.map((account) => account._id) } } },
     { $unwind: "$lines" }, { $match: { "lines.accountId": { $in: accounts.map((account) => account._id) } } },
@@ -48,11 +49,9 @@ const createCategory = async (req, res) => {
   const nameAr = requiredName(req.body && req.body.nameAr, "اسم البند");
   const nameEn = req.body && req.body.nameEn ? requiredName(req.body.nameEn, "الاسم بالإنجليزية") : nameAr;
   const created = await withTransaction(async (session) => {
-    const { parent, code } = await boxes.nextLeafCode("520", 525, session);
-    let account;
-    try {
-      [account] = await Account.create([{ code, nameAr, nameEn, type: "expense", normalSide: "debit", parentId: parent._id, isGroup: false, isSystem: false, isActive: true }], { session });
-    } catch (error) { throw boxes.retryable(error); }
+    // 5-digit children of 520 (52001, 52002, ...), like the 112xx banks: they can never run into 530 and above.
+    const { parent, code } = await boxes.nextLeafCode("520", 52000, session);
+    const [account] = await Account.create([{ code, nameAr, nameEn, type: "expense", normalSide: "debit", parentId: parent._id, isGroup: false, isSystem: false, isActive: true }], { session });
     await audit(req, { action: "expense.category.created", entity: "Account", entityId: account._id, details: { code, nameAr }, session, strict: true });
     return account;
   });
@@ -164,7 +163,7 @@ const createExpense = async (req, res) => {
     if (!category || !parent || String(category.parentId) !== String(parent._id) || category.isGroup || category.isActive === false) {
       throw httpError(400, "INVALID_CATEGORY", "بند المصروف غير صالح");
     }
-    const box = await boxes.resolveBox({ req, boxId: body.boxId, session });
+    const box = await boxes.resolveBox({ req, boxId: body.boxId, session, direction: "out" });
     await boxes.lockBoxes([box._id], session);
     const balance = await boxes.boxBalance(box, session);
     if (roundMoney(balance - amount) < 0) throw httpError(409, "INSUFFICIENT_BALANCE", "رصيد الخزنة مش كفاية", { boxId: box._id, balance, required: amount });
@@ -187,6 +186,7 @@ const cancelExpense = async (req, res) => {
     const expense = await Expense.findById(req.params.id).session(session);
     if (!expense) throw httpError(404, "EXPENSE_NOT_FOUND", "المصروف غير موجود");
     if (expense.status === "cancelled") throw httpError(409, "ALREADY_CANCELLED", "المصروف ملغي بالفعل");
+    await boxes.assertBoxActive(expense.boxId, session);
     const now = new Date();
     expense.status = "cancelled"; expense.cancelReason = reason; expense.cancelledAt = now;
     expense.cancelledBy = req.user?._id; expense.cancelledByName = req.user?.name;

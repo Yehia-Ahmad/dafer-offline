@@ -44,6 +44,9 @@ export interface ShiftSummary {
   openedAt: string;
   openingFloat: number;
   openingBalance: number;
+  /** Float - balance at opening, when it was confirmed with a note (posted to cash over/short). */
+  openingDifference?: number;
+  openingNote?: string | null;
   closedAt: string | null;
   closedByName: string | null;
   expected: number | null;

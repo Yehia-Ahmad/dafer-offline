@@ -150,6 +150,10 @@ const sellingSchema = new mongoose.Schema(
     cancelRefundAmount: { type: Number, default: 0, min: 0 },
     // Stage 19: the box the sale's money went into (the main box on old invoices). An edit never changes it.
     boxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox", index: true },
+    // Stage 19 review: the box that paid the customer back when the invoice was cancelled (old data: the sale's box).
+    cancelRefundBoxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox" },
+    // Stage 19 review: each edit's cash change, so a shift that sees an edit made later counts its delta at the edit's time.
+    boxMoves: { type: [new mongoose.Schema({ at: { type: Date, required: true }, delta: { type: Number, required: true }, boxId: mongoose.Schema.Types.ObjectId }, { _id: false })], default: undefined },
     // Stage 17: for invoices created before the ledger started only. The
     // accounting health check needs the pre-edit totals (gone once an edit
     // saves) and each line's purchasePrice at cancel time (a later

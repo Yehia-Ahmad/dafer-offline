@@ -73,8 +73,9 @@ export class ProductsService {
     return this._http.get(`${this._baseUrl}sellings`, { params });
   }
 
-  cancelSelling(id: string, reason: string) {
-    return this._http.post(`${this._baseUrl}sellings/${id}/cancel`, { reason });
+  /** boxId (Stage 19): the box that pays the customer back (omitted = this PC's drawer, else the main box). */
+  cancelSelling(id: string, reason: string, boxId?: string) {
+    return this._http.post(`${this._baseUrl}sellings/${id}/cancel`, { reason, ...(boxId ? { boxId } : {}) });
   }
 
   getProductsProfitReport(params?: {

@@ -1721,7 +1721,7 @@ const cancelCreditSale = asyncHandler(async (req, res) => {
     invoice.cancelRefundAmount = roundMoney(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
     // Stage 19: "رد المقدم" comes out of a box (request boxId, else this PC's drawer, else the main box).
     const refundBox = invoice.cancelRefundAmount > 0 && payments.some((payment) => payment.source === "down_payment")
-      ? await resolveBox({ req, boxId: req.body?.boxId, session }) : null;
+      ? await resolveBox({ req, boxId: req.body?.boxId, session, direction: "out" }) : null;
     if (refundBox) invoice.cancelRefundBoxId = refundBox._id;
     invoice.remainingAmount = 0;
     await invoice.save({ session });

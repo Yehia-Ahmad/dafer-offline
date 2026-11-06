@@ -116,7 +116,11 @@ async function loadCustomerStatement(customerId, { from = null, to = null, sessi
   // Outstanding and aging always describe the open items today, whatever period the statement shows.
   const open = (await loadCustomerOpenItems([customerId], { session })).get(String(customerId)) || { items: [], credit: 0 };
   const aging = ageOpenItems(open.items);
-  return { ...statement, aging: { ...aging, credit: open.credit }, outstanding: aging.total };
+  // The credit is the customer's whole statement balance when it is negative, whatever period the lines above show.
+  const fullBalance = from || to
+    ? computeCustomerStatement({ invoices, returnById: new Map(returns.map((entry) => [entry._id.toString(), entry])), opening, payouts }).totals.balance
+    : statement.totals.balance;
+  return { ...statement, aging: { ...aging, credit: roundMoney(Math.max(0, -fullBalance)) }, outstanding: aging.total };
 }
 
 /**

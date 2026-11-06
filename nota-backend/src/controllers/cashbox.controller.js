@@ -32,8 +32,9 @@ const boxView = (box, { account, balance, shift, deviceName } = {}) => ({
 
 /** Makes sure a box exists for the main account and every 112xx leaf (installs that never ran the Stage 19 migration step). */
 const ensureBoxesSynced = async () => {
-  const [boxCount, leaves] = await Promise.all([CashBox.countDocuments({}), boxes.bankLeafAccounts()]);
-  if (boxCount < leaves.length + 1) await withTransaction((session) => boxes.syncAccountBoxes(session));
+  const [existing, leaves] = await Promise.all([CashBox.find({}).select("accountId isMain").lean(), boxes.bankLeafAccounts()]);
+  const boxed = new Set(existing.map((box) => String(box.accountId)));
+  if (!existing.some((box) => box.isMain) || leaves.some((account) => !boxed.has(String(account._id)))) await withTransaction((session) => boxes.syncAccountBoxes(session));
 };
 
 /** All boxes with balance, open shift and bound device name. */
@@ -326,6 +327,9 @@ const cancelTransfer = async (req, res) => {
     const transfer = await Transfer.findById(req.params.id).session(session);
     if (!transfer) throw httpError(404, "TRANSFER_NOT_FOUND", "التحويل غير موجود");
     if (transfer.status === "cancelled") throw httpError(409, "ALREADY_CANCELLED", "التحويل ملغي بالفعل");
+    // The deposit of a closed shift is part of that shift's report: it cannot be undone on its own.
+    if (transfer.kind === "shift_deposit") throw httpError(409, "SHIFT_DEPOSIT", "توريد الوردية مينفعش يتلغى لوحده");
+    await boxes.assertBoxActive(transfer.fromBoxId, session);
     const to = await CashBox.findById(transfer.toBoxId).session(session);
     await boxes.lockBoxes([transfer.fromBoxId, transfer.toBoxId], session);
     const balance = await boxes.boxBalance(to, session);
@@ -353,7 +357,7 @@ const createDrawing = async (req, res) => {
   const date = optionalDate(body.date);
   const note = optionalText(body.note, 500);
   const drawing = await withTransaction(async (session) => {
-    const box = await boxes.resolveBox({ req, boxId: body.boxId, session });
+    const box = await boxes.resolveBox({ req, boxId: body.boxId, session, direction: "out", alsoAllow: ["owner.drawings"] });
     await boxes.lockBoxes([box._id], session);
     const balance = await boxes.boxBalance(box, session);
     if (roundMoney(balance - amount) < 0) throw httpError(409, "INSUFFICIENT_BALANCE", "رصيد الخزنة مش كفاية", { boxId: box._id, balance, required: amount });
@@ -387,6 +391,7 @@ const cancelDrawing = async (req, res) => {
     const drawing = await OwnerDrawing.findById(req.params.id).session(session);
     if (!drawing) throw httpError(404, "DRAWING_NOT_FOUND", "السحب غير موجود");
     if (drawing.status === "cancelled") throw httpError(409, "ALREADY_CANCELLED", "السحب ملغي بالفعل");
+    await boxes.assertBoxActive(drawing.boxId, session);
     const now = new Date();
     drawing.status = "cancelled"; drawing.cancelReason = reason; drawing.cancelledAt = now;
     drawing.cancelledBy = req.user?._id; drawing.cancelledByName = req.user?.name;

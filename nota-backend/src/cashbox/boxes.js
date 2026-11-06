@@ -108,14 +108,40 @@ const assertBoxAllowed = async (req, box, session) => {
   throw httpError(403, "BOX_NOT_ALLOWED", "الخزنة دي مش متاحة ليك", { boxId: box._id });
 };
 
+/** Active, and (when the box uses shifts) with an open shift, which is touched so a concurrent close conflicts. */
+const assertUsable = async (box, { session, requireShift = true }) => {
+  if (!box.isActive) throw httpError(409, "BOX_INACTIVE", "الخزنة دي مقفولة", { boxId: box._id });
+  if (requireShift && box.shiftsEnabled) {
+    const shift = await openShiftOf(box._id, session);
+    if (!shift) throw httpError(409, "NO_OPEN_SHIFT", "مفيش وردية مفتوحة على الخزنة دي", { boxId: box._id, boxName: box.name });
+    await Shift.collection.updateOne({ _id: shift._id }, { $currentDate: { lastActivityAt: true } }, { session });
+  }
+  return box;
+};
+
+/** The original box of a document (an edit, a legacy refund): must still take money. No user check: it is not a choice. */
+const usableBoxOf = async (boxId, session) => {
+  const box = boxId ? await CashBox.findById(boxId).session(session || null) : await ensureMainBox(session);
+  if (!box) throw httpError(400, "BOX_NOT_FOUND", "الخزنة غير موجودة");
+  return assertUsable(box, { session });
+};
+
+/** A reversal puts money back into a box: it must still be active (409 BOX_INACTIVE). */
+const assertBoxActive = async (boxId, session) => {
+  const box = await CashBox.findById(boxId).select("isActive name").session(session || null).lean();
+  if (!box || box.isActive === false) throw httpError(409, "BOX_INACTIVE", "الخزنة دي مقفولة", { boxId });
+};
+
 /**
  * The box a money document goes through.
+ * - `direction: "out"` (expenses, payouts, drawings, refunds): the main box needs cashbox.manage (or one of
+ *   `alsoAllow`) whatever the device header says. The header is not authentication.
  * - `boxId` given: that box (checked for the user).
  * - else the device's default box, else the main box.
  * Errors: 400 INVALID_BOX / BOX_NOT_FOUND, 409 BOX_INACTIVE, 409 NO_OPEN_SHIFT (shift-enabled box, no open shift).
  * `requireShift: false` is for movements a manager makes between shifts (transfers).
  */
-const resolveBox = async ({ req = null, boxId = null, session, requireShift = true }) => {
+const resolveBox = async ({ req = null, boxId = null, session, requireShift = true, direction = "in", alsoAllow = [] }) => {
   const main = await ensureMainBox(session);
   let box;
   if (boxId !== undefined && boxId !== null && boxId !== "") {
@@ -126,12 +152,11 @@ const resolveBox = async ({ req = null, boxId = null, session, requireShift = tr
   } else {
     box = (await deviceBox(req && req.deviceId, session)) || main;
   }
-  if (!box.isActive) throw httpError(409, "BOX_INACTIVE", "الخزنة دي مقفولة", { boxId: box._id });
-  if (requireShift && box.shiftsEnabled) {
-    const shift = await openShiftOf(box._id, session);
-    if (!shift) throw httpError(409, "NO_OPEN_SHIFT", "مفيش وردية مفتوحة على الخزنة دي", { boxId: box._id, boxName: box.name });
+  if (direction === "out" && box.isMain && req && req.authEnabled && req.user
+    && !["cashbox.manage", ...alsoAllow].some((key) => hasPermission(req.user, key))) {
+    throw httpError(403, "BOX_NOT_ALLOWED", "السحب من الخزنة الرئيسية للمدير بس", { boxId: box._id });
   }
-  return box;
+  return assertUsable(box, { session, requireShift });
 };
 
 /** Next free code under a parent account (first free code is floor + 1). */
@@ -181,5 +206,5 @@ const reverseSourceEntries = async (sourceType, sourceId, { date, memo, session 
 module.exports = {
   nextLeafCode, createBoxAccount, lockBoxes, reverseSourceEntries,
   MAIN_BOX_NAME, httpError, isId, retryable, bankLeafAccounts, ensureMainBox, syncAccountBoxes, boxAccount, accountBalances,
-  boxBalance, boxHasLines, openShiftOf, deviceBox, assertBoxAllowed, resolveBox,
+  boxBalance, boxHasLines, openShiftOf, deviceBox, assertBoxAllowed, resolveBox, assertUsable, usableBoxOf, assertBoxActive,
 };

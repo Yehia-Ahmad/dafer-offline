@@ -53,7 +53,7 @@ const createPayout = async (req, res) => {
     await touchCustomer(customer, session);
     const { credit } = await customerCreditOf(customer._id, { session });
     if (roundMoney(amount - credit) > EPSILON) throw httpError(409, "EXCEEDS_CREDIT", "المبلغ أكبر من رصيد العميل الدائن", { credit, requested: amount });
-    const box = await boxes.resolveBox({ req, boxId: body.boxId, session });
+    const box = await boxes.resolveBox({ req, boxId: body.boxId, session, direction: "out" });
     await boxes.lockBoxes([box._id], session);
     const balance = await boxes.boxBalance(box, session);
     if (roundMoney(balance - amount) < 0) throw httpError(409, "INSUFFICIENT_BALANCE", "رصيد الخزنة مش كفاية", { boxId: box._id, balance, required: amount });
@@ -79,6 +79,7 @@ const cancelPayout = async (req, res) => {
     const payout = await CustomerPayout.findOne({ _id: req.params.payoutId, customer: customer._id }).session(session);
     if (!payout) throw httpError(404, "PAYOUT_NOT_FOUND", "الصرف غير موجود");
     if (payout.status === "cancelled") throw httpError(409, "ALREADY_CANCELLED", "الصرف ملغي بالفعل");
+    await boxes.assertBoxActive(payout.boxId, session);
     await touchCustomer(customer, session);
     const now = new Date();
     payout.status = "cancelled"; payout.cancelReason = reason; payout.cancelledAt = now;

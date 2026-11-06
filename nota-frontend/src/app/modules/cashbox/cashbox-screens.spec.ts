@@ -256,9 +256,13 @@ describe('OpenShiftDialogComponent (Stage 19)', () => {
     first.flush({ code: 'FLOAT_MISMATCH', balance: 500, openingFloat: 480, difference: -20 }, { status: 409, statusText: 'Conflict' });
     expect(component.mismatch()).toEqual({ balance: 500, openingFloat: 480, difference: -20 });
     expect(component.visible()).toBeTrue();
+    // The confirmed difference needs a note: without one nothing is sent.
+    component.submit();
+    http.expectNone(`${base}shifts`);
+    component.note.set('  20 ناقصة في العد ');
     component.submit();
     const second = http.expectOne(`${base}shifts`);
-    expect(second.request.body).toEqual({ boxId: 'b-d1', openingFloat: 480, confirmFloat: true });
+    expect(second.request.body).toEqual({ boxId: 'b-d1', openingFloat: 480, confirmFloat: true, openingNote: '20 ناقصة في العد' });
     second.flush({ _id: 's2', number: 'SH-000002' });
     expect(opened.length).toBe(1);
     expect(component.visible()).toBeFalse();
@@ -350,6 +354,20 @@ describe('ShiftPanelComponent (Stage 19)', () => {
     component.counted.set(7550);
     component.close();
     expect(http.expectOne(`${base}shifts/s1/close`).request.body).toEqual({ counted: 7550 });
+  });
+
+  it('a shift opened with a confirmed float difference shows that line (posted to cash over/short) in its report', async () => {
+    const { fixture } = await open({ ...REPORT, openingFloat: 930, openingBalance: 960, openingDifference: -30, openingNote: '30 ناقصة' });
+    const row = (fixture.nativeElement as HTMLElement).querySelector('[data-line="openingDifference"]')!;
+    expect(row.textContent).toContain('cashbox.shift.openingDifferenceLine');
+    expect(row.textContent).toContain('30 ناقصة');
+    expect(row.textContent).toContain('30');
+    expect(row.querySelector('.sp__minus')).not.toBeNull();
+  });
+
+  it('a shift with an even float has no opening-difference line', async () => {
+    const { fixture } = await open();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-line="openingDifference"]')).toBeNull();
   });
 
   it('a closed shift opens as the summary', async () => {

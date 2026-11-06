@@ -16,6 +16,7 @@ const PartyOpening = require("../models/partyOpening.model");
 const { loadOpeningState, saveOpening, finalizeOpening, currentOpeningEntry, getOpeningMeta } = require("../accounting/opening");
 const { audit } = require("../auth/audit");
 const CashBox = require("../models/cashBox.model");
+const Shift = require("../models/shift.model");
 const { boxEvents } = require("../cashbox/events");
 const { withTransaction } = require("../utils/transaction");
 const { hasPermission } = require("../auth/permissions");
@@ -303,7 +304,9 @@ const getHealth = async (req, res) => {
   const accountsAll = await Account.find({}).select("code systemKey").lean();
   const boxesCheck = await buildBoxesCheck({ meta, ledgerStartAt, accountBalance, accounts: accountsAll });
 
-  res.json({ trialBalance, inventory, customers: customersCheck, suppliers: suppliersCheck, opening: openingCheck, netSales, cogs, entries, boxes: boxesCheck });
+  const shiftsCheck = await buildShiftsCheck();
+
+  res.json({ trialBalance, inventory, customers: customersCheck, suppliers: suppliersCheck, opening: openingCheck, netSales, cogs, entries, boxes: boxesCheck, shifts: shiftsCheck });
 };
 
 const signedKey = (accountId, partyId) => `${accountId}:${partyId || ""}`;
@@ -384,6 +387,42 @@ const buildBoxesCheck = async ({ meta, ledgerStartAt, accountBalance, accounts }
   }
   unboxed = roundMoney(unboxed);
   return { expected: roundMoney(expectedTotal), actual: roundMoney(actualTotal), difference: roundMoney(difference + unboxed), unboxed, byBox };
+};
+
+/**
+ * Stage 19 review: the shifts check, independent of the boxes check. For every shift, the ledger balance of its box
+ * account at a cut point the shift recorded must equal what the user counted:
+ *   - open: entries created up to openCutAt (after the opening over/short) = openingFloat;
+ *   - close: entries created up to closeCutAt (after the closing over/short, before the deposit) = counted.
+ * A ledger line that lands in the drawer without the shift knowing it (a lost opening difference, an edit or a refund the
+ * expected cash missed, a stray entry) shows here. A shift from before the cut points existed is skipped.
+ * difference = Σ |per-shift difference|.
+ */
+const buildShiftsCheck = async () => {
+  const [shifts, boxList] = await Promise.all([Shift.find({}).sort({ openedAt: 1 }).lean(), CashBox.find({}).select("name accountId").lean()]);
+  const boxById = new Map(boxList.map((box) => [String(box._id), box]));
+  const balanceAt = async (accountId, cut) => {
+    const rows = await JournalEntry.aggregate([
+      { $match: { status: "posted", createdAt: { $lte: cut }, "lines.accountId": accountId } },
+      { $unwind: "$lines" }, { $match: { "lines.accountId": accountId } },
+      { $group: { _id: null, balance: { $sum: { $subtract: ["$lines.debit", "$lines.credit"] } } } },
+    ]);
+    return roundMoney(rows[0]?.balance || 0);
+  };
+  const byShift = []; let expectedTotal = 0; let actualTotal = 0; let difference = 0; let skipped = 0;
+  for (const shift of shifts) {
+    const box = boxById.get(String(shift.boxId));
+    if (!box) continue;
+    for (const [phase, cut, expected] of [["open", shift.openCutAt, shift.openingFloat], ["close", shift.status === "closed" ? shift.closeCutAt : null, shift.counted]]) {
+      if (phase === "close" && shift.status !== "closed") continue;
+      if (!cut) { skipped += 1; continue; }
+      const actual = await balanceAt(box.accountId, new Date(cut));
+      const delta = roundMoney(actual - Number(expected || 0));
+      expectedTotal += Number(expected || 0); actualTotal += actual; difference += Math.abs(delta);
+      byShift.push({ shiftId: shift._id, number: shift.number, box: box.name, phase, expected: roundMoney(expected || 0), actual, difference: delta });
+    }
+  }
+  return { expected: roundMoney(expectedTotal), actual: roundMoney(actualTotal), difference: roundMoney(difference), skipped, byShift };
 };
 
 // ---------------------------------------------------------------- Stage 18 opening wizard

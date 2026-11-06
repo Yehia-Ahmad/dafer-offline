@@ -29,10 +29,13 @@ import { ShiftSummary } from './cashbox.models';
           <div class="osd__mismatch" role="alert" data-test="float-mismatch">
             {{ 'cashbox.shift.floatMismatch' | translate: { balance: (m.balance | notaMoney), counted: (m.openingFloat | notaMoney), difference: (m.difference | notaMoney) } }}
           </div>
+          <nota-form-field [label]="'cashbox.shift.openingNote' | translate" forId="shiftOpeningNote" [required]="true" [hint]="'cashbox.shift.openingNoteHint' | translate">
+            <input id="shiftOpeningNote" class="nota-input" type="text" name="openingNote" data-test="opening-note" [ngModel]="note()" (ngModelChange)="note.set($event)" />
+          </nota-form-field>
         }
         <ng-container notaDialogFooter>
           <button type="button" notaButton (click)="cancel()">{{ 'cashbox.cancel' | translate }}</button>
-          <button type="button" notaButton="primary" [disabled]="busy() || float() === null" data-action="open-shift" (click)="submit()">
+          <button type="button" notaButton="primary" [disabled]="busy() || float() === null || (mismatch() !== null && !note().trim())" data-action="open-shift" (click)="submit()">
             {{ (mismatch() ? 'cashbox.shift.confirmOpen' : 'cashbox.shift.open') | translate }}
           </button>
         </ng-container>
@@ -51,6 +54,8 @@ export class OpenShiftDialogComponent {
 
   readonly float = signal<number | null>(null);
   readonly mismatch = signal<{ balance: number; openingFloat: number; difference: number } | null>(null);
+  /** Why the drawer differs from the system (required once the difference is confirmed). */
+  readonly note = signal('');
   readonly error = signal('');
   readonly busy = signal(false);
 
@@ -65,11 +70,13 @@ export class OpenShiftDialogComponent {
     if (openingFloat === null || openingFloat < 0) return;
     this.busy.set(true);
     this.error.set('');
-    this.cashbox.openShift({ boxId: this.boxId(), openingFloat, ...(this.mismatch() ? { confirmFloat: true } : {}) }).subscribe({
+    if (this.mismatch() && !this.note().trim()) return;
+    this.cashbox.openShift({ boxId: this.boxId(), openingFloat, ...(this.mismatch() ? { confirmFloat: true, openingNote: this.note().trim() } : {}) }).subscribe({
       next: (shift) => {
         this.busy.set(false);
         this.visible.set(false);
         this.mismatch.set(null);
+        this.note.set('');
         this.float.set(null);
         this.opened.emit(shift);
       },

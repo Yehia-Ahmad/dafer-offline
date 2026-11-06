@@ -44,7 +44,7 @@ async function boxEvents(box, { from = null, to = null, ledgerStartAt, session =
   const own = (field = "boxId") => (box.isMain ? { $or: [{ [field]: id }, { [field]: { $exists: false } }, { [field]: null }] } : { [field]: id });
 
   const [sales, returns, credits, receipts, transfers, expenses, drawings, payouts, shifts] = await Promise.all([
-    Selling.find(own()).select("+ledgerTrace").session(session).lean(),
+    Selling.find({ $or: [...(box.isMain ? [{ boxId: id }, { boxId: { $exists: false } }, { boxId: null }] : [{ boxId: id }]), { cancelRefundBoxId: id }] }).select("+ledgerTrace").session(session).lean(),
     ReturnLog.find({ returnType: "cash", ...own() }).session(session).lean(),
     CreditSale.find({ status: "cancelled", cancelRefundAmount: { $gt: 0 }, ...own("cancelRefundBoxId") }).session(session).lean(),
     Receipt.find(own()).session(session).lean(),
@@ -52,13 +52,24 @@ async function boxEvents(box, { from = null, to = null, ledgerStartAt, session =
     Expense.find({ boxId: id }).session(session).lean(),
     OwnerDrawing.find({ boxId: id }).session(session).lean(),
     CustomerPayout.find({ boxId: id }).session(session).lean(),
-    Shift.find({ boxId: id, status: "closed" }).session(session).lean(),
+    Shift.find({ boxId: id }).session(session).lean(),
   ]);
 
+  const sid = String(id);
+  const here = (value, fallbackHere) => (value ? String(value) === sid : fallbackHere);
   for (const sale of sales) {
-    if (inLedger(sale)) push("sales", Number(sale.totalPrice || 0), sale.createdAt, sale._id);
-    else if (checkLedger && sale.ledgerTrace?.editNetSales) push("sales", Number(sale.ledgerTrace.editNetSales), sale.updatedAt || sale.createdAt, sale._id);
-    if (sale.status === "cancelled" && cancelledInLedger(sale)) push("refunds", -Number(sale.cancelRefundAmount || 0), sale.cancelledAt, sale._id);
+    // An old sale without a box belongs to the main box. A cancel refund belongs to its own box (old data: the sale's box).
+    const saleHere = here(sale.boxId, box.isMain);
+    const moves = sale.boxMoves || [];
+    if (saleHere) {
+      // The sale at its original total (the stored total is after every edit), then each edit's change at its own time.
+      const original = roundMoney(Number(sale.totalPrice || 0) - moves.reduce((sum, move) => sum + Number(move.delta || 0), 0));
+      if (inLedger(sale)) push("sales", original, sale.createdAt, sale._id);
+    }
+    for (const move of moves) if (here(move.boxId, saleHere)) push("sales", Number(move.delta || 0), move.at, sale._id);
+    // Pre-ledger invoice edited before this change recorded its moves: the Stage 17 trace.
+    if (saleHere && !moves.length && !inLedger(sale) && checkLedger && sale.ledgerTrace?.editNetSales) push("sales", Number(sale.ledgerTrace.editNetSales), sale.updatedAt || sale.createdAt, sale._id);
+    if (sale.status === "cancelled" && cancelledInLedger(sale) && here(sale.cancelRefundBoxId, saleHere)) push("refunds", -Number(sale.cancelRefundAmount || 0), sale.cancelledAt, sale._id);
   }
   for (const log of returns) if (inLedger(log)) push("refunds", -Number(log.finalReturnedAmount || 0), log.createdAt, log._id);
   for (const invoice of credits) if (cancelledInLedger(invoice)) push("refunds", -Number(invoice.cancelRefundAmount || 0), invoice.cancelledAt, invoice._id);
@@ -79,7 +90,11 @@ async function boxEvents(box, { from = null, to = null, ledgerStartAt, session =
   outgoing(expenses, "expenses");
   outgoing(drawings, "drawings");
   outgoing(payouts, "payouts");
-  for (const shift of shifts) if (Number(shift.difference || 0) !== 0) push("shiftDiff", Number(shift.difference), shift.closedAt, shift._id);
+  for (const shift of shifts) {
+    // The over/short posted when the shift opened with a confirmed float, and when it closed.
+    if (Number(shift.openingDifference || 0) !== 0) push("shiftDiff", Number(shift.openingDifference), shift.openedAt, shift._id);
+    if (shift.status === "closed" && Number(shift.difference || 0) !== 0) push("shiftDiff", Number(shift.difference), shift.closedAt, shift._id);
+  }
   return events;
 }
 

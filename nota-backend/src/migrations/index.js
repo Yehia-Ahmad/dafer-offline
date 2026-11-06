@@ -543,6 +543,25 @@ async function stage19BoxesMigration(session) {
   return { boxesCreated: created, ...results };
 }
 
+// Stage 19 review: custom expense categories created as 526-529 become 5-digit children of 520 (52001, ...), so they can
+// never run into 530 (CASH_OVER_SHORT) and above. System categories 521-525 keep their codes. Journal lines follow.
+async function stage19CategoryCodesMigration(session) {
+  const parent = await Account.findOne({ code: "520" }).session(session).lean();
+  if (!parent) return {};
+  const children = await Account.find({ parentId: parent._id }).sort({ code: 1 }).session(session).lean();
+  let next = children.reduce((top, child) => (Number(child.code) >= 52000 ? Math.max(top, Number(child.code)) : top), 52000);
+  const renamed = [];
+  for (const child of children) {
+    if (child.isSystem || !/^52[6-9]$/.test(child.code)) continue;
+    next += 1;
+    const code = String(next);
+    await Account.collection.updateOne({ _id: child._id }, { $set: { code } }, { session });
+    await JournalEntry.collection.updateMany({ "lines.accountId": child._id }, { $set: { "lines.$[row].accountCode": code } }, { arrayFilters: [{ "row.accountId": child._id }], session });
+    renamed.push(`${child.code}->${code}`);
+  }
+  return { renamed };
+}
+
 const migrations = [
   { version: 1, name: "document numbers and receipts", run: numbersMigration },
   { version: 2, name: "original invoice totals and returned status", chunked: true, runChunk: originalTotalsMigrationChunk },
@@ -551,6 +570,7 @@ const migrations = [
   { version: 5, name: "stage 17 chart of accounts and ledger start", run: ledgerStartMigration },
   { version: 6, name: "stage 18 review fixes: bank codes and setup end marker", run: stage18FixesMigration },
   { version: 7, name: "stage 19 cash boxes: main box, bank/wallet boxes, boxId on money documents", run: stage19BoxesMigration },
+  { version: 8, name: "stage 19 review: custom expense categories get 5-digit codes under 520", run: stage19CategoryCodesMigration },
 ];
 
 async function recordMigration(migration, details, session) {

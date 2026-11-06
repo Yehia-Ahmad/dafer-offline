@@ -13,7 +13,7 @@ const { withTransaction } = require("../utils/transaction");
 const { PREFIXES, nextDocumentNumber } = require("../utils/documentNumber");
 const { postReceipt } = require("../accounting/posting");
 const { resolveBox } = require("../cashbox/boxes");
-const { loadCustomerStatement } = require("../services/customerStatement.service");
+const { loadCustomerStatement, customerStatementBalances } = require("../services/customerStatement.service");
 const { customerCreditOf } = require("../services/customerCredit.service");
 const PartyOpening = require("../models/partyOpening.model");
 const { loadCustomerOpenItems, openingRemaining, sortForCollection } = require("../services/customerOpenItems.service");
@@ -247,6 +247,8 @@ const getCustomers = asyncHandler(async (req, res) => {
 
   // Stage 18: the same open items the statement, aging and dashboard read, so the opening balance counts everywhere.
   const openItems = await loadCustomerOpenItems(customers.map((customer) => customer._id));
+  // The balance (and so the credit) is the statement's, the same figure the ledger holds: payouts and credit returns count.
+  const { balances: statementBalances } = await customerStatementBalances(customers);
 
   res.json(
     customers.map((customer) => {
@@ -256,9 +258,9 @@ const getCustomers = asyncHandler(async (req, res) => {
         ...customer,
         isIndebted: outstanding > 0,
         outstanding,
-        credit: open?.credit || 0,
-        // Positive = the customer owes us, negative = we owe the customer (unapplied opening credit).
-        balance: roundMoney(outstanding - (open?.credit || 0)),
+        // Positive = the customer owes us, negative = we owe the customer (credit: an opening, a payout, a credit return).
+        balance: roundMoney(statementBalances.get(String(customer._id)) || 0),
+        credit: roundMoney(Math.max(0, -(statementBalances.get(String(customer._id)) || 0))),
       };
     })
   );
@@ -299,7 +301,7 @@ const getCustomerById = asyncHandler(async (req, res) => {
       remaining: openingRemaining(openingDoc),
     } : null,
     outstanding: roundMoney(openItems.items.reduce((sum, item) => sum + item.remaining, 0)),
-    credit: openItems.credit,
+    credit: roundMoney(Math.max(0, -(await customerStatementBalances([customer])).balances.get(String(customer._id)))),
     lastCreditSaleDate: creditHistory[0]?.sellingDate ?? null,
     lastCashSaleDate: lastCashSale?.sellingDate ?? null,
     lastCreditSalePaymentDate,

@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const CashBox = require("../models/cashBox.model");
 const Shift = require("../models/shift.model");
 const { postEntry, line, accountMap, boxAccount } = require("../accounting/posting");
@@ -22,6 +23,7 @@ const isOwn = (req, shift) => !req.authEnabled || !req.user || !shift.userId || 
 const shiftView = (shift) => ({
   _id: shift._id, number: shift.number, boxId: shift.boxId, userId: shift.userId || null, userName: shift.userName || null,
   openedAt: shift.openedAt, openingFloat: shift.openingFloat, openingBalance: shift.openingBalance,
+  openingDifference: shift.openingDifference || 0, openingNote: shift.openingNote || null,
   closedAt: shift.closedAt || null, closedByName: shift.closedByName || null,
   expected: shift.expected ?? null, counted: shift.counted ?? null, difference: shift.difference ?? null, differenceNote: shift.differenceNote || null,
   depositBoxId: shift.depositBoxId || null, depositAmount: shift.depositAmount || 0, status: shift.status,
@@ -60,18 +62,38 @@ const openShift = async (req, res) => {
     await boxes.lockBoxes([box._id], session);
     const balance = await boxes.boxBalance(box, session);
     // The float is what the user counted; it posts nothing. It should equal the box balance: otherwise confirm the difference.
-    if (openingFloat !== balance && body.confirmFloat !== true) {
-      throw httpError(409, "FLOAT_MISMATCH", "رصيد البداية مختلف عن رصيد الخزنة. أكّد الفرق", { boxId: box._id, balance, openingFloat, difference: roundMoney(openingFloat - balance) });
+    const openingDifference = roundMoney(openingFloat - balance);
+    if (openingDifference !== 0 && body.confirmFloat !== true) {
+      throw httpError(409, "FLOAT_MISMATCH", "رصيد البداية مختلف عن رصيد الخزنة. أكّد الفرق", { boxId: box._id, balance, openingFloat, difference: openingDifference });
     }
+    // A confirmed difference is a real shortage or overage found at the start: it needs a note and is posted now, so the
+    // box balance IS the float and the shift's expected cash starts from the truth.
+    const openingNote = optionalText(body.openingNote, 500, "سبب الفرق");
+    if (openingDifference !== 0 && !openingNote) throw httpError(400, "NOTE_REQUIRED", "اكتب سبب الفرق", { balance, openingFloat, difference: openingDifference });
     const number = await nextDocumentNumber(PREFIXES.SHIFT, session);
+    const shiftId = new mongoose.Types.ObjectId();
+    const openedAt = new Date();
+    if (openingDifference !== 0) {
+      const accounts = await accountMap(["CASH_OVER_SHORT"], session);
+      const drawerAccount = await boxAccount(box._id, session);
+      const shortage = openingDifference < 0;
+      const amount = Math.abs(openingDifference);
+      await postEntry({ date: openedAt, source: { type: "shift_open", id: shiftId, number }, memo: `${shortage ? "Shortage" : "Overage"} at opening: ${openingNote}`, session, lines: [
+        line(shortage ? accounts.get("CASH_OVER_SHORT") : drawerAccount, amount, "debit"),
+        line(shortage ? drawerAccount : accounts.get("CASH_OVER_SHORT"), amount, "credit"),
+      ] });
+    }
     let created;
     try {
-      [created] = await Shift.create([{ number, boxId: box._id, userId: req.user?._id, userName: req.user?.name, openedAt: new Date(), openingFloat, openingBalance: balance, status: "open" }], { session });
+      [created] = await Shift.create([{
+        _id: shiftId, number, boxId: box._id, userId: req.user?._id, userName: req.user?.name, openedAt, openingFloat, openingBalance: balance,
+        ...(openingDifference !== 0 ? { openingDifference, openingNote } : {}), openCutAt: new Date(), status: "open",
+      }], { session });
     } catch (error) {
       if (error && error.code === 11000) throw httpError(409, "SHIFT_ALREADY_OPEN", "في وردية مفتوحة على الخزنة دي", { boxId: box._id });
       throw error;
     }
-    await audit(req, { action: "shift.opened", entity: "Shift", entityId: created._id, details: { number, box: box.name, openingFloat, balance }, session, strict: true });
+    await audit(req, { action: "shift.opened", entity: "Shift", entityId: created._id, details: { number, box: box.name, openingFloat, balance, openingDifference }, session, strict: true });
     return created;
   });
   res.status(201).json(shiftView(shift));
@@ -138,13 +160,14 @@ const closeShift = async (req, res) => {
       ] });
     }
 
+    const closeCutAt = new Date(); // the over/short is in; the deposit is not
     let transfer = null;
     if (wantsDeposit) {
       transfer = await postTransfer({ from: box, to: depositBox, amount: depositAmount, date: now, note: `Shift ${shift.number} deposit`, kind: "shift_deposit", shiftId: shift._id, session });
     }
 
     Object.assign(shift, {
-      status: "closed", closedAt: now, closedBy: req.user?._id, closedByName: req.user?.name, expected, counted, difference,
+      status: "closed", closedAt: now, closeCutAt, closedBy: req.user?._id, closedByName: req.user?.name, expected, counted, difference,
       differenceNote: note, breakdown: lines, depositAmount,
       ...(transfer ? { depositBoxId: depositBox._id, depositTransferId: transfer._id } : {}),
     });

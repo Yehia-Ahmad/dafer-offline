@@ -644,7 +644,7 @@ export class InvoiceHistoryComponent implements OnInit {
     if (reason.length < 3) return;
     this.deletingSellingId = selling.id;
     this.loadError = '';
-    this._productsService.cancelSelling(selling.id, reason).subscribe({
+    this._productsService.cancelSelling(selling.id, reason, this.payment.boxId()).subscribe({
       next: () => {
         this.deletingSellingId = '';
         this.deleteDialogVisible = false;

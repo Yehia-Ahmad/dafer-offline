@@ -13,7 +13,10 @@ const DEVICE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{7,63}$/;
 const DEVICE_NAME_MAX = 64;
 const THROTTLE_MS = 60 * 1000;
 
+const MAX_REMEMBERED = 500;
+// deviceId -> last write time, in insertion order: when it grows past the cap the least recently registered id is dropped.
 const lastRegistered = new Map();
+const rememberedCount = () => lastRegistered.size;
 
 /** Tests: forget what was registered, so the next request writes again. */
 const resetDeviceThrottle = () => lastRegistered.clear();
@@ -32,16 +35,19 @@ const decodeName = (value) => {
  * an upsert of { deviceId, name, role, lastSeenAt } at most once a minute per device, outside any business transaction.
  * Mounted after requireAuth. A registry failure never fails the request.
  */
-const deviceContext = ({ instanceId = () => process.env.NOTA_INSTANCE_ID, now = Date.now } = {}) => async (req, _res, next) => {
+const deviceContext = ({ instanceId = () => process.env.NOTA_INSTANCE_ID, now = Date.now, maxEntries = MAX_REMEMBERED } = {}) => async (req, _res, next) => {
   const deviceId = validDeviceId(req.get("x-nota-device-id"));
   if (!deviceId) return next();
   req.deviceId = deviceId;
   req.deviceName = decodeName(req.get("x-nota-device-name"));
-  if (!req.user) return next();
+  // With users on, only a signed-in request registers a PC; with users off (NOTA_AUTH unset) there is no user to wait for.
+  if (req.authEnabled && !req.user) return next();
   const at = now();
   const last = lastRegistered.get(deviceId);
   if (last !== undefined && at - last < THROTTLE_MS) return next();
+  lastRegistered.delete(deviceId);
   lastRegistered.set(deviceId, at);
+  while (lastRegistered.size > maxEntries) lastRegistered.delete(lastRegistered.keys().next().value);
   try {
     const set = { lastSeenAt: new Date(at), role: deviceId === instanceId() ? "main" : "client" };
     if (req.deviceName) set.name = req.deviceName;
@@ -53,4 +59,4 @@ const deviceContext = ({ instanceId = () => process.env.NOTA_INSTANCE_ID, now = 
   return next();
 };
 
-module.exports = { DEVICE_ID_PATTERN, DEVICE_NAME_MAX, THROTTLE_MS, deviceContext, resetDeviceThrottle, validDeviceId, decodeName };
+module.exports = { MAX_REMEMBERED, rememberedCount, DEVICE_ID_PATTERN, DEVICE_NAME_MAX, THROTTLE_MS, deviceContext, resetDeviceThrottle, validDeviceId, decodeName };
