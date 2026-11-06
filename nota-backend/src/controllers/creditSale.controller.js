@@ -14,6 +14,8 @@ const { withTransaction } = require("../utils/transaction");
 const { postSale, postReceipt, postReturn, postInvoiceEdit, postInvoiceCancel, postEntry, accountMap, line } = require("../accounting/posting");
 const { audit } = require("../auth/audit");
 const Receipt = require("../models/receipt.model");
+const PartyOpening = require("../models/partyOpening.model");
+const { openingRemaining } = require("../services/customerOpenItems.service");
 const { nextDocumentNumber } = require("../utils/documentNumber");
 
 const REACTIONARY_CREDIT_SALE_STATUS = "returned";
@@ -1426,8 +1428,11 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
     status: { $in: OPEN_CREDIT_SALE_STATUSES },
   }).sort({ sellingDate: -1, createdAt: -1, _id: -1 }).session(session);
 
+  // Stage 18: the customer's opening balance is collected last here (it is the oldest debt).
+  const openingDoc = await PartyOpening.findOne({ partyType: "customer", partyId: creditSale.customer }).session(session);
+  const openingLeft = openingRemaining(openingDoc);
   const totalRemainingAmount = roundMoney(
-    selectedRemainingAmount +
+    selectedRemainingAmount + openingLeft +
       otherOpenCreditSales.reduce(
         (sum, openInvoice) => sum + Number(openInvoice.remainingAmount || 0),
         0
@@ -1458,6 +1463,7 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
 
   const targetCreditSales = [creditSale, ...otherOpenCreditSales];
   const pendingUpdates = [];
+  const openingAllocations = [];
   const receiptNumber = await nextDocumentNumber(PREFIXES.RECEIPT, session);
   const receiptId = new mongoose.Types.ObjectId();
   let remainingPaymentAmount = roundMoney(amount);
@@ -1505,6 +1511,13 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
     remainingPaymentAmount = roundMoney(remainingPaymentAmount - payableAmount);
   }
 
+  if (remainingPaymentAmount > MONEY_EPSILON && openingLeft > 0) {
+    const payableAmount = roundMoney(Math.min(remainingPaymentAmount, openingLeft));
+    openingDoc.payments.push({ amount: payableAmount, paymentDate, note, number: receiptNumber, receipt: receiptId });
+    await openingDoc.save({ session });
+    openingAllocations.push({ opening: openingDoc._id, amount: payableAmount });
+    remainingPaymentAmount = roundMoney(remainingPaymentAmount - payableAmount);
+  }
   if (remainingPaymentAmount > MONEY_EPSILON) {
     res.status(400);
     throw new Error("تعذر توزيع الدفعة على الفواتير المفتوحة");
@@ -1525,7 +1538,10 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
     paymentDate,
     note,
     kind: "payment",
-    allocations: pendingUpdates.map((targetCreditSale) => ({ creditSale: targetCreditSale._id, amount: targetCreditSale.payments.at(-1).amount })),
+    allocations: [
+      ...pendingUpdates.map((targetCreditSale) => ({ creditSale: targetCreditSale._id, amount: targetCreditSale.payments.at(-1).amount })),
+      ...openingAllocations,
+    ],
   }], { session });
   const receipt = await Receipt.findById(receiptId).session(session).lean();
   const receiptCustomer = await Customer.findById(creditSale.customer).session(session).lean();

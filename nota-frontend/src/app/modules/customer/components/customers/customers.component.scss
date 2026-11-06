@@ -18,3 +18,6 @@
 .cu__error { margin: 0; font-size: 14px; font-weight: 500; color: var(--danger); }
 .cu__form { display: flex; flex-direction: column; gap: 14px; }
 .cu__sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.cu__bal { display: block; font-size: 13px; color: var(--text-muted); }
+.cu__bal--credit { color: var(--brand-strong-text); }

@@ -16,6 +16,7 @@ import {
 } from '../../../shared/ui';
 import { DashboardService, DashboardSummary } from '../../services/dashboard.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { OpeningBannerComponent } from '../../../accounting/opening-banner.component';
 
 export interface DashboardKpi {
   key: string;
@@ -45,7 +46,7 @@ export interface DashboardBar {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [NotaCanDirective, NgTemplateOutlet, RouterLink, TranslatePipe, NotaButtonDirective, NotaEmptyStateComponent, NotaMoneyPipe, NotaNumberPipe],
+  imports: [OpeningBannerComponent, NotaCanDirective, NgTemplateOutlet, RouterLink, TranslatePipe, NotaButtonDirective, NotaEmptyStateComponent, NotaMoneyPipe, NotaNumberPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss'],

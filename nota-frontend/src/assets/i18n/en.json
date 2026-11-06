@@ -517,7 +517,8 @@
             "settled": "Settled",
             "phoneUnique": "Must not repeat another customer's phone",
             "errorTitle": "Something went wrong",
-            "ok": "OK"
+            "ok": "OK",
+            "credit": "credit"
         }
     },
     "customerDetailsPage": {
@@ -662,7 +663,22 @@
             "amount": "Amount",
             "items": "Items",
             "noPayments": "No payments.",
-            "noReturns": "No returns."
+            "noReturns": "No returns.",
+            "aging": {
+                "title": "Aging of what the customer owes",
+                "current": "Not due",
+                "days1to30": "1–30 days overdue",
+                "days31to60": "31–60 days overdue",
+                "over60": "Over 60 days overdue",
+                "total": "Total",
+                "credit": "Credit owed to the customer: {{amount}}"
+            },
+            "openingCollect": {
+                "remaining": "Opening balance still to collect: {{amount}}",
+                "action": "Collect",
+                "save": "Record payment",
+                "invalid": "Enter an amount up to the remaining opening balance."
+            }
         }
     },
     "returnsPage": {
@@ -926,7 +942,8 @@
             "users": "Users & permissions",
             "shop": "Shop profile",
             "backup": "Backup",
-            "audit": "Audit log"
+            "audit": "Audit log",
+            "opening": "Opening balances"
         },
         "collapse": "Collapse menu",
         "expand": "Expand menu",
@@ -1379,12 +1396,207 @@
     },
     "accounting": {
         "viewEntry": "View journal entry",
-        "accounts": { "title": "Chart of accounts" },
-        "journal": { "title": "Journal entries" },
-        "entryTypes": { "auto": "Automatic", "reversal": "Reversal", "opening": "Opening", "legacy_reversal": "Pre-ledger cancellation" },
+        "accounts": {
+            "title": "Chart of accounts"
+        },
+        "journal": {
+            "title": "Journal entries"
+        },
+        "entryTypes": {
+            "auto": "Automatic",
+            "reversal": "Reversal",
+            "opening": "Opening",
+            "legacy_reversal": "Pre-ledger cancellation"
+        },
         "asOf": "As of",
         "number": "Number",
         "date": "Date",
-        "total": "Total", "section": "Accounting", "account": "Account", "balance": "Balance", "from": "From", "to": "To", "type": "Type", "source": "Source", "all": "All", "apply": "Apply", "empty": "No entries found", "party": "Party", "opening": "Opening balance", "debit": "Debit", "credit": "Credit", "memo": "Memo", "description": "Description", "reversalOf": "Reversal of", "reversedBy": "Reversed by"
+        "total": "Total",
+        "section": "Accounting",
+        "account": "Account",
+        "balance": "Balance",
+        "from": "From",
+        "to": "To",
+        "type": "Type",
+        "source": "Source",
+        "all": "All",
+        "apply": "Apply",
+        "empty": "No entries found",
+        "party": "Party",
+        "opening": "Opening balance",
+        "debit": "Debit",
+        "credit": "Credit",
+        "memo": "Memo",
+        "description": "Description",
+        "reversalOf": "Reversal of",
+        "reversedBy": "Reversed by",
+        "side": {
+            "debit": "Dr",
+            "credit": "Cr"
+        },
+        "oppositeHint": "Balance is on the opposite side of normal"
+    },
+    "openingWizard": {
+        "title": "Shop opening balances",
+        "subtitle": "Tell us what the shop has today, so every account starts right",
+        "loading": "Loading…",
+        "loadFailed": "Could not load the opening balances.",
+        "retry": "Retry",
+        "finalizedNote": "The opening balances are final. Later corrections are manual journal entries.",
+        "notSetupNote": "Sales have started, so the inventory is carried from the opening entry and cannot be edited here.",
+        "steps": {
+            "1": "Cash",
+            "2": "Inventory",
+            "3": "Customers",
+            "4": "Suppliers",
+            "5": "Review"
+        },
+        "amount": "Amount",
+        "remove": "Remove",
+        "back": "Back",
+        "next": "Next",
+        "currency": "EGP",
+        "openingDate": "Opening date",
+        "cash": {
+            "title": "Cash, banks and fixed assets",
+            "mainCash": "Cash in the main box",
+            "fixedAssets": "Fixed assets (optional)",
+            "fixedAssetsHint": "Furniture and equipment",
+            "banksTitle": "Banks and wallets",
+            "bankName": "Name",
+            "bankType": "Type",
+            "bank": "Bank",
+            "wallet": "Wallet",
+            "addBank": "Bank",
+            "addWallet": "Wallet"
+        },
+        "inventory": {
+            "title": "Goods on the shelf",
+            "setupNote": "Stock you type in now is your opening stock, not a stock difference. Edit quantities and purchase prices below.",
+            "addProducts": "Add products",
+            "importExcel": "Import from Excel",
+            "reload": "Reload",
+            "loadFailed": "Could not load the products.",
+            "saveFailed": "Could not save the product changes.",
+            "code": "Code",
+            "name": "Product",
+            "quantity": "Quantity",
+            "price": "Purchase price",
+            "value": "Value",
+            "empty": "No products with stock yet.",
+            "readOnlyNote": "The inventory value comes from the opening entry. Later stock changes are adjustments.",
+            "total": "Inventory value"
+        },
+        "customers": {
+            "title": "Money customers owe you",
+            "hint": "Positive = the customer owes you. Negative = you owe the customer.",
+            "collected": "Collected so far: {{amount}}",
+            "empty": "No customer balances yet.",
+            "pick": "Pick a customer",
+            "add": "Add",
+            "newName": "New customer name",
+            "newPhone": "Phone",
+            "create": "Create and add",
+            "duplicate": "This customer is already in the list.",
+            "nameAndPhone": "Enter the customer name and phone.",
+            "createFailed": "Could not create the customer."
+        },
+        "suppliers": {
+            "title": "Money you owe suppliers",
+            "hint": "Positive = you owe the supplier. Negative = the supplier owes you (an advance).",
+            "empty": "No supplier balances yet.",
+            "pick": "Pick a supplier",
+            "add": "Add",
+            "newName": "New supplier name",
+            "newPhone": "Phone",
+            "create": "Create and add",
+            "duplicate": "This supplier is already in the list.",
+            "nameRequired": "Enter the supplier name.",
+            "createFailed": "Could not create the supplier."
+        },
+        "review": {
+            "haveTitle": "What you have (assets)",
+            "oweTitle": "What you owe (liabilities)",
+            "cash": "Main cash",
+            "inventory": "Inventory ({{count}} products × purchase price)",
+      "inventoryCarried": "Inventory (from the opening entry)",
+            "customers": "Money owed by customers ({{count}})",
+            "fixedAssets": "Fixed assets",
+            "supplierAdvances": "Advances with suppliers",
+            "total": "Total",
+            "suppliers": "Money owed to suppliers ({{count}})",
+            "customerCredits": "Customer credits (we owe them)",
+            "capital": "Shop capital",
+            "have": "You have",
+            "owe": "You owe",
+            "note": "One opening entry is posted dated the ledger start. After that every sale and expense posts by itself.",
+            "confirm": "I reviewed the numbers, and these amounts match what I actually have",
+            "saved": "Saved as {{number}}",
+            "finalizeTitle": "Finalize the opening balances?",
+            "finalizeText": "This cannot be undone. Later corrections are manual journal entries.",
+            "cancel": "Cancel",
+            "finalizeConfirm": "Yes, finalize",
+            "save": "Save balances",
+            "finalize": "Finalize balances"
+        },
+        "errors": {
+            "amount": "Enter a valid amount (up to 2 decimals).",
+            "bankName": "Enter a name.",
+            "finalized": "The opening balances are final and cannot be changed.",
+            "belowCollected": "The opening balance of {{name}} cannot go below the {{amount}} already collected.",
+            "saveFailed": "Could not save the opening balances."
+        },
+        "banner": {
+            "text": "You have not recorded the shop opening balances yet",
+            "action": "Record them"
+        }
+    },
+    "suppliers": {
+        "title": "Suppliers",
+        "subtitle": "Total we owe suppliers: {{amount}} EGP",
+        "newSupplier": "New supplier",
+        "searchLabel": "Search suppliers",
+        "searchPlaceholder": "Name, phone or what they supply",
+        "search": "Search",
+        "columns": {
+            "name": "Supplier",
+            "contact": "Contact",
+            "terms": "Payment terms",
+            "balance": "Balance"
+        },
+        "loading": "Loading suppliers…",
+        "loadFailed": "Could not load the suppliers.",
+        "retry": "Retry",
+        "empty": "No suppliers yet.",
+        "termsCash": "Cash",
+        "termsDays": "{{days}} days",
+        "weOwe": "we owe",
+        "theyOwe": "they owe us",
+        "ledger": "Ledger",
+        "edit": "Edit",
+        "delete": "Delete",
+        "deleteBlocked": "This supplier has an opening balance or ledger entries and cannot be deleted.",
+        "deleteFailed": "Could not delete the supplier.",
+        "form": {
+            "newTitle": "New supplier",
+            "editTitle": "Edit supplier",
+            "name": "Supplier / company name",
+            "nameRequired": "The supplier name is required.",
+            "contactPerson": "Contact person",
+            "phone": "Phone",
+            "address": "Address",
+            "supplies": "What they supply",
+            "taxNumber": "Tax number",
+            "terms": "Agreed payment terms",
+            "termsNone": "Not set",
+            "termsCustom": "Custom…",
+            "termsDays": "Days",
+            "termsInvalid": "Enter a whole number of days.",
+            "notes": "Notes",
+            "balanceHint": "The supplier balance is calculated from purchase invoices and payments. Old balances enter once through the opening balances wizard.",
+            "cancel": "Cancel",
+            "save": "Save supplier",
+            "saveFailed": "Could not save the supplier."
+        }
     }
 }

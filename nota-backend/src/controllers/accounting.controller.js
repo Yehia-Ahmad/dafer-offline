@@ -11,6 +11,12 @@ const Meta = require("../models/meta.model");
 const { roundMoney } = require("../utils/invoicePricing");
 const { isLedgerDocument, returnedUnits } = require("../accounting/posting");
 const { customerStatementBalances } = require("../services/customerStatement.service");
+const Supplier = require("../models/supplier.model");
+const PartyOpening = require("../models/partyOpening.model");
+const { loadOpeningState, saveOpening, finalizeOpening, currentOpeningEntry, getOpeningMeta } = require("../accounting/opening");
+const { audit } = require("../auth/audit");
+const { withTransaction } = require("../utils/transaction");
+const { hasPermission } = require("../auth/permissions");
 
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -27,6 +33,10 @@ const parseQueryDate = (value, { endOfDay = false } = {}) => {
   }
   return new Date(value);
 };
+
+/** Additive display fields: the side the signed balance sits on and its absolute value (a zero balance sits on the normal side). */
+const sideOf = (balance, normalSide = "debit") => (balance > 0 ? "debit" : balance < 0 ? "credit" : normalSide);
+const withSide = (row, balance, normalSide) => ({ ...row, side: sideOf(balance, normalSide), absBalance: roundMoney(Math.abs(balance)) });
 
 const getAccounts = async (req, res) => {
   res.set("Cache-Control", "no-store");
@@ -47,12 +57,13 @@ const getAccounts = async (req, res) => {
   for (const row of rows) if (row.parentId && byId.has(String(row.parentId))) byId.get(String(row.parentId)).children.push(row);
   const roll = (row) => { row.balance = roundMoney(row.balance + row.children.reduce((sum, child) => sum + roll(child), 0)); return row.balance; };
   const roots = rows.filter((row) => !row.parentId); roots.forEach(roll);
+  for (const row of rows) { row.side = sideOf(row.balance, row.normalSide); row.absBalance = roundMoney(Math.abs(row.balance)); }
   const customerAccount = rows.find((row) => row.systemKey === "CUSTOMERS");
   if (customerAccount) {
     const partyBalances = balances.filter((row) => String(row._id.accountId) === String(customerAccount._id) && row._id.partyId && roundMoney(row.balance) !== 0);
     const customers = await Customer.find({ _id: { $in: partyBalances.map((row) => row._id.partyId) } }).select("_id name phone").lean();
     const byCustomer = new Map(customers.map((customer) => [String(customer._id), customer]));
-    customerAccount.virtualCustomers = partyBalances.map((row) => ({ ...(byCustomer.get(String(row._id.partyId)) || { _id: row._id.partyId, name: "" }), virtual: true, balance: roundMoney(row.balance) }));
+    customerAccount.virtualCustomers = partyBalances.map((row) => withSide({ ...(byCustomer.get(String(row._id.partyId)) || { _id: row._id.partyId, name: "" }), virtual: true, balance: roundMoney(row.balance) }, roundMoney(row.balance), "debit"));
   }
   res.json({ asOf, accounts: roots });
 };
@@ -85,15 +96,16 @@ const getLedger = async (req, res) => {
   const [rows, openingRows, parties] = await Promise.all([
     JournalEntry.aggregate(linesPipeline),
     from ? JournalEntry.aggregate(openingPipeline) : Promise.resolve([]),
-    account.systemKey === "CUSTOMERS" ? Customer.find({}).select("_id name phone").sort({ name: 1 }).lean() : Promise.resolve([]),
+    account.systemKey === "CUSTOMERS" ? Customer.find({}).select("_id name phone").sort({ name: 1 }).lean()
+      : account.systemKey === "SUPPLIERS" ? Supplier.find({}).select("_id name phones").sort({ name: 1 }).lean() : Promise.resolve([]),
   ]);
   const openingBalance = roundMoney(openingRows[0]?.balance || 0);
   let balance = openingBalance;
   const output = rows.map(({ line, ...entry }) => {
     balance = roundMoney(balance + Number(line.debit || 0) - Number(line.credit || 0));
-    return { ...line, ...entry, balance };
+    return withSide({ ...line, ...entry, balance }, balance, account.normalSide);
   });
-  res.json({ account, parties, openingBalance, lines: output, balance });
+  res.json({ account, parties, openingBalance, openingSide: sideOf(openingBalance, account.normalSide), openingAbsBalance: roundMoney(Math.abs(openingBalance)), lines: output, balance, side: sideOf(balance, account.normalSide), absBalance: roundMoney(Math.abs(balance)) });
 };
 
 const getJournal = async (req, res) => {
@@ -168,10 +180,13 @@ const getHealth = async (req, res) => {
   const byKey = new Map(accounts.map((account) => [account.systemKey, account]));
   const accountBalance = new Map(); const partyBalance = new Map();
   const customerAccountId = String(byKey.get("CUSTOMERS")?._id || "");
+  const supplierAccountId = String(byKey.get("SUPPLIERS")?._id || "");
+  const supplierPartyBalance = new Map();
   for (const row of balances) {
     const accountId = String(row._id.accountId);
     accountBalance.set(accountId, roundMoney((accountBalance.get(accountId) || 0) + Number(row.balance || 0)));
     if (accountId === customerAccountId && row._id.partyId) partyBalance.set(String(row._id.partyId), roundMoney((partyBalance.get(String(row._id.partyId)) || 0) + Number(row.balance || 0)));
+    if (accountId === supplierAccountId && row._id.partyId) supplierPartyBalance.set(String(row._id.partyId), roundMoney((supplierPartyBalance.get(String(row._id.partyId)) || 0) + Number(row.balance || 0)));
   }
   const actual = (key) => accountBalance.get(String(byKey.get(key)?._id)) || 0;
 
@@ -257,7 +272,102 @@ const getHealth = async (req, res) => {
   }
   const entries = { expected: expectedEntrySources, actual: actualEntrySources, difference: coverageIssues, bySource };
 
-  res.json({ trialBalance, inventory, customers: customersCheck, netSales, cogs, entries });
+  // 7. Suppliers (Stage 18): each supplier's ledger party balance against the supplier opening record,
+  //    until Stage 20 adds purchases and payments. Ledger balances are signed (credit negative), so expected = -amount.
+  const supplierOpenings = await PartyOpening.find({ partyType: "supplier" }).lean();
+  const supplierNames = new Map((await Supplier.find({}).select("name").lean()).map((row) => [String(row._id), row.name]));
+  const expectedBySupplier = new Map(supplierOpenings.map((row) => [String(row.partyId), roundMoney(-row.amount)]));
+  const supplierIds = new Set([...expectedBySupplier.keys(), ...supplierPartyBalance.keys()]);
+  const bySupplier = []; let expectedSuppliers = 0; let supplierDifference = 0;
+  for (const id of supplierIds) {
+    const expected = expectedBySupplier.get(id) || 0; const ledger = supplierPartyBalance.get(id) || 0;
+    expectedSuppliers += expected;
+    const difference = roundMoney(ledger - expected);
+    if (difference) { supplierDifference += Math.abs(difference); bySupplier.push({ supplierId: id, name: supplierNames.get(id) ?? null, expected, actual: ledger, difference }); }
+  }
+  const supplierTotal = actual("SUPPLIERS");
+  const supplierUnassigned = roundMoney(supplierTotal - sum([...supplierPartyBalance.values()], (value) => value));
+  const suppliersCheck = {
+    expected: roundMoney(expectedSuppliers), actual: roundMoney(supplierTotal),
+    difference: roundMoney(supplierDifference + Math.abs(supplierUnassigned)),
+    totalDifference: roundMoney(supplierTotal - expectedSuppliers), unassignedLines: supplierUnassigned, bySupplier,
+  };
+
+  // 8. Opening (Stage 18): the current opening entry's lines against the data the wizard stored
+  //    (cash, banks, fixed assets, inventory as saved, customers, suppliers, capital as the difference).
+  const openingCheck = await buildOpeningCheck({ meta, byKey, supplierOpenings });
+
+  res.json({ trialBalance, inventory, customers: customersCheck, suppliers: suppliersCheck, opening: openingCheck, netSales, cogs, entries });
 };
 
-module.exports = { getAccounts, getLedger, getJournal, getJournalEntry, getHealth, parseQueryDate };
+const signedKey = (accountId, partyId) => `${accountId}:${partyId || ""}`;
+
+const buildOpeningCheck = async ({ meta, byKey, supplierOpenings }) => {
+  const stored = meta?.opening?.data;
+  if (!stored) return { expected: 0, actual: 0, difference: 0, saved: false, byLine: [] };
+  const [customerOpenings, entry] = await Promise.all([PartyOpening.find({ partyType: "customer" }).lean(), currentOpeningEntry(meta.opening)]);
+  const expected = new Map();
+  const add = (map, key, amount) => map.set(key, roundMoney((map.get(key) || 0) + amount));
+  const account = (key) => String(byKey.get(key)?._id);
+  add(expected, signedKey(account("CASH_MAIN")), Number(stored.cash || 0));
+  for (const bank of stored.banks || []) add(expected, signedKey(String(bank.accountId)), Number(bank.amount || 0));
+  add(expected, signedKey(account("INVENTORY")), Number(stored.inventory || 0));
+  add(expected, signedKey(account("FIXED_ASSETS")), Number(stored.fixedAssets || 0));
+  const customerTotals = new Map();
+  for (const row of customerOpenings) add(customerTotals, String(row.partyId), Number(row.amount || 0));
+  for (const row of stored.carriedCustomers || []) add(customerTotals, String(row.customerId), Number(row.amount || 0));
+  for (const [id, amount] of customerTotals) add(expected, signedKey(account("CUSTOMERS"), id), amount);
+  for (const row of supplierOpenings) add(expected, signedKey(account("SUPPLIERS"), String(row.partyId)), -Number(row.amount || 0));
+  const capital = roundMoney(-[...expected.values()].reduce((total, value) => total + value, 0));
+  add(expected, signedKey(account("CAPITAL")), capital);
+  const actualMap = new Map();
+  for (const row of entry?.lines || []) add(actualMap, signedKey(String(row.accountId), row.partyId ? String(row.partyId) : ""), roundMoney(Number(row.debit || 0) - Number(row.credit || 0)));
+  const keys = new Set([...expected.keys(), ...actualMap.keys()]);
+  const byLine = []; let difference = 0;
+  for (const key of keys) {
+    const expectedAmount = expected.get(key) || 0; const actualAmount = actualMap.get(key) || 0;
+    const delta = roundMoney(actualAmount - expectedAmount);
+    if (delta) { difference += Math.abs(delta); byLine.push({ key, expected: expectedAmount, actual: actualAmount, difference: delta }); }
+  }
+  const absTotal = (map) => roundMoney([...map.values()].reduce((total, value) => total + Math.abs(value), 0));
+  return { expected: absTotal(expected), actual: absTotal(actualMap), difference: roundMoney(difference), saved: true, byLine };
+};
+
+// ---------------------------------------------------------------- Stage 18 opening wizard
+
+const auditTotals = (req, totals) => {
+  const canSeeCost = !req.user || hasPermission(req.user, "products.viewCost");
+  // Inventory (and so capital and assets) is valued at purchase price: only for users who may see cost.
+  const { inventory, capital, assets, ...safe } = totals;
+  return canSeeCost ? totals : safe;
+};
+
+const getOpening = async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const state = await loadOpeningState();
+  res.json(state);
+};
+
+const saveOpeningHandler = async (req, res) => {
+  const result = await withTransaction(async (session) => {
+    const saved = await saveOpening(req.body, { session, actor: req.user || null });
+    await audit(req, { action: "opening.saved", entity: "Opening", entityId: saved.entry?._id || "none", details: { number: saved.number, ...auditTotals(req, saved.totals) }, session, strict: true });
+    return saved;
+  });
+  const state = await loadOpeningState();
+  res.json({ message: "تم حفظ أرصدة بداية المحل", number: result.number, ...state });
+};
+
+const finalizeOpeningHandler = async (req, res) => {
+  if (!req.body || req.body.confirm !== true) { res.status(400); throw new Error("يجب تأكيد الاعتماد النهائي"); }
+  const result = await withTransaction(async (session) => {
+    const done = await finalizeOpening({ session, actor: req.user || null });
+    const current = await loadOpeningState(session);
+    await audit(req, { action: "opening.finalized", entity: "Opening", entityId: current.entry?._id || "none", details: { number: current.entry?.number, ...auditTotals(req, current.totals) }, session, strict: true });
+    return done;
+  });
+  const state = await loadOpeningState();
+  res.json({ message: "تم اعتماد أرصدة بداية المحل نهائيًا", finalizedAt: result.finalizedAt, ...state });
+};
+
+module.exports = { getAccounts, getLedger, getJournal, getJournalEntry, getHealth, parseQueryDate, getOpening, saveOpening: saveOpeningHandler, finalizeOpening: finalizeOpeningHandler };

@@ -48,6 +48,8 @@ const MONGO_URI = `mongodb://127.0.0.1:${MONGO_PORT}/${DB_NAME}?replicaSet=${REP
 // Stage 13: the main run is with NOTA_AUTH=1; a short second run (fresh database on the same
 // mongod) proves that with NOTA_AUTH unset the backend behaves as before.
 const NOAUTH_DB_NAME = 'dafer_smoke_noauth';
+// Stage 18: a third, fresh database (auth on) for the opening-balance scenarios, which need a shop with no sale yet.
+const OPENING_DB_NAME = 'dafer_smoke_opening';
 const JWT_SECRET = 'smoke-jwt-secret-0123456789abcdef-0123456789';
 const OWNER = { name: 'Smoke Owner', username: 'smoke-owner', password: 'owner-pass-123' };
 const LAN_SECRET = 'smoke-secret-123';
@@ -159,7 +161,7 @@ async function startMongod() {
 }
 
 async function startBackend({ auth = true, dbName = DB_NAME } = {}) {
-  const logFile = path.join(tempDir, `backend-${auth ? 'auth' : 'noauth'}.log`);
+  const logFile = path.join(tempDir, `backend-${auth ? 'auth' : 'noauth'}-${dbName}.log`);
   const mongoUri = `mongodb://127.0.0.1:${MONGO_PORT}/${dbName}?replicaSet=${REPLICA_SET}&directConnection=true`;
   const env = {
     ...process.env,
@@ -515,6 +517,178 @@ async function runAuthOffCheck() {
     const users = await request('GET', '/api/users');
     expectStatus(users, 404, 'GET /api/users');
     return `${describe(bootstrap)}; ${describe(users)}`;
+  });
+}
+
+// Stage 18: the opening-balance wizard on a fresh shop (no sale yet), then the rules around it.
+async function runOpeningScenarios() {
+  const ctx = {};
+  const today = localDay();
+  authToken = null;
+  await step('Opening: setup-owner on a fresh database, then a cashier (no accounting.manage)', async () => {
+    const owner = await request('POST', '/api/auth/setup-owner', { body: OWNER, token: null });
+    expectStatus(owner, 201, 'POST /api/auth/setup-owner');
+    authToken = owner.json.token;
+    const clerk = { name: 'Opening Clerk', username: 'opening-clerk', password: 'clerk-pass-1', role: 'cashier' };
+    expectStatus(await request('POST', '/api/users', { body: clerk }), 201, 'POST /api/users');
+    const login = await request('POST', '/api/auth/login', { body: { username: clerk.username, password: clerk.password }, token: null });
+    expectStatus(login, 200, 'clerk login');
+    ctx.clerkToken = login.json.token;
+    return 'owner and cashier ready';
+  });
+
+  await step('Opening: a fresh shop starts in setup mode (status setup, setup mode on)', async () => {
+    const response = await request('GET', '/api/accounting/opening');
+    expectStatus(response, 200, 'GET /api/accounting/opening');
+    expect(response.json.status === 'setup' && response.json.setupMode === true, `expected setup/true, got ${response.json.status}/${response.json.setupMode}`);
+    return `status ${response.json.status}, setupMode ${response.json.setupMode}`;
+  });
+
+  await step('Opening: a cashier gets 403 on the wizard (read, save and finalize)', async () => {
+    const statuses = [];
+    for (const [method, route, body] of [['GET', '/api/accounting/opening'], ['POST', '/api/accounting/opening', { cash: 1 }], ['POST', '/api/accounting/opening/finalize', { confirm: true }]]) {
+      const response = await request(method, route, { body, token: ctx.clerkToken });
+      expectStatus(response, 403, `cashier ${method} ${route}`);
+      statuses.push(response.status);
+    }
+    return `statuses ${statuses.join(', ')}`;
+  });
+
+  await step('Opening: owner adds a product with stock in setup mode → opening_inventory posts to capital', async () => {
+    const category = await request('POST', '/api/categories', { body: { name: 'Opening Category' } });
+    expectStatus(category, 201, 'POST /api/categories');
+    ctx.categoryId = category.json._id;
+    const product = await request('POST', '/api/products', { body: { name: 'Opening Product', code: 'OPEN-1', categoryId: ctx.categoryId, inventoryCount: 10, purchasePrice: 20, wholesalePrice: 30, retailPrice: 40 } });
+    expectStatus(product, 201, 'POST /api/products');
+    ctx.productId = product.json._id;
+    const journal = await request('GET', `/api/accounting/journal?sourceType=opening_inventory&sourceId=${ctx.productId}`);
+    expectStatus(journal, 200, 'GET journal by source');
+    const entry = journal.json.data[0];
+    expect(entry, 'no opening_inventory entry');
+    const byCode = new Map(entry.lines.map((line) => [line.accountCode, line]));
+    expect(byCode.get('114')?.debit === 200 && byCode.get('31')?.credit === 200, 'expected Dr inventory 200 / Cr capital 200');
+    return 'Dr 114 200 / Cr 31 200';
+  });
+
+  await step('Opening: wizard save — cash 1,000, bank 2,000, customer 500, supplier 300 → capital 2,400 (inventory 200 folded in)', async () => {
+    const customer = await request('POST', '/api/customers', { body: { name: 'Opening Customer', phone: '01099990001' } });
+    expectStatus(customer, 201, 'POST /api/customers');
+    ctx.customerId = customer.json._id;
+    const supplier = await request('POST', '/api/suppliers', { body: { name: 'Opening Supplier', phone: '01099990002', paymentTermsDays: 30 } });
+    expectStatus(supplier, 201, 'POST /api/suppliers');
+    ctx.supplierId = supplier.json._id;
+    const saved = await request('POST', '/api/accounting/opening', { body: {
+      cash: 1000, banks: [{ name: 'Smoke Bank', type: 'bank', amount: 2000 }],
+      customers: [{ customerId: ctx.customerId, amount: 500 }], suppliers: [{ supplierId: ctx.supplierId, amount: 300 }],
+    } });
+    expectStatus(saved, 200, 'POST /api/accounting/opening');
+    expect(saved.json.totals.capital === 3400, `capital expected 3400 (assets 3700 - liabilities 300), got ${saved.json.totals.capital}`);
+    ctx.firstOpening = saved.json.entry.number;
+    return `OB ${ctx.firstOpening}, capital ${saved.json.totals.capital}`;
+  });
+
+  const healthIsZero = async (label) => {
+    const response = await request('GET', '/api/accounting/health');
+    expectStatus(response, 200, 'GET /api/accounting/health');
+    const details = Object.entries(response.json).map(([name, check]) => `${name}=${check.difference}`);
+    for (const [name, check] of Object.entries(response.json)) expect(Number(check.difference) === 0, `${label}: ${name} difference ${check.difference}`);
+    return details.join(', ');
+  };
+
+  await step('Opening: health is 0 after the wizard save (every check, including suppliers and opening)', () => healthIsZero('after save'));
+
+  await step('Opening: the accounts tree shows capital as a credit balance with side and absBalance', async () => {
+    const response = await request('GET', '/api/accounting/accounts');
+    expectStatus(response, 200, 'GET /api/accounting/accounts');
+    const flat = []; const walk = (rows) => rows.forEach((row) => { flat.push(row); walk(row.children || []); }); walk(response.json.accounts);
+    const capital = flat.find((row) => row.systemKey === 'CAPITAL');
+    expect(capital.balance === -3400 && capital.side === 'credit' && capital.absBalance === 3400, `capital ${JSON.stringify({ b: capital.balance, s: capital.side, a: capital.absBalance })}`);
+    const bank = flat.find((row) => row.code === '1121');
+    expect(bank && bank.kind === 'bank' && bank.absBalance === 2000, 'bank account 1121 missing or wrong');
+    return 'capital 3,400 credit; bank 1121 2,000 debit';
+  });
+
+  await step('Opening: a customer opening is collected by a receipt and the statement shows رصيد أول المدة', async () => {
+    const part = await request('POST', `/api/customers/${ctx.customerId}/payments`, { body: { amount: 200, firstInvoice: true } });
+    expectStatus(part, 201, 'POST /api/customers/:id/payments');
+    expect(part.json.openingCollected === 200, `openingCollected expected 200, got ${part.json.openingCollected}`);
+    const statement = await request('GET', `/api/customers/${ctx.customerId}/statement`);
+    expectStatus(statement, 200, 'GET statement');
+    expect(statement.json.lines[0].description === 'رصيد أول المدة' && statement.json.lines[0].debit === 500, 'the opening line is not first');
+    expect(statement.json.totals.balance === 300 && statement.json.outstanding === 300, `balance expected 300, got ${statement.json.totals.balance}`);
+    return `balance ${statement.json.totals.balance}, aging total ${statement.json.aging.total}`;
+  });
+
+  await step('Opening: a receipt that ended setup mode — the first receipt counts as activity', async () => {
+    const response = await request('GET', '/api/accounting/opening');
+    expect(response.json.setupMode === false, 'setup mode should have ended with the first receipt');
+    return 'setupMode false';
+  });
+
+  await step('Opening: a stock edit now posts to the adjustment account, not capital', async () => {
+    const edit = await request('PUT', `/api/products/${ctx.productId}`, { body: { inventoryCount: 12 } });
+    expectStatus(edit, 200, 'PUT /api/products/:id');
+    const adjustment = await request('GET', `/api/accounting/journal?sourceType=inventory_adjustment&sourceId=${ctx.productId}`);
+    expect(adjustment.json.data.length === 1, 'no inventory_adjustment entry');
+    const opening = await request('GET', `/api/accounting/journal?sourceType=opening_inventory&sourceId=${ctx.productId}`);
+    expect(opening.json.data.every((entry) => entry.type !== 'auto' || entry.reversedBy), 'a new opening_inventory entry was posted');
+    return 'inventory_adjustment 40';
+  });
+
+  await step('Opening: a sale after the opening is not touched by it and health stays 0', async () => {
+    const sale = await request('POST', '/api/sellings', { body: { customerName: 'Walk-in', customerPhone: '01099990003', sellingDate: today, items: [{ productId: ctx.productId, quantity: 1, price: 40 }] } });
+    expectStatus(sale, 201, 'POST /api/sellings');
+    return healthIsZero('after sale');
+  });
+
+  await step('Opening: re-save changes cash → the old OB is reversed, a new OB is posted, inventory is carried, health 0', async () => {
+    const before = await request('GET', '/api/accounting/opening');
+    const saved = await request('POST', '/api/accounting/opening', { body: {
+      cash: 1500, banks: [{ accountId: before.json.figures.banks[0].accountId, amount: 2000 }],
+      customers: [{ customerId: ctx.customerId, amount: 500 }], suppliers: [{ supplierId: ctx.supplierId, amount: 300 }],
+    } });
+    expectStatus(saved, 200, 'POST /api/accounting/opening re-save');
+    expect(saved.json.entry.number !== ctx.firstOpening, 'the OB number did not change');
+    const old = await request('GET', `/api/accounting/journal?number=${ctx.firstOpening}`);
+    expect(old.json.data[0].reversedBy, 'the old OB was not reversed');
+    expect(saved.json.figures.inventory.mode === 'carried', 'inventory should be carried after the first sale');
+    return `new OB ${saved.json.entry.number}; ${await healthIsZero('after re-save')}`;
+  });
+
+  await step('Opening: lowering the customer opening below what was collected → 409 OPENING_BELOW_COLLECTED', async () => {
+    const response = await request('POST', '/api/accounting/opening', { body: { cash: 1500, customers: [{ customerId: ctx.customerId, amount: 100 }] } });
+    expectStatus(response, 409, 'POST /api/accounting/opening below collected');
+    expect(response.json.code === 'OPENING_BELOW_COLLECTED' && response.json.collected === 200, `unexpected ${JSON.stringify(response.json)}`);
+    return `customer ${response.json.customerName}, collected ${response.json.collected}`;
+  });
+
+  await step('Opening: finalize → 200, then a re-save → 409 OPENING_FINALIZED', async () => {
+    const finalized = await request('POST', '/api/accounting/opening/finalize', { body: { confirm: true } });
+    expectStatus(finalized, 200, 'POST /api/accounting/opening/finalize');
+    expect(finalized.json.status === 'finalized', 'status is not finalized');
+    const again = await request('POST', '/api/accounting/opening', { body: { cash: 1 } });
+    expectStatus(again, 409, 'POST /api/accounting/opening after finalize');
+    expect(again.json.code === 'OPENING_FINALIZED', `code expected OPENING_FINALIZED, got ${again.json.code}`);
+    return `${describe(again)}`;
+  });
+
+  await step('Suppliers: the list shows the ledger balance; deleting a supplier with an opening balance → 409 SUPPLIER_HAS_BALANCE', async () => {
+    const list = await request('GET', '/api/suppliers');
+    expectStatus(list, 200, 'GET /api/suppliers');
+    const row = list.json.find((item) => item._id === ctx.supplierId);
+    expect(row && row.balance === 300 && row.openingAmount === 300, `supplier row ${JSON.stringify(row && { b: row.balance, o: row.openingAmount })}`);
+    const blocked = await request('DELETE', `/api/suppliers/${ctx.supplierId}`);
+    expectStatus(blocked, 409, 'DELETE /api/suppliers/:id');
+    expect(blocked.json.code === 'SUPPLIER_HAS_BALANCE', `code ${blocked.json.code}`);
+    const clean = await request('POST', '/api/suppliers', { body: { name: 'No balance' } });
+    expectStatus(await request('DELETE', `/api/suppliers/${clean.json._id}`), 200, 'DELETE clean supplier');
+    return 'balance 300; delete blocked; a clean supplier deletes';
+  });
+
+  await step('Suppliers: a cashier cannot list or create suppliers (403)', async () => {
+    expectStatus(await request('GET', '/api/suppliers', { token: ctx.clerkToken }), 403, 'cashier GET /api/suppliers');
+    expectStatus(await request('POST', '/api/suppliers', { body: { name: 'x' }, token: ctx.clerkToken }), 403, 'cashier POST /api/suppliers');
+    return '403, 403';
   });
 }
 
@@ -1059,8 +1233,13 @@ async function main() {
     // The switch: the same backend with NOTA_AUTH unset, on a fresh database of the same mongod.
     await stopChild(authBackend);
     children.splice(children.indexOf(authBackend), 1);
-    await startBackend({ auth: false, dbName: NOAUTH_DB_NAME });
+    const noAuthBackend = await startBackend({ auth: false, dbName: NOAUTH_DB_NAME });
     await runAuthOffCheck();
+    // Stage 18: the opening-balance wizard, on its own fresh database with auth on.
+    await stopChild(noAuthBackend);
+    children.splice(children.indexOf(noAuthBackend), 1);
+    await startBackend({ auth: true, dbName: OPENING_DB_NAME });
+    await runOpeningScenarios();
   } catch (error) {
     record(false, 'Smoke test setup', error.message);
   } finally {

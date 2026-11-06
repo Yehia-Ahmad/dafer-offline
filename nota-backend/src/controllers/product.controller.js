@@ -9,7 +9,8 @@ const asyncHandler = require("../utils/asyncHandler");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { calculatePriceAfterDiscount } = require("../utils/productPricing");
 const { withTransaction } = require("../utils/transaction");
-const { postInventoryAdjustment, postCostSync, getLedgerStartAt, isLedgerDocument, returnedUnits } = require("../accounting/posting");
+const { postCostSync, getLedgerStartAt, isLedgerDocument, returnedUnits } = require("../accounting/posting");
+const { postStockAdjustment } = require("../accounting/opening");
 const { audit } = require("../auth/audit");
 const { hasPermission } = require("../auth/middleware");
 
@@ -705,7 +706,7 @@ const createProductInTransaction = async (req, res, session) => {
 
   const product = await Product.create([payload], { session }).then((rows) => rows[0]);
   const openingStock = Number(product.inventoryCount || 0);
-  if (openingStock > 0) await postInventoryAdjustment({ date: new Date(), source: { type: "product_create", id: product._id, number: product.code }, amount: roundMoney(openingStock * Number(product.purchasePrice || 0)), increase: true, session });
+  if (openingStock > 0) await postStockAdjustment({ date: new Date(), source: { type: "product_create", id: product._id, number: product.code }, amount: roundMoney(openingStock * Number(product.purchasePrice || 0)), increase: true, session });
   await product.populate("category", CATEGORY_PRODUCT_FIELDS);
   return product;
 };
@@ -877,9 +878,9 @@ const updateProductInTransaction = async (req, res, session) => {
   const oldPurchase = originalPurchasePrice;
   const updatedProduct = await product.save({ session });
   const inventoryDelta = Number(updatedProduct.inventoryCount || 0) - oldInventory;
-  if (inventoryDelta !== 0) await postInventoryAdjustment({ date: new Date(), source: { type: "inventory_adjustment", id: updatedProduct._id, number: updatedProduct.code }, amount: roundMoney(Math.abs(inventoryDelta) * Number(updatedProduct.purchasePrice || 0)), increase: inventoryDelta > 0, session });
+  if (inventoryDelta !== 0) await postStockAdjustment({ date: new Date(), source: { type: "inventory_adjustment", id: updatedProduct._id, number: updatedProduct.code }, amount: roundMoney(Math.abs(inventoryDelta) * Number(updatedProduct.purchasePrice || 0)), increase: inventoryDelta > 0, session });
   const purchaseDelta = Number(updatedProduct.purchasePrice || 0) - oldPurchase;
-  if (purchaseDelta !== 0 && oldInventory > 0) await postInventoryAdjustment({ date: new Date(), source: { type: "cost_revaluation", id: updatedProduct._id, number: updatedProduct.code }, amount: roundMoney(oldInventory * Math.abs(purchaseDelta)), increase: purchaseDelta > 0, session });
+  if (purchaseDelta !== 0 && oldInventory > 0) await postStockAdjustment({ date: new Date(), source: { type: "cost_revaluation", id: updatedProduct._id, number: updatedProduct.code }, amount: roundMoney(oldInventory * Math.abs(purchaseDelta)), increase: purchaseDelta > 0, session });
   await updatedProduct.populate("category", CATEGORY_PRODUCT_FIELDS);
   return updatedProduct;
 };
@@ -1086,7 +1087,7 @@ const deleteProduct = asyncHandler(async (req, res) => {
     }
     const stockValue = roundMoney(Number(product.inventoryCount || 0) * Number(product.purchasePrice || 0));
     await product.deleteOne({ session });
-    if (stockValue > 0) await postInventoryAdjustment({ date: new Date(), source: { type: "product_writeoff", id, number: product.code }, amount: stockValue, increase: false, session });
+    if (stockValue > 0) await postStockAdjustment({ date: new Date(), source: { type: "product_writeoff", id, number: product.code }, amount: stockValue, increase: false, session });
     await audit(req, { action: "product.deleted", entity: "Product", entityId: id, session, strict: true });
     return { action: "deleted", message: "Product deleted successfully" };
   });

@@ -1,0 +1,7 @@
+// Add / edit supplier (AddSupplier.dc.html). Tokens only.
+:host { display: block; }
+.sf { display: flex; flex-direction: column; gap: 18px; max-width: 760px; }
+.sf__card { display: flex; flex-direction: column; gap: 16px; padding: 20px; }
+.sf__row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.sf__footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+@media (max-width: 480px) { .sf__card { padding: 14px; } .sf__footer > * { flex: 1 1 100%; } }

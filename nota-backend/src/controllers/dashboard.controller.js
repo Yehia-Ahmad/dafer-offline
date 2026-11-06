@@ -5,6 +5,7 @@ const asyncHandler = require("../utils/asyncHandler");
 const { roundMoney } = require("../utils/invoicePricing");
 const { DEFAULT_LOW_STOCK_THRESHOLD } = require("../utils/lowStock");
 const { toSellingInvoice } = require("./selling.controller");
+const { loadCustomerOpenItems } = require("../services/customerOpenItems.service");
 
 // Stage 12: read-only dashboard summary (GET /api/dashboard/summary).
 //
@@ -77,26 +78,8 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
   const [cashByDay, creditByDay, outstandingRows, recentCash, recentCredit, lowStock] = await Promise.all([
     cashTotalsByDay(firstDay, tomorrow),
     totalsByDay(CreditSale, firstDay, tomorrow),
-    CreditSale.aggregate([
-      { $match: { remainingAmount: { $gt: 0 }, status: { $nin: ["cancelled", "returned"] } } },
-      {
-        $group: {
-          _id: null,
-          outstanding: { $sum: "$remainingAmount" },
-          customers: { $addToSet: "$customer" },
-          overdueAmount: {
-            $sum: {
-              $cond: [{ $and: [{ $ne: [{ $ifNull: ["$dueDate", null] }, null] }, { $lt: ["$dueDate", today] }] }, "$remainingAmount", 0],
-            },
-          },
-          overdueCount: {
-            $sum: {
-              $cond: [{ $and: [{ $ne: [{ $ifNull: ["$dueDate", null] }, null] }, { $lt: ["$dueDate", today] }] }, 1, 0],
-            },
-          },
-        },
-      },
-    ]),
+    // Stage 18: one open-items source (invoices + customer opening balances) for outstanding.
+    loadCustomerOpenItems(),
     Selling.find({ status: { $ne: "cancelled" } }).sort({ createdAt: -1, _id: -1 }).limit(RECENT_LIMIT).lean(),
     CreditSale.find({ status: { $ne: "cancelled" } }, "customer customerName number totalPrice refundedAmount createdAt sellingDate").sort({ createdAt: -1, _id: -1 }).limit(RECENT_LIMIT).lean(),
     Product.aggregate([
@@ -122,7 +105,18 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
     last7Days.push({ date: key, cash: dayTotals(cashByDay, key).total, credit: dayTotals(creditByDay, key).total });
   }
 
-  const outstanding = outstandingRows[0];
+  // Overdue stays by invoice dueDate; an opening balance has no due date, so it counts as outstanding but never as overdue.
+  const outstanding = { outstanding: 0, customers: [], overdueAmount: 0, overdueCount: 0 };
+  for (const [customerId, open] of outstandingRows) {
+    for (const item of open.items) {
+      outstanding.outstanding += item.remaining;
+      if (!outstanding.customers.includes(customerId)) outstanding.customers.push(customerId);
+      if (item.kind === "invoice" && item.dueDate && new Date(item.dueDate) < today) {
+        outstanding.overdueAmount += item.remaining;
+        outstanding.overdueCount += 1;
+      }
+    }
+  }
   const recentInvoices = [
     ...recentCash.map((selling) => ({
       id: String(selling._id),

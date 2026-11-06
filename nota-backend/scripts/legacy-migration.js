@@ -272,8 +272,32 @@ async function main() {
     for (const step of repro.steps) console.log(`ledger repro step "${step.label}": health ${JSON.stringify(step.health)}, CASH_MAIN ${step.cash}, customers checked ${step.customers}`);
     console.log(`ledger repro cost_sync entries: ${JSON.stringify(repro.results.costSync)}`);
 
+    // Stage 18: the opening wizard on the upgraded database. Sales exist after the ledger start, so the
+    // inventory stays read-only and carried; the legacy invoice balances are carried into the new OB.
+    const openingState = await request(currentBase, "GET", "/api/accounting/opening");
+    assert.equal(openingState.setupMode, false, "upgraded data with sales after the start is not in setup mode");
+    const wizardCustomer = await request(currentBase, "POST", "/api/customers", { name: "Wizard opening", phone: "01010000015" });
+    const wizardSupplier = await request(currentBase, "POST", "/api/suppliers", { name: "Wizard supplier", phone: "01010000016" });
+    const saved = await request(currentBase, "POST", "/api/accounting/opening", {
+      cash: 1500, banks: [{ name: "Wizard bank", type: "bank", amount: 500 }],
+      customers: [{ customerId: wizardCustomer._id, amount: 300 }], suppliers: [{ supplierId: wizardSupplier._id, amount: 200 }],
+    });
+    assert.equal(saved.totals.inventory, openingState.figures.inventory.amount, "carried inventory is unchanged");
+    const collected = await request(currentBase, "POST", `/api/customers/${wizardCustomer._id}/payments`, { amount: 100, firstInvoice: true });
+    assert.equal(collected.openingCollected, 100);
+    const wizardStatement = await request(currentBase, "GET", `/api/customers/${wizardCustomer._id}/statement`);
+    assert.equal(wizardStatement.totals.balance, 200);
+    assert.equal(wizardStatement.lines[0].description, "رصيد أول المدة");
+    // The legacy customers still match their statements after the re-post.
+    assert.equal((await request(currentBase, "GET", `/api/customers/${reallocCustomer._id}/statement`)).totals.balance, 50);
+    const afterWizard = await request(currentBase, "GET", "/api/accounting/health");
+    for (const [name, check] of Object.entries(afterWizard)) {
+      if (check && typeof check === "object" && "difference" in check) assert.equal(Number(check.difference), 0, `accounting health after the wizard: ${name}`);
+    }
+    console.log(`opening wizard after the upgrade: OB ${saved.number}, capital ${saved.totals.capital}, health 0`);
+
     assert.doesNotMatch(currentErrors, /TypeError/);
-    console.log("legacy migration scenarios passed: cash partial/full/single-line, discount+shipping credit return, reallocation, down payment, repeated partial-line merge, Stage 17 ledger repro (10 checkpoints)");
+    console.log("legacy migration scenarios passed: cash partial/full/single-line, discount+shipping credit return, reallocation, down payment, repeated partial-line merge, Stage 17 ledger repro (10 checkpoints), Stage 18 opening wizard");
   } finally {
     await stopChild(oldBackend);
     await stopChild(currentBackend);

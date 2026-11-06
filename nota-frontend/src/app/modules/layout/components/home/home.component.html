@@ -13,6 +13,9 @@
     </div>
   </header>
 
+  <!-- Stage 18: only users who can run the wizard see this, and only while the opening is still in setup. -->
+  <app-opening-banner *notaCan="['accounting.manage', 'accounting.view']" />
+
   @if (loading()) {
     <p class="db__muted" role="status">{{ 'dashboard.loading' | translate }}</p>
   } @else if (failed()) {

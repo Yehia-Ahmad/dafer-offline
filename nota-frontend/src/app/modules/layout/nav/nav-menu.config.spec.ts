@@ -12,7 +12,7 @@ describe('nav menu config', () => {
     expect(keys(visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.owner)))).toEqual([
       ['main', ['home']],
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
-      ['inventory', ['products']],
+      ['inventory', ['products', 'suppliers']],
       ['accounting', ['profit']],
       ['admin', ['users', 'audit', 'shop', 'backup']],
     ]);
@@ -22,7 +22,7 @@ describe('nav menu config', () => {
     expect(keys(visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.manager)))).toEqual([
       ['main', ['home']],
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
-      ['inventory', ['products']],
+      ['inventory', ['products', 'suppliers']],
       ['accounting', ['profit']],
       ['admin', ['audit', 'shop']],
     ]);
@@ -38,7 +38,7 @@ describe('nav menu config', () => {
 
   it('storekeeper: products only (no dashboard, no sales)', () => {
     expect(keys(visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.storekeeper)))).toEqual([
-      ['inventory', ['products']],
+      ['inventory', ['products', 'suppliers']],
     ]);
   });
 
@@ -46,10 +46,23 @@ describe('nav menu config', () => {
     expect(keys(visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.accountant)))).toEqual([
       ['main', ['home']],
       ['sales', ['credit', 'invoices', 'returns', 'customers']],
-      ['inventory', ['products']],
+      ['inventory', ['products', 'suppliers']],
       ['accounting', ['profit']],
       ['admin', ['audit']],
     ]);
+  });
+
+  it('Stage 18: suppliers need suppliers.view; the opening wizard needs accounting.manage and sits under الحسابات', () => {
+    const items = NAV_GROUPS.flatMap((g) => g.items);
+    const suppliers = items.find((i) => i.key === 'suppliers')!;
+    expect(suppliers.route).toBe('/suppliers');
+    expect(suppliers.visible(ctxFor([]))).toBeFalse();
+    expect(suppliers.visible(ctxFor(['suppliers.view']))).toBeTrue();
+    const opening = items.find((i) => i.key === 'opening')!;
+    expect(opening.route).toBe('/accounting/opening');
+    expect(NAV_GROUPS.find((g) => g.key === 'accounting')!.items.some((i) => i.key === 'opening')).toBeTrue();
+    expect(opening.visible(ctxFor(['accounting.view']))).toBeFalse();
+    expect(opening.visible(ctxFor(['accounting.manage']))).toBeTrue();
   });
 
   it('profit report needs reports.profit and products.viewCost together', () => {
@@ -65,7 +78,7 @@ describe('nav menu config', () => {
 
   it('keeps future screens defined but hidden', () => {
     const all = NAV_GROUPS.flatMap((g) => g.items);
-    for (const key of ['purchases', 'suppliers', 'cash', 'expenses']) {
+    for (const key of ['purchases', 'cash', 'expenses']) {
       const item = all.find((i) => i.key === key);
       expect(item).withContext(key).toBeDefined();
       expect(item!.visible(ctxFor(ROLE_PERMISSIONS.owner))).withContext(key).toBeFalse();

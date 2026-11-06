@@ -102,6 +102,26 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/accounting/accounts.component').then(m => m.AccountsComponent)
     },
     {
+        path: 'accounting/opening',
+        canActivate: [permissionGuard(ROUTE_RULES.accountingOpening)],
+        loadComponent: () => import('./modules/accounting/opening-wizard.component').then(m => m.OpeningWizardComponent)
+    },
+    {
+        path: 'suppliers',
+        canActivate: [permissionGuard(ROUTE_RULES.suppliers)],
+        loadComponent: () => import('./modules/suppliers/suppliers-page.component').then(m => m.SuppliersPageComponent)
+    },
+    {
+        path: 'suppliers/new',
+        canActivate: [permissionGuard(ROUTE_RULES.supplierForm)],
+        loadComponent: () => import('./modules/suppliers/supplier-form.component').then(m => m.SupplierFormComponent)
+    },
+    {
+        path: 'suppliers/edit/:id',
+        canActivate: [permissionGuard(ROUTE_RULES.supplierForm)],
+        loadComponent: () => import('./modules/suppliers/supplier-form.component').then(m => m.SupplierFormComponent)
+    },
+    {
         path: 'accounting/journal',
         canActivate: [permissionGuard(ROUTE_RULES.accounting)],
         loadComponent: () => import('./modules/accounting/journal.component').then(m => m.JournalComponent)

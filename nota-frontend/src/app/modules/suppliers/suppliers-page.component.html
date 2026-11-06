@@ -1,0 +1,75 @@
+<!-- Stage 18: suppliers (Suppliers.dc.html list). The statement, purchases and payments are Stage 20. -->
+<div class="sp">
+  <nota-page-header [title]="'suppliers.title' | translate" [subtitle]="'suppliers.subtitle' | translate: { amount: (totalWeOwe() | notaMoney) }">
+    <div notaPageActions>
+      <a *notaCan="'suppliers.manage'" notaButton="primary" routerLink="/suppliers/new" data-action="new-supplier">+ {{ 'suppliers.newSupplier' | translate }}</a>
+    </div>
+  </nota-page-header>
+
+  <form class="sp__search" (ngSubmit)="load()">
+    <input class="nota-input" type="search" name="search" [(ngModel)]="search" [attr.aria-label]="'suppliers.searchLabel' | translate" [placeholder]="'suppliers.searchPlaceholder' | translate" data-test="supplier-search" />
+    <button type="submit" notaButton>{{ 'suppliers.search' | translate }}</button>
+  </form>
+
+  @if (deleteError()) {
+    <p class="nota-error" role="alert" data-test="delete-error">{{ deleteError() | translate }}</p>
+  }
+
+  <section class="nota-card">
+    <div class="nota-table-wrap">
+      <table class="nota-table">
+        <thead><tr>
+          <th>{{ 'suppliers.columns.name' | translate }}</th>
+          <th>{{ 'suppliers.columns.contact' | translate }}</th>
+          <th>{{ 'suppliers.columns.terms' | translate }}</th>
+          <th class="nota-num">{{ 'suppliers.columns.balance' | translate }}</th>
+          <th><span class="nota-sr-only">{{ 'tableHeaders.actions' | translate }}</span></th>
+        </tr></thead>
+        <tbody>
+          @if (loading()) {
+            <tr><td colspan="5" class="sp__empty" role="status">{{ 'suppliers.loading' | translate }}</td></tr>
+          } @else if (loadError()) {
+            <tr><td colspan="5" class="sp__empty">
+              <span class="nota-error">{{ 'suppliers.loadFailed' | translate }}</span>
+              <button type="button" notaButton (click)="load()">{{ 'suppliers.retry' | translate }}</button>
+            </td></tr>
+          } @else {
+            @for (row of suppliers(); track row._id) {
+              <tr [attr.data-supplier]="row.name" [class.sp__row--off]="!row.isActive">
+                <td>
+                  <strong>{{ row.name }}</strong>
+                  @if (row.supplies) { <div class="sp__meta">{{ row.supplies }}</div> }
+                </td>
+                <td>
+                  @if (row.contactPerson) { <div>{{ row.contactPerson }}</div> }
+                  <div class="sp__meta" dir="ltr">{{ row.phones.join(' · ') }}</div>
+                </td>
+                <td>
+                  @if (terms(row); as t) {
+                    {{ (t === 'cash' ? 'suppliers.termsCash' : 'suppliers.termsDays') | translate: { days: t } }}
+                  } @else { — }
+                </td>
+                <td class="nota-num">
+                  @let shown = display(row) | notaBalance;
+                  <span [class.sp__warn]="shown.warning" data-test="supplier-balance">
+                    {{ shown.text }} {{ (shown.side === 'credit' ? 'suppliers.weOwe' : 'suppliers.theyOwe') | translate }}
+                  </span>
+                  @if (shown.warning) { <div class="sp__hint">{{ 'accounting.oppositeHint' | translate }}</div> }
+                </td>
+                <td class="sp__actions">
+                  @if (row.ledgerAccountId) {
+                    <a notaButton [routerLink]="['/accounting/accounts', row.ledgerAccountId, 'ledger']" [queryParams]="{ partyId: row._id }" data-action="ledger">{{ 'suppliers.ledger' | translate }}</a>
+                  }
+                  <button *notaCan="'suppliers.manage'" type="button" notaButton data-action="edit" (click)="edit(row)">{{ 'suppliers.edit' | translate }}</button>
+                  <button *notaCan="'suppliers.manage'" type="button" notaButton="danger" data-action="delete" (click)="remove(row)">{{ 'suppliers.delete' | translate }}</button>
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="5" class="sp__empty" data-test="empty">{{ 'suppliers.empty' | translate }}</td></tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

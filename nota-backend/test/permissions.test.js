@@ -31,6 +31,7 @@ const EXPECTED_CATALOG = [
   "credit.create", "credit.view", "credit.edit", "credit.delete", "credit.collect",
   "returns.create", "returns.view",
   "customers.view", "customers.manage",
+  "suppliers.view", "suppliers.manage",
   "products.view", "products.manage", "products.viewCost", "products.syncPrice", "products.importExport",
   "categories.manage",
   "reports.profit", "dashboard.view",
@@ -56,11 +57,11 @@ test("role templates match the spec", () => {
     "returns.create", "customers.view", "products.view", "dashboard.view",
   ]));
   assert.deepEqual(sorted(ROLE_TEMPLATES.storekeeper), sorted([
-    "products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost",
+    "products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view",
   ]));
   assert.deepEqual(sorted(ROLE_TEMPLATES.accountant), sorted([
     "sales.view", "credit.view", "returns.view", "customers.view", "products.view", "dashboard.view",
-    "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view",
+    "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view",
   ]));
   assert.deepEqual(permissionsForRole("custom"), []);
 });
@@ -102,6 +103,9 @@ const EXPECTED_ROUTES = {
   "GET /api/accounting/journal": "accounting.view",
   "GET /api/accounting/journal/:id": "accounting.view",
   "GET /api/accounting/health": "accounting.view",
+  "GET /api/accounting/opening": "accounting.view",
+  "POST /api/accounting/opening": "accounting.manage",
+  "POST /api/accounting/opening/finalize": "accounting.manage",
   "GET /api/categories": "products.view",
   "POST /api/categories": "categories.manage",
   "GET /api/categories/export": "products.importExport + products.viewCost",
@@ -145,6 +149,11 @@ const EXPECTED_ROUTES = {
   "PUT /api/sellings/:id": "sales.edit",
   "POST /api/sellings/:id/cancel": "sales.delete",
   "GET /api/shop-profile": "AUTHENTICATED",
+  "GET /api/suppliers": "suppliers.view",
+  "POST /api/suppliers": "suppliers.manage",
+  "GET /api/suppliers/:id": "suppliers.view",
+  "PUT /api/suppliers/:id": "suppliers.manage",
+  "DELETE /api/suppliers/:id": "suppliers.manage",
   "PUT /api/shop-profile": "shop.manage",
 };
 

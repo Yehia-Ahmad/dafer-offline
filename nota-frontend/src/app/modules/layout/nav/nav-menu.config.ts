@@ -89,7 +89,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { key: 'products', labelKey: 'nav.items.products', route: '/products', icon: NAV_ICONS.products, visible: allowed(ROUTE_RULES.products),
         activePaths: ['/products/new', '/products/edit/'] },
       { key: 'purchases', labelKey: 'nav.items.purchases', icon: NAV_ICONS.purchases, visible: notYet },
-      { key: 'suppliers', labelKey: 'nav.items.suppliers', icon: NAV_ICONS.suppliers, visible: notYet },
+      { key: 'suppliers', labelKey: 'nav.items.suppliers', route: '/suppliers', icon: NAV_ICONS.suppliers, visible: allowed(ROUTE_RULES.suppliers) },
     ],
   },
   {
@@ -105,6 +105,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     labelKey: 'nav.groups.accounting',
     items: [
       { key: 'accounts', labelKey: 'nav.items.accounts', route: '/accounting/accounts', icon: NAV_ICONS.accounts, visible: allowed(ROUTE_RULES.accounting) },
+      { key: 'opening', labelKey: 'nav.items.opening', route: '/accounting/opening', icon: NAV_ICONS.shop, visible: allowed(ROUTE_RULES.accountingOpening) },
       { key: 'journal', labelKey: 'nav.items.journal', route: '/accounting/journal', icon: NAV_ICONS.reports, visible: allowed(ROUTE_RULES.accounting) },
       { key: 'profit', labelKey: 'nav.items.profit', route: '/products/profit-report', icon: NAV_ICONS.profit, visible: allowed(ROUTE_RULES.profitReport) },
     ],

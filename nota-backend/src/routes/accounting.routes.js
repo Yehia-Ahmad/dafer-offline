@@ -7,5 +7,8 @@ router.get("/accounts", requirePermission("accounting.view"), asyncHandler(contr
 router.get("/accounts/:id/ledger", requirePermission("accounting.view"), asyncHandler(controller.getLedger));
 router.get("/journal", requirePermission("accounting.view"), asyncHandler(controller.getJournal));
 router.get("/journal/:id", requirePermission("accounting.view"), asyncHandler(controller.getJournalEntry));
+router.get("/opening", requirePermission("accounting.view"), asyncHandler(controller.getOpening));
+router.post("/opening", requirePermission("accounting.manage"), asyncHandler(controller.saveOpening));
+router.post("/opening/finalize", requirePermission("accounting.manage"), asyncHandler(controller.finalizeOpening));
 router.get("/health", requirePermission("accounting.view"), asyncHandler(controller.getHealth));
 module.exports = router;

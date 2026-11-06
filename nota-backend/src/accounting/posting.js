@@ -3,6 +3,7 @@ const JournalEntry = require("../models/journalEntry.model");
 const ReturnLog = require("../models/returnLog.model");
 const Product = require("../models/product.model");
 const Meta = require("../models/meta.model");
+const Supplier = require("../models/supplier.model");
 const { nextDocumentNumber, PREFIXES } = require("../utils/documentNumber");
 const { roundMoney } = require("../utils/invoicePricing");
 const { computeCustomerStatement } = require("../services/customerStatement.service");
@@ -109,7 +110,12 @@ const postEntry = async ({ date, type = "auto", source, lines, memo = "", sessio
     row.accountNameEn ||= account.nameEn;
     row.accountName ||= account.nameEn;
     if (account.systemKey === "CUSTOMERS" && (row.partyType !== "customer" || !row.partyId)) throw new Error("Customer party is required");
-    if (account.systemKey !== "CUSTOMERS" && (row.partyType || row.partyId)) throw new Error("Party is only allowed on control accounts");
+    if (account.systemKey === "SUPPLIERS") {
+      if (row.partyType !== "supplier" || !row.partyId) throw new Error("Supplier party is required");
+      if (!(await Supplier.exists({ _id: row.partyId }).session(session))) throw new Error("Supplier party does not exist");
+    }
+    if (account.systemKey === "CUSTOMERS" && row.partyType !== "customer") throw new Error("Customer party is required");
+    if (account.systemKey !== "CUSTOMERS" && account.systemKey !== "SUPPLIERS" && (row.partyType || row.partyId)) throw new Error("Party is only allowed on control accounts");
   }
   const totalDebit = roundMoney(clean.reduce((sum, row) => sum + row.debit, 0));
   const totalCredit = roundMoney(clean.reduce((sum, row) => sum + row.credit, 0));

@@ -1,0 +1,60 @@
+<!-- Stage 18: AddSupplier.dc.html. Only the name is required. -->
+<div class="sf">
+  <nota-page-header [title]="(supplierId ? 'suppliers.form.editTitle' : 'suppliers.form.newTitle') | translate" backLink="/suppliers" [backLabel]="'suppliers.title' | translate" />
+
+  @if (loadError()) {
+    <p class="nota-error" role="alert" data-test="load-error">{{ 'suppliers.loadFailed' | translate }}</p>
+  }
+
+  <form class="nota-card sf__card" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <nota-form-field [label]="'suppliers.form.name' | translate" forId="supplierName" [required]="true" [error]="submitted() && form.controls.name.invalid ? ('suppliers.form.nameRequired' | translate) : null">
+      <input id="supplierName" class="nota-input" formControlName="name" autocomplete="off" />
+    </nota-form-field>
+    <div class="sf__row">
+      <nota-form-field [label]="'suppliers.form.contactPerson' | translate" forId="supplierContact">
+        <input id="supplierContact" class="nota-input" formControlName="contactPerson" autocomplete="off" />
+      </nota-form-field>
+      <nota-form-field [label]="'suppliers.form.phone' | translate" forId="supplierPhone">
+        <input id="supplierPhone" class="nota-input" dir="ltr" formControlName="phone" inputmode="tel" autocomplete="off" />
+      </nota-form-field>
+    </div>
+    <nota-form-field [label]="'suppliers.form.address' | translate" forId="supplierAddress">
+      <input id="supplierAddress" class="nota-input" formControlName="address" autocomplete="off" />
+    </nota-form-field>
+    <div class="sf__row">
+      <nota-form-field [label]="'suppliers.form.supplies' | translate" forId="supplierSupplies">
+        <input id="supplierSupplies" class="nota-input" formControlName="supplies" autocomplete="off" />
+      </nota-form-field>
+      <nota-form-field [label]="'suppliers.form.taxNumber' | translate" forId="supplierTax">
+        <input id="supplierTax" class="nota-input" dir="ltr" formControlName="taxNumber" autocomplete="off" />
+      </nota-form-field>
+    </div>
+    <div class="sf__row">
+      <nota-form-field [label]="'suppliers.form.terms' | translate" forId="supplierTerms">
+        <select id="supplierTerms" class="nota-select" formControlName="termsChoice">
+          <option value="none">{{ 'suppliers.form.termsNone' | translate }}</option>
+          <option value="cash">{{ 'suppliers.termsCash' | translate }}</option>
+          <option value="30">{{ 'suppliers.termsDays' | translate: { days: 30 } }}</option>
+          <option value="60">{{ 'suppliers.termsDays' | translate: { days: 60 } }}</option>
+          <option value="custom">{{ 'suppliers.form.termsCustom' | translate }}</option>
+        </select>
+      </nota-form-field>
+      @if (form.controls.termsChoice.value === 'custom') {
+        <nota-form-field [label]="'suppliers.form.termsDays' | translate" forId="supplierTermsCustom" [error]="submitted() && form.controls.termsCustom.value === null ? ('suppliers.form.termsInvalid' | translate) : null">
+          <input id="supplierTermsCustom" class="nota-input" type="number" min="0" step="1" formControlName="termsCustom" />
+        </nota-form-field>
+      }
+    </div>
+    <nota-form-field [label]="'suppliers.form.notes' | translate" forId="supplierNotes" [hint]="'suppliers.form.balanceHint' | translate">
+      <textarea id="supplierNotes" class="nota-textarea" rows="2" formControlName="notes"></textarea>
+    </nota-form-field>
+
+    @if (saveError()) {
+      <p class="nota-error" role="alert" data-test="save-error">{{ saveError() | translate }}</p>
+    }
+    <div class="sf__footer">
+      <button type="button" notaButton (click)="cancel()">{{ 'suppliers.form.cancel' | translate }}</button>
+      <button type="submit" notaButton="primary" [disabled]="saving()" data-action="save">{{ 'suppliers.form.save' | translate }}</button>
+    </div>
+  </form>
+</div>

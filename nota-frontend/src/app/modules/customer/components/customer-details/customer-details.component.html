@@ -80,6 +80,18 @@
             </nota-form-field>
             <button type="button" notaButton (click)="applyStatementFilters()">{{ 'customerDetailsPage.s10.statement.apply' | translate }}</button>
           </div>
+          @if (openingRemaining > 0) {
+            <div class="cd__opening" *notaCan="'credit.collect'" data-testid="opening-collect">
+              <span>{{ 'customerDetailsPage.s10.openingCollect.remaining' | translate: { amount: (openingRemaining | notaMoney) } }}</span>
+              <button type="button" notaButton data-action="opening-collect-toggle" (click)="toggleOpeningPay()">{{ 'customerDetailsPage.s10.openingCollect.action' | translate }}</button>
+              @if (openingPay.open) {
+                <input class="nota-input" type="number" min="0.01" step="0.01" [max]="openingRemaining" [(ngModel)]="openingPay.amount" [ngModelOptions]="{ standalone: true }" [attr.aria-label]="'customerDetailsPage.paymentDialog.amount' | translate" data-field="opening-amount" />
+                <input class="nota-input" type="text" [(ngModel)]="openingPay.note" [ngModelOptions]="{ standalone: true }" [attr.aria-label]="'customerDetailsPage.paymentDialog.note' | translate" data-field="opening-note" />
+                <button type="button" notaButton="primary" [disabled]="openingPay.saving" data-action="opening-collect-save" (click)="collectOpening()">{{ 'customerDetailsPage.s10.openingCollect.save' | translate }}</button>
+                @if (openingPay.error) { <span class="cd__msg" role="alert" data-testid="opening-collect-error">{{ openingPay.error | translate }}</span> }
+              }
+            </div>
+          }
           @if (statementLoading) {
             <div class="cd__state" role="status" data-testid="statement-loading">{{ 'customerDetailsPage.s10.statement.loading' | translate }}</div>
           } @else if (statementError) {
@@ -122,6 +134,32 @@
               }
             </table>
           </div>
+          @if (statement.aging; as aging) {
+            <section class="cd__aging" data-testid="customer-aging" [attr.aria-label]="'customerDetailsPage.s10.aging.title' | translate">
+              <h3 class="cd__aging-title">{{ 'customerDetailsPage.s10.aging.title' | translate }}</h3>
+              <div class="nota-table-wrap">
+                <table class="nota-table">
+                  <thead><tr>
+                    <th class="num">{{ 'customerDetailsPage.s10.aging.current' | translate }}</th>
+                    <th class="num">{{ 'customerDetailsPage.s10.aging.days1to30' | translate }}</th>
+                    <th class="num">{{ 'customerDetailsPage.s10.aging.days31to60' | translate }}</th>
+                    <th class="num">{{ 'customerDetailsPage.s10.aging.over60' | translate }}</th>
+                    <th class="num">{{ 'customerDetailsPage.s10.aging.total' | translate }}</th>
+                  </tr></thead>
+                  <tbody><tr>
+                    <td class="num" data-testid="aging-current">{{ aging.current | notaMoney }}</td>
+                    <td class="num" data-testid="aging-1-30">{{ aging.days1to30 | notaMoney }}</td>
+                    <td class="num" data-testid="aging-31-60">{{ aging.days31to60 | notaMoney }}</td>
+                    <td class="num" data-testid="aging-over-60">{{ aging.over60 | notaMoney }}</td>
+                    <td class="num cd__strong" data-testid="aging-total">{{ aging.total | notaMoney }}</td>
+                  </tr></tbody>
+                </table>
+              </div>
+              @if (aging.credit > 0) {
+                <p class="cd__msg" data-testid="aging-credit">{{ 'customerDetailsPage.s10.aging.credit' | translate: { amount: (aging.credit | notaMoney) } }}</p>
+              }
+            </section>
+          }
           @if (statement.balance < 0) {
             <p class="cd__msg" data-testid="customer-credit-balance">{{ 'customerDetailsPage.s10.statement.customerCredit' | translate: { amount: ((-statement.balance) | notaMoney) } }}</p>
           }

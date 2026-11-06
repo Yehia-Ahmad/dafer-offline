@@ -8,6 +8,12 @@ export interface Customer {
   name: string;
   phone: string;
   isIndebted?: boolean;
+  /** Stage 18: open invoices + the opening balance still to collect. */
+  outstanding?: number;
+  /** Stage 18: a negative opening (we owe the customer). */
+  credit?: number;
+  /** outstanding − credit: positive = the customer owes us. */
+  balance?: number;
   createdAt?: string;
   updatedAt?: string;
   lastCashSaleDate?: string | null;
@@ -72,7 +78,19 @@ export interface CustomerCreditHistoryEntry {
   updatedAt?: string;
 }
 
+/** Stage 18: the customer's opening balance (رصيد أول المدة). It is never an invoice. */
+export interface CustomerOpening {
+  amount: number;
+  date: string;
+  number: string | null;
+  collected: number;
+  /** Still collectable (a negative opening has nothing to collect). */
+  remaining: number;
+}
+
 export interface CustomerDetails extends Customer {
+  opening?: CustomerOpening | null;
+  outstanding?: number;
   creditSummary?: Partial<CustomerCreditSummary>;
   creditHistory?: CustomerCreditHistoryEntry[];
 }
@@ -83,9 +101,21 @@ export interface CustomerQueryParams {
   phone?: string;
 }
 
+/** Stage 18: what the customer still owes today by days overdue. The opening balance ages from the ledger start. */
+export interface CustomerAging {
+  current: number;
+  days1to30: number;
+  days31to60: number;
+  over60: number;
+  total: number;
+  /** Negative opening: we owe the customer. */
+  credit: number;
+}
+
 export interface CustomerStatementLine {
   date: string;
-  type: 'opening' | 'invoice' | 'payment' | 'return' | 'cancel';
+  /** 'opening' is the period's start row; 'opening_balance' is the customer's رصيد أول المدة (Stage 18). */
+  type: 'opening' | 'opening_balance' | 'invoice' | 'payment' | 'return' | 'cancel';
   number: string | null;
   description: string;
   debit: number;
@@ -112,6 +142,11 @@ export class CustomersService {
 
   getCustomerStatement(id: string, params?: { from?: string; to?: string }) {
     return this._http.get(`${this._baseUrl}customers/${id}/statement`, { params: removeNullishFieldsParams({ ...(params ?? {}) }) });
+  }
+
+  /** Stage 18: collects from the customer's open items, the opening balance first (it is the oldest). */
+  collectPayment(id: string, payload: { amount: number; paymentDate?: string; note?: string }) {
+    return this._http.post(`${this._baseUrl}customers/${id}/payments`, { ...payload, firstInvoice: true });
   }
 
   createCustomer(payload: Pick<Customer, 'name' | 'phone'>) {

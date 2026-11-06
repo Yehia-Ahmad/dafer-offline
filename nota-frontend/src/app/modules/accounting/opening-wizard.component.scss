@@ -1,0 +1,51 @@
+// Opening-balance wizard (Opening.dc.html). Tokens only.
+:host { display: block; }
+.ow { display: flex; flex-direction: column; gap: 18px; max-width: 980px; }
+.ow__muted { color: var(--text-muted); margin: 0; }
+.ow__error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; color: var(--danger); }
+.ow__banner { padding: 12px 16px; margin: 0; background: var(--surface-2); }
+
+.ow__steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; list-style: none; margin: 0; padding: 0; }
+.ow__step { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; width: 100%; min-height: var(--touch-target, 44px); cursor: pointer; color: var(--text-muted); font-size: 14px;
+  &:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; } }
+.ow__bar { display: block; height: 4px; border-radius: 4px; background: var(--border); }
+.ow__step.is-done .ow__bar { background: var(--brand); }
+.ow__step.is-on { color: var(--text); font-weight: 800; }
+.ow__step.is-on .ow__bar { background: var(--accent); }
+.ow__step-label { overflow-wrap: anywhere; }
+
+.ow__panel { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
+.ow__h2 { margin: 0; font-size: 20px; }
+.ow__h3 { margin: 6px 0 0; font-size: 16px; }
+.ow__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.ow__row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ow__row > .nota-input, .ow__row > .nota-select { flex: 1 1 160px; min-width: 0; }
+.ow__fixed { flex: 2 1 200px; min-width: 0; font-weight: 600; }
+.ow__meta { color: var(--text-muted); font-size: 13px; font-weight: 400; }
+.ow__add { display: flex; flex-wrap: wrap; gap: 10px; }
+.ow__cell { min-width: 90px; max-width: 140px; }
+.ow__empty { color: var(--text-muted); text-align: center; padding: 16px 0; margin: 0; }
+td.ow__empty { display: table-cell; }
+.ow__total { margin: 0; font-size: 16px; }
+.ow__date { margin: 0; }
+
+.ow__cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.ow__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;
+  li { display: flex; justify-content: space-between; gap: 12px; } }
+.ow__sum { border-block-start: 1px solid var(--border); padding-block-start: 10px; font-weight: 800; }
+.ow__capital { display: flex; flex-direction: column; gap: 8px; padding: 20px; border-color: var(--brand); }
+.ow__capital-value { margin: 0; font-size: 32px; font-weight: 800; color: var(--brand-strong-text); }
+.ow__formula { margin: 0; color: var(--text-muted); }
+.ow__confirm { display: flex; align-items: center; gap: 10px; min-height: var(--touch-target, 44px); cursor: pointer; }
+.ow__ok { color: var(--success, var(--brand-strong-text)); margin: 0; font-weight: 700; }
+.ow__finalize { display: flex; flex-direction: column; gap: 12px; padding: 20px; border-color: var(--danger); }
+.ow__review { display: flex; flex-direction: column; gap: 16px; }
+.ow__footer { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; }
+
+@media (max-width: 480px) {
+  .ow__steps { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  .ow__step-label { font-size: 11px; }
+  .ow__panel { padding: 14px; }
+  .ow__capital-value { font-size: 26px; }
+  .ow__footer > * { flex: 1 1 100%; }
+}

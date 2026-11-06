@@ -5,8 +5,9 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../../environments/environment';
+import { NotaBalancePipe } from '../shared/ui';
 
-@Component({ selector: 'app-accounting-accounts', standalone: true, imports: [CommonModule, FormsModule, TranslateModule], templateUrl: './accounts.component.html', styleUrl: './accounts.component.scss' })
+@Component({ selector: 'app-accounting-accounts', standalone: true, imports: [CommonModule, FormsModule, TranslateModule, NotaBalancePipe], templateUrl: './accounts.component.html', styleUrl: './accounts.component.scss' })
 export class AccountsComponent {
   private http = inject(HttpClient); private router = inject(Router); private translate = inject(TranslateService); private cdr = inject(ChangeDetectorRef);
   accounts: any[] = []; loading = true; error = ''; asOf = new Date().toISOString().slice(0, 10); expanded = new Set<string>();

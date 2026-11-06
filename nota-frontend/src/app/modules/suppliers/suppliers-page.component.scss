@@ -1,0 +1,12 @@
+// Suppliers list (Suppliers.dc.html). Tokens only.
+:host { display: block; }
+.sp { display: flex; flex-direction: column; gap: 18px; }
+.sp__search { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.sp__search .nota-input { flex: 1 1 260px; max-width: 420px; }
+.sp__empty { padding: 28px 16px; text-align: center; color: var(--text-muted); display: table-cell; }
+.sp__meta { font-size: 13px; color: var(--text-muted); }
+.sp__actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.sp__row--off { opacity: 0.6; }
+.sp__warn { color: var(--danger); font-weight: 700; }
+.sp__hint { font-size: 12px; color: var(--danger); }
+@media (max-width: 480px) { .sp__actions > * { flex: 1 1 auto; } }

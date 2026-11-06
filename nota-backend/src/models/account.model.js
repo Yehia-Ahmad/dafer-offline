@@ -11,6 +11,8 @@ const accountSchema = new mongoose.Schema({
   isSystem: { type: Boolean, default: false },
   systemKey: { type: String, unique: true, sparse: true, index: true },
   isActive: { type: Boolean, default: true, index: true },
+  // Stage 18: leaf accounts under 112 (banks and wallets) added from the opening wizard.
+  kind: { type: String, enum: ["bank", "wallet", null], default: null },
 }, { timestamps: true });
 
 accountSchema.index({ parentId: 1, code: 1 });

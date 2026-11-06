@@ -35,8 +35,7 @@ import {
   CustomerCreditHistoryEntry,
   CustomerCreditSummary,
   CustomerDetails,
-  CustomersService
-} from '../../services/customers.service';
+  CustomersService, CustomerAging } from '../../services/customers.service';
 import { brandName } from '../../../../core/brand';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
@@ -53,7 +52,7 @@ type CustomerDetailsView = CustomerDetails & {
 
 interface CustomerStatement {
   rows: Array<{
-    kind: 'opening' | 'invoice' | 'payment' | 'refund' | 'cancel';
+    kind: 'opening' | 'opening_balance' | 'invoice' | 'payment' | 'refund' | 'cancel';
     date: string | null;
     invoiceId: string;
     number: string | null;
@@ -66,6 +65,8 @@ interface CustomerStatement {
   totalDebit: number;
   totalCredit: number;
   balance: number;
+  /** Stage 18: from the statement API (aging is computed on the backend). */
+  aging?: CustomerAging | null;
 }
 
 @Component({
@@ -612,6 +613,36 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ---- Stage 18: collecting the opening balance (رصيد أول المدة) when there may be no open invoice to pay.
+  openingPay = { open: false, amount: null as number | null, note: '', saving: false, error: '' };
+
+  get openingRemaining(): number {
+    return Number(this.customer?.opening?.remaining ?? 0);
+  }
+
+  toggleOpeningPay(): void {
+    this.openingPay = { open: !this.openingPay.open, amount: null, note: '', saving: false, error: '' };
+  }
+
+  collectOpening(): void {
+    const amount = Number(this.openingPay.amount);
+    if (!this.currentCustomerId || !Number.isFinite(amount) || amount <= 0 || amount > this.openingRemaining) {
+      this.openingPay.error = 'customerDetailsPage.s10.openingCollect.invalid';
+      return;
+    }
+    this.openingPay = { ...this.openingPay, saving: true, error: '' };
+    this.customersService.collectPayment(this.currentCustomerId, { amount, paymentDate: this.formatRequestDate(new Date()), note: this.openingPay.note.trim() || undefined }).subscribe({
+      next: () => {
+        this.openingPay = { open: false, amount: null, note: '', saving: false, error: '' };
+        this.loadCustomer(this.currentCustomerId as string); // reloads the statement too
+      },
+      error: (error: any) => {
+        this.openingPay = { ...this.openingPay, saving: false, error: this.extractErrorMessage(error, 'customerDetailsPage.messages.paymentFailed') };
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
   private loadStatement(customerId: string): void {
     this.statementLoading = true;
     this.statementError = '';
@@ -636,6 +667,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
           totalDebit: Number(source.totals?.debit || 0),
           totalCredit: Number(source.totals?.credit || 0),
           balance: Number(source.totals?.balance || 0),
+          aging: source.aging ?? null,
         };
         this.statementLoading = false;
         this.cdr.detectChanges();

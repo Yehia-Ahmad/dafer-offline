@@ -13,6 +13,8 @@ const { withTransaction } = require("../utils/transaction");
 const { PREFIXES, nextDocumentNumber } = require("../utils/documentNumber");
 const { postReceipt } = require("../accounting/posting");
 const { loadCustomerStatement } = require("../services/customerStatement.service");
+const PartyOpening = require("../models/partyOpening.model");
+const { loadCustomerOpenItems, openingRemaining, sortForCollection } = require("../services/customerOpenItems.service");
 const { audit } = require("../auth/audit");
 
 const OPEN_CREDIT_SALE_STATUSES = ["pending", "partially_paid"];
@@ -241,29 +243,22 @@ const getCustomers = asyncHandler(async (req, res) => {
     return res.json([]);
   }
 
-  const indebtedCustomers = await CreditSale.aggregate([
-    {
-      $match: {
-        customer: { $in: customers.map((customer) => customer._id) },
-        remainingAmount: { $gt: 0 },
-        status: { $in: OPEN_CREDIT_SALE_STATUSES },
-      },
-    },
-    {
-      $group: {
-        _id: "$customer",
-      },
-    },
-  ]);
-  const indebtedCustomerIds = new Set(
-    indebtedCustomers.map((customer) => String(customer._id))
-  );
+  // Stage 18: the same open items the statement, aging and dashboard read, so the opening balance counts everywhere.
+  const openItems = await loadCustomerOpenItems(customers.map((customer) => customer._id));
 
   res.json(
-    customers.map((customer) => ({
-      ...customer,
-      isIndebted: indebtedCustomerIds.has(String(customer._id)),
-    }))
+    customers.map((customer) => {
+      const open = openItems.get(String(customer._id));
+      const outstanding = roundMoney((open?.items || []).reduce((sum, item) => sum + item.remaining, 0));
+      return {
+        ...customer,
+        isIndebted: outstanding > 0,
+        outstanding,
+        credit: open?.credit || 0,
+        // Positive = the customer owes us, negative = we owe the customer (unapplied opening credit).
+        balance: roundMoney(outstanding - (open?.credit || 0)),
+      };
+    })
   );
 });
 
@@ -291,12 +286,26 @@ const getCustomerById = asyncHandler(async (req, res) => {
     )
   );
 
+  const openingDoc = await PartyOpening.findOne({ partyType: "customer", partyId: customer._id }).lean();
+  const openItems = (await loadCustomerOpenItems([customer._id])).get(String(customer._id)) || { items: [], credit: 0 };
+
   res.json({
     ...customer.toObject(),
+    opening: openingDoc ? {
+      amount: openingDoc.amount, date: openingDoc.date, number: openingDoc.number || null,
+      collected: roundMoney((openingDoc.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0)),
+      remaining: openingRemaining(openingDoc),
+    } : null,
+    outstanding: roundMoney(openItems.items.reduce((sum, item) => sum + item.remaining, 0)),
+    credit: openItems.credit,
     lastCreditSaleDate: creditHistory[0]?.sellingDate ?? null,
     lastCashSaleDate: lastCashSale?.sellingDate ?? null,
     lastCreditSalePaymentDate,
-    creditSummary: buildCreditSaleSummary(creditHistory),
+    // The header balance is what the customer still owes: open invoices plus the opening balance still to collect.
+    creditSummary: (() => {
+      const summary = buildCreditSaleSummary(creditHistory);
+      return { ...summary, remainingAmount: roundMoney(Number(summary.remainingAmount || 0) + (openingDoc ? openingRemaining(openingDoc) : 0)) };
+    })(),
     creditHistory: creditHistory.map((creditSale) =>
       toCreditSaleInvoice(creditSale, { includeProductCode: true })
     ),
@@ -363,31 +372,28 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
       : new Date();
   const note = normalizeOptionalPaymentNote(req.body.note, "ملاحظة الدفعة", res);
 
-  const openCreditSales = await CreditSale.find({
+  const invoiceDocs = await CreditSale.find({
     customer: customer._id,
     remainingAmount: { $gt: 0 },
     status: { $in: OPEN_CREDIT_SALE_STATUSES },
-  }).sort(
-    paymentSelection === "firstInvoice"
-      ? { sellingDate: 1, createdAt: 1, _id: 1 }
-      : { sellingDate: -1, createdAt: -1, _id: -1 }
-  ).session(session);
+  }).sort({ sellingDate: 1, createdAt: 1, _id: 1 }).session(session);
+  // Stage 18: the customer's opening balance is one more open item, the oldest.
+  const openingDoc = await PartyOpening.findOne({ partyType: "customer", partyId: customer._id }).session(session);
+  const openingLeft = openingRemaining(openingDoc);
+  const queue = sortForCollection([
+    ...(openingLeft > 0 ? [{ kind: "opening", doc: openingDoc, remaining: openingLeft }] : []),
+    ...invoiceDocs.map((doc) => ({ kind: "invoice", doc, remaining: roundMoney(Number(doc.remainingAmount || 0)) })),
+  ], paymentSelection);
 
-  if (openCreditSales.length === 0) {
+  if (queue.length === 0) {
     res.status(404);
     throw new Error("لا توجد فواتير آجلة مفتوحة لهذا العميل");
   }
 
-  const selectedCreditSale = openCreditSales[0];
-  const selectedInvoiceRemainingAmount = roundMoney(
-    Number(selectedCreditSale.remainingAmount || 0)
-  );
-  const totalRemainingAmount = roundMoney(
-    openCreditSales.reduce(
-      (sum, creditSale) => sum + Number(creditSale.remainingAmount || 0),
-      0
-    )
-  );
+  const selectedItem = queue[0];
+  const selectedCreditSale = selectedItem.doc;
+  const selectedInvoiceRemainingAmount = selectedItem.remaining;
+  const totalRemainingAmount = roundMoney(queue.reduce((sum, item) => sum + item.remaining, 0));
 
   if (
     paymentSelection === "firstInvoice" &&
@@ -419,23 +425,31 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
     throw error;
   }
 
-  const targetCreditSales =
-    paymentSelection === "lastInvoice" ? openCreditSales : [selectedCreditSale];
+  const targetItems = paymentSelection === "lastInvoice" ? queue : [selectedItem];
   const pendingUpdates = [];
+  const openingAllocations = [];
   const receiptNumber = await nextDocumentNumber(PREFIXES.RECEIPT, session);
   const receiptId = new mongoose.Types.ObjectId();
   let remainingPaymentAmount = roundMoney(amount);
 
-  for (const creditSale of targetCreditSales) {
+  for (const targetItem of targetItems) {
     if (remainingPaymentAmount <= MONEY_EPSILON) {
       break;
     }
+    const creditSale = targetItem.doc;
 
     const payableAmount = roundMoney(
-      Math.min(remainingPaymentAmount, Number(creditSale.remainingAmount || 0))
+      Math.min(remainingPaymentAmount, targetItem.remaining)
     );
 
     if (payableAmount <= MONEY_EPSILON) {
+      continue;
+    }
+
+    if (targetItem.kind === "opening") {
+      creditSale.payments.push({ amount: payableAmount, paymentDate, note, number: receiptNumber, receipt: receiptId });
+      openingAllocations.push({ opening: creditSale._id, amount: payableAmount });
+      remainingPaymentAmount = roundMoney(remainingPaymentAmount - payableAmount);
       continue;
     }
 
@@ -476,6 +490,7 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
   }
 
   for (const creditSale of pendingUpdates) await creditSale.save({ session });
+  if (openingAllocations.length) await openingDoc.save({ session });
 
   const updatedInvoices = pendingUpdates.map((sale) => toCreditSaleInvoice(sale));
 
@@ -487,7 +502,10 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
     paymentDate,
     note,
     kind: "payment",
-    allocations: pendingUpdates.map((creditSale) => ({ creditSale: creditSale._id, amount: creditSale.payments.at(-1).amount })),
+    allocations: [
+      ...pendingUpdates.map((creditSale) => ({ creditSale: creditSale._id, amount: creditSale.payments.at(-1).amount })),
+      ...openingAllocations,
+    ],
   }], { session });
   const receipt = await Receipt.findById(receiptId).session(session).lean();
   await postReceipt({ receipt, customer: customer.toObject ? customer.toObject() : customer, session });
@@ -497,6 +515,7 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
     paymentSelection,
     invoice: updatedInvoices[0],
     invoices: updatedInvoices,
+    openingCollected: openingAllocations.reduce((sum, row) => roundMoney(sum + row.amount), 0),
     receiptNumber,
   };
 };
@@ -514,6 +533,12 @@ const deleteCustomer = asyncHandler(async (req, res) => {
       const error = new Error("لا يمكن حذف العميل لوجود فواتير مرتبطة به");
       error.statusCode = 409;
       error.responseData = { code: "CUSTOMER_HAS_INVOICES" };
+      throw error;
+    }
+    if (await PartyOpening.exists({ partyType: "customer", partyId: customer._id }).session(session)) {
+      const error = new Error("لا يمكن حذف العميل لوجود رصيد أول المدة مسجل له");
+      error.statusCode = 409;
+      error.responseData = { code: "CUSTOMER_HAS_OPENING" };
       throw error;
     }
     await customer.deleteOne({ session });
@@ -541,6 +566,8 @@ const getCustomerStatement = asyncHandler(async (req, res) => {
     customer: { _id: customer._id, name: customer.name, phone: customer.phone },
     lines: statement.lines,
     totals: statement.totals,
+    aging: statement.aging,
+    outstanding: statement.outstanding,
   });
 });
 

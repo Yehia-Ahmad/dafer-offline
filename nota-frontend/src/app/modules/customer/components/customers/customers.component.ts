@@ -9,8 +9,7 @@ import {
   NotaDialogShellComponent,
   NotaFormFieldComponent,
   NotaNumberPipe,
-  NotaPageHeaderComponent
-} from '../../../shared/ui';
+  NotaPageHeaderComponent, NotaMoneyPipe } from '../../../shared/ui';
 import { Customer, CustomerQueryParams, CustomersService } from '../../services/customers.service';
 import { LanguageService } from '../../../shared/services/translation.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
@@ -19,7 +18,7 @@ import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
   selector: 'app-customers',
   standalone: true,
   imports: [NotaCanDirective, CommonModule, FormsModule, ReactiveFormsModule, DialogModule, TranslatePipe,
-    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaNumberPipe, NotaPageHeaderComponent],
+    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
   templateUrl: './customers.component.html',
   styleUrl: './customers.component.scss'
 })

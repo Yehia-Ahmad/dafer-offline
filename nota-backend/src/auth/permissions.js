@@ -22,6 +22,9 @@ const PERMISSIONS = {
   "customers.view": { group: "customers", ar: "عرض العملاء", en: "View customers" },
   "customers.manage": { group: "customers", ar: "إدارة العملاء", en: "Manage customers" },
 
+  "suppliers.view": { group: "suppliers", ar: "عرض الموردين", en: "View suppliers" },
+  "suppliers.manage": { group: "suppliers", ar: "إدارة الموردين", en: "Manage suppliers" },
+
   "products.view": { group: "products", ar: "عرض المنتجات والفئات", en: "View products and categories" },
   "products.manage": { group: "products", ar: "إدارة المنتجات", en: "Manage products" },
   "products.viewCost": { group: "products", ar: "عرض سعر الشراء والربح", en: "View purchase price and profit" },
@@ -46,6 +49,7 @@ const PERMISSION_GROUPS = {
   credit: { ar: "المبيعات الآجلة", en: "Credit sales" },
   returns: { ar: "المرتجعات", en: "Returns" },
   customers: { ar: "العملاء", en: "Customers" },
+  suppliers: { ar: "الموردين", en: "Suppliers" },
   products: { ar: "المنتجات والمخزون", en: "Products and inventory" },
   reports: { ar: "التقارير", en: "Reports" },
   admin: { ar: "الإدارة", en: "Administration" },
@@ -88,8 +92,8 @@ const ROLE_TEMPLATES = Object.freeze({
     "products.view",
     "dashboard.view",
   ]),
-  storekeeper: Object.freeze(["products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost"]),
-  accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view"]),
+  storekeeper: Object.freeze(["products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view"]),
+  accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view"]),
 });
 
 const ROLE_LABELS = {

@@ -2,9 +2,15 @@ const mongoose = require("mongoose");
 const auditFieldsPlugin = require("../auth/auditFields.plugin");
 
 const allocationSchema = new mongoose.Schema({
-  creditSale: { type: mongoose.Schema.Types.ObjectId, ref: "CreditSale", required: true },
+  // Exactly one of creditSale / opening (a customer opening balance, Stage 18).
+  creditSale: { type: mongoose.Schema.Types.ObjectId, ref: "CreditSale" },
+  opening: { type: mongoose.Schema.Types.ObjectId, ref: "PartyOpening" },
   amount: { type: Number, required: true, min: 0.01 },
 }, { _id: false });
+allocationSchema.pre("validate", function checkTarget(next) {
+  if (Boolean(this.creditSale) === Boolean(this.opening)) return next(new Error("An allocation needs exactly one of creditSale or opening"));
+  return next();
+});
 
 const receiptSchema = new mongoose.Schema({
   number: { type: String, required: true, unique: true, index: true },

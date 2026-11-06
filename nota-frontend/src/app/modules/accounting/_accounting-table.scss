@@ -19,3 +19,8 @@ a { color: var(--brand); font-weight: 700; }
 .state { padding: 2rem; text-align: center; }
 @media (max-width: 800px) { .filters { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 390px) { .filters { grid-template-columns: 1fr; } .accounting-page { padding-inline: .75rem; } }
+
+// Stage 18: balances show on their own side (مدين / دائن); the warning token only for the opposite of the normal side.
+.warn { color: var(--danger); }
+.hint { display: block; font-size: .75rem; color: var(--danger); font-weight: 400; }
+.balance { display: inline-flex; flex-direction: column; align-items: flex-end; }

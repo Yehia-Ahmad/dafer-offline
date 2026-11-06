@@ -1,0 +1,247 @@
+<!-- Stage 18: the opening-balance wizard (docs/design/screens/Opening.dc.html). الخزائن → المخزون → العملاء → الموردين → المراجعة -->
+<div class="ow">
+  <nota-page-header [title]="'openingWizard.title' | translate" [subtitle]="'openingWizard.subtitle' | translate" />
+
+  @if (loading) {
+    <p class="ow__muted" role="status">{{ 'openingWizard.loading' | translate }}</p>
+  } @else if (loadError) {
+    <div class="nota-card ow__error" role="alert">
+      <span>{{ 'openingWizard.loadFailed' | translate }}</span>
+      <button type="button" notaButton (click)="load()">{{ 'openingWizard.retry' | translate }}</button>
+    </div>
+  } @else if (state) {
+    @if (readOnly) {
+      <p class="nota-card ow__banner" role="status" data-test="finalized-banner">{{ 'openingWizard.finalizedNote' | translate }}</p>
+    } @else if (!state.setupMode) {
+      <p class="nota-card ow__banner" role="status" data-test="carried-note">{{ 'openingWizard.notSetupNote' | translate }}</p>
+    }
+
+    <ol class="ow__steps" data-test="steps">
+      @for (n of steps; track n) {
+        <li>
+          <button type="button" class="ow__step" [class.is-on]="step === n" [class.is-done]="step > n" [attr.aria-current]="step === n ? 'step' : null" [attr.data-step]="n" (click)="goTo(n)">
+            <span class="ow__bar"></span>
+            <span class="ow__step-label"><span class="nota-num">{{ n | notaNumber }}</span> {{ 'openingWizard.steps.' + n | translate }}</span>
+          </button>
+        </li>
+      }
+    </ol>
+
+    @switch (step) {
+      @case (1) {
+        <section class="nota-card ow__panel" data-test="step-cash">
+          <h2 class="ow__h2">{{ 'openingWizard.cash.title' | translate }}</h2>
+          <div class="ow__grid">
+            <nota-form-field [label]="'openingWizard.cash.mainCash' | translate" forId="owCash" [error]="cashValid ? null : ('openingWizard.errors.amount' | translate)">
+              <input id="owCash" class="nota-input nota-num" type="number" min="0" step="0.01" [(ngModel)]="cash" [disabled]="readOnly" data-field="cash" />
+            </nota-form-field>
+            <nota-form-field [label]="'openingWizard.cash.fixedAssets' | translate" forId="owFixed" [hint]="'openingWizard.cash.fixedAssetsHint' | translate">
+              <input id="owFixed" class="nota-input nota-num" type="number" min="0" step="0.01" [(ngModel)]="fixedAssets" [disabled]="readOnly" data-field="fixedAssets" />
+            </nota-form-field>
+          </div>
+
+          <h3 class="ow__h3">{{ 'openingWizard.cash.banksTitle' | translate }}</h3>
+          @for (row of banks; track $index; let i = $index) {
+            <div class="ow__row" [attr.data-bank]="i">
+              @if (row.accountId) {
+                <span class="ow__fixed"><span dir="ltr">{{ row.code }}</span> {{ row.name }}</span>
+              } @else {
+                <input class="nota-input" type="text" [(ngModel)]="row.name" [attr.aria-label]="'openingWizard.cash.bankName' | translate" [placeholder]="'openingWizard.cash.bankName' | translate" [disabled]="readOnly" data-field="bank-name" />
+                <select class="nota-select" [(ngModel)]="row.type" [attr.aria-label]="'openingWizard.cash.bankType' | translate" [disabled]="readOnly" data-field="bank-type">
+                  <option value="bank">{{ 'openingWizard.cash.bank' | translate }}</option>
+                  <option value="wallet">{{ 'openingWizard.cash.wallet' | translate }}</option>
+                </select>
+              }
+              <input class="nota-input nota-num" type="number" min="0" step="0.01" [(ngModel)]="row.amount" [attr.aria-label]="'openingWizard.amount' | translate" [disabled]="readOnly" data-field="bank-amount" />
+              @if (!readOnly) {
+                <button type="button" notaButton icon [attr.aria-label]="'openingWizard.remove' | translate" (click)="removeBank(row)">×</button>
+              }
+              @if (bankError(row); as error) { <span class="nota-error">{{ error | translate }}</span> }
+            </div>
+          }
+          @if (!readOnly) {
+            <div class="ow__add">
+              <button type="button" notaButton data-action="add-bank" (click)="addBank('bank')">+ {{ 'openingWizard.cash.addBank' | translate }}</button>
+              <button type="button" notaButton data-action="add-wallet" (click)="addBank('wallet')">+ {{ 'openingWizard.cash.addWallet' | translate }}</button>
+            </div>
+          }
+        </section>
+      }
+
+      @case (2) {
+        <section class="nota-card ow__panel" data-test="step-inventory">
+          <h2 class="ow__h2">{{ 'openingWizard.inventory.title' | translate }}</h2>
+          @if (inventoryEditable) {
+            <p class="ow__muted" data-test="inventory-setup-note">{{ 'openingWizard.inventory.setupNote' | translate }}</p>
+            <div class="ow__add">
+              <a notaButton routerLink="/products/new" data-action="add-products">+ {{ 'openingWizard.inventory.addProducts' | translate }}</a>
+              <a notaButton routerLink="/products" data-action="import-excel">{{ 'openingWizard.inventory.importExcel' | translate }}</a>
+              <button type="button" notaButton data-action="reload-products" (click)="reloadInventory()">{{ 'openingWizard.inventory.reload' | translate }}</button>
+            </div>
+            @if (inventoryError) { <p class="nota-error" role="alert" data-test="inventory-error">{{ inventoryError | translate }}</p> }
+            @if (inventoryLoading) {
+              <p class="ow__muted" role="status">{{ 'openingWizard.loading' | translate }}</p>
+            } @else {
+              <div class="nota-table-wrap">
+                <table class="nota-table" data-test="inventory-table">
+                  <thead><tr>
+                    <th>{{ 'openingWizard.inventory.code' | translate }}</th>
+                    <th>{{ 'openingWizard.inventory.name' | translate }}</th>
+                    <th class="nota-num">{{ 'openingWizard.inventory.quantity' | translate }}</th>
+                    <th class="nota-num">{{ 'openingWizard.inventory.price' | translate }}</th>
+                    <th class="nota-num">{{ 'openingWizard.inventory.value' | translate }}</th>
+                  </tr></thead>
+                  <tbody>
+                    @for (row of inventoryRows; track row.id) {
+                      <tr [attr.data-product]="row.code">
+                        <td dir="ltr">{{ row.code }}</td>
+                        <td>{{ row.name }}</td>
+                        <td class="nota-num"><input class="nota-input ow__cell" type="number" min="0" step="1" [(ngModel)]="row.quantity" [attr.aria-label]="'openingWizard.inventory.quantity' | translate" data-field="qty" /></td>
+                        <td class="nota-num"><input class="nota-input ow__cell" type="number" min="0" step="0.01" [(ngModel)]="row.price" [attr.aria-label]="'openingWizard.inventory.price' | translate" data-field="price" /></td>
+                        <td class="nota-num">{{ inventoryValue(row) | notaMoney }}</td>
+                      </tr>
+                    } @empty {
+                      <tr><td colspan="5" class="ow__empty" data-test="inventory-empty">{{ 'openingWizard.inventory.empty' | translate }}</td></tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          } @else {
+            <p class="ow__muted" data-test="inventory-readonly">{{ 'openingWizard.inventory.readOnlyNote' | translate }}</p>
+          }
+          <p class="ow__total" data-test="inventory-total">{{ 'openingWizard.inventory.total' | translate }}: <strong class="nota-num">{{ inventoryTotal | notaMoney }}</strong></p>
+        </section>
+      }
+
+      @case (3) {
+        <section class="nota-card ow__panel" data-test="step-customers">
+          <h2 class="ow__h2">{{ 'openingWizard.customers.title' | translate }}</h2>
+          <p class="ow__muted">{{ 'openingWizard.customers.hint' | translate }}</p>
+          <p class="ow__date" data-test="opening-date">{{ 'openingWizard.openingDate' | translate }}: <strong>{{ state.ledgerStartAt | date: 'mediumDate' }}</strong></p>
+          @for (row of customers; track row.id) {
+            <div class="ow__row" [attr.data-customer]="row.name">
+              <span class="ow__fixed">{{ row.name }} <span class="ow__meta" dir="ltr">{{ row.phone }}</span></span>
+              <input class="nota-input nota-num" type="number" step="0.01" [(ngModel)]="row.amount" [attr.aria-label]="'openingWizard.amount' | translate" [disabled]="readOnly" data-field="customer-amount" />
+              @if (!readOnly) { <button type="button" notaButton icon [attr.aria-label]="'openingWizard.remove' | translate" (click)="removeCustomer(row)">×</button> }
+              @if (row.collected) { <span class="ow__meta">{{ 'openingWizard.customers.collected' | translate: { amount: money(row.collected) } }}</span> }
+              @if (partyAmountError(row); as error) { <span class="nota-error">{{ error | translate }}</span> }
+            </div>
+          } @empty {
+            <p class="ow__empty" data-test="customers-empty">{{ 'openingWizard.customers.empty' | translate }}</p>
+          }
+          @if (!readOnly) {
+            <div class="ow__row">
+              <select class="nota-select" [(ngModel)]="pickCustomerId" [attr.aria-label]="'openingWizard.customers.pick' | translate" data-field="pick-customer">
+                <option value="">{{ 'openingWizard.customers.pick' | translate }}</option>
+                @for (option of availableCustomerOptions; track option._id) { <option [value]="option._id">{{ option.name }} · {{ option.phone }}</option> }
+              </select>
+              <button type="button" notaButton data-action="add-customer" [disabled]="!pickCustomerId" (click)="addCustomerRow()">+ {{ 'openingWizard.customers.add' | translate }}</button>
+            </div>
+            <div class="ow__row">
+              <input class="nota-input" type="text" [(ngModel)]="newCustomer.name" [placeholder]="'openingWizard.customers.newName' | translate" [attr.aria-label]="'openingWizard.customers.newName' | translate" data-field="new-customer-name" />
+              <input class="nota-input" dir="ltr" type="tel" [(ngModel)]="newCustomer.phone" [placeholder]="'openingWizard.customers.newPhone' | translate" [attr.aria-label]="'openingWizard.customers.newPhone' | translate" data-field="new-customer-phone" />
+              <button type="button" notaButton data-action="create-customer" (click)="createCustomerRow()">+ {{ 'openingWizard.customers.create' | translate }}</button>
+            </div>
+          }
+          @if (partyError) { <p class="nota-error" role="alert" data-test="party-error">{{ partyError | translate }}</p> }
+        </section>
+      }
+
+      @case (4) {
+        <section class="nota-card ow__panel" data-test="step-suppliers">
+          <h2 class="ow__h2">{{ 'openingWizard.suppliers.title' | translate }}</h2>
+          <p class="ow__muted">{{ 'openingWizard.suppliers.hint' | translate }}</p>
+          @for (row of suppliers; track row.id) {
+            <div class="ow__row" [attr.data-supplier]="row.name">
+              <span class="ow__fixed">{{ row.name }}</span>
+              <input class="nota-input nota-num" type="number" step="0.01" [(ngModel)]="row.amount" [attr.aria-label]="'openingWizard.amount' | translate" [disabled]="readOnly" data-field="supplier-amount" />
+              @if (!readOnly) { <button type="button" notaButton icon [attr.aria-label]="'openingWizard.remove' | translate" (click)="removeSupplier(row)">×</button> }
+              @if (partyAmountError(row); as error) { <span class="nota-error">{{ error | translate }}</span> }
+            </div>
+          } @empty {
+            <p class="ow__empty" data-test="suppliers-empty">{{ 'openingWizard.suppliers.empty' | translate }}</p>
+          }
+          @if (!readOnly) {
+            <div class="ow__row">
+              <select class="nota-select" [(ngModel)]="pickSupplierId" [attr.aria-label]="'openingWizard.suppliers.pick' | translate" data-field="pick-supplier">
+                <option value="">{{ 'openingWizard.suppliers.pick' | translate }}</option>
+                @for (option of availableSupplierOptions; track option._id) { <option [value]="option._id">{{ option.name }}</option> }
+              </select>
+              <button type="button" notaButton data-action="add-supplier" [disabled]="!pickSupplierId" (click)="addSupplierRow()">+ {{ 'openingWizard.suppliers.add' | translate }}</button>
+            </div>
+            <div class="ow__row">
+              <input class="nota-input" type="text" [(ngModel)]="newSupplier.name" [placeholder]="'openingWizard.suppliers.newName' | translate" [attr.aria-label]="'openingWizard.suppliers.newName' | translate" data-field="new-supplier-name" />
+              <input class="nota-input" dir="ltr" type="tel" [(ngModel)]="newSupplier.phone" [placeholder]="'openingWizard.suppliers.newPhone' | translate" [attr.aria-label]="'openingWizard.suppliers.newPhone' | translate" data-field="new-supplier-phone" />
+              <button type="button" notaButton data-action="create-supplier" (click)="createSupplierRow()">+ {{ 'openingWizard.suppliers.create' | translate }}</button>
+            </div>
+          }
+          @if (partyError) { <p class="nota-error" role="alert" data-test="party-error">{{ partyError | translate }}</p> }
+        </section>
+      }
+
+      @case (5) {
+        <section class="ow__review" data-test="step-review">
+          <div class="ow__cols">
+            <div class="nota-card ow__panel" data-test="review-have">
+              <h2 class="ow__h2">{{ 'openingWizard.review.haveTitle' | translate }}</h2>
+              <ul class="ow__list">
+                <li><span>{{ 'openingWizard.review.cash' | translate }}</span><span class="nota-num">{{ review.cash | notaMoney }}</span></li>
+                @for (bank of banks; track $index) {
+                  @if (bank.amount) { <li><span>{{ bank.name }}</span><span class="nota-num">{{ bank.amount | notaMoney }}</span></li> }
+                }
+                <li><span>@if (inventoryEditable) { {{ 'openingWizard.review.inventory' | translate: { count: stockLines } }} } @else { {{ 'openingWizard.review.inventoryCarried' | translate }} }</span><span class="nota-num">{{ review.inventory | notaMoney }}</span></li>
+                <li><span>{{ 'openingWizard.review.customers' | translate: { count: customerCount } }}</span><span class="nota-num">{{ review.customers | notaMoney }}</span></li>
+                @if (review.fixedAssets) { <li><span>{{ 'openingWizard.review.fixedAssets' | translate }}</span><span class="nota-num">{{ review.fixedAssets | notaMoney }}</span></li> }
+                @if (review.supplierAdvances) { <li><span>{{ 'openingWizard.review.supplierAdvances' | translate }}</span><span class="nota-num">{{ review.supplierAdvances | notaMoney }}</span></li> }
+                <li class="ow__sum"><span>{{ 'openingWizard.review.total' | translate }}</span><span class="nota-num" data-test="total-assets">{{ review.assets | notaMoney }}</span></li>
+              </ul>
+            </div>
+            <div class="nota-card ow__panel" data-test="review-owe">
+              <h2 class="ow__h2">{{ 'openingWizard.review.oweTitle' | translate }}</h2>
+              <ul class="ow__list">
+                <li><span>{{ 'openingWizard.review.suppliers' | translate: { count: supplierCount } }}</span><span class="nota-num">{{ review.suppliers | notaMoney }}</span></li>
+                @if (review.customerCredits) { <li><span>{{ 'openingWizard.review.customerCredits' | translate }}</span><span class="nota-num">{{ review.customerCredits | notaMoney }}</span></li> }
+                <li class="ow__sum"><span>{{ 'openingWizard.review.total' | translate }}</span><span class="nota-num" data-test="total-liabilities">{{ review.liabilities | notaMoney }}</span></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="nota-card ow__capital" data-test="capital">
+            <h2 class="ow__h2">{{ 'openingWizard.review.capital' | translate }}</h2>
+            <p class="ow__capital-value nota-num" data-test="capital-value">{{ review.capital | notaMoney }} {{ 'openingWizard.currency' | translate }}</p>
+            <p class="ow__formula" data-test="capital-formula">= {{ 'openingWizard.review.have' | translate }} {{ review.assets | notaMoney }} − {{ 'openingWizard.review.owe' | translate }} {{ review.liabilities | notaMoney }}</p>
+            <p class="ow__muted">{{ 'openingWizard.review.note' | translate }}</p>
+          </div>
+
+          @if (!readOnly) {
+            <label class="ow__confirm"><input type="checkbox" [(ngModel)]="confirmed" data-field="confirm" /> {{ 'openingWizard.review.confirm' | translate }}</label>
+          }
+          @if (saveError) { <p class="nota-error" role="alert" data-test="save-error">{{ saveError | translate: saveErrorParams }}</p> }
+          @if (savedNumber && !dirty) { <p class="ow__ok" role="status" data-test="saved-ok">{{ 'openingWizard.review.saved' | translate: { number: savedNumber } }}</p> }
+
+          @if (finalizeAsk) {
+            <div class="nota-card ow__finalize" role="alertdialog" aria-labelledby="owFinalizeTitle" data-test="finalize-confirm">
+              <h2 id="owFinalizeTitle" class="ow__h2">{{ 'openingWizard.review.finalizeTitle' | translate }}</h2>
+              <p>{{ 'openingWizard.review.finalizeText' | translate }}</p>
+              <div class="ow__add">
+                <button type="button" notaButton (click)="cancelFinalize()" data-action="finalize-cancel">{{ 'openingWizard.review.cancel' | translate }}</button>
+                <button type="button" notaButton="danger" [disabled]="finalizing" (click)="finalize()" data-action="finalize-confirm">{{ 'openingWizard.review.finalizeConfirm' | translate }}</button>
+              </div>
+            </div>
+          }
+        </section>
+      }
+    }
+
+    <div class="ow__footer">
+      <button type="button" notaButton [disabled]="step === 1" (click)="back()" data-action="back">{{ 'openingWizard.back' | translate }}</button>
+      @if (step < 5) {
+        <button type="button" notaButton="primary" [disabled]="!stepValid(step)" (click)="next()" data-action="next">{{ 'openingWizard.next' | translate }}</button>
+      } @else if (!readOnly) {
+        <button type="button" notaButton="primary" [disabled]="!canSave" (click)="save()" data-action="save">{{ 'openingWizard.review.save' | translate }}</button>
+        <button type="button" notaButton="danger" [disabled]="!canFinalize" (click)="askFinalize()" data-action="finalize">{{ 'openingWizard.review.finalize' | translate }}</button>
+      }
+    </div>
+  }
+</div>

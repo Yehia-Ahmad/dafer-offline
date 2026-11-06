@@ -8,3 +8,4 @@ export * from './status-pill.component';
 export * from './empty-state.component';
 export * from './dialog-shell.component';
 export * from './nota-number';
+export * from './balance-display.pipe';

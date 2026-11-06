@@ -8,6 +8,7 @@ export const ALL_PERMISSIONS = [
   'credit.create', 'credit.view', 'credit.edit', 'credit.delete', 'credit.collect',
   'returns.create', 'returns.view',
   'customers.view', 'customers.manage',
+  'suppliers.view', 'suppliers.manage',
   'products.view', 'products.manage', 'products.viewCost', 'products.syncPrice', 'products.importExport', 'categories.manage',
   'reports.profit', 'dashboard.view',
   'shop.manage', 'users.manage', 'audit.view', 'backup.manage',
@@ -19,8 +20,8 @@ export const ROLE_PERMISSIONS: Record<Exclude<RoleKey, 'custom'>, string[]> = {
   owner: [...ALL_PERMISSIONS],
   manager: ALL_PERMISSIONS.filter((key) => key !== 'users.manage' && key !== 'backup.manage'),
   cashier: ['sales.create', 'sales.view', 'credit.create', 'credit.view', 'credit.collect', 'returns.create', 'customers.view', 'products.view', 'dashboard.view'],
-  storekeeper: ['products.view', 'products.manage', 'categories.manage', 'products.importExport', 'products.viewCost'],
-  accountant: [...VIEW, 'reports.profit', 'products.viewCost', 'credit.collect', 'audit.view'],
+  storekeeper: ['products.view', 'products.manage', 'categories.manage', 'products.importExport', 'products.viewCost', 'suppliers.view'],
+  accountant: [...VIEW, 'reports.profit', 'products.viewCost', 'credit.collect', 'audit.view', 'suppliers.view'],
 };
 
 export function fakeUser(role: RoleKey, overrides: Partial<AuthUser> = {}): AuthUser {
@@ -44,7 +45,7 @@ const LABELS: Record<string, string> = {
   'sales.priceBelowCost': 'البيع بأقل من سعر الشراء (نقدي وآجل)', 'credit.create': 'إنشاء فاتورة آجلة',
   'credit.view': 'عرض الفواتير الآجلة', 'credit.edit': 'تعديل الفواتير الآجلة', 'credit.delete': 'حذف الفواتير الآجلة',
   'credit.collect': 'تحصيل الدفعات', 'returns.create': 'تسجيل مرتجع', 'returns.view': 'عرض المرتجعات',
-  'customers.view': 'عرض العملاء', 'customers.manage': 'إدارة العملاء', 'products.view': 'عرض المنتجات والفئات',
+  'customers.view': 'عرض العملاء', 'customers.manage': 'إدارة العملاء', 'suppliers.view': 'عرض الموردين', 'suppliers.manage': 'إدارة الموردين', 'products.view': 'عرض المنتجات والفئات',
   'products.manage': 'إدارة المنتجات', 'products.viewCost': 'عرض سعر الشراء والربح',
   'products.syncPrice': 'مزامنة سعر الشراء مع الفواتير', 'products.importExport': 'استيراد وتصدير Excel',
   'categories.manage': 'إدارة الفئات', 'reports.profit': 'تقارير الأرباح', 'dashboard.view': 'عرض لوحة التحكم',

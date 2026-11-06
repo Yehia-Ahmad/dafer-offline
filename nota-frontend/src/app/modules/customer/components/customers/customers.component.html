@@ -45,7 +45,10 @@
                 <td><button type="button" class="cu__name" dir="auto" (click)="openCustomerDetails(customer)">{{ customer.name }}</button></td>
                 <td class="nota-num" dir="ltr">{{ customer.phone }}</td>
                 <td><span class="nota-pill" [class.nota-pill--due]="customer.isIndebted" [class.nota-pill--ok]="!customer.isIndebted">
-                  {{ (customer.isIndebted ? 'customerPage.s10.owes' : 'customerPage.s10.settled') | translate }}</span></td>
+                  {{ (customer.isIndebted ? 'customerPage.s10.owes' : 'customerPage.s10.settled') | translate }}</span>
+                  @if (customer.balance) {
+                    <span class="cu__bal nota-num" [class.cu__bal--credit]="customer.balance < 0" data-test="customer-balance">{{ (customer.balance < 0 ? -customer.balance : customer.balance) | notaMoney }}@if (customer.balance < 0) { · {{ 'customerPage.s10.credit' | translate }} }</span>
+                  }</td>
                 <td class="nota-num">{{ customer.createdAt ? (customer.createdAt | date: 'yyyy-MM-dd') : '—' }}</td>
                 <td>
                   <div class="cu__actions">
