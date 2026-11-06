@@ -12,6 +12,7 @@ const asyncHandler = require("../utils/asyncHandler");
 const { withTransaction } = require("../utils/transaction");
 const { PREFIXES, nextDocumentNumber } = require("../utils/documentNumber");
 const { postReceipt } = require("../accounting/posting");
+const { loadCustomerStatement } = require("../services/customerStatement.service");
 const { audit } = require("../auth/audit");
 
 const OPEN_CREDIT_SALE_STATUSES = ["pending", "partially_paid"];
@@ -535,71 +536,11 @@ const getCustomerStatement = asyncHandler(async (req, res) => {
   const to = parseBoundary(req.query.to, true);
   if (from && to && from > to) { res.status(400); throw new Error("from يجب أن يكون قبل to"); }
 
-  const invoices = await CreditSale.find({ customer: customer._id }).sort({ sellingDate: 1, createdAt: 1, _id: 1 }).lean();
-  const invoiceIds = invoices.map((invoice) => invoice._id);
-  const returns = await ReturnLog.find({ returnType: "credit", invoiceId: { $in: invoiceIds } }).lean();
-  const returnById = new Map(returns.map((entry) => [entry._id.toString(), entry]));
-  const lines = [];
-  let sequence = 0;
-  const add = (line) => lines.push({ ...line, debit: roundMoney(line.debit), credit: roundMoney(line.credit), _sequence: sequence++ });
-
-  for (const invoice of invoices) {
-    add({
-      date: invoice.sellingDate, type: "invoice", number: invoice.number,
-      description: `فاتورة آجل ${invoice.number || ""}`.trim(), debit: invoice.totalPrice, credit: 0,
-    });
-    for (const payment of invoice.payments || []) {
-      if (payment.source === "return_reallocation") continue;
-      add({
-        date: payment.paymentDate, type: "payment", number: payment.number,
-        description: payment.source === "down_payment" ? "دفعة مقدمة" : "دفعة عميل",
-        debit: 0, credit: payment.amount,
-      });
-    }
-    for (const refund of invoice.refunds || []) {
-      const returnLog = refund.returnLog ? returnById.get(refund.returnLog.toString()) : null;
-      add({
-        date: refund.refundDate, type: "return",
-        number: returnLog?.number ?? null,
-        description: "مرتجع فاتورة آجل", debit: 0,
-        credit: returnLog ? returnLog.finalReturnedAmount : refund.totalAmount,
-      });
-    }
-    if (invoice.status === "cancelled") {
-      add({
-        date: invoice.cancelledAt || invoice.updatedAt, type: "cancel", number: invoice.number,
-        description: "إلغاء فاتورة آجل", debit: 0, credit: invoice.totalPrice,
-      });
-      const downPayment = (invoice.payments || []).find((payment) => payment.source === "down_payment");
-      if (Number(invoice.cancelRefundAmount || 0) > 0) {
-        add({
-          date: invoice.cancelledAt || invoice.updatedAt, type: "cancel", number: downPayment?.number || null,
-          description: "رد المقدم", debit: invoice.cancelRefundAmount, credit: 0,
-        });
-      }
-    }
-  }
-
-  lines.sort((left, right) => new Date(left.date) - new Date(right.date) || left._sequence - right._sequence);
-  const openingBalance = roundMoney(lines.filter((line) => from && new Date(line.date) < from)
-    .reduce((balance, line) => balance + line.debit - line.credit, 0));
-  const visible = lines.filter((line) => (!from || new Date(line.date) >= from) && (!to || new Date(line.date) <= to));
-  let balance = openingBalance;
-  const responseLines = [];
-  if (from) {
-    responseLines.push({ date: from, type: "opening", number: null, description: "رصيد افتتاحي", debit: 0, credit: 0, balance });
-  }
-  for (const line of visible) {
-    balance = roundMoney(balance + line.debit - line.credit);
-    const { _sequence, ...publicLine } = line;
-    responseLines.push({ ...publicLine, balance });
-  }
-  const totalDebit = roundMoney(visible.reduce((sum, line) => sum + line.debit, 0));
-  const totalCredit = roundMoney(visible.reduce((sum, line) => sum + line.credit, 0));
+  const statement = await loadCustomerStatement(customer._id, { from, to });
   res.json({
     customer: { _id: customer._id, name: customer.name, phone: customer.phone },
-    lines: responseLines,
-    totals: { openingBalance, debit: totalDebit, credit: totalCredit, balance },
+    lines: statement.lines,
+    totals: statement.totals,
   });
 });
 

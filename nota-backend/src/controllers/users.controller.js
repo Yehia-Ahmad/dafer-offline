@@ -1,6 +1,6 @@
 const asyncHandler = require("../utils/asyncHandler");
 const User = require("../models/user.model");
-const { ROLES, effectivePermissions, isValidPermission, normalizePermissionList, permissionsForRole, sameList } = require("../auth/permissions");
+const { ROLES, effectivePermissions, isValidPermission, missingDependencies, normalizePermissionList, permissionsForRole, sameList } = require("../auth/permissions");
 const { audit } = require("../auth/audit");
 const { httpError } = require("../auth/middleware");
 const { normalizeName, normalizeUsername, presentUser, validateName, validatePassword, validateUsername } = require("./auth.controller");
@@ -65,6 +65,13 @@ const resolveAccess = (role, permissions) => {
   if (permissions !== undefined) {
     if (!Array.isArray(permissions) || !permissions.every((key) => typeof key === "string" && isValidPermission(key))) {
       throw badRequest("توجد صلاحية غير معروفة");
+    }
+    const missing = missingDependencies(permissions);
+    if (missing.length) {
+      const error = httpError(400, "PERMISSION_DEPENDENCY", "صلاحية عرض الحسابات تتطلب صلاحية عرض التكلفة");
+      error.responseData.permissions = [...new Set(missing.flatMap((row) => row.requires))];
+      error.responseData.dependencies = missing;
+      throw error;
     }
   }
   if (role === "custom") return { role, permissions: normalizePermissionList(permissions), permissionsEdited: false };

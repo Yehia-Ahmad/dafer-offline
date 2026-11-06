@@ -14,6 +14,9 @@ import { sameKeys } from '../user-rules';
 type EditableRole = Exclude<RoleKey, 'owner'>;
 type FieldKey = 'name' | 'username' | 'password' | 'confirm' | 'role' | 'permissions' | 'maxDiscount' | 'general';
 
+/** Stage 17: a permission that needs another one (mirrors PERMISSION_DEPENDENCIES in the backend). */
+export const PERMISSION_DEPENDENCIES: Readonly<Record<string, readonly string[]>> = { 'accounting.view': ['products.viewCost'] };
+
 /** Roles offered in the form, in the design's order (no owner: there is only ever one). */
 export const FORM_ROLES: readonly EditableRole[] = ['cashier', 'storekeeper', 'accountant', 'manager', 'custom'];
 
@@ -162,8 +165,15 @@ export class UserFormDialogComponent {
   toggle(key: string, checked: boolean): void {
     if (!this.auth.has(key)) return; // disabled in the form; the backend would refuse it anyway
     const next = new Set(this.selected());
-    if (checked) next.add(key);
-    else next.delete(key);
+    if (checked) {
+      next.add(key);
+      // Stage 17: journal and ledger amounts reveal cost, so accounting.view brings products.viewCost.
+      for (const required of PERMISSION_DEPENDENCIES[key] ?? []) if (this.auth.has(required)) next.add(required);
+    } else {
+      next.delete(key);
+      // Unticking a requirement also unticks what depends on it (the backend refuses the pair).
+      for (const [dependent, requires] of Object.entries(PERMISSION_DEPENDENCIES)) if (requires.includes(key)) next.delete(dependent);
+    }
     const order = this.catalog()?.permissions.map((permission) => permission.key) ?? [];
     this.selected.set(order.filter((item) => next.has(item)));
     this.clearError('permissions');
@@ -277,6 +287,8 @@ export function mapUserError(error: unknown, translate: TranslateService): Parti
       return { username: text('users.errors.USERNAME_TAKEN') };
     case 'PERMISSION_NOT_HELD':
       return { permissions: text('users.errors.PERMISSION_NOT_HELD') };
+    case 'PERMISSION_DEPENDENCY':
+      return { permissions: text('users.errors.PERMISSION_DEPENDENCY') };
     case 'VALIDATION_ERROR':
       return /خصم/.test(errorMessage(error)) ? { maxDiscount: errorMessage(error) } : { general: errorMessage(error) || text('auth.errors.generic') };
     case 'OWNER_PROTECTED':

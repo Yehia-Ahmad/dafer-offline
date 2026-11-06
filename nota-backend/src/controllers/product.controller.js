@@ -9,7 +9,7 @@ const asyncHandler = require("../utils/asyncHandler");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { calculatePriceAfterDiscount } = require("../utils/productPricing");
 const { withTransaction } = require("../utils/transaction");
-const { postInventoryAdjustment, postCostSync } = require("../accounting/posting");
+const { postInventoryAdjustment, postCostSync, getLedgerStartAt, isLedgerDocument, returnedUnits } = require("../accounting/posting");
 const { audit } = require("../auth/audit");
 const { hasPermission } = require("../auth/middleware");
 
@@ -964,17 +964,29 @@ const syncProductPurchasePriceInTransaction = async (req, res, session) => {
   let updatedCashInvoices = 0;
   let updatedCreditInvoices = 0;
   let updatedItemsCount = 0;
-  let costCorrection = 0;
+  const ledgerStartAt = await getLedgerStartAt(session);
+  // COGS is corrected per invoice, only for units still sold (quantity −
+  // returnedQuantity), only on active invoices that belong to the ledger.
+  // Returned units keep the cost their return entry already credited.
+  const correctionFor = (invoice, item) => (invoice.status !== "cancelled" && isLedgerDocument(invoice, ledgerStartAt)
+    ? (purchasePrice - Number(item.purchasePrice || 0)) * Math.max(0, Number(item.quantity || 0) - returnedUnits(invoice, item))
+    : 0);
+  const postInvoiceCostSync = async (invoice, correction) => {
+    const amount = roundMoney(correction);
+    if (!amount) return;
+    await postCostSync({ date: new Date(), source: { type: "cost_sync", id: invoice._id, number: invoice.number }, amount: Math.abs(amount), increase: amount > 0, session, memo: `Purchase price sync ${product.code || product.name}` });
+  };
 
   for (const selling of sellings) {
     let didUpdateInvoice = false;
+    let costCorrection = 0;
 
     if (Array.isArray(selling.items) && selling.items.length > 0) {
       for (const item of selling.items) {
         if (String(getSellingItemProductId(item)) !== String(product._id)) continue;
 
         const quantity = Number(item.quantity || 0);
-        costCorrection += roundMoney((purchasePrice - Number(item.purchasePrice || 0)) * quantity);
+        costCorrection += correctionFor(selling, item);
         item.purchasePrice = purchasePrice;
         item.profitAmount = roundMoney(Number(item.totalPrice || 0) - purchasePrice * quantity);
         updatedItemsCount += 1;
@@ -1007,18 +1019,20 @@ const syncProductPurchasePriceInTransaction = async (req, res, session) => {
 
     if (didUpdateInvoice) {
       await selling.save({ session });
+      await postInvoiceCostSync(selling, costCorrection);
       updatedCashInvoices += 1;
     }
   }
 
   for (const creditSale of creditSales) {
     let didUpdateInvoice = false;
+    let costCorrection = 0;
 
     for (const item of creditSale.items) {
       if (String(getCreditSaleItemProductId(item)) !== String(product._id)) continue;
 
       const quantity = Number(item.quantity || 0);
-      costCorrection += roundMoney((purchasePrice - Number(item.purchasePrice || 0)) * quantity);
+      costCorrection += correctionFor(creditSale, item);
       item.purchasePrice = purchasePrice;
       item.profitAmount = roundMoney(Number(item.totalPrice || 0) - purchasePrice * quantity);
       updatedItemsCount += 1;
@@ -1027,11 +1041,10 @@ const syncProductPurchasePriceInTransaction = async (req, res, session) => {
 
     if (didUpdateInvoice) {
       await creditSale.save({ session });
+      await postInvoiceCostSync(creditSale, costCorrection);
       updatedCreditInvoices += 1;
     }
   }
-
-  if (costCorrection !== 0) await postCostSync({ date: new Date(), source: { type: "cost_sync", id: product._id, number: product.code }, amount: Math.abs(costCorrection), increase: costCorrection > 0, session });
 
   await audit(req, { action: "product.sync_purchase_price", entity: "Product", entityId: product._id, details: { updatedItemsCount }, session, strict: true });
   return {

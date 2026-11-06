@@ -1244,6 +1244,7 @@
         "errors": {
             "USERNAME_TAKEN": "This username already exists",
             "PERMISSION_NOT_HELD": "You can't give a permission you don't have (marked in red)",
+            "PERMISSION_DEPENDENCY": "View accounting also needs View purchase cost",
             "OWNER_PROTECTED": "The owner account can't be changed this way",
             "CANNOT_CHANGE_SELF": "You can't remove your own users permission or disable yourself"
         }
@@ -1380,6 +1381,7 @@
         "viewEntry": "View journal entry",
         "accounts": { "title": "Chart of accounts" },
         "journal": { "title": "Journal entries" },
+        "entryTypes": { "auto": "Automatic", "reversal": "Reversal", "opening": "Opening", "legacy_reversal": "Pre-ledger cancellation" },
         "asOf": "As of",
         "number": "Number",
         "date": "Date",

@@ -11,6 +11,7 @@ const Customer = require("../models/customer.model");
 const Account = require("../models/account.model");
 const JournalEntry = require("../models/journalEntry.model");
 const { seedAccounts, postEntry, accountMap } = require("../accounting/posting");
+const { customerStatementBalances } = require("../services/customerStatement.service");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { PREFIXES, formatDocumentNumber, nextDocumentNumber } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
@@ -469,27 +470,19 @@ async function ledgerStartMigration(session) {
   if (existingStart?.ledgerStartAt) return {};
   const products = await Product.find({}).select("inventoryCount purchasePrice").lean().session(session);
   const customers = await Customer.find({}).select("name").lean().session(session);
-  const creditSales = await CreditSale.find({}).lean().session(session);
-  const returns = await ReturnLog.find({ returnType: "credit" }).lean().session(session);
-  const returnMap = new Map(returns.map((row) => [String(row._id), row]));
-  const balances = new Map(customers.map((customer) => [String(customer._id), { customer, amount: 0 }]));
-  for (const sale of creditSales) {
-    const balance = balances.get(String(sale.customer));
-    if (!balance) continue;
-    balance.amount += Number(sale.totalPrice || 0);
-    for (const payment of sale.payments || []) if (payment.source !== "return_reallocation") balance.amount -= Number(payment.amount || 0);
-    for (const refund of sale.refunds || []) balance.amount -= Number(returnMap.get(String(refund.returnLog))?.finalReturnedAmount ?? refund.totalAmount ?? 0);
-    if (sale.status === "cancelled") {
-      balance.amount -= Number(sale.totalPrice || 0);
-      balance.amount += Number(sale.cancelRefundAmount || 0);
-    }
+  // Customer balances come from the Stage 16 statement function itself.
+  const { balances: statementBalances, orphanInvoices } = await customerStatementBalances(customers, { session });
+  if (orphanInvoices.length) {
+    const shown = orphanInvoices.slice(0, 20).map((invoice) => `${invoice.number || invoice._id} (customer ${invoice.customer})`).join(", ");
+    const more = orphanInvoices.length > 20 ? ` and ${orphanInvoices.length - 20} more` : "";
+    throw new Error(`Ledger opening balance: credit sale(s) reference a customer that no longer exists: ${shown}${more}`);
   }
   const accounts = await accountMap(["INVENTORY", "CUSTOMERS", "CAPITAL"], session);
   const lines = [];
   const inventoryValue = roundMoney(products.reduce((sum, product) => sum + Number(product.inventoryCount || 0) * Number(product.purchasePrice || 0), 0));
   if (inventoryValue > 0) lines.push({ accountId: accounts.get("INVENTORY")._id, accountCode: accounts.get("INVENTORY").code, accountName: accounts.get("INVENTORY").nameEn, debit: inventoryValue, credit: 0 });
-  for (const { customer, amount } of balances.values()) {
-    const rounded = roundMoney(amount);
+  for (const customer of customers) {
+    const rounded = roundMoney(statementBalances.get(String(customer._id)) || 0);
     if (rounded === 0) continue;
     lines.push({ accountId: accounts.get("CUSTOMERS")._id, accountCode: accounts.get("CUSTOMERS").code, accountName: accounts.get("CUSTOMERS").nameEn, debit: rounded > 0 ? rounded : 0, credit: rounded < 0 ? -rounded : 0, partyType: "customer", partyId: customer._id, partyName: customer.name });
   }

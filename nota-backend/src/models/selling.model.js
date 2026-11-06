@@ -147,6 +147,20 @@ const sellingSchema = new mongoose.Schema(
     cancelledByName: { type: String, trim: true, maxlength: 100 },
     cancellationReason: { type: String, trim: true, maxlength: 500 },
     cancelRefundAmount: { type: Number, default: 0, min: 0 },
+    // Stage 17: for invoices created before the ledger started only. The
+    // accounting health check needs the pre-edit totals (gone once an edit
+    // saves) and each line's purchasePrice at cancel time (a later
+    // sync-purchase-price rewrites the lines). Operational facts only, never
+    // a posted amount. Hidden: it reveals cost.
+    ledgerTrace: {
+      type: new mongoose.Schema({
+        editNetSales: Number,
+        editCost: Number,
+        cancelLines: { type: [new mongoose.Schema({ invoiceItemId: mongoose.Schema.Types.ObjectId, purchasePrice: Number }, { _id: false })], default: undefined },
+      }, { _id: false }),
+      default: undefined,
+      select: false,
+    },
     refundStatus: { type: String, enum: ["none", "partial", "full"], default: "none", index: true },
     refundedQuantity: { type: Number, default: 0, min: 0 },
     refundedAmount: { type: Number, default: 0, min: 0 },

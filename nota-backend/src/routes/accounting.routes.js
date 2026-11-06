@@ -1,10 +1,11 @@
 const express = require("express");
 const { requirePermission } = require("../auth/middleware");
+const asyncHandler = require("../utils/asyncHandler");
 const controller = require("../controllers/accounting.controller");
 const router = express.Router();
-router.get("/accounts", requirePermission("accounting.view"), controller.getAccounts);
-router.get("/accounts/:id/ledger", requirePermission("accounting.view"), controller.getLedger);
-router.get("/journal", requirePermission("accounting.view"), controller.getJournal);
-router.get("/journal/:id", requirePermission("accounting.view"), controller.getJournalEntry);
-router.get("/health", requirePermission("accounting.view"), controller.getHealth);
+router.get("/accounts", requirePermission("accounting.view"), asyncHandler(controller.getAccounts));
+router.get("/accounts/:id/ledger", requirePermission("accounting.view"), asyncHandler(controller.getLedger));
+router.get("/journal", requirePermission("accounting.view"), asyncHandler(controller.getJournal));
+router.get("/journal/:id", requirePermission("accounting.view"), asyncHandler(controller.getJournalEntry));
+router.get("/health", requirePermission("accounting.view"), asyncHandler(controller.getHealth));
 module.exports = router;

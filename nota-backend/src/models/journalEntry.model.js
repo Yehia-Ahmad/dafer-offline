@@ -17,7 +17,7 @@ const lineSchema = new mongoose.Schema({
 const journalEntrySchema = new mongoose.Schema({
   number: { type: String, required: true, unique: true, index: true },
   date: { type: Date, required: true, index: true },
-  type: { type: String, enum: ["auto", "reversal", "opening"], required: true, index: true },
+  type: { type: String, enum: ["auto", "reversal", "opening", "legacy_reversal"], required: true, index: true },
   source: {
     type: { type: String, required: true }, id: { type: mongoose.Schema.Types.ObjectId, required: true }, number: { type: String, default: null },
   },
@@ -36,4 +36,6 @@ journalEntrySchema.index({ "source.type": 1, "source.id": 1 });
 journalEntrySchema.index({ "lines.accountId": 1, date: 1 });
 journalEntrySchema.index({ "lines.partyId": 1, date: 1 });
 journalEntrySchema.index({ date: -1, createdAt: -1 });
+// At most one reversal per entry, even under concurrent requests.
+journalEntrySchema.index({ reversalOf: 1 }, { unique: true, partialFilterExpression: { reversalOf: { $type: "objectId" } } });
 module.exports = mongoose.model("JournalEntry", journalEntrySchema);

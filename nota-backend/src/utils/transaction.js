@@ -1,6 +1,17 @@
 const mongoose = require("mongoose");
 
-const hasLabel = (error, label) => Boolean(error && ((typeof error.hasErrorLabel === "function" && error.hasErrorLabel(label)) || (label === "TransientTransactionError" && /Please retry your operation|WriteConflict|TransientTransactionError/i.test(String(error.message || "")))));
+const WRITE_CONFLICT = 112;
+
+const hasLabel = (error, label) => Boolean(
+  error && (
+    (typeof error.hasErrorLabel === "function" && error.hasErrorLabel(label)) ||
+    (Array.isArray(error.errorLabels) && error.errorLabels.includes(label)) ||
+    (error.errorLabelSet instanceof Set && error.errorLabelSet.has(label))
+  )
+);
+
+// Retry decisions use server error labels and codes only, never message text.
+const isTransient = (error) => hasLabel(error, "TransientTransactionError") || Number(error?.code) === WRITE_CONFLICT;
 
 async function commitWithRetry(session, maxCommitRetries) {
   for (let attempt = 0; attempt < maxCommitRetries; attempt += 1) {
@@ -23,7 +34,7 @@ async function withTransaction(fn, { maxRetries = 10, maxCommitRetries = 5 } = {
       return value;
     } catch (error) {
       if (session.inTransaction()) await session.abortTransaction().catch(() => {});
-      if (hasLabel(error, "TransientTransactionError") && attempt + 1 < maxRetries) {
+      if (isTransient(error) && attempt + 1 < maxRetries) {
         await new Promise((resolve) => setTimeout(resolve, Math.min(25, 5 * (attempt + 1))));
         continue;
       }
@@ -43,4 +54,4 @@ async function assertTransactionsSupported() {
   await withTransaction((session) => mongoose.connection.db.collection("meta").findOne({ _id: "schema" }, { session }));
 }
 
-module.exports = { assertTransactionsSupported, withTransaction };
+module.exports = { assertTransactionsSupported, withTransaction, isTransient };

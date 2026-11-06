@@ -11,7 +11,7 @@ const { canSellBelowCost } = require("../auth/middleware");
 const { actorFields } = require("../utils/actorFields");
 const { PREFIXES, nextDocumentNumber, normalizeNumberSearch } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
-const { postSale, postReturn, postInventoryAdjustment, reverseSaleEntry, reverseAllFor, postLegacySaleReversal, postSaleDifference, postCancelInventoryValueAdjustment } = require("../accounting/posting");
+const { postSale, postReturn, postInventoryAdjustment, postInvoiceEdit, postInvoiceCancel } = require("../accounting/posting");
 const { audit } = require("../auth/audit");
 
 const getRawQuantity = (body) => {
@@ -917,6 +917,10 @@ const updateSellingInTransaction = async (req, res, session) => {
     shouldUpdateItems ||
     req.body.discountAmount !== undefined ||
     req.body.shippingFees !== undefined;
+  if (shouldUpdateInvoicePricing && selling.refunds?.length) {
+    res.status(400);
+    throw new Error("لا يمكن تعديل عناصر أو تسعير فاتورة تحتوي على مرتجعات");
+  }
   const currentItems = getSellingItemInputs(selling);
 
   let nextItems = currentItems;
@@ -969,14 +973,6 @@ const updateSellingInTransaction = async (req, res, session) => {
 
   if (shouldUpdateItems) {
     persistedItems = buildPersistedItems(nextItems, productsById);
-    const previousByProduct = new Map(getSellingItems(selling).map((item) => [String(getSellingItemProductId(item)), item]));
-    for (const item of persistedItems) {
-      const previous = previousByProduct.get(String(item.product));
-      const returnedQuantity = Number(previous?.returnedQuantity || 0);
-      if (!previous && selling.refunds?.length) { res.status(400); throw new Error("Cannot replace a returned invoice line"); }
-      if (Number(item.quantity) < returnedQuantity) { res.status(400); throw new Error("Invoice quantity cannot be below returned quantity"); }
-      if (previous) { item._id = previous._id; item.returnedQuantity = returnedQuantity; }
-    }
     selling.items = persistedItems;
 
     // Clear legacy top-level line-item fields after converting to invoice storage.
@@ -1004,10 +1000,7 @@ const updateSellingInTransaction = async (req, res, session) => {
 
   const updatedSelling = await selling.save({ session });
 
-  const editDate = new Date();
-  const reversed = await reverseSaleEntry("sale", selling._id, { date: editDate, memo: "Sale edit", session });
-  if (reversed) await postSale({ sale: updatedSelling, session });
-  else await postSaleDifference({ oldSale: oldSelling, newSale: updatedSelling, date: editDate, session });
+  await postInvoiceEdit({ Model: Selling, oldSale: oldSelling, newSale: updatedSelling, date: new Date(), session });
   await audit(req, { action: "sale.updated", entity: "Selling", entityId: selling._id, session, strict: true });
   return updatedSelling;
 };
@@ -1047,9 +1040,7 @@ const cancelSelling = asyncHandler(async (req, res) => {
     selling.cancellationReason = reason;
     selling.cancelRefundAmount = roundMoney(Math.max(0, Number(selling.totalPrice || 0) - Number(selling.refundedAmount || 0)));
     await selling.save({ session });
-    const reversals = await reverseAllFor("sale", selling._id, { date: selling.cancelledAt, memo: "Sale cancellation", session });
-    if (!reversals.some((entry) => entry?.source?.type === "sale")) reversals.push(await postLegacySaleReversal({ sale: selling, date: selling.cancelledAt, memo: "Pre-ledger sale cancellation", session }));
-    await postCancelInventoryValueAdjustment({ sale: selling, reversalEntries: reversals, session });
+    await postInvoiceCancel({ Model: Selling, sale: selling, session });
     await audit(req, { action: "sale.cancelled", entity: "Selling", entityId: selling._id, details: { reason }, session, strict: true });
     return selling;
   });

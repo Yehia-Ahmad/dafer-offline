@@ -1244,6 +1244,7 @@
     "errors": {
       "USERNAME_TAKEN": "اسم المستخدم ده موجود قبل كده",
       "PERMISSION_NOT_HELD": "مينفعش تدي صلاحية مش عندك (المعلَّمة بالأحمر)",
+      "PERMISSION_DEPENDENCY": "عرض الحسابات محتاج صلاحية عرض التكلفة كمان",
       "OWNER_PROTECTED": "حساب المالك مينفعش يتغير بالشكل ده",
       "CANNOT_CHANGE_SELF": "مينفعش تشيل صلاحية إدارة المستخدمين من حسابك أو توقف نفسك"
     }
@@ -1381,6 +1382,7 @@
     "section": "الحسابات", "account": "الحساب", "balance": "الرصيد", "from": "من", "to": "إلى", "type": "النوع", "source": "المصدر", "all": "الكل", "apply": "تطبيق", "empty": "لا توجد قيود", "party": "الطرف", "opening": "الرصيد الافتتاحي", "debit": "مدين", "credit": "دائن", "memo": "البيان", "description": "الوصف", "reversalOf": "عكس القيد", "reversedBy": "تم عكسه بـ",
     "accounts": { "title": "دليل الحسابات" },
     "journal": { "title": "القيود اليومية" },
+    "entryTypes": { "auto": "تلقائي", "reversal": "قيد عكسي", "opening": "افتتاحي", "legacy_reversal": "إلغاء فاتورة قبل بدء الدفاتر" },
     "asOf": "كما في",
     "number": "الرقم",
     "date": "التاريخ",

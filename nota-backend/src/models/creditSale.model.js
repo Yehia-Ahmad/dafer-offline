@@ -244,6 +244,16 @@ const creditSaleSchema = new mongoose.Schema(
     cancelledByName: { type: String, trim: true, maxlength: 100 },
     cancellationReason: { type: String, trim: true, maxlength: 500 },
     cancelRefundAmount: { type: Number, default: 0, min: 0 },
+    // Stage 17: see selling.model.js ledgerTrace.
+    ledgerTrace: {
+      type: new mongoose.Schema({
+        editNetSales: Number,
+        editCost: Number,
+        cancelLines: { type: [new mongoose.Schema({ invoiceItemId: mongoose.Schema.Types.ObjectId, purchasePrice: Number }, { _id: false })], default: undefined },
+      }, { _id: false }),
+      default: undefined,
+      select: false,
+    },
     migrationNotes: { type: [String], default: undefined },
     stage16OriginalTotalsRestored: { type: Boolean, default: false },
     refundStatus: {

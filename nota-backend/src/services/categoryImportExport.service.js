@@ -367,17 +367,14 @@ const importCategories = async (buffer, session) => {
   }
 
   let productImportedCount = 0;
+  let insertedProducts = [];
   if (productRowsToInsert.length > 0) {
     try {
-      const insertedProducts = await Product.insertMany(
+      insertedProducts = await Product.insertMany(
         productRowsToInsert.map((row) => row.product),
         { ordered: true, session }
       );
       productImportedCount = insertedProducts.length;
-      for (const product of insertedProducts) {
-        const amount = Number(product.inventoryCount || 0) * Number(product.purchasePrice || 0);
-        if (amount > 0) await postInventoryAdjustment({ date: new Date(), source: { type: "product_create", id: product._id, number: product.code }, amount, increase: true, session });
-      }
     } catch (error) {
       if (error?.hasErrorLabel?.("TransientTransactionError")) throw error;
       const failedIndex = error.writeErrors?.[0]?.index ?? error.index ?? 0;
@@ -388,6 +385,13 @@ const importCategories = async (buffer, session) => {
           : error.message || "Database insert failed" }],
       });
     }
+  }
+
+  // Outside the insert try/catch: a posting failure is a server error that
+  // aborts the import transaction, not a bad spreadsheet row.
+  for (const product of insertedProducts) {
+    const amount = Number(product.inventoryCount || 0) * Number(product.purchasePrice || 0);
+    if (amount > 0) await postInventoryAdjustment({ date: new Date(), source: { type: "product_create", id: product._id, number: product.code }, amount, increase: true, session });
   }
 
   return {

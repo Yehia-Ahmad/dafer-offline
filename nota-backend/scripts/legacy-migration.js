@@ -7,6 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
 const mongoose = require("mongoose");
+const { createLedgerChecker, runLedgerRepro } = require("../test/helpers/ledgerRepro");
 
 const BACKEND = path.resolve(__dirname, "..");
 const REPO = path.resolve(BACKEND, "..");
@@ -171,6 +172,15 @@ async function main() {
     await makeReturn("credit", repeated, 1);
     const repeatedAfterFirst = await request(oldBase, "GET", `/api/credit-sales/${repeated._id}`);
     await makeReturn("credit", repeatedAfterFirst, 1);
+
+    // Stage 17 review repro fixtures (pre-ledger documents made by the old backend).
+    const reproCashEdit = await sale("Repro cash edit", "01010000011", 2);
+    const reproCashReturn = await sale("Repro cash return", "01010000012", 3);
+    await makeReturn("cash", reproCashReturn, 1);
+    const reproLegacyCustomer = await customer("Repro legacy", "01010000013");
+    const reproCreditDown = await credit(reproLegacyCustomer._id, 1, { initialPaidAmount: 20, initialPaymentDate: "2025-01-01" });
+    const reproCreditOpen = await credit(reproLegacyCustomer._id, 3);
+    await makeReturn("credit", reproCreditOpen, 1);
     await stopChild(oldBackend);
     oldBackend = null;
 
@@ -244,8 +254,26 @@ async function main() {
     const receiptCount = await db.db().collection("receipts").countDocuments({ customer: new mongoose.Types.ObjectId(reallocCustomer._id) });
     assert.equal(receiptCount, 1, "the automatic reallocation must not create an RC receipt");
     await db.close();
+    // Stage 17 review: the reviewer's ledger repro on upgraded old data. After each step:
+    // health all 0, each customer's ledger = statement, CASH_MAIN = tracked cash.
+    const call = async (method, route, body) => {
+      const response = await fetch(`${currentBase}${route}`, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+      const text = await response.text();
+      return { status: response.status, json: text ? JSON.parse(text) : null };
+    };
+    const checker = createLedgerChecker(call);
+    checker.addCash(-20); // the down payment refunded by the legacy cancel above
+    const reproCustomer = await request(currentBase, "POST", "/api/customers", { name: "Repro new", phone: "01010000014" });
+    const repro = await runLedgerRepro({
+      call, checker, productId: product._id, customerId: reproCustomer._id,
+      customerIds: [discountCustomer._id, reallocCustomer._id, downCustomer._id, repeatedCustomer._id, reproLegacyCustomer._id],
+      pre: { cashEdit: reproCashEdit._id, cashWithReturn: reproCashReturn._id, creditDown: reproCreditDown._id, creditOpen: reproCreditOpen._id },
+    });
+    for (const step of repro.steps) console.log(`ledger repro step "${step.label}": health ${JSON.stringify(step.health)}, CASH_MAIN ${step.cash}, customers checked ${step.customers}`);
+    console.log(`ledger repro cost_sync entries: ${JSON.stringify(repro.results.costSync)}`);
+
     assert.doesNotMatch(currentErrors, /TypeError/);
-    console.log("legacy migration scenarios passed: cash partial/full/single-line, discount+shipping credit return, reallocation, down payment, repeated partial-line merge");
+    console.log("legacy migration scenarios passed: cash partial/full/single-line, discount+shipping credit return, reallocation, down payment, repeated partial-line merge, Stage 17 ledger repro (10 checkpoints)");
   } finally {
     await stopChild(oldBackend);
     await stopChild(currentBackend);

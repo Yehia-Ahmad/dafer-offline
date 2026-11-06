@@ -683,6 +683,8 @@ it("batched migration numbers about 5,000 legacy documents under the default tra
   await Selling.collection.insertMany(cash);
   await CreditSale.collection.insertMany(credit);
   await ReturnLog.collection.insertMany(returns);
+  // Stage 17: the ledger opening entry refuses credit sales whose customer is missing.
+  await mongoose.connection.collection("customers").insertOne({ _id: customerId, name: "Batch customer", phone: "01099999999", createdAt: now, updatedAt: now });
   const started = Date.now();
   await runMigrations();
   const elapsed = Date.now() - started;

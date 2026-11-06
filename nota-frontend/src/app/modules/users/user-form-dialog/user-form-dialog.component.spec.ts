@@ -16,7 +16,7 @@ describe('UserFormDialogComponent (Stage 14)', () => {
   let http: HttpTestingController;
   const el = () => document.body;
 
-  const open = async (user: ReturnType<typeof fakeUser> | null, me: () => void = () => signInAs('owner')) => {
+  const open = async (user: ReturnType<typeof fakeUser> | null, me: () => void = () => signInAs('owner'), catalog = FAKE_CATALOG) => {
     await TestBed.configureTestingModule({
       imports: [UserFormDialogComponent, TranslateModule.forRoot()],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideNoopAnimations()],
@@ -25,7 +25,7 @@ describe('UserFormDialogComponent (Stage 14)', () => {
     me();
     fixture = TestBed.createComponent(UserFormDialogComponent);
     component = fixture.componentInstance;
-    fixture.componentRef.setInput('catalog', FAKE_CATALOG);
+    fixture.componentRef.setInput('catalog', catalog);
     fixture.componentRef.setInput('user', user);
     component.open.set(true);
     fixture.detectChanges();
@@ -89,6 +89,57 @@ describe('UserFormDialogComponent (Stage 14)', () => {
     expect(el().querySelector('[data-testid="unheld-note"]')).not.toBeNull();
     component.toggle('backup.manage', true);
     expect(component.selected()).not.toContain('backup.manage');
+  });
+
+  describe('Stage 17: accounting.view requires products.viewCost', () => {
+    const ACCOUNTING_CATALOG = {
+      ...FAKE_CATALOG,
+      permissions: [
+        ...FAKE_CATALOG.permissions,
+        { key: 'accounting.view', group: 'accounting', ar: 'عرض الحسابات', en: 'View accounting' },
+        { key: 'accounting.manage', group: 'accounting', ar: 'إدارة الحسابات', en: 'Manage accounting' },
+      ],
+      groups: { ...FAKE_CATALOG.groups, accounting: { ar: 'الحسابات', en: 'Accounting' } },
+    };
+    const asOwnerWithAccounting = () => signInWith([...ROLE_PERMISSIONS.owner, 'accounting.view', 'accounting.manage']);
+
+    it('ticking accounting.view auto-ticks products.viewCost; unticking viewCost unticks accounting.view', async () => {
+      await open(null, asOwnerWithAccounting, ACCOUNTING_CATALOG);
+      component.chooseRole('custom');
+      component.selected.set(['sales.view']);
+      component.toggle('accounting.view', true);
+      expect(component.selected()).toContain('accounting.view');
+      expect(component.selected()).toContain('products.viewCost');
+      component.toggle('products.viewCost', false);
+      expect(component.selected()).not.toContain('products.viewCost');
+      expect(component.selected()).not.toContain('accounting.view');
+    });
+
+    it('the create payload sent after ticking accounting.view carries products.viewCost', async () => {
+      await open(null, asOwnerWithAccounting, ACCOUNTING_CATALOG);
+      component.name.set('هالة');
+      component.username.set('hala');
+      component.password.set('pass-1234');
+      component.confirm.set('pass-1234');
+      component.chooseRole('custom');
+      component.selected.set([]);
+      component.toggle('accounting.view', true);
+      component.submit();
+      const req = http.expectOne(`${base}users`);
+      expect(req.request.body.permissions).toEqual(['products.viewCost', 'accounting.view']);
+      req.flush({ user: fakeUser('custom', { permissions: ['products.viewCost', 'accounting.view'] }) });
+    });
+
+    it('a PERMISSION_DEPENDENCY error maps to the permissions field', async () => {
+      await open(null, asOwnerWithAccounting, ACCOUNTING_CATALOG);
+      component.name.set('x');
+      component.username.set('dep');
+      component.password.set('pass-1234');
+      component.confirm.set('pass-1234');
+      component.submit();
+      http.expectOne(`${base}users`).flush({ code: 'PERMISSION_DEPENDENCY', permissions: ['products.viewCost'] }, { status: 400, statusText: 'Bad Request' });
+      expect(component.errors().permissions).toBe('users.errors.PERMISSION_DEPENDENCY');
+    });
   });
 
   it('server errors map to fields: USERNAME_TAKEN, PERMISSION_NOT_HELD (keys marked), OWNER_PROTECTED, CANNOT_CHANGE_SELF', async () => {

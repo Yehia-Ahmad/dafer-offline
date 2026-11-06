@@ -54,6 +54,21 @@ const PERMISSION_GROUPS = {
 
 const ALL_PERMISSIONS = Object.freeze(Object.keys(PERMISSIONS));
 
+/**
+ * Stage 17: a permission that needs another one. Journal and ledger amounts
+ * reveal cost (COGS, inventory), so accounting.view requires products.viewCost.
+ */
+const PERMISSION_DEPENDENCIES = Object.freeze({ "accounting.view": Object.freeze(["products.viewCost"]) });
+
+/** [{ permission, requires: [...] }] for every unmet dependency in `list`. */
+const missingDependencies = (list) => {
+  const held = new Set(list || []);
+  return Object.entries(PERMISSION_DEPENDENCIES)
+    .filter(([permission]) => held.has(permission))
+    .map(([permission, requires]) => ({ permission, requires: requires.filter((key) => !held.has(key)) }))
+    .filter((row) => row.requires.length);
+};
+
 const ROLES = ["owner", "manager", "cashier", "storekeeper", "accountant", "custom"];
 const TEMPLATE_ROLES = ["manager", "cashier", "storekeeper", "accountant"];
 
@@ -120,6 +135,8 @@ const hasPermission = (user, key) => effectivePermissions(user).includes(key);
 
 module.exports = {
   ALL_PERMISSIONS,
+  PERMISSION_DEPENDENCIES,
+  missingDependencies,
   PERMISSIONS,
   PERMISSION_GROUPS,
   ROLES,

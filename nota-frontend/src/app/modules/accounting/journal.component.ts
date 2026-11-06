@@ -6,8 +6,11 @@ import { RouterLink } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { environment } from '../../../environments/environment';
+/** Journal entry types; labels come from accounting.entryTypes.<type> (ar/en). */
+export const JOURNAL_ENTRY_TYPES = ['auto', 'reversal', 'legacy_reversal', 'opening'] as const;
 @Component({ selector: 'app-accounting-journal', standalone: true, imports: [CommonModule, FormsModule, RouterLink, TranslateModule], templateUrl: './journal.component.html', styleUrl: './journal.component.scss' })
 export class JournalComponent {
+  readonly entryTypes = JOURNAL_ENTRY_TYPES;
   private http = inject(HttpClient); private route = inject(ActivatedRoute); private cdr = inject(ChangeDetectorRef); entries: any[] = []; pagination = { page: 1, totalPages: 1, totalItems: 0 }; loading = true; error = ''; sourceId = ''; sourceNumber = ''; filters = { from: '', to: '', type: '', sourceType: '', number: '' };
   ngOnInit(): void { const query = this.route.snapshot.queryParamMap; this.filters.sourceType = query.get('sourceType') || ''; this.sourceId = query.get('sourceId') || ''; this.sourceNumber = query.get('sourceNumber') || ''; this.load(1); }
   sourceLink(entry: any): any[] | null { if (entry.source?.type === 'sale') return ['/invoice-history']; if (entry.source?.type === 'credit_sale') return ['/credit-sales']; if (entry.source?.type === 'return') return ['/returns']; return null; }

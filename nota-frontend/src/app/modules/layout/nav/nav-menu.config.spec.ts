@@ -65,10 +65,20 @@ describe('nav menu config', () => {
 
   it('keeps future screens defined but hidden', () => {
     const all = NAV_GROUPS.flatMap((g) => g.items);
-    for (const key of ['purchases', 'suppliers', 'cash', 'expenses', 'accounts', 'reports']) {
+    for (const key of ['purchases', 'suppliers', 'cash', 'expenses']) {
       const item = all.find((i) => i.key === key);
       expect(item).withContext(key).toBeDefined();
       expect(item!.visible(ctxFor(ROLE_PERMISSIONS.owner))).withContext(key).toBeFalse();
+    }
+  });
+
+  it('Stage 17: accounts and journal show only with accounting.view', () => {
+    const all = NAV_GROUPS.flatMap((g) => g.items);
+    for (const key of ['accounts', 'journal']) {
+      const item = all.find((i) => i.key === key);
+      expect(item).withContext(key).toBeDefined();
+      expect(item!.visible(ctxFor(ROLE_PERMISSIONS.cashier))).withContext(key).toBeFalse();
+      expect(item!.visible(ctxFor([...ROLE_PERMISSIONS.accountant, 'accounting.view']))).withContext(key).toBeTrue();
     }
   });
 
