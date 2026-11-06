@@ -132,16 +132,21 @@ const assertBoxActive = async (boxId, session) => {
   if (!box || box.isActive === false) throw httpError(409, "BOX_INACTIVE", "الخزنة دي مقفولة", { boxId });
 };
 
+/** A one-box shop: no active cash drawer besides the main box, so the main box IS the drawer. */
+const mainIsTheOnlyDrawer = async (session) => !(await CashBox.exists({ type: "cash", isMain: { $ne: true }, isActive: true }).session(session || null));
+
 /**
  * The box a money document goes through.
  * - `direction: "out"` (expenses, payouts, drawings, refunds): the main box needs cashbox.manage (or one of
- *   `alsoAllow`) whatever the device header says. The header is not authentication.
+ *   `alsoAllow`) whatever the device header says. The header is not authentication. Exception: in a one-box shop
+ *   (no active cash drawer besides the main box) the main box is the drawer and the action's own route permission is
+ *   enough, unless `oneBoxAllowed: false` (owner drawings).
  * - `boxId` given: that box (checked for the user).
  * - else the device's default box, else the main box.
  * Errors: 400 INVALID_BOX / BOX_NOT_FOUND, 409 BOX_INACTIVE, 409 NO_OPEN_SHIFT (shift-enabled box, no open shift).
  * `requireShift: false` is for movements a manager makes between shifts (transfers).
  */
-const resolveBox = async ({ req = null, boxId = null, session, requireShift = true, direction = "in", alsoAllow = [] }) => {
+const resolveBox = async ({ req = null, boxId = null, session, requireShift = true, direction = "in", alsoAllow = [], oneBoxAllowed = true }) => {
   const main = await ensureMainBox(session);
   let box;
   if (boxId !== undefined && boxId !== null && boxId !== "") {
@@ -153,7 +158,8 @@ const resolveBox = async ({ req = null, boxId = null, session, requireShift = tr
     box = (await deviceBox(req && req.deviceId, session)) || main;
   }
   if (direction === "out" && box.isMain && req && req.authEnabled && req.user
-    && !["cashbox.manage", ...alsoAllow].some((key) => hasPermission(req.user, key))) {
+    && !["cashbox.manage", ...alsoAllow].some((key) => hasPermission(req.user, key))
+    && !(oneBoxAllowed && await mainIsTheOnlyDrawer(session))) {
     throw httpError(403, "BOX_NOT_ALLOWED", "السحب من الخزنة الرئيسية للمدير بس", { boxId: box._id });
   }
   return assertUsable(box, { session, requireShift });
@@ -195,6 +201,17 @@ const lockBoxes = async (boxIds, session) => {
   }
 };
 
+/**
+ * A cancel puts money back into a box (a reversing event at cancelledAt): lock the boxes and touch their open shifts, so a
+ * concurrent shift close conflicts with it and one of the two retries, like every other money path. No open shift is needed.
+ */
+const lockAndTouch = async (boxIds, session) => {
+  await lockBoxes(boxIds, session);
+  for (const id of [...new Set(boxIds.map(String))].sort()) {
+    await Shift.collection.updateOne({ boxId: new mongoose.Types.ObjectId(id), status: "open" }, { $currentDate: { lastActivityAt: true } }, { session });
+  }
+};
+
 /** Reverses the open auto entries of one source document (an expense, a transfer, ...). Returns the reversals. */
 const reverseSourceEntries = async (sourceType, sourceId, { date, memo, session }) => {
   const entries = await JournalEntry.find({ "source.type": sourceType, "source.id": sourceId, type: "auto", reversedBy: null }).sort({ createdAt: 1 }).session(session);
@@ -204,7 +221,7 @@ const reverseSourceEntries = async (sourceType, sourceId, { date, memo, session 
 };
 
 module.exports = {
-  nextLeafCode, createBoxAccount, lockBoxes, reverseSourceEntries,
+  nextLeafCode, createBoxAccount, lockBoxes, lockAndTouch, reverseSourceEntries,
   MAIN_BOX_NAME, httpError, isId, retryable, bankLeafAccounts, ensureMainBox, syncAccountBoxes, boxAccount, accountBalances,
   boxBalance, boxHasLines, openShiftOf, deviceBox, assertBoxAllowed, resolveBox, assertUsable, usableBoxOf, assertBoxActive,
 };

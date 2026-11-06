@@ -691,8 +691,8 @@ test("returns skip the below-cost rule: a cashier partly returns a credit invoic
 test("createdBy / updatedBy come from the signed-in user (sale, credit + payment, return, product, category, customer)", skip, async () => {
   const owner = await setupOwner();
   const storekeeper = await addUser(owner.token, { username: "store", role: "storekeeper", name: "أمين المخزن" });
-  // A manager, not a cashier: a cash refund comes out of the main box, which needs cashbox.manage (Stage 19 review).
-  const cashier = await addUser(owner.token, { username: "cashier", role: "manager", name: "الكاشير" });
+  // A one-box shop: the main box is the drawer, so the cashier's cash refund needs only returns.create (Stage 19 round 2).
+  const cashier = await addUser(owner.token, { username: "cashier", role: "cashier", name: "الكاشير" });
   const category = await call(on, "POST", "/api/categories", { token: owner.token, body: { name: "تصنيف" } });
   const product = await call(on, "POST", "/api/products", {
     token: storekeeper.token,

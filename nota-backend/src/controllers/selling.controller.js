@@ -13,6 +13,7 @@ const { PREFIXES, nextDocumentNumber, normalizeNumberSearch } = require("../util
 const { withTransaction } = require("../utils/transaction");
 const { postSale, postReturn, postInventoryAdjustment, postInvoiceEdit, postInvoiceCancel } = require("../accounting/posting");
 const { resolveBox, usableBoxOf } = require("../cashbox/boxes");
+const CashBox = require("../models/cashBox.model");
 const { audit } = require("../auth/audit");
 
 const getRawQuantity = (body) => {
@@ -423,6 +424,8 @@ const toSellingInvoice = (selling, options = {}) => {
     cancellationReason: selling.cancellationReason ?? null,
     cancelRefundAmount: selling.cancelRefundAmount ?? 0,
     boxId: selling.boxId ?? null,
+    // The box that paid a cancelled sale's refund (old cancels: the sale's own box).
+    cancelRefundBoxId: selling.status === "cancelled" && selling.cancelRefundAmount > 0 ? (selling.cancelRefundBoxId ?? selling.boxId ?? null) : null,
     refunds: (selling.refunds || []).map((refund) => ({
       _id: refund._id,
       refundDate: refund.refundDate,
@@ -860,18 +863,26 @@ const getSellings = asyncHandler(async (req, res) => {
 
   res.json(
     buildPaginatedResponse({
-      data: sellings.map((selling) =>
+      data: await withRefundBoxNames(sellings.map((selling) =>
         toSellingInvoice(selling, {
           includeProductCode: true,
           excludeRefundedItems: true,
         })
-      ),
+      )),
       page,
       limit,
       totalItems,
     })
   );
 });
+
+/** Adds cancelRefundBoxName to invoices that have a cancelRefundBoxId (one lookup for the whole list). */
+const withRefundBoxNames = async (invoices) => {
+  const ids = [...new Set(invoices.map((invoice) => invoice.cancelRefundBoxId).filter(Boolean).map(String))];
+  if (!ids.length) return invoices;
+  const names = new Map((await CashBox.find({ _id: { $in: ids } }).select("name").lean()).map((box) => [String(box._id), box.name]));
+  return invoices.map((invoice) => (invoice.cancelRefundBoxId ? { ...invoice, cancelRefundBoxName: names.get(String(invoice.cancelRefundBoxId)) ?? null } : invoice));
+};
 
 const getSellingById = asyncHandler(async (req, res) => {
   const selling = await Selling.findById(req.params.id)
@@ -884,11 +895,8 @@ const getSellingById = asyncHandler(async (req, res) => {
     throw new Error("سجل البيع غير موجود");
   }
 
-  res.json(
-    toSellingInvoice(selling, {
-      includeProductCode: true,
-    })
-  );
+  const [invoice] = await withRefundBoxNames([toSellingInvoice(selling, { includeProductCode: true })]);
+  res.json(invoice);
 });
 
 const updateSellingInTransaction = async (req, res, session) => {

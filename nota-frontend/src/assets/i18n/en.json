@@ -350,6 +350,7 @@
             "action": "Cancel invoice",
             "cancelled": "Cancelled",
             "reason": "Cancellation reason",
+            "refundBox": "{{amount}} refunded to the customer from: {{box}}",
             "summary": "Unreturned items go back to stock and the invoice remains in history.",
             "cashSummary": "Unreturned items go back to stock, {{amount}} is refunded to the customer, and the invoice remains in history.",
             "blocked": {
@@ -1648,7 +1649,7 @@
             "confirmOpen": "Confirm and open the shift",
             "openTitle": "Open a shift · {{name}}",
             "openingFloat": "Opening float (what was counted in the drawer)",
-            "openingFloatHint": "Information only: it posts no entry, because the money is already in the drawer.",
+            "openingFloatHint": "Equal to the drawer balance: nothing is posted. If it differs you add a note and the difference is posted to cash over/short.",
             "floatMismatch": "The system holds {{balance}} in this drawer and you entered {{counted}}: a difference of {{difference}}. Confirm if your count is right.",
             "alreadyOpen": "A shift is already open on this box.",
             "openingNote": "Reason for the difference (required)",

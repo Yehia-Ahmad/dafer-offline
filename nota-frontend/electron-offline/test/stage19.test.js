@@ -82,3 +82,12 @@ test('a client PC sends its OWN id, never the main PC\'s (mainInstanceId): the d
   assert.match(store, /instanceId: raw\.instanceId/);
   assert.match(store, /config\.mainInstanceId/);
 });
+
+test('the open-shift float hint no longer says the float posts nothing: a confirmed difference is posted to cash over/short', () => {
+  const i18n = (language) => fs.readFileSync(path.resolve(__dirname, '..', '..', 'src', 'assets', 'i18n', `${language}.json`), 'utf8');
+  const en = JSON.parse(i18n('en')).cashbox.shift;
+  const ar = JSON.parse(i18n('ar')).cashbox.shift;
+  assert.match(en.openingFloatHint, /over\/short/);
+  assert.equal(/posts no entry/i.test(en.openingFloatHint), false);
+  assert.equal(/ومش بيسجل/.test(ar.openingFloatHint), false);
+});

@@ -415,6 +415,8 @@ export class InvoiceHistoryComponent implements OnInit {
       netTotal: this.toNumber(item.netTotal),
       status: String(item.status || 'active'),
       cancellationReason: item.cancellationReason ? String(item.cancellationReason) : null,
+      cancelRefundAmount: this.toNumber(item.cancelRefundAmount),
+      cancelRefundBoxName: item.cancelRefundBoxName ? String(item.cancelRefundBoxName) : null,
       items,
       refundStatus: String(item.refundStatus || 'none'),
       refundedAmount: this.toNumber(item.refundedAmount),

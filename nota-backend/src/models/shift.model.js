@@ -12,7 +12,7 @@ const shiftSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   userName: { type: String, trim: true },
   openedAt: { type: Date, required: true },
-  // Informational: what the user counted in the drawer when opening. It posts no entry.
+  // What the user counted in the drawer when opening (equal to the box balance, or confirmed and posted as shift_open).
   openingFloat: { type: Number, required: true, min: 0 },
   // The box's ledger balance when the shift opened (shown next to the float).
   openingBalance: { type: Number, default: 0 },

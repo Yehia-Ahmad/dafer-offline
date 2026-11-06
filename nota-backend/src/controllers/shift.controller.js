@@ -13,8 +13,9 @@ const { nonNegativeAmount, positiveAmount, optionalText } = require("../cashbox/
 
 const { httpError, isId } = boxes;
 
-// Stage 19: shifts. A shift belongs to one box and to the user who opened it. It posts nothing when it opens
-// (the money is already in the box). When it closes, the counted cash is compared with the cash the box's
+// Stage 19: shifts. A shift belongs to one box and to the user who opened it. When it opens with a float equal to the box
+// balance nothing is posted (the money is already there); a confirmed difference is posted to CASH_OVER_SHORT
+// (530) as a shift_open entry. When it closes, the counted cash is compared with the cash the box's
 // DOCUMENTS say should be there; a difference posts to CASH_OVER_SHORT (530), and an optional deposit is a
 // transfer to another box.
 
@@ -61,7 +62,7 @@ const openShift = async (req, res) => {
     if (open) throw httpError(409, "SHIFT_ALREADY_OPEN", "في وردية مفتوحة على الخزنة دي", { boxId: box._id, shiftId: open._id, userName: open.userName || null });
     await boxes.lockBoxes([box._id], session);
     const balance = await boxes.boxBalance(box, session);
-    // The float is what the user counted; it posts nothing. It should equal the box balance: otherwise confirm the difference.
+    // The float is what the user counted. It should equal the box balance; otherwise the difference is confirmed with a note and posted below.
     const openingDifference = roundMoney(openingFloat - balance);
     if (openingDifference !== 0 && body.confirmFloat !== true) {
       throw httpError(409, "FLOAT_MISMATCH", "رصيد البداية مختلف عن رصيد الخزنة. أكّد الفرق", { boxId: box._id, balance, openingFloat, difference: openingDifference });

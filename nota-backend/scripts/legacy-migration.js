@@ -181,6 +181,7 @@ async function main() {
     const reproCreditDown = await credit(reproLegacyCustomer._id, 1, { initialPaidAmount: 20, initialPaymentDate: "2025-01-01" });
     const reproCreditOpen = await credit(reproLegacyCustomer._id, 3);
     await makeReturn("credit", reproCreditOpen, 1);
+    const reproTraceEdit = await sale("Repro trace edit", "01010000017", 2);
     await stopChild(oldBackend);
     oldBackend = null;
 
@@ -309,6 +310,24 @@ async function main() {
       if (check && typeof check === "object" && "difference" in check) { assert.equal(Number(check.difference), 0, `accounting health after the wizard: ${name}`); assert.notEqual(check.ok, false, `accounting health after the wizard: ${name} ok`); }
     }
     console.log(`opening wizard after the upgrade: OB ${saved.number}, capital ${saved.totals.capital}, health 0`);
+    // Round 2: a pre-ledger invoice that Stage 17/18 already edited (+70, kept only in ledgerTrace.editNetSales, no boxMoves)
+    // and that the current build edits again (-30): the boxes check counts the old edits once and the new move once.
+    const traceItems = (price) => [{ productId: product._id, quantity: 2, price }];
+    const firstEdit = await call("PUT", `/api/sellings/${reproTraceEdit._id}`, { items: traceItems(135) });
+    assert.equal(firstEdit.status, 200, JSON.stringify(firstEdit.json));
+    const traceDb = new mongoose.mongo.MongoClient(mongoUri);
+    await traceDb.connect();
+    await traceDb.db().collection("sellings").updateOne({ _id: new mongoose.Types.ObjectId(reproTraceEdit._id) }, { $unset: { boxMoves: "" } });
+    const secondEdit = await call("PUT", `/api/sellings/${reproTraceEdit._id}`, { items: traceItems(120) });
+    assert.equal(secondEdit.status, 200, JSON.stringify(secondEdit.json));
+    const tracedSale = await traceDb.db().collection("sellings").findOne({ _id: new mongoose.Types.ObjectId(reproTraceEdit._id) });
+    await traceDb.close();
+    assert.equal(tracedSale.ledgerTrace.editNetSales, 40, "the trace holds +70 and -30");
+    assert.deepEqual(tracedSale.boxMoves.map((move) => move.delta), [-30], "only the new edit is a box move");
+    const afterTraceEdit = await request(currentBase, "GET", "/api/accounting/health");
+    assert.equal(afterTraceEdit.boxes.difference, 0, "an edited pre-ledger invoice does not raise a false boxes alarm");
+    assert.equal(afterTraceEdit.shifts.difference, 0);
+    console.log("pre-ledger invoice edited by the old build (+70 in the trace) and again now (-30): boxes difference 0");
     const finalHealth = await request(currentBase, "GET", "/api/accounting/health");
     assert.equal(finalHealth.boxes.difference, 0, "the boxes check is 0 after the upgrade");
     assert.equal(finalHealth.shifts.difference, 0, "the shifts check is 0 after the upgrade");

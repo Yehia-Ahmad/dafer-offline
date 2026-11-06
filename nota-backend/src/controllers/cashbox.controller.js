@@ -331,7 +331,7 @@ const cancelTransfer = async (req, res) => {
     if (transfer.kind === "shift_deposit") throw httpError(409, "SHIFT_DEPOSIT", "توريد الوردية مينفعش يتلغى لوحده");
     await boxes.assertBoxActive(transfer.fromBoxId, session);
     const to = await CashBox.findById(transfer.toBoxId).session(session);
-    await boxes.lockBoxes([transfer.fromBoxId, transfer.toBoxId], session);
+    await boxes.lockAndTouch([transfer.fromBoxId, transfer.toBoxId], session);
     const balance = await boxes.boxBalance(to, session);
     if (roundMoney(balance - transfer.amount) < 0) throw httpError(409, "INSUFFICIENT_BALANCE", "الخزنة المحوّل إليها صرفت الفلوس. مينفعش تلغي", { boxId: to._id, balance, required: transfer.amount });
     const now = new Date();
@@ -357,7 +357,7 @@ const createDrawing = async (req, res) => {
   const date = optionalDate(body.date);
   const note = optionalText(body.note, 500);
   const drawing = await withTransaction(async (session) => {
-    const box = await boxes.resolveBox({ req, boxId: body.boxId, session, direction: "out", alsoAllow: ["owner.drawings"] });
+    const box = await boxes.resolveBox({ req, boxId: body.boxId, session, direction: "out", alsoAllow: ["owner.drawings"], oneBoxAllowed: false });
     await boxes.lockBoxes([box._id], session);
     const balance = await boxes.boxBalance(box, session);
     if (roundMoney(balance - amount) < 0) throw httpError(409, "INSUFFICIENT_BALANCE", "رصيد الخزنة مش كفاية", { boxId: box._id, balance, required: amount });
@@ -392,6 +392,7 @@ const cancelDrawing = async (req, res) => {
     if (!drawing) throw httpError(404, "DRAWING_NOT_FOUND", "السحب غير موجود");
     if (drawing.status === "cancelled") throw httpError(409, "ALREADY_CANCELLED", "السحب ملغي بالفعل");
     await boxes.assertBoxActive(drawing.boxId, session);
+    await boxes.lockAndTouch([drawing.boxId], session);
     const now = new Date();
     drawing.status = "cancelled"; drawing.cancelReason = reason; drawing.cancelledAt = now;
     drawing.cancelledBy = req.user?._id; drawing.cancelledByName = req.user?.name;

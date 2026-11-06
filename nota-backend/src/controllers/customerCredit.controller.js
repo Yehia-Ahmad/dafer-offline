@@ -80,6 +80,7 @@ const cancelPayout = async (req, res) => {
     if (!payout) throw httpError(404, "PAYOUT_NOT_FOUND", "الصرف غير موجود");
     if (payout.status === "cancelled") throw httpError(409, "ALREADY_CANCELLED", "الصرف ملغي بالفعل");
     await boxes.assertBoxActive(payout.boxId, session);
+    await boxes.lockAndTouch([payout.boxId], session);
     await touchCustomer(customer, session);
     const now = new Date();
     payout.status = "cancelled"; payout.cancelReason = reason; payout.cancelledAt = now;

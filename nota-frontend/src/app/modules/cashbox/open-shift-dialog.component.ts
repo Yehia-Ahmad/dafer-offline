@@ -68,9 +68,9 @@ export class OpenShiftDialogComponent {
   submit(): void {
     const openingFloat = this.float();
     if (openingFloat === null || openingFloat < 0) return;
+    if (this.mismatch() && !this.note().trim()) return;
     this.busy.set(true);
     this.error.set('');
-    if (this.mismatch() && !this.note().trim()) return;
     this.cashbox.openShift({ boxId: this.boxId(), openingFloat, ...(this.mismatch() ? { confirmFloat: true, openingNote: this.note().trim() } : {}) }).subscribe({
       next: (shift) => {
         this.busy.set(false);

@@ -41,6 +41,9 @@ export type InvoiceHistoryRow = {
   netTotal?: number | null;
   status?: 'active' | 'cancelled' | string;
   cancellationReason?: string | null;
+  /** Display only: the box that paid a cancelled cash sale's refund. */
+  cancelRefundAmount?: number | null;
+  cancelRefundBoxName?: string | null;
   items: InvoiceHistoryItem[];
   /** Display only (Stage 10 detail panel); not used by the print. */
   refundStatus?: 'none' | 'partial' | 'full' | string;

@@ -1099,6 +1099,7 @@ it("review 6: the device header never unlocks the main box: expenses, payouts, r
   const sale = await sold(p, 100, { boxId: main._id });
   const cashier = await makeUser("cash-rev6", "cashier");
   const rent = await category("522");
+  await createBox({ name: "درج", type: "cash", deviceId: DEVICE_A }); // an active drawer: the shop is no longer a one-box shop
   token = cashier;
   // A PC with no drawer: sales may land in the main box, nothing may leave it.
   const noDrawer = asDevice("device-nodrawer-0009");
@@ -1240,4 +1241,143 @@ it("review 12: with users off (no req.user) a PC still registers; with users on,
   assert.equal(await Device.countDocuments({ deviceId: /^device-cap-/ }), 8, "every one was still registered");
   reset();
   assert.equal(rememberedCount(), 0);
+});
+
+// ---- round 2 A: a pre-ledger invoice edited by the old build and again now
+
+it("round 2 A: a pre-ledger sale edited before boxMoves existed (+70 only in the trace) and edited again (-30): boxes 0", async () => {
+  const { main } = await shop();
+  const p = await product({ code: "R2-A" });
+  const sale = await sold(p, 200);
+  // Make it a pre-ledger invoice: older than the ledger start, with nothing posted for it.
+  await JournalEntry.deleteMany({ "source.id": ObjectId(sale._id) });
+  await Selling.collection.updateOne({ _id: ObjectId(sale._id) }, { $set: { createdAt: new Date(Date.now() - 2 * 86400000) } });
+  await Meta.updateOne({ _id: "schema" }, { $set: { ledgerStartAt: new Date(Date.now() - 86400000) } });
+  assert.equal((await entriesOf("sale", sale._id)).length, 0);
+  assert.equal((await call("PUT", `/api/sellings/${sale._id}`, { price: 270 })).status, 200);
+  await Selling.collection.updateOne({ _id: ObjectId(sale._id) }, { $unset: { boxMoves: "" } }); // what a Stage 17/18 edit left behind
+  assert.equal((await call("PUT", `/api/sellings/${sale._id}`, { price: 240 })).status, 200);
+  const stored = await Selling.findById(sale._id).select("+ledgerTrace").lean();
+  assert.equal(stored.ledgerTrace.editNetSales, 40);
+  assert.deepEqual(stored.boxMoves.map((move) => move.delta), [-30]);
+  const health = await healthOf(); // (inventory is skipped: the fixture deleted the sale's cost entries)
+  assert.equal(health.boxes.difference, 0, JSON.stringify(health.boxes));
+  assert.equal(health.shifts.difference, 0);
+  assert.equal(await balanceOf(main), 20040);
+});
+
+// ---- round 2 B: a one-box shop
+
+it("round 2 B: with no active drawer besides the main box, the main box is the drawer: a cashier refunds, spends, pays out and cancels a down payment with only the action's permission; an active drawer takes that away", async () => {
+  const { main, wallet } = await shop();
+  const p = await product({ code: "R2-B", stock: 100 }); const c = await customer("Round Two B", "01010000198"); const owed = await customer("Has credit", "01010000199");
+  assert.equal((await call("POST", "/api/accounting/opening", { cash: 20000, banks: [{ accountId: String(wallet.accountId), amount: 5000 }], customers: [{ customerId: String(owed._id), amount: -300 }] })).status, 200);
+  const sale = await sold(p, 100, { boxId: main._id });
+  const sale2 = await sold(p, 100, { boxId: main._id });
+  const credit = await creditSale(c, p, 300, { downPayment: 100 });
+  const credit2 = await creditSale(c, p, 300, { downPayment: 100 });
+  const created = await call("POST", "/api/users", { name: "clerk", username: "clerk-r2b", password: "secret-pass-1", role: "custom", permissions: ["returns.create", "sales.delete", "credit.delete", "credit.collect", "expenses.create", "owner.drawings"] });
+  assert.equal(created.status, 201, JSON.stringify(created.json));
+  const clerk = await login("clerk-r2b", "secret-pass-1");
+  const rent = await category("522");
+  token = clerk;
+  assert.equal((await call("POST", "/api/returns", { returnType: "cash", invoiceId: sale._id, items: [{ productId: p._id, quantity: 1, returnReason: "x" }] })).status, 201, "cash return");
+  assert.equal((await call("POST", "/api/expenses", { accountId: rent, amount: 5 })).status, 201, "expense");
+  assert.equal((await call("POST", `/api/customers/${owed._id}/payouts`, { amount: 5 })).status, 201, "payout");
+  const cancelled = await call("POST", `/api/credit-sales/${credit._id}/cancel`, { reason: "رد المقدم" });
+  assert.equal(cancelled.status, 200, JSON.stringify(cancelled.json));
+  // Transfers always need cashbox.manage; owner drawings always run on owner.drawings.
+  assert.equal((await call("POST", "/api/cashbox/transfers", { fromBoxId: main._id, toBoxId: main._id, amount: 1 })).status, 403, "transfers always need cashbox.manage");
+  assert.equal((await call("POST", "/api/cashbox/drawings", { amount: 5, boxId: main._id })).status, 201, "a drawing is owner.drawings");
+  // The shop adds a drawer: the same actions from the main box are the manager's again.
+  token = ownerToken;
+  await createBox({ name: "درج", type: "cash", deviceId: DEVICE_A });
+  token = clerk;
+  assert.equal((await call("POST", "/api/expenses", { accountId: rent, amount: 5 })).status, 403);
+  assert.equal((await call("POST", "/api/returns", { returnType: "cash", invoiceId: sale2._id, items: [{ productId: p._id, quantity: 1, returnReason: "x" }] })).status, 403);
+  assert.equal((await call("POST", `/api/sellings/${sale2._id}/cancel`, { reason: "لا يجوز الإلغاء" })).status, 403);
+  assert.equal((await call("POST", `/api/credit-sales/${credit2._id}/cancel`, { reason: "رد المقدم" })).status, 403);
+  assert.equal((await call("POST", `/api/customers/${owed._id}/payouts`, { amount: 5 })).status, 403);
+});
+
+// ---- round 2 C3: the shifts check is one pass per box account
+
+it("round 2 C3: the shifts check reads 1,500 shifts (3,000 cut points) in one pass, with the same answers as a per-cut balance", async () => {
+  const { main } = await shop();
+  const drawer = await createBox({ name: "درج", type: "cash" });
+  const amounts = [500, 250, 125, 60, 30];
+  const base = Date.now() - 20 * 3600000;
+  const timeline = [];
+  for (const [index, amount] of amounts.entries()) {
+    const created = await transfer(main, drawer, amount);
+    const at = new Date(base + index * 3600000);
+    await JournalEntry.collection.updateMany({ "source.id": ObjectId(created._id) }, { $set: { createdAt: at } });
+    timeline.push([at.getTime(), amount]);
+  }
+  const balanceAt = (time) => timeline.filter(([at]) => at <= time).reduce((sum, [, amount]) => sum + amount, 0);
+  const docs = [];
+  for (let index = 0; index < 1500; index += 1) {
+    const openCut = base - 3600000 + Math.floor(Math.random() * 7 * 3600000);
+    const closeCut = openCut + 1 + Math.floor(Math.random() * 3600000);
+    docs.push({ number: `SH-T${index}`, boxId: ObjectId(drawer._id), openedAt: new Date(openCut), openingFloat: balanceAt(openCut), counted: balanceAt(closeCut), expected: balanceAt(closeCut), difference: 0, status: "closed", closedAt: new Date(closeCut), openCutAt: new Date(openCut), closeCutAt: new Date(closeCut) });
+  }
+  await Shift.collection.insertMany(docs);
+  const started = Date.now();
+  const health = await healthOf();
+  const elapsed = Date.now() - started;
+  assert.equal(health.shifts.byShift.length, 3000);
+  assert.equal(health.shifts.difference, 0, JSON.stringify(health.shifts.byShift.filter((row) => row.difference).slice(0, 3)));
+  assert.ok(elapsed < 8000, `health took ${elapsed} ms`);
+  console.log(`# shifts check over 1,500 shifts: health answered in ${elapsed} ms`);
+  // A wrong count is still seen.
+  await Shift.collection.updateOne({ number: "SH-T7" }, { $set: { counted: docs[7].counted + 40 } });
+  assert.equal((await healthOf()).shifts.difference, 40);
+});
+
+// ---- round 2 C4: cancels lock the box and touch the open shift
+
+it("round 2 C4: cancelling an expense, a transfer, a drawing and a payout touches the open shift of the box (a concurrent close conflicts)", async () => {
+  const { main, wallet } = await shop();
+  const owed = await customer("Credit C4", "01010000200");
+  assert.equal((await call("POST", "/api/accounting/opening", { cash: 20000, banks: [{ accountId: String(wallet.accountId), amount: 5000 }], customers: [{ customerId: String(owed._id), amount: -300 }] })).status, 200);
+  const drawer = await createBox({ name: "درج", type: "cash" });
+  await transfer(main, drawer, 500);
+  const shift = (await openShift(drawer, 500)).json;
+  const rent = await category("522");
+  const expense = (await call("POST", "/api/expenses", { accountId: rent, amount: 10, boxId: drawer._id })).json;
+  const drawing = (await call("POST", "/api/cashbox/drawings", { amount: 10, boxId: drawer._id })).json;
+  const payout = (await call("POST", `/api/customers/${owed._id}/payouts`, { amount: 10, boxId: drawer._id })).json;
+  const moved = await transfer(main, drawer, 20);
+  const touched = async () => (await Shift.collection.findOne({ _id: ObjectId(shift._id) })).lastActivityAt.getTime();
+  for (const [label, path] of [
+    ["expense", `/api/expenses/${expense._id}/cancel`],
+    ["drawing", `/api/cashbox/drawings/${drawing._id}/cancel`],
+    ["payout", `/api/customers/${owed._id}/payouts/${(payout.payout || payout)._id}/cancel`],
+    ["transfer", `/api/cashbox/transfers/${moved._id}/cancel`],
+  ]) {
+    const before = await touched();
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    const result = await call("POST", path, { reason: "تجربة" });
+    assert.equal(result.status, 200, `${label}: ${JSON.stringify(result.json)}`);
+    assert.ok(await touched() > before, `${label} cancel touched the open shift`);
+  }
+  await assertHealthy();
+});
+
+// ---- round 2 C5: the invoice says which box paid the refund
+
+it("round 2 C5: GET /api/sellings/:id and the list return cancelRefundBoxId and the box name; a sale that is not cancelled has none", async () => {
+  const { d1, d2, sale } = await twoDrawers();
+  const other = await sold(await product({ code: "R2-C5" }), 100, {}, asDevice(DEVICE_A));
+  const cancelled = await call("POST", `/api/sellings/${sale._id}/cancel`, { reason: "ألغاها الكاشير", boxId: d2._id }, asDevice(DEVICE_B));
+  assert.equal(cancelled.status, 200, JSON.stringify(cancelled.json));
+  const one = (await call("GET", `/api/sellings/${sale._id}`)).json;
+  assert.equal(String(one.cancelRefundBoxId), String(d2._id));
+  assert.equal(one.cancelRefundBoxName, "درج ٢");
+  const list = (await call("GET", "/api/sellings?limit=50")).json.data;
+  assert.equal(list.find((row) => row.id === sale._id || row._id === sale._id).cancelRefundBoxName, "درج ٢");
+  const plain = (await call("GET", `/api/sellings/${other._id}`)).json;
+  assert.equal(plain.cancelRefundBoxId, null);
+  assert.equal(plain.cancelRefundBoxName, undefined);
+  void d1;
 });

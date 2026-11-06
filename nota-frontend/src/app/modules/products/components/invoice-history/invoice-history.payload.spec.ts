@@ -131,6 +131,12 @@ describe('InvoiceHistoryComponent payloads (Stage 10 safety)', () => {
     expectSellings({ page: '1', limit: '10' });
   });
 
+  it('a cancelled cash sale keeps the name of the box that paid the refund', () => {
+    const row = (component as any).mapSelling({ ...selling, status: 'cancelled', cancelRefundAmount: 300, cancelRefundBoxId: 'b2', cancelRefundBoxName: 'درج ٢' });
+    expect([row.cancelRefundBoxName, row.cancelRefundAmount]).toEqual(['درج ٢', 300]);
+    expect((component as any).mapSelling({ ...selling }).cancelRefundBoxName).toBeNull();
+  });
+
   it('maps the canonical invoice number; a short cancel reason sends nothing and does not lock', () => {
     expect(component.sellings[0].invoiceNumber).toBe('INV-12');
     component.openDeleteDialog(component.sellings[0]);

@@ -128,6 +128,7 @@
           <div class="ih__grand"><dt>{{ 'invoiceHistoryPage.cancel.netTotal' | translate }}</dt><dd class="nota-num">{{ selling.netTotal ?? selling.totalPrice ?? 0 | notaMoney }}</dd></div>
         </dl>
         @if (selling.status === 'cancelled') {<p class="ih__msg">{{ 'invoiceHistoryPage.cancel.reason' | translate }}: {{ selling.cancellationReason }}</p>}
+        @if (selling.status === 'cancelled' && selling.cancelRefundBoxName) {<p class="ih__msg" data-line="cancelRefundBox">{{ 'invoiceHistoryPage.cancel.refundBox' | translate: { box: selling.cancelRefundBoxName, amount: (selling.cancelRefundAmount ?? 0 | notaMoney) } }}</p>}
         <div class="ih__actions">
           <a *notaCan="'accounting.view'" notaButton [routerLink]="['/accounting/journal']" [queryParams]="{ sourceType: 'sale', sourceId: selling.id }">{{ 'accounting.viewEntry' | translate }}</a>
           <button type="button" notaButton="primary" (click)="downloadInvoice(selling)"

@@ -67,8 +67,11 @@ async function boxEvents(box, { from = null, to = null, ledgerStartAt, session =
       if (inLedger(sale)) push("sales", original, sale.createdAt, sale._id);
     }
     for (const move of moves) if (here(move.boxId, saleHere)) push("sales", Number(move.delta || 0), move.at, sale._id);
-    // Pre-ledger invoice edited before this change recorded its moves: the Stage 17 trace.
-    if (saleHere && !moves.length && !inLedger(sale) && checkLedger && sale.ledgerTrace?.editNetSales) push("sales", Number(sale.ledgerTrace.editNetSales), sale.updatedAt || sale.createdAt, sale._id);
+    // Pre-ledger invoice: the Stage 17 trace holds EVERY edit's net sales (old ones and the ones in boxMoves). The old
+    // ones, from before boxMoves existed, are one older event; the moves above are counted on their own.
+    if (saleHere && !inLedger(sale) && checkLedger && sale.ledgerTrace?.editNetSales) {
+      push("sales", Number(sale.ledgerTrace.editNetSales) - moves.reduce((sum, move) => sum + Number(move.delta || 0), 0), sale.createdAt, sale._id);
+    }
     if (sale.status === "cancelled" && cancelledInLedger(sale) && here(sale.cancelRefundBoxId, saleHere)) push("refunds", -Number(sale.cancelRefundAmount || 0), sale.cancelledAt, sale._id);
   }
   for (const log of returns) if (inLedger(log)) push("refunds", -Number(log.finalReturnedAmount || 0), log.createdAt, log._id);

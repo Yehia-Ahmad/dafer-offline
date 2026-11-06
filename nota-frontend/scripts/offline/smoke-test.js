@@ -1322,6 +1322,14 @@ async function runScenarios() {
     return await expectStock(ctx, 9);
   });
 
+  await step('Stage 19 round 2: the cancelled cash invoice says which box paid the refund (cancelRefundBoxName)', async () => {
+    requireCtx(ctx, 'cashInvoiceId');
+    const response = await request('GET', `/api/sellings/${ctx.cashInvoiceId}`);
+    expectStatus(response, 200, 'GET cancelled cash invoice');
+    expect(Boolean(response.json.cancelRefundBoxId) && response.json.cancelRefundBoxName === 'الخزنة الرئيسية', JSON.stringify({ id: response.json.cancelRefundBoxId, name: response.json.cancelRefundBoxName }));
+    return `refund box: ${response.json.cancelRefundBoxName}`;
+  });
+
   await step('Credit invoice with payments/return cannot be cancelled', async () => {
     requireCtx(ctx, 'creditInvoiceId');
     const response = await request('POST', `/api/credit-sales/${ctx.creditInvoiceId}/cancel`, { body: { reason: 'smoke cancellation' } });

@@ -187,6 +187,7 @@ const cancelExpense = async (req, res) => {
     if (!expense) throw httpError(404, "EXPENSE_NOT_FOUND", "المصروف غير موجود");
     if (expense.status === "cancelled") throw httpError(409, "ALREADY_CANCELLED", "المصروف ملغي بالفعل");
     await boxes.assertBoxActive(expense.boxId, session);
+    await boxes.lockAndTouch([expense.boxId], session);
     const now = new Date();
     expense.status = "cancelled"; expense.cancelReason = reason; expense.cancelledAt = now;
     expense.cancelledBy = req.user?._id; expense.cancelledByName = req.user?.name;

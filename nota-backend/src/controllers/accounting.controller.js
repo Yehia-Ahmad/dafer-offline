@@ -401,13 +401,27 @@ const buildBoxesCheck = async ({ meta, ledgerStartAt, accountBalance, accounts }
 const buildShiftsCheck = async () => {
   const [shifts, boxList] = await Promise.all([Shift.find({}).sort({ openedAt: 1 }).lean(), CashBox.find({}).select("name accountId").lean()]);
   const boxById = new Map(boxList.map((box) => [String(box._id), box]));
-  const balanceAt = async (accountId, cut) => {
-    const rows = await JournalEntry.aggregate([
-      { $match: { status: "posted", createdAt: { $lte: cut }, "lines.accountId": accountId } },
-      { $unwind: "$lines" }, { $match: { "lines.accountId": accountId } },
-      { $group: { _id: null, balance: { $sum: { $subtract: ["$lines.debit", "$lines.credit"] } } } },
-    ]);
-    return roundMoney(rows[0]?.balance || 0);
+  // One pass per box account: its lines (createdAt, net) sorted by time with running totals; a cut point is then a binary search.
+  const accountIds = [...new Set(shifts.map((shift) => boxById.get(String(shift.boxId))?.accountId).filter(Boolean).map(String))].map((id) => new mongoose.Types.ObjectId(id));
+  const rows = accountIds.length ? await JournalEntry.aggregate([
+    { $match: { status: "posted", "lines.accountId": { $in: accountIds } } },
+    { $unwind: "$lines" }, { $match: { "lines.accountId": { $in: accountIds } } },
+    { $project: { _id: 0, accountId: "$lines.accountId", at: "$createdAt", net: { $subtract: ["$lines.debit", "$lines.credit"] } } },
+  ]).allowDiskUse(true) : [];
+  const timelines = new Map();
+  for (const row of rows) { const key = String(row.accountId); if (!timelines.has(key)) timelines.set(key, []); timelines.get(key).push([new Date(row.at).getTime(), Number(row.net)]); }
+  for (const [key, list] of timelines) {
+    list.sort((x, y) => x[0] - y[0]);
+    let running = 0;
+    timelines.set(key, { times: list.map((entry) => entry[0]), totals: list.map((entry) => (running += entry[1])) });
+  }
+  const balanceAt = (accountId, cut) => {
+    const line = timelines.get(String(accountId));
+    if (!line) return 0;
+    const time = new Date(cut).getTime();
+    let low = 0; let high = line.times.length; // first index with times[i] > time
+    while (low < high) { const mid = (low + high) >> 1; if (line.times[mid] <= time) low = mid + 1; else high = mid; }
+    return roundMoney(low ? line.totals[low - 1] : 0);
   };
   const byShift = []; let expectedTotal = 0; let actualTotal = 0; let difference = 0; let skipped = 0;
   for (const shift of shifts) {
@@ -416,7 +430,7 @@ const buildShiftsCheck = async () => {
     for (const [phase, cut, expected] of [["open", shift.openCutAt, shift.openingFloat], ["close", shift.status === "closed" ? shift.closeCutAt : null, shift.counted]]) {
       if (phase === "close" && shift.status !== "closed") continue;
       if (!cut) { skipped += 1; continue; }
-      const actual = await balanceAt(box.accountId, new Date(cut));
+      const actual = balanceAt(box.accountId, cut);
       const delta = roundMoney(actual - Number(expected || 0));
       expectedTotal += Number(expected || 0); actualTotal += actual; difference += Math.abs(delta);
       byShift.push({ shiftId: shift._id, number: shift.number, box: box.name, phase, expected: roundMoney(expected || 0), actual, difference: delta });

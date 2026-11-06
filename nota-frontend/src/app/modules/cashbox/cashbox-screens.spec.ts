@@ -259,6 +259,7 @@ describe('OpenShiftDialogComponent (Stage 19)', () => {
     // The confirmed difference needs a note: without one nothing is sent.
     component.submit();
     http.expectNone(`${base}shifts`);
+    expect(component.busy()).toBeFalse(); // a missing note never leaves the dialog locked
     component.note.set('  20 ناقصة في العد ');
     component.submit();
     const second = http.expectOne(`${base}shifts`);
