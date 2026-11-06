@@ -212,6 +212,7 @@
         </tbody>
       </table>
     </div>
+    <nota-payment-box-select labelKey="cashbox.refundFrom" />
     @if (returnError) {<p class="ih__msg" role="alert">{{ returnError }}</p>}
     @if (!hasCashReturnSelection()) {<p class="ih__muted">{{ 'invoiceHistoryPage.returnDialog.selectionRequired' | translate }}</p>}
     <ng-container notaDialogFooter>

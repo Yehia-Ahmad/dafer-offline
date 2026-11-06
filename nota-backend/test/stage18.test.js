@@ -3,6 +3,7 @@ process.env.NOTA_AUTH = "1";
 process.env.NOTA_JWT_SECRET = "stage18-test-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
+const { forgetBoxes } = require("./helpers/oldData");
 const test = require("node:test");
 const app = require("../src/app");
 const Account = require("../src/models/account.model");
@@ -48,7 +49,7 @@ async function call(method, path, body) {
   const text = await response.text(); return { status: response.status, json: text ? JSON.parse(text) : null };
 }
 async function startLedger() {
-  await JournalEntry.deleteMany({}); await Account.deleteMany({}); await Counter.deleteMany({ _id: { $in: ["JE", "OB"] } }); await Meta.deleteMany({});
+  await JournalEntry.deleteMany({}); await Account.deleteMany({}); await forgetBoxes(); await Counter.deleteMany({ _id: { $in: ["JE", "OB"] } }); await Meta.deleteMany({});
   await Meta.create({ _id: "schema", version: 4 }); await runMigrations();
 }
 async function product({ code, stock = 20, cost = 20, retail = 100 } = {}) {
@@ -513,7 +514,7 @@ it("upgraded install: OB-000001 with sales after the start keeps its inventory r
   const c = await customer("Legacy", "01010000601");
   const invoice = await call("POST", "/api/credit-sales", { customerId: String(c._id), sellingDate: "2026-11-01", items: [{ productId: p._id, quantity: 2, price: 100 }] });
   assert.equal(invoice.status, 201);
-  await JournalEntry.deleteMany({}); await Account.deleteMany({}); await Counter.deleteMany({ _id: { $in: ["JE", "OB"] } }); await Meta.deleteMany({});
+  await JournalEntry.deleteMany({}); await Account.deleteMany({}); await forgetBoxes(); await Counter.deleteMany({ _id: { $in: ["JE", "OB"] } }); await Meta.deleteMany({});
   await Meta.create({ _id: "schema", version: 4 }); await runMigrations();
   const ob = await JournalEntry.findOne({ number: "OB-000001" }).lean();
   assert.ok(ob);
@@ -551,7 +552,7 @@ it("upgraded install with no sales yet is still in setup mode: the wizard folds 
   assert.equal((await keyedLines(await currentOpening())).find((row) => row.key === "INVENTORY").debit, 240);
   await assertHealthy();
   async function startLedgerKeepingData() {
-    await JournalEntry.deleteMany({}); await Account.deleteMany({}); await Counter.deleteMany({ _id: { $in: ["JE", "OB"] } }); await Meta.deleteMany({});
+    await JournalEntry.deleteMany({}); await Account.deleteMany({}); await forgetBoxes(); await Counter.deleteMany({ _id: { $in: ["JE", "OB"] } }); await Meta.deleteMany({});
     await Meta.create({ _id: "schema", version: 4 }); await runMigrations();
   }
 });
@@ -643,7 +644,7 @@ it("repro C: on an upgraded install GET /opening's capital equals the posted CAP
   const p = await product({ code: "REPRO-C", stock: 10, cost: 20 });
   const c = await customer("Legacy C", "01010000611");
   assert.equal((await call("POST", "/api/credit-sales", { customerId: String(c._id), sellingDate: "2026-11-01", items: [{ productId: p._id, quantity: 2, price: 100 }] })).status, 201);
-  await JournalEntry.deleteMany({}); await Account.deleteMany({}); await Counter.deleteMany({ _id: { $in: ["JE", "OB"] } }); await Meta.deleteMany({});
+  await JournalEntry.deleteMany({}); await Account.deleteMany({}); await forgetBoxes(); await Counter.deleteMany({ _id: { $in: ["JE", "OB"] } }); await Meta.deleteMany({});
   await Meta.create({ _id: "schema", version: 4 }); await runMigrations();
   const capitalOf = async (entry) => { const row = find(await keyedLines(entry), "CAPITAL"); return row.credit - row.debit; };
   const ob = await JournalEntry.findOne({ number: "OB-000001" }).lean();
@@ -783,7 +784,7 @@ it("bank and wallet accounts are 5-digit children of 112 and the migration renam
   await Account.collection.updateOne({ _id: bank._id }, { $set: { code: "1121" } });
   await JournalEntry.collection.updateMany({ "lines.accountId": bank._id }, { $set: { "lines.$[row].accountCode": "1121" } }, { arrayFilters: [{ "row.accountId": bank._id }] });
   await Meta.updateOne({ _id: "schema" }, { $set: { version: 5 } });
-  assert.equal(await runMigrations(), 6);
+  assert.equal(await runMigrations(), 7);
   assert.equal((await Account.findById(bank._id).lean()).code, "11201");
   const entry = await currentOpening();
   assert.equal(entry.lines.find((row) => String(row.accountId) === String(bank._id)).accountCode, "11201");
@@ -799,7 +800,7 @@ it("the migration marks setupEndedAt for installs that already have documents af
   await sell(p);
   await Meta.updateOne({ _id: "schema" }, { $unset: { "opening.setupEndedAt": "" }, $set: { version: 5 } });
   assert.equal(await isSetupMode(), true, "the marker is missing");
-  assert.equal(await runMigrations(), 6);
+  assert.equal(await runMigrations(), 7);
   assert.equal(await isSetupMode(), false);
   assert.ok((await Meta.findById("schema").lean()).opening.setupEndedAt);
 });

@@ -148,6 +148,8 @@ const sellingSchema = new mongoose.Schema(
     cancelledByName: { type: String, trim: true, maxlength: 100 },
     cancellationReason: { type: String, trim: true, maxlength: 500 },
     cancelRefundAmount: { type: Number, default: 0, min: 0 },
+    // Stage 19: the box the sale's money went into (the main box on old invoices). An edit never changes it.
+    boxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox", index: true },
     // Stage 17: for invoices created before the ledger started only. The
     // accounting health check needs the pre-edit totals (gone once an edit
     // saves) and each line's purchasePrice at cancel time (a later

@@ -118,8 +118,9 @@
             <nota-form-field [label]="'customerDetailsPage.paymentDialog.note' | translate" forId="clNote">
               <input id="clNote" type="text" class="nota-input" formControlName="note" [placeholder]="'customerDetailsPage.paymentDialog.notePlaceholder' | translate" />
             </nota-form-field>
+            <nota-payment-box-select />
             @if (paymentError) {<p class="cl__msg" role="alert">{{ paymentError }}</p>}
-            <button type="submit" notaButton="primary" [disabled]="isSavingPayment">
+            <button type="submit" notaButton="primary" [disabled]="isSavingPayment || payment.needsShift()">
               {{ (isSavingPayment ? 'customerDetailsPage.paymentDialog.saving' : 'customerDetailsPage.paymentDialog.save') | translate }}
             </button>
           </form>

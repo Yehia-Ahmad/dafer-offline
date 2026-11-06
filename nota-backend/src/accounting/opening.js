@@ -13,6 +13,7 @@ const PartyOpening = require("../models/partyOpening.model");
 const { roundMoney } = require("../utils/invoicePricing");
 const { PREFIXES, nextDocumentNumber } = require("../utils/documentNumber");
 const { postEntry, reverseEntry, accountMap, line, getLedgerStartAt, postInventoryAdjustment } = require("./posting");
+const { syncAccountBoxes } = require("../cashbox/boxes");
 const { collectedOf } = require("../services/customerOpenItems.service");
 const { touchSetupPosting } = require("./setupState");
 
@@ -291,6 +292,8 @@ const saveOpening = async (body, { session, actor = null }) => {
   }
 
   const banks = await resolveBanks(input.banks, session);
+  // Stage 19: every bank/wallet account the wizard created gets its box (same name and kind).
+  await syncAccountBoxes(session);
   const accounts = await accountMap(["CASH_MAIN", "INVENTORY", "FIXED_ASSETS", "CUSTOMERS", "SUPPLIERS", "CAPITAL"], session);
   const setupMode = setupModeOf(meta);
   const previous = await currentOpeningEntry(meta.opening, session);

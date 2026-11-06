@@ -42,6 +42,8 @@ import {
 } from '../../models/returns.model';
 import { ReturnsService } from '../../services/returns.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
+import { PaymentBoxService } from '../../../cashbox/payment-box.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { RouterLink } from '@angular/router';
 
@@ -135,7 +137,7 @@ class ReturnsPaginatorIntl extends MatPaginatorIntl {
 @Component({
   selector: 'app-returns',
   standalone: true,
-  imports: [NotaCanDirective, RouterLink,
+  imports: [NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
     CommonModule,
     TranslatePipe,
     ReactiveFormsModule,
@@ -159,6 +161,8 @@ class ReturnsPaginatorIntl extends MatPaginatorIntl {
 })
 export class ReturnsComponent implements OnInit {
   private readonly _auth = inject(AuthService);
+  /** Stage 19: the box a cash refund comes out of. */
+  readonly payment = inject(PaymentBoxService);
   readonly pageSizeOptions = [10, 25, 50, 100];
   readonly filtersForm;
   /** Details dialog (p-dialog + dialog shell since Stage 10; same GET returns/:id). */
@@ -508,6 +512,7 @@ export class ReturnsComponent implements OnInit {
           invoiceId: invoice.id,
           returnDate: this.toIsoDate(this.wizardDate),
           ...(note ? { note } : {}),
+          ...(this.payment.boxId() ? { boxId: this.payment.boxId() } : {}),
           items
         }
       : {

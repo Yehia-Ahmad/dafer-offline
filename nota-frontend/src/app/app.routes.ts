@@ -122,6 +122,22 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/suppliers/supplier-form.component').then(m => m.SupplierFormComponent)
     },
     {
+        // Stage 19: cash boxes, shifts, expenses.
+        path: 'cashbox',
+        canActivate: [permissionGuard(ROUTE_RULES.cashbox)],
+        loadComponent: () => import('./modules/cashbox/cashbox-page.component').then(m => m.CashboxPageComponent)
+    },
+    {
+        path: 'cashbox/:id',
+        canActivate: [permissionGuard(ROUTE_RULES.cashbox)],
+        loadComponent: () => import('./modules/cashbox/box-detail.component').then(m => m.BoxDetailComponent)
+    },
+    {
+        path: 'expenses',
+        canActivate: [permissionGuard(ROUTE_RULES.expenses)],
+        loadComponent: () => import('./modules/cashbox/expenses-page.component').then(m => m.ExpensesPageComponent)
+    },
+    {
         path: 'accounting/journal',
         canActivate: [permissionGuard(ROUTE_RULES.accounting)],
         loadComponent: () => import('./modules/accounting/journal.component').then(m => m.JournalComponent)

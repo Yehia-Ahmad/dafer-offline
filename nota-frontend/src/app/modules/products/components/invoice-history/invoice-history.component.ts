@@ -27,6 +27,8 @@ import { ShopProfileService } from '../../../shop-profile/services/shop-profile.
 import { InvoiceBranding, toPrintableShop } from '../../../shop-profile/utils/invoice-branding.util';
 import { brandName } from '../../../../core/brand';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
+import { PaymentBoxService } from '../../../cashbox/payment-box.service';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 import { RouterLink } from '@angular/router';
 
@@ -65,7 +67,7 @@ const DEFAULT_SELLINGS_PAGINATION: SellingsPagination = {
 @Component({
   selector: 'app-invoice-history',
   standalone: true,
-  imports: [LockedActionComponent, NotaCanDirective, RouterLink,
+  imports: [LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
     CommonModule,
     FormsModule,
     TranslatePipe,
@@ -117,6 +119,8 @@ export class InvoiceHistoryComponent implements OnInit {
   returningSellingId = '';
 
   private readonly _shopProfileService = inject(ShopProfileService);
+  /** Stage 19: the box a cash refund comes out of. */
+  readonly payment = inject(PaymentBoxService);
 
   constructor(
     private _productsService: ProductsService,
@@ -578,6 +582,7 @@ export class InvoiceHistoryComponent implements OnInit {
       invoiceId: selling.id,
       returnDate,
       ...(this.cashReturnNote.trim() ? { note: this.cashReturnNote.trim() } : {}),
+      ...(this.payment.boxId() ? { boxId: this.payment.boxId() } : {}),
       items
     }).subscribe({
       next: () => {

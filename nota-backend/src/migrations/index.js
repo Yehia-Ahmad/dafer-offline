@@ -17,6 +17,8 @@ const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { PREFIXES, formatDocumentNumber, nextDocumentNumber } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
 const { isLanMode } = require("../middlewares/lanSecret.middleware");
+const CashBox = require("../models/cashBox.model");
+const { syncAccountBoxes } = require("../cashbox/boxes");
 
 const BATCH_SIZE = 500;
 const ORIGINAL_TOTALS_MIGRATION = 2;
@@ -526,6 +528,21 @@ async function stage18FixesMigration(session) {
   return { renamed, setupEnded };
 }
 
+// Stage 19: the main box (account 1111, "الخزنة الرئيسية"), a box for every 112xx bank/wallet leaf (same name and
+// kind), and the main box on every existing money document. Journal lines stay as they are: the accounts did not change.
+async function stage19BoxesMigration(session) {
+  await seedAccounts(session);
+  const created = await syncAccountBoxes(session);
+  const main = await CashBox.findOne({ isMain: true }).session(session).lean();
+  const unset = { boxId: { $exists: false } };
+  const results = {};
+  results.sellings = (await Selling.collection.updateMany(unset, { $set: { boxId: main._id } }, { session })).modifiedCount;
+  results.receipts = (await Receipt.collection.updateMany(unset, { $set: { boxId: main._id } }, { session })).modifiedCount;
+  results.cashReturns = (await ReturnLog.collection.updateMany({ returnType: "cash", ...unset }, { $set: { boxId: main._id } }, { session })).modifiedCount;
+  results.cancelRefunds = (await CreditSale.collection.updateMany({ status: "cancelled", cancelRefundAmount: { $gt: 0 }, cancelRefundBoxId: { $exists: false } }, { $set: { cancelRefundBoxId: main._id } }, { session })).modifiedCount;
+  return { boxesCreated: created, ...results };
+}
+
 const migrations = [
   { version: 1, name: "document numbers and receipts", run: numbersMigration },
   { version: 2, name: "original invoice totals and returned status", chunked: true, runChunk: originalTotalsMigrationChunk },
@@ -533,6 +550,7 @@ const migrations = [
   { version: 4, name: "stage 16 indexes", outsideTransaction: true, run: indexesMigration },
   { version: 5, name: "stage 17 chart of accounts and ledger start", run: ledgerStartMigration },
   { version: 6, name: "stage 18 review fixes: bank codes and setup end marker", run: stage18FixesMigration },
+  { version: 7, name: "stage 19 cash boxes: main box, bank/wallet boxes, boxId on money documents", run: stage19BoxesMigration },
 ];
 
 async function recordMigration(migration, details, session) {

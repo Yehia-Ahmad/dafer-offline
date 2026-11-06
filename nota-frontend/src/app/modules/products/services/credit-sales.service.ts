@@ -34,6 +34,8 @@ export interface CreateCreditSalePayload {
   discountPercentage?: number;
   shippingFees?: number;
   initialPaidAmount?: number;
+  /** Stage 19: the box the down payment goes into. */
+  boxId?: string;
   items: CreditSaleItemPayload[];
 }
 
@@ -41,6 +43,8 @@ export interface CreditSalePaymentPayload {
   amount: number;
   paymentDate?: string;
   note?: string;
+  /** Stage 19: the box the money goes into (omitted = this PC's drawer, else the main box). */
+  boxId?: string;
 }
 
 @Injectable({
@@ -68,8 +72,9 @@ export class CreditSalesService {
     return this._http.put(`${this._baseUrl}credit-sales/${id}`, payload);
   }
 
-  cancelCreditSale(id: string, reason: string) {
-    return this._http.post(`${this._baseUrl}credit-sales/${id}/cancel`, { reason });
+  /** boxId (Stage 19): the box "رد المقدم" comes out of, when the invoice had a down payment. */
+  cancelCreditSale(id: string, reason: string, boxId?: string) {
+    return this._http.post(`${this._baseUrl}credit-sales/${id}/cancel`, { reason, ...(boxId ? { boxId } : {}) });
   }
 
   recordPayment(id: string, payload: CreditSalePaymentPayload) {

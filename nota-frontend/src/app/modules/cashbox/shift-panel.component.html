@@ -1,0 +1,96 @@
+<!-- Stage 19: shift panel (CashBox.dc.html). Open shift: close form. Closed shift: the printable summary. -->
+@if (report(); as r) {
+  <div class="sp">
+    <section class="nota-card sp__lines" [attr.aria-label]="'cashbox.shift.expectedTitle' | translate">
+      <header class="sp__head">
+        <div>
+          <h2 class="sp__title">{{ 'cashbox.shift.closeTitle' | translate: { name: r.boxName } }}</h2>
+          <span class="sp__sub nota-num">
+            {{ r.userName }} · {{ 'cashbox.shift.since' | translate }} {{ r.openedAt | date: 'shortTime' }}
+            @if (r.closedAt) { · {{ 'cashbox.shift.until' | translate }} {{ r.closedAt | date: 'shortTime' }} }
+            · <span dir="ltr">{{ r.number }}</span>
+          </span>
+        </div>
+        <span class="nota-pill" [class.nota-pill--due]="r.status === 'open'" [class.nota-pill--neutral]="r.status === 'closed'" data-test="shift-status">
+          {{ 'cashbox.shift.status.' + r.status | translate }}
+        </span>
+      </header>
+
+      @for (line of lines(); track line.key) {
+        <div class="sp__row" [attr.data-line]="line.key">
+          <span class="sp__label">{{ (isMinus(line.key) ? '− ' : line.key === 'float' ? '' : '+ ') }}{{ 'cashbox.shift.lines.' + line.key | translate }}</span>
+          <span class="nota-num" [class.sp__plus]="line.key !== 'float' && !isMinus(line.key)" [class.sp__minus]="isMinus(line.key)">{{ line.amount | notaMoney }}</span>
+        </div>
+      }
+      <div class="sp__row sp__row--total" data-test="expected">
+        <span>{{ 'cashbox.shift.expected' | translate }}</span>
+        <span class="nota-num">{{ r.expected | notaMoney }} {{ 'cashbox.currency' | translate }}</span>
+      </div>
+    </section>
+
+    @if (isOpen()) {
+      <aside class="nota-card sp__close">
+        <nota-form-field [label]="'cashbox.shift.counted' | translate" forId="shiftCounted">
+          <input id="shiftCounted" class="nota-input nota-num sp__counted" type="number" min="0" step="0.01" name="counted" data-test="counted"
+            [ngModel]="counted()" (ngModelChange)="counted.set($event)" />
+        </nota-form-field>
+
+        @if (diffKind(); as kind) {
+          <div class="sp__diff" [class.sp__diff--short]="kind === 'short'" [class.sp__diff--over]="kind === 'over'" role="status" data-test="difference">
+            <span class="sp__diff-label">{{ 'cashbox.shift.diff.' + kind | translate }}</span>
+            <span class="nota-num sp__diff-value">{{ (difference() ?? 0) < 0 ? -(difference() ?? 0) : (difference() ?? 0) | notaMoney }} {{ 'cashbox.currency' | translate }}</span>
+          </div>
+        }
+
+        <nota-form-field [label]="'cashbox.shift.note' | translate" forId="shiftNote" [required]="needsNote()"
+          [error]="needsNote() && !note().trim() ? ('cashbox.shift.noteRequired' | translate) : null">
+          <input id="shiftNote" class="nota-input" type="text" name="note" data-test="note" [placeholder]="'cashbox.shift.notePlaceholder' | translate"
+            [ngModel]="note()" (ngModelChange)="note.set($event)" />
+        </nota-form-field>
+
+        <div class="sp__deposit">
+          <nota-form-field [label]="'cashbox.shift.depositTo' | translate" forId="shiftDepositBox">
+            <select id="shiftDepositBox" class="nota-select" name="depositBox" data-test="deposit-box" [ngModel]="depositBoxId()" (ngModelChange)="depositBoxId.set($event)">
+              <option value="">—</option>
+              @for (option of options(); track option._id) { <option [value]="option._id">{{ option.name }}</option> }
+            </select>
+          </nota-form-field>
+          <nota-form-field [label]="'cashbox.shift.depositAmount' | translate" forId="shiftDeposit"
+            [error]="depositInvalid() ? ('cashbox.shift.depositInvalid' | translate) : null">
+            <input id="shiftDeposit" class="nota-input nota-num" type="number" min="0" step="0.01" name="deposit" data-test="deposit"
+              [ngModel]="deposit()" (ngModelChange)="deposit.set($event)" />
+          </nota-form-field>
+        </div>
+        <span class="sp__hint" data-test="remaining">{{ 'cashbox.shift.remaining' | translate: { amount: (remaining() | notaMoney) } }}</span>
+
+        @if (error()) { <p class="nota-error" role="alert" data-test="close-error">{{ error() | translate }}</p> }
+        <button type="button" notaButton="primary" size="lg" [disabled]="!canClose()" data-action="close-shift" (click)="close()">
+          {{ (busy() ? 'cashbox.shift.closing' : 'cashbox.shift.closeButton') | translate }}
+        </button>
+        <p class="sp__note">{{ 'cashbox.shift.overShortNote' | translate }}</p>
+      </aside>
+    } @else {
+      <aside class="nota-card sp__close sp__summary" data-test="shift-summary">
+        <h3 class="sp__title">{{ 'cashbox.shift.summary' | translate }}</h3>
+        <div class="sp__row"><span>{{ 'cashbox.shift.expected' | translate }}</span><span class="nota-num">{{ r.expected | notaMoney }}</span></div>
+        <div class="sp__row"><span>{{ 'cashbox.shift.counted' | translate }}</span><span class="nota-num">{{ r.counted | notaMoney }}</span></div>
+        <div class="sp__row" [class.sp__minus]="(r.difference ?? 0) < 0" [class.sp__plus]="(r.difference ?? 0) > 0">
+          <span>{{ 'cashbox.shift.diff.' + ((r.difference ?? 0) < 0 ? 'short' : (r.difference ?? 0) > 0 ? 'over' : 'even') | translate }}</span>
+          <span class="nota-num">{{ ((r.difference ?? 0) < 0 ? -(r.difference ?? 0) : (r.difference ?? 0)) | notaMoney }}</span>
+        </div>
+        @if (r.differenceNote) { <div class="sp__row"><span>{{ 'cashbox.shift.note' | translate }}</span><span>{{ r.differenceNote }}</span></div> }
+        @if (r.depositAmount) { <div class="sp__row"><span>{{ 'cashbox.shift.depositAmount' | translate }}</span><span class="nota-num">{{ r.depositAmount | notaMoney }}</span></div> }
+        <div class="sp__row sp__row--total"><span>{{ 'cashbox.shift.staysInDrawer' | translate }}</span><span class="nota-num">{{ r.remaining | notaMoney }}</span></div>
+        <!-- TODO(Stage 22 PrShiftClose): the print button stays hidden until the shift report print template exists. -->
+        @if (printEnabled) {
+          <button type="button" notaButton data-action="print-shift" (click)="print()">{{ 'cashbox.shift.print' | translate }}</button>
+        }
+      </aside>
+    }
+  </div>
+} @else if (loadFailed()) {
+  <p class="nota-error" role="alert">{{ 'cashbox.shift.loadFailed' | translate }}</p>
+  <button type="button" notaButton (click)="load()">{{ 'cashbox.retry' | translate }}</button>
+} @else {
+  <p role="status">{{ 'cashbox.loading' | translate }}</p>
+}

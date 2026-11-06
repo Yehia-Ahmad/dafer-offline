@@ -49,6 +49,8 @@ export class ProductsService {
     discountPercentage?: number;
     shippingFees?: number;
     confirmInsufficientInventory?: boolean;
+    /** Stage 19: the box the sale goes into (omitted = this PC's drawer, else the main box). */
+    boxId?: string;
     items: Array<{
       productId: string;
       quantity: number;

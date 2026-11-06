@@ -154,6 +154,7 @@
           <p-inputNumber inputId="csDownPayment" formControlName="downPayment" [min]="0" [mode]="'decimal'" [useGrouping]="false"
             styleClass="cs__control" inputStyleClass="cs__num-input" />
         </nota-form-field>
+        @if ((creditSaleForm.get('downPayment')?.value || 0) > 0) { <nota-payment-box-select /> }
         <div class="cs__fields">
           <nota-form-field [label]="'creditSalePage.form.dueDate' | translate" forId="csDueDate" [hint]="'creditSalePage.form.optional' | translate">
             <p-datepicker formControlName="dueDate" [showIcon]="true" [iconDisplay]="'input'" inputId="csDueDate" appendTo="body"

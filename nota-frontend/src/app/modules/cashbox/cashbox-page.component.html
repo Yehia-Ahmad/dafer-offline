@@ -1,0 +1,56 @@
+<!-- Stage 19: الخزائن والوردية (CashBox.dc.html). -->
+<div class="cb">
+  <nota-page-header [title]="'cashbox.title' | translate">
+    <div notaPageActions>
+      <button *notaCan="'cashbox.manage'" type="button" notaButton data-action="transfer" (click)="transferOpen.set(true)">{{ 'cashbox.transferButton' | translate }}</button>
+      <button *notaCan="'cashbox.manage'" type="button" notaButton data-action="new-box" (click)="openAdd()">+ {{ 'cashbox.newBox' | translate }}</button>
+      <button *notaCan="'owner.drawings'" type="button" notaButton data-action="drawing" (click)="drawingOpen.set(true)">{{ 'cashbox.drawingButton' | translate }}</button>
+    </div>
+  </nota-page-header>
+
+  @if (loading()) {
+    <p role="status">{{ 'cashbox.loading' | translate }}</p>
+  } @else if (loadError()) {
+    <p class="nota-error" role="alert">{{ 'cashbox.loadFailed' | translate }}</p>
+    <button type="button" notaButton (click)="load()">{{ 'cashbox.retry' | translate }}</button>
+  } @else {
+    <div class="cb__cards" data-test="box-cards">
+      @for (box of boxes(); track box._id) {
+        <article class="nota-card cb__card" [class.cb__card--shift]="box.openShift" [class.cb__card--off]="!box.isActive" [attr.data-box]="box.name">
+          <div class="cb__card-head">
+            <a class="cb__name" [routerLink]="['/cashbox', box._id]" data-action="box-detail">{{ box.name }}</a>
+            <span class="cb__kind">{{ 'cashbox.types.' + box.type | translate }}</span>
+          </div>
+          <span class="cb__balance nota-num" data-test="box-balance">{{ box.balance ?? 0 | notaMoney }} {{ 'cashbox.currency' | translate }}</span>
+          <span class="cb__note">
+            @if (note(box); as key) {
+              {{ key | translate: { user: box.openShift?.userName, device: box.deviceName } }}
+            }
+            @if (!box.isActive) { <span class="nota-pill nota-pill--neutral">{{ 'cashbox.cards.inactive' | translate }}</span> }
+          </span>
+          <div class="cb__card-actions">
+            @if (mayOpenShift(box)) {
+              <button type="button" notaButton data-action="open-shift" (click)="startOpenShift(box)">{{ 'cashbox.shift.openButton' | translate }}</button>
+            }
+            @if (box.openShift && mayUseShift(box)) {
+              <button type="button" notaButton data-action="show-shift" (click)="showShift(box)">{{ 'cashbox.shift.button' | translate }}</button>
+            }
+          </div>
+        </article>
+      } @empty {
+        <p data-test="empty">{{ 'cashbox.empty' | translate }}</p>
+      }
+    </div>
+
+    @if (shownShift(); as box) {
+      <app-shift-panel [shiftId]="box.openShift!._id" [depositOptions]="depositOptions()" (closed)="shiftChanged()" />
+    }
+  }
+</div>
+
+<app-add-box-dialog [(visible)]="addOpen" (created)="load()" />
+<app-transfer-dialog [(visible)]="transferOpen" [boxes]="activeBoxes()" (done)="load()" />
+<app-drawing-dialog [(visible)]="drawingOpen" [boxes]="activeBoxes()" (done)="load()" />
+@if (openShiftBox(); as box) {
+  <app-open-shift-dialog [(visible)]="openShiftOpen" [boxId]="box._id" [boxName]="box.name" (opened)="shiftChanged()" />
+}

@@ -20,6 +20,8 @@ const receiptSchema = new mongoose.Schema({
   paymentDate: { type: Date, required: true, index: true },
   note: { type: String, trim: true, maxlength: 500 },
   kind: { type: String, enum: ["payment", "down_payment"], required: true },
+  // Stage 19: the box the money went into (the main box on old receipts).
+  boxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox", index: true },
   allocations: { type: [allocationSchema], default: [] },
 }, { timestamps: true });
 

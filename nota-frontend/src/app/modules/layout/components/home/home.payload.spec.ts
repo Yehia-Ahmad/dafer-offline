@@ -49,7 +49,11 @@ describe('HomeComponent (Stage 12 dashboard)', () => {
     fixture.detectChanges();
   });
 
-  afterEach(() => http.verify());
+  // Stage 19: the owner may see the boxes, so the dashboard also asks for the cash total (tested in stage19-integration.spec.ts).
+  afterEach(() => {
+    http.match((request) => request.url === `${environment.api_base_url}cashbox/boxes`).forEach((request) => request.flush({ data: [], cashTotal: 0 }));
+    http.verify();
+  });
 
   const flush = (summary: DashboardSummary) => {
     const req = http.expectOne(url);

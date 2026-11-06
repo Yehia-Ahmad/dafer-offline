@@ -16,6 +16,11 @@ const { createAuthRouter } = require("./routes/auth.routes");
 const usersRoutes = require("./routes/users.routes");
 const auditRoutes = require("./routes/audit.routes");
 const accountingRoutes = require("./routes/accounting.routes");
+const cashboxRoutes = require("./routes/cashbox.routes");
+const shiftRoutes = require("./routes/shift.routes");
+const expenseRoutes = require("./routes/expense.routes");
+const deviceRoutes = require("./routes/device.routes");
+const { deviceContext } = require("./middlewares/device.middleware");
 const { createLanSecretGuard, isLanMode } = require("./middlewares/lanSecret.middleware");
 const notFound = require("./middlewares/notFound.middleware");
 const errorHandler = require("./middlewares/error.middleware");
@@ -56,11 +61,18 @@ if (authMode) {
   app.use("/api/audit", auditRoutes);
 }
 
+// Stage 19: which PC this is (X-Nota-Device-Id), for the default cash box. Not an auth factor.
+app.use("/api", deviceContext());
+
 // Accounting endpoints remain available to the offline/legacy migration
 // runner when authentication is disabled; requirePermission is a no-op in
 // that mode and enforces accounting.view/manage when auth is enabled.
 app.use("/api/accounting", accountingRoutes);
 
+app.use("/api/cashbox", cashboxRoutes);
+app.use("/api/shifts", shiftRoutes);
+app.use("/api/expenses", expenseRoutes);
+app.use("/api/devices", deviceRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/credit-sales", creditSaleRoutes);
 app.use("/api/customers", customerRoutes);

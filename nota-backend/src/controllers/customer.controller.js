@@ -12,7 +12,9 @@ const asyncHandler = require("../utils/asyncHandler");
 const { withTransaction } = require("../utils/transaction");
 const { PREFIXES, nextDocumentNumber } = require("../utils/documentNumber");
 const { postReceipt } = require("../accounting/posting");
+const { resolveBox } = require("../cashbox/boxes");
 const { loadCustomerStatement } = require("../services/customerStatement.service");
+const { customerCreditOf } = require("../services/customerCredit.service");
 const PartyOpening = require("../models/partyOpening.model");
 const { loadCustomerOpenItems, openingRemaining, sortForCollection } = require("../services/customerOpenItems.service");
 const { audit } = require("../auth/audit");
@@ -494,6 +496,7 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
 
   const updatedInvoices = pendingUpdates.map((sale) => toCreditSaleInvoice(sale));
 
+  const paymentBox = await resolveBox({ req, boxId: req.body.boxId, session });
   await Receipt.create([{
     _id: receiptId,
     number: receiptNumber,
@@ -502,6 +505,7 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
     paymentDate,
     note,
     kind: "payment",
+    boxId: paymentBox._id,
     allocations: [
       ...pendingUpdates.map((creditSale) => ({ creditSale: creditSale._id, amount: creditSale.payments.at(-1).amount })),
       ...openingAllocations,
@@ -568,6 +572,8 @@ const getCustomerStatement = asyncHandler(async (req, res) => {
     totals: statement.totals,
     aging: statement.aging,
     outstanding: statement.outstanding,
+    // Stage 19: the credit we owe the customer (what can be paid out / set against open invoices).
+    credit: await customerCreditOf(customer._id),
   });
 });
 

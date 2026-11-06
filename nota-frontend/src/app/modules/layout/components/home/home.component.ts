@@ -17,6 +17,8 @@ import {
 import { DashboardService, DashboardSummary } from '../../services/dashboard.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { OpeningBannerComponent } from '../../../accounting/opening-banner.component';
+import { AuthService } from '../../../../core/auth/auth.service';
+import { CashboxService } from '../../../cashbox/cashbox.service';
 
 export interface DashboardKpi {
   key: string;
@@ -55,6 +57,12 @@ export class HomeComponent implements OnInit {
   private readonly dashboard = inject(DashboardService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly language = inject(LanguageService);
+  private readonly cashbox = inject(CashboxService);
+  private readonly auth = inject(AuthService);
+
+  /** Stage 19: Σ of the cash-type boxes ("كاش في الخزنة"), only for users who may see the boxes. */
+  readonly cashTotal = signal<number | null>(null);
+  readonly cashTotalText = computed(() => formatNotaNumber(this.cashTotal() ?? 0, this.language.selectedLanguage(), 'money'));
 
   readonly summary = signal<DashboardSummary | null>(null);
   readonly loading = signal(true);
@@ -135,6 +143,9 @@ export class HomeComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    if (this.auth.has('cashbox.view')) {
+      this.cashbox.boxes().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (response) => this.cashTotal.set(response.cashTotal), error: () => this.cashTotal.set(null) });
+    }
   }
 
   load(): void {

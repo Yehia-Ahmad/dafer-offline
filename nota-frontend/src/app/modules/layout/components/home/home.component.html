@@ -10,6 +10,8 @@
       <a *notaCan="'sales.create'" notaButton="primary" size="lg" routerLink="/selling" data-action="new-cash">+ {{ 'dashboard.actions.cash' | translate }}</a>
       <a *notaCan="'credit.create'" notaButton size="lg" routerLink="/credit-sales/new" data-action="new-credit">{{ 'dashboard.actions.credit' | translate }}</a>
       <a *notaCan="['credit.view', 'credit.collect']" notaButton size="lg" routerLink="/credit-sales" data-action="collect">{{ 'dashboard.actions.collect' | translate }}</a>
+      <!-- Stage 19: record an expense. -->
+      <a *notaCan="'expenses.create'" notaButton size="lg" routerLink="/expenses" data-action="new-expense">{{ 'cashbox.dashboard.recordExpense' | translate }}</a>
     </div>
   </header>
 
@@ -41,6 +43,14 @@
           <span class="nota-kpi__label">{{ kpi.labelKey | translate }}</span>
           <span class="nota-kpi__value nota-num db__kpi-value">{{ kpi.value }}</span>
           <span [class]="'nota-kpi__note nota-kpi__note--' + kpi.tone">{{ kpi.note | translate: kpi.noteParams }}</span>
+        </div>
+      }
+      <!-- Stage 19: the cash in the cash-type boxes, with a link to the boxes. -->
+      @if (cashTotal() !== null) {
+        <div *notaCan="'cashbox.view'" class="nota-kpi db__kpi" data-kpi="cash">
+          <span class="nota-kpi__label">{{ 'cashbox.dashboard.cashKpi' | translate }}</span>
+          <span class="nota-kpi__value nota-num db__kpi-value" data-test="cash-total">{{ cashTotalText() }}</span>
+          <a class="nota-kpi__note nota-kpi__note--neutral" routerLink="/cashbox" data-action="cash-link">{{ 'cashbox.dashboard.cashKpiLink' | translate }} ←</a>
         </div>
       }
     </section>

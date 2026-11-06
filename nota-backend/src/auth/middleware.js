@@ -74,6 +74,18 @@ const requirePermission = (...keys) =>
     return keys.every((key) => hasPermission(req.user, key)) ? next() : next(forbidden());
   }, keys);
 
+/**
+ * Stage 19: 403 FORBIDDEN unless the signed-in user has AT LEAST ONE of the keys (a screen several roles
+ * use, e.g. shifts: shift.operate or shift.manage). The handler decides what each role may see.
+ * Tagged "a | b" for the route-coverage test. No-op when auth is off.
+ */
+const requireAnyPermission = (...keys) =>
+  tag((req, _res, next) => {
+    if (!req.authEnabled) return next();
+    if (!req.user) return next(sessionExpired());
+    return keys.some((key) => hasPermission(req.user, key)) ? next() : next(forbidden());
+  }, [keys.join(" | ")]);
+
 /** Any signed-in user (no specific permission). */
 const requireLogin = () =>
   tag((req, _res, next) => {
@@ -260,6 +272,7 @@ module.exports = {
   requireAuth,
   discountLimitOf,
   requireDiscountPermission,
+  requireAnyPermission,
   requireLogin,
   requirePermission,
   sessionExpired,

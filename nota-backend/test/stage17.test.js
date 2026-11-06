@@ -3,6 +3,7 @@ process.env.NOTA_AUTH = "1";
 process.env.NOTA_JWT_SECRET = "stage17-test-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
+const { forgetBoxes } = require("./helpers/oldData");
 const test = require("node:test");
 const mongoose = require("mongoose");
 const app = require("../src/app");
@@ -57,7 +58,7 @@ async function keyedLines(entry) {
   return entry.lines.map((row) => ({ key: keys.get(String(row.accountId)), debit: row.debit, credit: row.credit, party: row.partyType || null }));
 }
 const entryFor = (type, id) => JournalEntry.findOne({ "source.type": type, "source.id": id, type: "auto" }).lean();
-async function beginLedgerOnCurrentState() { await JournalEntry.deleteMany({}); await Account.deleteMany({}); await Counter.deleteMany({ _id: { $in: ['JE','OB'] } }); await Meta.deleteMany({}); await Meta.create({ _id:'schema', version:4 }); await runMigrations(); }
+async function beginLedgerOnCurrentState() { await JournalEntry.deleteMany({}); await Account.deleteMany({}); await forgetBoxes(); await Counter.deleteMany({ _id: { $in: ['JE','OB'] } }); await Meta.deleteMany({}); await Meta.create({ _id:'schema', version:4 }); await runMigrations(); }
 async function assertHealthy() { const response=await call('GET','/api/accounting/health'); assert.equal(response.status,200); for(const [name,check] of Object.entries(response.json)) assert.equal(check.difference,0,`${name}: ${JSON.stringify(check)}`); }
 async function assertCustomerMatchesStatement(customerId) {
   const customers = await Account.findOne({ systemKey: "CUSTOMERS" }).lean();

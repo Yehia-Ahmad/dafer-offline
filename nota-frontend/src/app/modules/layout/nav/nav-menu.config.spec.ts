@@ -13,6 +13,7 @@ describe('nav menu config', () => {
       ['main', ['home']],
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
       ['inventory', ['products', 'suppliers']],
+      ['treasury', ['cash', 'expenses']],
       ['accounting', ['profit']],
       ['admin', ['users', 'audit', 'shop', 'backup']],
     ]);
@@ -23,6 +24,7 @@ describe('nav menu config', () => {
       ['main', ['home']],
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
       ['inventory', ['products', 'suppliers']],
+      ['treasury', ['cash', 'expenses']],
       ['accounting', ['profit']],
       ['admin', ['audit', 'shop']],
     ]);
@@ -33,6 +35,7 @@ describe('nav menu config', () => {
       ['main', ['home']],
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
       ['inventory', ['products']],
+      ['treasury', ['expenses']],
     ]);
   });
 
@@ -47,6 +50,7 @@ describe('nav menu config', () => {
       ['main', ['home']],
       ['sales', ['credit', 'invoices', 'returns', 'customers']],
       ['inventory', ['products', 'suppliers']],
+      ['treasury', ['cash', 'expenses']],
       ['accounting', ['profit']],
       ['admin', ['audit']],
     ]);
@@ -78,7 +82,7 @@ describe('nav menu config', () => {
 
   it('keeps future screens defined but hidden', () => {
     const all = NAV_GROUPS.flatMap((g) => g.items);
-    for (const key of ['purchases', 'cash', 'expenses']) {
+    for (const key of ['purchases']) {
       const item = all.find((i) => i.key === key);
       expect(item).withContext(key).toBeDefined();
       expect(item!.visible(ctxFor(ROLE_PERMISSIONS.owner))).withContext(key).toBeFalse();
@@ -95,8 +99,19 @@ describe('nav menu config', () => {
     }
   });
 
+  it('Stage 19: الخزائن والوردية needs cashbox.view, المصروفات any of create / manage / view', () => {
+    const all = NAV_GROUPS.flatMap((g) => g.items);
+    const cash = all.find((i) => i.key === 'cash')!;
+    const expenses = all.find((i) => i.key === 'expenses')!;
+    expect([cash.route, expenses.route]).toEqual(['/cashbox', '/expenses']);
+    expect(cash.visible(ctxFor(['shift.operate', 'cashbox.manage']))).toBeFalse();
+    expect(cash.visible(ctxFor(['cashbox.view']))).toBeTrue();
+    for (const key of ['expenses.create', 'expenses.manage', 'cashbox.view']) expect(expenses.visible(ctxFor([key]))).withContext(key).toBeTrue();
+    expect(expenses.visible(ctxFor(['sales.create']))).toBeFalse();
+  });
+
   it('drops a group with no visible items, so no orphan label shows; no permissions → no menu', () => {
-    const groups = visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.owner));
+    const groups = visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.storekeeper));
     expect(groups.some((g) => g.key === 'treasury')).toBeFalse();
     expect(visibleNavGroups(NAV_GROUPS, ctxFor([]))).toEqual([]);
   });

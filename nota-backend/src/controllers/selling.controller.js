@@ -12,6 +12,7 @@ const { actorFields } = require("../utils/actorFields");
 const { PREFIXES, nextDocumentNumber, normalizeNumberSearch } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
 const { postSale, postReturn, postInventoryAdjustment, postInvoiceEdit, postInvoiceCancel } = require("../accounting/posting");
+const { resolveBox } = require("../cashbox/boxes");
 const { audit } = require("../auth/audit");
 
 const getRawQuantity = (body) => {
@@ -421,6 +422,7 @@ const toSellingInvoice = (selling, options = {}) => {
     cancelledByName: selling.cancelledByName ?? null,
     cancellationReason: selling.cancellationReason ?? null,
     cancelRefundAmount: selling.cancelRefundAmount ?? 0,
+    boxId: selling.boxId ?? null,
     refunds: (selling.refunds || []).map((refund) => ({
       _id: refund._id,
       refundDate: refund.refundDate,
@@ -691,7 +693,7 @@ const hasLineItemChanges = (body) =>
   body.price !== undefined ||
   getRawQuantity(body) !== undefined;
 
-const createSellingInvoice = async ({ body, res, allowBelowCost = false, session, number }) => {
+const createSellingInvoice = async ({ body, res, allowBelowCost = false, session, number, boxId }) => {
   const { customerName, customerPhone } = body;
   const normalizedCustomerName = normalizeRequiredString(customerName, "اسم العميل", res);
   const normalizedCustomerPhone = normalizeRequiredString(customerPhone, "رقم هاتف العميل", res);
@@ -725,6 +727,7 @@ const createSellingInvoice = async ({ body, res, allowBelowCost = false, session
       discountAmount: invoiceTotals.discountAmount,
       shippingFees: invoiceTotals.shippingFees,
       totalPrice: invoiceTotals.totalPrice,
+      ...(boxId ? { boxId } : {}),
   }], { session });
   created[0]._autoRestockAdjustments = [...(productsById.autoRestockedByProductId || new Map()).entries()].map(([productId, quantity]) => ({ productId, quantity }));
   return created[0];
@@ -732,6 +735,8 @@ const createSellingInvoice = async ({ body, res, allowBelowCost = false, session
 
 const createSelling = asyncHandler(async (req, res) => {
   const selling = await withTransaction(async (session) => {
+    // Stage 19: the sale goes into a box (request boxId, else this PC's drawer, else the main box).
+    const box = await resolveBox({ req, boxId: req.body && req.body.boxId, session });
     const number = await require("../utils/documentNumber").nextDocumentNumber(PREFIXES.CASH_INVOICE, session);
     const created = await createSellingInvoice({
       body: req.body,
@@ -739,6 +744,7 @@ const createSelling = asyncHandler(async (req, res) => {
       allowBelowCost: canSellBelowCost(req),
       session,
       number,
+      boxId: box._id,
     });
     await audit(req, { action: "sale.created", entity: "Selling", entityId: created._id, session, strict: true });
     await postSale({ sale: created, session });
@@ -1098,6 +1104,8 @@ const addSellingRefund = asyncHandler(async (req, res) => {
       if (storedItem) storedItem.returnedQuantity = Number(storedItem.returnedQuantity || 0) + quantity;
     }
 
+    // Stage 19: the cash refund comes out of a box (request boxId, else this PC's drawer, else the main box).
+    const refundBox = await resolveBox({ req, boxId: req.body && req.body.boxId, session });
     const number = await nextDocumentNumber(PREFIXES.RETURN, session);
     const returnLog = await createReturnLog({
       number, returnType: "cash", invoiceId: selling._id, invoiceNumber: selling.number,
@@ -1105,6 +1113,7 @@ const addSellingRefund = asyncHandler(async (req, res) => {
       returnDate: refundDate, note: note?.trim() || undefined,
       items: refundItems.map((item) => ({ invoiceItemId: item.invoiceItemId, productId: item.product, productName: item.productName, productCode: productsById.get(item.product.toString()).code, purchasePrice: item.purchasePrice, quantity: item.quantity, price: item.unitPrice, total: item.totalPrice, returnReason: item.returnReason })),
       subtotalReturnedAmount, discountAmount, shippingFees, finalReturnedAmount,
+      boxId: refundBox._id,
       createdBy: req.user?._id ?? req.user?.id,
     }, session);
     selling.refunds.push({ refundDate, note: note?.trim() || undefined, items: refundItems, totalQuantity, totalAmount: finalReturnedAmount, returnLog: returnLog._id });

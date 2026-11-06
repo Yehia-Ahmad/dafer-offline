@@ -1,0 +1,56 @@
+const Device = require("../models/device.model");
+
+// Stage 19: which PC a request comes from.
+//
+// The desktop app adds X-Nota-Device-Id (the PC's config.instanceId) and X-Nota-Device-Name (its
+// hostname, percent-encoded, at most 64 characters) to every backend request. The backend uses them for two
+// things only: the default cash box of that PC, and the PC list shown in "add cash box".
+//
+// THIS IS NOT AN AUTHENTICATION FACTOR. Anyone with the LAN key can send any id. Permissions, shifts and
+// audit stay tied to the signed-in user; a wrong or missing id can only change which box is pre-selected.
+
+const DEVICE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{7,63}$/;
+const DEVICE_NAME_MAX = 64;
+const THROTTLE_MS = 60 * 1000;
+
+const lastRegistered = new Map();
+
+/** Tests: forget what was registered, so the next request writes again. */
+const resetDeviceThrottle = () => lastRegistered.clear();
+
+const validDeviceId = (value) => (typeof value === "string" && DEVICE_ID_PATTERN.test(value.trim()) ? value.trim() : null);
+
+const decodeName = (value) => {
+  if (typeof value !== "string") return "";
+  let text = value;
+  try { text = decodeURIComponent(value); } catch { /* keep the raw text */ }
+  return text.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, DEVICE_NAME_MAX);
+};
+
+/**
+ * Sets req.deviceId / req.deviceName (an invalid id is ignored) and, for a signed-in user, registers the PC:
+ * an upsert of { deviceId, name, role, lastSeenAt } at most once a minute per device, outside any business transaction.
+ * Mounted after requireAuth. A registry failure never fails the request.
+ */
+const deviceContext = ({ instanceId = () => process.env.NOTA_INSTANCE_ID, now = Date.now } = {}) => async (req, _res, next) => {
+  const deviceId = validDeviceId(req.get("x-nota-device-id"));
+  if (!deviceId) return next();
+  req.deviceId = deviceId;
+  req.deviceName = decodeName(req.get("x-nota-device-name"));
+  if (!req.user) return next();
+  const at = now();
+  const last = lastRegistered.get(deviceId);
+  if (last !== undefined && at - last < THROTTLE_MS) return next();
+  lastRegistered.set(deviceId, at);
+  try {
+    const set = { lastSeenAt: new Date(at), role: deviceId === instanceId() ? "main" : "client" };
+    if (req.deviceName) set.name = req.deviceName;
+    await Device.updateOne({ deviceId }, { $set: set }, { upsert: true });
+  } catch (error) {
+    lastRegistered.delete(deviceId);
+    console.error(`device registry failed: ${error.message}`);
+  }
+  return next();
+};
+
+module.exports = { DEVICE_ID_PATTERN, DEVICE_NAME_MAX, THROTTLE_MS, deviceContext, resetDeviceThrottle, validDeviceId, decodeName };

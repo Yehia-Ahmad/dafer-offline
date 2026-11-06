@@ -4,6 +4,8 @@ const PREFIXES = Object.freeze({
   CASH_INVOICE: "INV", CREDIT_INVOICE: "CR", RETURN: "RT", RECEIPT: "RC",
   PAYMENT_VOUCHER: "PV", PURCHASE_ORDER: "PO", JOURNAL: "JE", SHIFT: "SH",
   EXPENSE: "EX", OPENING_BALANCE: "OB",
+  // Stage 19
+  TRANSFER: "TR", OWNER_DRAWING: "DR", CUSTOMER_PAYOUT: "CP",
 });
 
 const formatDocumentNumber = (prefix, seq) => `${prefix}-${String(seq).padStart(6, "0")}`;

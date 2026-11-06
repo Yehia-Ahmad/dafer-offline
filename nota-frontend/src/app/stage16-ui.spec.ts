@@ -1,5 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { flushPaymentBoxes } from './modules/cashbox/testing/payment-boxes.testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
@@ -45,7 +46,7 @@ describe('Stage 16 invoice history UI', () => {
     TestBed.inject(TranslateService).use('en');
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => (flushPaymentBoxes(http), http.verify()));
 
   function render(permissions: string[] = ['sales.view', 'returns.create']) {
     signInWith(permissions);
@@ -112,7 +113,7 @@ describe('Stage 16 product archive UI', () => {
     expect(document.body.querySelector('[data-testid="product-delete-kind"]')?.textContent).toContain('category.deleteProduct.deleteMessage');
     await new Promise((resolve) => setTimeout(resolve, 110));
     http.expectOne(`${base}products/p1`).flush({ _id: 'p1', name: 'قديم', soldItemCount: 2, category: { _id: 'c1', specifications: [] } });
-    http.verify();
+    (flushPaymentBoxes(http), http.verify());
   });
 
   it('hides archived controls without products.manage', async () => {
@@ -135,7 +136,7 @@ describe('Stage 16 product archive UI', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent || '';
     expect(text).not.toContain('productsPage.showArchived');
     expect(text).not.toContain('productsPage.restore');
-    http.verify();
+    (flushPaymentBoxes(http), http.verify());
   });
 });
 
@@ -158,7 +159,7 @@ describe('Stage 16 customer statement UI', () => {
     signInWith(['customers.view', 'credit.view']);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => (flushPaymentBoxes(http), http.verify()));
 
   it('renders opening, invoice, payment, return, cancel and down-payment refund with debit/credit/balance', () => {
     const fixture = TestBed.createComponent(CustomerDetailsComponent);
@@ -216,7 +217,7 @@ describe('Stage 16 labels and permission-sensitive notes', () => {
     }], pagination: { page: 1, limit: 10, totalItems: 1, totalPages: 1 } });
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('creditSalePage.list.status.returned');
-    http.verify();
+    (flushPaymentBoxes(http), http.verify());
   });
 
   it('credit panel shows original, returns, net, paid, remaining, and cancellation reason', async () => {
@@ -235,7 +236,7 @@ describe('Stage 16 labels and permission-sensitive notes', () => {
     for (const label of ['invoiceHistoryPage.cancel.originalTotal', 'invoiceHistoryPage.s10.refundedAmount', 'invoiceHistoryPage.cancel.netTotal', 'creditSalePage.list.paid', 'creditSalePage.list.remaining', 'فاتورة مكررة']) {
       expect(text).toContain(label);
     }
-    http.verify();
+    (flushPaymentBoxes(http), http.verify());
   });
 
   it('customer delete dialog has no stock-restore question', async () => {
@@ -251,7 +252,7 @@ describe('Stage 16 labels and permission-sensitive notes', () => {
     expect(text).toContain('customerPage.messages.deleteConfirm');
     expect(text).not.toContain('restore stock');
     expect(text).not.toContain('استرجاع المخزون');
-    http.verify();
+    (flushPaymentBoxes(http), http.verify());
   });
 
   it('estimated-cost note is hidden without products.viewCost and shown with it', async () => {
@@ -273,6 +274,6 @@ describe('Stage 16 labels and permission-sensitive notes', () => {
     };
     expect(render(['reports.profit'])).not.toContain('profitReportPage.dialog.costEstimated');
     expect(render(['reports.profit', 'products.viewCost'])).toContain('profitReportPage.dialog.costEstimated');
-    http.verify();
+    (flushPaymentBoxes(http), http.verify());
   });
 });

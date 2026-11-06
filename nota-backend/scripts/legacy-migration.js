@@ -253,6 +253,20 @@ async function main() {
     await db.connect();
     const receiptCount = await db.db().collection("receipts").countDocuments({ customer: new mongoose.Types.ObjectId(reallocCustomer._id) });
     assert.equal(receiptCount, 1, "the automatic reallocation must not create an RC receipt");
+    // Stage 19: the upgrade created the main box (account 1111) and put it on every old money document.
+    const mainBox = await db.db().collection("cashboxes").findOne({ isMain: true });
+    assert.ok(mainBox, "the main box exists after the upgrade");
+    assert.equal(String((await db.db().collection("accounts").findOne({ _id: mainBox.accountId })).code), "1111");
+    const boxCounts = {};
+    for (const [name, filter] of [["sellings", {}], ["receipts", {}], ["returnlogs", { returnType: "cash" }]]) {
+      const total = await db.db().collection(name).countDocuments(filter);
+      const onMain = await db.db().collection(name).countDocuments({ ...filter, boxId: mainBox._id });
+      assert.equal(onMain, total, `every old ${name} document has the main box`);
+      boxCounts[name] = total;
+    }
+    const cancelRefunds = await db.db().collection("creditsales").countDocuments({ status: "cancelled", cancelRefundAmount: { $gt: 0 } });
+    assert.equal(await db.db().collection("creditsales").countDocuments({ status: "cancelled", cancelRefundAmount: { $gt: 0 }, cancelRefundBoxId: mainBox._id }), cancelRefunds);
+    console.log(`stage 19 upgrade: main box on every old document ${JSON.stringify({ ...boxCounts, cancelRefunds })}`);
     await db.close();
     // Stage 17 review: the reviewer's ledger repro on upgraded old data. After each step:
     // health all 0, each customer's ledger = statement, CASH_MAIN = tracked cash.
@@ -295,6 +309,9 @@ async function main() {
       if (check && typeof check === "object" && "difference" in check) { assert.equal(Number(check.difference), 0, `accounting health after the wizard: ${name}`); assert.notEqual(check.ok, false, `accounting health after the wizard: ${name} ok`); }
     }
     console.log(`opening wizard after the upgrade: OB ${saved.number}, capital ${saved.totals.capital}, health 0`);
+    const finalHealth = await request(currentBase, "GET", "/api/accounting/health");
+    assert.equal(finalHealth.boxes.difference, 0, "the boxes check is 0 after the upgrade");
+    console.log(`boxes check after the upgrade: ${JSON.stringify(finalHealth.boxes.byBox.map((row) => [row.name, row.expected, row.actual, row.difference]))}`);
 
     assert.doesNotMatch(currentErrors, /TypeError/);
     console.log("legacy migration scenarios passed: cash partial/full/single-line, discount+shipping credit return, reallocation, down payment, repeated partial-line merge, Stage 17 ledger repro (10 checkpoints), Stage 18 opening wizard");

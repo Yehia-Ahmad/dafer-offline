@@ -1,6 +1,7 @@
 const CreditSale = require("../models/creditSale.model");
 const ReturnLog = require("../models/returnLog.model");
 const PartyOpening = require("../models/partyOpening.model");
+const CustomerPayout = require("../models/customerPayout.model");
 const { loadCustomerOpenItems, ageOpenItems } = require("./customerOpenItems.service");
 const { roundMoney } = require("../utils/invoicePricing");
 
@@ -13,11 +14,12 @@ const { roundMoney } = require("../utils/invoicePricing");
  * @param {object} args
  * @param {Array} args.invoices the customer's credit invoices (lean)
  * @param {Map<string, object>} args.returnById credit return logs by id
+ * @param {Array} [args.payouts] Stage 19: the customer's credit payouts (a debit line each, and a credit line when cancelled)
  * @param {object|null} [args.opening] the customer's PartyOpening (Stage 18), shown first as the opening line
  * @param {Date|null} [args.from]
  * @param {Date|null} [args.to]
  */
-function computeCustomerStatement({ invoices, returnById, opening = null, from = null, to = null }) {
+function computeCustomerStatement({ invoices, returnById, opening = null, payouts = [], from = null, to = null }) {
   const ordered = [...invoices].sort((left, right) =>
     new Date(left.sellingDate) - new Date(right.sellingDate) ||
     new Date(left.createdAt || 0) - new Date(right.createdAt || 0) ||
@@ -33,7 +35,7 @@ function computeCustomerStatement({ invoices, returnById, opening = null, from =
       debit: opening.amount > 0 ? opening.amount : 0, credit: opening.amount < 0 ? -opening.amount : 0, _pinned: true,
     });
     for (const payment of opening.payments || []) {
-      if (payment.source === "return_reallocation") continue;
+      if (payment.source === "return_reallocation" || payment.source === "credit_application") continue;
       add({ date: payment.paymentDate, type: "payment", number: payment.number, description: "دفعة عميل", debit: 0, credit: payment.amount });
     }
   }
@@ -44,7 +46,8 @@ function computeCustomerStatement({ invoices, returnById, opening = null, from =
       description: `فاتورة آجل ${invoice.number || ""}`.trim(), debit: invoice.totalPrice, credit: 0,
     });
     for (const payment of invoice.payments || []) {
-      if (payment.source === "return_reallocation") continue;
+      // return_reallocation and credit_application only move credit between items: the statement shows nothing new.
+      if (payment.source === "return_reallocation" || payment.source === "credit_application") continue;
       add({
         date: payment.paymentDate, type: "payment", number: payment.number,
         description: payment.source === "down_payment" ? "دفعة مقدمة" : "دفعة عميل",
@@ -75,6 +78,14 @@ function computeCustomerStatement({ invoices, returnById, opening = null, from =
     }
   }
 
+  // Stage 19: paying a credit balance out is a debit line; cancelling the payout is a credit line.
+  for (const payout of payouts) {
+    add({ date: payout.date, type: "payout", number: payout.number, description: "صرف رصيد دائن", debit: payout.amount, credit: 0 });
+    if (payout.status === "cancelled") {
+      add({ date: payout.cancelledAt || payout.updatedAt, type: "payout_cancel", number: payout.number, description: "إلغاء صرف رصيد دائن", debit: 0, credit: payout.amount });
+    }
+  }
+
   lines.sort((left, right) => (right._pinned ? 1 : 0) - (left._pinned ? 1 : 0)
     || new Date(left.date) - new Date(right.date) || left._sequence - right._sequence);
   const openingBalance = roundMoney(lines.filter((line) => from && new Date(line.date) < from)
@@ -100,7 +111,8 @@ async function loadCustomerStatement(customerId, { from = null, to = null, sessi
   const invoices = await CreditSale.find({ customer: customerId }).sort({ sellingDate: 1, createdAt: 1, _id: 1 }).session(session).lean();
   const returns = await ReturnLog.find({ returnType: "credit", invoiceId: { $in: invoices.map((invoice) => invoice._id) } }).session(session).lean();
   const opening = await PartyOpening.findOne({ partyType: "customer", partyId: customerId }).session(session).lean();
-  const statement = computeCustomerStatement({ invoices, returnById: new Map(returns.map((entry) => [entry._id.toString(), entry])), opening, from, to });
+  const payouts = await CustomerPayout.find({ customer: customerId }).sort({ date: 1, createdAt: 1 }).session(session).lean();
+  const statement = computeCustomerStatement({ invoices, returnById: new Map(returns.map((entry) => [entry._id.toString(), entry])), opening, payouts, from, to });
   // Outstanding and aging always describe the open items today, whatever period the statement shows.
   const open = (await loadCustomerOpenItems([customerId], { session })).get(String(customerId)) || { items: [], credit: 0 };
   const aging = ageOpenItems(open.items);
@@ -113,11 +125,18 @@ async function loadCustomerStatement(customerId, { from = null, to = null, sessi
  * the accounting health check.
  */
 async function customerStatementBalances(customers, { session = null } = {}) {
-  const [invoices, returns, openings] = await Promise.all([
+  const [invoices, returns, openings, allPayouts] = await Promise.all([
     CreditSale.find({}).session(session).lean(),
     ReturnLog.find({ returnType: "credit" }).session(session).lean(),
     PartyOpening.find({ partyType: "customer" }).session(session).lean(),
+    CustomerPayout.find({}).session(session).lean(),
   ]);
+  const payoutsByCustomer = new Map();
+  for (const payout of allPayouts) {
+    const key = String(payout.customer);
+    if (!payoutsByCustomer.has(key)) payoutsByCustomer.set(key, []);
+    payoutsByCustomer.get(key).push(payout);
+  }
   const openingByCustomer = new Map(openings.map((row) => [String(row.partyId), row]));
   const returnById = new Map(returns.map((entry) => [entry._id.toString(), entry]));
   const byCustomer = new Map();
@@ -130,7 +149,7 @@ async function customerStatementBalances(customers, { session = null } = {}) {
   const orphanInvoices = invoices.filter((invoice) => !known.has(String(invoice.customer)));
   const balances = new Map();
   for (const customer of customers) {
-    const statement = computeCustomerStatement({ invoices: byCustomer.get(String(customer._id)) || [], returnById, opening: openingByCustomer.get(String(customer._id)) || null });
+    const statement = computeCustomerStatement({ invoices: byCustomer.get(String(customer._id)) || [], returnById, opening: openingByCustomer.get(String(customer._id)) || null, payouts: payoutsByCustomer.get(String(customer._id)) || [] });
     balances.set(String(customer._id), statement.totals.balance);
   }
   return { balances, orphanInvoices };

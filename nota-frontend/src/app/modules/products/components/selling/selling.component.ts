@@ -46,6 +46,8 @@ import { ProductsService } from '../../services/products.service';
 import { format as formatDate } from 'date-fns';
 import { CustomersService } from '../../../customer/services/customers.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
+import { PaymentBoxService } from '../../../cashbox/payment-box.service';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 
 type PriceType = 'wholesalePrice' | 'retailPrice' | 'custom';
@@ -82,6 +84,8 @@ type SellingPayload = {
   discountPercentage: number;
   shippingFees: number;
   confirmInsufficientInventory: boolean;
+  /** Stage 19: only when the user chose a box other than the default. */
+  boxId?: string;
   items: Array<{
     productId: string;
     quantity: number;
@@ -123,7 +127,7 @@ type InvoiceItemState = {
 @Component({
   selector: 'app-selling',
   standalone: true,
-  imports: [LockedActionComponent, NotaCanDirective, 
+  imports: [LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
@@ -150,6 +154,8 @@ export class SellingComponent implements OnInit, OnDestroy {
   readonly categories = inject(CatalogStateService).categories;
   private readonly _cateoryService = inject(CateoryService);
   private readonly _auth = inject(AuthService);
+  /** Stage 19: "طريقة الدفع" — the box this sale goes into. */
+  readonly payment = inject(PaymentBoxService);
   private readonly _unsaved = inject(UnsavedWorkService);
   private readonly _cartRescue = inject(CartRescueService);
   private readonly _toast = inject(ToastService);
@@ -646,7 +652,7 @@ export class SellingComponent implements OnInit, OnDestroy {
       }))
     };
 
-    this.submitSelling(payload);
+    this.submitSelling(this.payment.withBox(payload));
   }
 
   confirmInsufficientInventory(): void {

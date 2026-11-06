@@ -1,0 +1,34 @@
+// المصروفات (Expenses.dc.html). Tokens only.
+:host { display: block; }
+.ex { display: flex; flex-direction: column; gap: 18px; }
+.ex__form { padding: 18px 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.ex__f140 { flex: 1 1 140px; }
+.ex__f180 { flex: 1 1 180px; }
+.ex__f220 { flex: 2 1 220px; }
+.ex__submit { min-height: 46px; }
+.ex__error { flex: 1 1 100%; margin: 0; }
+.ex__filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.ex__filters > * { flex: 1 1 180px; max-width: 260px; }
+.ex__layout { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.ex__list { flex: 999 1 480px; min-width: 0; overflow: hidden; }
+.ex__list-head { padding: 16px 18px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.ex__h2 { margin: 0; font-size: 18px; font-weight: 700; }
+.ex__total { font-size: 14px; color: var(--text-muted); }
+.ex__row--cancelled td { opacity: 0.6; text-decoration: line-through; }
+.ex__row--cancelled td:last-child { text-decoration: none; opacity: 1; }
+.ex__actions { text-align: end; white-space: nowrap; }
+.ex__empty { padding: 28px 16px; text-align: center; color: var(--text-muted); display: table-cell; }
+.ex__empty-text { margin: 0; color: var(--text-muted); font-size: 14px; }
+.ex__side { flex: 1 1 300px; min-width: 0; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.ex__cat { display: flex; flex-direction: column; gap: 6px; }
+.ex__cat-row { display: flex; justify-content: space-between; font-size: 14px; }
+.ex__bar { height: 8px; border-radius: 999px; background: var(--neutral-soft); }
+.ex__bar-fill { height: 8px; border-radius: 999px; background: var(--brand); }
+.ex__cat-total { display: flex; justify-content: space-between; font-size: 16px; font-weight: 800; padding-top: 10px; border-top: 1px solid var(--line); }
+.ex__cats { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ex__cats-row { display: flex; align-items: center; gap: 10px; }
+.ex__cats-row--off { opacity: 0.6; }
+.ex__cats-name { flex: 1 1 auto; min-width: 0; }
+.ex__new { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: end; }
+.ex__new > button { grid-column: 1 / -1; }
+@media (max-width: 480px) { .ex__new { grid-template-columns: minmax(0, 1fr); } .ex__form { padding: 14px; } }

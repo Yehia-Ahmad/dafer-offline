@@ -26,6 +26,8 @@ import {
   NotaPageHeaderComponent
 } from '../../../shared/ui';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
+import { PaymentBoxService } from '../../../cashbox/payment-box.service';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 
 /** Status pills map to the API `status` values. */
@@ -43,13 +45,15 @@ const PAGE_SIZE = 10;
 @Component({
   selector: 'app-credit-sales-list',
   standalone: true,
-  imports: [LockedActionComponent, NotaCanDirective, CommonModule, FormsModule, ReactiveFormsModule, RouterLink, TranslatePipe, DatePickerModule, InputNumberModule,
+  imports: [LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, CommonModule, FormsModule, ReactiveFormsModule, RouterLink, TranslatePipe, DatePickerModule, InputNumberModule,
     NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
   templateUrl: './credit-sales-list.component.html',
   styleUrl: './credit-sales-list.component.scss'
 })
 export class CreditSalesListComponent implements OnInit {
   private readonly creditSalesService = inject(CreditSalesService);
+  /** Stage 19: the box the payment goes into. */
+  readonly payment = inject(PaymentBoxService);
   private readonly shopProfileService = inject(ShopProfileService);
   private readonly translate = inject(TranslateService);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -199,11 +203,11 @@ export class CreditSalesListComponent implements OnInit {
 
     this.isSavingPayment = true;
     const raw = this.paymentForm.getRawValue();
-    this.creditSalesService.recordPayment(invoice.id, {
+    this.creditSalesService.recordPayment(invoice.id, this.payment.withBox({
       amount: this.toNumber(raw.amount),
       paymentDate: this.formatRequestDate(raw.paymentDate),
       note: String(raw.note || '').trim() || undefined
-    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    })).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.isSavingPayment = false;
         this.resetPaymentForm();

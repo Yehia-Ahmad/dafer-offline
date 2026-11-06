@@ -8,6 +8,8 @@ const {
   getCustomerStatement,
   deleteCustomer,
 } = require("../controllers/customer.controller");
+const credit = require("../controllers/customerCredit.controller");
+const asyncHandler = require("../utils/asyncHandler");
 const { requirePermission } = require("../auth/middleware");
 const { auditOnSuccess } = require("../auth/audit");
 
@@ -26,6 +28,11 @@ router.post(
   addCustomerCreditSalePayment
 );
 router.get("/:id/statement", requirePermission("customers.view"), getCustomerStatement);
+// Stage 19: a credit balance (we owe the customer): pay it out of a box, or set it against open items.
+router.get("/:id/credit", requirePermission("customers.view"), asyncHandler(credit.getCredit));
+router.post("/:id/payouts", requirePermission("credit.collect"), asyncHandler(credit.createPayout));
+router.post("/:id/payouts/:payoutId/cancel", requirePermission("credit.collect"), asyncHandler(credit.cancelPayout));
+router.post("/:id/apply-credit", requirePermission("credit.collect"), asyncHandler(credit.applyCredit));
 router
   .route("/:id")
   .get(requirePermission("customers.view"), getCustomerById)

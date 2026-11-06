@@ -38,6 +38,8 @@ const EXPECTED_CATALOG = [
   "shop.manage", "users.manage", "audit.view",
   "backup.manage",
   "accounting.view", "accounting.manage",
+  // Stage 19
+  "cashbox.view", "cashbox.manage", "shift.operate", "shift.manage", "expenses.create", "expenses.manage", "owner.drawings",
 ];
 
 test("catalog: exactly the Stage 13 keys, each with an Arabic and English label and a group", () => {
@@ -51,10 +53,11 @@ test("catalog: exactly the Stage 13 keys, each with an Arabic and English label 
 test("role templates match the spec", () => {
   const sorted = (list) => [...list].sort();
   assert.deepEqual(sorted(ROLE_TEMPLATES.owner), sorted(EXPECTED_CATALOG));
-  assert.deepEqual(sorted(ROLE_TEMPLATES.manager), sorted(EXPECTED_CATALOG.filter((k) => !["users.manage", "backup.manage", "accounting.manage"].includes(k))));
+  assert.deepEqual(sorted(ROLE_TEMPLATES.manager), sorted(EXPECTED_CATALOG.filter((k) => !["users.manage", "backup.manage", "accounting.manage", "owner.drawings"].includes(k))));
   assert.deepEqual(sorted(ROLE_TEMPLATES.cashier), sorted([
     "sales.create", "sales.view", "credit.create", "credit.view", "credit.collect",
     "returns.create", "customers.view", "products.view", "dashboard.view",
+    "shift.operate", "expenses.create",
   ]));
   assert.deepEqual(sorted(ROLE_TEMPLATES.storekeeper), sorted([
     "products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view",
@@ -62,6 +65,7 @@ test("role templates match the spec", () => {
   assert.deepEqual(sorted(ROLE_TEMPLATES.accountant), sorted([
     "sales.view", "credit.view", "returns.view", "customers.view", "products.view", "dashboard.view",
     "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view",
+    "cashbox.view", "expenses.create", "expenses.manage",
   ]));
   assert.deepEqual(permissionsForRole("custom"), []);
 });
@@ -123,6 +127,10 @@ const EXPECTED_ROUTES = {
   "POST /api/customers": "customers.manage",
   "POST /api/customers/:id/payments": "credit.collect",
   "GET /api/customers/:id/statement": "customers.view",
+  "GET /api/customers/:id/credit": "customers.view",
+  "POST /api/customers/:id/payouts": "credit.collect",
+  "POST /api/customers/:id/payouts/:payoutId/cancel": "credit.collect",
+  "POST /api/customers/:id/apply-credit": "credit.collect",
   "GET /api/customers/:id": "customers.view",
   "PUT /api/customers/:id": "customers.manage",
   "DELETE /api/customers/:id": "customers.manage",
@@ -149,6 +157,31 @@ const EXPECTED_ROUTES = {
   "PUT /api/sellings/:id": "sales.edit",
   "POST /api/sellings/:id/cancel": "sales.delete",
   "GET /api/shop-profile": "AUTHENTICATED",
+  // Stage 19
+  "GET /api/cashbox/payment-boxes": "AUTHENTICATED",
+  "GET /api/cashbox/boxes": "cashbox.view",
+  "POST /api/cashbox/boxes": "cashbox.manage",
+  "GET /api/cashbox/boxes/:id": "cashbox.view",
+  "PUT /api/cashbox/boxes/:id": "cashbox.manage",
+  "DELETE /api/cashbox/boxes/:id": "cashbox.manage",
+  "GET /api/cashbox/boxes/:id/ledger": "cashbox.view",
+  "GET /api/cashbox/transfers": "cashbox.view",
+  "POST /api/cashbox/transfers": "cashbox.manage",
+  "POST /api/cashbox/transfers/:id/cancel": "cashbox.manage",
+  "GET /api/cashbox/drawings": "owner.drawings",
+  "POST /api/cashbox/drawings": "owner.drawings",
+  "POST /api/cashbox/drawings/:id/cancel": "owner.drawings",
+  "GET /api/shifts": "shift.operate | shift.manage",
+  "POST /api/shifts": "shift.operate | shift.manage",
+  "GET /api/shifts/:id": "shift.operate | shift.manage",
+  "POST /api/shifts/:id/close": "shift.operate | shift.manage",
+  "GET /api/expenses/categories": "expenses.create | expenses.manage | cashbox.view",
+  "POST /api/expenses/categories": "expenses.manage",
+  "PUT /api/expenses/categories/:id": "expenses.manage",
+  "GET /api/expenses": "expenses.create | expenses.manage | cashbox.view",
+  "POST /api/expenses": "expenses.create",
+  "POST /api/expenses/:id/cancel": "expenses.manage",
+  "GET /api/devices": "cashbox.manage",
   "GET /api/suppliers": "suppliers.view",
   "POST /api/suppliers": "suppliers.manage",
   "GET /api/suppliers/:id": "suppliers.view",
@@ -212,7 +245,7 @@ test("every /api route has exactly one permission, and the map is the documented
   assert.deepEqual(missing, [], `routes without a permission: ${missing.join(", ")}`);
   assert.deepEqual(actual, EXPECTED_ROUTES);
   for (const permission of Object.values(actual)) {
-    for (const key of permission.split(" + ")) {
+    for (const key of permission.split(/ [+|] /)) {
       assert.ok(key === "PUBLIC" || key === "AUTHENTICATED" || PERMISSIONS[key], `${key} is in the catalog`);
     }
   }

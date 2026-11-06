@@ -15,6 +15,8 @@ const Supplier = require("../models/supplier.model");
 const PartyOpening = require("../models/partyOpening.model");
 const { loadOpeningState, saveOpening, finalizeOpening, currentOpeningEntry, getOpeningMeta } = require("../accounting/opening");
 const { audit } = require("../auth/audit");
+const CashBox = require("../models/cashBox.model");
+const { boxEvents } = require("../cashbox/events");
 const { withTransaction } = require("../utils/transaction");
 const { hasPermission } = require("../auth/permissions");
 
@@ -297,7 +299,11 @@ const getHealth = async (req, res) => {
   //    (cash, banks, fixed assets, inventory as saved, customers, suppliers, capital as the difference).
   const openingCheck = await buildOpeningCheck({ meta, byKey, supplierOpenings });
 
-  res.json({ trialBalance, inventory, customers: customersCheck, suppliers: suppliersCheck, opening: openingCheck, netSales, cogs, entries });
+  // 9. Boxes (Stage 19).
+  const accountsAll = await Account.find({}).select("code systemKey").lean();
+  const boxesCheck = await buildBoxesCheck({ meta, ledgerStartAt, accountBalance, accounts: accountsAll });
+
+  res.json({ trialBalance, inventory, customers: customersCheck, suppliers: suppliersCheck, opening: openingCheck, netSales, cogs, entries, boxes: boxesCheck });
 };
 
 const signedKey = (accountId, partyId) => `${accountId}:${partyId || ""}`;
@@ -341,6 +347,43 @@ const buildOpeningCheck = async ({ meta, byKey, supplierOpenings }) => {
   // `difference` is money only; the structural failures are separate flags and `ok` covers both.
   const moneyDifference = roundMoney(difference);
   return { expected: absTotal(expected), actual: absTotal(actualMap), difference: moneyDifference, saved: true, byLine, entryReversed, unreversedEntries: unreversedCount, countOk, ok: moneyDifference === 0 && !entryReversed && countOk };
+};
+
+/**
+ * Stage 19: per box, the ledger balance of its account against an independent total from operational documents:
+ * its opening amount + cash sales, receipts and down payments - refunds (returns, cancels, "رد المقدم") - expenses
+ * +/- transfers +/- shift differences - drawings and payouts, cancelled documents netted out. Money on a 111/112 leaf
+ * account that has no box at all also counts as a difference. difference = Σ |per-box difference| + unboxed.
+ */
+const buildBoxesCheck = async ({ meta, ledgerStartAt, accountBalance, accounts }) => {
+  const boxList = await CashBox.find({}).sort({ sortOrder: 1, createdAt: 1 }).lean();
+  const stored = meta?.opening?.data;
+  const openingOf = (box) => {
+    if (!stored) return 0;
+    if (box.isMain) return Number(stored.cash || 0);
+    return Number((stored.banks || []).find((row) => String(row.accountId) === String(box.accountId))?.amount || 0);
+  };
+  const byBox = []; let expectedTotal = 0; let actualTotal = 0; let difference = 0;
+  for (const box of boxList) {
+    const events = await boxEvents(box, { ledgerStartAt: ledgerStartAt || null });
+    const expected = roundMoney(openingOf(box) + events.reduce((total, event) => total + event.delta, 0));
+    const actual = roundMoney(accountBalance.get(String(box.accountId)) || 0);
+    const boxDifference = roundMoney(actual - expected);
+    expectedTotal += expected; actualTotal += actual; difference += Math.abs(boxDifference);
+    byBox.push({ boxId: box._id, name: box.name, type: box.type, expected, actual, difference: boxDifference });
+  }
+  // Leaf accounts under 111 and 112 that no box points to must hold nothing.
+  const boxed = new Set(boxList.map((box) => String(box.accountId)));
+  const parentIds = new Set(accounts.filter((account) => account.code === "111" || account.code === "112").map((account) => String(account._id)));
+  const leaves = await Account.find({ parentId: { $in: [...parentIds].map((id) => new mongoose.Types.ObjectId(id)) }, isGroup: false }).lean();
+  let unboxed = 0;
+  for (const account of leaves) {
+    if (boxed.has(String(account._id))) continue;
+    if (account.systemKey === "CASH_MAIN" && !boxList.length) continue;
+    unboxed += Math.abs(accountBalance.get(String(account._id)) || 0);
+  }
+  unboxed = roundMoney(unboxed);
+  return { expected: roundMoney(expectedTotal), actual: roundMoney(actualTotal), difference: roundMoney(difference + unboxed), unboxed, byBox };
 };
 
 // ---------------------------------------------------------------- Stage 18 opening wizard

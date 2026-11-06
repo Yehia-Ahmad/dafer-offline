@@ -80,5 +80,7 @@ export interface CreateReturnPayload {
   returnDate?: string;
   refundDate?: string;
   note?: string;
+  /** Stage 19: the box a cash refund comes out of (omitted = this PC's drawer, else the main box). */
+  boxId?: string;
   items: CreateReturnItemPayload[];
 }

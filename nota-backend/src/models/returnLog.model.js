@@ -34,6 +34,8 @@ const returnLogSchema = new mongoose.Schema({
   discountAmount: { type: Number, default: 0, min: 0 },
   shippingFees: { type: Number, default: 0, min: 0 },
   finalReturnedAmount: { type: Number, required: true, min: 0 },
+  // Stage 19: the box a cash refund came out of (the main box on old returns; unused for credit returns).
+  boxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox", index: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 }, { timestamps: true });
 

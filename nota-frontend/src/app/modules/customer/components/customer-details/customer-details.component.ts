@@ -39,6 +39,10 @@ import {
 import { brandName } from '../../../../core/brand';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
+import { CashboxService } from '../../../cashbox/cashbox.service';
+import { CustomerCredit } from '../../../cashbox/cashbox.models';
+import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
+import { PaymentBoxService } from '../../../cashbox/payment-box.service';
 
 /** Stage 10: one credit invoice, normalized by the shared credit-sale view util (same rules as before). */
 type CustomerHistoryView = CreditSaleView;
@@ -52,7 +56,7 @@ type CustomerDetailsView = CustomerDetails & {
 
 interface CustomerStatement {
   rows: Array<{
-    kind: 'opening' | 'opening_balance' | 'invoice' | 'payment' | 'refund' | 'cancel';
+    kind: 'opening' | 'opening_balance' | 'invoice' | 'payment' | 'refund' | 'cancel' | 'payout' | 'payout_cancel';
     date: string | null;
     invoiceId: string;
     number: string | null;
@@ -72,7 +76,7 @@ interface CustomerStatement {
 @Component({
   selector: 'app-customer-details',
   standalone: true,
-  imports: [LockedActionComponent, NotaCanDirective, RouterLink, CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
+  imports: [LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink, CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
     NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
   templateUrl: './customer-details.component.html',
   styleUrl: './customer-details.component.scss'
@@ -115,6 +119,71 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   private currentCustomerId: string | null = null;
   private readonly subscriptions = new Subscription();
   private readonly shopProfileService = inject(ShopProfileService);
+  private readonly cashbox = inject(CashboxService);
+  /** Stage 19: "طريقة الدفع" for the payment, the opening collection and the credit payout. */
+  readonly payment = inject(PaymentBoxService);
+
+  // ---- Stage 19: a credit balance (we owe the customer): pay it out of a box, or set it against open invoices.
+  credit: CustomerCredit | null = null;
+  payout = { open: false, amount: null as number | null, note: '', saving: false, error: '' };
+  applyCredit = { open: false, amount: null as number | null, saving: false, error: '' };
+
+  openPayout(): void {
+    this.payout = { open: true, amount: this.credit?.credit ?? null, note: '', saving: false, error: '' };
+  }
+
+  closePayout(): void {
+    this.payout = { ...this.payout, open: false, error: '' };
+  }
+
+  savePayout(): void {
+    const amount = Number(this.payout.amount);
+    if (!this.currentCustomerId || !Number.isFinite(amount) || amount <= 0 || amount > (this.credit?.credit ?? 0) || this.payment.needsShift()) {
+      this.payout.error = 'cashbox.credit.exceeds';
+      return;
+    }
+    this.payout = { ...this.payout, saving: true, error: '' };
+    this.cashbox.payoutCredit(this.currentCustomerId, this.payment.withBox({ amount, ...(this.payout.note.trim() ? { note: this.payout.note.trim() } : {}) })).subscribe({
+      next: () => {
+        this.payout = { open: false, amount: null, note: '', saving: false, error: '' };
+        this.payment.load(true);
+        this.loadCustomer(this.currentCustomerId as string);
+      },
+      error: (error: any) => {
+        const code = error?.error?.code;
+        this.payout = { ...this.payout, saving: false, error: code === 'EXCEEDS_CREDIT' ? 'cashbox.credit.exceeds'
+          : ['INSUFFICIENT_BALANCE', 'NO_OPEN_SHIFT', 'BOX_INACTIVE', 'BOX_NOT_ALLOWED'].includes(code) ? `cashbox.errors.${code}` : 'cashbox.credit.payoutFailed' };
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  openApplyCredit(): void {
+    this.applyCredit = { open: true, amount: this.credit?.applicable ?? null, saving: false, error: '' };
+  }
+
+  closeApplyCredit(): void {
+    this.applyCredit = { ...this.applyCredit, open: false, error: '' };
+  }
+
+  saveApplyCredit(): void {
+    const amount = Number(this.applyCredit.amount);
+    if (!this.currentCustomerId || !Number.isFinite(amount) || amount <= 0 || amount > (this.credit?.applicable ?? 0)) {
+      this.applyCredit.error = 'cashbox.credit.exceeds';
+      return;
+    }
+    this.applyCredit = { ...this.applyCredit, saving: true, error: '' };
+    this.cashbox.applyCredit(this.currentCustomerId, amount).subscribe({
+      next: () => {
+        this.applyCredit = { open: false, amount: null, saving: false, error: '' };
+        this.loadCustomer(this.currentCustomerId as string);
+      },
+      error: () => {
+        this.applyCredit = { ...this.applyCredit, saving: false, error: 'cashbox.credit.applyFailed' };
+        this.cdr.detectChanges();
+      },
+    });
+  }
 
   constructor(
     private readonly customersService: CustomersService,
@@ -359,7 +428,8 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     if (reason.length < 3) return;
     this.isDeletingCreditSale = true;
     this.deleteCreditErrorMessage = '';
-    this.creditSalesService.cancelCreditSale(invoice.id, reason).subscribe({
+    // Stage 19: the down payment is paid back out of the chosen box (only used when the invoice had one).
+    this.creditSalesService.cancelCreditSale(invoice.id, reason, invoice.paidAmount > 0 ? this.payment.boxId() : undefined).subscribe({
       next: () => {
         this.isDeletingCreditSale = false;
         this.deleteCreditDialogVisible = false;
@@ -529,11 +599,11 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     this.isSavingPayment = true;
     const raw = this.paymentForm.getRawValue();
 
-    this.creditSalesService.recordPayment(invoice.id, {
+    this.creditSalesService.recordPayment(invoice.id, this.payment.withBox({
       amount: this.toNumber(raw.amount),
       paymentDate: this.formatRequestDate(raw.paymentDate),
       note: String(raw.note || '').trim() || undefined
-    }).subscribe({
+    })).subscribe({
       next: () => {
         this.isSavingPayment = false;
         this.closePaymentDialog();
@@ -631,7 +701,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
       return;
     }
     this.openingPay = { ...this.openingPay, saving: true, error: '' };
-    this.customersService.collectPayment(this.currentCustomerId, { amount, paymentDate: this.formatRequestDate(new Date()), note: this.openingPay.note.trim() || undefined }).subscribe({
+    this.customersService.collectPayment(this.currentCustomerId, this.payment.withBox({ amount, paymentDate: this.formatRequestDate(new Date()), note: this.openingPay.note.trim() || undefined })).subscribe({
       next: () => {
         this.openingPay = { open: false, amount: null, note: '', saving: false, error: '' };
         this.loadCustomer(this.currentCustomerId as string); // reloads the statement too
@@ -669,6 +739,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
           balance: Number(source.totals?.balance || 0),
           aging: source.aging ?? null,
         };
+        this.credit = source.credit ?? null;
         this.statementLoading = false;
         this.cdr.detectChanges();
       },

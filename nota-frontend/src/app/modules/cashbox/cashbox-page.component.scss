@@ -1,0 +1,14 @@
+// الخزائن والوردية (CashBox.dc.html). Tokens only.
+:host { display: block; }
+.cb { display: flex; flex-direction: column; gap: 18px; }
+.cb__cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.cb__card { padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+.cb__card--shift { border-color: var(--brand); }
+.cb__card--off { opacity: 0.65; }
+.cb__card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cb__name { font-size: 15px; font-weight: 700; color: var(--text); text-decoration: none; }
+.cb__name:hover { color: var(--brand); }
+.cb__kind { font-size: 12px; color: var(--text-muted); }
+.cb__balance { font-size: 26px; font-weight: 800; }
+.cb__note { font-size: 12px; color: var(--text-muted); min-height: 18px; }
+.cb__card-actions { display: flex; flex-wrap: wrap; gap: 8px; }

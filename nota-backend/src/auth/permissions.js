@@ -42,6 +42,15 @@ const PERMISSIONS = {
   "backup.manage": { group: "admin", ar: "النسخ الاحتياطي والاستعادة", en: "Backup and restore" },
   "accounting.view": { group: "accounting", ar: "عرض الحسابات", en: "View accounting" },
   "accounting.manage": { group: "accounting", ar: "إدارة الحسابات", en: "Manage accounting" },
+
+  // Stage 19: cash boxes, shifts, expenses, owner drawings.
+  "cashbox.view": { group: "cashbox", ar: "عرض الخزائن وأرصدتها", en: "View cash boxes and balances" },
+  "cashbox.manage": { group: "cashbox", ar: "إدارة الخزائن والتحويلات", en: "Manage cash boxes and transfers" },
+  "shift.operate": { group: "cashbox", ar: "فتح وإغلاق ورديتك", en: "Open and close your own shift" },
+  "shift.manage": { group: "cashbox", ar: "عرض كل الورديات وإغلاق وردية غيرك", en: "See all shifts and close anyone's" },
+  "expenses.create": { group: "cashbox", ar: "تسجيل مصروف", en: "Record expenses" },
+  "expenses.manage": { group: "cashbox", ar: "إلغاء المصروفات وإدارة البنود", en: "Cancel expenses and manage categories" },
+  "owner.drawings": { group: "cashbox", ar: "سحب المالك", en: "Owner drawings" },
 };
 
 const PERMISSION_GROUPS = {
@@ -54,6 +63,7 @@ const PERMISSION_GROUPS = {
   reports: { ar: "التقارير", en: "Reports" },
   admin: { ar: "الإدارة", en: "Administration" },
   accounting: { ar: "الحسابات", en: "Accounting" },
+  cashbox: { ar: "الخزنة", en: "Cash" },
 };
 
 const ALL_PERMISSIONS = Object.freeze(Object.keys(PERMISSIONS));
@@ -80,7 +90,7 @@ const VIEW_PERMISSIONS = ["sales.view", "credit.view", "returns.view", "customer
 
 const ROLE_TEMPLATES = Object.freeze({
   owner: ALL_PERMISSIONS,
-  manager: Object.freeze(ALL_PERMISSIONS.filter((key) => key !== "users.manage" && key !== "backup.manage" && key !== "accounting.manage")),
+  manager: Object.freeze(ALL_PERMISSIONS.filter((key) => key !== "users.manage" && key !== "backup.manage" && key !== "accounting.manage" && key !== "owner.drawings")),
   cashier: Object.freeze([
     "sales.create",
     "sales.view",
@@ -91,9 +101,11 @@ const ROLE_TEMPLATES = Object.freeze({
     "customers.view",
     "products.view",
     "dashboard.view",
+    "shift.operate",
+    "expenses.create",
   ]),
   storekeeper: Object.freeze(["products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view"]),
-  accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view"]),
+  accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view", "cashbox.view", "expenses.create", "expenses.manage"]),
 });
 
 const ROLE_LABELS = {

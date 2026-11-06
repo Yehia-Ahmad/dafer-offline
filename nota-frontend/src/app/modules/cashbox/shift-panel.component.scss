@@ -1,0 +1,30 @@
+// Shift panel (CashBox.dc.html). Tokens only.
+:host { display: block; }
+.sp { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.sp__lines { flex: 999 1 420px; min-width: 0; padding: 22px; display: flex; flex-direction: column; gap: 6px; }
+.sp__close { flex: 1 1 300px; min-width: 0; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+.sp__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding-bottom: 8px; }
+.sp__title { margin: 0; font-size: 20px; font-weight: 800; }
+.sp__sub { font-size: 13px; color: var(--text-muted); }
+.sp__row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+.sp__label { color: var(--text-muted); }
+.sp__plus { color: var(--success); }
+.sp__minus { color: var(--danger-text); }
+.sp__row--total { font-weight: 800; font-size: 17px; border-bottom: none; padding-top: 14px; }
+.sp__counted { font-size: 24px; font-weight: 800; padding: 14px; }
+.sp__diff { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--radius-control-lg); background: var(--neutral-soft); color: var(--neutral-text); }
+.sp__diff--short { background: var(--danger-soft); color: var(--danger-text); }
+.sp__diff--over { background: var(--brand-soft); color: var(--brand-strong-text); }
+.sp__diff-label { font-size: 15px; font-weight: 700; }
+.sp__diff-value { font-size: 22px; font-weight: 800; }
+.sp__deposit { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.sp__hint, .sp__note { font-size: 13px; color: var(--text-muted); }
+.sp__note { margin: 0; font-size: 12px; line-height: 1.7; }
+@media (max-width: 480px) {
+  .sp__lines, .sp__close { padding: 16px; flex-basis: 100%; }
+  .sp__deposit { grid-template-columns: minmax(0, 1fr); }
+  .sp__counted { font-size: 20px; }
+}
+@media print {
+  .sp__close:not(.sp__summary) { display: none; }
+}

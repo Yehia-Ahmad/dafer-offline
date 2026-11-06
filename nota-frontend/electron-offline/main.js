@@ -625,6 +625,16 @@ function registerBackupIpc() {
   for (const [channel, handler] of Object.entries(handlers)) handle(channel, handler);
 }
 
+// Stage 19: the LAN key plus this PC's identity (config.instanceId, hostname) on every backend request.
+function deviceHeaderOptions() {
+  return {
+    origin: state.apiOrigin,
+    secret: state.secret,
+    deviceId: state.config ? state.config.instanceId : null,
+    deviceName: os.hostname(),
+  };
+}
+
 function registerIpc() {
   registerBackupIpc();
   handle('nota:runtime-config', () => {
@@ -633,6 +643,8 @@ function registerIpc() {
       apiBaseUrl: `${state.apiOrigin}/api/`,
       role: state.config.role,
       appVersion: EDITION.version,
+      deviceId: state.config.instanceId,
+      deviceName: os.hostname(),
       serverVersion:
         state.config.role === 'client' ? (state.serverInfo && state.serverInfo.appVersion) || null : EDITION.version,
     };
@@ -760,7 +772,7 @@ async function beginRole(config, secret, serverInfo) {
   if (config.role === 'main') {
     state.mode = 'main';
     state.apiOrigin = `http://127.0.0.1:${config.port}`;
-    installSecretHeader(session.defaultSession, { origin: state.apiOrigin, secret: state.secret });
+    installSecretHeader(session.defaultSession, deviceHeaderOptions());
     await startMainRole();
   } else {
     state.mode = 'client';
@@ -905,7 +917,7 @@ function startMainPcWatcher() {
 function setClientAddress(host, port) {
   state.config = writeConfig(state.paths.config, { ...state.config, mainHost: host, port });
   state.apiOrigin = `http://${host}:${port}`;
-  installSecretHeader(session.defaultSession, { origin: state.apiOrigin, secret: state.secret });
+  installSecretHeader(session.defaultSession, deviceHeaderOptions());
 }
 
 const clientTarget = () => ({
@@ -925,7 +937,7 @@ const CLIENT_ERRORS = {
 async function startClientRole(knownInfo) {
   if (state.monitor) state.monitor.stop();
   state.apiOrigin = `http://${state.config.mainHost}:${state.config.port}`;
-  installSecretHeader(session.defaultSession, { origin: state.apiOrigin, secret: state.secret });
+  installSecretHeader(session.defaultSession, deviceHeaderOptions());
   setStatus({ state: 'connecting' });
 
   let result = knownInfo ? { status: 'ok', info: knownInfo } : await probeServer(clientTarget());

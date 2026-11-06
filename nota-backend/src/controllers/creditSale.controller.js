@@ -11,7 +11,8 @@ const { buildPaginatedResponse, getPaginationParams } = require("../utils/pagina
 const { canSellBelowCost } = require("../auth/middleware");
 const { PREFIXES, normalizeNumberSearch } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
-const { postSale, postReceipt, postReturn, postInvoiceEdit, postInvoiceCancel, postEntry, accountMap, line } = require("../accounting/posting");
+const { postSale, postReceipt, postReturn, postInvoiceEdit, postInvoiceCancel, postEntry, accountMap, line, boxAccount } = require("../accounting/posting");
+const { resolveBox } = require("../cashbox/boxes");
 const { audit } = require("../auth/audit");
 const Receipt = require("../models/receipt.model");
 const PartyOpening = require("../models/partyOpening.model");
@@ -1054,6 +1055,8 @@ const createCreditSaleInTransaction = async (req, res, session) => {
   }], { session });
   const creditSale = created[0];
   if (initialPaidAmount > 0) {
+    // Stage 19: the down payment goes into a box (request boxId, else this PC's drawer, else the main box).
+    const downPaymentBox = await resolveBox({ req, boxId: req.body.boxId, session });
     await Receipt.create([{
         _id: receiptId,
         number: receiptNumber,
@@ -1062,6 +1065,7 @@ const createCreditSaleInTransaction = async (req, res, session) => {
         paymentDate: initialPaymentDate,
         note: initialPaymentNote,
         kind: "down_payment",
+        boxId: downPaymentBox._id,
         allocations: [{ creditSale: invoiceId, amount: roundMoney(initialPaidAmount) }],
     }], { session });
   }
@@ -1541,6 +1545,7 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
     updatedInvoices.find((invoice) => invoice._id.toString() === creditSale._id.toString()) ??
     toCreditSaleInvoice(creditSale);
 
+  const paymentBox = await resolveBox({ req, boxId: req.body.boxId, session });
   await Receipt.create([{
     _id: receiptId,
     number: receiptNumber,
@@ -1549,6 +1554,7 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
     paymentDate,
     note,
     kind: "payment",
+    boxId: paymentBox._id,
     allocations: [
       ...pendingUpdates.map((targetCreditSale) => ({ creditSale: targetCreditSale._id, amount: targetCreditSale.payments.at(-1).amount })),
       ...openingAllocations,
@@ -1713,16 +1719,21 @@ const cancelCreditSale = asyncHandler(async (req, res) => {
     invoice.cancelledByName = req.user?.name;
     invoice.cancellationReason = reason;
     invoice.cancelRefundAmount = roundMoney(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
+    // Stage 19: "رد المقدم" comes out of a box (request boxId, else this PC's drawer, else the main box).
+    const refundBox = invoice.cancelRefundAmount > 0 && payments.some((payment) => payment.source === "down_payment")
+      ? await resolveBox({ req, boxId: req.body?.boxId, session }) : null;
+    if (refundBox) invoice.cancelRefundBoxId = refundBox._id;
     invoice.remainingAmount = 0;
     await invoice.save({ session });
     const party = { _id: invoice.customer, name: invoice.customerName };
     await postInvoiceCancel({ Model: CreditSale, sale: invoice, credit: true, customer: party, session });
     const downPayment = payments.find((payment) => payment.source === "down_payment");
     if (invoice.cancelRefundAmount > 0 && downPayment) {
-      const accounts = await accountMap(["CUSTOMERS", "CASH_MAIN"], session);
+      const accounts = await accountMap(["CUSTOMERS"], session);
+      const refundAccount = await boxAccount(refundBox._id, session);
       await postEntry({ date: invoice.cancelledAt, source: { type: "refund", id: invoice._id, number: downPayment.number }, session, lines: [
         line(accounts.get("CUSTOMERS"), invoice.cancelRefundAmount, "debit", { partyType: "customer", partyId: invoice.customer, partyName: invoice.customerName }),
-        line(accounts.get("CASH_MAIN"), invoice.cancelRefundAmount, "credit"),
+        line(refundAccount, invoice.cancelRefundAmount, "credit"),
       ] });
     }
     await audit(req, { action: "credit.cancelled", entity: "CreditSale", entityId: invoice._id, details: { reason }, session, strict: true });
@@ -1739,4 +1750,6 @@ module.exports = {
   addCreditSalePayment,
   addCreditSaleRefund,
   cancelCreditSale,
+  calculateCreditAmounts,
+  applyCreditAmountsToInvoice,
 };

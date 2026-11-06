@@ -202,11 +202,14 @@
           <div class="pos__grand"><dt>{{ 'sellingPage.fields.totalInvoicePrice' | translate }}</dt><dd class="nota-num">{{ invoiceGrandTotal | notaMoney }}</dd></div>
         </dl>
 
+        <!-- Stage 19: payment method (box), the no-shift banner and the "الوردية" button. -->
+        <nota-payment-box-select />
+
         @if (saveError && !errorDialogVisible) {
           <p class="pos__note pos__note--error" role="alert">{{ saveError }}</p>
         }
 
-        <button type="submit" notaButton="primary" size="lg" class="pos__pay" [disabled]="isSaving || sellingForm.invalid || discountOverLimit">
+        <button type="submit" notaButton="primary" size="lg" class="pos__pay" [disabled]="isSaving || sellingForm.invalid || discountOverLimit || payment.needsShift()">
           {{ (isSaving ? 'sellingPage.actions.saving' : 'sellingPage.actions.createSelling') | translate }}
           <span class="pos__kbd-inline" aria-hidden="true">(F9)</span>
         </button>

@@ -145,7 +145,7 @@ export class CustomersService {
   }
 
   /** Stage 18: collects from the customer's open items, the opening balance first (it is the oldest). */
-  collectPayment(id: string, payload: { amount: number; paymentDate?: string; note?: string }) {
+  collectPayment(id: string, payload: { amount: number; paymentDate?: string; note?: string; boxId?: string }) {
     return this._http.post(`${this._baseUrl}customers/${id}/payments`, { ...payload, firstInvoice: true });
   }
 

@@ -50,6 +50,8 @@ const MONGO_URI = `mongodb://127.0.0.1:${MONGO_PORT}/${DB_NAME}?replicaSet=${REP
 const NOAUTH_DB_NAME = 'dafer_smoke_noauth';
 // Stage 18: a third, fresh database (auth on) for the opening-balance scenarios, which need a shop with no sale yet.
 const OPENING_DB_NAME = 'dafer_smoke_opening';
+// Stage 19: a fourth fresh database (auth on) for cash boxes, shifts, expenses, drawings and customer credit.
+const STAGE19_DB_NAME = 'dafer_smoke_stage19';
 const JWT_SECRET = 'smoke-jwt-secret-0123456789abcdef-0123456789';
 const OWNER = { name: 'Smoke Owner', username: 'smoke-owner', password: 'owner-pass-123' };
 const LAN_SECRET = 'smoke-secret-123';
@@ -196,8 +198,8 @@ async function startBackend({ auth = true, dbName = DB_NAME } = {}) {
 // The session token sent by default (the owner's, once setup-owner ran). null: no token.
 let authToken = null;
 
-async function request(method, urlPath, { body, withKey = true, binary = false, token = authToken } = {}) {
-  const headers = {};
+async function request(method, urlPath, { body, withKey = true, binary = false, token = authToken, headers: extraHeaders = {} } = {}) {
+  const headers = { ...extraHeaders };
   if (withKey) headers[LAN_KEY_HEADER] = LAN_SECRET;
   if (token) headers.authorization = `Bearer ${token}`;
   if (body !== undefined) headers['content-type'] = 'application/json';
@@ -706,6 +708,285 @@ async function runOpeningScenarios() {
     expectStatus(await request('GET', '/api/suppliers', { token: ctx.clerkToken }), 403, 'cashier GET /api/suppliers');
     expectStatus(await request('POST', '/api/suppliers', { body: { name: 'x' }, token: ctx.clerkToken }), 403, 'cashier POST /api/suppliers');
     return '403, 403';
+  });
+}
+
+// Stage 19: cash boxes, shifts, transfers, expenses, owner drawings and customer credit, on a fresh database (auth on).
+const DEVICE_HEADERS = { 'x-nota-device-id': '0f8fad5b-d9cb-469f-a165-70867728950e', 'x-nota-device-name': encodeURIComponent('Smoke-Cashier-PC') };
+
+async function runStage19Scenarios() {
+  const ctx = {};
+  authToken = null;
+  const asUser = (token) => ({ token });
+  const login = async (user) => {
+    const response = await request('POST', '/api/auth/login', { body: { username: user.username, password: user.password }, token: null });
+    expectStatus(response, 200, `${user.username} login`);
+    return response.json.token;
+  };
+
+  await step('Stage 19: setup-owner, a cashier and a storekeeper on a fresh database', async () => {
+    const owner = await request('POST', '/api/auth/setup-owner', { body: OWNER, token: null });
+    expectStatus(owner, 201, 'POST /api/auth/setup-owner');
+    authToken = owner.json.token;
+    const cashier = { name: 'S19 Cashier', username: 's19-cashier', password: 'clerk-pass-1', role: 'cashier' };
+    const keeper = { name: 'S19 Keeper', username: 's19-keeper', password: 'clerk-pass-1', role: 'storekeeper' };
+    expectStatus(await request('POST', '/api/users', { body: cashier }), 201, 'POST cashier');
+    expectStatus(await request('POST', '/api/users', { body: keeper }), 201, 'POST storekeeper');
+    ctx.cashierToken = await login(cashier);
+    ctx.keeperToken = await login(keeper);
+    return 'owner, cashier, storekeeper';
+  });
+
+  await step('Stage 19: opening wizard: cash 20,000, a 5,000 wallet and a customer we owe 300', async () => {
+    const category = await request('POST', '/api/categories', { body: { name: 'S19 Category' } });
+    expectStatus(category, 201, 'POST /api/categories');
+    const product = await request('POST', '/api/products', { body: { name: 'S19 Product', code: 'S19-1', categoryId: category.json._id, inventoryCount: 100, purchasePrice: 20, wholesalePrice: 30, retailPrice: 40 } });
+    expectStatus(product, 201, 'POST /api/products');
+    ctx.productId = product.json._id;
+    const customer = await request('POST', '/api/customers', { body: { name: 'S19 Credit Customer', phone: '01000001919' } });
+    expectStatus(customer, 201, 'POST /api/customers');
+    ctx.customerId = customer.json._id || customer.json.customer?._id;
+    expect(ctx.customerId, 'customer id missing');
+    const saved = await request('POST', '/api/accounting/opening', { body: { cash: 20000, banks: [{ name: 'S19 Wallet', type: 'wallet', amount: 5000 }], customers: [{ customerId: ctx.customerId, amount: -300 }] } });
+    expectStatus(saved, 200, 'POST /api/accounting/opening');
+    return `OB ${saved.json.number}`;
+  });
+
+  await step('Stage 19: the boxes exist: the main box (1111) and the wizard wallet (11201) with their balances', async () => {
+    const response = await request('GET', '/api/cashbox/boxes');
+    expectStatus(response, 200, 'GET /api/cashbox/boxes');
+    const main = response.json.data.find((box) => box.isMain);
+    const wallet = response.json.data.find((box) => box.type === 'wallet');
+    expect(main && main.accountCode === '1111' && main.balance === 20000, `main box ${JSON.stringify(main)}`);
+    expect(wallet && wallet.accountCode === '11201' && wallet.balance === 5000, `wallet ${JSON.stringify(wallet)}`);
+    ctx.main = main; ctx.wallet = wallet;
+    return `main ${main.balance}, wallet ${wallet.balance}, cash total ${response.json.cashTotal}`;
+  });
+
+  await step('Stage 19: this PC registers itself (X-Nota-Device-Id / Name) on its first signed-in request', async () => {
+    const response = await request('GET', '/api/cashbox/payment-boxes', { token: ctx.cashierToken, headers: DEVICE_HEADERS });
+    expectStatus(response, 200, 'cashier GET payment-boxes');
+    const devices = await request('GET', '/api/devices');
+    expectStatus(devices, 200, 'GET /api/devices');
+    const pc = devices.json.data.find((row) => row.deviceId === DEVICE_HEADERS['x-nota-device-id']);
+    expect(pc && pc.name === 'Smoke-Cashier-PC' && pc.role === 'client', `device row ${JSON.stringify(pc)}`);
+    return `PC "${pc.name}" (${pc.role})`;
+  });
+
+  await step('Stage 19: create a cashier drawer bound to this PC, with shifts (code 11102)', async () => {
+    const response = await request('POST', '/api/cashbox/boxes', { body: { name: 'S19 Drawer', type: 'cash', deviceId: DEVICE_HEADERS['x-nota-device-id'], shiftsEnabled: true } });
+    expectStatus(response, 201, 'POST /api/cashbox/boxes');
+    expect(response.json.accountCode === '11102' && response.json.shiftsEnabled === true && response.json.deviceId === DEVICE_HEADERS['x-nota-device-id'], JSON.stringify(response.json));
+    ctx.drawer = response.json;
+    return `${response.json.name}, account ${response.json.accountCode}`;
+  });
+
+  await step('Stage 19: a second box for the same PC → 409 DEVICE_ALREADY_BOUND', async () => {
+    const response = await request('POST', '/api/cashbox/boxes', { body: { name: 'S19 Drawer 2', type: 'cash', deviceId: DEVICE_HEADERS['x-nota-device-id'] } });
+    expectStatus(response, 409, 'second drawer for the same PC');
+    expect(response.json.code === 'DEVICE_ALREADY_BOUND', describe(response));
+    return describe(response);
+  });
+
+  await step('Stage 19: a cash sale from this PC without a shift → 409 NO_OPEN_SHIFT', async () => {
+    requireCtx(ctx, 'drawer', 'productId');
+    const response = await request('POST', '/api/sellings', { token: ctx.cashierToken, headers: DEVICE_HEADERS, body: { customerName: 'Walk-in', customerPhone: '01000001920', sellingDate: localDay(), items: [{ productId: ctx.productId, quantity: 1, price: 500 }] } });
+    expectStatus(response, 409, 'sale without a shift');
+    expect(response.json.code === 'NO_OPEN_SHIFT', describe(response));
+    return describe(response);
+  });
+
+  await step('Stage 19: the cashier opens a shift on the drawer (float 0) → SH-000001', async () => {
+    requireCtx(ctx, 'drawer');
+    const response = await request('POST', '/api/shifts', { token: ctx.cashierToken, headers: DEVICE_HEADERS, body: { boxId: ctx.drawer._id, openingFloat: 0 } });
+    expectStatus(response, 201, 'POST /api/shifts');
+    expect(response.json.number === 'SH-000001' && response.json.userName === 'S19 Cashier', JSON.stringify(response.json));
+    ctx.shift = response.json;
+    return `${response.json.number} by ${response.json.userName}`;
+  });
+
+  await step('Stage 19: a cash sale of 500 from this PC goes into the drawer by default', async () => {
+    requireCtx(ctx, 'shift');
+    const response = await request('POST', '/api/sellings', { token: ctx.cashierToken, headers: DEVICE_HEADERS, body: { customerName: 'Walk-in', customerPhone: '01000001920', sellingDate: localDay(), items: [{ productId: ctx.productId, quantity: 1, price: 500 }] } });
+    expectStatus(response, 201, 'POST /api/sellings');
+    expect(String(response.json.boxId) === String(ctx.drawer._id), `sale box ${response.json.boxId}`);
+    return `sale ${response.json.invoiceNumber || response.json.number} into the drawer`;
+  });
+
+  await step('Stage 19: a credit invoice, then a 100 payment received into the drawer', async () => {
+    requireCtx(ctx, 'shift');
+    const invoice = await request('POST', '/api/credit-sales', { body: { customerId: ctx.customerId, sellingDate: localDay(), items: [{ productId: ctx.productId, quantity: 1, price: 150 }] } });
+    expectStatus(invoice, 201, 'POST /api/credit-sales');
+    ctx.creditInvoiceId = invoice.json._id;
+    const paid = await request('POST', `/api/credit-sales/${ctx.creditInvoiceId}/payments`, { token: ctx.cashierToken, headers: DEVICE_HEADERS, body: { amount: 100 } });
+    expectStatus(paid, 201, 'POST payment');
+    return `receipt ${paid.json.receiptNumber}`;
+  });
+
+  await step('Stage 19: an expense of 50 from the drawer (cashier, expenses.create) → EX-000001', async () => {
+    requireCtx(ctx, 'shift');
+    const categories = await request('GET', '/api/expenses/categories', { token: ctx.cashierToken });
+    expectStatus(categories, 200, 'GET categories');
+    const response = await request('POST', '/api/expenses', { token: ctx.cashierToken, headers: DEVICE_HEADERS, body: { accountId: categories.json.data[0]._id, amount: 50, note: 'smoke expense' } });
+    expectStatus(response, 201, 'POST /api/expenses');
+    expect(response.json.number === 'EX-000001' && String(response.json.boxId) === String(ctx.drawer._id), JSON.stringify(response.json));
+    return `${response.json.number} from the drawer`;
+  });
+
+  await step('Stage 19: the shift report from documents: float 0 + sales 500 + receipts 100 − expenses 50 = expected 550', async () => {
+    requireCtx(ctx, 'shift');
+    const response = await request('GET', `/api/shifts/${ctx.shift._id}`, { token: ctx.cashierToken });
+    expectStatus(response, 200, 'GET /api/shifts/:id');
+    const lines = Object.fromEntries(response.json.lines.map((row) => [row.key, row.amount]));
+    expect(lines.sales === 500 && lines.receipts === 100 && lines.expenses === 50 && response.json.expected === 550, JSON.stringify(response.json));
+    return `expected ${response.json.expected}`;
+  });
+
+  await step('Stage 19: close without a note while short → 400 NOTE_REQUIRED', async () => {
+    requireCtx(ctx, 'shift');
+    const response = await request('POST', `/api/shifts/${ctx.shift._id}/close`, { token: ctx.cashierToken, body: { counted: 540 } });
+    expectStatus(response, 400, 'close without a note');
+    expect(response.json.code === 'NOTE_REQUIRED', describe(response));
+    return describe(response);
+  });
+
+  await step('Stage 19: close with counted 540 (shortage 10) and a 500 deposit to the main box', async () => {
+    requireCtx(ctx, 'shift');
+    const response = await request('POST', `/api/shifts/${ctx.shift._id}/close`, { token: ctx.cashierToken, body: { counted: 540, differenceNote: 'smoke shortage', depositBoxId: ctx.main._id, depositAmount: 500 } });
+    expectStatus(response, 200, 'POST /api/shifts/:id/close');
+    expect(response.json.difference === -10 && response.json.remaining === 40 && response.json.status === 'closed', JSON.stringify(response.json));
+    return `expected ${response.json.expected}, counted ${response.json.counted}, difference ${response.json.difference}, stays ${response.json.remaining}`;
+  });
+
+  await step('Stage 19: the shortage posted to 530 (Dr cash over/short / Cr drawer) and the balances are 40 and 20,500', async () => {
+    requireCtx(ctx, 'shift');
+    const journal = await request('GET', `/api/accounting/journal?sourceType=shift&sourceId=${ctx.shift._id}`);
+    expectStatus(journal, 200, 'GET journal by shift');
+    const entry = journal.json.data[0];
+    expect(entry, 'no shift entry');
+    const byCode = new Map(entry.lines.map((line) => [line.accountCode, line]));
+    expect(byCode.get('530')?.debit === 10 && byCode.get('11102')?.credit === 10, JSON.stringify(entry.lines.map((l) => [l.accountCode, l.debit, l.credit])));
+    const boxes = await request('GET', '/api/cashbox/boxes');
+    const balance = (id) => boxes.json.data.find((box) => String(box._id) === String(id)).balance;
+    expect(balance(ctx.drawer._id) === 40 && balance(ctx.main._id) === 20500, `drawer ${balance(ctx.drawer._id)}, main ${balance(ctx.main._id)}`);
+    return 'Dr 530 10 / Cr 11102 10; drawer 40, main 20,500';
+  });
+
+  await step('Stage 19: transfer 1,000 from the main box to the wallet → TR-000002 (the deposit was TR-000001)', async () => {
+    requireCtx(ctx, 'main', 'wallet');
+    const response = await request('POST', '/api/cashbox/transfers', { body: { fromBoxId: ctx.main._id, toBoxId: ctx.wallet._id, amount: 1000, note: 'smoke transfer' } });
+    expectStatus(response, 201, 'POST /api/cashbox/transfers');
+    expect(response.json.number === 'TR-000002' && response.json.fromAfter === 19500 && response.json.toAfter === 6000, JSON.stringify(response.json));
+    return `${response.json.number}: main ${response.json.fromBefore} → ${response.json.fromAfter}, wallet ${response.json.toBefore} → ${response.json.toAfter}`;
+  });
+
+  await step('Stage 19: a transfer larger than the balance → 409 INSUFFICIENT_BALANCE', async () => {
+    const response = await request('POST', '/api/cashbox/transfers', { body: { fromBoxId: ctx.drawer._id, toBoxId: ctx.main._id, amount: 41 } });
+    expectStatus(response, 409, 'overdrawn transfer');
+    expect(response.json.code === 'INSUFFICIENT_BALANCE', describe(response));
+    return describe(response);
+  });
+
+  await step('Stage 19: owner drawing of 200 from the main box → DR-000001; a cashier gets 403', async () => {
+    const response = await request('POST', '/api/cashbox/drawings', { body: { boxId: ctx.main._id, amount: 200, note: 'smoke drawing' } });
+    expectStatus(response, 201, 'POST /api/cashbox/drawings');
+    expect(response.json.number === 'DR-000001', JSON.stringify(response.json));
+    expectStatus(await request('POST', '/api/cashbox/drawings', { token: ctx.cashierToken, body: { boxId: ctx.main._id, amount: 1 } }), 403, 'cashier drawing');
+    return `${response.json.number}`;
+  });
+
+  await step('Stage 19: customer credit 300: a payout of 100 from the main box → CP-000001, statement debit line', async () => {
+    requireCtx(ctx, 'customerId');
+    const response = await request('POST', `/api/customers/${ctx.customerId}/payouts`, { body: { boxId: ctx.main._id, amount: 100, note: 'smoke payout' } });
+    expectStatus(response, 201, 'POST payouts');
+    expect(response.json.payout.number === 'CP-000001', JSON.stringify(response.json));
+    const statement = await request('GET', `/api/customers/${ctx.customerId}/statement`);
+    expectStatus(statement, 200, 'GET statement');
+    const line = statement.json.lines.find((row) => row.type === 'payout');
+    expect(line && line.debit === 100 && line.description === 'صرف رصيد دائن', JSON.stringify(statement.json.lines));
+    return `${response.json.payout.number}, statement balance ${statement.json.totals.balance}`;
+  });
+
+  await step('Stage 19: a payout above the credit → 409 EXCEEDS_CREDIT', async () => {
+    const response = await request('POST', `/api/customers/${ctx.customerId}/payouts`, { body: { boxId: ctx.main._id, amount: 99999 } });
+    expectStatus(response, 409, 'payout above the credit');
+    expect(response.json.code === 'EXCEEDS_CREDIT', describe(response));
+    return describe(response);
+  });
+
+  await step('Stage 19: apply-credit settles the open 50 of the credit invoice (150 − the 100 payment), no entry posted', async () => {
+    requireCtx(ctx, 'creditInvoiceId');
+    const before = await request('GET', '/api/accounting/journal');
+    const response = await request('POST', `/api/customers/${ctx.customerId}/apply-credit`, { body: { amount: 50 } });
+    expectStatus(response, 200, 'POST apply-credit');
+    const after = await request('GET', '/api/accounting/journal');
+    expect(after.json.pagination.totalItems === before.json.pagination.totalItems, 'apply-credit posted a journal entry');
+    const invoice = await request('GET', `/api/credit-sales/${ctx.creditInvoiceId}`);
+    expect(invoice.json.remainingAmount === 0, `remaining ${invoice.json.remainingAmount}`);
+    return `applied ${response.json.applied}, credit left ${response.json.credit.credit}`;
+  });
+
+  await step('Stage 19: the expense can be cancelled with a reason (a reversal), and the drawer is restored', async () => {
+    const list = await request('GET', '/api/expenses');
+    expectStatus(list, 200, 'GET /api/expenses');
+    const expense = list.json.data.find((row) => row.number === 'EX-000001');
+    const response = await request('POST', `/api/expenses/${expense._id}/cancel`, { body: { reason: 'smoke cancel' } });
+    expectStatus(response, 200, 'POST expense cancel');
+    const boxes = await request('GET', '/api/cashbox/boxes');
+    const drawer = boxes.json.data.find((box) => String(box._id) === String(ctx.drawer._id));
+    expect(drawer.balance === 90, `drawer ${drawer.balance}`);
+    return `expense ${response.json.status}, drawer ${drawer.balance}`;
+  });
+
+  const health = await request('GET', '/api/accounting/health');
+  await step('Stage 19: GET /api/accounting/health answers with every check including boxes', async () => {
+    expectStatus(health, 200, 'GET /api/accounting/health');
+    expect(health.json.boxes && Array.isArray(health.json.boxes.byBox), 'no boxes check');
+    return `${Object.keys(health.json).join(', ')}`;
+  });
+  for (const [name, check] of Object.entries(health.json || {})) {
+    await step(`Stage 19: health ${name}: difference 0`, async () => {
+      expect(Number(check.difference) === 0 && check.ok !== false, JSON.stringify(check));
+      return name === 'boxes' ? check.byBox.map((row) => `${row.name} ${row.actual}=${row.expected}`).join(' | ') : `expected ${check.expected ?? '-'}, actual ${check.actual ?? '-'}`;
+    });
+  }
+
+  await step('Stage 19: a cashier cannot see the cash management: boxes, transfers, devices → 403; payment boxes → 200', async () => {
+    const statuses = [];
+    for (const [method, route, body, expected] of [
+      ['GET', '/api/cashbox/boxes', undefined, 403], ['POST', '/api/cashbox/boxes', { name: 'x', type: 'wallet' }, 403],
+      ['POST', '/api/cashbox/transfers', { fromBoxId: ctx.main._id, toBoxId: ctx.wallet._id, amount: 1 }, 403], ['GET', '/api/devices', undefined, 403],
+      ['GET', '/api/cashbox/payment-boxes', undefined, 200],
+    ]) {
+      const response = await request(method, route, { body, ...asUser(ctx.cashierToken) });
+      expectStatus(response, expected, `cashier ${method} ${route}`);
+      statuses.push(response.status);
+    }
+    return `statuses ${statuses.join(', ')}`;
+  });
+
+  await step('Stage 19: a storekeeper gets 403 on boxes, shifts, expenses, drawings and transfers', async () => {
+    const statuses = [];
+    for (const [method, route, body] of [
+      ['GET', '/api/cashbox/boxes'], ['GET', '/api/shifts'], ['GET', '/api/expenses'], ['POST', '/api/expenses', { accountId: 'x', amount: 1 }],
+      ['POST', '/api/cashbox/drawings', { amount: 1 }], ['POST', '/api/cashbox/transfers', { fromBoxId: ctx.main._id, toBoxId: ctx.wallet._id, amount: 1 }],
+    ]) {
+      const response = await request(method, route, { body, ...asUser(ctx.keeperToken) });
+      expectStatus(response, 403, `storekeeper ${method} ${route}`);
+      statuses.push(response.status);
+    }
+    return `statuses ${statuses.join(', ')}`;
+  });
+
+  await step('Stage 19: a request without the device header, or with a malformed one, still works (the id never authenticates)', async () => {
+    const plain = await request('GET', '/api/cashbox/payment-boxes', { token: ctx.cashierToken });
+    expectStatus(plain, 200, 'no device header');
+    const bad = await request('GET', '/api/cashbox/payment-boxes', { token: ctx.cashierToken, headers: { 'x-nota-device-id': 'bad id!' } });
+    expectStatus(bad, 200, 'malformed device header');
+    expect(bad.json.defaultBoxId === plain.json.defaultBoxId, 'a malformed id changed the default box');
+    const unsigned = await request('GET', '/api/cashbox/payment-boxes', { token: null, headers: DEVICE_HEADERS });
+    expectStatus(unsigned, 401, 'device header without a session');
+    return 'default box unchanged; no token → 401';
   });
 }
 
@@ -1255,8 +1536,13 @@ async function main() {
     // Stage 18: the opening-balance wizard, on its own fresh database with auth on.
     await stopChild(noAuthBackend);
     children.splice(children.indexOf(noAuthBackend), 1);
-    await startBackend({ auth: true, dbName: OPENING_DB_NAME });
+    const openingBackend = await startBackend({ auth: true, dbName: OPENING_DB_NAME });
     await runOpeningScenarios();
+    // Stage 19: cash boxes, shifts, transfers, expenses, owner drawings and customer credit, on its own fresh database.
+    await stopChild(openingBackend);
+    children.splice(children.indexOf(openingBackend), 1);
+    await startBackend({ auth: true, dbName: STAGE19_DB_NAME });
+    await runStage19Scenarios();
   } catch (error) {
     record(false, 'Smoke test setup', error.message);
   } finally {

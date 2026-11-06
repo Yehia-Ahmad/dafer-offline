@@ -1,5 +1,6 @@
 const Account = require("../models/account.model");
 const JournalEntry = require("../models/journalEntry.model");
+const CashBox = require("../models/cashBox.model");
 const ReturnLog = require("../models/returnLog.model");
 const Product = require("../models/product.model");
 const Meta = require("../models/meta.model");
@@ -69,6 +70,19 @@ const line = (account, amount, side, extra = {}) => ({
   debit: side === "debit" ? roundMoney(amount) : 0, credit: side === "credit" ? roundMoney(amount) : 0,
   ...extra,
 });
+
+/**
+ * Stage 19: the ledger account of the box a money document went through. A document without a box
+ * (created before Stage 19) belongs to the main box, which is account 1111 (CASH_MAIN).
+ */
+const boxAccount = async (boxId, session) => {
+  if (!boxId) return (await accountMap(["CASH_MAIN"], session)).get("CASH_MAIN");
+  const box = await CashBox.findById(boxId).select("accountId").session(session || null).lean();
+  if (!box) throw new Error(`Cash box ${boxId} does not exist`);
+  const account = await Account.findById(box.accountId).session(session || null).lean();
+  if (!account) throw new Error(`Cash box ${boxId} has no account`);
+  return account;
+};
 
 const customerParty = (customer) => ({ partyType: "customer", partyId: customer?._id, partyName: customer?.name });
 
@@ -157,7 +171,8 @@ const buildSaleLines = async ({ sale, credit = false, customer, session }) => {
   const discount = roundMoney(sale.discountAmount || 0);
   const shipping = roundMoney(sale.shippingFees || 0);
   const cost = lineCost(sale.items);
-  const lines = [line(accounts.get(credit ? "CUSTOMERS" : "CASH_MAIN"), total, "debit", credit ? customerParty(customer) : {}), line(accounts.get("SALES"), subtotal, "credit")];
+  const payAccount = credit ? accounts.get("CUSTOMERS") : await boxAccount(sale.boxId, session);
+  const lines = [line(payAccount, total, "debit", credit ? customerParty(customer) : {}), line(accounts.get("SALES"), subtotal, "credit")];
   if (discount > 0) lines.push(line(accounts.get("SALES_DISCOUNT"), discount, "debit"));
   if (shipping > 0) lines.push(line(accounts.get("SHIPPING_INCOME"), shipping, "credit"));
   if (cost > 0) { lines.push(line(accounts.get("COGS"), cost, "debit")); lines.push(line(accounts.get("INVENTORY"), cost, "credit")); }
@@ -181,7 +196,11 @@ const netLines = (signedRows) => {
   return [...totals.values()].filter((row) => row.amount !== 0).map(({ amount, ...row }) => ({ ...row, debit: amount > 0 ? amount : 0, credit: amount < 0 ? -amount : 0 }));
 };
 
-const reverseEntry = async (id, { date, memo, session }) => {
+/**
+ * options.redirect = { from: Set<accountId string>, to: account }: lines on one of the `from` accounts are
+ * reversed on the `to` account instead (Stage 19: see reverseAllFor).
+ */
+const reverseEntry = async (id, { date, memo, session, redirect = null }) => {
   const original = await JournalEntry.findById(id).session(session);
   if (!original) return null;
   const existing = await JournalEntry.findOne({ reversalOf: original._id }).session(session)
@@ -189,7 +208,13 @@ const reverseEntry = async (id, { date, memo, session }) => {
   if (existing) return existing;
   const reversed = await postEntry({
     date, type: "reversal", source: original.source, memo, session, reversalOf: original._id,
-    lines: original.lines.map((row) => ({ ...(row.toObject?.() || row), debit: row.credit, credit: row.debit })),
+    lines: original.lines.map((row) => {
+      const reversed = { ...(row.toObject?.() || row), debit: row.credit, credit: row.debit };
+      if (redirect && redirect.from.has(String(row.accountId))) {
+        Object.assign(reversed, { accountId: redirect.to._id, accountCode: redirect.to.code, accountName: redirect.to.nameEn, accountNameAr: redirect.to.nameAr, accountNameEn: redirect.to.nameEn });
+      }
+      return reversed;
+    }),
   });
   original.reversedBy = reversed._id;
   await original.save({ session });
@@ -206,7 +231,12 @@ const reverseSaleAndCostSync = async (sourceType, sourceId, options) => {
   return results;
 };
 
-/** Cancel: reverses the invoice's sale, cost_sync and return entries. */
+/**
+ * Cancel: reverses the invoice's sale, cost_sync and return entries.
+ * Stage 19: for a cash invoice (options.saleBoxId given, null = main box), a cash return's refund line is
+ * reversed on the SALE's box. The cancel then pays the customer (total - already returned) out of the sale's
+ * box, so every box ends where the cash really is whichever box each refund came from.
+ */
 const reverseAllFor = async (sourceType, sourceId, options) => {
   const filters = [{ "source.type": sourceType, "source.id": sourceId }];
   if (sourceType === "sale" || sourceType === "credit_sale") {
@@ -215,8 +245,14 @@ const reverseAllFor = async (sourceType, sourceId, options) => {
     if (logs.length) filters.push({ "source.type": "return", "source.id": { $in: logs.map((log) => log._id) } });
   }
   const entries = await openAutoEntries(filters, options.session);
+  const { saleBoxId, ...reverseOptions } = options;
+  let redirect = null;
+  if (saleBoxId !== undefined && sourceType === "sale") {
+    const boxes = await CashBox.find({}).select("accountId").session(options.session || null).lean();
+    redirect = { from: new Set(boxes.map((box) => String(box.accountId))), to: await boxAccount(saleBoxId, options.session) };
+  }
   const results = [];
-  for (const entry of entries) results.push(await reverseEntry(entry._id, options));
+  for (const entry of entries) results.push(await reverseEntry(entry._id, { ...reverseOptions, redirect: entry.source.type === "return" ? redirect : null }));
   return results;
 };
 
@@ -261,8 +297,9 @@ const postLegacySaleReversal = async ({ sale, credit = false, customer, date, me
   const discount = roundMoney(Number(sale.discountAmount || 0) - money.discount);
   const shipping = roundMoney(Number(sale.shippingFees || 0) - money.shipping);
   const total = roundMoney(Number(sale.totalPrice || 0) - money.total);
+  const legacyPayAccount = credit ? accounts.get("CUSTOMERS") : await boxAccount(sale.boxId, session);
   const position = [
-    line(accounts.get(credit ? "CUSTOMERS" : "CASH_MAIN"), total, "debit", credit ? customerParty(customer) : {}),
+    line(legacyPayAccount, total, "debit", credit ? customerParty(customer) : {}),
     line(accounts.get("SALES"), subtotal, "credit"),
     line(accounts.get("SALES_DISCOUNT"), discount, "debit"),
     line(accounts.get("SHIPPING_INCOME"), shipping, "credit"),
@@ -384,7 +421,7 @@ const postInvoiceCancel = async ({ Model, sale, credit = false, customer, sessio
   const date = sale.cancelledAt || new Date();
   const memo = credit ? "Credit sale cancellation" : "Sale cancellation";
   const ledgerStartAt = await getLedgerStartAt(session);
-  const reversals = await reverseAllFor(sourceType, sale._id, { date, memo, session });
+  const reversals = await reverseAllFor(sourceType, sale._id, { date, memo, session, ...(credit ? {} : { saleBoxId: sale.boxId || null }) });
   if (!isLedgerDocument(sale, ledgerStartAt)) {
     const memoText = `${credit ? "Pre-ledger credit invoice" : "Pre-ledger invoice"} cancelled: reverses the position held at the ledger start (no original entry to link)`;
     reversals.push(await postLegacySaleReversal({ sale, credit, customer, date, memo: memoText, session }));
@@ -398,16 +435,18 @@ const postInvoiceCancel = async ({ Model, sale, credit = false, customer, sessio
 };
 
 const postReceipt = async ({ receipt, customer, session }) => {
-  const accounts = await accountMap(["CASH_MAIN", "CUSTOMERS"], session);
+  const accounts = await accountMap(["CUSTOMERS"], session);
+  const payAccount = await boxAccount(receipt.boxId, session);
   return postEntry({ date: receipt.paymentDate, source: { type: "receipt", id: receipt._id, number: receipt.number }, session, lines: [
-    line(accounts.get("CASH_MAIN"), receipt.amount, "debit"), line(accounts.get("CUSTOMERS"), receipt.amount, "credit", customerParty(customer)),
+    line(payAccount, receipt.amount, "debit"), line(accounts.get("CUSTOMERS"), receipt.amount, "credit", customerParty(customer)),
   ] });
 };
 
 const postReturn = async ({ returnLog, sale, customer, session }) => {
-  const accounts = await accountMap(["SALES_RETURNS", "SHIPPING_INCOME", "SALES_DISCOUNT", "CASH_MAIN", "CUSTOMERS", "INVENTORY", "COGS", "INVENTORY_ADJUSTMENT"], session);
+  const accounts = await accountMap(["SALES_RETURNS", "SHIPPING_INCOME", "SALES_DISCOUNT", "CUSTOMERS", "INVENTORY", "COGS", "INVENTORY_ADJUSTMENT"], session);
+  const refundAccount = returnLog.returnType === "cash" ? await boxAccount(returnLog.boxId, session) : accounts.get("CUSTOMERS");
   const subtotal = roundMoney(returnLog.subtotalReturnedAmount || 0); const discount = roundMoney(returnLog.discountAmount || 0); const shipping = roundMoney(returnLog.shippingFees || 0); const total = roundMoney(returnLog.finalReturnedAmount || 0);
-  const lines = [line(accounts.get("SALES_RETURNS"), subtotal, "debit"), line(accounts.get(returnLog.returnType === "cash" ? "CASH_MAIN" : "CUSTOMERS"), total, "credit", returnLog.returnType === "credit" ? customerParty(customer) : {})];
+  const lines = [line(accounts.get("SALES_RETURNS"), subtotal, "debit"), line(refundAccount, total, "credit", returnLog.returnType === "credit" ? customerParty(customer) : {})];
   if (discount > 0) lines.push(line(accounts.get("SALES_DISCOUNT"), discount, "credit"));
   if (shipping > 0) lines.push(line(accounts.get("SHIPPING_INCOME"), shipping, "debit"));
   const originalCost = roundMoney((returnLog.items || []).reduce((sum, item) => {
@@ -430,7 +469,7 @@ const postReturn = async ({ returnLog, sale, customer, session }) => {
 
 module.exports = {
   ACCOUNT_DEFINITIONS, seedAccounts, postEntry, postSale, postReceipt, postReturn, postInventoryAdjustment, postCostSync,
-  reverseEntry, reverseAllFor, reverseSaleAndCostSync, postLegacySaleReversal, postSaleDifference,
+  boxAccount, reverseEntry, reverseAllFor, reverseSaleAndCostSync, postLegacySaleReversal, postSaleDifference,
   postInventoryValueAdjustment, postCancelInventoryValueAdjustment, postEditInventoryValueAdjustment,
   postInvoiceEdit, postInvoiceCancel, accountMap, line, buildSaleLines, getLedgerStartAt, isLedgerDocument, returnedUnits,
 };

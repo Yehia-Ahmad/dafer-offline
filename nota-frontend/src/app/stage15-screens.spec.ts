@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { flushPaymentBoxes } from './modules/cashbox/testing/payment-boxes.testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
@@ -50,7 +51,7 @@ describe('Stage 15: POS max discount and cart restore', () => {
     component = fixture.componentInstance;
     fixture.detectChanges();
   };
-  afterEach(() => http.verify());
+  afterEach(() => (flushPaymentBoxes(http), http.verify()));
 
   it('a manager with a 10% limit sees "أقصى خصم: 10٪"; 15% is blocked before sending', async () => {
     await create(() => signInAs('manager', { maxDiscountPercent: 10 }));
@@ -178,7 +179,7 @@ describe('Stage 15: user form max discount', () => {
     fixture.detectChanges();
   };
   afterEach(() => {
-    http.verify();
+    (flushPaymentBoxes(http), http.verify());
     fixture?.destroy();
   });
 
@@ -246,7 +247,7 @@ describe('Stage 15: shop profile security card', () => {
     put.flush({ ...put.request.body });
     expect(component.form.controls.autoLockMinutes.value).toBe(0);
     expect(TestBed.inject(UnsavedWorkService).hasUnsavedWork()).toBeFalse();
-    http.verify();
+    (flushPaymentBoxes(http), http.verify());
   });
 });
 

@@ -39,6 +39,8 @@ import {
 } from '../../services/credit-sales.service';
 import { ProductsService } from '../../services/products.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
+import { PaymentBoxService } from '../../../cashbox/payment-box.service';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 
 type ProductSearchResult = {
@@ -75,7 +77,7 @@ type CreditLineItemState = {
 @Component({
   selector: 'app-credit-sales',
   standalone: true,
-  imports: [LockedActionComponent, NotaCanDirective, 
+  imports: [LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
     CommonModule,
     ReactiveFormsModule,
     TranslatePipe,
@@ -127,6 +129,8 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
   private lineItemSequence = 0;
   /** Stage 15: "أقصى خصم: X٪" for this user, or null (no limit). */
   readonly maxDiscountPercent = inject(AuthService).maxDiscountPercent;
+  /** Stage 19: the box the down payment goes into. */
+  readonly payment = inject(PaymentBoxService);
 
   constructor(
     private readonly formBuilder: FormBuilder,
@@ -521,6 +525,11 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
     const payload = this.buildCreatePayload();
     if (!payload.items.length) {
       return;
+    }
+    // Stage 19: only a down payment moves money, so only it needs a box (and an open shift on it).
+    if (payload.initialPaidAmount) {
+      if (this.payment.needsShift()) return;
+      if (this.payment.boxId()) payload.boxId = this.payment.boxId();
     }
 
     this.isSaving = true;

@@ -116,6 +116,8 @@ In LAN mode:
 
 With `NOTA_AUTH=1` (Stage 13), after the LAN key every `/api/*` request also needs `Authorization: Bearer <token>`, except `/api/lan/*` and `GET /api/auth/bootstrap`, `POST /api/auth/login`, `/setup-owner` and `/recover`. See `docs/OFFLINE_PLAN.md` ("Stage 13 — users and permissions") for the endpoints, the permission catalog and the route → permission table.
 
+Stage 19: the desktop app also sends `X-Nota-Device-Id` (this PC's id) and `X-Nota-Device-Name` (its hostname, percent-encoded, at most 64 characters). The backend uses them only to pick the default cash box of that PC and to list the PCs (`GET /api/devices`, `cashbox.manage`). **They are not authentication**: permissions, shifts and the audit log follow the signed-in user, and an id that is not 8-64 letters, digits, dots, dashes or underscores is ignored.
+
 ## API Endpoints
 
 ### Categories
@@ -459,6 +461,16 @@ Sample full refund payload:
 When the full invoice is returned, the backend also returns the invoice `paidAmount` automatically and stores it in `returnedPaidAmount`, so the invoice net `paidAmount` becomes `0`.
 When the full invoice is returned, the invoice `status` becomes `returned`.
 When a partial return makes the invoice overpaid, the backend reallocates that overpaid amount to the customer's other open credit invoices before returning any leftover cash.
+
+### Cash boxes, shifts, expenses (Stage 19)
+- `GET /api/cashbox/boxes`, `POST /api/cashbox/boxes`, `GET|PUT|DELETE /api/cashbox/boxes/:id`, `GET /api/cashbox/boxes/:id/ledger`, `GET /api/cashbox/payment-boxes`
+- `GET|POST /api/cashbox/transfers`, `POST /api/cashbox/transfers/:id/cancel`
+- `GET|POST /api/cashbox/drawings`, `POST /api/cashbox/drawings/:id/cancel` (owner only)
+- `GET|POST /api/shifts`, `GET /api/shifts/:id`, `POST /api/shifts/:id/close`
+- `GET|POST /api/expenses`, `POST /api/expenses/:id/cancel`, `GET|POST /api/expenses/categories`, `PUT /api/expenses/categories/:id`
+- `GET /api/devices`
+- `GET /api/customers/:id/credit`, `POST /api/customers/:id/payouts`, `POST /api/customers/:id/payouts/:payoutId/cancel`, `POST /api/customers/:id/apply-credit`
+- Money documents take an optional `boxId` (sales, receipts and payments, down payments, cash returns, the down-payment refund of a cancelled credit invoice).
 
 ### Sellings
 - `GET /api/sellings`

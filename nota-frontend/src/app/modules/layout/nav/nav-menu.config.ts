@@ -96,8 +96,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     key: 'treasury',
     labelKey: 'nav.groups.treasury',
     items: [
-      { key: 'cash', labelKey: 'nav.items.cash', icon: NAV_ICONS.cash, visible: notYet },
-      { key: 'expenses', labelKey: 'nav.items.expenses', icon: NAV_ICONS.expenses, visible: notYet },
+      { key: 'cash', labelKey: 'nav.items.cash', route: '/cashbox', icon: NAV_ICONS.cash, visible: allowed(ROUTE_RULES.cashbox), activePaths: ['/cashbox/'] },
+      { key: 'expenses', labelKey: 'nav.items.expenses', route: '/expenses', icon: NAV_ICONS.expenses, visible: allowed(ROUTE_RULES.expenses) },
     ],
   },
   {

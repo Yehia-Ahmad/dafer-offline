@@ -20,7 +20,7 @@ const creditSalePaymentSchema = new mongoose.Schema(
     },
     number: { type: String, trim: true },
     receipt: { type: mongoose.Schema.Types.ObjectId, ref: "Receipt" },
-    source: { type: String, enum: ["receipt", "down_payment", "return_reallocation"], default: "receipt" },
+    source: { type: String, enum: ["receipt", "down_payment", "return_reallocation", "credit_application"], default: "receipt" },
   },
   { _id: true }
 );
@@ -245,6 +245,8 @@ const creditSaleSchema = new mongoose.Schema(
     cancelledByName: { type: String, trim: true, maxlength: 100 },
     cancellationReason: { type: String, trim: true, maxlength: 500 },
     cancelRefundAmount: { type: Number, default: 0, min: 0 },
+    // Stage 19: the box that paid the down payment back when the invoice was cancelled ("رد المقدم").
+    cancelRefundBoxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox" },
     // Stage 17: see selling.model.js ledgerTrace.
     ledgerTrace: {
       type: new mongoose.Schema({

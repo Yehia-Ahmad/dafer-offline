@@ -9,6 +9,10 @@ export interface DesktopRuntimeConfig {
   role: 'main' | 'client';
   /** Version of this desktop app. */
   appVersion: string;
+  /** Stage 19: this PC's id (its config instanceId), sent to the backend as X-Nota-Device-Id. */
+  deviceId?: string;
+  /** Stage 19: this PC's hostname. */
+  deviceName?: string;
   /** Version reported by the main PC, when known. */
   serverVersion: string | null;
 }

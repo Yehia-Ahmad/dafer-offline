@@ -35,6 +35,10 @@ export const ROUTE_RULES = {
   accountingOpening: { all: ['accounting.manage'] },
   suppliers: { all: ['suppliers.view'] },
   supplierForm: { all: ['suppliers.manage'] },
+  /** Stage 19: the cash boxes page and a box's detail. A cashier opens and closes their own shift from the POS. */
+  cashbox: { all: ['cashbox.view'] },
+  /** Stage 19: record expenses (create), cancel them and manage the categories (manage), or just read them (cashbox.view). */
+  expenses: { any: ['expenses.create', 'expenses.manage', 'cashbox.view'] },
 } as const satisfies Record<string, RouteRule>;
 
 /**
@@ -53,6 +57,8 @@ export const LANDING_ORDER: readonly { path: string; rule: RouteRule }[] = [
   { path: '/users', rule: ROUTE_RULES.users },
   { path: '/audit', rule: ROUTE_RULES.audit },
   { path: '/suppliers', rule: ROUTE_RULES.suppliers },
+  { path: '/cashbox', rule: ROUTE_RULES.cashbox },
+  { path: '/expenses', rule: ROUTE_RULES.expenses },
   { path: '/accounting/accounts', rule: ROUTE_RULES.accounting },
   { path: '/accounting/opening', rule: ROUTE_RULES.accountingOpening },
   { path: '/shop-profile', rule: ROUTE_RULES.shopProfile },
