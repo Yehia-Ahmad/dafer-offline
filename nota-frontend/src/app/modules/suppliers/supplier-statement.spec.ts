@@ -244,3 +244,41 @@ describe('SuppliersPageComponent with the statement panel (Stage 20)', () => {
     expect(fixture.componentInstance.deleteError()).toBe('suppliers.deleteHasDocuments');
   });
 });
+
+describe('Supplier payment dialog: box balances (Stage 20 review)', () => {
+  const boxes = (withBalance: boolean) => ({
+    defaultBoxId: 'b-main', deviceId: null, mainBox: { _id: 'b-main', name: 'الخزنة الرئيسية' },
+    data: [
+      { _id: 'b-main', name: 'الخزنة الرئيسية', type: 'cash', isMain: true, shiftsEnabled: false, isDefault: true, openShift: null, needsShift: false, ...(withBalance ? { balance: 18400 } : {}) },
+      { _id: 'b-bank', name: 'بنك مصر', type: 'bank', isMain: false, shiftsEnabled: false, isDefault: false, openShift: null, needsShift: false, ...(withBalance ? { balance: 41000 } : {}) },
+    ],
+  });
+  const open = async (withBalance: boolean) => {
+    await TestBed.configureTestingModule({
+      imports: [SupplierPaymentDialogComponent, TranslateModule.forRoot()], providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), provideNoopAnimations()],
+    }).compileComponents();
+    signInAs('owner');
+    TestBed.inject(LanguageService).selectedLanguage.set('en');
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(SupplierPaymentDialogComponent);
+    fixture.componentRef.setInput('supplier', supplier({ balance: 6650 }));
+    fixture.detectChanges();
+    fixture.componentInstance.visible.set(true);
+    await settle(fixture);
+    http.match((r) => r.url.endsWith('cashbox/payment-boxes')).forEach((r) => r.flush(boxes(withBalance)));
+    await settle(fixture);
+    return Array.from(document.body.querySelectorAll('[data-test="payment-box"] option')).map((option) => option.textContent?.replace(/\s+/g, ' ').trim() ?? '');
+  };
+
+  it('with cashbox.view each box shows its balance, like the design (بنك مصر · 41,000)', async () => {
+    const options = await open(true);
+    expect(options.length).toBe(2);
+    expect(options[0]).toContain('18,400'); expect(options[1]).toContain('بنك مصر'); expect(options[1]).toContain('41,000');
+  });
+
+  it('without balances (no cashbox.view) the list shows names only', async () => {
+    const options = await open(false);
+    expect(options.length).toBe(2);
+    expect(options.every((text) => !/\d/.test(text))).withContext(options.join('|')).toBeTrue();
+  });
+});

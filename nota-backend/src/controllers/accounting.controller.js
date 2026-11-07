@@ -24,6 +24,7 @@ const CashBox = require("../models/cashBox.model");
 const Shift = require("../models/shift.model");
 const { boxEvents } = require("../cashbox/events");
 const { withTransaction } = require("../utils/transaction");
+const { endOfLocalDay } = require("../utils/clock");
 const { hasPermission } = require("../auth/permissions");
 
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -48,7 +49,7 @@ const withSide = (row, balance, normalSide) => ({ ...row, side: sideOf(balance, 
 
 const getAccounts = async (req, res) => {
   res.set("Cache-Control", "no-store");
-  const asOf = parseQueryDate(req.query.asOf, { endOfDay: true }) || new Date();
+  const asOf = parseQueryDate(req.query.asOf, { endOfDay: true }) || endOfLocalDay();
   if (Number.isNaN(asOf.getTime())) { res.status(400); throw new Error("Invalid asOf"); }
   const [accounts, balances] = await Promise.all([
     Account.find({}).sort({ code: 1 }).lean(),

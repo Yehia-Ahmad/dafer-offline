@@ -10,6 +10,7 @@ import { CategoryTotal, ExpenseCategory, ExpenseRow, ExpensesResponse } from './
 import { ExpensesService } from './expenses.service';
 import { PaymentBoxSelectComponent } from './payment-box-select.component';
 import { PaymentBoxService } from './payment-box.service';
+import { localDateKey } from '../../core/utilities/local-date';
 
 const thisMonth = () => {
   const now = new Date();
@@ -47,7 +48,7 @@ export class ExpensesPageComponent implements OnInit {
   // Form
   readonly category = signal('');
   readonly amount = signal<number | null>(null);
-  readonly date = signal(new Date().toISOString().slice(0, 10));
+  readonly date = signal(localDateKey());
   readonly note = signal('');
   readonly saving = signal(false);
   readonly formError = signal('');

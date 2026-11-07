@@ -1,6 +1,7 @@
 const CreditSale = require("../models/creditSale.model");
 const Product = require("../models/product.model");
 const Selling = require("../models/selling.model");
+const clock = require("../utils/clock");
 const asyncHandler = require("../utils/asyncHandler");
 const { roundMoney } = require("../utils/invoicePricing");
 const { DEFAULT_LOW_STOCK_THRESHOLD } = require("../utils/lowStock");
@@ -29,7 +30,7 @@ const LOW_STOCK_LIMIT = 8;
 const toDateKey = (date) => date.toISOString().slice(0, 10);
 
 /** UTC midnight of the server's local calendar date. */
-const localTodayAsUtcDay = (now = new Date()) =>
+const localTodayAsUtcDay = (now = clock.now()) =>
   new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
 /** Cash invoice total as GET /api/sellings shows it (net of returned items). */

@@ -6,11 +6,12 @@ import { Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../../environments/environment';
 import { NotaBalancePipe } from '../shared/ui';
+import { localDateKey } from '../../core/utilities/local-date';
 
 @Component({ selector: 'app-accounting-accounts', standalone: true, imports: [CommonModule, FormsModule, TranslateModule, NotaBalancePipe], templateUrl: './accounts.component.html', styleUrl: './accounts.component.scss' })
 export class AccountsComponent {
   private http = inject(HttpClient); private router = inject(Router); private translate = inject(TranslateService); private cdr = inject(ChangeDetectorRef);
-  accounts: any[] = []; loading = true; error = ''; asOf = new Date().toISOString().slice(0, 10); expanded = new Set<string>();
+  accounts: any[] = []; loading = true; error = ''; asOf = localDateKey(); expanded = new Set<string>();
   ngOnInit(): void { this.load(); }
   get rows(): any[] { const out: any[] = []; const visit = (items: any[], level: number) => items.forEach(account => { out.push({ ...account, level }); if (this.expanded.has(account._id)) visit(account.children || [], level + 1); if (account.systemKey === 'CUSTOMERS' && this.expanded.has(account._id)) (account.virtualCustomers || []).forEach((customer: any) => out.push({ ...customer, level: level + 1, customer: true, parentAccountId: account._id, code: '' })); }); visit(this.accounts, 0); return out; }
   name(row: any): string { return row.customer ? row.name : (this.translate.currentLang || this.translate.defaultLang) === 'en' ? row.nameEn : row.nameAr; }

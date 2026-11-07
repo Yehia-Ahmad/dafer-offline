@@ -52,7 +52,7 @@ const overdueDays = (item, now) => {
 };
 
 /** Buckets: current (not overdue), 1-30, 31-60 and more than 60 days overdue. */
-function ageOpenItems(items, now = new Date()) {
+function ageOpenItems(items, now = require("../utils/clock").now()) {
   const aging = { current: 0, days1to30: 0, days31to60: 0, over60: 0, total: 0 };
   for (const item of items) {
     const days = overdueDays(item, now);

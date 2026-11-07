@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Dialog } from 'primeng/dialog';
 import { NotaCanDirective } from '../../core/auth/nota-can.directive';
-import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent } from '../shared/ui';
+import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe } from '../shared/ui';
 import { OpenShiftDialogComponent } from './open-shift-dialog.component';
 import { PaymentBoxService } from './payment-box.service';
 import { DepositOption, ShiftPanelComponent } from './shift-panel.component';
@@ -19,7 +19,7 @@ import { DepositOption, ShiftPanelComponent } from './shift-panel.component';
 @Component({
   selector: 'nota-payment-box-select',
   standalone: true,
-  imports: [FormsModule, TranslatePipe, Dialog, NotaCanDirective, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, OpenShiftDialogComponent, ShiftPanelComponent],
+  imports: [FormsModule, TranslatePipe, Dialog, NotaCanDirective, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, OpenShiftDialogComponent, ShiftPanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'pbs' },
   template: `
@@ -28,7 +28,7 @@ import { DepositOption, ShiftPanelComponent } from './shift-panel.component';
         <select id="paymentBox" class="nota-select" name="paymentBox" data-test="payment-box"
           [ngModel]="service.effective()?._id" (ngModelChange)="service.select($event)">
           @for (box of service.boxes(); track box._id) {
-            <option [value]="box._id">{{ box.name }} · {{ 'cashbox.types.' + box.type | translate }}</option>
+            <option [value]="box._id">{{ box.name }} · {{ 'cashbox.types.' + box.type | translate }}@if (box.balance !== undefined) { · {{ box.balance | notaMoney }} }</option>
           }
         </select>
       </nota-form-field>

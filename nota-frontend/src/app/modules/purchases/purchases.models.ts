@@ -133,4 +133,5 @@ export interface PurchaseProduct {
   code: string;
   inventoryCount: number;
   purchasePrice: number;
+  retailPrice?: number;
 }

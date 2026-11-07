@@ -5,6 +5,7 @@ import { Dialog } from 'primeng/dialog';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe } from '../shared/ui';
 import { CashboxService, TransferPayload } from './cashbox.service';
 import { CashBox, TransferRow } from './cashbox.models';
+import { localDateKey } from '../../core/utilities/local-date';
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
@@ -88,7 +89,7 @@ export class TransferDialogComponent {
   readonly fromId = signal('');
   readonly toId = signal('');
   readonly amount = signal<number | null>(null);
-  readonly date = signal(new Date().toISOString().slice(0, 10));
+  readonly date = signal(localDateKey());
   readonly note = signal('');
   readonly error = signal('');
   readonly busy = signal(false);

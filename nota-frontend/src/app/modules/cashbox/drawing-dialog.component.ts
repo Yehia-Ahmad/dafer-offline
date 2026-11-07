@@ -5,6 +5,7 @@ import { Dialog } from 'primeng/dialog';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent } from '../shared/ui';
 import { CashboxService, DrawingPayload } from './cashbox.service';
 import { CashBox, DrawingRow } from './cashbox.models';
+import { localDateKey } from '../../core/utilities/local-date';
 
 /** Stage 19: "سحب المالك" — a small dialog from the cash page, owner only (owner.drawings). Dr جاري المالك / Cr box. */
 @Component({
@@ -49,7 +50,7 @@ export class DrawingDialogComponent {
 
   readonly boxId = signal('');
   readonly amount = signal<number | null>(null);
-  readonly date = signal(new Date().toISOString().slice(0, 10));
+  readonly date = signal(localDateKey());
   readonly note = signal('');
   readonly error = signal('');
   readonly busy = signal(false);

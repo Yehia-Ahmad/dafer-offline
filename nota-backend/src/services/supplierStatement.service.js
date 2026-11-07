@@ -36,7 +36,7 @@ const bucketOf = (daysOverdue) => {
  * @param {Date|null} [args.from] @param {Date|null} [args.to] period of the lines (the balance and the aging are always today's)
  * @param {Date} [args.now]
  */
-function computeSupplierStatement({ supplier = {}, opening = null, ledgerStartAt = null, purchases = [], payments = [], returns = [], refunds = [], from = null, to = null, now = new Date() }) {
+function computeSupplierStatement({ supplier = {}, opening = null, ledgerStartAt = null, purchases = [], payments = [], returns = [], refunds = [], from = null, to = null, now = require("../utils/clock").now() }) {
   const terms = Number(supplier.paymentTermsDays || 0);
   const events = [];
   let sequence = 0;

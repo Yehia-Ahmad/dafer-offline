@@ -354,3 +354,45 @@ describe('PurchaseDetailComponent and the return dialog (Stage 20)', () => {
     flushPaymentBoxes(ctx.http);
   });
 });
+
+describe('PurchaseFormComponent: cost above the selling price (Stage 20 review)', () => {
+  const open = async () => {
+    const ctx = await setup(PurchaseFormComponent);
+    ctx.fixture.detectChanges();
+    ctx.http.expectOne((r) => r.url === `${base}suppliers`).flush([SUPPLIER]);
+    flushPaymentBoxes(ctx.http);
+    await settle(ctx.fixture);
+    return ctx;
+  };
+
+  it('warns on the line whose new average cost is above the product retail price, and still saves', async () => {
+    const { fixture, component, http } = await open();
+    spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    component.supplierId.set('s1');
+    // 32 at 70 + 20 at 100 -> 81.54; retail 80 -> above; the charger stays under its retail 300
+    component.addProduct({ ...LED, retailPrice: 80 });
+    component.setLine(component.lines()[0].key, 'qty', 20); component.setLine(component.lines()[0].key, 'unitPrice', 100);
+    component.addProduct({ ...CHARGER, retailPrice: 300 });
+    component.setLine(component.lines()[1].key, 'qty', 1); component.setLine(component.lines()[1].key, 'unitPrice', 240);
+    await settle(fixture);
+    expect(component.hints().map((hint) => hint?.aboveRetail)).toEqual([true, false]);
+    const rows = fixture.nativeElement.querySelectorAll('[data-test="lines"] tbody tr[data-line]');
+    expect(rows[0].querySelector('[data-test="cost-warning"]').textContent).toContain('purchases.new.costAboveRetail');
+    expect(rows[1].querySelector('[data-test="cost-warning"]')).toBeNull();
+    // never blocks saving
+    expect(component.valid()).toBeTrue();
+    component.save();
+    http.expectOne(`${base}purchases`).flush({ _id: 'po9', number: 'PO-000009', pvNumber: null, supplierBalanceAfter: 0 });
+  });
+
+  it('no warning when the retail price is unknown or the cost equals it', async () => {
+    const { component, http } = await open();
+    component.addProduct(LED);
+    component.setLine(component.lines()[0].key, 'qty', 20); component.setLine(component.lines()[0].key, 'unitPrice', 100);
+    expect(component.hints()[0]?.aboveRetail).toBeFalse();
+    component.addProduct({ ...CHARGER, retailPrice: 240 });
+    component.setLine(component.lines()[1].key, 'qty', 1); component.setLine(component.lines()[1].key, 'unitPrice', 240);
+    expect(component.hints()[1]?.aboveRetail).toBeFalse();
+    http.verify();
+  });
+});

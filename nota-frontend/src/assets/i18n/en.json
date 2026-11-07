@@ -1946,7 +1946,8 @@
             "debit": "debit",
             "credit": "credit",
             "save": "Save purchase invoice",
-            "saving": "Saving…"
+            "saving": "Saving…",
+            "costAboveRetail": "The new cost is above the selling price — review the selling price"
         },
         "detail": {
             "journal": "View entry",

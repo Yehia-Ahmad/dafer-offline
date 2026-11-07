@@ -13,6 +13,7 @@ import { Supplier, SuppliersService } from '../suppliers/suppliers.service';
 import { PaymentMode, allocateCosts, journalPreview, paymentModeOf, round2, weightedAverage } from './purchase-math';
 import { PurchaseProduct } from './purchases.models';
 import { PurchasesService } from './purchases.service';
+import { localDateKey } from '../../core/utilities/local-date';
 
 interface Line {
   key: number;
@@ -122,6 +123,7 @@ interface Line {
                     <div class="pf__meta">{{ row.product.code }}</div>
                     @if (hints()[i]; as hint) {
                       <div class="pf__hint" data-test="new-cost">{{ 'purchases.new.newCost' | translate }} ≈ <span class="nota-num">{{ hint.newCost | notaMoney }}</span></div>
+                      @if (hint.aboveRetail) { <div class="pf__warn" role="alert" data-test="cost-warning">{{ 'purchases.new.costAboveRetail' | translate }}</div> }
                     }
                   </td>
                   <td class="nota-num"><input class="nota-input nota-num pf__qty" type="number" min="1" step="1" name="qty{{ row.key }}" data-test="qty" [attr.aria-label]="'purchases.new.qty' | translate"
@@ -209,6 +211,7 @@ interface Line {
     .pf__newproduct { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: var(--radius-control); align-items: end; }
     .pf__meta, .pf__hint, .pf__note { font-size: 12px; color: var(--text-muted); margin: 0; }
     .pf__hint { color: var(--brand); }
+    .pf__warn { margin: 4px 0 0; font-size: 12px; font-weight: 700; color: var(--warning-text); background: var(--warning-soft); padding: 4px 8px; border-radius: var(--radius-control); }
     .pf__qty { width: 90px; } .pf__price { width: 120px; }
     .pf__name { min-width: 150px; }
     .nota-table { min-width: 560px; }
@@ -242,7 +245,7 @@ export class PurchaseFormComponent implements OnInit {
   readonly suppliers = signal<Supplier[]>([]);
   readonly supplierId = signal('');
   readonly supplierInvoiceNo = signal('');
-  readonly date = signal(new Date().toISOString().slice(0, 10));
+  readonly date = signal(localDateKey());
   readonly lines = signal<Line[]>([]);
   readonly discount = signal<number | null>(null);
   readonly otherCosts = signal<number | null>(null);
@@ -279,7 +282,9 @@ export class PurchaseFormComponent implements OnInit {
       const before = state.get(row.product._id) ?? { qty: row.product.inventoryCount, cost: row.product.purchasePrice };
       const newCost = weightedAverage(before.qty, before.cost, qty, lineCosts[index]);
       state.set(row.product._id, { qty: before.qty + qty, cost: newCost });
-      return { newCost };
+      // Only a warning: saving is never blocked. The product's retail price is checked against the new average cost.
+      const retail = row.product.retailPrice;
+      return { newCost, aboveRetail: retail !== undefined && retail !== null && newCost > retail };
     });
   });
 
@@ -376,7 +381,7 @@ export class PurchaseFormComponent implements OnInit {
         this.busy.set(false);
         this.newProductOpen.set(false);
         this.np.set({ name: '', code: '', categoryId: '', wholesalePrice: null, retailPrice: null });
-        this.addProduct({ _id: created._id, name: created.name, code: created.code, inventoryCount: 0, purchasePrice: 0 });
+        this.addProduct({ _id: created._id, name: created.name, code: created.code, inventoryCount: 0, purchasePrice: 0, retailPrice: Number(value.retailPrice) });
       },
       error: () => { this.busy.set(false); this.newProductError.set('purchases.errors.productFailed'); },
     });

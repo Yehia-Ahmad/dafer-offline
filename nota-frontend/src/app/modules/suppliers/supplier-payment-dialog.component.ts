@@ -8,6 +8,7 @@ import { round2 } from '../purchases/purchase-math';
 import { PurchasesService } from '../purchases/purchases.service';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe } from '../shared/ui';
 import { Supplier } from './suppliers.service';
+import { localDateKey } from '../../core/utilities/local-date';
 
 /**
  * Stage 20: "سداد دفعة لمورد" (docs/design/screens/SupplierPayment.dc.html). Shows what we owe now and after the payment,
@@ -82,7 +83,7 @@ export class SupplierPaymentDialogComponent {
   readonly done = output<{ number: string; balanceAfter: number }>();
 
   readonly amount = signal<number | null>(null);
-  readonly date = signal(new Date().toISOString().slice(0, 10));
+  readonly date = signal(localDateKey());
   readonly reference = signal('');
   readonly note = signal('');
   readonly confirmAdvance = signal(false);

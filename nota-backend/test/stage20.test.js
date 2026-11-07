@@ -578,3 +578,16 @@ it("a supplier refund can fail the boxes check too", async () => {
   await SupplierRefund.deleteOne({ _id: refunded.json.refund._id });
   assert.ok((await health()).entries.bySource.supplier_refund.orphaned >= 1);
 });
+
+it("the payment-box list carries each box's balance only for users with cashbox.view (the supplier payment dialog shows it)", async () => {
+  const s = await shop();
+  const owner = (await call("GET", "/api/cashbox/payment-boxes")).json.data;
+  assert.equal(owner.find((box) => box.isMain).balance, 18400); assert.equal(owner.find((box) => box._id === s.bank._id).balance, 41000);
+  token = await makeUser("acc-boxes", "accountant");
+  const accountant = (await call("GET", "/api/cashbox/payment-boxes")).json.data;
+  assert.equal(accountant.find((box) => box._id === s.bank._id).balance, 41000);
+  token = ownerToken; token = await makeUser("cashier-boxes", "cashier");
+  const cashier = (await call("GET", "/api/cashbox/payment-boxes")).json.data;
+  assert.ok(cashier.length >= 1); assert.ok(cashier.every((box) => !("balance" in box)), "names only without cashbox.view");
+  assert.equal(JSON.stringify(cashier).includes("41000"), false);
+});

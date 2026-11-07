@@ -69,7 +69,7 @@ const getBoxes = async (req, res) => {
 // GET /api/cashbox/payment-boxes (any signed-in user): the boxes this user may pay into/out of, and the default one.
 const getPaymentBoxes = async (req, res) => {
   res.set("Cache-Control", "no-store");
-  const [views, mine] = await Promise.all([loadBoxViews({ withBalance: false, onlyActive: true }), boxes.deviceBox(req.deviceId)]);
+  const [views, mine] = await Promise.all([loadBoxViews({ withBalance: can(req, "cashbox.view"), onlyActive: true }), boxes.deviceBox(req.deviceId)]);
   const manager = can(req, "cashbox.manage");
   const available = views.filter((box) => manager || box.type !== "cash" || (req.deviceId && box.deviceId === req.deviceId) || (box.isMain && !mine));
   const main = views.find((box) => box.isMain);
@@ -82,6 +82,8 @@ const getPaymentBoxes = async (req, res) => {
     data: available.map((box) => ({
       _id: box._id, name: box.name, type: box.type, isMain: box.isMain, shiftsEnabled: box.shiftsEnabled,
       isDefault: String(box._id) === defaultBoxId, openShift: box.openShift, needsShift: box.shiftsEnabled && !box.openShift,
+      // Stage 20: the balance is shown only to users who may see balances (cashbox.view); the others see names only.
+      ...(can(req, "cashbox.view") ? { balance: box.balance ?? 0 } : {}),
     })),
   });
 };

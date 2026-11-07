@@ -101,6 +101,8 @@ export interface PaymentBox {
   isDefault: boolean;
   openShift: { _id: string; number: string; userName: string | null; openedAt: string } | null;
   needsShift: boolean;
+  /** Stage 20: only sent to users with cashbox.view. */
+  balance?: number;
 }
 
 export interface PaymentBoxesResponse {
