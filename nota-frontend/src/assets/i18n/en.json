@@ -1972,14 +1972,15 @@
             "total": "Return value",
             "refund": "Cash refund from the supplier (optional)",
             "refundBox": "Received into box",
-            "submit": "Save return"
+            "submit": "Save return",
+            "refundCap": "You can take back at most {{max}} in cash: what the supplier will owe us after this return."
         },
         "errors": {
             "loadSuppliers": "Could not load the suppliers.",
             "loadCategories": "Could not load the categories.",
             "productFailed": "Could not create the product. Check the code is not used.",
             "paidRange": "The paid amount must be more than 0 and less than the total.",
-            "refundRange": "The refund cannot be more than the return value.",
+            "refundRange": "The refund can be at most {{max}}.",
             "saveFailed": "Could not save the invoice.",
             "returnFailed": "Could not save the return.",
             "cancelFailed": "Could not cancel the invoice.",

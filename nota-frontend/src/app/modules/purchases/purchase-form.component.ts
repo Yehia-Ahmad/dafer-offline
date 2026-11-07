@@ -284,7 +284,7 @@ export class PurchaseFormComponent implements OnInit {
       state.set(row.product._id, { qty: before.qty + qty, cost: newCost });
       // Only a warning: saving is never blocked. The product's retail price is checked against the new average cost.
       const retail = row.product.retailPrice;
-      return { newCost, aboveRetail: retail !== undefined && retail !== null && newCost > retail };
+      return { newCost, aboveRetail: retail !== undefined && retail !== null && retail > 0 && newCost > retail };
     });
   });
 

@@ -6,6 +6,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { PaymentBoxSelectComponent } from '../cashbox/payment-box-select.component';
 import { PaymentBoxService } from '../cashbox/payment-box.service';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe } from '../shared/ui';
+import { SuppliersService } from '../suppliers/suppliers.service';
 import { round2 } from './purchase-math';
 import { PurchaseDetail, PurchaseReturnRow } from './purchases.models';
 import { PurchasesService } from './purchases.service';
@@ -55,9 +56,10 @@ export function returnValue(item: { qty: number; lineCost: number; returnedQty: 
           </nota-form-field>
           <p class="prd__total" data-test="return-total">{{ 'purchases.return.total' | translate }}: <b class="nota-num">{{ total() | notaMoney }}</b></p>
           @if (canRefund()) {
-            <nota-form-field [label]="'purchases.return.refund' | translate" forId="prdRefund" [error]="refundInvalid() ? ('purchases.errors.refundRange' | translate) : null">
+            <nota-form-field [label]="'purchases.return.refund' | translate" forId="prdRefund" [error]="refundInvalid() ? ('purchases.errors.refundRange' | translate: { max: (refundCap() | notaMoney) }) : null">
               <input id="prdRefund" class="nota-input nota-num" type="number" min="0" step="0.01" name="refund" data-test="refund" [ngModel]="refund()" (ngModelChange)="refund.set($event)" />
             </nota-form-field>
+            <p class="prd__cap" data-test="refund-cap">{{ 'purchases.return.refundCap' | translate: { max: (refundCap() | notaMoney) } }}</p>
             @if ((refund() ?? 0) > 0) { <nota-payment-box-select labelKey="purchases.return.refundBox" /> }
           }
         }
@@ -71,12 +73,14 @@ export function returnValue(item: { qty: number; lineCost: number; returnedQty: 
   `,
   styles: `
     .prd__qty { width: 90px; }
+    .prd__cap { margin: 4px 0 8px; font-size: 12px; color: var(--text-muted); }
     .prd__total { margin: 12px 0; font-size: 15px; } .prd__total b { font-size: 18px; }
   `,
 })
 export class PurchaseReturnDialogComponent {
   private readonly service = inject(PurchasesService);
   private readonly auth = inject(AuthService);
+  private readonly suppliers = inject(SuppliersService);
   private readonly paymentBox = inject(PaymentBoxService);
 
   readonly visible = model(false);
@@ -86,6 +90,8 @@ export class PurchaseReturnDialogComponent {
   readonly qtys = signal<Record<string, number | null>>({});
   readonly reason = signal('');
   readonly refund = signal<number | null>(null);
+  /** The supplier balance (positive = we owe them): undefined while loading, null when it could not be read. */
+  readonly balance = signal<number | null | undefined>(undefined);
   readonly busy = signal(false);
   readonly error = signal('');
 
@@ -97,14 +103,31 @@ export class PurchaseReturnDialogComponent {
   });
   readonly total = computed(() => round2(this.picked().reduce((sum, row) => sum + returnValue(row.item, row.qty), 0)));
   readonly overAvailable = computed(() => this.picked().some((row) => !Number.isInteger(row.qty) || row.qty > row.item.qty - row.item.returnedQty));
-  readonly refundInvalid = computed(() => (this.refund() ?? 0) < 0 || (this.refund() ?? 0) > this.total());
+  /**
+   * The most cash that can come back: min(the return's value, what the supplier will owe US after the return), the same cap the
+   * backend applies (409 REFUND_EXCEEDS_DUE). While we still owe the supplier it is 0. If the balance cannot be read the server decides.
+   */
+  readonly refundCap = computed(() => {
+    const balance = this.balance();
+    if (balance === null) return this.total();
+    if (balance === undefined) return 0;
+    return Math.min(this.total(), Math.max(0, round2(this.total() - balance)));
+  });
+  readonly refundInvalid = computed(() => (this.refund() ?? 0) < 0 || (this.refund() ?? 0) > this.refundCap());
   readonly valid = computed(() => this.picked().length > 0 && !this.overAvailable() && !this.refundInvalid());
 
   constructor() {
     // A fresh dialog each time it opens.
     effect(() => {
-      if (this.visible()) untracked(() => { this.qtys.set({}); this.reason.set(''); this.refund.set(null); this.error.set(''); this.paymentBox.load(); });
+      if (this.visible()) untracked(() => { this.qtys.set({}); this.reason.set(''); this.refund.set(null); this.error.set(''); this.paymentBox.load(); this.loadBalance(); });
     });
+  }
+
+  private loadBalance(): void {
+    const supplierId = this.purchase()?.supplierId;
+    this.balance.set(undefined);
+    if (!supplierId || !this.canRefund()) return;
+    this.suppliers.get(supplierId).subscribe({ next: (row) => this.balance.set(row.balance), error: () => this.balance.set(null) });
   }
 
   setQty(id: string, value: number | null): void {

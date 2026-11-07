@@ -314,6 +314,7 @@ describe('PurchaseDetailComponent and the return dialog (Stage 20)', () => {
     flushPaymentBoxes(ctx.http);
     await settle(ctx.fixture);
     const { component, http } = ctx;
+    http.expectOne(`${base}suppliers/s1`).flush({ balance: -1000 }); // an advance: they owe us
     component.setQty('i1', 16);
     expect(component.overAvailable()).toBeTrue(); expect(component.valid()).toBeFalse();
     component.setQty('i1', 15); component.setQty('i2', 2);
@@ -344,6 +345,7 @@ describe('PurchaseDetailComponent and the return dialog (Stage 20)', () => {
     await settle(ctx.fixture);
     flushPaymentBoxes(ctx.http);
     await settle(ctx.fixture);
+    ctx.http.expectNone(`${base}suppliers/s1`);
     expect(document.body.querySelector('[data-test="refund"]')).toBeNull();
     ctx.component.setQty('i1', 1);
     ctx.component.save();
@@ -416,6 +418,75 @@ describe('PurchaseFormComponent: "المخزون بعد" counts earlier lines of
     expect(cells[2]).toContain('52'); expect(cells[2]).toContain('57');
     // the cost hint builds on the same running stock: 52 at 70 + 5 at 100
     expect(component.hints()[2]?.newCost).toBe(72.63);
+    http.verify();
+  });
+});
+
+describe('PurchaseReturnDialogComponent: the refund cap (Stage 20 review)', () => {
+  const open = async (balance: number | 'error') => {
+    const ctx = await setup(PurchaseReturnDialogComponent);
+    ctx.fixture.componentRef.setInput('purchase', PURCHASE);
+    ctx.fixture.detectChanges();
+    ctx.component.visible.set(true);
+    await settle(ctx.fixture);
+    flushPaymentBoxes(ctx.http);
+    const req = ctx.http.expectOne(`${base}suppliers/s1`);
+    if (balance === 'error') req.flush({}, { status: 500, statusText: 'Server Error' }); else req.flush({ balance });
+    await settle(ctx.fixture);
+    ctx.component.setQty('i2', 2); // 480
+    await settle(ctx.fixture);
+    return ctx;
+  };
+
+  it('while we still owe the supplier no cash can come back: the cap is 0 and Save is blocked above it', async () => {
+    const { fixture, component } = await open(5000);
+    expect(component.total()).toBe(480); expect(component.refundCap()).toBe(0);
+    component.refund.set(1);
+    expect(component.refundInvalid()).toBeTrue(); expect(component.valid()).toBeFalse();
+    await settle(fixture);
+    expect(document.body.querySelector('[data-test="refund-cap"]')!.textContent).toContain('refundCap');
+    component.refund.set(0);
+    expect(component.valid()).toBeTrue();
+  });
+
+  it('the cap is min(return value, what the supplier will owe us after the return): we owe 300, return 480 -> 180', async () => {
+    const { component, http } = await open(300);
+    expect(component.refundCap()).toBe(180);
+    component.refund.set(181); expect(component.valid()).toBeFalse();
+    component.refund.set(180); expect(component.valid()).toBeTrue();
+    component.save();
+    expect(http.expectOne(`${base}purchases/po1/returns`).request.body.refundAmount).toBe(180);
+  });
+
+  it('an advance bigger than the return caps the refund at the return value', async () => {
+    const { component } = await open(-1000);
+    expect(component.refundCap()).toBe(480);
+    component.refund.set(480); expect(component.valid()).toBeTrue();
+    component.refund.set(480.01); expect(component.valid()).toBeFalse();
+  });
+
+  it('while the balance is loading the cap is 0, and if it cannot be read the server decides (cap = the return value)', async () => {
+    const { component } = await open('error');
+    expect(component.balance()).toBeNull(); expect(component.refundCap()).toBe(480);
+    component.balance.set(undefined); expect(component.refundCap()).toBe(0);
+  });
+});
+
+describe('PurchaseFormComponent: no cost warning without a usable retail price (Stage 20 review)', () => {
+  it('a retail price of 0 or a missing one never warns', async () => {
+    const ctx = await setup(PurchaseFormComponent);
+    ctx.fixture.detectChanges();
+    ctx.http.expectOne((r) => r.url === `${base}suppliers`).flush([SUPPLIER]);
+    flushPaymentBoxes(ctx.http);
+    await settle(ctx.fixture);
+    const { component, http } = ctx;
+    component.lines.set([
+      { key: 1, product: { ...LED, retailPrice: 0 }, qty: 20, unitPrice: 100 },
+      { key: 2, product: { ...CHARGER }, qty: 1, unitPrice: 999 },
+      { key: 3, product: { _id: 'p3', name: 'x', code: 'X', inventoryCount: 0, purchasePrice: 0, retailPrice: 50 }, qty: 1, unitPrice: 60 },
+    ]);
+    await settle(ctx.fixture);
+    expect(component.hints().map((hint) => hint?.aboveRetail)).toEqual([false, false, true]);
     http.verify();
   });
 });
