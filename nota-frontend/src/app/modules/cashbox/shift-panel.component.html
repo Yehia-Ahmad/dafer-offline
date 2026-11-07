@@ -87,7 +87,7 @@
         @if (r.differenceNote) { <div class="sp__row"><span>{{ 'cashbox.shift.note' | translate }}</span><span>{{ r.differenceNote }}</span></div> }
         @if (r.depositAmount) { <div class="sp__row"><span>{{ 'cashbox.shift.depositAmount' | translate }}</span><span class="nota-num">{{ r.depositAmount | notaMoney }}</span></div> }
         <div class="sp__row sp__row--total"><span>{{ 'cashbox.shift.staysInDrawer' | translate }}</span><span class="nota-num">{{ r.remaining | notaMoney }}</span></div>
-        <!-- TODO(Stage 22 PrShiftClose): the print button stays hidden until the shift report print template exists. -->
+        <!-- TODO(Stage 23 PrShiftClose): the print button stays hidden until the shift report print template exists. -->
         @if (printEnabled) {
           <button type="button" notaButton data-action="print-shift" (click)="print()">{{ 'cashbox.shift.print' | translate }}</button>
         }

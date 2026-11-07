@@ -16,6 +16,8 @@ const customerSchema = new mongoose.Schema(
       unique: true,
       maxlength: [30, "يجب ألا يزيد رقم هاتف العميل عن 30 حرف"],
     },
+    // Stage 21: shown on the invoice for B2B customers.
+    taxNumber: { type: String, trim: true, maxlength: [50, "يجب ألا يزيد الرقم الضريبي عن 50 حرف"] },
   },
   { timestamps: true }
 );

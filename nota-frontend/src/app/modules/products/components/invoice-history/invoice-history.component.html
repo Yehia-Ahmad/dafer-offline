@@ -106,7 +106,8 @@
             <li>
               <span><span dir="auto">{{ item.productName || '-' }}</span> <span class="ih__muted">× {{ item.quantity ?? 0 | notaNumber }}
                 @ {{ item.unitPrice ?? 0 | notaMoney }}</span>
-                <small class="ih__muted ih__line-meta"><span dir="ltr">{{ item.productCode || '-' }}</span> · {{ item.categoryName || '-' }}</small></span>
+                <small class="ih__muted ih__line-meta"><span dir="ltr">{{ item.productCode || '-' }}</span> · {{ item.categoryName || '-' }}</small>
+                @if (item.vatExempt && selling.vat) { <small class="ih__exempt" data-test="exempt-badge">{{ 'vat.exempt.badge' | translate }}</small> }</span>
               <span class="nota-num">{{ item.totalPrice ?? 0 | notaMoney }}</span>
             </li>
           }
@@ -123,6 +124,10 @@
           <div><dt>{{ 'invoiceHistoryPage.tableHeaders.shippingFees' | translate }}</dt><dd class="nota-num">{{ selling.shippingFees ?? 0 | notaMoney }}</dd></div>
           @if (selling.refundedAmount) {
             <div><dt>{{ 'invoiceHistoryPage.s10.refundedAmount' | translate }}</dt><dd class="nota-num ih__due">− {{ selling.refundedAmount | notaMoney }}</dd></div>
+          }
+          @if (selling.vat; as vat) {
+            <div data-test="vat-net"><dt>{{ 'vat.totals.net' | translate }}</dt><dd class="nota-num">{{ vat.netAmount | notaMoney }}</dd></div>
+            <div data-test="vat-amount"><dt>{{ 'vat.totals.vat' | translate: { rate: vat.rate } }}</dt><dd class="nota-num">{{ vat.vatAmount | notaMoney }}</dd></div>
           }
           <div><dt>{{ 'invoiceHistoryPage.cancel.originalTotal' | translate }}</dt><dd class="nota-num">{{ selling.totalPrice ?? 0 | notaMoney }}</dd></div>
           <div class="ih__grand"><dt>{{ 'invoiceHistoryPage.cancel.netTotal' | translate }}</dt><dd class="nota-num">{{ selling.netTotal ?? selling.totalPrice ?? 0 | notaMoney }}</dd></div>

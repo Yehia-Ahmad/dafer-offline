@@ -41,6 +41,8 @@ import { ProductsService } from '../../services/products.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
 import { PaymentBoxService } from '../../../cashbox/payment-box.service';
+import { VatSettingsService } from '../../../shop-profile/services/vat-settings.service';
+import { SaleVat, computeSaleVat } from '../../../shared/vat/vat-math';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 
 type ProductSearchResult = {
@@ -53,6 +55,8 @@ type ProductSearchResult = {
   retailPrice: number | null;
   discountPercentage: number | null;
   priceAfterDiscount: number | null;
+  /** Stage 21: "معفى من الضريبة" (absent = taxable). */
+  vatExempt?: boolean;
 };
 
 type CustomerSearchResult = {
@@ -131,6 +135,10 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
   readonly maxDiscountPercent = inject(AuthService).maxDiscountPercent;
   /** Stage 19: the box the down payment goes into. */
   readonly payment = inject(PaymentBoxService);
+  /** Stage 21: the shop's VAT settings (null/off = the form shows and sends exactly what it always did). */
+  private readonly vatSettings = inject(VatSettingsService);
+  /** Stage 21: net / VAT / total of the open invoice, or null when VAT does not apply. */
+  vatView: SaleVat | null = null;
 
   constructor(
     private readonly formBuilder: FormBuilder,
@@ -668,6 +676,14 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
     this.totalReceivable = this.roundCurrency(
       Math.max(this.itemsSubtotal - this.discountAmount + this.shippingFees, 0)
     );
+    // Stage 21: with VAT the form shows الصافي / الضريبة / الإجمالي; with prices excluding VAT the total visibly adds the tax.
+    const vatContext = this.vatSettings.contextFor(this.formatRequestDate(this.creditSaleForm.get('sellingDate')?.value ?? new Date()));
+    this.vatView = vatContext
+      ? computeSaleVat(
+          this.lineItemControls.map((control, index) => ({ totalPrice: this.getLineTotal(index), vatExempt: this.lineItemStates[index]?.selectedProduct?.vatExempt === true })),
+          this.discountAmount, this.shippingFees, vatContext)
+      : null;
+    if (this.vatView && !this.vatView.included) this.totalReceivable = this.vatView.totalPrice;
     this.financedAmount = this.roundCurrency(Math.max(this.totalReceivable - downPayment, 0));
   }
 
@@ -914,8 +930,14 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
       wholesalePrice: this.toPrice(candidate.wholesalePrice),
       retailPrice: this.toPrice(candidate.retailPrice),
       discountPercentage: this.toNumber(candidate.discountPercentage),
-      priceAfterDiscount: this.toNumber(candidate.priceAfterDiscount)
+      priceAfterDiscount: this.toNumber(candidate.priceAfterDiscount),
+      ...(candidate.vatExempt === true ? { vatExempt: true } : {})
     };
+  }
+
+  /** Stage 21: a line of an exempt product shows "معفى" (only while VAT applies). */
+  isExemptLine(index: number): boolean {
+    return Boolean(this.vatView) && this.lineItemStates[index]?.selectedProduct?.vatExempt === true;
   }
 
   private mapCustomer(candidate: any): CustomerSearchResult | null {

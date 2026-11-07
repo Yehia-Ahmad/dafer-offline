@@ -50,6 +50,15 @@ const getCategoryById = asyncHandler(async (req, res) => {
   res.json(category);
 });
 
+const readVatExempt = (value, res) => {
+  if (value === undefined) return undefined;
+  if (typeof value !== "boolean") {
+    res.status(400);
+    throw new Error("قيمة الإعفاء من الضريبة غير صالحة");
+  }
+  return value;
+};
+
 const createCategory = asyncHandler(async (req, res) => {
   const { name, image, imageBase64 } = req.body;
   const normalizedImage = imageBase64 !== undefined ? imageBase64 : image;
@@ -69,6 +78,9 @@ const createCategory = asyncHandler(async (req, res) => {
   if (specifications !== undefined) {
     categoryData.specifications = specifications;
   }
+
+  const vatExempt = readVatExempt(req.body.vatExempt, res);
+  if (vatExempt !== undefined) categoryData.vatExempt = vatExempt;
 
   const category = await Category.create(categoryData);
 
@@ -95,8 +107,21 @@ const updateCategory = asyncHandler(async (req, res) => {
   );
   if (specifications !== undefined) category.specifications = specifications;
 
-  const updatedCategory = await category.save();
-  res.json(updatedCategory);
+  const vatExempt = readVatExempt(req.body.vatExempt, res);
+  if (vatExempt === undefined) {
+    const updatedCategory = await category.save();
+    return res.json(updatedCategory);
+  }
+
+  // Stage 21: the bulk toggle sets the flag on the category and on every product in it, in one transaction.
+  category.vatExempt = vatExempt;
+  const updatedCategory = await withTransaction(async (session) => {
+    const saved = await category.save({ session });
+    await Product.updateMany({ category: category._id }, { $set: { vatExempt } }, { session });
+    await audit(req, { action: "category.vat_exempt", entity: "Category", entityId: category._id, details: { vatExempt }, session, strict: true });
+    return saved;
+  });
+  return res.json(updatedCategory);
 });
 
 const deleteCategory = asyncHandler(async (req, res) => {

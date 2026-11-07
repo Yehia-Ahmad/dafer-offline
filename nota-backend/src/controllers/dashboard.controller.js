@@ -10,6 +10,7 @@ const { loadCustomerOpenItems } = require("../services/customerOpenItems.service
 const Supplier = require("../models/supplier.model");
 const { supplierBalances } = require("./supplier.controller");
 const { hasPermission } = require("../auth/permissions");
+const { loadVatSettings, vatPosition } = require("../accounting/vat");
 
 // Stage 12: read-only dashboard summary (GET /api/dashboard/summary).
 //
@@ -128,6 +129,12 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
     const owed = [...balances.values()].filter((value) => value > 0);
     suppliersDue = { owed: roundMoney(owed.reduce((sum, value) => sum + value, 0)), suppliersWithBalance: owed.length };
   }
+  // Stage 21: with VAT on, today's sales are still what the customer paid (VAT included) and the screen says so; the VAT due
+  // figure needs vat.file or accounting.view. A shop that never used VAT gets neither (the response is unchanged).
+  const vatSettings = await loadVatSettings();
+  const vatPos = !req.authEnabled || (req.user && (hasPermission(req.user, "vat.file") || hasPermission(req.user, "accounting.view"))) ? await vatPosition() : null;
+  const vatBlock = vatSettings.enabled ? { enabled: true, rate: vatSettings.rate, pricesIncludeVat: vatSettings.pricesIncludeVat } : null;
+  const vatDue = vatPos && (vatSettings.enabled || vatPos.payable !== 0 || vatPos.input !== 0) ? { amount: vatPos.due, payable: vatPos.payable, input: vatPos.input } : null;
   const recentInvoices = [
     ...recentCash.map((selling) => ({
       id: String(selling._id),
@@ -166,6 +173,8 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
     },
     // Stage 20: "مستحق للموردين" (what we owe suppliers), only for suppliers.view.
     ...(suppliersDue ? { suppliersDue } : {}),
+    ...(vatBlock ? { vat: vatBlock } : {}),
+    ...(vatDue ? { vatDue } : {}),
     last7Days,
     recentInvoices,
     lowStock: lowStock.map((product) => ({ ...product, id: String(product.id) })),

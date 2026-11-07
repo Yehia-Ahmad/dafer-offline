@@ -11,6 +11,8 @@ export interface Supplier {
   address?: string;
   supplies?: string;
   taxNumber?: string;
+  /** Stage 21: the default of "المورد مسجل ضريبيًا" on a new purchase (absent = false). */
+  vatRegistered?: boolean;
   /** 0 = cash; 30, 60 or a custom number of days. */
   paymentTermsDays?: number | null;
   notes?: string;
@@ -31,6 +33,8 @@ export interface SupplierPayload {
   address?: string;
   supplies?: string;
   taxNumber?: string;
+  /** Stage 21: sent only when true or when the supplier had it (so a shop without VAT sends what it always sent). */
+  vatRegistered?: boolean;
   paymentTermsDays?: number | null;
   notes?: string;
   isActive?: boolean;

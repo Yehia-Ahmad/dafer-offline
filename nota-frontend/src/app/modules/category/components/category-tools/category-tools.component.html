@@ -68,6 +68,11 @@
           [placeholder]="'category.namePlaceholder' | translate" />
       </nota-form-field>
 
+      <label class="nota-cat-form__check" data-test="category-vat-exempt">
+        <input type="checkbox" formControlName="vatExempt" /> {{ 'vat.exempt.categoryLabel' | translate }}
+      </label>
+      <span class="nota-hint">{{ 'vat.exempt.categoryHint' | translate }}</span>
+
       <div class="nota-cat-form__specs" formArrayName="specifications">
         <div class="nota-cat-form__specs-head">
           <span class="nota-cat-form__specs-title">{{ 'category.specifications.title' | translate }}</span>

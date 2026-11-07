@@ -29,6 +29,10 @@ export interface DashboardSummary {
   }>;
   /** Stage 20: what we owe suppliers; absent without suppliers.view. */
   suppliersDue?: { owed: number; suppliersWithBalance: number };
+  /** Stage 21: present while the shop has VAT on (today's sales then include the VAT the customers paid). */
+  vat?: { enabled: boolean; rate: number; pricesIncludeVat: boolean };
+  /** Stage 21: VAT payable less input VAT; only with vat.file or accounting.view. */
+  vatDue?: { amount: number; payable: number; input: number };
   lowStock: Array<{ id: string; name: string; code: string; inventoryCount: number; threshold: number }>;
 }
 

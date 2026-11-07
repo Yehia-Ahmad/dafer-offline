@@ -14,7 +14,7 @@ describe('nav menu config', () => {
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
       ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
-      ['accounting', ['profit']],
+      ['accounting', ['vat', 'profit']],
       ['admin', ['users', 'audit', 'shop', 'backup']],
     ]);
   });
@@ -25,7 +25,7 @@ describe('nav menu config', () => {
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
       ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
-      ['accounting', ['profit']],
+      ['accounting', ['vat', 'profit']],
       ['admin', ['audit', 'shop']],
     ]);
   });
@@ -51,7 +51,7 @@ describe('nav menu config', () => {
       ['sales', ['credit', 'invoices', 'returns', 'customers']],
       ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
-      ['accounting', ['profit']],
+      ['accounting', ['vat', 'profit']],
       ['admin', ['audit']],
     ]);
   });

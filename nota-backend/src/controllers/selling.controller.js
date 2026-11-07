@@ -13,6 +13,9 @@ const { PREFIXES, nextDocumentNumber, normalizeNumberSearch } = require("../util
 const { withTransaction } = require("../utils/transaction");
 const { postSale, postReturn, postInventoryAdjustment, postInvoiceEdit, postInvoiceCancel } = require("../accounting/posting");
 const { resolveBox, usableBoxOf } = require("../cashbox/boxes");
+const { priceNewInvoice, repriceEditedInvoice, recordVatEvent, periodFor, today } = require("../accounting/vat");
+const { computeReturnVat, computeReturnBreakdown, round2: vatRound2 } = require("../utils/vat");
+const { vatInvoiceView, vatItemView, netInvoiceProfit } = require("../utils/vatView");
 const CashBox = require("../models/cashBox.model");
 const { audit } = require("../auth/audit");
 
@@ -375,6 +378,7 @@ const toSellingInvoiceItem = (item, selling, options = {}) => {
     profitAmount: item.profitAmount ?? 0,
     returnedQuantity: item.returnedQuantity ?? refundedForItem(selling, item._id),
     totalPrice: item.totalPrice,
+    ...vatItemView(item),
   };
 
   if (options.includeProductCode) {
@@ -411,7 +415,7 @@ const toSellingInvoice = (selling, options = {}) => {
     shippingFees: selling.shippingFees ?? totals.shippingFees,
     totalPrice: selling.totalPrice ?? totals.totalPrice,
     netTotal: roundMoney(Math.max(0, Number(selling.totalPrice ?? totals.totalPrice) - Number(selling.refundedAmount || 0))),
-    totalProfit: roundMoney(
+    totalProfit: netInvoiceProfit(selling, items) ?? roundMoney(
       items.reduce((sum, item) => sum + Number(item.profitAmount || 0), 0) - totals.discountAmount
     ),
     refundStatus: selling.refundStatus ?? "none",
@@ -446,6 +450,7 @@ const toSellingInvoice = (selling, options = {}) => {
       })),
     })),
     items,
+    ...vatInvoiceView(selling),
     ...actorFields(selling),
   };
 };
@@ -720,6 +725,9 @@ const createSellingInvoice = async ({ body, res, allowBelowCost = false, session
   });
   const persistedItems = buildPersistedItems(items, productsById);
   const invoiceTotals = buildInvoiceTotals(persistedItems, invoicePricing);
+  // Stage 21: VAT (only when the shop has it on and the invoice date is on/after its start date).
+  const vat = await priceNewInvoice({ persistedItems, productsById, invoiceTotals, businessDate: normalizedSellingDate, session });
+  if (vat) invoiceTotals.totalPrice = vat.computed.totalPrice;
   const created = await Selling.create([{
       number,
       customerName: normalizedCustomerName,
@@ -731,6 +739,7 @@ const createSellingInvoice = async ({ body, res, allowBelowCost = false, session
       shippingFees: invoiceTotals.shippingFees,
       totalPrice: invoiceTotals.totalPrice,
       ...(boxId ? { boxId } : {}),
+      ...(vat ? vat.fields : {}),
   }], { session });
   created[0]._autoRestockAdjustments = [...(productsById.autoRestockedByProductId || new Map()).entries()].map(([productId, quantity]) => ({ productId, quantity }));
   return created[0];
@@ -751,6 +760,7 @@ const createSelling = asyncHandler(async (req, res) => {
     });
     await audit(req, { action: "sale.created", entity: "Selling", entityId: created._id, session, strict: true });
     await postSale({ sale: created, session });
+    if (created.vatRate !== undefined && created.vatRate !== null) await recordVatEvent({ kind: "sale", direction: "output", sourceType: "sale", sourceId: created._id, number: created.number, date: created.sellingDate, net: created.netAmount, vat: created.vatAmount, session });
     for (const adjustment of created._autoRestockAdjustments || []) {
       const product = await Product.findById(adjustment.productId).session(session).lean();
       const amount = roundMoney(Number(adjustment.quantity || 0) * Number(product?.purchasePrice || 0));
@@ -940,6 +950,7 @@ const updateSellingInTransaction = async (req, res, session) => {
   let nextItems = currentItems;
   let productsById = new Map();
   let persistedItems = null;
+  let vatEdit = null;
 
   if (shouldUpdateItems) {
     if (req.body.items === undefined && currentItems.length !== 1) {
@@ -1005,6 +1016,13 @@ const updateSellingInTransaction = async (req, res, session) => {
     selling.discountAmount = invoiceTotals.discountAmount;
     selling.discountPercentage = undefined;
     selling.shippingFees = invoiceTotals.shippingFees;
+    // Stage 21: an invoice that has VAT keeps the rate and mode it was saved with; its VAT is recomputed from the new figures.
+    vatEdit = repriceEditedInvoice({ invoice: oldSelling, persistedItems: pricingItems, productsById, invoiceTotals });
+    if (vatEdit) {
+      if (!shouldUpdateItems) (selling.items || []).forEach((item, index) => { item.vatAmount = vatEdit.computed.itemVat[index]; });
+      Object.assign(selling, vatEdit.fields);
+      invoiceTotals.totalPrice = vatEdit.computed.totalPrice;
+    }
     selling.totalPrice = invoiceTotals.totalPrice;
   }
 
@@ -1022,6 +1040,12 @@ const updateSellingInTransaction = async (req, res, session) => {
   const updatedSelling = await selling.save({ session });
 
   await postInvoiceEdit({ Model: Selling, oldSale: oldSelling, newSale: updatedSelling, date: new Date(), session });
+  if (vatEdit) {
+    // The edit gets its OWN vatPeriod (its own date); the original month is never rewritten.
+    const vatDelta = vatRound2(updatedSelling.vatAmount - (oldSelling.vatAmount || 0));
+    const netDelta = vatRound2(updatedSelling.netAmount - (oldSelling.netAmount || 0));
+    if (vatDelta !== 0 || netDelta !== 0) await recordVatEvent({ kind: "sale_edit", direction: "output", sourceType: "sale", sourceId: updatedSelling._id, number: updatedSelling.number, date: today(), net: netDelta, vat: vatDelta, session });
+  }
   await audit(req, { action: "sale.updated", entity: "Selling", entityId: selling._id, session, strict: true });
   return updatedSelling;
 };
@@ -1064,8 +1088,16 @@ const cancelSelling = asyncHandler(async (req, res) => {
     // drawer, else the main box. Nothing to pay back (everything was returned) needs no box.
     const refundBox = selling.cancelRefundAmount > 0 ? await resolveBox({ req, boxId: req.body && req.body.boxId, session, direction: "out" }) : null;
     if (refundBox) selling.cancelRefundBoxId = refundBox._id;
+    // Stage 21: a cancel gets its own vatPeriod (its own date), never the original month.
+    const hasVat = selling.vatRate !== undefined && selling.vatRate !== null;
+    if (hasVat) selling.cancelVatPeriod = await periodFor(today(), session);
     await selling.save({ session });
     await postInvoiceCancel({ Model: Selling, sale: selling, session, refundBoxId: refundBox ? refundBox._id : selling.boxId || null });
+    if (hasVat) {
+      const vatLeft = vatRound2((selling.vatAmount || 0) - (selling.vatReturnedAmount || 0));
+      const netLeft = vatRound2(Number(selling.totalPrice || 0) - Number(selling.refundedAmount || 0) - vatLeft);
+      if (vatLeft !== 0 || netLeft !== 0) await recordVatEvent({ kind: "sale_cancel", direction: "output", sourceType: "sale", sourceId: selling._id, number: selling.number, date: today(), net: -netLeft, vat: -vatLeft, session });
+    }
     await audit(req, { action: "sale.cancelled", entity: "Selling", entityId: selling._id, details: { reason }, session, strict: true });
     return selling;
   });
@@ -1106,11 +1138,11 @@ const addSellingRefund = asyncHandler(async (req, res) => {
     const previousRefundedAmount = roundMoney(selling.refundedAmount || 0);
     const invoiceQuantity = Number(selling.totalQuantity ?? getSellingItems(selling).reduce((sum, item) => sum + Number(item.quantity || 0), 0));
     const isFull = previousRefundedQuantity + totalQuantity === invoiceQuantity;
-    const finalReturnedAmount = isFull
+    let finalReturnedAmount = isFull
       ? roundMoney(Math.max(0, Number(selling.totalPrice || 0) - previousRefundedAmount))
       : subtotalReturnedAmount;
-    const discountAmount = roundMoney(Math.max(0, subtotalReturnedAmount - finalReturnedAmount));
-    const shippingFees = roundMoney(Math.max(0, finalReturnedAmount - subtotalReturnedAmount));
+    let discountAmount = roundMoney(Math.max(0, subtotalReturnedAmount - finalReturnedAmount));
+    let shippingFees = roundMoney(Math.max(0, finalReturnedAmount - subtotalReturnedAmount));
 
     for (const { invoiceItem, quantity } of selections) {
       const productId = getSellingItemProductId(invoiceItem);
@@ -1121,6 +1153,28 @@ const addSellingRefund = asyncHandler(async (req, res) => {
       );
       const storedItem = selling.items?.id(invoiceItem._id);
       if (storedItem) storedItem.returnedQuantity = Number(storedItem.returnedQuantity || 0) + quantity;
+    }
+
+    // Stage 21: an invoice with VAT gives back its VAT share (cumulative proportion by taxable value; the final return takes
+    // what is left). With prices excluding VAT the VAT is added on top of the refund; with prices including VAT it is inside it.
+    let vatReturn = null;
+    if (selling.vatRate !== undefined && selling.vatRate !== null) {
+      const included = selling.vatIncluded !== false;
+      const share = computeReturnVat({
+        invoice: { vatAmount: selling.vatAmount, shippingVat: selling.shippingVat, vatReturnedAmount: selling.vatReturnedAmount, items: (selling.items || []).map((item) => ({ unitPrice: item.unitPrice, quantity: item.quantity, returnedQuantity: item.returnedQuantity, vatExempt: item.vatExempt })) },
+        isFull,
+      });
+      const onTop = included ? 0 : share.vatAmount;
+      const base = isFull ? roundMoney(Math.max(0, Number(selling.totalPrice || 0) - previousRefundedAmount - onTop)) : subtotalReturnedAmount;
+      finalReturnedAmount = roundMoney(base + onTop);
+      discountAmount = roundMoney(Math.max(0, subtotalReturnedAmount - base));
+      shippingFees = roundMoney(Math.max(0, base - subtotalReturnedAmount));
+      const taxableLines = roundMoney(selections.reduce((sum, { invoiceItem, quantity }) => sum + (invoiceItem.vatExempt ? 0 : roundMoney(invoiceItem.unitPrice * quantity)), 0));
+      vatReturn = {
+        vatAmount: share.vatAmount,
+        vatPeriod: await periodFor(refundDate, session),
+        vatBreakdown: computeReturnBreakdown({ invoice: selling, linesValue: subtotalReturnedAmount, taxableLinesValue: taxableLines, shippingReturned: isFull ? roundMoney(selling.shippingFees || 0) : 0, shippingVat: share.vatShipping, baseRefund: base }),
+      };
     }
 
     // Stage 19: the cash refund comes out of a box (request boxId, else this PC's drawer, else the main box).
@@ -1134,13 +1188,16 @@ const addSellingRefund = asyncHandler(async (req, res) => {
       subtotalReturnedAmount, discountAmount, shippingFees, finalReturnedAmount,
       boxId: refundBox._id,
       createdBy: req.user?._id ?? req.user?.id,
+      ...(vatReturn || {}),
     }, session);
+    if (vatReturn) selling.vatReturnedAmount = roundMoney(Number(selling.vatReturnedAmount || 0) + vatReturn.vatAmount);
     selling.refunds.push({ refundDate, note: note?.trim() || undefined, items: refundItems, totalQuantity, totalAmount: finalReturnedAmount, returnLog: returnLog._id });
     selling.refundedQuantity = previousRefundedQuantity + totalQuantity;
     selling.refundedAmount = roundMoney(previousRefundedAmount + finalReturnedAmount);
     selling.refundStatus = isFull ? "full" : "partial";
     await selling.save({ session });
     await postReturn({ returnLog, sale: selling, session });
+    if (vatReturn) await recordVatEvent({ kind: "sale_return", direction: "output", sourceType: "return", sourceId: returnLog._id, number, date: refundDate, net: -roundMoney(finalReturnedAmount - vatReturn.vatAmount), vat: -vatReturn.vatAmount, session });
     await audit(req, { action: "sale.returned", entity: "Selling", entityId: selling._id, details: { number, amount: finalReturnedAmount }, session, strict: true });
     return { selling, returnLog };
   });

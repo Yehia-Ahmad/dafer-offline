@@ -72,6 +72,8 @@ export class CategoryToolsComponent implements OnInit {
     this.addCategory = this.fb.group({
       name: [null, Validators.required],
       imageBase64: [null],
+      // Stage 21: the bulk "معفى من الضريبة" toggle (sets every product in the category).
+      vatExempt: [false],
       specifications: this.fb.array([])
     })
   }
@@ -324,7 +326,8 @@ export class CategoryToolsComponent implements OnInit {
         const categoryDetails = response?.data || response?.category || response;
         this.editingCategory = { ...category, category: categoryDetails };
         this.addCategory.patchValue({
-          name: categoryDetails?.name || category.label || ''
+          name: categoryDetails?.name || category.label || '',
+          vatExempt: Boolean(categoryDetails?.vatExempt)
         });
         this.resetSpecificationControls(this.extractSpecifications(categoryDetails));
         this.imagePreview = categoryDetails?.image || this.imagePreview;
@@ -398,6 +401,10 @@ export class CategoryToolsComponent implements OnInit {
     if (!payload['imageBase64']) {
       delete payload['imageBase64'];
     }
+    // Stage 21: sent only when it is true (new category) or when it changed (edit): the server then sets it on every product.
+    const wasExempt = Boolean(this.editingCategory?.category?.vatExempt);
+    if (Boolean(payload['vatExempt']) === (this.editingCategory?.id ? wasExempt : false)) delete payload['vatExempt'];
+    else payload['vatExempt'] = Boolean(payload['vatExempt']);
     payload['specifications'] = ((payload['specifications'] as string[] | undefined) || [])
       .map((specification: string) => String(specification || '').trim())
       .filter(Boolean)

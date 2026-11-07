@@ -3,6 +3,7 @@
 .ex { display: flex; flex-direction: column; gap: 18px; }
 .ex__form { padding: 18px 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
 .ex__f140 { flex: 1 1 140px; }
+.ex__vat { display: block; font-size: 11px; color: var(--text-muted); font-weight: 400; }
 .ex__f180 { flex: 1 1 180px; }
 .ex__f220 { flex: 2 1 220px; }
 .ex__submit { min-height: 46px; }

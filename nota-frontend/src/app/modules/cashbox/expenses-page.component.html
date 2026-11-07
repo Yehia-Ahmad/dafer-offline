@@ -17,6 +17,12 @@
     <nota-form-field [label]="'cashbox.expenses.amount' | translate" forId="exAmount" class="ex__f140">
       <input id="exAmount" class="nota-input nota-num" type="number" min="0" step="0.01" name="amount" data-test="expense-amount" [ngModel]="amount()" (ngModelChange)="amount.set($event)" />
     </nota-form-field>
+    @if (vatContext()) {
+      <nota-form-field [label]="'vat.expense.amount' | translate" forId="exVat" class="ex__f140" [hint]="'vat.expense.hint' | translate"
+        [error]="vatInvalid() ? ('vat.expense.invalid' | translate) : null">
+        <input id="exVat" class="nota-input nota-num" type="number" min="0" step="0.01" name="vatAmount" data-test="expense-vat" [ngModel]="vatAmount()" (ngModelChange)="vatAmount.set($event === '' ? null : $event)" />
+      </nota-form-field>
+    }
     <nota-payment-box-select labelKey="cashbox.expenses.fromBox" class="ex__f180" />
     <nota-form-field [label]="'cashbox.expenses.date' | translate" forId="exDate" class="ex__f140">
       <input id="exDate" class="nota-input nota-num" type="date" name="date" data-test="expense-date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
@@ -72,7 +78,8 @@
                   <td>{{ row.categoryName }}</td>
                   <td>{{ row.note }}</td>
                   <td>{{ row.boxName }}</td>
-                  <td class="nota-num"><strong>{{ row.amount | notaMoney }}</strong></td>
+                  <td class="nota-num"><strong>{{ row.amount | notaMoney }}</strong>
+                    @if (row.vatAmount) { <small class="ex__vat" data-test="expense-row-vat">{{ 'vat.expense.inside' | translate: { vat: (row.vatAmount | notaMoney) } }}</small> }</td>
                   <td>{{ row.createdByName }}</td>
                   <td class="ex__actions">
                     @if (row.status === 'cancelled') {

@@ -9,6 +9,8 @@ const supplierSchema = new mongoose.Schema({
   address: { type: String, trim: true, maxlength: 300 },
   supplies: { type: String, trim: true, maxlength: 300 },
   taxNumber: { type: String, trim: true, maxlength: 50 },
+  // Stage 21: the default of "المورد مسجل ضريبيًا" on a new purchase.
+  vatRegistered: { type: Boolean },
   // 0 = cash; 30, 60 or any custom number of days.
   paymentTermsDays: { type: Number, min: 0, max: 3650, default: undefined },
   notes: { type: String, trim: true, maxlength: 1000 },

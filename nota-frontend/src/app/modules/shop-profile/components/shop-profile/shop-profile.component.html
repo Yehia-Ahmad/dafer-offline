@@ -97,6 +97,38 @@
           </nota-form-field>
         </section>
 
+        <!-- Stage 21: الضريبة — optional per shop. -->
+        <section class="sp__vat" data-test="vat-card" aria-labelledby="sp-vat-title">
+          <div class="sp__security-head">
+            <span class="sp__security-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 5L5 19"></path><circle cx="7" cy="7" r="2.5"></circle><circle cx="17" cy="17" r="2.5"></circle>
+              </svg>
+            </span>
+            <h2 id="sp-vat-title" class="nota-section-title sp__security-title">{{ 'vat.settings.title' | translate }}</h2>
+          </div>
+          <label class="sp__check"><input type="checkbox" formControlName="vatEnabled" data-field="vat-enabled" /> {{ 'vat.settings.enabled' | translate }}</label>
+          <p class="nota-hint">{{ 'vat.settings.enabledHint' | translate }}</p>
+          @if (vatNeedsTaxNumber()) {
+            <p class="sp__vat-warn" role="alert" data-test="vat-tax-required">{{ 'vat.settings.taxNumberRequired' | translate }}</p>
+          }
+          @if (preview().vatEnabled) {
+            <div class="sp__grid">
+              <nota-form-field [label]="'vat.settings.rate' | translate" forId="sp-vat-rate" [hint]="'vat.settings.rateHint' | translate" [error]="vatRateInvalid() && form.controls.vatRate.touched ? ('vat.settings.rateInvalid' | translate) : ''">
+                <input id="sp-vat-rate" type="text" inputmode="decimal" dir="ltr" class="nota-input sp__num sp__ltr" formControlName="vatRate" data-field="vat-rate" />
+              </nota-form-field>
+            </div>
+            <fieldset class="sp__vat-mode">
+              <legend>{{ 'vat.settings.pricing' | translate }}</legend>
+              <label class="sp__check"><input type="radio" [value]="true" formControlName="vatIncludes" data-field="vat-includes" /> {{ 'vat.settings.pricesInclude' | translate }}</label>
+              <label class="sp__check"><input type="radio" [value]="false" formControlName="vatIncludes" data-field="vat-excludes" /> {{ 'vat.settings.pricesExclude' | translate }}</label>
+            </fieldset>
+            @if (vatStartDate()) {
+              <p class="nota-hint" data-test="vat-start">{{ 'vat.settings.startDate' | translate }}: <span class="nota-num">{{ vatStartDate() | date: 'yyyy-MM-dd' }}</span></p>
+            }
+          }
+        </section>
+
         <div class="sp__footer">
           @if (outcome(); as result) {
             <span class="sp__status" role="status" [class.is-error]="result.kind === 'error'">

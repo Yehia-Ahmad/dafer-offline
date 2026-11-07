@@ -56,6 +56,7 @@ export class SupplierFormComponent implements OnInit {
     address: ['', Validators.maxLength(300)],
     supplies: ['', Validators.maxLength(300)],
     taxNumber: ['', Validators.maxLength(50)],
+    vatRegistered: [false],
     termsChoice: ['none' as PaymentTermsChoice],
     termsCustom: [null as number | null],
     notes: ['', Validators.maxLength(1000)],
@@ -69,11 +70,15 @@ export class SupplierFormComponent implements OnInit {
     });
   }
 
+  /** Stage 21: what the supplier had when it was loaded (an edit that clears the flag must send false). */
+  private hadVatRegistered = false;
+
   private patch(supplier: Supplier): void {
+    this.hadVatRegistered = Boolean(supplier.vatRegistered);
     const terms = daysToPaymentTerms(supplier.paymentTermsDays);
     this.form.patchValue({
       name: supplier.name, contactPerson: supplier.contactPerson ?? '', phone: supplier.phones?.[0] ?? '', address: supplier.address ?? '',
-      supplies: supplier.supplies ?? '', taxNumber: supplier.taxNumber ?? '', termsChoice: terms.choice, termsCustom: terms.custom, notes: supplier.notes ?? '',
+      supplies: supplier.supplies ?? '', taxNumber: supplier.taxNumber ?? '', vatRegistered: Boolean(supplier.vatRegistered), termsChoice: terms.choice, termsCustom: terms.custom, notes: supplier.notes ?? '',
     });
   }
 
@@ -87,6 +92,7 @@ export class SupplierFormComponent implements OnInit {
       address: value.address.trim(),
       supplies: value.supplies.trim(),
       taxNumber: value.taxNumber.trim(),
+      ...(value.vatRegistered || this.hadVatRegistered ? { vatRegistered: value.vatRegistered } : {}),
       paymentTermsDays: paymentTermsToDays(value.termsChoice, value.termsCustom),
       notes: value.notes.trim(),
     };

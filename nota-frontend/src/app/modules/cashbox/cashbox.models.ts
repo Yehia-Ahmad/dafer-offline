@@ -58,7 +58,7 @@ export interface ShiftSummary {
   status: 'open' | 'closed';
 }
 
-export type ShiftLineKey = 'float' | 'sales' | 'receipts' | 'transfersIn' | 'refunds' | 'expenses' | 'transfersOut' | 'payouts' | 'drawings' | 'supplierPayments' | 'supplierRefunds';
+export type ShiftLineKey = 'float' | 'sales' | 'receipts' | 'transfersIn' | 'refunds' | 'expenses' | 'transfersOut' | 'payouts' | 'drawings' | 'supplierPayments' | 'vatPayments' | 'supplierRefunds';
 
 export interface ShiftReport extends ShiftSummary {
   lines: { key: ShiftLineKey; amount: number }[];
@@ -175,6 +175,8 @@ export interface ExpenseRow {
   categoryName: string | null;
   categoryCode: string | null;
   amount: number;
+  /** Stage 21: the recoverable VAT inside `amount` (absent without VAT). */
+  vatAmount?: number;
   boxId: string;
   boxName: string | null;
   note?: string;

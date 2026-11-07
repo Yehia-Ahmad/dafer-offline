@@ -316,6 +316,17 @@ const getCustomerById = asyncHandler(async (req, res) => {
   });
 });
 
+// Stage 21: optional tax number (B2B). Blank/null clears it.
+const readTaxNumber = (value, res) => {
+  if (value === undefined || value === null) return "";
+  const text = String(value).trim();
+  if (text.length > 50) {
+    res.status(400);
+    throw new Error("يجب ألا يزيد الرقم الضريبي عن 50 حرف");
+  }
+  return text;
+};
+
 const createCustomer = asyncHandler(async (req, res) => {
   const name = normalizeRequiredString(
     getFirstDefined(req.body.name, req.body.customerName),
@@ -328,7 +339,8 @@ const createCustomer = asyncHandler(async (req, res) => {
     res
   );
 
-  const customer = await Customer.create({ name, phone });
+  const taxNumber = readTaxNumber(req.body.taxNumber, res);
+  const customer = await Customer.create({ name, phone, ...(taxNumber ? { taxNumber } : {}) });
   res.status(201).json(customer);
 });
 
@@ -349,6 +361,10 @@ const updateCustomer = asyncHandler(async (req, res) => {
 
   if (nextPhone !== undefined) {
     customer.phone = normalizeOptionalString(nextPhone, "رقم هاتف العميل", res);
+  }
+
+  if (req.body.taxNumber !== undefined) {
+    customer.taxNumber = readTaxNumber(req.body.taxNumber, res) || undefined;
   }
 
   const updatedCustomer = await customer.save();

@@ -3,7 +3,7 @@ const Account = require("../models/account.model");
 const CashBox = require("../models/cashBox.model");
 const Expense = require("../models/expense.model");
 const JournalEntry = require("../models/journalEntry.model");
-const { postEntry, line, boxAccount } = require("../accounting/posting");
+const { postEntry, line, boxAccount, accountMap } = require("../accounting/posting");
 const { nextDocumentNumber, PREFIXES } = require("../utils/documentNumber");
 const { roundMoney } = require("../utils/invoicePricing");
 const { withTransaction } = require("../utils/transaction");
@@ -11,6 +11,7 @@ const { audit } = require("../auth/audit");
 const boxes = require("../cashbox/boxes");
 const { can } = require("./cashbox.controller");
 const { positiveAmount, optionalDate, optionalText, requiredReason, requiredName } = require("../cashbox/validate");
+const { loadVatSettings, vatContext, periodFor, recordVatEvent } = require("../accounting/vat");
 
 const { httpError, isId } = boxes;
 
@@ -157,7 +158,13 @@ const createExpense = async (req, res) => {
   const date = optionalDate(body.date);
   const note = optionalText(body.note, 500);
   if (!isId(body.accountId)) throw httpError(400, "INVALID_CATEGORY", "اختار بند المصروف");
+  // Stage 21: the VAT the bill shows (recoverable). Only with VAT on; it is part of `amount`, not on top of it.
+  const vat = body.vatAmount === undefined || body.vatAmount === null || body.vatAmount === "" ? 0 : Number(body.vatAmount);
+  if (!Number.isFinite(vat) || vat < 0 || roundMoney(vat) !== vat) throw httpError(400, "INVALID_VAT", "قيمة الضريبة غير صالحة");
   const expense = await withTransaction(async (session) => {
+    const vatCtx = vatContext(await loadVatSettings(session), date);
+    if (vat > 0 && !vatCtx) throw httpError(400, "VAT_NOT_ENABLED", "الضريبة غير مفعّلة");
+    if (vat >= amount) throw httpError(400, "VAT_TOO_LARGE", "الضريبة لازم تكون أقل من إجمالي الفاتورة");
     const parent = await loadParent(session);
     const category = await Account.findById(body.accountId).session(session).lean();
     if (!category || !parent || String(category.parentId) !== String(parent._id) || category.isGroup || category.isActive === false) {
@@ -168,10 +175,13 @@ const createExpense = async (req, res) => {
     const balance = await boxes.boxBalance(box, session);
     if (roundMoney(balance - amount) < 0) throw httpError(409, "INSUFFICIENT_BALANCE", "رصيد الخزنة مش كفاية", { boxId: box._id, balance, required: amount });
     const number = await nextDocumentNumber(PREFIXES.EXPENSE, session);
-    const [created] = await Expense.create([{ number, date, accountId: category._id, amount, boxId: box._id, note }], { session });
+    const [created] = await Expense.create([{ number, date, accountId: category._id, amount, boxId: box._id, note, ...(vat > 0 ? { vatAmount: vat, vatPeriod: await periodFor(date, session) } : {}) }], { session });
+    // Dr category (net) [+ Dr VAT_INPUT = the VAT on the bill] / Cr box = amount (the cash that left).
+    const vatAccount = vat > 0 ? (await accountMap(["VAT_INPUT"], session)).get("VAT_INPUT") : null;
     await postEntry({ date, source: { type: "expense", id: created._id, number }, memo: note || category.nameAr, session, lines: [
-      line(category, amount, "debit"), line(await boxAccount(box._id, session), amount, "credit"),
+      line(category, roundMoney(amount - vat), "debit"), ...(vatAccount ? [line(vatAccount, vat, "debit")] : []), line(await boxAccount(box._id, session), amount, "credit"),
     ] });
+    if (vat > 0) await recordVatEvent({ kind: "expense", direction: "input", sourceType: "expense", sourceId: created._id, number, date, net: roundMoney(amount - vat), vat, session });
     await audit(req, { action: "expense.created", entity: "Expense", entityId: created._id, details: { number, amount, category: category.code, box: box.name }, session, strict: true });
     return created;
   });
@@ -193,6 +203,7 @@ const cancelExpense = async (req, res) => {
     expense.cancelledBy = req.user?._id; expense.cancelledByName = req.user?.name;
     await expense.save({ session });
     await boxes.reverseSourceEntries("expense", expense._id, { date: now, memo: `Expense cancelled: ${reason}`, session });
+    if (expense.vatAmount > 0) await recordVatEvent({ kind: "expense_cancel", direction: "input", sourceType: "expense", sourceId: expense._id, number: expense.number, date: now, net: -roundMoney(expense.amount - expense.vatAmount), vat: -expense.vatAmount, session });
     await audit(req, { action: "expense.cancelled", entity: "Expense", entityId: expense._id, details: { number: expense.number, reason }, session, strict: true });
     return expense;
   });

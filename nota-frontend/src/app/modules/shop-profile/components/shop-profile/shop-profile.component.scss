@@ -45,3 +45,11 @@
   background: var(--brand-soft); color: var(--brand-strong-text); }
 .sp__security-title { margin: 0; }
 .sp__select { max-width: 260px; }
+
+// Stage 21: the "الضريبة" card (same card look as الأمان).
+.sp__vat { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-card);
+  background: var(--surface-2); }
+.sp__check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.sp__vat-warn { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--warning-soft); color: var(--warning-text); font-size: 13px; }
+.sp__vat-mode { display: flex; flex-direction: column; gap: 8px; border: 0; padding: 0; margin: 0;
+  legend { font-size: 13px; font-weight: 600; color: var(--text-muted); padding: 0 0 6px; } }

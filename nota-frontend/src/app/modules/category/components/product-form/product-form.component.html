@@ -175,6 +175,7 @@
               <input id="pf-threshold" type="number" min="0" step="1" class="nota-input pf__num" [placeholder]="'5'"
                 [(ngModel)]="newLowStockThreshold" [ngModelOptions]="{ standalone: true }" />
             </nota-form-field>
+            <label class="pf__check" data-test="vat-exempt-new"><input type="checkbox" [(ngModel)]="newVatExempt" [ngModelOptions]="{ standalone: true }" /> {{ 'vat.exempt.label' | translate }}</label>
           </div>
         } @else {
           <div class="pf__stack">
@@ -191,6 +192,7 @@
               <input id="lowStockThreshold" type="number" min="0" step="1" class="nota-input pf__num" [placeholder]="'5'"
                 [(ngModel)]="editLowStockThreshold" [ngModelOptions]="{ standalone: true }" />
             </nota-form-field>
+            <label class="pf__check" data-test="vat-exempt-edit"><input type="checkbox" [(ngModel)]="editVatExempt" [ngModelOptions]="{ standalone: true }" /> {{ 'vat.exempt.label' | translate }}</label>
           </div>
         }
       </section>

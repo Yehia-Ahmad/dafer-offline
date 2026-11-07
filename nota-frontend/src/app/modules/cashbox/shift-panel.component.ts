@@ -13,9 +13,9 @@ export interface DepositOption {
 
 /** The lines that show even when they are 0 (the design's five); the rest only when something moved. */
 const ALWAYS_SHOWN: readonly ShiftLineKey[] = ['float', 'sales', 'receipts', 'refunds', 'expenses'];
-const MINUS_LINES: readonly ShiftLineKey[] = ['refunds', 'expenses', 'transfersOut', 'payouts', 'drawings', 'supplierPayments'];
+const MINUS_LINES: readonly ShiftLineKey[] = ['refunds', 'expenses', 'transfersOut', 'payouts', 'drawings', 'supplierPayments', 'vatPayments'];
 
-/** TODO(Stage 22 PrShiftClose): turn on when the shift report print template exists. */
+/** TODO(Stage 23 PrShiftClose): turn on when the shift report print template exists. */
 export const SHIFT_PRINT_ENABLED = false;
 
 /**

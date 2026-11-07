@@ -210,6 +210,10 @@
                   <div><dt>{{ 'customerDetailsPage.history.dueDate' | translate }}</dt><dd>{{ formatDate(entry.dueDate) }}</dd></div>
                   <div><dt>{{ 'customerDetailsPage.history.items' | translate }}</dt><dd class="nota-num">{{ entry.itemCount | notaNumber }} / {{ entry.totalQuantity | notaNumber }}</dd></div>
                   <div><dt>{{ 'customerDetailsPage.history.paymentsCount' | translate }}</dt><dd class="nota-num">{{ entry.paymentsCount | notaNumber }}</dd></div>
+                  @if (entry.vat; as vat) {
+                    <div data-test="vat-net"><dt>{{ 'vat.totals.net' | translate }}</dt><dd class="nota-num">{{ vat.netAmount | notaMoney }}</dd></div>
+                    <div data-test="vat-amount"><dt>{{ 'vat.totals.vat' | translate: { rate: vat.rate } }}</dt><dd class="nota-num">{{ vat.vatAmount | notaMoney }}</dd></div>
+                  }
                   <div><dt>{{ 'invoiceHistoryPage.cancel.originalTotal' | translate }}</dt><dd class="nota-num">{{ entry.totalPrice | notaMoney }}</dd></div>
                   <div><dt>{{ 'invoiceHistoryPage.s10.refundedAmount' | translate }}</dt><dd class="nota-num">{{ entry.refundedAmount | notaMoney }}</dd></div>
                   <div><dt>{{ 'invoiceHistoryPage.cancel.netTotal' | translate }}</dt><dd class="nota-num">{{ entry.netTotal | notaMoney }}</dd></div>
@@ -236,7 +240,7 @@
                         @for (item of entry.items; track trackHistoryItem($index, item)) {
                           <tr>
                             <td><span dir="auto">{{ item.productName || ('customerDetailsPage.labels.notAvailable' | translate) }}</span>
-                              <span class="cd__muted" dir="ltr">{{ item.productCode }}</span>@if (item.categoryName) {<span class="cd__muted"> · {{ item.categoryName }}</span>}</td>
+                              <span class="cd__muted" dir="ltr">{{ item.productCode }}</span>@if (item.categoryName) {<span class="cd__muted"> · {{ item.categoryName }}</span>}@if (item.vatExempt && entry.vat) { <span class="cd__muted" data-test="exempt-badge">({{ 'vat.exempt.badge' | translate }})</span> }</td>
                             <td class="num">{{ item.quantity | notaNumber }}</td>
                             <td class="num">{{ item.pricePerEach | notaMoney }}</td>
                             <td class="num">{{ item.totalPrice | notaMoney }}</td>

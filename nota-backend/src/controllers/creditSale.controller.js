@@ -18,6 +18,8 @@ const Receipt = require("../models/receipt.model");
 const PartyOpening = require("../models/partyOpening.model");
 const { openingRemaining } = require("../services/customerOpenItems.service");
 const { nextDocumentNumber } = require("../utils/documentNumber");
+const { priceNewInvoice, repriceEditedInvoice, recordVatEvent, periodFor, today } = require("../accounting/vat");
+const { computeReturnVat, computeReturnBreakdown, round2: vatRound2 } = require("../utils/vat");
 
 const REACTIONARY_CREDIT_SALE_STATUS = "returned";
 const CREDIT_SALE_STATUSES = new Set([
@@ -1007,6 +1009,9 @@ const createCreditSaleInTransaction = async (req, res, session) => {
   });
   const persistedItems = buildPersistedItems(items, productsById);
   const invoiceTotals = buildInvoiceTotals(persistedItems, invoicePricing);
+  // Stage 21: VAT (only when the shop has it on and the invoice date is on/after its start date).
+  const vat = await priceNewInvoice({ persistedItems, productsById, invoiceTotals, businessDate: normalizedSellingDate, session });
+  if (vat) invoiceTotals.totalPrice = vat.computed.totalPrice;
   const invoiceId = new mongoose.Types.ObjectId();
   const invoiceNumber = await nextDocumentNumber(PREFIXES.CREDIT_INVOICE, session);
   const receiptNumber = initialPaidAmount > 0 ? await nextDocumentNumber(PREFIXES.RECEIPT, session) : null;
@@ -1052,6 +1057,7 @@ const createCreditSaleInTransaction = async (req, res, session) => {
       status: creditAmounts.status,
       notes: normalizedNotes,
       payments,
+      ...(vat ? vat.fields : {}),
   }], { session });
   const creditSale = created[0];
   if (initialPaidAmount > 0) {
@@ -1072,6 +1078,7 @@ const createCreditSaleInTransaction = async (req, res, session) => {
 
   await audit(req, { action: "credit.created", entity: "CreditSale", entityId: creditSale._id, session, strict: true });
   await postSale({ sale: creditSale, credit: true, customer, session });
+  if (vat) await recordVatEvent({ kind: "sale", direction: "output", sourceType: "credit_sale", sourceId: creditSale._id, number: creditSale.number, date: creditSale.sellingDate, net: creditSale.netAmount, vat: creditSale.vatAmount, session });
   if (initialPaidAmount > 0) {
     const receipt = await Receipt.findById(receiptId).session(session).lean();
     await postReceipt({ receipt, customer, session });
@@ -1304,6 +1311,7 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
   let nextItems = currentItems;
   let productsById = new Map();
   let persistedItems = null;
+  let vatEdit = null;
 
   if (shouldUpdateItems) {
     if (req.body.items === undefined && currentItems.length !== 1) {
@@ -1353,6 +1361,9 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
         ? persistedItems
         : getCurrentCreditSaleDocumentItems(creditSale);
       const invoiceTotals = buildInvoiceTotals(pricingItems, invoicePricing);
+      // Stage 21: an invoice that has VAT keeps the rate and mode it was saved with; its VAT is recomputed from the new figures.
+      vatEdit = repriceEditedInvoice({ invoice: oldCreditSale, persistedItems: pricingItems, productsById, invoiceTotals });
+      if (vatEdit) invoiceTotals.totalPrice = vatEdit.computed.totalPrice;
       const creditAmounts = calculateCreditAmounts(
         invoiceTotals.totalPrice,
         creditSale.payments,
@@ -1377,6 +1388,10 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
       creditSale.discountPercentage = undefined;
       creditSale.shippingFees = invoiceTotals.shippingFees;
       creditSale.totalPrice = invoiceTotals.totalPrice;
+      if (vatEdit) {
+        if (!shouldUpdateItems) (creditSale.items || []).forEach((item, index) => { item.vatAmount = vatEdit.computed.itemVat[index]; });
+        Object.assign(creditSale, vatEdit.fields);
+      }
       applyCreditAmountsToInvoice(creditSale, creditAmounts);
     }
 
@@ -1398,6 +1413,12 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
     customer: customer || { _id: updatedCreditSale.customer, name: updatedCreditSale.customerName },
     date: new Date(), session,
   });
+  if (vatEdit) {
+    // The edit gets its OWN vatPeriod (its own date); the original month is never rewritten.
+    const vatDelta = vatRound2(updatedCreditSale.vatAmount - (oldCreditSale.vatAmount || 0));
+    const netDelta = vatRound2(updatedCreditSale.netAmount - (oldCreditSale.netAmount || 0));
+    if (vatDelta !== 0 || netDelta !== 0) await recordVatEvent({ kind: "sale_edit", direction: "output", sourceType: "credit_sale", sourceId: updatedCreditSale._id, number: updatedCreditSale.number, date: today(), net: netDelta, vat: vatDelta, session });
+  }
   await audit(req, { action: "credit.updated", entity: "CreditSale", entityId: creditSale._id, session, strict: true });
   return updatedCreditSale;
 };
@@ -1619,7 +1640,22 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
       shippingFees: creditSale.shippingFees,
     });
     const currentNetTotal = roundMoney(Math.max(0, Number(creditSale.totalPrice || 0) - previousRefundedAmount));
-    const nextNetTotal = isFullRefund ? 0 : remainingTotals.totalPrice;
+    // Stage 21: an invoice with VAT gives back its VAT share (cumulative proportion by taxable value; the final return takes
+    // what is left). With prices excluding VAT the VAT stays on top of the remaining receivable.
+    let vatShare = null;
+    let vatOnTop = 0;
+    let vatRemainingOnTop = 0;
+    if (creditSale.vatRate !== undefined && creditSale.vatRate !== null) {
+      const included = creditSale.vatIncluded !== false;
+      const returningNow = new Map(refundSelections.map(({ invoiceItem, quantity }) => [String(invoiceItem._id), quantity]));
+      vatShare = computeReturnVat({
+        invoice: { vatAmount: creditSale.vatAmount, shippingVat: creditSale.shippingVat, vatReturnedAmount: creditSale.vatReturnedAmount, items: (creditSale.items || []).map((item) => ({ unitPrice: item.unitPrice, quantity: item.quantity, returnedQuantity: Number(item.returnedQuantity || 0) + (returningNow.get(String(item._id)) || 0), vatExempt: item.vatExempt })) },
+        isFull: isFullRefund,
+      });
+      vatOnTop = included ? 0 : vatShare.vatAmount;
+      vatRemainingOnTop = included ? 0 : roundMoney(Math.max(0, (creditSale.vatAmount || 0) - (creditSale.vatReturnedAmount || 0) - vatShare.vatAmount));
+    }
+    const nextNetTotal = isFullRefund ? 0 : roundMoney(remainingTotals.totalPrice + vatRemainingOnTop);
     const finalReturnedAmount = roundMoney(currentNetTotal - nextNetTotal);
     if (finalReturnedAmount < 0) { res.status(400); throw new Error("قيمة المرتجع غير صالحة"); }
 
@@ -1661,7 +1697,17 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
 
     const subtotalReturnedAmount = roundMoney(refundTotals.totalAmount);
     const returnedShippingFees = isFullRefund ? roundMoney(creditSale.shippingFees || 0) : 0;
-    const returnedDiscountAmount = roundMoney(Math.max(0, subtotalReturnedAmount + returnedShippingFees - finalReturnedAmount));
+    const baseReturned = roundMoney(Math.max(0, finalReturnedAmount - vatOnTop));
+    const returnedDiscountAmount = roundMoney(Math.max(0, subtotalReturnedAmount + returnedShippingFees - baseReturned));
+    let vatReturn = null;
+    if (vatShare) {
+      const taxableLines = roundMoney(refundSelections.reduce((sum, { invoiceItem, quantity }) => sum + (invoiceItem.vatExempt ? 0 : roundMoney(invoiceItem.unitPrice * quantity)), 0));
+      vatReturn = {
+        vatAmount: vatShare.vatAmount,
+        vatPeriod: await periodFor(refundDate, session),
+        vatBreakdown: computeReturnBreakdown({ invoice: creditSale, linesValue: subtotalReturnedAmount, taxableLinesValue: taxableLines, shippingReturned: returnedShippingFees, shippingVat: vatShare.vatShipping, baseRefund: baseReturned }),
+      };
+    }
     const returnLog = await createReturnLog({
       number, returnType: "credit", invoiceId: creditSale._id, invoiceNumber: creditSale.number,
       customerName: creditSale.customerName, customerPhone: creditSale.customerPhone,
@@ -1674,7 +1720,9 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
       subtotalReturnedAmount, discountAmount: returnedDiscountAmount,
       shippingFees: returnedShippingFees, finalReturnedAmount,
       createdBy: req.user?._id ?? req.user?.id,
+      ...(vatReturn || {}),
     }, session);
+    if (vatReturn) creditSale.vatReturnedAmount = roundMoney(Number(creditSale.vatReturnedAmount || 0) + vatReturn.vatAmount);
 
     creditSale.refunds.push({
       refundDate, note: refundNote, items: refundItems,
@@ -1689,6 +1737,7 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
     applyCreditAmountsToInvoice(creditSale, creditAmounts, isFullRefund ? REACTIONARY_CREDIT_SALE_STATUS : undefined);
     await creditSale.save({ session });
     await postReturn({ returnLog, sale: creditSale, customer: await Customer.findById(creditSale.customer).session(session).lean(), session });
+    if (vatReturn) await recordVatEvent({ kind: "sale_return", direction: "output", sourceType: "return", sourceId: returnLog._id, number, date: refundDate, net: -roundMoney(finalReturnedAmount - vatReturn.vatAmount), vat: -vatReturn.vatAmount, session });
     await audit(req, { action: "credit.returned", entity: "CreditSale", entityId: creditSale._id, details: { number, amount: finalReturnedAmount }, session, strict: true });
     return creditSale;
   });
@@ -1724,9 +1773,13 @@ const cancelCreditSale = asyncHandler(async (req, res) => {
       ? await resolveBox({ req, boxId: req.body?.boxId, session, direction: "out" }) : null;
     if (refundBox) invoice.cancelRefundBoxId = refundBox._id;
     invoice.remainingAmount = 0;
+    // Stage 21: a cancel gets its own vatPeriod (its own date), never the original month.
+    const hasVat = invoice.vatRate !== undefined && invoice.vatRate !== null;
+    if (hasVat) invoice.cancelVatPeriod = await periodFor(today(), session);
     await invoice.save({ session });
     const party = { _id: invoice.customer, name: invoice.customerName };
     await postInvoiceCancel({ Model: CreditSale, sale: invoice, credit: true, customer: party, session });
+    if (hasVat) await recordVatEvent({ kind: "sale_cancel", direction: "output", sourceType: "credit_sale", sourceId: invoice._id, number: invoice.number, date: today(), net: -(invoice.netAmount || 0), vat: -(invoice.vatAmount || 0), session });
     const downPayment = payments.find((payment) => payment.source === "down_payment");
     if (invoice.cancelRefundAmount > 0 && downPayment) {
       const accounts = await accountMap(["CUSTOMERS"], session);

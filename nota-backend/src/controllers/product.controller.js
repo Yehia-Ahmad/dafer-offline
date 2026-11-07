@@ -229,6 +229,13 @@ const allocateItemDiscounts = (items, discountAmount) => {
   });
 };
 
+// Stage 21: with prices including VAT the VAT inside a line is not revenue or profit. The line's VAT share was stored when
+// the invoice was saved (item.vatAmount); with prices excluding VAT the line price is already net.
+const vatInsideLine = (invoice, item, remainingRatio) =>
+  invoice.vatRate !== undefined && invoice.vatRate !== null && invoice.vatIncluded !== false
+    ? roundMoney(Number(item.vatAmount || 0) * remainingRatio)
+    : 0;
+
 const buildProductProfitReportRow = (product) => ({
   productId: product._id,
   productName: product.name,
@@ -356,10 +363,11 @@ const buildProductProfitRows = async ({ products, startDate, endDate }) => {
       const purchasePrice = roundMoney(Number(item.purchasePrice ?? 0));
       const remainingRatio = originalQuantity > 0 ? quantity / originalQuantity : 0;
       const remainingDiscount = roundMoney(Number(itemDiscounts[index] || 0) * remainingRatio);
-      const revenue = roundMoney(totalPrice - remainingDiscount);
+      const vatInside = vatInsideLine(selling, item, remainingRatio);
+      const revenue = roundMoney(totalPrice - remainingDiscount - vatInside);
       const profit =
         item.profitAmount !== undefined && item.profitAmount !== null
-          ? roundMoney((Number(item.profitAmount || 0) - Number(itemDiscounts[index] || 0)) * remainingRatio)
+          ? roundMoney((Number(item.profitAmount || 0) - Number(itemDiscounts[index] || 0)) * remainingRatio - vatInside)
           : roundMoney(revenue - purchasePrice * quantity);
 
       addInvoiceToProductProfitReport({
@@ -400,10 +408,11 @@ const buildProductProfitRows = async ({ products, startDate, endDate }) => {
       const purchasePrice = roundMoney(Number(item.purchasePrice ?? 0));
       const remainingRatio = originalQuantity > 0 ? quantity / originalQuantity : 0;
       const remainingDiscount = roundMoney(Number(itemDiscounts[index] || 0) * remainingRatio);
-      const revenue = roundMoney(totalPrice - remainingDiscount);
+      const vatInside = vatInsideLine(creditSale, item, remainingRatio);
+      const revenue = roundMoney(totalPrice - remainingDiscount - vatInside);
       const profit =
         item.profitAmount !== undefined && item.profitAmount !== null
-          ? roundMoney((Number(item.profitAmount || 0) - Number(itemDiscounts[index] || 0)) * remainingRatio)
+          ? roundMoney((Number(item.profitAmount || 0) - Number(itemDiscounts[index] || 0)) * remainingRatio - vatInside)
           : roundMoney(revenue - purchasePrice * quantity);
 
       addInvoiceToProductProfitReport({
@@ -700,6 +709,17 @@ const createProductInTransaction = async (req, res, session) => {
     payload.soldItemCount = normalizedSoldItemCount;
   }
 
+  // Stage 21: explicit flag, else inherit the category's bulk setting.
+  if (req.body.vatExempt !== undefined) {
+    if (typeof req.body.vatExempt !== "boolean") {
+      res.status(400);
+      throw new Error("قيمة الإعفاء من الضريبة غير صالحة");
+    }
+    payload.vatExempt = req.body.vatExempt;
+  } else if (category.vatExempt) {
+    payload.vatExempt = true;
+  }
+
   if (lowStockThreshold !== undefined && lowStockThreshold !== null) {
     payload.lowStockThreshold = lowStockThreshold;
   }
@@ -855,6 +875,13 @@ const updateProductInTransaction = async (req, res, session) => {
     product.image = req.body.imageBase64;
   } else if (req.body.image !== undefined) {
     product.image = req.body.image;
+  }
+  if (req.body.vatExempt !== undefined) {
+    if (typeof req.body.vatExempt !== "boolean") {
+      res.status(400);
+      throw new Error("قيمة الإعفاء من الضريبة غير صالحة");
+    }
+    product.vatExempt = req.body.vatExempt;
   }
   if (req.body.wholesalePrice !== undefined) product.wholesalePrice = req.body.wholesalePrice;
   if (req.body.purchasePrice !== undefined) product.purchasePrice = req.body.purchasePrice;
@@ -1157,6 +1184,34 @@ const getYearProfitBarChart = asyncHandler(async (req, res) => {
             0,
           ],
         },
+        // Stage 21: profit is net of VAT. With prices including VAT, the VAT inside the lines still on the invoice is removed
+        // (the stored per-line share); an invoice without VAT, or with prices excluding VAT, contributes 0.
+        vatInside: {
+          $cond: [
+            { $and: [{ $ne: [{ $type: "$vatRate" }, "missing"] }, { $ne: ["$vatIncluded", false] }] },
+            {
+              $sum: {
+                $map: {
+                  input: { $ifNull: ["$items", []] },
+                  as: "item",
+                  in: {
+                    $multiply: [
+                      { $ifNull: ["$$item.vatAmount", 0] },
+                      {
+                        $cond: [
+                          { $gt: [{ $ifNull: ["$$item.quantity", 0] }, 0] },
+                          { $divide: [{ $max: [0, { $subtract: [{ $ifNull: ["$$item.quantity", 0] }, { $ifNull: ["$$item.returnedQuantity", 0] }] }] }, "$$item.quantity"] },
+                          0,
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+            0,
+          ],
+        },
       },
     },
     {
@@ -1164,7 +1219,7 @@ const getYearProfitBarChart = asyncHandler(async (req, res) => {
         _id: "$month",
         profit: {
           $sum: {
-            $subtract: ["$itemsProfit", { $multiply: ["$discountAmount", "$remainingRatio"] }],
+            $subtract: [{ $subtract: ["$itemsProfit", { $multiply: ["$discountAmount", "$remainingRatio"] }] }, "$vatInside"],
           },
         },
       },

@@ -50,7 +50,9 @@ export class CustomersComponent implements OnInit {
   ) {
     this.customerForm = this._formBuilder.group({
       name: [null, Validators.required],
-      phone: [null, Validators.required]
+      phone: [null, Validators.required],
+      // Stage 21: optional tax number (B2B).
+      taxNumber: ['']
     });
   }
 
@@ -109,6 +111,9 @@ export class CustomersComponent implements OnInit {
     this.loadCustomers();
   }
 
+  /** Stage 21: the loaded customer had a tax number (an edit that clears it must send ''). */
+  private hadTaxNumber = false;
+
   saveCustomer(): void {
     if (this.customerForm.invalid || this.isFormBusy || this.isDeleting) {
       this.customerForm.markAllAsTouched();
@@ -117,7 +122,14 @@ export class CustomersComponent implements OnInit {
 
     this.isSubmitting = true;
     this.formError = '';
-    const payload = this.customerForm.getRawValue() as Pick<Customer, 'name' | 'phone'>;
+    const raw = this.customerForm.getRawValue();
+    // Stage 21: the tax number goes out only when filled, or '' to clear one the customer had: otherwise the body is what it always was.
+    const taxNumber = String(raw.taxNumber ?? '').trim();
+    const payload = {
+      name: raw.name,
+      phone: raw.phone,
+      ...(taxNumber || this.hadTaxNumber ? { taxNumber } : {})
+    } as Pick<Customer, 'name' | 'phone' | 'taxNumber'>;
     const request$ = this.selectedCustomerId
       ? this._customersService.updateCustomer(this.selectedCustomerId, payload)
       : this._customersService.createCustomer(payload);
@@ -147,9 +159,11 @@ export class CustomersComponent implements OnInit {
       next: (response: any) => {
         const customerDetails = this.extractCustomer(response) ?? customer;
         this.selectedCustomerId = customerDetails._id ?? customer._id ?? null;
+        this.hadTaxNumber = Boolean(customerDetails.taxNumber);
         this.customerForm.patchValue({
           name: customerDetails.name ?? '',
-          phone: customerDetails.phone ?? ''
+          phone: customerDetails.phone ?? '',
+          taxNumber: customerDetails.taxNumber ?? ''
         });
         this.isLoadingCustomer = false;
       },
@@ -206,7 +220,8 @@ export class CustomersComponent implements OnInit {
     this.selectedCustomerId = null;
     this.formDialogVisible = false;
     this.formError = '';
-    this.customerForm.reset();
+    this.hadTaxNumber = false;
+    this.customerForm.reset({ taxNumber: '' });
     this._cdr.markForCheck();
   }
 

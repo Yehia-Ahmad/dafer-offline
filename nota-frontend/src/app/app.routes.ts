@@ -107,6 +107,12 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/accounting/opening-wizard.component').then(m => m.OpeningWizardComponent)
     },
     {
+        // Stage 21: the monthly VAT return.
+        path: 'accounting/vat',
+        canActivate: [permissionGuard(ROUTE_RULES.vat)],
+        loadComponent: () => import('./modules/accounting/vat-returns.component').then(m => m.VatReturnsComponent)
+    },
+    {
         path: 'suppliers',
         canActivate: [permissionGuard(ROUTE_RULES.suppliers)],
         loadComponent: () => import('./modules/suppliers/suppliers-page.component').then(m => m.SuppliersPageComponent)

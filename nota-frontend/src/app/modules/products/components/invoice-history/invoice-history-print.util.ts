@@ -6,6 +6,8 @@ import {
 } from '../../../shop-profile/utils/invoice-branding.util';
 
 export type InvoiceHistoryItem = {
+  /** Stage 21: "معفى من الضريبة" (absent = taxable). */
+  vatExempt?: boolean;
   id: string;
   invoiceId: string;
   productId: string;
@@ -39,6 +41,10 @@ export type InvoiceHistoryRow = {
   shippingFees: number | null;
   totalPrice: number | null;
   netTotal?: number | null;
+  /** Stage 21: the VAT stored on the invoice (absent for an invoice saved with VAT off). */
+  vat?: InvoiceVatInfo;
+  /** Stage 21: the customer's tax number, when the invoice has one (B2B). */
+  customerTaxNumber?: string | null;
   status?: 'active' | 'cancelled' | string;
   cancellationReason?: string | null;
   /** Display only: the box that paid a cancelled cash sale's refund. */
@@ -52,6 +58,8 @@ export type InvoiceHistoryRow = {
 };
 
 export type InvoicePrintLanguage = 'ar' | 'en';
+
+import { InvoiceVatInfo, VAT_PRINT_CSS, customerTaxRow, exemptMark, taxInvoiceBanner, taxInvoiceTitle, vatTotalsHtml } from '../../../shared/vat/vat-print';
 
 type InvoiceDocumentLabels = {
   toolbarPrint: string;
@@ -110,10 +118,10 @@ export function buildInvoiceDocument(params: {
     : '';
   const totalPrice = formatInvoiceMetric(selling.totalPrice, language);
   const unitLabel = isArabic ? 'قطعة' : 'Piece';
-  const title = isArabic ? `فاتورة ${invoiceNumber}` : `Invoice ${invoiceNumber}`;
+  const title = taxInvoiceTitle(isArabic ? `فاتورة ${invoiceNumber}` : `Invoice ${invoiceNumber}`, selling.vat, language);
   const escapedArabicFontUrl = escapeCssString(fontUrls.arabic);
   const escapedLatinFontUrl = escapeCssString(fontUrls.latin);
-  const tableRows = buildInvoiceTableRows(selling.items, language, unitLabel);
+  const tableRows = buildInvoiceTableRows(selling.items, language, unitLabel, selling.vat);
   const discountSummaryItem = hasDiscountPercentage
     ? `<div class="summary-item">
                 <p class="summary-label">${labels.discountPercentage}</p>
@@ -461,7 +469,7 @@ ${INVOICE_BRANDING_STYLES}
           border: 0;
         }
       }
-    </style>
+${VAT_PRINT_CSS}    </style>
   </head>
   <body>
     <div class="screen-toolbar">
@@ -472,6 +480,7 @@ ${INVOICE_BRANDING_STYLES}
     <main class="invoice-sheet">
       <section class="invoice-body">
         ${buildInvoiceHeaderHtml(branding)}
+        ${taxInvoiceBanner(selling.vat, language)}
 
         <section class="info-layout">
           <article class="info-card info-card--customer">
@@ -481,6 +490,7 @@ ${INVOICE_BRANDING_STYLES}
               <div class="info-value">${customerName}</div>
               <div class="info-label">${labels.customerPhone}</div>
               <div class="info-value">${customerPhone}</div>
+              ${customerTaxRow(selling.customerTaxNumber, language)}
             </div>
           </article>
 
@@ -543,6 +553,7 @@ ${INVOICE_BRANDING_STYLES}
             </div>
             ${discountTotalItem}
             ${shippingTotalItem}
+            ${vatTotalsHtml(selling.vat, language, (value) => formatInvoiceMetric(value, language))}
             <div class="grand-total">
               <span>${labels.invoiceTotal}</span>
               <strong>${totalPrice}</strong>
@@ -706,7 +717,8 @@ function hasInvoiceValue(value: number | null | undefined): value is number {
 function buildInvoiceTableRows(
   items: InvoiceHistoryItem[],
   language: InvoicePrintLanguage,
-  unitLabel: string
+  unitLabel: string,
+  vat?: InvoiceVatInfo
 ): string {
   const fallback = getInvoiceFallbackValue(language);
 
@@ -726,7 +738,7 @@ function buildInvoiceTableRows(
   return items
     .map((item, index) => {
       const productCode = escapeHtml(item.productCode || fallback);
-      const productName = escapeHtml(item.productName || fallback);
+      const productName = escapeHtml(item.productName || fallback) + exemptMark(item.vatExempt, vat, language);
       const categoryName = escapeHtml(item.categoryName || fallback);
       const quantity = formatInvoiceMetric(item.quantity, language);
       const unitPrice = formatInvoiceMetric(item.unitPrice, language);

@@ -105,7 +105,10 @@
                     <p-inputNumber formControlName="price" [mode]="'decimal'" [min]="0" [useGrouping]="false"
                       [ariaLabel]="'creditSalePage.fields.unitPrice' | translate" styleClass="cs__control" inputStyleClass="cs__num-input" />
                   </td>
-                  <td class="num cs__line-total">{{ getLineTotal(index) | notaMoney }}</td>
+                  <td class="num cs__line-total">
+                    {{ getLineTotal(index) | notaMoney }}
+                    @if (isExemptLine(index)) { <span class="cs__exempt" data-test="exempt-badge">{{ 'vat.exempt.badge' | translate }}</span> }
+                  </td>
                   <td>
                     <button type="button" notaButton icon (click)="removeLineItem(index)"
                       [attr.aria-label]="(lineItemControls.length === 1 ? 'creditSalePage.actions.clearItem' : 'creditSalePage.actions.removeItem') | translate"
@@ -147,7 +150,11 @@
           </nota-form-field>
         </div>
         <dl class="cs__rows">
-          <div class="cs__net"><dt>{{ 'creditSalePage.form.netTotal' | translate }}</dt><dd class="nota-num">{{ totalReceivable | notaMoney }}</dd></div>
+          @if (vatView; as vat) {
+            <div data-test="vat-net"><dt>{{ 'vat.totals.net' | translate }}</dt><dd class="nota-num">{{ vat.netAmount | notaMoney }}</dd></div>
+            <div data-test="vat-amount"><dt>{{ 'vat.totals.vat' | translate: { rate: vat.rate } }}</dt><dd class="nota-num">{{ vat.vatAmount | notaMoney }}</dd></div>
+          }
+          <div class="cs__net"><dt>{{ (vatView ? 'vat.totals.total' : 'creditSalePage.form.netTotal') | translate }}</dt><dd class="nota-num">{{ totalReceivable | notaMoney }}</dd></div>
         </dl>
         <nota-form-field [label]="'creditSalePage.fields.downPayment' | translate" forId="csDownPayment"
           [error]="isDownPaymentExceeded() ? ('creditSalePage.messages.downPaymentExceeded' | translate) : null">

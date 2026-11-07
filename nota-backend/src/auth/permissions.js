@@ -47,6 +47,8 @@ const PERMISSIONS = {
   "backup.manage": { group: "admin", ar: "النسخ الاحتياطي والاستعادة", en: "Backup and restore" },
   "accounting.view": { group: "accounting", ar: "عرض الحسابات", en: "View accounting" },
   "accounting.manage": { group: "accounting", ar: "إدارة الحسابات", en: "Manage accounting" },
+  // Stage 21: prepare/file/pay/unfile the monthly VAT return.
+  "vat.file": { group: "accounting", ar: "تقديم الإقرار الضريبي وسداد الضريبة", en: "File the VAT return and pay VAT" },
 
   // Stage 19: cash boxes, shifts, expenses, owner drawings.
   "cashbox.view": { group: "cashbox", ar: "عرض الخزائن وأرصدتها", en: "View cash boxes and balances" },
@@ -116,7 +118,7 @@ const ROLE_TEMPLATES = Object.freeze({
     "expenses.create",
   ]),
   storekeeper: Object.freeze(["products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view", "purchases.view", "purchases.create"]),
-  accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view", "purchases.view", "suppliers.pay", "cashbox.view", "expenses.create", "expenses.manage"]),
+  accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view", "purchases.view", "suppliers.pay", "cashbox.view", "expenses.create", "expenses.manage", "vat.file"]),
 });
 
 const ROLE_LABELS = {

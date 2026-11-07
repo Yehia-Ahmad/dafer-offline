@@ -16,6 +16,10 @@ const Purchase = require("../models/purchase.model");
 const SupplierPayment = require("../models/supplierPayment.model");
 const PurchaseReturn = require("../models/purchaseReturn.model");
 const SupplierRefund = require("../models/supplierRefund.model");
+const Expense = require("../models/expense.model");
+const VatEvent = require("../models/vatEvent.model");
+const VatReturn = require("../models/vatReturn.model");
+const VatPayment = require("../models/vatPayment.model");
 const { supplierStatementBalances } = require("../services/supplierStatement.service");
 const PartyOpening = require("../models/partyOpening.model");
 const { loadOpeningState, saveOpening, finalizeOpening, currentOpeningEntry, getOpeningMeta } = require("../accounting/opening");
@@ -238,7 +242,8 @@ const getHealth = async (req, res) => {
     const items = invoice.items || [];
     if (inLedger(invoice)) {
       if (cancelled) continue;
-      expectedNetSales += Number(invoice.totalPrice || 0) - Number(invoice.refundedAmount || 0);
+      // Stage 21: net sales exclude VAT on both sides (the ledger's SALES accounts never hold it): remove the VAT still on the invoice.
+      expectedNetSales += Number(invoice.totalPrice || 0) - Number(invoice.refundedAmount || 0) - (Number(invoice.vatAmount || 0) - Number(invoice.vatReturnedAmount || 0));
       expectedCogs += sum(items, (item) => Number(item.purchasePrice || 0) * Math.max(0, Number(item.quantity || 0) - returnedUnits(invoice, item)));
       continue;
     }
@@ -320,8 +325,40 @@ const getHealth = async (req, res) => {
   const boxesCheck = await buildBoxesCheck({ meta, ledgerStartAt, accountBalance, accounts: accountsAll });
 
   const shiftsCheck = await buildShiftsCheck();
+  const vatCheck = await buildVatCheck({ sales, credits, actual });
 
-  res.json({ trialBalance, inventory, customers: customersCheck, suppliers: suppliersCheck, opening: openingCheck, netSales, cogs, entries, boxes: boxesCheck, shifts: shiftsCheck });
+  res.json({ trialBalance, inventory, customers: customersCheck, suppliers: suppliersCheck, opening: openingCheck, netSales, cogs, entries, boxes: boxesCheck, shifts: shiftsCheck, vat: vatCheck });
+};
+
+/**
+ * 10. VAT (Stage 21), from documents only:
+ *   VAT_PAYABLE = Σ output VAT of the (not cancelled) invoices still owed - Σ offsets of filed returns - Σ VAT payments
+ *   VAT_INPUT   = Σ input VAT of the (not cancelled) purchases and expenses - Σ offsets of filed returns
+ * and the stored VatEvent rows (what the monthly return reads) must add up to the same documents. difference = Σ |each difference|.
+ */
+const buildVatCheck = async ({ sales, credits, actual }) => {
+  const [purchases, expenses, returns, payments, events] = await Promise.all([
+    Purchase.find({ vatAmount: { $gt: 0 }, status: "posted" }).select("vatAmount vatReturnedAmount").lean(),
+    Expense.find({ vatAmount: { $gt: 0 }, status: "posted" }).select("vatAmount").lean(),
+    VatReturn.find({ status: "filed" }).select("offset").lean(),
+    VatPayment.find({ status: "posted" }).select("amount").lean(),
+    VatEvent.aggregate([{ $group: { _id: "$direction", vat: { $sum: "$vat" } } }]),
+  ]);
+  const outputDocs = roundMoney(sum([...sales, ...credits].filter((invoice) => invoice.status !== "cancelled"), (invoice) => Number(invoice.vatAmount || 0) - Number(invoice.vatReturnedAmount || 0)));
+  const inputDocs = roundMoney(sum(purchases, (row) => Number(row.vatAmount || 0) - Number(row.vatReturnedAmount || 0)) + sum(expenses, (row) => row.vatAmount));
+  const offsets = roundMoney(sum(returns, (row) => row.offset));
+  const paid = roundMoney(sum(payments, (row) => row.amount));
+  const eventTotal = (direction) => roundMoney(events.find((row) => row._id === direction)?.vat || 0);
+  // Ledger balances are debit - credit: VAT_PAYABLE is a liability (owed = -balance), VAT_INPUT an asset (balance).
+  const payable = check(roundMoney(outputDocs - offsets - paid), -actual("VAT_PAYABLE"));
+  const input = check(roundMoney(inputDocs - offsets), actual("VAT_INPUT"));
+  const outputEvents = check(outputDocs, eventTotal("output"));
+  const inputEvents = check(inputDocs, eventTotal("input"));
+  return {
+    expected: payable.expected, actual: payable.actual,
+    difference: roundMoney(Math.abs(payable.difference) + Math.abs(input.difference) + Math.abs(outputEvents.difference) + Math.abs(inputEvents.difference)),
+    payable, input, outputEvents, inputEvents, offsets, paid,
+  };
 };
 
 const signedKey = (accountId, partyId) => `${accountId}:${partyId || ""}`;

@@ -20,6 +20,8 @@ const categorySchema = new mongoose.Schema(
           "يجب أن تكون صورة الفئة سلسلة base64 صالحة (خام أو بصيغة data URI)",
       },
     },
+    // Stage 21: the bulk "معفى من الضريبة" toggle; setting it also sets every product in the category.
+    vatExempt: { type: Boolean },
     specifications: {
       type: [
         {

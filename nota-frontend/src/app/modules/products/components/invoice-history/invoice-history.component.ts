@@ -31,6 +31,7 @@ import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.c
 import { PaymentBoxService } from '../../../cashbox/payment-box.service';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 import { RouterLink } from '@angular/router';
+import { toInvoiceVat } from '../../../shared/vat/vat-print';
 
 type SelectOption = {
   label: string;
@@ -413,6 +414,7 @@ export class InvoiceHistoryComponent implements OnInit {
       shippingFees: this.toNumber(item.shippingFees),
       totalPrice: this.resolveInvoiceTotal(item, items),
       netTotal: this.toNumber(item.netTotal),
+      ...(toInvoiceVat(item) ? { vat: toInvoiceVat(item) } : {}),
       status: String(item.status || 'active'),
       cancellationReason: item.cancellationReason ? String(item.cancellationReason) : null,
       cancelRefundAmount: this.toNumber(item.cancelRefundAmount),
@@ -474,7 +476,8 @@ export class InvoiceHistoryComponent implements OnInit {
       quantity: this.toNumber(item.productQuantity ?? item.productQuentity ?? item.quantity),
       returnedQuantity: this.toNumber(item.returnedQuantity),
       unitPrice: this.toNumber(item.productPricePerEach ?? item.price),
-      totalPrice: this.toNumber(item.totalPrice ?? item.total)
+      totalPrice: this.toNumber(item.totalPrice ?? item.total),
+      ...(item.vatExempt === true ? { vatExempt: true } : {})
     };
   }
 

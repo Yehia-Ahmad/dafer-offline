@@ -17,7 +17,7 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
 
 /**
  * Stage 20: the selected supplier's panel on the suppliers page (docs/design/screens/Suppliers.dc.html): what we owe,
- * "سداد دفعة", "فاتورة شراء", "طباعة كشف" (hidden until Stage 22), the statement table (credit = we bought, debit = we
+ * "سداد دفعة", "فاتورة شراء", "طباعة كشف" (hidden until Stage 23), the statement table (credit = we bought, debit = we
  * paid), its totals and the aging by due date.
  */
 @Component({

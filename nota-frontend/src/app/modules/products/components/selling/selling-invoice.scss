@@ -19,6 +19,7 @@
 .pos__step{width:36px;height:42px;border:0;background:transparent;color:var(--text);font-size:18px;cursor:pointer}
 .pos__stepper{justify-self:start}
 .pos__line-total{justify-self:end;font-size:15px;font-weight:700}
+.pos__exempt{justify-self:end;font-size:12px;font-weight:700;padding:2px 8px;border-radius:var(--radius-pill);background:var(--info-soft);color:var(--info-text)}
 .pos__stats{display:flex;justify-content:space-between;font-size:13px;color:var(--text-muted)}
 .pos__totals{margin:0;display:flex;flex-direction:column;gap:6px;font-size:14px;
   div{display:flex;justify-content:space-between;gap:8px}dt{color:var(--text-muted)}dd{margin:0}}

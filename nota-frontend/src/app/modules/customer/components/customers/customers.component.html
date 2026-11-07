@@ -84,6 +84,9 @@
         [error]="customerForm.get('phone')?.invalid && customerForm.get('phone')?.touched ? ('customerPage.form.validation.phone' | translate) : null">
         <input id="cuPhone" type="text" class="nota-input" dir="ltr" formControlName="phone" [placeholder]="'customerPage.form.placeholders.phone' | translate" />
       </nota-form-field>
+      <nota-form-field [label]="'vat.customer.taxNumber' | translate" forId="cuTax" [hint]="'vat.customer.taxNumberHint' | translate">
+        <input id="cuTax" type="text" class="nota-input" dir="ltr" maxlength="50" formControlName="taxNumber" data-field="customer-tax" />
+      </nota-form-field>
       @if (formError) {<p class="cu__error" role="alert">{{ formError }}</p>}
       <button type="submit" hidden></button>
     </form>

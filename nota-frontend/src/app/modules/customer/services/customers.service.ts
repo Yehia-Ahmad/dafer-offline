@@ -7,6 +7,8 @@ export interface Customer {
   _id?: string;
   name: string;
   phone: string;
+  /** Stage 21: shown on the invoice for B2B customers. */
+  taxNumber?: string;
   isIndebted?: boolean;
   /** Stage 18: open invoices + the opening balance still to collect. */
   outstanding?: number;
@@ -149,11 +151,11 @@ export class CustomersService {
     return this._http.post(`${this._baseUrl}customers/${id}/payments`, { ...payload, firstInvoice: true });
   }
 
-  createCustomer(payload: Pick<Customer, 'name' | 'phone'>) {
+  createCustomer(payload: Pick<Customer, 'name' | 'phone' | 'taxNumber'>) {
     return this._http.post(`${this._baseUrl}customers`, payload);
   }
 
-  updateCustomer(id: string, payload: Pick<Customer, 'name' | 'phone'>) {
+  updateCustomer(id: string, payload: Pick<Customer, 'name' | 'phone' | 'taxNumber'>) {
     return this._http.put(`${this._baseUrl}customers/${id}`, payload);
   }
 

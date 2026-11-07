@@ -72,6 +72,9 @@ export class ProductFormComponent implements OnInit {
    */
   newDiscountPercentage: number | string | null = '';
   newLowStockThreshold: number | string | null = '';
+  /** Stage 21: "معفى من الضريبة". Sent only when it is true (add) or when it changed (edit), so a shop without VAT sends what it always sent. */
+  newVatExempt = false;
+  editVatExempt = false;
 
   // ---------- edit (from the old /products/edit/:id) ----------
   isLoading: boolean = false;
@@ -253,6 +256,7 @@ export class ProductFormComponent implements OnInit {
     if (isFilled(this.newLowStockThreshold)) {
       payload.lowStockThreshold = Number(this.newLowStockThreshold);
     }
+    if (this.newVatExempt) payload.vatExempt = true;
 
     this._cateoryService.addNewProduct(payload).pipe(
       takeUntilDestroyed(this.destroyRef)
@@ -377,6 +381,7 @@ export class ProductFormComponent implements OnInit {
         this.productDetails = this.buildProductDetails(this.product);
         this.newInventory = null;
         this.editLowStockThreshold = isFilled(this.product?.lowStockThreshold) ? this.product.lowStockThreshold : '';
+        this.editVatExempt = Boolean(this.product?.vatExempt);
         this.editSnapshot = this.editState();
         this.cdr.detectChanges();
       }, error: (err: any) => {
@@ -426,6 +431,7 @@ export class ProductFormComponent implements OnInit {
       specifications: this.normalizeProductDetails(this.productDetails),
       // Stage 12: only when filled, or null to clear a threshold the product had; otherwise not sent.
       ...this.lowStockThresholdUpdate(),
+      ...(this.editVatExempt !== Boolean(this.product?.vatExempt) ? { vatExempt: this.editVatExempt } : {}),
     };
     // Stage 14: without products.viewCost the purchase price is not sent; the server keeps the stored one.
     if (!this._auth.has('products.viewCost')) delete (payload as { purchasePrice?: unknown }).purchasePrice;

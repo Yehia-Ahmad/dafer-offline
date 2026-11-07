@@ -14,6 +14,7 @@ const boxes = require("../cashbox/boxes");
 const { nonNegativeAmount, positiveAmount, optionalDate, optionalText, requiredReason } = require("../cashbox/validate");
 const { can } = require("./cashbox.controller");
 const { postSupplierPayment, postSupplierRefund, balanceOf, touchSupplier } = require("./supplierAccount.controller");
+const { loadVatSettings, vatContext, periodFor, recordVatEvent } = require("../accounting/vat");
 
 const { httpError, isId } = boxes;
 
@@ -64,15 +65,28 @@ const createPurchase = async (req, res) => {
   if (discountAmount > subtotal) throw httpError(400, "DISCOUNT_TOO_LARGE", "الخصم أكبر من إجمالي الفاتورة");
   const { lineCosts, total } = allocateCosts(lineTotals, discountAmount, otherCosts);
   if (total <= 0) throw httpError(400, "TOTAL_REQUIRED", "إجمالي الفاتورة لازم يكون أكبر من صفر");
-  if (paidAmount > total) throw httpError(400, "PAID_EXCEEDS_TOTAL", "المدفوع أكبر من إجمالي الفاتورة");
   // Paying is a separate permission: a storekeeper's purchase is "آجل كله" unless a payer does it.
   if (paidAmount > 0 && !can(req, "suppliers.pay")) throw httpError(403, "PAY_NOT_ALLOWED", "مفيش صلاحية دفع للموردين. سجّل الفاتورة آجل");
+  // Stage 21: "المورد مسجل ضريبيًا" (default: the supplier's flag) and the supplier's printed VAT amount (default: shop rate × net total).
+  const vatInput = {
+    registered: body.vatRegistered,
+    amount: body.vatAmount === undefined || body.vatAmount === "" || body.vatAmount === null ? undefined : nonNegativeAmount(body.vatAmount, "ضريبة الفاتورة"),
+  };
+  if (vatInput.registered !== undefined && typeof vatInput.registered !== "boolean") throw httpError(400, "INVALID_VAT", "حالة تسجيل المورد ضريبيًا غير صالحة");
 
   const purchase = await withTransaction(async (session) => {
     const supplier = await Supplier.findById(body.supplierId).session(session);
     if (!supplier) throw httpError(404, "SUPPLIER_NOT_FOUND", "المورد غير موجود");
     if (supplier.isActive === false) throw httpError(409, "SUPPLIER_INACTIVE", "المورد موقوف");
-    const accounts = await accountMap(["INVENTORY", "INVENTORY_ADJUSTMENT", "SUPPLIERS"], session);
+    const vatCtx = vatContext(await loadVatSettings(session), date);
+    if (!vatCtx && vatInput.amount > 0) throw httpError(400, "VAT_NOT_ENABLED", "الضريبة غير مفعّلة");
+    const vatRegistered = vatCtx ? (vatInput.registered === undefined ? Boolean(supplier.vatRegistered) : vatInput.registered) : false;
+    // Line costs (and so the stock value and the average) stay on the amount WITHOUT VAT: recoverable VAT is never inventory.
+    const vat = vatCtx && vatRegistered ? (vatInput.amount !== undefined ? vatInput.amount : roundMoney(total * vatCtx.rate / 100)) : 0;
+    if (vat > total) throw httpError(400, "VAT_TOO_LARGE", "الضريبة أكبر من إجمالي الفاتورة");
+    const gross = roundMoney(total + vat);
+    if (paidAmount > gross) throw httpError(400, "PAID_EXCEEDS_TOTAL", "المدفوع أكبر من إجمالي الفاتورة");
+    const accounts = await accountMap(["INVENTORY", "INVENTORY_ADJUSTMENT", "SUPPLIERS", ...(vat > 0 ? ["VAT_INPUT"] : [])], session);
 
     // Stock and cost, line by line (two lines of one product see each other's result).
     const rows = []; let stockValueChange = 0;
@@ -96,22 +110,25 @@ const createPurchase = async (req, res) => {
     const pvId = paidAmount > 0 ? new mongoose.Types.ObjectId() : undefined;
     const number = await nextDocumentNumber(PREFIXES.PURCHASE_ORDER, session);
     const [created] = await Purchase.create([{
-      _id: purchaseId, number, supplierId: supplier._id, supplierName: supplier.name, supplierInvoiceNo, date, items: rows, subtotal, discountAmount, otherCosts, total,
+      _id: purchaseId, number, supplierId: supplier._id, supplierName: supplier.name, supplierInvoiceNo, date, items: rows, subtotal, discountAmount, otherCosts, total: gross,
       paidAmount, pvId, notes,
+      ...(vatCtx ? { netTotal: total, vatAmount: vat, vatRate: vatCtx.rate, vatRegistered, vatPeriod: await periodFor(date, session), vatReturnedAmount: 0 } : {}),
     }], { session });
-    // Entry 1, the purchase: Dr INVENTORY (the value the stock really gained) / Cr SUPPLIERS = total.
-    // The difference to the invoice total (the 2-decimal rounding of the new averages) is INVENTORY_ADJUSTMENT.
+    // Entry 1, the purchase: Dr INVENTORY (the value the stock really gained) [+ Dr VAT_INPUT = the recoverable VAT] / Cr SUPPLIERS = total.
+    // The difference to the net invoice total (the 2-decimal rounding of the new averages) is INVENTORY_ADJUSTMENT.
     await postEntry({ date, source: { type: "purchase", id: created._id, number }, memo: `Purchase ${number}`, session, lines: [
       signed(accounts.get("INVENTORY"), stockValueChange), signed(accounts.get("INVENTORY_ADJUSTMENT"), roundMoney(total - stockValueChange)),
-      line(accounts.get("SUPPLIERS"), total, "credit", partyOf(supplier)),
+      ...(vat > 0 ? [line(accounts.get("VAT_INPUT"), vat, "debit")] : []),
+      line(accounts.get("SUPPLIERS"), gross, "credit", partyOf(supplier)),
     ] });
+    if (vat > 0) await recordVatEvent({ kind: "purchase", direction: "input", sourceType: "purchase", sourceId: created._id, number, date, net: total, vat, session });
     // Entry 2, what was paid with it: the PV, Dr SUPPLIERS / Cr box.
     if (paidAmount > 0) {
       const { payment, box } = await postSupplierPayment({ req, session, supplier, amount: paidAmount, boxId: body.boxId, date, note: `Paid with ${number}`, purchase: created, id: pvId });
       created.boxId = box._id; await created.save({ session });
       created._pv = payment;
     }
-    await audit(req, { action: "purchase.created", entity: "Purchase", entityId: created._id, details: { number, supplier: supplier.name, total, paidAmount, rounding: roundMoney(total - stockValueChange) }, session, strict: true });
+    await audit(req, { action: "purchase.created", entity: "Purchase", entityId: created._id, details: { number, supplier: supplier.name, total: gross, paidAmount, rounding: roundMoney(total - stockValueChange) }, session, strict: true });
     return created;
   });
   const boxNames = await boxNameMap();
@@ -180,6 +197,8 @@ const cancelPurchase = async (req, res) => {
     const reversals = await boxes.reverseSourceEntries("purchase", purchase._id, { date: now, memo: `Purchase cancelled: ${reason}`, session });
     // INVENTORY leaves at the CURRENT cost (purchasePrice stays at the current average); the difference is INVENTORY_ADJUSTMENT.
     await postInventoryValueAdjustment({ restoredUnits: units, entries: reversals, date: now, source: { type: "purchase_cancel", id: purchase._id, number: purchase.number }, memo: `Purchase ${purchase.number} cancel cost`, session });
+    // Stage 21: the recoverable VAT comes back out of the VAT input of the cancel's own period (the reversal above mirrors it).
+    if (purchase.vatAmount > 0) await recordVatEvent({ kind: "purchase_cancel", direction: "input", sourceType: "purchase", sourceId: purchase._id, number: purchase.number, date: now, net: -(purchase.netTotal || 0), vat: -purchase.vatAmount, session });
     await audit(req, { action: "purchase.cancelled", entity: "Purchase", entityId: purchase._id, details: { number: purchase.number, reason }, session, strict: true });
     return purchase;
   });
@@ -208,7 +227,8 @@ const createPurchaseReturn = async (req, res) => {
     if (!purchase) throw httpError(404, "PURCHASE_NOT_FOUND", "فاتورة الشراء غير موجودة");
     if (purchase.status !== "posted") throw httpError(409, "PURCHASE_CANCELLED", "فاتورة الشراء ملغية");
     const supplier = await Supplier.findById(purchase.supplierId).session(session);
-    const accounts = await accountMap(["INVENTORY", "INVENTORY_ADJUSTMENT", "SUPPLIERS"], session);
+    const hasVat = purchase.vatAmount > 0;
+    const accounts = await accountMap(["INVENTORY", "INVENTORY_ADJUSTMENT", "SUPPLIERS", ...(hasVat ? ["VAT_INPUT"] : [])], session);
     const returnItems = []; const units = new Map(); let total = 0; let inventoryAtCost = 0;
     for (const [itemId, qty] of wanted) {
       const item = purchase.items.id(itemId);
@@ -226,14 +246,31 @@ const createPurchaseReturn = async (req, res) => {
     }
     total = roundMoney(total); inventoryAtCost = roundMoney(inventoryAtCost);
     if (total <= 0) throw httpError(400, "NOTHING_TO_RETURN", "قيمة المرتجع صفر");
+    // Stage 21: the return gives back its share of the purchase's VAT, by the net value returned so far (cumulative proportion);
+    // the return that empties the invoice takes what is left, so Σ returned VAT = the purchase VAT exactly.
+    const netReturned = total;
+    let vatReturned = 0;
+    if (hasVat) {
+      const priorVat = roundMoney(purchase.vatReturnedAmount || 0);
+      const allReturned = purchase.items.every((item) => item.returnedQty === item.qty);
+      const cumulativeNet = roundMoney(purchase.items.reduce((sum, item) => sum + item.returnedValue, 0));
+      vatReturned = allReturned
+        ? roundMoney(purchase.vatAmount - priorVat)
+        : Math.min(roundMoney(purchase.vatAmount - priorVat), Math.max(0, roundMoney(purchase.vatAmount * cumulativeNet / purchase.netTotal - priorVat)));
+      purchase.vatReturnedAmount = roundMoney(priorVat + vatReturned);
+      total = roundMoney(netReturned + vatReturned);
+    }
     await purchase.save({ session });
     const number = await nextDocumentNumber(PREFIXES.PURCHASE_RETURN, session);
-    const [created] = await PurchaseReturn.create([{ number, purchaseId: purchase._id, supplierId: purchase.supplierId, date, items: returnItems, total, reason }], { session });
-    // Dr SUPPLIERS = the line value. Cr INVENTORY = qty × the CURRENT cost (so INVENTORY = Σ stock × purchasePrice holds); the rest is INVENTORY_ADJUSTMENT.
+    const [created] = await PurchaseReturn.create([{ number, purchaseId: purchase._id, supplierId: purchase.supplierId, date, items: returnItems, total, reason, ...(hasVat ? { netTotal: netReturned, vatAmount: vatReturned, vatPeriod: await periodFor(date, session) } : {}) }], { session });
+    // Dr SUPPLIERS = the line value (+ its VAT share). Cr INVENTORY = qty × the CURRENT cost (so INVENTORY = Σ stock × purchasePrice holds);
+    // the rest is INVENTORY_ADJUSTMENT; Cr VAT_INPUT = the VAT given back.
     await postEntry({ date, source: { type: "purchase_return", id: created._id, number }, memo: reason || `Purchase return ${number}`, session, lines: [
       line(accounts.get("SUPPLIERS"), total, "debit", partyOf(supplier)), line(accounts.get("INVENTORY"), inventoryAtCost, "credit"),
-      signed(accounts.get("INVENTORY_ADJUSTMENT"), roundMoney(inventoryAtCost - total)),
+      signed(accounts.get("INVENTORY_ADJUSTMENT"), roundMoney(inventoryAtCost - netReturned)),
+      ...(vatReturned > 0 ? [line(accounts.get("VAT_INPUT"), vatReturned, "credit")] : []),
     ] });
+    if (vatReturned > 0) await recordVatEvent({ kind: "purchase_return", direction: "input", sourceType: "purchase_return", sourceId: created._id, number, date, net: -netReturned, vat: -vatReturned, session });
     let refund = null;
     if (refundAmount > 0) {
       // Cash only comes back for what the supplier now owes US: min(return value, max(0, -balance after the return)). While we still

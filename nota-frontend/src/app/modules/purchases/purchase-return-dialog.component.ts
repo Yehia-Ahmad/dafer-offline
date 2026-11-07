@@ -54,7 +54,10 @@ export function returnValue(item: { qty: number; lineCost: number; returnedQty: 
           <nota-form-field [label]="'purchases.return.reason' | translate" forId="prdReason">
             <input id="prdReason" class="nota-input" type="text" name="reason" maxlength="500" data-test="return-reason" [ngModel]="reason()" (ngModelChange)="reason.set($event)" />
           </nota-form-field>
-          <p class="prd__total" data-test="return-total">{{ 'purchases.return.total' | translate }}: <b class="nota-num">{{ total() | notaMoney }}</b></p>
+          <p class="prd__total" data-test="return-total">{{ 'purchases.return.total' | translate }}: <b class="nota-num">{{ grossTotal() | notaMoney }}</b></p>
+          @if (p.vatAmount) {
+            <p class="prd__cap" data-test="return-vat">{{ 'vat.purchase.returnVat' | translate: { net: (total() | notaMoney), vat: (vatShare() | notaMoney) } }}</p>
+          }
           @if (canRefund()) {
             <nota-form-field [label]="'purchases.return.refund' | translate" forId="prdRefund" [error]="refundInvalid() ? ('purchases.errors.refundRange' | translate: { max: (refundCap() | notaMoney) }) : null">
               <input id="prdRefund" class="nota-input nota-num" type="number" min="0" step="0.01" name="refund" data-test="refund" [ngModel]="refund()" (ngModelChange)="refund.set($event)" />
@@ -102,6 +105,22 @@ export class PurchaseReturnDialogComponent {
     return p.items.map((item) => ({ item, qty: Number(this.qtys()[item._id] ?? 0) })).filter((row) => row.qty > 0);
   });
   readonly total = computed(() => round2(this.picked().reduce((sum, row) => sum + returnValue(row.item, row.qty), 0)));
+  /**
+   * Stage 21: the VAT given back with this return: the purchase VAT shared by the net value returned so far (cumulative), and the
+   * return that empties the invoice takes what is left (same rule as the backend, so the numbers agree).
+   */
+  readonly vatShare = computed(() => {
+    const p = this.purchase();
+    if (!p || !(p.vatAmount && p.vatAmount > 0) || this.total() <= 0) return 0;
+    const prior = p.vatReturnedAmount ?? 0;
+    const pickedQty = new Map(this.picked().map((row) => [row.item._id, row.qty]));
+    const emptiesInvoice = p.items.every((item) => item.qty - item.returnedQty === (pickedQty.get(item._id) ?? 0));
+    if (emptiesInvoice) return round2(p.vatAmount - prior);
+    const cumulativeNet = round2(p.items.reduce((sum, item) => sum + item.returnedValue, 0) + this.total());
+    return Math.min(round2(p.vatAmount - prior), Math.max(0, round2((p.vatAmount * cumulativeNet) / (p.netTotal || 1) - prior)));
+  });
+  /** What the supplier credits us: the net value + its VAT share (the net alone with VAT off). */
+  readonly grossTotal = computed(() => round2(this.total() + this.vatShare()));
   readonly overAvailable = computed(() => this.picked().some((row) => !Number.isInteger(row.qty) || row.qty > row.item.qty - row.item.returnedQty));
   /**
    * The most cash that can come back: min(the return's value, what the supplier will owe US after the return), the same cap the
@@ -109,9 +128,9 @@ export class PurchaseReturnDialogComponent {
    */
   readonly refundCap = computed(() => {
     const balance = this.balance();
-    if (balance === null) return this.total();
+    if (balance === null) return this.grossTotal();
     if (balance === undefined) return 0;
-    return Math.min(this.total(), Math.max(0, round2(this.total() - balance)));
+    return Math.min(this.grossTotal(), Math.max(0, round2(this.grossTotal() - balance)));
   });
   readonly refundInvalid = computed(() => (this.refund() ?? 0) < 0 || (this.refund() ?? 0) > this.refundCap());
   readonly valid = computed(() => this.picked().length > 0 && !this.overAvailable() && !this.refundInvalid());

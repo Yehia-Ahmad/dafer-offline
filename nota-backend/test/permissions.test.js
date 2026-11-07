@@ -40,6 +40,8 @@ const EXPECTED_CATALOG = [
   "accounting.view", "accounting.manage",
   // Stage 19
   "cashbox.view", "cashbox.manage", "shift.operate", "shift.manage", "expenses.create", "expenses.manage", "owner.drawings",
+  // Stage 21
+  "vat.file",
 ];
 
 test("catalog: exactly the Stage 13 keys, each with an Arabic and English label and a group", () => {
@@ -66,7 +68,7 @@ test("role templates match the spec", () => {
   assert.deepEqual(sorted(ROLE_TEMPLATES.accountant), sorted([
     "sales.view", "credit.view", "returns.view", "customers.view", "products.view", "dashboard.view",
     "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view",
-    "purchases.view", "suppliers.pay", "cashbox.view", "expenses.create", "expenses.manage",
+    "purchases.view", "suppliers.pay", "cashbox.view", "expenses.create", "expenses.manage", "vat.file",
   ]));
   assert.deepEqual(permissionsForRole("custom"), []);
 });
@@ -182,6 +184,13 @@ const EXPECTED_ROUTES = {
   "GET /api/expenses": "expenses.create | expenses.manage | cashbox.view",
   "POST /api/expenses": "expenses.create",
   "POST /api/expenses/:id/cancel": "expenses.manage",
+  // Stage 21
+  "GET /api/vat/returns": "vat.file | accounting.view",
+  "GET /api/vat/returns/:period": "vat.file | accounting.view",
+  "GET /api/vat/returns/:period/export": "vat.file | accounting.view",
+  "POST /api/vat/returns/:period/file": "vat.file",
+  "POST /api/vat/returns/:period/pay": "vat.file",
+  "POST /api/vat/returns/:period/unfile": "vat.file",
   "GET /api/devices": "cashbox.manage",
   "GET /api/suppliers": "suppliers.view",
   "POST /api/suppliers": "suppliers.manage",

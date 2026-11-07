@@ -938,6 +938,7 @@
             "expenses": "Expenses",
             "accounts": "Chart of accounts",
             "journal": "Journal entries",
+            "vat": "VAT",
             "reports": "Financial reports",
             "profit": "Profit report",
             "users": "Users & permissions",
@@ -1709,7 +1710,8 @@
                 "payouts": "Customer credit payouts",
                 "drawings": "Owner drawings",
                 "supplierPayments": "Supplier payments",
-                "supplierRefunds": "Supplier refunds"
+                "supplierRefunds": "Supplier refunds",
+                "vatPayments": "VAT payments"
             },
             "expected": "Should be in the drawer",
             "counted": "Actually counted",
@@ -2019,6 +2021,160 @@
             "BOX_INACTIVE": "This box is closed.",
             "BOX_NOT_ALLOWED": "This box is not available to you.",
             "ADVANCE_NOT_CONFIRMED": "Confirm the advance first."
+        }
+    },
+    "vat": {
+        "settings": {
+            "title": "VAT",
+            "enabled": "Enable value-added tax",
+            "enabledHint": "Optional. A shop with VAT off sees and posts exactly what it always did. Turning it on applies from today and does not touch older invoices.",
+            "taxNumberRequired": "Enter the shop's tax number (above) before turning VAT on.",
+            "rate": "VAT rate %",
+            "rateHint": "0 to 100, two decimals. A new rate applies to new documents only.",
+            "rateInvalid": "The rate must be between 0 and 100 with at most two decimals",
+            "pricing": "Shop prices",
+            "pricesInclude": "Prices include VAT (the normal retail case)",
+            "pricesExclude": "Prices exclude VAT (the tax is added on top)",
+            "startDate": "VAT applies from"
+        },
+        "exempt": {
+            "label": "VAT exempt",
+            "badge": "Exempt",
+            "categoryLabel": "VAT exempt (every product in the category)",
+            "categoryHint": "Applies the exemption to every product now in the category; new products added to it are exempt too."
+        },
+        "supplier": {
+            "registered": "Supplier is VAT registered"
+        },
+        "customer": {
+            "taxNumber": "Tax number (optional)",
+            "taxNumberHint": "Shown on the invoice for business customers."
+        },
+        "totals": {
+            "net": "Net",
+            "vat": "VAT {{rate}}%",
+            "total": "Total"
+        },
+        "purchase": {
+            "registered": "Supplier is VAT registered",
+            "amount": "Invoice VAT ({{rate}}% of the net)",
+            "amountHint": "Computed at the shop rate on the invoice total without VAT. Edit it to match the supplier's printed invoice.",
+            "invalid": "VAT must be between 0 and the invoice total",
+            "input": "Recoverable input VAT",
+            "returnVat": "Returned net {{net}} + its VAT share {{vat}}"
+        },
+        "expense": {
+            "amount": "VAT on the bill",
+            "hint": "Optional. Part of the amount paid; recorded as recoverable input VAT.",
+            "invalid": "VAT must be less than the bill total",
+            "inside": "includes VAT {{vat}}"
+        },
+        "returns": {
+            "title": "VAT return",
+            "subtitle": "Output VAT − input VAT = what you pay, or a credit carried to next month.",
+            "loadFailed": "Could not load the VAT returns",
+            "off": "VAT is not enabled for this shop. Turn it on in the shop profile.",
+            "period": "Month",
+            "output": "Sales VAT (output)",
+            "input": "Purchases VAT (input)",
+            "carried": "Credit carried in",
+            "net": "Net",
+            "status": "Status",
+            "filedAt": "Filed on",
+            "creditTag": "credit",
+            "export": "Export Excel",
+            "file": "File the return",
+            "pay": "Pay VAT",
+            "unfile": "Unfile",
+            "creditForward": "Credit carried forward",
+            "payable": "Payable",
+            "paid": "Paid",
+            "remaining": "Remaining",
+            "orderRule": "Returns are filed in month order. Next month: {{next}}",
+            "notStarted": "This month has not started yet. Its return can be filed once the month begins.",
+            "documents": "Documents",
+            "number": "Number",
+            "date": "Date",
+            "lineNet": "Net",
+            "lineVat": "VAT",
+            "total": "Total",
+            "noLines": "No documents in this month",
+            "payments": "Payments"
+        },
+        "status": {
+            "open": "Open",
+            "filed": "Filed",
+            "paid": "Paid",
+            "partial": "Partly paid"
+        },
+        "groups": {
+            "sales": "Sales",
+            "returns": "Sales returns",
+            "purchases": "Purchases",
+            "purchaseReturns": "Purchase returns",
+            "expenses": "Expenses"
+        },
+        "kinds": {
+            "sale": "invoice",
+            "sale_edit": "invoice edit",
+            "sale_cancel": "invoice cancelled",
+            "sale_return": "return",
+            "purchase": "purchase",
+            "purchase_cancel": "purchase cancelled",
+            "purchase_return": "purchase return",
+            "expense": "expense",
+            "expense_cancel": "expense cancelled"
+        },
+        "close": "Close",
+        "cancel": "Cancel",
+        "file": {
+            "title": "File the {{period}} return",
+            "posting": "The entry that will be posted",
+            "debit": "Dr VAT payable (22)",
+            "credit": "Cr Recoverable input VAT (115)",
+            "creditNote": "Input VAT is larger: the difference stays on account 115 as a credit and carries to next month.",
+            "payableNote": "What is left after the offset stays payable on account 22 until it is paid.",
+            "confirm": "Confirm filing"
+        },
+        "pay": {
+            "title": "Pay the {{period}} VAT",
+            "remaining": "Remaining on the return",
+            "amount": "Amount",
+            "invalid": "The amount must be above zero and no more than what remains",
+            "fromBox": "Pay from",
+            "reference": "Reference (receipt or transfer number)",
+            "note": "Note",
+            "confirm": "Confirm payment"
+        },
+        "unfile": {
+            "title": "Unfile {{period}}",
+            "note": "Owner only, the latest return only, with no payment. The offset entry is reversed.",
+            "reason": "Reason",
+            "confirm": "Unfile"
+        },
+        "errors": {
+            "loadFailed": "Could not load the month",
+            "exportFailed": "Could not export the file",
+            "generic": "Something went wrong. Try again.",
+            "OUT_OF_ORDER": "Returns are filed in month order with no gaps. File the earlier month first.",
+            "ALREADY_FILED": "This return was already filed.",
+            "PERIOD_NOT_STARTED": "This month has not started yet.",
+            "EXCEEDS_REMAINING": "The amount is more than what remains on the return.",
+            "NOTHING_DUE": "There is no VAT due for this month.",
+            "NOT_FILED": "This return has not been filed yet.",
+            "NOT_LATEST": "Only the latest return can be unfiled.",
+            "HAS_PAYMENTS": "This return has a payment, so it cannot be unfiled.",
+            "OWNER_ONLY": "Only the owner can unfile a return.",
+            "INSUFFICIENT_BALANCE": "The box does not have enough money.",
+            "NO_OPEN_SHIFT": "There is no open shift on this box.",
+            "BOX_INACTIVE": "This box is closed.",
+            "BOX_NOT_ALLOWED": "This box is not available to you."
+        },
+        "dashboard": {
+            "includesVat": "incl. VAT",
+            "due": "VAT due",
+            "dueNote": "payable {{payable}} − input {{input}}",
+            "open": "Return"
         }
     }
 }

@@ -1,5 +1,6 @@
 const { buildInvoiceTotals } = require("./invoicePricing");
 const { actorFields } = require("./actorFields");
+const { vatInvoiceView, vatItemView, netInvoiceProfit } = require("./vatView");
 
 const getCreditSaleItemProductId = (item) => {
   if (
@@ -77,6 +78,7 @@ const toCreditSaleInvoiceItem = (item, creditSale, options = {}) => {
     returnedQuantity: item.returnedQuantity ?? 0,
     costEstimated: item.costEstimated === true,
     totalPrice: item.totalPrice,
+    ...vatItemView(item),
   };
 
   if (options.includeProductCode) {
@@ -121,7 +123,7 @@ const toCreditSaleInvoice = (creditSale, options = {}) => {
     shippingFees: creditSale.shippingFees ?? totals.shippingFees,
     totalPrice: creditSale.totalPrice ?? totals.totalPrice,
     netTotal: Number(Math.max(0, Number(creditSale.totalPrice ?? totals.totalPrice) - Number(creditSale.refundedAmount || 0)).toFixed(2)),
-    totalProfit: Number(
+    totalProfit: netInvoiceProfit(creditSale, items) ?? Number(
       (
         items.reduce((sum, item) => sum + Number(item.profitAmount || 0), 0) - totals.discountAmount
       ).toFixed(2)
@@ -145,6 +147,7 @@ const toCreditSaleInvoice = (creditSale, options = {}) => {
     items,
     createdAt: creditSale.createdAt,
     updatedAt: creditSale.updatedAt,
+    ...vatInvoiceView(creditSale),
     ...actorFields(creditSale),
   };
 };

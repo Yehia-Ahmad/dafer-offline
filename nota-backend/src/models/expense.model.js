@@ -6,7 +6,10 @@ const expenseSchema = new mongoose.Schema({
   date: { type: Date, required: true, index: true },
   // The category: a leaf account under 520.
   accountId: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true, index: true },
+  // The cash that left the box (VAT included). Stage 21: vatAmount is the recoverable VAT inside it (absent with VAT off).
   amount: { type: Number, required: true, min: 0.01 },
+  vatAmount: { type: Number, min: 0 },
+  vatPeriod: { type: String, match: /^\d{4}-\d{2}$/ },
   boxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox", required: true, index: true },
   note: { type: String, trim: true, maxlength: 500 },
   status: { type: String, enum: ["posted", "cancelled"], default: "posted", index: true },

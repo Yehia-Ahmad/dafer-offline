@@ -562,6 +562,13 @@ async function stage19CategoryCodesMigration(session) {
   return { renamed };
 }
 
+// Stage 21: account 115 "ضريبة مدخلات قابلة للخصم" (VAT_INPUT, asset, debit normal) under 11. VAT_PAYABLE (22) already exists.
+async function stage21VatInputAccountMigration(session) {
+  await seedAccounts(session);
+  const account = await Account.findOne({ code: "115" }).session(session).lean();
+  return { vatInputAccount: account ? account.code : null };
+}
+
 const migrations = [
   { version: 1, name: "document numbers and receipts", run: numbersMigration },
   { version: 2, name: "original invoice totals and returned status", chunked: true, runChunk: originalTotalsMigrationChunk },
@@ -571,6 +578,7 @@ const migrations = [
   { version: 6, name: "stage 18 review fixes: bank codes and setup end marker", run: stage18FixesMigration },
   { version: 7, name: "stage 19 cash boxes: main box, bank/wallet boxes, boxId on money documents", run: stage19BoxesMigration },
   { version: 8, name: "stage 19 review: custom expense categories get 5-digit codes under 520", run: stage19CategoryCodesMigration },
+  { version: 9, name: "stage 21 VAT: input VAT account 115", run: stage21VatInputAccountMigration },
 ];
 
 async function recordMigration(migration, details, session) {

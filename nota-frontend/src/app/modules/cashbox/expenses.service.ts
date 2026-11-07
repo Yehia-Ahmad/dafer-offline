@@ -17,6 +17,8 @@ export interface CreateExpensePayload {
   boxId?: string;
   date?: string;
   note?: string;
+  /** Stage 21: the VAT on the bill (part of `amount`); sent only while VAT applies and the user filled it. */
+  vatAmount?: number;
 }
 
 /** Stage 19: /api/expenses (expenses.create records; expenses.manage cancels and manages categories). */

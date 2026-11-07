@@ -13,6 +13,7 @@
 .cs__product-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)}
 .cs__cell-input{width:120px}
 .cs__line-total{font-weight:700}
+.cs__exempt{display:inline-block;margin-inline-start:6px;font-size:11px;font-weight:700;padding:1px 7px;border-radius:var(--radius-pill);background:var(--info-soft);color:var(--info-text)}
 .cs__link{border:0;background:none;padding:2px;font:inherit;font-size:12px;color:var(--brand-strong-text);text-decoration:underline;cursor:pointer}
 .cs__add{align-self:flex-start}
 .cs__summary{position:sticky;top:0;display:flex;flex-direction:column;gap:14px}

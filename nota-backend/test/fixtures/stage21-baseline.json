@@ -1,0 +1,624 @@
+{
+  "documents": {
+    "cashSale": {
+      "discountAmount": 20,
+      "shippingFees": 10,
+      "totalPrice": 260,
+      "netTotal": 260,
+      "refundedAmount": 0
+    },
+    "cashReturns": [
+      {
+        "invoice": {
+          "discountAmount": 20,
+          "shippingFees": 10,
+          "totalPrice": 260,
+          "netTotal": 225,
+          "refundedAmount": 35
+        },
+        "log": {
+          "discountAmount": 0,
+          "shippingFees": 0,
+          "finalReturnedAmount": 35,
+          "subtotalReturnedAmount": 35
+        }
+      },
+      {
+        "invoice": {
+          "discountAmount": 20,
+          "shippingFees": 10,
+          "totalPrice": 260,
+          "netTotal": 0,
+          "refundedAmount": 260
+        },
+        "log": {
+          "discountAmount": 10,
+          "shippingFees": 0,
+          "finalReturnedAmount": 225,
+          "subtotalReturnedAmount": 235
+        }
+      }
+    ],
+    "creditSale": {
+      "discountAmount": 20,
+      "shippingFees": 10,
+      "totalPrice": 260,
+      "netTotal": 260,
+      "paidAmount": 50,
+      "remainingAmount": 210,
+      "refundedAmount": 0
+    },
+    "creditReturns": [
+      {
+        "discountAmount": 20,
+        "shippingFees": 10,
+        "totalPrice": 260,
+        "netTotal": 225,
+        "paidAmount": 50,
+        "remainingAmount": 175,
+        "refundedAmount": 35
+      },
+      {
+        "discountAmount": 20,
+        "shippingFees": 10,
+        "totalPrice": 260,
+        "netTotal": 0,
+        "paidAmount": 0,
+        "remainingAmount": 0,
+        "refundedAmount": 260
+      }
+    ],
+    "creditEditStatus": 200,
+    "purchase": {
+      "subtotal": 845,
+      "discountAmount": 30,
+      "paidAmount": 300,
+      "total": 860,
+      "otherCosts": 45,
+      "supplierBalanceAfter": 560
+    },
+    "purchaseReturn": {
+      "total": 106.86,
+      "supplierBalanceAfter": 453.14
+    },
+    "expense": {
+      "amount": 250
+    }
+  },
+  "entries": [
+    {
+      "source": "opening_inventory",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "INVENTORY",
+          "debit": 2000,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "CAPITAL",
+          "debit": 0,
+          "credit": 2000,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "opening_inventory",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "INVENTORY",
+          "debit": 4000,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "CAPITAL",
+          "debit": 0,
+          "credit": 4000,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "sale",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "CASH_MAIN",
+          "debit": 260,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "SALES",
+          "debit": 0,
+          "credit": 270,
+          "party": false
+        },
+        {
+          "key": "SALES_DISCOUNT",
+          "debit": 20,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "SHIPPING_INCOME",
+          "debit": 0,
+          "credit": 10,
+          "party": false
+        },
+        {
+          "key": "COGS",
+          "debit": 160,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "INVENTORY",
+          "debit": 0,
+          "credit": 160,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "return",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "SALES_RETURNS",
+          "debit": 35,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "CASH_MAIN",
+          "debit": 0,
+          "credit": 35,
+          "party": false
+        },
+        {
+          "key": "INVENTORY",
+          "debit": 20,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "COGS",
+          "debit": 0,
+          "credit": 20,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "return",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "SALES_RETURNS",
+          "debit": 235,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "CASH_MAIN",
+          "debit": 0,
+          "credit": 225,
+          "party": false
+        },
+        {
+          "key": "SALES_DISCOUNT",
+          "debit": 0,
+          "credit": 10,
+          "party": false
+        },
+        {
+          "key": "INVENTORY",
+          "debit": 140,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "COGS",
+          "debit": 0,
+          "credit": 140,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "credit_sale",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "CUSTOMERS",
+          "debit": 260,
+          "credit": 0,
+          "party": true
+        },
+        {
+          "key": "SALES",
+          "debit": 0,
+          "credit": 270,
+          "party": false
+        },
+        {
+          "key": "SALES_DISCOUNT",
+          "debit": 20,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "SHIPPING_INCOME",
+          "debit": 0,
+          "credit": 10,
+          "party": false
+        },
+        {
+          "key": "COGS",
+          "debit": 160,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "INVENTORY",
+          "debit": 0,
+          "credit": 160,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "receipt",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "CASH_MAIN",
+          "debit": 50,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "CUSTOMERS",
+          "debit": 0,
+          "credit": 50,
+          "party": true
+        }
+      ]
+    },
+    {
+      "source": "return",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "SALES_RETURNS",
+          "debit": 35,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "CUSTOMERS",
+          "debit": 0,
+          "credit": 35,
+          "party": true
+        },
+        {
+          "key": "INVENTORY",
+          "debit": 20,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "COGS",
+          "debit": 0,
+          "credit": 20,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "return",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "SALES_RETURNS",
+          "debit": 235,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "CUSTOMERS",
+          "debit": 0,
+          "credit": 225,
+          "party": true
+        },
+        {
+          "key": "SALES_DISCOUNT",
+          "debit": 0,
+          "credit": 20,
+          "party": false
+        },
+        {
+          "key": "SHIPPING_INCOME",
+          "debit": 10,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "INVENTORY",
+          "debit": 140,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "COGS",
+          "debit": 0,
+          "credit": 140,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "sale",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "CASH_MAIN",
+          "debit": 100,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "SALES",
+          "debit": 0,
+          "credit": 100,
+          "party": false
+        },
+        {
+          "key": "COGS",
+          "debit": 60,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "INVENTORY",
+          "debit": 0,
+          "credit": 60,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "sale",
+      "type": "reversal",
+      "reversal": true,
+      "lines": [
+        {
+          "key": "CASH_MAIN",
+          "debit": 0,
+          "credit": 100,
+          "party": false
+        },
+        {
+          "key": "SALES",
+          "debit": 100,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "COGS",
+          "debit": 0,
+          "credit": 60,
+          "party": false
+        },
+        {
+          "key": "INVENTORY",
+          "debit": 60,
+          "credit": 0,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "credit_sale",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "CUSTOMERS",
+          "debit": 100,
+          "credit": 0,
+          "party": true
+        },
+        {
+          "key": "SALES",
+          "debit": 0,
+          "credit": 100,
+          "party": false
+        },
+        {
+          "key": "COGS",
+          "debit": 60,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "INVENTORY",
+          "debit": 0,
+          "credit": 60,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "credit_sale",
+      "type": "reversal",
+      "reversal": true,
+      "lines": [
+        {
+          "key": "CUSTOMERS",
+          "debit": 0,
+          "credit": 100,
+          "party": true
+        },
+        {
+          "key": "SALES",
+          "debit": 100,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "COGS",
+          "debit": 0,
+          "credit": 60,
+          "party": false
+        },
+        {
+          "key": "INVENTORY",
+          "debit": 60,
+          "credit": 0,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "credit_sale",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "CUSTOMERS",
+          "debit": 130,
+          "credit": 0,
+          "party": true
+        },
+        {
+          "key": "SALES",
+          "debit": 0,
+          "credit": 135,
+          "party": false
+        },
+        {
+          "key": "SALES_DISCOUNT",
+          "debit": 5,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "COGS",
+          "debit": 80,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "INVENTORY",
+          "debit": 0,
+          "credit": 80,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "purchase",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "INVENTORY",
+          "debit": 859.84,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "INVENTORY_ADJUSTMENT",
+          "debit": 0.16,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "SUPPLIERS",
+          "debit": 0,
+          "credit": 860,
+          "party": true
+        }
+      ]
+    },
+    {
+      "source": "supplier_payment",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "SUPPLIERS",
+          "debit": 300,
+          "credit": 0,
+          "party": true
+        },
+        {
+          "key": "CASH_MAIN",
+          "debit": 0,
+          "credit": 300,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "purchase_return",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "SUPPLIERS",
+          "debit": 106.86,
+          "credit": 0,
+          "party": true
+        },
+        {
+          "key": "INVENTORY",
+          "debit": 0,
+          "credit": 101.15,
+          "party": false
+        },
+        {
+          "key": "INVENTORY_ADJUSTMENT",
+          "debit": 0,
+          "credit": 5.71,
+          "party": false
+        }
+      ]
+    },
+    {
+      "source": "expense",
+      "type": "auto",
+      "reversal": false,
+      "lines": [
+        {
+          "key": "EXP_SALARIES",
+          "debit": 250,
+          "credit": 0,
+          "party": false
+        },
+        {
+          "key": "CASH_MAIN",
+          "debit": 0,
+          "credit": 250,
+          "party": false
+        }
+      ]
+    }
+  ]
+}

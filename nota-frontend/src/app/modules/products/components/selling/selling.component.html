@@ -148,6 +148,9 @@
                     [ariaLabel]="'sellingPage.fields.productQuantity' | translate" styleClass="pos__qty" inputStyleClass="pos__qty-input" />
                   <button type="button" class="pos__step" (click)="stepQuantity(index, -1)" [attr.aria-label]="'sellingPage.pos.decrease' | translate">−</button>
                 </div>
+                @if (isExemptLine(index)) {
+                  <span class="pos__exempt" data-test="exempt-badge">{{ 'vat.exempt.badge' | translate }}</span>
+                }
                 <span class="pos__line-total nota-num" [attr.aria-label]="'sellingPage.fields.lineTotal' | translate">
                   {{ itemGroup.get('lineTotal')?.value | notaMoney }}
                 </span>
@@ -199,7 +202,11 @@
           <div><dt>{{ 'sellingPage.fields.subtotal' | translate }}</dt><dd class="nota-num">{{ invoiceSubtotal | notaMoney }}</dd></div>
           <div><dt>{{ 'sellingPage.fields.discountAmount' | translate }}</dt><dd class="nota-num pos__minus">− {{ invoiceDiscountAmount | notaMoney }}</dd></div>
           <div><dt>{{ 'sellingPage.fields.shippingFees' | translate }}</dt><dd class="nota-num">{{ shippingFeesValue | notaMoney }}</dd></div>
-          <div class="pos__grand"><dt>{{ 'sellingPage.fields.totalInvoicePrice' | translate }}</dt><dd class="nota-num">{{ invoiceGrandTotal | notaMoney }}</dd></div>
+          @if (vatView; as vat) {
+            <div data-test="vat-net"><dt>{{ 'vat.totals.net' | translate }}</dt><dd class="nota-num">{{ vat.netAmount | notaMoney }}</dd></div>
+            <div data-test="vat-amount"><dt>{{ 'vat.totals.vat' | translate: { rate: vat.rate } }}</dt><dd class="nota-num">{{ vat.vatAmount | notaMoney }}</dd></div>
+          }
+          <div class="pos__grand"><dt>{{ (vatView ? 'vat.totals.total' : 'sellingPage.fields.totalInvoicePrice') | translate }}</dt><dd class="nota-num">{{ invoiceGrandTotal | notaMoney }}</dd></div>
         </dl>
 
         <!-- Stage 19: payment method (box), the no-shift banner and the "الوردية" button. -->

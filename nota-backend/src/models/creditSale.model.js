@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const auditFieldsPlugin = require("../auth/auditFields.plugin");
 const { endsSetupModePlugin } = require("../accounting/setupState");
+const { vatInvoiceFields, vatItemFields } = require("./vatFields");
 
 const creditSalePaymentSchema = new mongoose.Schema(
   {
@@ -71,6 +72,8 @@ const creditSaleItemSchema = new mongoose.Schema(
     },
     returnedQuantity: { type: Number, default: 0, min: 0 },
     costEstimated: { type: Boolean, default: false },
+    // Stage 21: VAT exemption snapshot and the VAT share of this line (absent with VAT off).
+    ...vatItemFields(),
   },
   { _id: true }
 );
@@ -259,6 +262,8 @@ const creditSaleSchema = new mongoose.Schema(
     },
     migrationNotes: { type: [String], default: undefined },
     stage16OriginalTotalsRestored: { type: Boolean, default: false },
+    // Stage 21: VAT stored on the invoice when it was saved (absent with VAT off).
+    ...vatInvoiceFields(),
     refundStatus: {
       type: String,
       enum: {

@@ -1,6 +1,7 @@
 const ShopProfile = require("../models/shopProfile.model");
 const { AUTO_LOCK_MINUTES, DEFAULT_AUTO_LOCK_MINUTES } = ShopProfile;
 const asyncHandler = require("../utils/asyncHandler");
+const { readVatUpdate, DEFAULT_VAT } = require("../utils/vatSettings");
 
 const SHOP_PROFILE_KEY = "default";
 
@@ -19,7 +20,10 @@ const EMPTY_PROFILE = Object.freeze({
 const OPTIONAL_STRING_FIELDS = ["address", "logo", "taxNumber", "commercialRegister", "invoiceFooter"];
 
 const toShopProfileResponse = (profile) =>
-  profile ? { ...EMPTY_PROFILE, ...profile } : { ...EMPTY_PROFILE, phones: [] };
+  // `vat` is only present once VAT settings were ever saved (absent = off, rate 14, prices include VAT).
+  profile
+    ? { ...EMPTY_PROFILE, ...profile, ...(profile.vat ? { vat: { ...DEFAULT_VAT, ...profile.vat } } : {}) }
+    : { ...EMPTY_PROFILE, phones: [] };
 
 const isBlank = (value) =>
   value === undefined || value === null || (typeof value === "string" && !value.trim());
@@ -52,6 +56,12 @@ const updateShopProfile = asyncHandler(async (req, res) => {
       throw new Error("مدة القفل التلقائي غير صالحة");
     }
     $set.autoLockMinutes = minutes;
+  }
+
+  // Stage 21: additive. Only a request that carries `vat` reads the stored settings, so every other PUT is unchanged.
+  if (body.vat !== undefined) {
+    const existing = await ShopProfile.findOne({ key: SHOP_PROFILE_KEY }).lean();
+    Object.assign($set, readVatUpdate(body.vat, existing?.vat, isBlank(body.taxNumber) ? "" : body.taxNumber));
   }
 
   const update = Object.keys($unset).length > 0 ? { $set, $unset } : { $set };

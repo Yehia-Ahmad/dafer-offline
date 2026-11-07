@@ -26,7 +26,15 @@ export interface Purchase {
   subtotal: number;
   discountAmount: number;
   otherCosts: number;
+  /** What we owe the supplier: with VAT, netTotal + vatAmount. */
   total: number;
+  /** Stage 21 (absent for a purchase saved with VAT off): the net total (the stock value) and the recoverable VAT. */
+  netTotal?: number;
+  vatAmount?: number;
+  vatRate?: number;
+  vatRegistered?: boolean;
+  /** Σ VAT already given back by purchase returns. */
+  vatReturnedAmount?: number;
   paidAmount: number;
   boxId?: string;
   boxName?: string | null;
@@ -43,6 +51,9 @@ export interface PurchaseReturnRow {
   number: string;
   date: string;
   total: number;
+  /** Stage 21: the net of the returned lines and the VAT given back with them (absent without VAT). */
+  netTotal?: number;
+  vatAmount?: number;
   reason?: string;
   items: { itemId: string; productId: string; name: string; qty: number; unitCost: number; value: number }[];
 }
@@ -76,6 +87,9 @@ export interface PurchasePayload {
   paidAmount?: number;
   boxId?: string;
   notes?: string;
+  /** Stage 21: only sent while VAT applies to the purchase date. vatAmount is the supplier's printed VAT (omitted = shop rate × net). */
+  vatRegistered?: boolean;
+  vatAmount?: number;
 }
 
 export interface PurchaseCreated extends Purchase {

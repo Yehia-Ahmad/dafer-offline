@@ -11,6 +11,7 @@
 .db__welcome-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 
 .db__kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.db__kpi-tag { margin-inline-start: 8px; font-size: 11px; font-weight: 600; color: var(--text-muted); }
 .db__kpi-value { font-size: 30px; text-align: start; }
 
 .db__row { display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch; }

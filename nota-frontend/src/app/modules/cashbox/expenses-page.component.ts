@@ -11,6 +11,7 @@ import { ExpensesService } from './expenses.service';
 import { PaymentBoxSelectComponent } from './payment-box-select.component';
 import { PaymentBoxService } from './payment-box.service';
 import { localDateKey } from '../../core/utilities/local-date';
+import { VatSettingsService } from '../shop-profile/services/vat-settings.service';
 
 const thisMonth = () => {
   const now = new Date();
@@ -34,6 +35,13 @@ export class ExpensesPageComponent implements OnInit {
   private readonly expenses = inject(ExpensesService);
   private readonly language = inject(LanguageService);
   protected readonly payment = inject(PaymentBoxService);
+  /** Stage 21: the optional "ضريبة على الفاتورة", only while VAT applies to the expense date. */
+  private readonly vatSettings = inject(VatSettingsService);
+  readonly vatContext = computed(() => this.vatSettings.contextFor(this.date()));
+  readonly vatAmount = signal<number | null>(null);
+  /** The VAT must be less than the bill's total (the net must stay above 0). */
+  readonly vatInvalid = computed(() => (this.vatAmount() ?? 0) < 0 || (this.vatAmount() ?? 0) >= (this.amount() ?? 0) && (this.vatAmount() ?? 0) > 0);
+  readonly vatNet = computed(() => Math.round(((this.amount() ?? 0) - (this.vatAmount() ?? 0)) * 100) / 100);
 
   readonly categories = signal<ExpenseCategory[]>([]);
   readonly data = signal<ExpensesResponse | null>(null);
@@ -66,7 +74,7 @@ export class ExpensesPageComponent implements OnInit {
 
   readonly activeCategories = computed(() => this.categories().filter((category) => category.isActive));
   readonly maxCategory = computed(() => Math.max(1, ...(this.data()?.previous.byCategory ?? []).map((row) => row.total)));
-  readonly canSave = computed(() => Boolean(this.category()) && (this.amount() ?? 0) > 0 && !this.saving() && !this.payment.needsShift());
+  readonly canSave = computed(() => Boolean(this.category()) && (this.amount() ?? 0) > 0 && !this.saving() && !this.payment.needsShift() && !(this.vatContext() && this.vatInvalid()));
 
   ngOnInit(): void {
     this.payment.load();
@@ -106,10 +114,11 @@ export class ExpensesPageComponent implements OnInit {
     this.expenses.create(this.payment.withBox({
       accountId: this.category(), amount: this.amount() as number,
       ...(this.date() ? { date: this.date() } : {}), ...(this.note().trim() ? { note: this.note().trim() } : {}),
+      ...(this.vatContext() && (this.vatAmount() ?? 0) > 0 ? { vatAmount: this.vatAmount() as number } : {}),
     })).subscribe({
       next: () => {
         this.saving.set(false);
-        this.amount.set(null); this.note.set('');
+        this.amount.set(null); this.note.set(''); this.vatAmount.set(null);
         this.payment.load(true);
         this.load();
       },

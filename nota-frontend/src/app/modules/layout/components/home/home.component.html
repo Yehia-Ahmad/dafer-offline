@@ -41,8 +41,8 @@
       @for (kpi of kpis(); track kpi.key) {
         <div class="nota-kpi db__kpi" [attr.data-kpi]="kpi.key">
           <span class="nota-kpi__label">{{ kpi.labelKey | translate }}</span>
-          <span class="nota-kpi__value nota-num db__kpi-value">{{ kpi.value }}</span>
-          <span [class]="'nota-kpi__note nota-kpi__note--' + kpi.tone">{{ kpi.note | translate: kpi.noteParams }}</span>
+          <span class="nota-kpi__value nota-num db__kpi-value">{{ kpi.value }}@if (kpi.tagKey) { <small class="db__kpi-tag" data-test="vat-tag">{{ kpi.tagKey | translate }}</small> }</span>
+          <span [class]="'nota-kpi__note nota-kpi__note--' + kpi.tone">{{ kpi.note | translate: kpi.noteParams }}@if (kpi.link) { · <a [routerLink]="kpi.link" data-action="vat-link">{{ 'vat.dashboard.open' | translate }} ←</a> }</span>
         </div>
       }
       <!-- Stage 19: the cash in the cash-type boxes, with a link to the boxes. -->

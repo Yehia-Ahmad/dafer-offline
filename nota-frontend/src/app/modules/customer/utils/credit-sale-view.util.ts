@@ -1,4 +1,5 @@
 import { CreditInvoicePrintData } from '../components/customer-details/credit-invoice-print.util';
+import { InvoiceVatInfo, toInvoiceVat } from '../../shared/vat/vat-print';
 
 /**
  * One credit invoice as the screens show it (moved unchanged from CustomerDetailsComponent in Stage 10 so the
@@ -30,6 +31,8 @@ export type CreditSaleView = {
   totalQuantity: number;
   notes: string;
   paymentsCount: number;
+  /** Stage 21: the VAT stored on the invoice (absent for an invoice saved with VAT off). */
+  vat?: InvoiceVatInfo;
   items: Array<{
     id: string;
     productId: string;
@@ -39,6 +42,8 @@ export type CreditSaleView = {
     quantity: number;
     pricePerEach: number;
     totalPrice: number;
+    /** Stage 21: "معفى من الضريبة". */
+    vatExempt?: boolean;
   }>;
   payments: Array<{
     id: string;
@@ -110,7 +115,8 @@ function normalizeItems(source: any): CreditSaleView['items'] {
         categoryName,
         quantity,
         pricePerEach: toNumber(item?.productPricePerEach),
-        totalPrice: toNumber(item?.totalPrice)
+        totalPrice: toNumber(item?.totalPrice),
+        ...(item?.vatExempt === true ? { vatExempt: true } : {})
       };
     })
     .filter((item): item is CreditSaleView['items'][number] => item !== null);
@@ -195,6 +201,7 @@ export function toCreditSaleView(source: any): CreditSaleView | null {
     totalQuantity: toInteger(source.totalQuantity),
     notes: String(source.notes || '').trim(),
     paymentsCount: payments.length,
+    ...(toInvoiceVat(source) ? { vat: toInvoiceVat(source) } : {}),
     items,
     payments,
     refunds: normalizeRefunds(source.refunds),
@@ -219,7 +226,8 @@ export function toCreditInvoicePrintData(
   entry: CreditSaleView,
   customerName: string,
   customerPhone: string,
-  statusLabel: string
+  statusLabel: string,
+  customerTaxNumber?: string | null
 ): CreditInvoicePrintData {
   return {
     id: entry.id,
@@ -245,8 +253,11 @@ export function toCreditInvoicePrintData(
       categoryName: item.categoryName,
       quantity: item.quantity,
       unitPrice: item.pricePerEach,
-      totalPrice: item.totalPrice
-    }))
+      totalPrice: item.totalPrice,
+      ...(item.vatExempt ? { vatExempt: true } : {})
+    })),
+    ...(entry.vat ? { vat: entry.vat } : {}),
+    ...(customerTaxNumber ? { customerTaxNumber } : {})
   };
 }
 

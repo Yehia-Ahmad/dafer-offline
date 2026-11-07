@@ -97,6 +97,10 @@
           @if (invoice.createdByName) {<span class="cl__muted cl__created-by" data-testid="created-by">{{ 'auth.createdBy' | translate: { name: invoice.createdByName } }}</span>}
         </div>
         <div class="cl__figures">
+          @if (invoice.vat; as vat) {
+            <div data-test="vat-net"><span>{{ 'vat.totals.net' | translate }}</span><strong class="nota-num">{{ vat.netAmount | notaMoney }}</strong></div>
+            <div data-test="vat-amount"><span>{{ 'vat.totals.vat' | translate: { rate: vat.rate } }}</span><strong class="nota-num">{{ vat.vatAmount | notaMoney }}</strong></div>
+          }
           <div><span>{{ 'invoiceHistoryPage.cancel.originalTotal' | translate }}</span><strong class="nota-num">{{ invoice.totalPrice | notaMoney }}</strong></div>
           <div><span>{{ 'invoiceHistoryPage.s10.refundedAmount' | translate }}</span><strong class="nota-num">{{ invoice.refundedAmount | notaMoney }}</strong></div>
           <div><span>{{ 'invoiceHistoryPage.cancel.netTotal' | translate }}</span><strong class="nota-num">{{ invoice.netTotal | notaMoney }}</strong></div>

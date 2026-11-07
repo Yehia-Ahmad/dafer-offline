@@ -14,6 +14,8 @@ export const ALL_PERMISSIONS = [
   'shop.manage', 'users.manage', 'audit.view', 'backup.manage',
   // Stage 19 (the Stage 17/18 accounting keys are not mirrored here: no spec needs them)
   'cashbox.view', 'cashbox.manage', 'shift.operate', 'shift.manage', 'expenses.create', 'expenses.manage', 'owner.drawings',
+  // Stage 21
+  'vat.file',
 ] as const;
 
 const VIEW = ['sales.view', 'credit.view', 'returns.view', 'customers.view', 'products.view', 'dashboard.view'];
@@ -23,7 +25,7 @@ export const ROLE_PERMISSIONS: Record<Exclude<RoleKey, 'custom'>, string[]> = {
   manager: ALL_PERMISSIONS.filter((key) => key !== 'users.manage' && key !== 'backup.manage' && key !== 'owner.drawings'),
   cashier: ['sales.create', 'sales.view', 'credit.create', 'credit.view', 'credit.collect', 'returns.create', 'customers.view', 'products.view', 'dashboard.view', 'shift.operate', 'expenses.create'],
   storekeeper: ['products.view', 'products.manage', 'categories.manage', 'products.importExport', 'products.viewCost', 'suppliers.view', 'purchases.view', 'purchases.create'],
-  accountant: [...VIEW, 'reports.profit', 'products.viewCost', 'credit.collect', 'audit.view', 'suppliers.view', 'purchases.view', 'suppliers.pay', 'cashbox.view', 'expenses.create', 'expenses.manage'],
+  accountant: [...VIEW, 'reports.profit', 'products.viewCost', 'credit.collect', 'audit.view', 'suppliers.view', 'purchases.view', 'suppliers.pay', 'cashbox.view', 'expenses.create', 'expenses.manage', 'vat.file'],
 };
 
 export function fakeUser(role: RoleKey, overrides: Partial<AuthUser> = {}): AuthUser {
@@ -53,7 +55,7 @@ const LABELS: Record<string, string> = {
   'products.syncPrice': 'مزامنة سعر الشراء مع الفواتير', 'products.importExport': 'استيراد وتصدير Excel',
   'categories.manage': 'إدارة الفئات', 'reports.profit': 'تقارير الأرباح', 'dashboard.view': 'عرض لوحة التحكم',
   'shop.manage': 'إدارة بيانات المتجر', 'users.manage': 'إدارة المستخدمين والصلاحيات', 'audit.view': 'عرض سجل العمليات',
-  'backup.manage': 'النسخ الاحتياطي والاستعادة',
+  'backup.manage': 'النسخ الاحتياطي والاستعادة', 'vat.file': 'تقديم الإقرار الضريبي وسداد الضريبة',
   'cashbox.view': 'عرض الخزائن وأرصدتها', 'cashbox.manage': 'إدارة الخزائن والتحويلات', 'shift.operate': 'فتح وإغلاق ورديتك',
   'shift.manage': 'عرض كل الورديات وإغلاق وردية غيرك', 'expenses.create': 'تسجيل مصروف', 'expenses.manage': 'إلغاء المصروفات وإدارة البنود', 'owner.drawings': 'سحب المالك',
 };
@@ -61,7 +63,7 @@ const LABELS: Record<string, string> = {
 /** GET /api/auth/permissions, as the backend returns it. */
 export const FAKE_CATALOG: PermissionCatalog = {
   permissions: ALL_PERMISSIONS.map((key) => {
-    const group = ['cashbox', 'shift', 'expenses', 'owner'].includes(key.split('.')[0]) ? 'cashbox' : key.startsWith('purchases') ? 'suppliers' : key.startsWith('categories') ? 'products' : key.startsWith('dashboard') ? 'reports'
+    const group = key === 'vat.file' ? 'accounting' : ['cashbox', 'shift', 'expenses', 'owner'].includes(key.split('.')[0]) ? 'cashbox' : key.startsWith('purchases') ? 'suppliers' : key.startsWith('categories') ? 'products' : key.startsWith('dashboard') ? 'reports'
       : ['shop', 'users', 'audit', 'backup'].includes(key.split('.')[0]) ? 'admin' : key.split('.')[0];
     return { key, group, ar: LABELS[key], en: key };
   }),

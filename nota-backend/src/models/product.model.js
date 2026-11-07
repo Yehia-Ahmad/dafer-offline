@@ -6,6 +6,8 @@ const { calculatePriceAfterDiscount } = require("../utils/productPricing");
 const productSchema = new mongoose.Schema(
   {
     isArchived: { type: Boolean, index: true },
+    // Stage 21: a VAT-exempt product (معفى من الضريبة). Invoice lines snapshot this when the invoice is saved.
+    vatExempt: { type: Boolean },
     archivedAt: Date,
     archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     name: {

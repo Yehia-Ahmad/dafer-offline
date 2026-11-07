@@ -27,6 +27,10 @@ export interface DashboardKpi {
   note: string;
   noteParams?: Record<string, unknown>;
   tone: NotaKpiNoteTone;
+  /** Stage 21: a small label beside the value ("شامل الضريبة"). */
+  tagKey?: string;
+  /** Stage 21: the card links to a page. */
+  link?: string;
 }
 
 export interface DashboardBar {
@@ -100,6 +104,8 @@ export class HomeComponent implements OnInit {
         note: change === null ? 'dashboard.kpis.noYesterday' : change >= 0 ? 'dashboard.kpis.upFromYesterday' : 'dashboard.kpis.downFromYesterday',
         noteParams: change === null ? undefined : { percent: formatNotaNumber(Math.abs(change), lang) },
         tone: change === null ? 'neutral' : change >= 0 ? 'success' : 'danger',
+        // Stage 21: what the customer paid, VAT included, and it says so.
+        ...(summary.vat?.enabled ? { tagKey: 'vat.dashboard.includesVat' } : {}),
       },
       {
         key: 'invoices',
@@ -127,6 +133,18 @@ export class HomeComponent implements OnInit {
             note: 'dashboard.kpis.suppliersWithBalance',
             noteParams: { count: formatNotaNumber(summary.suppliersDue.suppliersWithBalance, lang) },
             tone: 'neutral' as const,
+          }]
+        : []),
+      // Stage 21: "ضريبة مستحقة" for users with vat.file or accounting.view (the server only sends it to them).
+      ...(summary.vatDue
+        ? [{
+            key: 'vatDue',
+            labelKey: 'vat.dashboard.due',
+            value: money(summary.vatDue.amount),
+            note: 'vat.dashboard.dueNote',
+            noteParams: { payable: money(summary.vatDue.payable), input: money(summary.vatDue.input) },
+            tone: summary.vatDue.amount > 0 ? ('warning' as const) : ('neutral' as const),
+            link: '/accounting/vat',
           }]
         : []),
     ];

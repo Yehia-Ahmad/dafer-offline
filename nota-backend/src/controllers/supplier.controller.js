@@ -57,6 +57,10 @@ const readSupplierBody = (body, { creating }) => {
       fields.paymentTermsDays = days;
     }
   }
+  if (input.vatRegistered !== undefined) {
+    if (typeof input.vatRegistered !== "boolean") fail(400, "حالة تسجيل المورد ضريبيًا غير صالحة");
+    fields.vatRegistered = input.vatRegistered;
+  }
   if (input.isActive !== undefined) {
     if (typeof input.isActive !== "boolean") fail(400, "حالة المورد غير صالحة");
     fields.isActive = input.isActive;

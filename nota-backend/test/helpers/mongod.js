@@ -31,13 +31,53 @@ const isPortOpen = (port) =>
     socket.once("error", () => { socket.destroy(); resolve(false); });
   });
 
+/**
+ * Removes `nota-test-mongo-*` folders older than `maxAgeMs` in the OS temp folder: what a hard-killed test run (a runner
+ * timeout, taskkill /T) leaves behind, because nothing can run cleanup then. Only that exact name pattern; the default age
+ * is far longer than any test file takes, so a folder of a test file running in parallel is never touched.
+ */
+function sweepStaleTempDirs({ maxAgeMs = 60 * 60 * 1000, root = os.tmpdir() } = {}) {
+  const removed = [];
+  for (const name of fs.readdirSync(root)) {
+    if (!name.startsWith("nota-test-mongo-")) continue;
+    const full = path.join(root, name);
+    try {
+      if (Date.now() - fs.statSync(full).mtimeMs < maxAgeMs) continue;
+      fs.rmSync(full, { recursive: true, force: true });
+      removed.push(name);
+    } catch { /* in use or already gone */ }
+  }
+  return removed;
+}
+
 // Test files run in parallel processes: each file that needs a database passes its own port.
-async function startMongod({ port = PORT } = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nota-test-mongo-"));
+async function startMongod({ port = PORT, tag = "" } = {}) {
+  sweepStaleTempDirs();
+  // A leftover server on this port (an interrupted earlier run) must never be mistaken for ours: its data would leak in.
+  if (await isPortOpen(port)) throw new Error(`port ${port} is already in use (a leftover test mongod?); stop it and re-run`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `nota-test-mongo-${tag}`));
   const dbPath = path.join(dir, "db");
   fs.mkdirSync(dbPath);
-  const child = spawn(mongodPath, ["--dbpath", dbPath, "--port", String(port), "--bind_ip", "127.0.0.1", "--replSet", REPLICA_SET,
-    "--logpath", path.join(dir, "mongod.log"), "--wiredTigerCacheSizeGB", "0.25"], { stdio: "ignore", windowsHide: true });
+  // The guard owns mongod and stops it (and deletes `dir`) when its stdin closes: stop(), a failed start, the runner's
+  // timeout, SIGINT, or a hard kill of this process.
+  const child = spawn(process.execPath, [path.join(__dirname, "..", "..", "scripts", "throwaway-mongod-guard.js"), dir, mongodPath,
+    "--dbpath", dbPath, "--port", String(port), "--bind_ip", "127.0.0.1", "--replSet", REPLICA_SET,
+    "--logpath", path.join(dir, "mongod.log"), "--wiredTigerCacheSizeGB", "0.25"], { stdio: ["pipe", "ignore", "ignore"], windowsHide: true });
+  const release = () => new Promise((resolve) => {
+    if (child.exitCode !== null) return resolve();
+    child.once("exit", resolve);
+    try { child.stdin.end(); } catch { /* already closed */ }
+  });
+  try {
+    return await boot({ port, child, dir });
+  } catch (error) {
+    await release();
+    fs.rmSync(dir, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+async function boot({ port, child, dir }) {
   const deadline = Date.now() + 60000;
   while (!(await isPortOpen(port))) {
     if (child.exitCode !== null) throw new Error(`mongod exited with ${child.exitCode}`);
@@ -68,8 +108,11 @@ async function startMongod({ port = PORT } = {}) {
 
   return async function stop() {
     await mongoose.disconnect();
-    child.kill();
-    await new Promise((resolve) => (child.exitCode !== null ? resolve() : child.once("exit", resolve)));
+    await new Promise((resolve) => {
+      if (child.exitCode !== null) return resolve();
+      child.once("exit", resolve);
+      try { child.stdin.end(); } catch { /* already closed */ }
+    });
     fs.rmSync(dir, { recursive: true, force: true });
   };
 }
@@ -78,4 +121,4 @@ async function clearDatabase() {
   await Promise.all(Object.values(mongoose.connection.collections).map((collection) => collection.deleteMany({})));
 }
 
-module.exports = { startMongod, clearDatabase, mongodSkipReason };
+module.exports = { startMongod, clearDatabase, mongodSkipReason, sweepStaleTempDirs };

@@ -10,7 +10,8 @@ import { PaymentBoxSelectComponent } from '../cashbox/payment-box-select.compone
 import { PaymentBoxService } from '../cashbox/payment-box.service';
 import { NotaBalancePipe, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent } from '../shared/ui';
 import { Supplier, SuppliersService } from '../suppliers/suppliers.service';
-import { PaymentMode, allocateCosts, journalPreview, paymentModeOf, round2, weightedAverage } from './purchase-math';
+import { PaymentMode, allocateCosts, defaultPurchaseVat, journalPreview, paymentModeOf, round2, weightedAverage } from './purchase-math';
+import { VatSettingsService } from '../shop-profile/services/vat-settings.service';
 import { PurchaseProduct } from './purchases.models';
 import { PurchasesService } from './purchases.service';
 import { localDateKey } from '../../core/utilities/local-date';
@@ -153,7 +154,22 @@ interface Line {
           </div>
           <p class="pf__note">{{ 'purchases.new.extrasNote' | translate }}</p>
         </details>
-        <div class="pf__total"><span>{{ 'purchases.new.total' | translate }}</span><b class="nota-num" data-test="total">{{ allocation().total | notaMoney }}</b></div>
+        @if (vatContext(); as ctx) {
+          <div class="pf__vat" data-test="vat-block">
+            <label class="pf__check"><input type="checkbox" name="vatRegistered" data-test="vat-registered" [ngModel]="vatRegistered()" (ngModelChange)="setVatRegistered($event)" /> {{ 'vat.purchase.registered' | translate }}</label>
+            @if (vatRegistered()) {
+              <nota-form-field [label]="'vat.purchase.amount' | translate: { rate: ctx.rate }" forId="pfVat" [hint]="'vat.purchase.amountHint' | translate"
+                [error]="vatInvalid() ? ('vat.purchase.invalid' | translate) : null">
+                <input id="pfVat" class="nota-input nota-num" type="number" min="0" step="0.01" name="vatAmount" data-test="vat-amount" [ngModel]="vatAmount()" (ngModelChange)="setVatAmount($event)" />
+              </nota-form-field>
+            }
+          </div>
+          <div class="pf__vat-rows">
+            <div><span>{{ 'vat.totals.net' | translate }}</span><b class="nota-num" data-test="net">{{ allocation().total | notaMoney }}</b></div>
+            <div><span>{{ 'vat.purchase.input' | translate }}</span><b class="nota-num" data-test="vat">{{ vatAmount() | notaMoney }}</b></div>
+          </div>
+        }
+        <div class="pf__total"><span>{{ 'purchases.new.total' | translate }}</span><b class="nota-num" data-test="total">{{ grandTotal() | notaMoney }}</b></div>
       </section>
 
       <section class="nota-card pf__card">
@@ -215,6 +231,10 @@ interface Line {
     .pf__qty { width: 90px; } .pf__price { width: 120px; }
     .pf__name { min-width: 150px; }
     .nota-table { min-width: 560px; }
+    .pf__vat { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed var(--border); border-radius: var(--radius-control); }
+    .pf__check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+    .pf__vat-rows { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--text-muted); }
+    .pf__vat-rows div { display: flex; justify-content: space-between; } .pf__vat-rows b { color: var(--text); }
     .pf__empty { text-align: center; color: var(--text-muted); padding: 24px; }
     .pf__extras summary { cursor: pointer; font-weight: 700; padding: 6px 0; }
     .pf__total { display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 800; padding-top: 8px; border-top: 1px solid var(--border); }
@@ -263,6 +283,30 @@ export class PurchaseFormComponent implements OnInit {
   readonly newProductOpen = signal(false);
   readonly categories = signal<{ _id: string; name: string }[]>([]);
   readonly np = signal({ name: '', code: '', categoryId: '', wholesalePrice: null as number | null, retailPrice: null as number | null });
+
+  // ---- Stage 21: VAT. Only while the shop has VAT on and the purchase date is on/after its start date; otherwise nothing below shows.
+  private readonly vatSettings = inject(VatSettingsService);
+  readonly vatContext = computed(() => this.vatSettings.contextFor(this.date()));
+  /** null = follow the supplier's flag ("المورد مسجل ضريبيًا" default). */
+  private readonly vatRegisteredChoice = signal<boolean | null>(null);
+  readonly vatRegistered = computed(() => this.vatRegisteredChoice() ?? Boolean(this.supplier()?.vatRegistered));
+  /** null = the shop rate on the net total; a number = the supplier's printed amount. */
+  readonly vatOverride = signal<number | null>(null);
+  readonly vatAmount = computed(() => {
+    const context = this.vatContext();
+    if (!context || !this.vatRegistered()) return 0;
+    return this.vatOverride() ?? defaultPurchaseVat(this.allocation().total, context.rate);
+  });
+  readonly vatInvalid = computed(() => this.vatAmount() < 0 || this.vatAmount() > this.allocation().total);
+  /** What we owe the supplier: the net total plus the VAT (the net alone with VAT off). */
+  readonly grandTotal = computed(() => round2(this.allocation().total + this.vatAmount()));
+  setVatRegistered(value: boolean): void {
+    this.vatRegisteredChoice.set(value);
+    this.vatOverride.set(null);
+  }
+  setVatAmount(value: number | null): void {
+    this.vatOverride.set(value === null || (value as unknown) === '' ? null : Number(value));
+  }
   readonly newProductError = signal('');
 
   readonly supplier = computed(() => this.suppliers().find((row) => row._id === this.supplierId()) ?? null);
@@ -300,20 +344,20 @@ export class PurchaseFormComponent implements OnInit {
   });
 
   readonly paid = computed(() => {
-    const total = this.allocation().total;
+    const total = this.grandTotal();
     if (this.mode() === 'all_cash') return total;
     if (this.mode() === 'part_cash') return round2(this.paidInput() ?? 0);
     return 0;
   });
-  readonly paidInvalid = computed(() => this.mode() === 'part_cash' && (this.paid() <= 0 || this.paid() >= this.allocation().total));
-  readonly remaining = computed(() => round2(this.allocation().total - this.paid()));
+  readonly paidInvalid = computed(() => this.mode() === 'part_cash' && (this.paid() <= 0 || this.paid() >= this.grandTotal()));
+  readonly remaining = computed(() => round2(this.grandTotal() - this.paid()));
   readonly balanceAfter = computed(() => ({ balance: -round2((this.supplier()?.balance ?? 0) + this.remaining()), normalSide: 'credit' as const }));
-  readonly preview = computed(() => journalPreview(this.allocation().total, this.paid()));
+  readonly preview = computed(() => journalPreview(this.grandTotal(), this.paid(), this.vatAmount()));
 
   readonly valid = computed(() => {
     const rows = this.lines();
     return Boolean(this.supplierId()) && rows.length > 0 && rows.every((row) => (row.qty ?? 0) > 0 && Number.isInteger(row.qty) && row.unitPrice !== null && row.unitPrice >= 0)
-      && this.allocation().total > 0 && !this.paidInvalid() && (this.discount() ?? 0) <= this.allocation().subtotal;
+      && this.allocation().total > 0 && !this.paidInvalid() && (this.discount() ?? 0) <= this.allocation().subtotal && !this.vatInvalid();
   });
   readonly newProductValid = computed(() => {
     const value = this.np();
@@ -361,8 +405,9 @@ export class PurchaseFormComponent implements OnInit {
     if (mode === 'part_cash' && this.paidInput() === null) this.paidInput.set(null);
   }
 
-  accountName(account: 'inventory' | 'box' | 'supplier' | 'adjustment'): string {
+  accountName(account: 'inventory' | 'box' | 'supplier' | 'adjustment' | 'vat'): string {
     if (account === 'supplier') return this.supplier()?.name ?? '';
+    if (account === 'vat') return 'ضريبة مدخلات قابلة للخصم';
     if (account === 'box') return this.paymentBox.effective()?.name ?? '';
     return account === 'inventory' ? this.translateInventory : '';
   }
@@ -417,6 +462,8 @@ export class PurchaseFormComponent implements OnInit {
       ...((this.discount() ?? 0) > 0 ? { discountAmount: Number(this.discount()) } : {}),
       ...((this.otherCosts() ?? 0) > 0 ? { otherCosts: Number(this.otherCosts()) } : {}),
       ...(paid > 0 ? this.paymentBox.withBox({ paidAmount: paid }) : {}),
+      // Stage 21: only while VAT applies; the amount only when the user typed the supplier's printed one.
+      ...(this.vatContext() ? { vatRegistered: this.vatRegistered(), ...(this.vatRegistered() && this.vatOverride() !== null ? { vatAmount: this.vatOverride() as number } : {}) } : {}),
     };
     this.service.create(payload).subscribe({
       next: (created) => {

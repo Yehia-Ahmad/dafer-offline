@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { vatReturnLogFields } = require("./vatFields");
 const auditFieldsPlugin = require("../auth/auditFields.plugin");
 const { endsSetupModePlugin } = require("../accounting/setupState");
 
@@ -37,6 +38,8 @@ const returnLogSchema = new mongoose.Schema({
   // Stage 19: the box a cash refund came out of (the main box on old returns; unused for credit returns).
   boxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox", index: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  // Stage 21: the VAT this return gives back (absent for a VAT-free invoice).
+  ...vatReturnLogFields(),
 }, { timestamps: true });
 
 returnLogSchema.index({ returnDate: -1, createdAt: -1 });

@@ -48,6 +48,8 @@ import { CustomersService } from '../../../customer/services/customers.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
 import { PaymentBoxService } from '../../../cashbox/payment-box.service';
+import { VatSettingsService } from '../../../shop-profile/services/vat-settings.service';
+import { SaleVat, computeSaleVat } from '../../../shared/vat/vat-math';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 
 type PriceType = 'wholesalePrice' | 'retailPrice' | 'custom';
@@ -64,6 +66,8 @@ type ProductSearchResult = {
   priceAfterDiscount: number | null;
   /** Display only (POS tiles). */
   inventoryCount: number | null;
+  /** Stage 21: "معفى من الضريبة" (absent = taxable). */
+  vatExempt?: boolean;
 };
 
 /** POS tiles: stock at or below this shows in the danger color. */
@@ -159,6 +163,8 @@ export class SellingComponent implements OnInit, OnDestroy {
   private readonly _unsaved = inject(UnsavedWorkService);
   private readonly _cartRescue = inject(CartRescueService);
   private readonly _toast = inject(ToastService);
+  /** Stage 21: the shop's VAT settings (null/off = the POS shows and sends exactly what it always did). */
+  private readonly _vat = inject(VatSettingsService);
   /** Stage 15: "أقصى خصم: X٪" for this user, or null (no limit). */
   readonly maxDiscountPercent = this._auth.maxDiscountPercent;
   @ViewChild('posSearch') private posSearch?: ElementRef<HTMLInputElement>;
@@ -327,6 +333,26 @@ export class SellingComponent implements OnInit, OnDestroy {
 
   get discountPercentageInfo(): number {
     return this.calculateDiscountPercentage(this.invoiceSubtotal, this.invoiceDiscountAmount);
+  }
+
+  /**
+   * Stage 21: net / VAT / total of the open invoice, or null when VAT does not apply (VAT off, or dated before its start).
+   * Same rule as the server (taxable gross after the discount share of the taxable lines, shipping taxable).
+   */
+  get vatView(): SaleVat | null {
+    const context = this._vat.contextFor(this.formatSellingDate(this.sellingForm.get('sellingDate')?.value ?? new Date()));
+    if (!context) return null;
+    const lines = this.invoiceItems.controls.map((control, index) => {
+      const raw = (control as FormGroup).getRawValue();
+      const total = Number(raw.price || 0) * Number(raw.quantity || 0);
+      return { totalPrice: Number.isFinite(total) ? total : 0, vatExempt: this.invoiceItemStates[index]?.selectedProduct?.vatExempt === true };
+    });
+    return computeSaleVat(lines, this.invoiceDiscountAmount, this.shippingFeesValue, context);
+  }
+
+  /** Stage 21: a line of an exempt product shows "معفى" (only while VAT applies). */
+  isExemptLine(index: number): boolean {
+    return Boolean(this.vatView) && this.invoiceItemStates[index]?.selectedProduct?.vatExempt === true;
   }
 
   get shippingFeesValue(): number {
@@ -983,7 +1009,10 @@ export class SellingComponent implements OnInit, OnDestroy {
     const subtotal = this.calculateItemsSubtotal();
     const discountAmount = this.normalizeDiscountAmountControl(subtotal);
     const shippingFees = this.shippingFeesValue;
-    const total = this.roundCurrency(Math.max(subtotal - discountAmount + shippingFees, 0));
+    let total = this.roundCurrency(Math.max(subtotal - discountAmount + shippingFees, 0));
+    // Stage 21: with prices excluding VAT the total visibly adds the tax (with prices including VAT it is unchanged).
+    const vat = this.vatView;
+    if (vat && !vat.included) total = vat.totalPrice;
     this.sellingForm.get('totalInvoicePrice')?.setValue(total, { emitEvent: false });
   }
 
@@ -1145,7 +1174,8 @@ export class SellingComponent implements OnInit, OnDestroy {
       priceAfterDiscount: this.toNumber(candidate.priceAfterDiscount),
       inventoryCount: candidate.inventoryCount === undefined || candidate.inventoryCount === null
         ? null
-        : this.toNumber(candidate.inventoryCount)
+        : this.toNumber(candidate.inventoryCount),
+      ...(candidate.vatExempt === true ? { vatExempt: true } : {})
     };
   }
 

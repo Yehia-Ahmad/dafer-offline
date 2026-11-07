@@ -16,7 +16,12 @@ const purchaseReturnSchema = new mongoose.Schema({
     unitCost: { type: Number, required: true, min: 0 },
     value: { type: Number, required: true, min: 0 },
   }],
+  // What the supplier credits us: the net value of the returned lines + their VAT share (the net alone with VAT off).
   total: { type: Number, required: true, min: 0.01 },
+  // Stage 21 (absent for a purchase without VAT).
+  netTotal: { type: Number, min: 0.01 },
+  vatAmount: { type: Number, min: 0 },
+  vatPeriod: { type: String, match: /^\d{4}-\d{2}$/ },
   reason: { type: String, trim: true, maxlength: 500 },
   refundId: { type: mongoose.Schema.Types.ObjectId, ref: "SupplierRefund" },
 }, { timestamps: true });

@@ -310,7 +310,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
 
       const language = this.getInvoiceLanguage();
       const printableInvoice = toCreditInvoicePrintData(
-        entry, this.customer.name || '', this.customer.phone || '', this.getStatusLabel(entry.status)
+        entry, this.customer.name || '', this.customer.phone || '', this.getStatusLabel(entry.status), this.customer.taxNumber
       );
 
       invoiceWindow.document.open();

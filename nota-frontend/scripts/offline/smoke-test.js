@@ -54,6 +54,8 @@ const OPENING_DB_NAME = 'dafer_smoke_opening';
 const STAGE19_DB_NAME = 'dafer_smoke_stage19';
 // Stage 20: a fifth fresh database (auth on) for purchases, supplier payments, returns and the supplier statement.
 const STAGE20_DB_NAME = 'dafer_smoke_stage20';
+// Stage 21: a sixth fresh database (auth on) for VAT: settings, sales, returns, purchases, expenses and the monthly VAT return.
+const STAGE21_DB_NAME = 'dafer_smoke_stage21';
 const JWT_SECRET = 'smoke-jwt-secret-0123456789abcdef-0123456789';
 const OWNER = { name: 'Smoke Owner', username: 'smoke-owner', password: 'owner-pass-123' };
 const LAN_SECRET = 'smoke-secret-123';
@@ -1724,6 +1726,166 @@ async function runStage20Scenarios() {
   });
 }
 
+const S21_DEVICE = { 'x-nota-device-id': '5b0e7c1a-3d44-4a8e-9f21-c0de21000001', 'x-nota-device-name': encodeURIComponent('Smoke-S21-PC') };
+
+async function runStage21Scenarios() {
+  const ctx = {};
+  authToken = null;
+  const r2 = (value) => Math.round(value * 100) / 100;
+  const login = async (user) => {
+    const response = await request('POST', '/api/auth/login', { body: { username: user.username, password: user.password }, token: null });
+    expectStatus(response, 200, `${user.username} login`);
+    return response.json.token;
+  };
+  // The LOCAL day: VAT starts on the shop's local day, and every document is dated by it.
+  const localDay = () => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+  const sell = (items, extra = {}) => request('POST', '/api/sellings', { headers: S21_DEVICE, body: { customerName: 'S21 Cash', customerPhone: '01021212121', sellingDate: localDay(), items, ...extra } });
+
+  await step('Stage 21: setup-owner and a cashier on a fresh database', async () => {
+    const owner = await request('POST', '/api/auth/setup-owner', { body: OWNER, token: null });
+    expectStatus(owner, 201, 'POST /api/auth/setup-owner');
+    authToken = owner.json.token;
+    const cashier = { name: 'S21 Cashier', username: 's21-cashier', password: 'clerk-pass-1', role: 'cashier' };
+    expectStatus(await request('POST', '/api/users', { body: cashier }), 201, 'POST cashier');
+    ctx.cashierToken = await login(cashier);
+    return 'owner, cashier';
+  });
+
+  await step('Stage 21: a product (cost 20, price 35), a credit customer, a VAT-registered supplier, main cash 50,000, a drawer with a shift', async () => {
+    const category = await request('POST', '/api/categories', { body: { name: 'S21 Category' } });
+    expectStatus(category, 201, 'POST /api/categories');
+    const product = await request('POST', '/api/products', { body: { name: 'S21 Product', code: 'S21-1', categoryId: category.json._id, inventoryCount: 500, purchasePrice: 20, wholesalePrice: 30, retailPrice: 35 } });
+    expectStatus(product, 201, 'POST /api/products');
+    ctx.productId = product.json._id;
+    const customer = await request('POST', '/api/customers', { body: { name: 'S21 Customer', phone: '01031313131' } });
+    expectStatus(customer, 201, 'POST /api/customers');
+    ctx.customerId = customer.json._id;
+    const supplier = await request('POST', '/api/suppliers', { body: { name: 'S21 Supplier', vatRegistered: true } });
+    expectStatus(supplier, 201, 'POST /api/suppliers');
+    ctx.supplierId = supplier.json._id;
+    expect(supplier.json.vatRegistered === true, 'the supplier keeps its VAT flag');
+    expectStatus(await request('POST', '/api/accounting/opening', { body: { cash: 50000 } }), 200, 'POST /api/accounting/opening');
+    const boxes = await request('GET', '/api/cashbox/boxes');
+    ctx.main = boxes.json.data.find((box) => box.isMain);
+    const drawer = await request('POST', '/api/cashbox/boxes', { body: { name: 'S21 Drawer', type: 'cash', deviceId: S21_DEVICE['x-nota-device-id'], shiftsEnabled: true } });
+    expectStatus(drawer, 201, 'POST drawer');
+    ctx.drawer = drawer.json;
+    expectStatus(await request('POST', '/api/cashbox/transfers', { body: { fromBoxId: ctx.main._id, toBoxId: ctx.drawer._id, amount: 2000 } }), 201, 'POST transfer');
+    const shift = await request('POST', '/api/shifts', { headers: S21_DEVICE, body: { boxId: ctx.drawer._id, openingFloat: 2000 } });
+    expectStatus(shift, 201, 'POST /api/shifts');
+    ctx.shift = shift.json;
+    return `${shift.json.number} on ${ctx.drawer.name}`;
+  });
+
+  await step('Stage 21: turning VAT on needs the shop tax number (400 TAX_NUMBER_REQUIRED); with it VAT is on from today', async () => {
+    const refused = await request('PUT', '/api/shop-profile', { body: { name: 'S21 Shop', vat: { enabled: true, rate: 14, pricesIncludeVat: true } } });
+    expectStatus(refused, 400, 'VAT on without a tax number');
+    expect(refused.json.code === 'TAX_NUMBER_REQUIRED', describe(refused));
+    const on = await request('PUT', '/api/shop-profile', { body: { name: 'S21 Shop', taxNumber: '123-456-789', vat: { enabled: true, rate: 14, pricesIncludeVat: true } } });
+    expectStatus(on, 200, 'PUT /api/shop-profile');
+    expect(on.json.vat.enabled === true && on.json.vat.rate === 14 && String(on.json.vat.startDate).length > 0, JSON.stringify(on.json.vat));
+    return `${describe(refused)}; VAT on from ${String(on.json.vat.startDate).slice(0, 10)}`;
+  });
+
+  await step('Stage 21: a cash sale 4 x 35 + 2 x 65, discount 20 -> total 250, VAT 30.70, net 219.30', async () => {
+    const response = await sell([{ productId: ctx.productId, quantity: 4, price: 35 }, { productId: ctx.productId, quantity: 2, price: 65 }], { discountAmount: 20 });
+    expectStatus(response, 201, 'POST /api/sellings');
+    expect(response.json.totalPrice === 250 && response.json.vatAmount === 30.7 && response.json.netAmount === 219.3, JSON.stringify({ total: response.json.totalPrice, vat: response.json.vatAmount, net: response.json.netAmount }));
+    ctx.sale = response.json;
+    return `${response.json.number}: total 250, VAT 30.7, net 219.3`;
+  });
+
+  await step('Stage 21: a big cash sale (11,400, VAT 1,400), a credit sale (114, VAT 14), a partial return of the first sale', async () => {
+    const big = await sell([{ productId: ctx.productId, quantity: 1, price: 11400 }]);
+    expectStatus(big, 201, 'big cash sale');
+    expect(big.json.vatAmount === 1400, `big VAT ${big.json.vatAmount}`);
+    const credit = await request('POST', '/api/credit-sales', { headers: S21_DEVICE, body: { customerId: ctx.customerId, sellingDate: localDay(), items: [{ productId: ctx.productId, quantity: 1, price: 114 }] } });
+    expectStatus(credit, 201, 'credit sale');
+    expect(credit.json.vatAmount === 14, `credit VAT ${credit.json.vatAmount}`);
+    const itemId = ctx.sale.items[0]._id;
+    const returned = await request('POST', '/api/returns', { headers: S21_DEVICE, body: { returnType: 'cash', invoiceId: ctx.sale._id, items: [{ itemId, productId: ctx.productId, quantity: 1, returnReason: 'smoke' }] } });
+    expectStatus(returned, 201, 'POST /api/returns');
+    ctx.returnVat = returned.json.data.returnLog.vatAmount;
+    expect(ctx.returnVat > 0, `return VAT ${ctx.returnVat}`);
+    return `big VAT ${big.json.vatAmount}, credit VAT ${credit.json.vatAmount}, return VAT ${ctx.returnVat}`;
+  });
+
+  await step('Stage 21: a purchase from the registered supplier (net 1,000 + VAT 140 = 1,140) and an expense with VAT (114, VAT 14)', async () => {
+    const purchase = await request('POST', '/api/purchases', { body: { supplierId: ctx.supplierId, date: localDay(), items: [{ productId: ctx.productId, qty: 10, unitPrice: 100 }] } });
+    expectStatus(purchase, 201, 'POST /api/purchases');
+    expect(purchase.json.netTotal === 1000 && purchase.json.vatAmount === 140 && purchase.json.total === 1140, JSON.stringify({ net: purchase.json.netTotal, vat: purchase.json.vatAmount, total: purchase.json.total }));
+    const categories = await request('GET', '/api/expenses/categories');
+    const utilities = categories.json.data.find((row) => row.code === '523');
+    const expense = await request('POST', '/api/expenses', { body: { accountId: utilities._id, amount: 114, vatAmount: 14, boxId: ctx.main._id, note: 'S21 electricity' } });
+    expectStatus(expense, 201, 'POST /api/expenses');
+    expect(expense.json.vatAmount === 14, 'expense VAT');
+    return `${purchase.json.number}: VAT 140; ${expense.json.number}: VAT 14`;
+  });
+
+  await step('Stage 21: prepare this month, then file it: output - input = payable, the offset posts Dr 22 / Cr 115', async () => {
+    const period = localDay().slice(0, 7);
+    ctx.period = period;
+    const prepared = await request('GET', `/api/vat/returns/${period}`);
+    expectStatus(prepared, 200, 'GET prepared return');
+    const expectedOutput = r2(30.7 + 1400 + 14 - ctx.returnVat);
+    expect(prepared.json.output === expectedOutput && prepared.json.input === 154 && prepared.json.net === r2(expectedOutput - 154), JSON.stringify({ output: prepared.json.output, input: prepared.json.input, net: prepared.json.net }));
+    expect(prepared.json.canFile === true, 'the month can be filed');
+    const filed = await request('POST', `/api/vat/returns/${period}/file`);
+    expectStatus(filed, 201, 'POST file');
+    expect(filed.json.number === 'VR-000001' && filed.json.offset === 154 && filed.json.payable === r2(expectedOutput - 154), JSON.stringify(filed.json));
+    ctx.payable = filed.json.payable;
+    return `output ${prepared.json.output}, input ${prepared.json.input}, payable ${ctx.payable}, offset 154 (${filed.json.number})`;
+  });
+
+  await step('Stage 21: pay 500 of it from the drawer in the shift (VP-000001); the shift expects it as "سداد ضريبة"', async () => {
+    const paid = await request('POST', `/api/vat/returns/${ctx.period}/pay`, { headers: S21_DEVICE, body: { amount: 500, boxId: ctx.drawer._id, reference: 'S21-RCPT' } });
+    expectStatus(paid, 201, 'POST pay');
+    expect(paid.json.payment.number === 'VP-000001' && paid.json.return.status === 'partial' && paid.json.return.remaining === r2(ctx.payable - 500), JSON.stringify(paid.json.return));
+    const report = await request('GET', `/api/shifts/${ctx.shift._id}`, { headers: S21_DEVICE });
+    expectStatus(report, 200, 'GET /api/shifts/:id');
+    const lines = Object.fromEntries(report.json.lines.map((row) => [row.key, row.amount]));
+    expect(lines.vatPayments === 500, JSON.stringify(lines));
+    return `${paid.json.payment.number}, remaining ${paid.json.return.remaining}, shift vatPayments ${lines.vatPayments}`;
+  });
+
+  await step('Stage 21: pay the rest -> the return is paid; paying more is refused (409)', async () => {
+    const rest = await request('POST', `/api/vat/returns/${ctx.period}/pay`, { headers: S21_DEVICE, body: { amount: r2(ctx.payable - 500), boxId: ctx.drawer._id } });
+    expectStatus(rest, 201, 'POST pay rest');
+    expect(rest.json.return.status === 'paid' && rest.json.return.remaining === 0, JSON.stringify(rest.json.return));
+    const more = await request('POST', `/api/vat/returns/${ctx.period}/pay`, { headers: S21_DEVICE, body: { amount: 1, boxId: ctx.drawer._id } });
+    expectStatus(more, 409, 'pay with nothing due');
+    return `${rest.json.payment.number} paid; ${describe(more)}`;
+  });
+
+  await step('Stage 21: accounting health printed and every check is 0 (including the new vat check)', async () => {
+    const health = await request('GET', '/api/accounting/health');
+    expectStatus(health, 200, 'GET /api/accounting/health');
+    const rows = Object.entries(health.json).filter(([, check]) => check && typeof check === 'object' && 'difference' in check);
+    for (const [name, check] of rows) {
+      expect(Number(check.difference) === 0 && check.ok !== false, `health ${name}: ${JSON.stringify(check)}`);
+    }
+    expect('vat' in health.json && health.json.vat.difference === 0, 'the vat check exists and is 0');
+    return rows.map(([name, check]) => `${name}=${check.difference}`).join(', ');
+  });
+
+  await step('Stage 21: a cashier cannot file, pay or read the VAT return (403)', async () => {
+    expectStatus(await request('POST', `/api/vat/returns/${ctx.period}/file`, { token: ctx.cashierToken }), 403, 'cashier file');
+    expectStatus(await request('POST', `/api/vat/returns/${ctx.period}/pay`, { token: ctx.cashierToken, body: { amount: 1 } }), 403, 'cashier pay');
+    expectStatus(await request('GET', '/api/vat/returns', { token: ctx.cashierToken }), 403, 'cashier list');
+    return '403, 403, 403';
+  });
+
+  await step('Stage 21: turn VAT off -> the next sale has no VAT; the posted invoice keeps its VAT', async () => {
+    expectStatus(await request('PUT', '/api/shop-profile', { body: { name: 'S21 Shop', taxNumber: '123-456-789', vat: { enabled: false } } }), 200, 'VAT off');
+    const plain = await sell([{ productId: ctx.productId, quantity: 1, price: 100 }]);
+    expectStatus(plain, 201, 'sale with VAT off');
+    expect(plain.json.vatAmount === undefined && plain.json.totalPrice === 100, JSON.stringify({ vat: plain.json.vatAmount, total: plain.json.totalPrice }));
+    const kept = await request('GET', `/api/sellings/${ctx.sale._id}`);
+    expect(kept.json.vatAmount === 30.7, `the posted invoice keeps VAT ${kept.json.vatAmount}`);
+    return `${plain.json.number}: no VAT; ${kept.json.number} keeps 30.7`;
+  });
+}
+
 async function main() {
   for (const signal of ['SIGINT', 'SIGTERM']) {
     process.on(signal, async () => {
@@ -1762,8 +1924,13 @@ async function main() {
     // Stage 20: purchases, supplier payments, returns, cancel and the statement, on its own fresh database.
     await stopChild(stage19Backend);
     children.splice(children.indexOf(stage19Backend), 1);
-    await startBackend({ auth: true, dbName: STAGE20_DB_NAME });
+    const stage20Backend = await startBackend({ auth: true, dbName: STAGE20_DB_NAME });
     await runStage20Scenarios();
+    // Stage 21: VAT: settings, sales, returns, purchases, expenses, the monthly return and its payment, on its own fresh database.
+    await stopChild(stage20Backend);
+    children.splice(children.indexOf(stage20Backend), 1);
+    await startBackend({ auth: true, dbName: STAGE21_DB_NAME });
+    await runStage21Scenarios();
   } catch (error) {
     record(false, 'Smoke test setup', error.message);
   } finally {

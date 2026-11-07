@@ -9,6 +9,7 @@ const CustomerPayout = require("../models/customerPayout.model");
 const Shift = require("../models/shift.model");
 const SupplierPayment = require("../models/supplierPayment.model");
 const SupplierRefund = require("../models/supplierRefund.model");
+const VatPayment = require("../models/vatPayment.model");
 const { roundMoney } = require("../utils/invoicePricing");
 
 // Stage 19: everything that moved money in or out of one box, read ONLY from operational documents
@@ -22,7 +23,7 @@ const { roundMoney } = require("../utils/invoicePricing");
 // A cancelled expense/transfer/drawing/payout is its original event plus a reversing event at cancelledAt.
 
 const ADDING_KINDS = ["sales", "receipts", "transfersIn", "supplierRefunds"];
-const SUBTRACTING_KINDS = ["refunds", "expenses", "transfersOut", "payouts", "drawings", "supplierPayments"];
+const SUBTRACTING_KINDS = ["refunds", "expenses", "transfersOut", "payouts", "drawings", "supplierPayments", "vatPayments"];
 const KINDS = [...ADDING_KINDS, ...SUBTRACTING_KINDS];
 
 const within = (date, from, to) => Boolean(date) && (!from || new Date(date) >= from) && (!to || new Date(date) <= to);
@@ -45,7 +46,7 @@ async function boxEvents(box, { from = null, to = null, ledgerStartAt, session =
   // An old document without a box belongs to the main box.
   const own = (field = "boxId") => (box.isMain ? { $or: [{ [field]: id }, { [field]: { $exists: false } }, { [field]: null }] } : { [field]: id });
 
-  const [sales, returns, credits, receipts, transfers, expenses, drawings, payouts, shifts, supplierPayments, supplierRefunds] = await Promise.all([
+  const [sales, returns, credits, receipts, transfers, expenses, drawings, payouts, shifts, supplierPayments, supplierRefunds, vatPayments] = await Promise.all([
     Selling.find({ $or: [...(box.isMain ? [{ boxId: id }, { boxId: { $exists: false } }, { boxId: null }] : [{ boxId: id }]), { cancelRefundBoxId: id }] }).select("+ledgerTrace").session(session).lean(),
     ReturnLog.find({ returnType: "cash", ...own() }).session(session).lean(),
     CreditSale.find({ status: "cancelled", cancelRefundAmount: { $gt: 0 }, ...own("cancelRefundBoxId") }).session(session).lean(),
@@ -57,6 +58,7 @@ async function boxEvents(box, { from = null, to = null, ledgerStartAt, session =
     Shift.find({ boxId: id }).session(session).lean(),
     SupplierPayment.find({ boxId: id }).session(session).lean(),
     SupplierRefund.find({ boxId: id, status: "posted" }).session(session).lean(),
+    VatPayment.find({ boxId: id, status: "posted" }).session(session).lean(),
   ]);
 
   const sid = String(id);
@@ -99,6 +101,8 @@ async function boxEvents(box, { from = null, to = null, ledgerStartAt, session =
   outgoing(payouts, "payouts");
   // Stage 20: a payment voucher is money out (and back in when cancelled); a supplier refund is money in.
   outgoing(supplierPayments, "supplierPayments");
+  // Stage 21: a VAT payment ("سداد ضريبة") is money out of its box.
+  outgoing(vatPayments, "vatPayments");
   for (const refund of supplierRefunds) push("supplierRefunds", Number(refund.amount || 0), refund.createdAt, refund._id);
   for (const shift of shifts) {
     // The over/short posted when the shift opened with a confirmed float, and when it closed.
@@ -125,7 +129,8 @@ async function shiftExpected(shift, box, { session = null, to = null } = {}) {
   const lines = [
     { key: "float", amount: roundMoney(shift.openingFloat) },
     ...ADDING_KINDS.map((key) => ({ key, amount: totals[key] })),
-    ...SUBTRACTING_KINDS.map((key) => ({ key, amount: roundMoney(-totals[key]) })),
+    // vatPayments only shows when there is one, so a shop without VAT sees exactly the lines it always had.
+    ...SUBTRACTING_KINDS.filter((key) => key !== "vatPayments" || totals[key] !== 0).map((key) => ({ key, amount: roundMoney(-totals[key]) })),
   ];
   const expected = roundMoney(shift.openingFloat + KINDS.reduce((sum, kind) => sum + totals[kind], 0));
   return { expected, lines };

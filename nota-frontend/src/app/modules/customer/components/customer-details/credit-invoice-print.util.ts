@@ -7,7 +7,11 @@ import {
 
 export type CreditInvoicePrintLanguage = 'ar' | 'en';
 
+import { InvoiceVatInfo, VAT_PRINT_CSS, customerTaxRow, exemptMark, taxInvoiceBanner, taxInvoiceTitle, vatTotalsHtml } from '../../../shared/vat/vat-print';
+
 export type CreditInvoicePrintItem = {
+  /** Stage 21: "معفى من الضريبة" (absent = taxable). */
+  vatExempt?: boolean;
   id: string;
   productCode: string;
   productName: string;
@@ -35,6 +39,10 @@ export type CreditInvoicePrintData = {
   paidAmount: number;
   remainingAmount: number;
   items: CreditInvoicePrintItem[];
+  /** Stage 21: the VAT stored on the invoice (absent for an invoice saved with VAT off). */
+  vat?: InvoiceVatInfo;
+  /** Stage 21: the customer's tax number, when there is one (B2B). */
+  customerTaxNumber?: string | null;
 };
 
 type CreditInvoiceDocumentLabels = {
@@ -102,12 +110,12 @@ export function buildCreditInvoiceDocument(params: {
   const paidAmount = formatCreditInvoiceMetric(invoice.paidAmount, language);
   const remainingAmount = formatCreditInvoiceMetric(invoice.remainingAmount, language);
   const unitLabel = isArabic ? 'قطعة' : 'Piece';
-  const title = escapeHtml(
-    isArabic ? `فاتورة آجل ${invoiceNumber}` : `Credit Invoice ${invoiceNumber}`
-  );
+  const title = escapeHtml(taxInvoiceTitle(
+    isArabic ? `فاتورة آجل ${invoiceNumber}` : `Credit Invoice ${invoiceNumber}`, invoice.vat, language
+  ));
   const escapedArabicFontUrl = escapeCssString(fontUrls.arabic);
   const escapedLatinFontUrl = escapeCssString(fontUrls.latin);
-  const tableRows = buildCreditInvoiceTableRows(invoice.items, language, unitLabel);
+  const tableRows = buildCreditInvoiceTableRows(invoice.items, language, unitLabel, invoice.vat);
   const discountSummaryItem = hasDiscountPercentage
     ? `<div class="summary-item">
                 <p class="summary-label">${labels.discountPercentage}</p>
@@ -452,7 +460,7 @@ ${INVOICE_BRANDING_STYLES}
           border: 0;
         }
       }
-    </style>
+${VAT_PRINT_CSS}    </style>
   </head>
   <body>
     <div class="screen-toolbar">
@@ -463,6 +471,7 @@ ${INVOICE_BRANDING_STYLES}
     <main class="invoice-sheet">
       <section class="invoice-body">
         ${buildInvoiceHeaderHtml(branding)}
+        ${taxInvoiceBanner(invoice.vat, language)}
 
         <section class="info-layout">
           <article class="info-card">
@@ -472,6 +481,7 @@ ${INVOICE_BRANDING_STYLES}
               <div class="info-value">${customerName}</div>
               <div class="info-label">${labels.customerPhone}</div>
               <div class="info-value">${customerPhone}</div>
+              ${customerTaxRow(invoice.customerTaxNumber, language)}
             </div>
           </article>
 
@@ -550,6 +560,7 @@ ${INVOICE_BRANDING_STYLES}
             </div>
             ${discountTotalItem}
             ${shippingTotalItem}
+            ${vatTotalsHtml(invoice.vat, language, (value) => formatCreditInvoiceMetric(value, language))}
             <div>
               <span>${labels.invoiceTotal}</span>
               <strong>${totalPrice}</strong>
@@ -732,7 +743,8 @@ function hasCreditInvoiceValue(value: number | null | undefined): value is numbe
 function buildCreditInvoiceTableRows(
   items: CreditInvoicePrintItem[],
   language: CreditInvoicePrintLanguage,
-  unitLabel: string
+  unitLabel: string,
+  vat?: InvoiceVatInfo
 ): string {
   const fallback = getCreditInvoiceFallbackValue(language);
 
@@ -752,7 +764,7 @@ function buildCreditInvoiceTableRows(
   return items
     .map((item, index) => {
       const productCode = escapeHtml(item.productCode || fallback);
-      const productName = escapeHtml(item.productName || fallback);
+      const productName = escapeHtml(item.productName || fallback) + exemptMark(item.vatExempt, vat, language);
       const categoryName = escapeHtml(item.categoryName || fallback);
       const quantity = formatCreditInvoiceMetric(item.quantity, language);
       const unitPrice = formatCreditInvoiceMetric(item.unitPrice, language);

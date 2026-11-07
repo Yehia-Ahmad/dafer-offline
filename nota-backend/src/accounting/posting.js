@@ -13,7 +13,7 @@ const ACCOUNT_DEFINITIONS = [
   ["1", "الأصول", "Assets", "asset", "debit", null, true, null], ["11", "أصول متداولة", "Current assets", "asset", "debit", "1", true, null],
   ["111", "الخزائن", "Cash", "asset", "debit", "11", true, null], ["1111", "الخزنة الرئيسية", "Main cash", "asset", "debit", "111", false, "CASH_MAIN"],
   ["112", "البنوك والمحافظ", "Banks and wallets", "asset", "debit", "11", true, null], ["113", "العملاء", "Customers", "asset", "debit", "11", false, "CUSTOMERS"],
-  ["114", "المخزون", "Inventory", "asset", "debit", "11", false, "INVENTORY"], ["12", "أصول ثابتة", "Fixed assets", "asset", "debit", "1", true, null],
+  ["114", "المخزون", "Inventory", "asset", "debit", "11", false, "INVENTORY"], ["115", "ضريبة مدخلات قابلة للخصم", "VAT input (recoverable)", "asset", "debit", "11", false, "VAT_INPUT"], ["12", "أصول ثابتة", "Fixed assets", "asset", "debit", "1", true, null],
   ["121", "أثاث ومعدات", "Furniture and equipment", "asset", "debit", "12", false, "FIXED_ASSETS"],
   ["2", "الخصوم", "Liabilities", "liability", "credit", null, true, null], ["21", "الموردين", "Suppliers", "liability", "credit", "2", false, "SUPPLIERS"],
   ["22", "ضريبة القيمة المضافة المستحقة", "VAT payable", "liability", "credit", "2", false, "VAT_PAYABLE"], ["23", "مصروفات مستحقة", "Accrued expenses", "liability", "credit", "2", false, "ACCRUED_EXPENSES"],
@@ -164,7 +164,8 @@ const returnedUnits = (sale, item) => {
 const lineCost = (items) => roundMoney((items || []).reduce((sum, item) => sum + Number(item.purchasePrice || 0) * Number(item.quantity || 0), 0));
 
 const buildSaleLines = async ({ sale, credit = false, customer, session }) => {
-  const keys = ["CASH_MAIN", "CUSTOMERS", "SALES", "SALES_DISCOUNT", "SHIPPING_INCOME", "COGS", "INVENTORY"];
+  const hasVat = sale.vatRate !== undefined && sale.vatRate !== null && Boolean(sale.vatBreakdown);
+  const keys = ["CASH_MAIN", "CUSTOMERS", "SALES", "SALES_DISCOUNT", "SHIPPING_INCOME", "COGS", "INVENTORY", ...(hasVat ? ["VAT_PAYABLE"] : [])];
   const accounts = await accountMap(keys, session);
   const total = roundMoney(sale.totalPrice || 0);
   const subtotal = roundMoney((sale.items || []).reduce((sum, item) => sum + Number(item.totalPrice || 0), 0));
@@ -172,9 +173,20 @@ const buildSaleLines = async ({ sale, credit = false, customer, session }) => {
   const shipping = roundMoney(sale.shippingFees || 0);
   const cost = lineCost(sale.items);
   const payAccount = credit ? accounts.get("CUSTOMERS") : await boxAccount(sale.boxId, session);
-  const lines = [line(payAccount, total, "debit", credit ? customerParty(customer) : {}), line(accounts.get("SALES"), subtotal, "credit")];
-  if (discount > 0) lines.push(line(accounts.get("SALES_DISCOUNT"), discount, "debit"));
-  if (shipping > 0) lines.push(line(accounts.get("SHIPPING_INCOME"), shipping, "credit"));
+  const lines = [line(payAccount, total, "debit", credit ? customerParty(customer) : {})];
+  if (hasVat) {
+    // Stage 21: every amount comes from the figures stored on the invoice when it was saved (utils/vat.js computeSaleVat).
+    // Cr SALES is the remainder of the net split, so the lines balance exactly with no plug account.
+    const split = sale.vatBreakdown;
+    lines.push(line(accounts.get("SALES"), split.salesNet, "credit"));
+    if (split.discountNet > 0) lines.push(line(accounts.get("SALES_DISCOUNT"), split.discountNet, "debit"));
+    if (split.shippingNet > 0) lines.push(line(accounts.get("SHIPPING_INCOME"), split.shippingNet, "credit"));
+    if (sale.vatAmount > 0) lines.push(line(accounts.get("VAT_PAYABLE"), sale.vatAmount, "credit"));
+  } else {
+    lines.push(line(accounts.get("SALES"), subtotal, "credit"));
+    if (discount > 0) lines.push(line(accounts.get("SALES_DISCOUNT"), discount, "debit"));
+    if (shipping > 0) lines.push(line(accounts.get("SHIPPING_INCOME"), shipping, "credit"));
+  }
   if (cost > 0) { lines.push(line(accounts.get("COGS"), cost, "debit")); lines.push(line(accounts.get("INVENTORY"), cost, "credit")); }
   return lines;
 };
@@ -443,12 +455,27 @@ const postReceipt = async ({ receipt, customer, session }) => {
 };
 
 const postReturn = async ({ returnLog, sale, customer, session }) => {
-  const accounts = await accountMap(["SALES_RETURNS", "SHIPPING_INCOME", "SALES_DISCOUNT", "CUSTOMERS", "INVENTORY", "COGS", "INVENTORY_ADJUSTMENT"], session);
+  const hasVat = returnLog.vatAmount !== undefined && returnLog.vatAmount !== null && Boolean(returnLog.vatBreakdown);
+  const accounts = await accountMap(["SALES_RETURNS", "SHIPPING_INCOME", "SALES_DISCOUNT", "CUSTOMERS", "INVENTORY", "COGS", "INVENTORY_ADJUSTMENT", ...(hasVat ? ["VAT_PAYABLE"] : [])], session);
   const refundAccount = returnLog.returnType === "cash" ? await boxAccount(returnLog.boxId, session) : accounts.get("CUSTOMERS");
   const subtotal = roundMoney(returnLog.subtotalReturnedAmount || 0); const discount = roundMoney(returnLog.discountAmount || 0); const shipping = roundMoney(returnLog.shippingFees || 0); const total = roundMoney(returnLog.finalReturnedAmount || 0);
-  const lines = [line(accounts.get("SALES_RETURNS"), subtotal, "debit"), line(refundAccount, total, "credit", returnLog.returnType === "credit" ? customerParty(customer) : {})];
-  if (discount > 0) lines.push(line(accounts.get("SALES_DISCOUNT"), discount, "credit"));
-  if (shipping > 0) lines.push(line(accounts.get("SHIPPING_INCOME"), shipping, "debit"));
+  const lines = [];
+  if (hasVat) {
+    // Stage 21: mirrors the sale. Dr VAT_PAYABLE = the VAT of the returned taxable value; the net discount/shipping split is
+    // stored on the log; Dr SALES_RETURNS is the remainder (so the entry balances and no plug account exists).
+    const { discountNet, shippingNet } = returnLog.vatBreakdown;
+    const vat = roundMoney(returnLog.vatAmount);
+    const salesReturns = roundMoney(total + discountNet - vat - shippingNet);
+    lines.push(line(accounts.get("SALES_RETURNS"), Math.abs(salesReturns), salesReturns >= 0 ? "debit" : "credit"));
+    lines.push(line(refundAccount, total, "credit", returnLog.returnType === "credit" ? customerParty(customer) : {}));
+    if (discountNet > 0) lines.push(line(accounts.get("SALES_DISCOUNT"), discountNet, "credit"));
+    if (shippingNet > 0) lines.push(line(accounts.get("SHIPPING_INCOME"), shippingNet, "debit"));
+    if (vat > 0) lines.push(line(accounts.get("VAT_PAYABLE"), vat, "debit"));
+  } else {
+    lines.push(line(accounts.get("SALES_RETURNS"), subtotal, "debit"), line(refundAccount, total, "credit", returnLog.returnType === "credit" ? customerParty(customer) : {}));
+    if (discount > 0) lines.push(line(accounts.get("SALES_DISCOUNT"), discount, "credit"));
+    if (shipping > 0) lines.push(line(accounts.get("SHIPPING_INCOME"), shipping, "debit"));
+  }
   const originalCost = roundMoney((returnLog.items || []).reduce((sum, item) => {
     const stored = Number(item.purchasePrice);
     if (Number.isFinite(stored) && stored >= 0) return sum + stored * Number(item.quantity || 0);

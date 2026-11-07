@@ -351,6 +351,39 @@ async function main() {
     assert.equal(finalHealth.shifts.difference, 0, "the shifts check is 0 after the upgrade");
     console.log(`boxes check after the upgrade: ${JSON.stringify(finalHealth.boxes.byBox.map((row) => [row.name, row.expected, row.actual, row.difference]))}`);
 
+    // Stage 21: the whole upgrade above ran with VAT off and is unchanged (health has a vat check at 0). Now the shop turns VAT on
+    // and runs a day on the upgraded database: sale, credit sale, return, purchase, expense, file the return, pay it. Health 0.
+    const vatOffHealth = await request(currentBase, "GET", "/api/accounting/health");
+    assert.equal(vatOffHealth.vat.difference, 0, "VAT off: the vat check is 0 on the upgraded database");
+    const pad21 = (value) => String(value).padStart(2, "0");
+    const now21 = new Date();
+    const today21 = `${now21.getFullYear()}-${pad21(now21.getMonth() + 1)}-${pad21(now21.getDate())}`;
+    const round21 = (value) => Math.round(value * 100) / 100;
+    await request(currentBase, "PUT", "/api/shop-profile", { name: "Legacy shop", taxNumber: "LEG-TAX-1", vat: { enabled: true, rate: 14, pricesIncludeVat: true } });
+    const vatSale = await request(currentBase, "POST", "/api/sellings", { customerName: "VAT cash", customerPhone: "01044444444", sellingDate: today21, items: [{ productId: product._id, quantity: 2, price: 500 }] });
+    assert.equal(vatSale.totalPrice, 1000); assert.equal(vatSale.vatAmount, round21((1000 * 14) / 114));
+    const vatCredit = await request(currentBase, "POST", "/api/credit-sales", { customerId: wizardCustomer._id, sellingDate: today21, items: [{ productId: product._id, quantity: 1, price: 500 }] });
+    assert.equal(vatCredit.vatAmount, round21((500 * 14) / 114));
+    const vatReturn = await request(currentBase, "POST", "/api/returns", { returnType: "cash", invoiceId: vatSale._id, items: [{ productId: product._id, quantity: 1, returnReason: "legacy vat" }] });
+    assert.ok(vatReturn.data.returnLog.vatAmount > 0);
+    const vatPurchase = await request(currentBase, "POST", "/api/purchases", { supplierId: wizardSupplier._id, date: today21, vatRegistered: true, items: [{ productId: product._id, qty: 3, unitPrice: 100 }] });
+    assert.equal(vatPurchase.vatAmount, 42); assert.equal(vatPurchase.total, 342);
+    const expenseCategory = (await request(currentBase, "GET", "/api/expenses/categories")).data[0]._id;
+    const vatExpense = await request(currentBase, "POST", "/api/expenses", { accountId: expenseCategory, amount: 114, vatAmount: 14 });
+    assert.equal(vatExpense.vatAmount, 14);
+    const period21 = today21.slice(0, 7);
+    const prepared21 = await request(currentBase, "GET", `/api/vat/returns/${period21}`);
+    assert.equal(prepared21.input, 56); assert.ok(prepared21.output > 0);
+    const filed21 = await request(currentBase, "POST", `/api/vat/returns/${period21}/file`);
+    assert.equal(filed21.status, "filed"); assert.equal(filed21.payable, round21(prepared21.output - 56));
+    const paid21 = await request(currentBase, "POST", `/api/vat/returns/${period21}/pay`, { amount: filed21.payable });
+    assert.equal(paid21.return.status, "paid");
+    const vatHealth = await request(currentBase, "GET", "/api/accounting/health");
+    for (const [name, check] of Object.entries(vatHealth)) {
+      if (check && typeof check === "object" && "difference" in check) { assert.equal(Number(check.difference), 0, `accounting health after a VAT day: ${name}`); assert.notEqual(check.ok, false, `accounting health after a VAT day: ${name}`); }
+    }
+    console.log(`stage 21 upgrade: VAT on, sale VAT ${vatSale.vatAmount}, purchase VAT ${vatPurchase.vatAmount}, return ${filed21.number} payable ${filed21.payable} paid, health 0`);
+
     assert.doesNotMatch(currentErrors, /TypeError/);
     console.log("legacy migration scenarios passed: cash partial/full/single-line, discount+shipping credit return, reallocation, down payment, repeated partial-line merge, Stage 17 ledger repro (10 checkpoints), Stage 18 opening wizard");
   } finally {

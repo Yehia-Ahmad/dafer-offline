@@ -5,3 +5,4 @@
 .sf__row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
 .sf__footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
 @media (max-width: 480px) { .sf__card { padding: 14px; } .sf__footer > * { flex: 1 1 100%; } }
+.sf__check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; align-self: end; padding-bottom: 10px; }

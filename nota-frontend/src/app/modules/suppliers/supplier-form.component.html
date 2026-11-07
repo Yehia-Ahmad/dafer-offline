@@ -28,6 +28,7 @@
       <nota-form-field [label]="'suppliers.form.taxNumber' | translate" forId="supplierTax">
         <input id="supplierTax" class="nota-input" dir="ltr" formControlName="taxNumber" autocomplete="off" />
       </nota-form-field>
+      <label class="sf__check" data-test="supplier-vat-registered"><input type="checkbox" formControlName="vatRegistered" /> {{ 'vat.supplier.registered' | translate }}</label>
     </div>
     <div class="sf__row">
       <nota-form-field [label]="'suppliers.form.terms' | translate" forId="supplierTerms">

@@ -30,7 +30,16 @@ const purchaseSchema = new mongoose.Schema({
   subtotal: { type: Number, required: true, min: 0 },
   discountAmount: { type: Number, default: 0, min: 0 },
   otherCosts: { type: Number, default: 0, min: 0 },
+  // What we owe the supplier. With VAT: netTotal (= Σ lineCost, the stock value) + vatAmount. Without VAT: the net.
   total: { type: Number, required: true, min: 0.01 },
+  // Stage 21 (absent with VAT off): VAT stored when the purchase was saved. Inventory never includes recoverable VAT.
+  netTotal: { type: Number, min: 0.01 },
+  vatAmount: { type: Number, min: 0 },
+  vatRate: { type: Number, min: 0, max: 100 },
+  vatRegistered: { type: Boolean },
+  vatPeriod: { type: String, match: /^\d{4}-\d{2}$/ },
+  // Σ VAT already given back by purchase returns (the final return takes vatAmount - this).
+  vatReturnedAmount: { type: Number, min: 0 },
   paidAmount: { type: Number, default: 0, min: 0 },
   boxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox" },
   pvId: { type: mongoose.Schema.Types.ObjectId, ref: "SupplierPayment" },

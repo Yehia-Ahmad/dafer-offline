@@ -90,6 +90,13 @@ const shopProfileSchema = new mongoose.Schema(
       enum: { values: AUTO_LOCK_MINUTES, message: "مدة القفل التلقائي غير صالحة" },
       default: DEFAULT_AUTO_LOCK_MINUTES,
     },
+    // Stage 21: optional VAT. `startDate` is set each time VAT is turned on (documents dated before it are untouched).
+    vat: {
+      enabled: { type: Boolean, default: false },
+      rate: { type: Number, min: [0, "نسبة الضريبة لا يمكن أن تكون سالبة"], max: [100, "نسبة الضريبة لا يمكن أن تزيد عن 100"], default: 14 },
+      pricesIncludeVat: { type: Boolean, default: true },
+      startDate: { type: Date },
+    },
   },
   { timestamps: true }
 );

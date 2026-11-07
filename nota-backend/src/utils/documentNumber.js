@@ -8,6 +8,8 @@ const PREFIXES = Object.freeze({
   TRANSFER: "TR", OWNER_DRAWING: "DR", CUSTOMER_PAYOUT: "CP",
   // Stage 20 (PO and PV above): purchase return, supplier refund
   PURCHASE_RETURN: "PR", SUPPLIER_REFUND: "SR",
+  // Stage 21: monthly VAT return, VAT payment
+  VAT_RETURN: "VR", VAT_PAYMENT: "VP",
 });
 
 const formatDocumentNumber = (prefix, seq) => `${prefix}-${String(seq).padStart(6, "0")}`;

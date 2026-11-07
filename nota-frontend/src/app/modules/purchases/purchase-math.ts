@@ -28,12 +28,15 @@ export function weightedAverage(oldQty: number, oldCost: number, qty: number, li
   return round2((oldQty * oldCost + lineCost) / (oldQty + qty));
 }
 
+/** Stage 21: the VAT of a purchase at the shop rate on the net total (the user may overwrite it with the supplier's printed amount). */
+export const defaultPurchaseVat = (netTotal: number, rate: number): number => round2((netTotal * rate) / 100);
+
 export type PaymentMode = 'all_cash' | 'part_cash' | 'all_credit';
 
 export const paymentModeOf = (paid: number, total: number): PaymentMode => (paid <= 0 ? 'all_credit' : paid >= total ? 'all_cash' : 'part_cash');
 
 export interface PreviewLine {
-  account: 'inventory' | 'box' | 'supplier' | 'adjustment';
+  account: 'inventory' | 'box' | 'supplier' | 'adjustment' | 'vat';
   side: 'debit' | 'credit';
   amount: number;
 }
@@ -42,9 +45,11 @@ export interface PreviewLine {
  * "القيد اللي هيتعمل تلقائي": the design shows one entry (Dr inventory / Cr box / Cr supplier). The system posts two
  * (the purchase, then the PV), and the preview shows their net effect, as the design does.
  */
-export function journalPreview(total: number, paid: number): PreviewLine[] {
+export function journalPreview(total: number, paid: number, vat = 0): PreviewLine[] {
   if (total <= 0) return [];
-  const lines: PreviewLine[] = [{ account: 'inventory', side: 'debit', amount: round2(total) }];
+  // Stage 21: inventory takes the net (never the recoverable VAT); the VAT goes to VAT_INPUT; the supplier is owed the total.
+  const lines: PreviewLine[] = [{ account: 'inventory', side: 'debit', amount: round2(total - vat) }];
+  if (vat > 0) lines.push({ account: 'vat', side: 'debit', amount: round2(vat) });
   if (paid > 0) lines.push({ account: 'box', side: 'credit', amount: round2(paid) });
   if (round2(total - paid) > 0) lines.push({ account: 'supplier', side: 'credit', amount: round2(total - paid) });
   return lines;

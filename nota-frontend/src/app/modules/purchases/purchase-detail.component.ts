@@ -71,6 +71,10 @@ import { PurchasesService } from './purchases.service';
                 <tr><td colspan="4">{{ 'purchases.detail.subtotal' | translate }}</td><td class="nota-num" colspan="2">{{ p.subtotal | notaMoney }}</td></tr>
                 @if (p.discountAmount) { <tr><td colspan="4">{{ 'purchases.new.discount' | translate }}</td><td class="nota-num" colspan="2">− {{ p.discountAmount | notaMoney }}</td></tr> }
                 @if (p.otherCosts) { <tr><td colspan="4">{{ 'purchases.new.otherCosts' | translate }}</td><td class="nota-num" colspan="2">+ {{ p.otherCosts | notaMoney }}</td></tr> }
+                @if (p.vatAmount !== undefined && p.vatAmount !== null) {
+                  <tr data-test="vat-net"><td colspan="4">{{ 'vat.totals.net' | translate }}</td><td class="nota-num" colspan="2">{{ (p.netTotal ?? p.total) | notaMoney }}</td></tr>
+                  <tr data-test="vat-input"><td colspan="4">{{ 'vat.purchase.input' | translate }}</td><td class="nota-num" colspan="2">{{ p.vatAmount | notaMoney }}</td></tr>
+                }
               </tfoot>
             </table>
           </div>
