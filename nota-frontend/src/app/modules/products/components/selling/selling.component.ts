@@ -50,6 +50,7 @@ import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.c
 import { PaymentBoxService } from '../../../cashbox/payment-box.service';
 import { VatSettingsService } from '../../../shop-profile/services/vat-settings.service';
 import { SaleVat, computeSaleVat } from '../../../shared/vat/vat-math';
+import { hasMoneyPrecision, twoDecimalsValidator } from '../../../shared/price-precision';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 
 type PriceType = 'wholesalePrice' | 'retailPrice' | 'custom';
@@ -88,6 +89,8 @@ type SellingPayload = {
   discountPercentage: number;
   shippingFees: number;
   confirmInsufficientInventory: boolean;
+  /** Stage 21 review: the total the cashier saw. The server answers 409 TOTAL_CHANGED when its VAT settings now give another total. */
+  expectedTotal?: number;
   /** Stage 19: only when the user chose a box other than the default. */
   boxId?: string;
   items: Array<{
@@ -192,6 +195,10 @@ export class SellingComponent implements OnInit, OnDestroy {
   errorDialogVisible = false;
   inventoryConfirmationVisible = false;
   inventoryShortages: InventoryShortage[] = [];
+  /** Stage 21 review: the VAT settings changed on another PC; the cashier confirms the new total before it is saved. */
+  totalChangedVisible = false;
+  totalChanged = { expected: 0, current: 0 };
+  private pendingTotalChangedPayload: SellingPayload | null = null;
   customerSearchError = '';
   saveError = '';
   private pendingSellingPayload: SellingPayload | null = null;
@@ -274,6 +281,8 @@ export class SellingComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Stage 21 review: another PC may have changed the VAT settings since this one signed in.
+    this._vat.refresh();
     // Stage 15: the invoice that was open when the session expired, for the same user only.
     const saved = this._cartRescue.take<PosSnapshot>(this._auth.user()?._id);
     if (saved) {
@@ -647,6 +656,12 @@ export class SellingComponent implements OnInit, OnDestroy {
     this.inventoryConfirmationVisible = false;
     this.saveError = '';
 
+    // Stage 21 review: a unit price has at most two decimals (the server refuses more with PRICE_PRECISION).
+    if (this.invoiceItems.controls.some((control) => !hasMoneyPrecision((control as FormGroup).getRawValue().price))) {
+      this.saveError = this.translateKey('vat.priceDecimals');
+      return;
+    }
+
     if (this.sellingForm.invalid || !this.invoiceItems.length) {
       this.sellingForm.markAllAsTouched();
       return;
@@ -671,6 +686,7 @@ export class SellingComponent implements OnInit, OnDestroy {
       discountPercentage: this.discountPercentageInfo,
       shippingFees: this.toNonNegativeNumber(raw.shippingFees),
       confirmInsufficientInventory: false,
+      expectedTotal: this.invoiceGrandTotal,
       items: items.map((item: any) => ({
         productId: String(item.productId || ''),
         quantity: Number(item.quantity),
@@ -689,6 +705,20 @@ export class SellingComponent implements OnInit, OnDestroy {
       ...this.pendingSellingPayload,
       confirmInsufficientInventory: true
     });
+  }
+
+  /** Stage 21 review: the cashier saw the new total and confirms; the same invoice is sent again with that total. */
+  confirmTotalChanged(): void {
+    if (!this.pendingTotalChangedPayload || this.isSaving) return;
+    const payload = { ...this.pendingTotalChangedPayload, expectedTotal: this.totalChanged.current };
+    this.totalChangedVisible = false;
+    this.pendingTotalChangedPayload = null;
+    this.submitSelling(payload);
+  }
+
+  cancelTotalChanged(): void {
+    this.totalChangedVisible = false;
+    this.pendingTotalChangedPayload = null;
   }
 
   cancelInsufficientInventory(): void {
@@ -711,6 +741,17 @@ export class SellingComponent implements OnInit, OnDestroy {
       },
       error: (err: any) => {
         this.isSaving = false;
+
+        if (err?.status === 409 && err?.error?.code === 'TOTAL_CHANGED') {
+          // The server's VAT settings differ from the cached ones: take them, show the new total, ask again.
+          this._vat.applyServerVat(err.error.vat);
+          this.updateInvoiceTotals();
+          this.totalChanged = { expected: Number(err.error.expected ?? payload.expectedTotal ?? 0), current: Number(err.error.current ?? 0) };
+          this.pendingTotalChangedPayload = payload;
+          this.totalChangedVisible = true;
+          this._cdr.detectChanges();
+          return;
+        }
 
         if (this.isInsufficientInventoryError(err)) {
           this.pendingSellingPayload = payload;
@@ -925,7 +966,7 @@ export class SellingComponent implements OnInit, OnDestroy {
       productName: [{ value: '', disabled: true }],
       categoryName: [{ value: '', disabled: true }],
       priceType: ['wholesalePrice', Validators.required],
-      price: [{ value: null, disabled: true }, [Validators.required, Validators.min(0.01)]],
+      price: [{ value: null, disabled: true }, [Validators.required, Validators.min(0.01), twoDecimalsValidator]],
       quantity: [1, [Validators.required, Validators.min(1)]],
       lineTotal: [{ value: 0, disabled: true }]
     });

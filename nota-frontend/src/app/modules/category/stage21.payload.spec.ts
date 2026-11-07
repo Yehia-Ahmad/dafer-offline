@@ -52,6 +52,16 @@ describe('Stage 21 — product form: vatExempt', () => {
       drain();
     });
 
+    it('a price with more than two decimals is refused before anything is sent (create)', async () => {
+      await open();
+      component.addProductForm.patchValue({ retailPrice: '50.555' });
+      component.addNewProduct();
+      http.expectNone((r) => r.url === `${base}products` && r.method === 'POST');
+      expect(component.errorVisible).toBeTrue();
+      expect(component.errorMessage).toBe('vat.priceDecimals');
+      expect(component.isAddingProduct).toBeFalse();
+    });
+
     it('exempt → vatExempt: true is appended', async () => {
       await open();
       component.newVatExempt = true;
@@ -106,6 +116,20 @@ describe('Stage 21 — product form: vatExempt', () => {
       component.updateProduct();
       let req = put();
       expect(req.request.body.vatExempt).toBeUndefined();
+      req.flush({});
+    });
+
+    it('a CHANGED price with more than two decimals is refused; an unchanged legacy 3-decimal price is still sent', async () => {
+      await load({ retailPrice: 35.125 });
+      component.product.retailPrice = 35.126;
+      component.updateProduct();
+      http.expectNone((r) => r.url === `${base}products/p1` && r.method === 'PUT');
+      expect(component.errorMessage).toBe('vat.priceDecimals');
+      component.errorVisible = false;
+      component.product.retailPrice = 35.125;           // back to what the product had
+      component.updateProduct();
+      const req = put();
+      expect(req.request.body.retailPrice).toBe(35.125);
       req.flush({});
     });
 

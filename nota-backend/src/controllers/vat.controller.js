@@ -18,8 +18,11 @@ const { httpError } = boxes;
 //   prepare: output VAT (sales - sales returns) and input VAT (purchases + expenses - purchase returns) of a vatPeriod, read ONLY
 //            from the stored VatEvent rows, plus the credit carried from the previous filed return:
 //            net = output - input - carriedIn
-//   file:    one transaction. Dr VAT_PAYABLE / Cr VAT_INPUT = offset = min(output, input + carriedIn). net > 0 is payable for the
+//   file:    one transaction. offset = min(output, input + carriedIn), SIGNED (no clamp): positive -> Dr VAT_PAYABLE / Cr VAT_INPUT,
+//            negative (a month whose sales returns exceed its sales) -> Dr VAT_INPUT / Cr VAT_PAYABLE. net > 0 is payable for the
 //            month (it stays on VAT_PAYABLE until paid); net < 0 is a credit that stays on VAT_INPUT and carries forward.
+//            Either way VAT_PAYABLE keeps exactly output - offset = max(net, 0) and VAT_INPUT keeps input + carriedIn - offset = credit.
+//   A month can be filed only after it has ended (period < the month of today, local): 409 PERIOD_NOT_ENDED.
 //   pay:     VP, Dr VAT_PAYABLE / Cr box, partial allowed. unfile: owner only, latest return only, no payment, a reason.
 // Returns are filed in month order with no gaps (409 OUT_OF_ORDER), and a document dated in a filed month lands in the first
 // unfiled month after it (accounting/vat.js periodFor), so a filed return never changes.
@@ -37,6 +40,9 @@ const GROUPS = {
   purchaseReturns: ["purchase_return"],
   expenses: ["expense", "expense_cancel"],
 };
+
+/** The signed offset of a month: min(output, input + carriedIn). Shared by prepare, list, file and the health check. */
+const offsetOf = (output, input, carriedIn) => round2(Math.min(output, input + carriedIn));
 
 const sumsByPeriod = async (match, session) => {
   const rows = await VatEvent.aggregate([{ $match: match }, { $group: { _id: { period: "$period", direction: "$direction" }, vat: { $sum: "$vat" }, net: { $sum: "$net" } } }]).session(session || null);
@@ -57,7 +63,7 @@ const figuresFor = async (period, session) => {
   const prior = await VatReturn.findOne({ status: "filed", period: { $lt: period } }).sort({ period: -1 }).session(session || null).lean();
   const carriedIn = prior ? prior.credit : 0;
   const net = round2(sums.output - sums.input - carriedIn);
-  return { filed: null, output: sums.output, input: sums.input, carriedIn, net, offset: Math.max(0, round2(Math.min(sums.output, sums.input + carriedIn))), payable: Math.max(net, 0), credit: Math.max(-net, 0) };
+  return { filed: null, output: sums.output, input: sums.input, carriedIn, net, offset: offsetOf(sums.output, sums.input, carriedIn), payable: Math.max(net, 0), credit: Math.max(-net, 0) };
 };
 
 const paidOf = async (returnId, session) => {
@@ -105,7 +111,7 @@ const listReturns = async (req, res) => {
     const prior = [...filed].reverse().find((row) => row.period < period);
     const carriedIn = prior ? prior.credit : 0;
     const net = round2(entry.output - entry.input - carriedIn);
-    return view(period, { filed: null, output: entry.output, input: entry.input, carriedIn, net, offset: Math.max(0, round2(Math.min(entry.output, entry.input + carriedIn))), payable: Math.max(net, 0), credit: Math.max(-net, 0) }, 0);
+    return view(period, { filed: null, output: entry.output, input: entry.input, carriedIn, net, offset: offsetOf(entry.output, entry.input, carriedIn), payable: Math.max(net, 0), credit: Math.max(-net, 0) }, 0);
   });
   res.json({ data: rows, nextPeriod: next, settings: { enabled: settings.enabled, rate: settings.rate, pricesIncludeVat: settings.pricesIncludeVat, startDate: settings.startDate } });
 };
@@ -132,9 +138,9 @@ const getReturn = async (req, res) => {
     ...view(period, figures, paid),
     lines: await linesOf(period),
     payments: payments.map((row) => ({ _id: row._id, number: row.number, date: row.date, amount: row.amount, boxId: row.boxId, boxName: boxNames.get(String(row.boxId)) || null, reference: row.reference || null, note: row.note || null })),
-    canFile: !figures.filed && period === next && period <= monthOf(today()),
+    canFile: !figures.filed && period === next && period < monthOf(today()),
     canUnfile: Boolean(figures.filed) && period === last && paid === 0,
-    preview: figures.filed ? null : { debit: { code: "22", amount: figures.offset }, credit: { code: "115", amount: figures.offset }, payable: figures.payable, credit_carried: figures.credit },
+    preview: figures.filed ? null : { debit: { code: figures.offset < 0 ? "115" : "22", amount: Math.abs(figures.offset) }, credit: { code: figures.offset < 0 ? "22" : "115", amount: Math.abs(figures.offset) }, payable: figures.payable, credit_carried: figures.credit },
   });
 };
 
@@ -167,17 +173,21 @@ const fileReturn = async (req, res) => {
     if (await VatReturn.exists({ period, status: "filed" }).session(session)) throw httpError(409, "ALREADY_FILED", "الإقرار ده اتقدم قبل كده");
     const expected = await nextPeriod(session);
     if (period !== expected) throw httpError(409, "OUT_OF_ORDER", `الإقرارات بتتقدم بالترتيب. الشهر الجاي هو ${expected}`, { expected });
-    if (period > monthOf(today())) throw httpError(409, "PERIOD_NOT_STARTED", "الشهر ده لسه ما بدأش");
+    if (period >= monthOf(today())) throw httpError(409, "PERIOD_NOT_ENDED", "الشهر ده لسه ما خلصش. الإقرار بيتقدم بعد نهاية الشهر", { period, today: monthOf(today()) });
     const figures = await figuresFor(period, session);
     const number = await nextDocumentNumber(PREFIXES.VAT_RETURN, session);
     const [created] = await VatReturn.create([{
       number, period, output: figures.output, input: figures.input, carriedIn: figures.carriedIn, net: figures.net, offset: figures.offset,
       payable: figures.payable, credit: figures.credit, status: "filed", filedAt: new Date(), filedBy: req.user?._id, filedByName: req.user?.name,
     }], { session });
-    if (figures.offset > 0) {
+    if (figures.offset !== 0) {
       const accounts = await accountMap(["VAT_PAYABLE", "VAT_INPUT"], session);
+      const amount = Math.abs(figures.offset);
+      // Positive: the output is offset against input. Negative: the month's returns exceeded its sales, so the VAT that was
+      // taken back from VAT_PAYABLE is put back there and moves to VAT_INPUT as a credit.
+      const [debitKey, creditKey] = figures.offset > 0 ? ["VAT_PAYABLE", "VAT_INPUT"] : ["VAT_INPUT", "VAT_PAYABLE"];
       await postEntry({ date: today(), source: { type: "vat_return", id: created._id, number }, memo: `VAT return ${period}`, session, lines: [
-        line(accounts.get("VAT_PAYABLE"), figures.offset, "debit"), line(accounts.get("VAT_INPUT"), figures.offset, "credit"),
+        line(accounts.get(debitKey), amount, "debit"), line(accounts.get(creditKey), amount, "credit"),
       ] });
     }
     await audit(req, { action: "vat.filed", entity: "VatReturn", entityId: created._id, details: { number, period, output: figures.output, input: figures.input, carriedIn: figures.carriedIn, net: figures.net, offset: figures.offset }, session, strict: true });

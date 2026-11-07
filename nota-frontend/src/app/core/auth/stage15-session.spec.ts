@@ -290,6 +290,19 @@ describe('Stage 15: lock screen overlay', () => {
     expect(TestBed.inject(AuthService).token()).toBe('test-token-cashier');
   });
 
+  it('unlocking refreshes the shop profile (the VAT settings may have been changed on another PC while the screen was locked)', async () => {
+    http.match(`${base}shop-profile`);        // the sign-in / screen-open reads
+    timers.advance(5 * MIN);
+    fixture.detectChanges();
+    await type('cash-pass');
+    submit();
+    http.expectOne(`${base}auth/verify-password`).flush(null, { status: 204, statusText: 'No Content' });
+    const refresh = http.expectOne(`${base}shop-profile`);
+    expect(refresh.request.method).toBe('GET');
+    refresh.flush({ name: 'متجر' });
+    // a wrong password does not refresh anything
+  });
+
   it('wrong password: message, overlay stays; 5th → the 429 lockout message, overlay stays', async () => {
     timers.advance(5 * MIN);
     fixture.detectChanges();

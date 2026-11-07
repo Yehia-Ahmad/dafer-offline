@@ -6,6 +6,7 @@ const ReturnLog = require("../models/returnLog.model");
 const asyncHandler = require("../utils/asyncHandler");
 const { createReturnLog } = require("../services/returns.service");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
+const { assertPricePrecision } = require("../utils/pricePrecision");
 const { buildPaginatedResponse, getPaginationParams } = require("../utils/pagination");
 const { canSellBelowCost } = require("../auth/middleware");
 const { actorFields } = require("../utils/actorFields");
@@ -13,7 +14,7 @@ const { PREFIXES, nextDocumentNumber, normalizeNumberSearch } = require("../util
 const { withTransaction } = require("../utils/transaction");
 const { postSale, postReturn, postInventoryAdjustment, postInvoiceEdit, postInvoiceCancel } = require("../accounting/posting");
 const { resolveBox, usableBoxOf } = require("../cashbox/boxes");
-const { priceNewInvoice, repriceEditedInvoice, recordVatEvent, periodFor, today } = require("../accounting/vat");
+const { priceNewInvoice, repriceEditedInvoice, recordVatEvent, periodFor, today, assertExpectedAmount } = require("../accounting/vat");
 const { computeReturnVat, computeReturnBreakdown, round2: vatRound2 } = require("../utils/vat");
 const { vatInvoiceView, vatItemView, netInvoiceProfit } = require("../utils/vatView");
 const CashBox = require("../models/cashBox.model");
@@ -171,6 +172,8 @@ const getSellingItemProductId = (item) => {
 };
 
 const normalizeSellingItems = (body, res, options = {}) => {
+  // options.storedPrice: the price comes from the stored invoice (an edit that only changes the quantity), so a legacy price is kept as is.
+  const checkPrice = (price, label) => { if (!options.storedPrice) assertPricePrecision(price, label); };
   if (body.items !== undefined) {
     if (!Array.isArray(body.items)) {
       res.status(400);
@@ -223,6 +226,7 @@ const normalizeSellingItems = (body, res, options = {}) => {
         res.status(400);
         throw new Error(`يجب أن يكون السعر رقمًا غير سالب في العنصر رقم ${itemNumber}`);
       }
+      checkPrice(price, `السعر في العنصر رقم ${itemNumber}`);
 
       return {
         productId,
@@ -266,6 +270,7 @@ const normalizeSellingItems = (body, res, options = {}) => {
     res.status(400);
     throw new Error("يجب أن يكون السعر رقمًا غير سالب");
   }
+  checkPrice(price, "السعر");
 
   return [
     {
@@ -728,6 +733,8 @@ const createSellingInvoice = async ({ body, res, allowBelowCost = false, session
   // Stage 21: VAT (only when the shop has it on and the invoice date is on/after its start date).
   const vat = await priceNewInvoice({ persistedItems, productsById, invoiceTotals, businessDate: normalizedSellingDate, session });
   if (vat) invoiceTotals.totalPrice = vat.computed.totalPrice;
+  // The screen's total (from its cached VAT settings) must be what the server now computes; otherwise nothing is saved (409 TOTAL_CHANGED).
+  await assertExpectedAmount({ expected: body.expectedTotal, actual: invoiceTotals.totalPrice, code: "TOTAL_CHANGED", session, extra: { vatAmount: vat ? vat.computed.vatAmount : 0 } });
   const created = await Selling.create([{
       number,
       customerName: normalizedCustomerName,
@@ -977,7 +984,8 @@ const updateSellingInTransaction = async (req, res, session) => {
               : currentItem.quantity,
           price: req.body.price !== undefined ? req.body.price : currentItem.unitPrice,
         },
-        res
+        res,
+        { storedPrice: req.body.price === undefined }
       );
     }
 
@@ -1019,7 +1027,8 @@ const updateSellingInTransaction = async (req, res, session) => {
     // Stage 21: an invoice that has VAT keeps the rate and mode it was saved with; its VAT is recomputed from the new figures.
     vatEdit = repriceEditedInvoice({ invoice: oldSelling, persistedItems: pricingItems, productsById, invoiceTotals });
     if (vatEdit) {
-      if (!shouldUpdateItems) (selling.items || []).forEach((item, index) => { item.vatAmount = vatEdit.computed.itemVat[index]; });
+      // The stored lines (not the plain objects that were cast on assignment) must carry the exempt flag and the line VAT.
+      (selling.items || []).forEach((item, index) => { item.vatExempt = Boolean(pricingItems[index] && pricingItems[index].vatExempt); item.vatAmount = vatEdit.computed.itemVat[index]; });
       Object.assign(selling, vatEdit.fields);
       invoiceTotals.totalPrice = vatEdit.computed.totalPrice;
     }

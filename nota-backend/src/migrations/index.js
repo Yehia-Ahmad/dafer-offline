@@ -565,8 +565,13 @@ async function stage19CategoryCodesMigration(session) {
 // Stage 21: account 115 "ضريبة مدخلات قابلة للخصم" (VAT_INPUT, asset, debit normal) under 11. VAT_PAYABLE (22) already exists.
 async function stage21VatInputAccountMigration(session) {
   await seedAccounts(session);
+  // seedAccounts never overwrites an existing account, so a chart that already has its own account 115 would silently keep it
+  // and every VAT posting would later fail. Stop here with a clear message instead; the shop must renumber that account first.
   const account = await Account.findOne({ code: "115" }).session(session).lean();
-  return { vatInputAccount: account ? account.code : null };
+  if (!account || account.systemKey !== "VAT_INPUT") {
+    throw new Error(`Stage 21 migration stopped: account code 115 already exists in the chart of accounts as "${account ? (account.nameAr || account.nameEn || account._id) : "missing"}" and is not the VAT input account (VAT_INPUT). Rename or renumber that account, then start the app again.`);
+  }
+  return { vatInputAccount: account.code };
 }
 
 const migrations = [

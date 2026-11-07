@@ -108,7 +108,11 @@ it("the return: October has input > output (a credit that carries); a late docum
   assert.equal(purchase.vatAmount, 763);
   const prepared = ok(await call("GET", "/api/vat/returns/2026-10"));
   assert.equal(prepared.output, 30.7); assert.equal(prepared.input, 763); assert.equal(prepared.carriedIn, 0); assert.equal(prepared.net, -732.3);
-  assert.equal(prepared.status, "open"); assert.equal(prepared.canFile, true);
+  assert.equal(prepared.status, "open"); assert.equal(prepared.canFile, false, "a month can be filed only after it has ended");
+  const early = await file("2026-10");
+  assert.equal(early.status, 409); assert.equal(early.json.code, "PERIOD_NOT_ENDED");
+  atClock(2026, 11, 1);
+  assert.equal(ok(await call("GET", "/api/vat/returns/2026-10")).canFile, true);
   assert.equal(prepared.lines.sales.length, 1); assert.equal(prepared.lines.purchases.length, 1); assert.equal(prepared.lines.sales[0].vat, 30.7);
 
   // Filing is one transaction: the offset entry, the stored figures, the filed status.
@@ -165,6 +169,9 @@ it("unfile: owner only, the latest return only, no payment, a reason; the offset
   atClock(2026, 11, 2);
   ok(await file("2026-10"), 201);
   ok(await sale(s, "2026-11-02", [{ productId: s.a._id, quantity: 1, price: 114 }]), 201);
+  assert.equal((await file("2026-11")).json.code, "PERIOD_NOT_ENDED", "November is still running on Nov 2");
+  atClock(2026, 12, 2);
+  ok(await sale(s, "2026-12-02", [{ productId: s.a._id, quantity: 1, price: 114 }]), 201);
   ok(await file("2026-11"), 201);
   token = await makeUser("s21-accountant", "accountant");
   const denied = await call("POST", "/api/vat/returns/2026-11/unfile", { reason: "غلط" });
@@ -174,9 +181,8 @@ it("unfile: owner only, the latest return only, no payment, a reason; the offset
   assert.equal((await call("POST", "/api/vat/returns/2026-11/unfile", {})).status, 400, "a reason is required");
   ok(await call("POST", "/api/vat/returns/2026-11/pay", { amount: 5, boxId: s.main._id }), 201);
   assert.equal((await call("POST", "/api/vat/returns/2026-11/unfile", { reason: "غلط" })).json.code, "HAS_PAYMENTS");
-  assert.equal((await file("2026-12")).status, 409, "December has not started at the clock of Nov 2");
-  atClock(2026, 12, 2);
-  ok(await sale(s, "2026-12-02", [{ productId: s.a._id, quantity: 1, price: 114 }]), 201);
+  assert.equal((await file("2026-12")).json.code, "PERIOD_NOT_ENDED", "December is still running on Dec 2");
+  atClock(2027, 1, 2);
   ok(await file("2026-12"), 201);
   const offsetBefore = await accountBalance("VAT_PAYABLE");
   const reversed = ok(await call("POST", "/api/vat/returns/2026-12/unfile", { reason: "غلط في الأرقام" }));
@@ -195,6 +201,7 @@ it("unfile reverses a real offset entry", async () => {
   const supplier = await Supplier.create({ name: "مورد مسجل", vatRegistered: true });
   ok(await sale(s, "2026-10-12", design(s), { discountAmount: 20 }), 201);
   ok(await call("POST", "/api/purchases", { supplierId: String(supplier._id), date: "2026-10-13", items: [{ productId: s.a._id, qty: 10, unitPrice: 100 }] }), 201);
+  atClock(2026, 11, 1);
   ok(await file("2026-10"), 201);
   assert.equal(await accountBalance("VAT_INPUT"), r2(140 - 30.7));
   ok(await call("POST", "/api/vat/returns/2026-10/unfile", { reason: "غلط" }));
@@ -237,5 +244,6 @@ it("permissions: a cashier cannot file or pay (403); a manager and an accountant
   assert.equal((await call("GET", "/api/vat/returns")).status, 403);
   token = manager;
   assert.equal((await call("GET", "/api/vat/returns")).status, 200);
+  atClock(2026, 11, 1);
   ok(await file("2026-10"), 201);
 });

@@ -90,6 +90,8 @@ export interface PurchasePayload {
   /** Stage 21: only sent while VAT applies to the purchase date. vatAmount is the supplier's printed VAT (omitted = shop rate × net). */
   vatRegistered?: boolean;
   vatAmount?: number;
+  /** Stage 21 review: the VAT the form showed; the server answers 409 VAT_CHANGED when its settings now give another figure. */
+  expectedVat?: number;
 }
 
 export interface PurchaseCreated extends Purchase {

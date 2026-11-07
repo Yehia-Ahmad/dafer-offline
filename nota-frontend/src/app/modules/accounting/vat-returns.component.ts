@@ -13,7 +13,7 @@ import { VatReturnsService } from './vat-returns.service';
 import { VAT_LINE_GROUPS, VatLine, VatLineGroup, VatReturnDetail, VatReturnList, VatReturnRow, VatReturnStatus } from './vat.models';
 
 const PILL: Record<VatReturnStatus, NotaPillVariant> = { open: 'neutral', filed: 'info', partial: 'due', paid: 'ok' };
-const KNOWN_ERRORS = ['OUT_OF_ORDER', 'ALREADY_FILED', 'PERIOD_NOT_STARTED', 'EXCEEDS_REMAINING', 'NOTHING_DUE', 'NOT_FILED', 'NOT_LATEST', 'HAS_PAYMENTS', 'OWNER_ONLY',
+const KNOWN_ERRORS = ['OUT_OF_ORDER', 'ALREADY_FILED', 'PERIOD_NOT_ENDED', 'EXCEEDS_REMAINING', 'NOTHING_DUE', 'NOT_FILED', 'NOT_LATEST', 'HAS_PAYMENTS', 'OWNER_ONLY',
   'INSUFFICIENT_BALANCE', 'NO_OPEN_SHIFT', 'BOX_INACTIVE', 'BOX_NOT_ALLOWED'];
 
 /**
@@ -92,7 +92,7 @@ const KNOWN_ERRORS = ['OUT_OF_ORDER', 'ALREADY_FILED', 'PERIOD_NOT_STARTED', 'EX
               [note]="d.status === 'open' ? '' : ((('vat.returns.paid' | translate) + ': ' + (d.paid | notaMoney)) + ' · ' + (('vat.returns.remaining' | translate) + ': ' + (d.remaining | notaMoney)))" />
           </div>
           @if (d.status === 'open' && !d.canFile) {
-            <p class="vr__note" data-test="order-note">{{ (d.period === list()?.nextPeriod ? 'vat.returns.notStarted' : 'vat.returns.orderRule') | translate: { next: list()?.nextPeriod } }}</p>
+            <p class="vr__note" data-test="order-note">{{ (d.period === list()?.nextPeriod ? 'vat.returns.notEnded' : 'vat.returns.orderRule') | translate: { next: list()?.nextPeriod } }}</p>
           }
 
           <div class="vr__tabs" role="tablist" [attr.aria-label]="'vat.returns.documents' | translate">
@@ -145,9 +145,15 @@ const KNOWN_ERRORS = ['OUT_OF_ORDER', 'ALREADY_FILED', 'PERIOD_NOT_STARTED', 'EX
           </dl>
           <h3 class="vr__h">{{ 'vat.file.posting' | translate }}</h3>
           <ul class="vr__posting" data-test="file-posting">
-            <li><span>{{ 'vat.file.debit' | translate }}</span><b class="nota-num">{{ d.offset | notaMoney }}</b></li>
-            <li><span>{{ 'vat.file.credit' | translate }}</span><b class="nota-num">{{ d.offset | notaMoney }}</b></li>
+            @if (d.offset < 0) {
+              <li data-test="posting-negative"><span>{{ 'vat.file.debitInput' | translate }}</span><b class="nota-num">{{ abs(d.offset) | notaMoney }}</b></li>
+              <li><span>{{ 'vat.file.creditPayable' | translate }}</span><b class="nota-num">{{ abs(d.offset) | notaMoney }}</b></li>
+            } @else {
+              <li><span>{{ 'vat.file.debit' | translate }}</span><b class="nota-num">{{ d.offset | notaMoney }}</b></li>
+              <li><span>{{ 'vat.file.credit' | translate }}</span><b class="nota-num">{{ d.offset | notaMoney }}</b></li>
+            }
           </ul>
+          @if (d.offset < 0) { <p class="vr__note" data-test="negative-note">{{ 'vat.file.negativeNote' | translate }}</p> }
           <p class="vr__note">{{ (d.net < 0 ? 'vat.file.creditNote' : 'vat.file.payableNote') | translate }}</p>
         }
         @if (error()) { <p class="nota-error" role="alert" data-test="dialog-error">{{ error() | translate }}</p> }

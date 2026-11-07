@@ -7,6 +7,11 @@ import { VatSettingsService } from './vat-settings.service';
 export class FakeVatSettings {
   readonly settings = signal<VatSettingsLike | null>(null);
   readonly enabled = computed(() => Boolean(this.settings()?.enabled));
+  /** Specs read these to see that a screen refreshed the settings / applied the server's block. */
+  refreshCalls = 0;
+  appliedVat: Array<VatSettingsLike | null | undefined> = [];
+  refresh(): void { this.refreshCalls += 1; }
+  applyServerVat(vat: VatSettingsLike | null | undefined): void { this.appliedVat.push(vat); if (vat) this.settings.set(vat); }
   contextFor(date: string) {
     return vatContextFor(this.settings(), date);
   }

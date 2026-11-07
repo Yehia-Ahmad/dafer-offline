@@ -15,6 +15,7 @@ import { PurchaseFormComponent } from './purchase-form.component';
 import { PurchaseReturnDialogComponent, returnValue } from './purchase-return-dialog.component';
 import { PurchasesPageComponent } from './purchases-page.component';
 import { PurchaseDetail } from './purchases.models';
+import { provideFakeVat } from '../shop-profile/services/vat-settings.testing';
 
 const base = environment.api_base_url;
 const settle = async (fixture: ComponentFixture<unknown>) => { fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges(); };
@@ -27,7 +28,7 @@ const CHARGER = { _id: 'p-chg', name: 'شاحن تايب سي', code: 'CHG25', i
 async function setup<T>(component: new (...args: never[]) => T, { signIn = () => signInAs('owner', { permissions: [...ROLE_PERMISSIONS.owner, 'accounting.view'] }), route = {} as Record<string, string>, query = {} as Record<string, string> } = {}) {
   await TestBed.configureTestingModule({
     imports: [component, TranslateModule.forRoot()],
-    providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), provideNoopAnimations(),
+    providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), provideNoopAnimations(), provideFakeVat(),
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(route), queryParamMap: convertToParamMap(query) } } }],
   }).compileComponents();
   signIn();
@@ -122,6 +123,7 @@ describe('PurchaseFormComponent (Stage 20)', () => {
       supplierId: 's1', supplierInvoiceNo: 'EL-8841', date: '2026-11-03',
       items: [{ productId: 'p-led', qty: 20, unitPrice: 70 }, { productId: 'p-chg', qty: 10, unitPrice: 240 }],
       discountAmount: 50, otherCosts: 20, paidAmount: 3000,
+      expectedVat: 0,   // Stage 21 review: the VAT the form showed (none); the server answers 409 VAT_CHANGED when its settings differ
     });
     req.flush({ _id: 'po1', number: 'PO-000001', pvNumber: 'PV-000001', supplierBalanceAfter: 6650 });
     expect(navigate).toHaveBeenCalledWith(['/purchases', 'po1'], { queryParams: { pv: 'PV-000001' } });
@@ -134,7 +136,7 @@ describe('PurchaseFormComponent (Stage 20)', () => {
     component.supplierId.set('s1'); add(component, LED, 5, 70);
     component.save();
     const req = http.expectOne(`${base}purchases`);
-    expect(req.request.body).toEqual({ supplierId: 's1', date: jasmine.any(String), items: [{ productId: 'p-led', qty: 5, unitPrice: 70 }] });
+    expect(req.request.body).toEqual({ supplierId: 's1', date: jasmine.any(String), items: [{ productId: 'p-led', qty: 5, unitPrice: 70 }], expectedVat: 0 });
     req.flush({ _id: 'po2', number: 'PO-000002', pvNumber: null, supplierBalanceAfter: 4550 });
   });
 

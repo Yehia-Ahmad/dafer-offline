@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule } from '@ngx-translate/core';
 import { environment } from '../../../../../environments/environment';
+import { provideFakeVat } from '../../../shop-profile/services/vat-settings.testing';
 import { CreditSalesComponent } from './credit-sales.component';
 
 /**
@@ -67,7 +68,7 @@ describe('CreditSalesComponent payloads (Stage 9 safety)', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [CreditSalesComponent, TranslateModule.forRoot()],
-      providers: [provideRouter([]), provideNoopAnimations(), provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideRouter([]), provideNoopAnimations(), provideHttpClient(), provideHttpClientTesting(), provideFakeVat()],
     })
       .overrideComponent(CreditSalesComponent, { set: { template: '', imports: [] } })
       .compileComponents();
@@ -86,7 +87,7 @@ describe('CreditSalesComponent payloads (Stage 9 safety)', () => {
     const req = expectCreditPost();
     expect(JSON.stringify(req.request.body)).toBe(JSON.stringify({
       sellingDate: '2026-11-04', discountAmount: 40, discountPercentage: 1.92, shippingFees: 0,
-      initialPaidAmount: undefined, items, customerId: 'cu1',
+      initialPaidAmount: undefined, items, customerId: 'cu1', expectedTotal: 2040,
     }));
     expect('initialPaidAmount' in req.request.body).toBeTrue();
     expect(req.request.body.initialPaidAmount).toBeUndefined();
@@ -102,7 +103,7 @@ describe('CreditSalesComponent payloads (Stage 9 safety)', () => {
     const req = expectCreditPost();
     expect(JSON.stringify(req.request.body)).toBe(JSON.stringify({
       sellingDate: '2026-11-04', discountAmount: 40, discountPercentage: 1.92, shippingFees: 30,
-      initialPaidAmount: 500, items, customerName: 'ورشة النور', customerPhone: '01119876543',
+      initialPaidAmount: 500, items, customerName: 'ورشة النور', customerPhone: '01119876543', expectedTotal: 2070,
     }));
     req.flush({});
   });
@@ -168,7 +169,7 @@ describe('CreditSalesComponent payloads (Stage 9 safety)', () => {
     const req = expectCreditPost();
     expect(JSON.stringify(req.request.body)).toBe(JSON.stringify({
       sellingDate: '2026-11-04', discountAmount: 40, discountPercentage: 1.92, shippingFees: 0,
-      initialPaidAmount: undefined, items, customerId: 'cu1', dueDate: '2026-12-03', notes: 'موقع عمارة الجلاء',
+      initialPaidAmount: undefined, items, customerId: 'cu1', dueDate: '2026-12-03', notes: 'موقع عمارة الجلاء', expectedTotal: 2040,
     }));
     req.flush({});
   });

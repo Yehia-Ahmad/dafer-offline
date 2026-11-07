@@ -101,6 +101,24 @@ const repriceEditedInvoice = ({ invoice, persistedItems, productsById, invoiceTo
   return { computed, fields: { ...invoiceVatFields(computed, null), vatReturnedAmount: invoice.vatReturnedAmount || 0 } };
 };
 
+/**
+ * A client that works from cached VAT settings (another PC that has not signed in since the owner changed them) may show the
+ * cashier a total the server no longer computes. The screen sends the total it showed as `expected` (expectedTotal for sales,
+ * expectedVat for purchases); when the server's figure differs the request is refused with 409 and the CURRENT vat settings, so
+ * the screen can refresh, show the new figure and ask again. An absent field changes nothing. Call it inside the transaction.
+ */
+const assertExpectedAmount = async ({ expected, actual, code, session, extra = {} }) => {
+  if (expected === undefined || expected === null || expected === "") return;
+  const number = Number(expected);
+  if (!Number.isFinite(number)) { const error = new Error("القيمة المتوقعة غير صالحة"); error.statusCode = 400; error.responseData = { code: "INVALID_EXPECTED_AMOUNT" }; throw error; }
+  if (Math.abs(round2(number) - round2(actual)) < 0.005) return;
+  const settings = await loadVatSettings(session);
+  const error = new Error("إعدادات الضريبة اتغيرت. راجع الإجمالي الجديد وأكّد تاني");
+  error.statusCode = 409;
+  error.responseData = { code, expected: round2(number), current: round2(actual), vat: { enabled: settings.enabled, rate: settings.rate, pricesIncludeVat: settings.pricesIncludeVat, startDate: settings.startDate }, ...extra };
+  throw error;
+};
+
 module.exports = {
-  loadVatSettings, vatContext, lastFiledPeriod, periodFor, today, touchVatLock, vatPosition, recordVatEvent, priceNewInvoice, repriceEditedInvoice, invoiceVatFields, monthOf,
+  assertExpectedAmount, loadVatSettings, vatContext, lastFiledPeriod, periodFor, today, touchVatLock, vatPosition, recordVatEvent, priceNewInvoice, repriceEditedInvoice, invoiceVatFields, monthOf,
 };

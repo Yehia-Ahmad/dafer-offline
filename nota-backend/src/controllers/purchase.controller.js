@@ -8,13 +8,14 @@ const { postEntry, line, accountMap, postInventoryValueAdjustment } = require(".
 const { allocateCosts, weightedAverage, round4 } = require("../accounting/purchaseCost");
 const { nextDocumentNumber, normalizeNumberSearch, PREFIXES } = require("../utils/documentNumber");
 const { roundMoney } = require("../utils/invoicePricing");
+const { assertPricePrecision } = require("../utils/pricePrecision");
 const { withTransaction } = require("../utils/transaction");
 const { audit } = require("../auth/audit");
 const boxes = require("../cashbox/boxes");
 const { nonNegativeAmount, positiveAmount, optionalDate, optionalText, requiredReason } = require("../cashbox/validate");
 const { can } = require("./cashbox.controller");
 const { postSupplierPayment, postSupplierRefund, balanceOf, touchSupplier } = require("./supplierAccount.controller");
-const { loadVatSettings, vatContext, periodFor, recordVatEvent } = require("../accounting/vat");
+const { loadVatSettings, vatContext, periodFor, recordVatEvent, assertExpectedAmount } = require("../accounting/vat");
 
 const { httpError, isId } = boxes;
 
@@ -40,6 +41,7 @@ const readItems = (raw) => {
     if (!isId(productId)) throw httpError(400, "INVALID_PRODUCT", `الصنف رقم ${index + 1} غير صالح`);
     const qty = typeof row.qty === "string" && row.qty.trim() !== "" ? Number(row.qty) : row.qty;
     if (typeof qty !== "number" || !Number.isInteger(qty) || qty <= 0 || qty > 1e7) throw httpError(400, "INVALID_QTY", `كمية الصنف رقم ${index + 1} لازم تكون عدد صحيح أكبر من صفر`);
+    assertPricePrecision(row.unitPrice, `سعر الصنف رقم ${index + 1}`);
     const unitPrice = nonNegativeAmount(row.unitPrice, `سعر الصنف رقم ${index + 1}`);
     return { productId: String(productId), qty, unitPrice };
   });
@@ -65,6 +67,10 @@ const createPurchase = async (req, res) => {
   if (discountAmount > subtotal) throw httpError(400, "DISCOUNT_TOO_LARGE", "الخصم أكبر من إجمالي الفاتورة");
   const { lineCosts, total } = allocateCosts(lineTotals, discountAmount, otherCosts);
   if (total <= 0) throw httpError(400, "TOTAL_REQUIRED", "إجمالي الفاتورة لازم يكون أكبر من صفر");
+  // Stage 20 order: a payment above the invoice total is refused up front, before the supplier is even loaded. That is exact whenever
+  // no VAT can apply (VAT off / before its start date, or the invoice says the supplier is not registered). When VAT may apply the
+  // invoice can be bigger than its net total, so the same check runs below against the gross total once the VAT is known.
+  if (paidAmount > total && (body.vatRegistered === false || !vatContext(await loadVatSettings(), date))) throw httpError(400, "PAID_EXCEEDS_TOTAL", "المدفوع أكبر من إجمالي الفاتورة");
   // Paying is a separate permission: a storekeeper's purchase is "آجل كله" unless a payer does it.
   if (paidAmount > 0 && !can(req, "suppliers.pay")) throw httpError(403, "PAY_NOT_ALLOWED", "مفيش صلاحية دفع للموردين. سجّل الفاتورة آجل");
   // Stage 21: "المورد مسجل ضريبيًا" (default: the supplier's flag) and the supplier's printed VAT amount (default: shop rate × net total).
@@ -79,10 +85,12 @@ const createPurchase = async (req, res) => {
     if (!supplier) throw httpError(404, "SUPPLIER_NOT_FOUND", "المورد غير موجود");
     if (supplier.isActive === false) throw httpError(409, "SUPPLIER_INACTIVE", "المورد موقوف");
     const vatCtx = vatContext(await loadVatSettings(session), date);
-    if (!vatCtx && vatInput.amount > 0) throw httpError(400, "VAT_NOT_ENABLED", "الضريبة غير مفعّلة");
     const vatRegistered = vatCtx ? (vatInput.registered === undefined ? Boolean(supplier.vatRegistered) : vatInput.registered) : false;
     // Line costs (and so the stock value and the average) stay on the amount WITHOUT VAT: recoverable VAT is never inventory.
     const vat = vatCtx && vatRegistered ? (vatInput.amount !== undefined ? vatInput.amount : roundMoney(total * vatCtx.rate / 100)) : 0;
+    // The form's VAT (from its cached settings) must be what the server now works out; otherwise nothing is saved (409 VAT_CHANGED).
+    await assertExpectedAmount({ expected: body.expectedVat, actual: vat, code: "VAT_CHANGED", session, extra: { supplierVatRegistered: Boolean(supplier.vatRegistered), netTotal: total } });
+    if (!vatCtx && vatInput.amount > 0) throw httpError(400, "VAT_NOT_ENABLED", "الضريبة غير مفعّلة");
     if (vat > total) throw httpError(400, "VAT_TOO_LARGE", "الضريبة أكبر من إجمالي الفاتورة");
     const gross = roundMoney(total + vat);
     if (paidAmount > gross) throw httpError(400, "PAID_EXCEEDS_TOTAL", "المدفوع أكبر من إجمالي الفاتورة");

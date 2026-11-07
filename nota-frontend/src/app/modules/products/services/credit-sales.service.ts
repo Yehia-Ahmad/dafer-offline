@@ -34,6 +34,8 @@ export interface CreateCreditSalePayload {
   discountPercentage?: number;
   shippingFees?: number;
   initialPaidAmount?: number;
+  /** Stage 21 review: the total the screen showed; the server answers 409 TOTAL_CHANGED when its VAT settings now give another total. */
+  expectedTotal?: number;
   /** Stage 19: the box the down payment goes into. */
   boxId?: string;
   items: CreditSaleItemPayload[];

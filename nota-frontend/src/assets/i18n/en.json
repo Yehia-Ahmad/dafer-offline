@@ -2091,7 +2091,6 @@
             "paid": "Paid",
             "remaining": "Remaining",
             "orderRule": "Returns are filed in month order. Next month: {{next}}",
-            "notStarted": "This month has not started yet. Its return can be filed once the month begins.",
             "documents": "Documents",
             "number": "Number",
             "date": "Date",
@@ -2099,7 +2098,8 @@
             "lineVat": "VAT",
             "total": "Total",
             "noLines": "No documents in this month",
-            "payments": "Payments"
+            "payments": "Payments",
+            "notEnded": "This month has not ended yet. Its return can be filed after it ends."
         },
         "status": {
             "open": "Open",
@@ -2134,7 +2134,10 @@
             "credit": "Cr Recoverable input VAT (115)",
             "creditNote": "Input VAT is larger: the difference stays on account 115 as a credit and carries to next month.",
             "payableNote": "What is left after the offset stays payable on account 22 until it is paid.",
-            "confirm": "Confirm filing"
+            "confirm": "Confirm filing",
+            "debitInput": "Dr Recoverable input VAT (115)",
+            "creditPayable": "Cr VAT payable (22)",
+            "negativeNote": "This month's returns were larger than its sales: the VAT taken back moves from payable to a credit on account 115 and carries to next month."
         },
         "pay": {
             "title": "Pay the {{period}} VAT",
@@ -2158,7 +2161,6 @@
             "generic": "Something went wrong. Try again.",
             "OUT_OF_ORDER": "Returns are filed in month order with no gaps. File the earlier month first.",
             "ALREADY_FILED": "This return was already filed.",
-            "PERIOD_NOT_STARTED": "This month has not started yet.",
             "EXCEEDS_REMAINING": "The amount is more than what remains on the return.",
             "NOTHING_DUE": "There is no VAT due for this month.",
             "NOT_FILED": "This return has not been filed yet.",
@@ -2168,13 +2170,23 @@
             "INSUFFICIENT_BALANCE": "The box does not have enough money.",
             "NO_OPEN_SHIFT": "There is no open shift on this box.",
             "BOX_INACTIVE": "This box is closed.",
-            "BOX_NOT_ALLOWED": "This box is not available to you."
+            "BOX_NOT_ALLOWED": "This box is not available to you.",
+            "PERIOD_NOT_ENDED": "This month has not ended yet. A return is filed after the month ends.",
+            "PRICE_PRECISION": "A price can have at most two decimals."
         },
         "dashboard": {
             "includesVat": "incl. VAT",
             "due": "VAT due",
             "dueNote": "payable {{payable}} − input {{input}}",
             "open": "Return"
-        }
+        },
+        "priceDecimals": "A price can have at most two decimals",
+        "totalChanged": {
+            "title": "VAT settings changed",
+            "message": "The VAT settings were changed on another PC. The invoice total is now {{current}} instead of {{expected}}. Check it and confirm to save.",
+            "confirm": "Confirm and save",
+            "cancel": "Back to review"
+        },
+        "purchaseChanged": "The VAT settings were changed on another PC. The VAT is now {{current}} instead of {{expected}}. Check the invoice and save again."
     }
 }

@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule } from '@ngx-translate/core';
 import { environment } from '../../../../../environments/environment';
+import { provideFakeVat } from '../../../shop-profile/services/vat-settings.testing';
 import { SellingComponent } from './selling.component';
 
 /**
@@ -65,6 +66,8 @@ describe('SellingComponent payloads (Stage 9 safety)', () => {
     discountPercentage: 4.55,
     shippingFees: 20,
     confirmInsufficientInventory: confirm,
+    // Stage 21 review: the total the cashier saw (330 - 15 + 20); the server compares it with its own.
+    expectedTotal: 335,
     items: [
       { productId: 'p1', quantity: 3, price: 60 },
       { productId: 'p2', quantity: 1, price: 150 },
@@ -81,7 +84,7 @@ describe('SellingComponent payloads (Stage 9 safety)', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SellingComponent, TranslateModule.forRoot()],
-      providers: [provideRouter([]), provideNoopAnimations(), provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideRouter([]), provideNoopAnimations(), provideHttpClient(), provideHttpClientTesting(), provideFakeVat()],
     })
       .overrideComponent(SellingComponent, { set: { template: '', imports: [] } })
       .compileComponents();
@@ -174,7 +177,7 @@ describe('SellingComponent payloads (Stage 9 safety)', () => {
     const req = expectSellingPost();
     expect(JSON.stringify(req.request.body)).toBe(JSON.stringify({
       customerName: 'زبون نقدي', customerPhone: '', sellingDate: '2026-11-04', discountAmount: 0, discountPercentage: 0,
-      shippingFees: 0, confirmInsufficientInventory: false, items: [{ productId: 'p1', quantity: 1, price: 60 }],
+      shippingFees: 0, confirmInsufficientInventory: false, expectedTotal: 60, items: [{ productId: 'p1', quantity: 1, price: 60 }],
     }));
     req.flush({});
   });

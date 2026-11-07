@@ -123,6 +123,8 @@ export class IdleLockService {
         this.lockState.unlock();
         this.lastReset = this.timers.now();
         this.schedule();
+        // The shop settings (VAT among them) may have been changed on another PC while this one was locked.
+        this.shopProfile.refresh();
       })
     );
   }

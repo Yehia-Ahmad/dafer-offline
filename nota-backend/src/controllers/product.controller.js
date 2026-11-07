@@ -7,6 +7,7 @@ const Selling = require("../models/selling.model");
 const ReturnLog = require("../models/returnLog.model");
 const asyncHandler = require("../utils/asyncHandler");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
+const { assertPricePrecision } = require("../utils/pricePrecision");
 const { calculatePriceAfterDiscount } = require("../utils/productPricing");
 const { withTransaction } = require("../utils/transaction");
 const { postCostSync, getLedgerStartAt, isLedgerDocument, returnedUnits } = require("../accounting/posting");
@@ -629,6 +630,9 @@ const createProductInTransaction = async (req, res, session) => {
     throw new Error("لم يتم العثور على فئة للمعرّف المقدم");
   }
 
+  assertPricePrecision(wholesalePrice, "سعر الجملة");
+  assertPricePrecision(purchasePrice, "سعر الشراء");
+  assertPricePrecision(retailPrice, "سعر التجزئة");
   if (Number(retailPrice) < Number(wholesalePrice)) {
     res.status(400);
     throw new Error("يجب أن يكون سعر التجزئة أكبر من أو يساوي سعر الجملة");
@@ -882,6 +886,10 @@ const updateProductInTransaction = async (req, res, session) => {
       throw new Error("قيمة الإعفاء من الضريبة غير صالحة");
     }
     product.vatExempt = req.body.vatExempt;
+  }
+  // A price that is sent back unchanged (a legacy product with a 3-decimal price) is not re-validated; a changed one must have <= 2 decimals.
+  for (const field of ["wholesalePrice", "purchasePrice", "retailPrice"]) {
+    if (req.body[field] !== undefined && Number(req.body[field]) !== Number(product[field])) assertPricePrecision(req.body[field], "السعر");
   }
   if (req.body.wholesalePrice !== undefined) product.wholesalePrice = req.body.wholesalePrice;
   if (req.body.purchasePrice !== undefined) product.purchasePrice = req.body.purchasePrice;

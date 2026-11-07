@@ -26,6 +26,13 @@ export class ShopProfileService {
     );
   }
 
+  /** The server refused a document because its VAT settings differ from the cached ones: take the server's block right away. */
+  applyVat(vat: ShopProfile['vat']): void {
+    const current = this.cachedProfile();
+    if (current) this.cachedProfile.set({ ...current, vat });
+    else this.refresh();
+  }
+
   /** Reloads the cached profile in the background. On failure the cache stays as it was. */
   refresh(): void {
     this.getProfile().subscribe({ error: () => undefined });

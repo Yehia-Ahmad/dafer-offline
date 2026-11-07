@@ -7,6 +7,7 @@ const asyncHandler = require("../utils/asyncHandler");
 const { createReturnLog } = require("../services/returns.service");
 const { toCreditSaleInvoice } = require("../utils/creditSaleFormatter");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
+const { assertPricePrecision } = require("../utils/pricePrecision");
 const { buildPaginatedResponse, getPaginationParams } = require("../utils/pagination");
 const { canSellBelowCost } = require("../auth/middleware");
 const { PREFIXES, normalizeNumberSearch } = require("../utils/documentNumber");
@@ -18,7 +19,7 @@ const Receipt = require("../models/receipt.model");
 const PartyOpening = require("../models/partyOpening.model");
 const { openingRemaining } = require("../services/customerOpenItems.service");
 const { nextDocumentNumber } = require("../utils/documentNumber");
-const { priceNewInvoice, repriceEditedInvoice, recordVatEvent, periodFor, today } = require("../accounting/vat");
+const { priceNewInvoice, repriceEditedInvoice, recordVatEvent, periodFor, today, assertExpectedAmount } = require("../accounting/vat");
 const { computeReturnVat, computeReturnBreakdown, round2: vatRound2 } = require("../utils/vat");
 
 const REACTIONARY_CREDIT_SALE_STATUS = "returned";
@@ -242,7 +243,9 @@ const getCreditSaleItemProductId = (item) => {
   return item.product;
 };
 
-const normalizeCreditSaleItems = (body, res) => {
+const normalizeCreditSaleItems = (body, res, options = {}) => {
+  // options.storedPrice: the price comes from the stored invoice (an edit that only changes the quantity), so a legacy price is kept as is.
+  const checkPrice = (price, label) => { if (!options.storedPrice) assertPricePrecision(price, label); };
   if (body.items !== undefined) {
     if (!Array.isArray(body.items)) {
       res.status(400);
@@ -295,6 +298,7 @@ const normalizeCreditSaleItems = (body, res) => {
         res.status(400);
         throw new Error(`يجب أن يكون السعر رقمًا غير سالب في العنصر رقم ${itemNumber}`);
       }
+      checkPrice(price, `السعر في العنصر رقم ${itemNumber}`);
 
       return {
         productId,
@@ -338,6 +342,7 @@ const normalizeCreditSaleItems = (body, res) => {
     res.status(400);
     throw new Error("يجب أن يكون السعر رقمًا غير سالب");
   }
+  checkPrice(price, "السعر");
 
   return [
     {
@@ -916,6 +921,15 @@ const normalizeCreditSaleRefundItems = (creditSale, body, res) => {
   return [...refundSelectionsByItemId.values()];
 };
 
+// The value of a returned line is round(u x qty before) - round(u x qty after), so the returns of a line add up to exactly the
+// line total that was sold (and posted) even when a legacy unit price has more than 2 decimals; one return then always matches
+// the refund that is worked out from the remaining lines.
+const returnedLineValue = (invoiceItem, quantity) => {
+  const unitPrice = Number(invoiceItem.unitPrice || 0);
+  const before = Number(invoiceItem.quantity || 0) - Number(invoiceItem.returnedQuantity || 0);
+  return roundMoney(roundMoney(unitPrice * before) - roundMoney(unitPrice * (before - quantity)));
+};
+
 const buildPersistedRefundItems = (refundSelections) =>
   refundSelections.map(({ invoiceItem, quantity }) => {
     const unitPrice = Number(invoiceItem.unitPrice || 0);
@@ -927,7 +941,7 @@ const buildPersistedRefundItems = (refundSelections) =>
       categoryName: invoiceItem.categoryName,
       quantity,
       unitPrice,
-      totalPrice: roundMoney(unitPrice * quantity),
+      totalPrice: returnedLineValue(invoiceItem, quantity),
     };
   });
 
@@ -1012,6 +1026,8 @@ const createCreditSaleInTransaction = async (req, res, session) => {
   // Stage 21: VAT (only when the shop has it on and the invoice date is on/after its start date).
   const vat = await priceNewInvoice({ persistedItems, productsById, invoiceTotals, businessDate: normalizedSellingDate, session });
   if (vat) invoiceTotals.totalPrice = vat.computed.totalPrice;
+  // The screen's total (from its cached VAT settings) must be what the server now computes; otherwise nothing is saved (409 TOTAL_CHANGED).
+  await assertExpectedAmount({ expected: req.body.expectedTotal, actual: invoiceTotals.totalPrice, code: "TOTAL_CHANGED", session, extra: { vatAmount: vat ? vat.computed.vatAmount : 0 } });
   const invoiceId = new mongoose.Types.ObjectId();
   const invoiceNumber = await nextDocumentNumber(PREFIXES.CREDIT_INVOICE, session);
   const receiptNumber = initialPaidAmount > 0 ? await nextDocumentNumber(PREFIXES.RECEIPT, session) : null;
@@ -1338,7 +1354,8 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
               : currentItem.quantity,
           price: req.body.price !== undefined ? req.body.price : currentItem.unitPrice,
         },
-        res
+        res,
+        { storedPrice: req.body.price === undefined }
       );
     }
 
@@ -1389,7 +1406,8 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
       creditSale.shippingFees = invoiceTotals.shippingFees;
       creditSale.totalPrice = invoiceTotals.totalPrice;
       if (vatEdit) {
-        if (!shouldUpdateItems) (creditSale.items || []).forEach((item, index) => { item.vatAmount = vatEdit.computed.itemVat[index]; });
+        // The stored lines (not the plain objects that were cast on assignment) must carry the exempt flag and the line VAT.
+        (creditSale.items || []).forEach((item, index) => { item.vatExempt = Boolean(pricingItems[index] && pricingItems[index].vatExempt); item.vatAmount = vatEdit.computed.itemVat[index]; });
         Object.assign(creditSale, vatEdit.fields);
       }
       applyCreditAmountsToInvoice(creditSale, creditAmounts);
@@ -1701,7 +1719,7 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
     const returnedDiscountAmount = roundMoney(Math.max(0, subtotalReturnedAmount + returnedShippingFees - baseReturned));
     let vatReturn = null;
     if (vatShare) {
-      const taxableLines = roundMoney(refundSelections.reduce((sum, { invoiceItem, quantity }) => sum + (invoiceItem.vatExempt ? 0 : roundMoney(invoiceItem.unitPrice * quantity)), 0));
+      const taxableLines = roundMoney(refundItems.reduce((sum, item, index) => sum + (refundSelections[index].invoiceItem.vatExempt ? 0 : item.totalPrice), 0));
       vatReturn = {
         vatAmount: vatShare.vatAmount,
         vatPeriod: await periodFor(refundDate, session),
@@ -1712,10 +1730,10 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
       number, returnType: "credit", invoiceId: creditSale._id, invoiceNumber: creditSale.number,
       customerName: creditSale.customerName, customerPhone: creditSale.customerPhone,
       returnDate: refundDate, note: refundNote,
-      items: refundSelections.map(({ invoiceItem, quantity, returnReason }) => {
+      items: refundSelections.map(({ invoiceItem, quantity, returnReason }, index) => {
         const productId = getCreditSaleItemProductId(invoiceItem);
         const price = roundMoney(invoiceItem.unitPrice || 0);
-        return { invoiceItemId: invoiceItem._id, productId, productName: invoiceItem.productName, productCode: productsById.get(productId.toString())?.code, purchasePrice: roundMoney(invoiceItem.purchasePrice || 0), quantity, price, total: roundMoney(price * quantity), returnReason };
+        return { invoiceItemId: invoiceItem._id, productId, productName: invoiceItem.productName, productCode: productsById.get(productId.toString())?.code, purchasePrice: roundMoney(invoiceItem.purchasePrice || 0), quantity, price, total: refundItems[index].totalPrice, returnReason };
       }),
       subtotalReturnedAmount, discountAmount: returnedDiscountAmount,
       shippingFees: returnedShippingFees, finalReturnedAmount,

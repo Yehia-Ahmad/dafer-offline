@@ -1739,7 +1739,15 @@ async function runStage21Scenarios() {
   };
   // The LOCAL day: VAT starts on the shop's local day, and every document is dated by it.
   const localDay = () => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
-  const sell = (items, extra = {}) => request('POST', '/api/sellings', { headers: S21_DEVICE, body: { customerName: 'S21 Cash', customerPhone: '01021212121', sellingDate: localDay(), items, ...extra } });
+  // A month can be filed only after it has ended, so the VAT documents of this scenario are dated in the PREVIOUS month
+  // (the 15th) and the shop's VAT start date is moved back to its first day. Document dates are business dates; the
+  // records are created now, so they are ledger documents.
+  const monthStart = (offset) => new Date(new Date().getFullYear(), new Date().getMonth() + offset, 1);
+  const dayKey = (d) => { const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+  const docDay = dayKey(new Date(monthStart(-1).getFullYear(), monthStart(-1).getMonth(), 15));
+  const previousPeriod = docDay.slice(0, 7);
+  const currentPeriod = localDay().slice(0, 7);
+  const sell = (items, extra = {}) => request('POST', '/api/sellings', { headers: S21_DEVICE, body: { customerName: 'S21 Cash', customerPhone: '01021212121', sellingDate: docDay, items, ...extra } });
 
   await step('Stage 21: setup-owner and a cashier on a fresh database', async () => {
     const owner = await request('POST', '/api/auth/setup-owner', { body: OWNER, token: null });
@@ -1787,6 +1795,20 @@ async function runStage21Scenarios() {
     return `${describe(refused)}; VAT on from ${String(on.json.vat.startDate).slice(0, 10)}`;
   });
 
+  await step('Stage 21: VAT was turned on last month (the start date moves back to the 1st of last month) so last month can be filed', async () => {
+    const { MongoClient } = require(path.join(BACKEND_DIR, 'node_modules', 'mongodb'));
+    const client = new MongoClient(`mongodb://127.0.0.1:${MONGO_PORT}/${STAGE21_DB_NAME}?replicaSet=${REPLICA_SET}&directConnection=true`);
+    await client.connect();
+    try {
+      const start = monthStart(-1);
+      const result = await client.db(STAGE21_DB_NAME).collection('shopprofiles').updateOne({ key: 'default' }, { $set: { 'vat.startDate': new Date(Date.UTC(start.getFullYear(), start.getMonth(), 1)) } });
+      expect(result.modifiedCount === 1, JSON.stringify(result));
+    } finally { await client.close(); }
+    const profile = await request('GET', '/api/shop-profile');
+    expect(String(profile.json.vat.startDate).startsWith(`${previousPeriod}-01`), JSON.stringify(profile.json.vat));
+    return `VAT start date ${String(profile.json.vat.startDate).slice(0, 10)}; documents dated ${docDay}`;
+  });
+
   await step('Stage 21: a cash sale 4 x 35 + 2 x 65, discount 20 -> total 250, VAT 30.70, net 219.30', async () => {
     const response = await sell([{ productId: ctx.productId, quantity: 4, price: 35 }, { productId: ctx.productId, quantity: 2, price: 65 }], { discountAmount: 20 });
     expectStatus(response, 201, 'POST /api/sellings');
@@ -1799,11 +1821,11 @@ async function runStage21Scenarios() {
     const big = await sell([{ productId: ctx.productId, quantity: 1, price: 11400 }]);
     expectStatus(big, 201, 'big cash sale');
     expect(big.json.vatAmount === 1400, `big VAT ${big.json.vatAmount}`);
-    const credit = await request('POST', '/api/credit-sales', { headers: S21_DEVICE, body: { customerId: ctx.customerId, sellingDate: localDay(), items: [{ productId: ctx.productId, quantity: 1, price: 114 }] } });
+    const credit = await request('POST', '/api/credit-sales', { headers: S21_DEVICE, body: { customerId: ctx.customerId, sellingDate: docDay, items: [{ productId: ctx.productId, quantity: 1, price: 114 }] } });
     expectStatus(credit, 201, 'credit sale');
     expect(credit.json.vatAmount === 14, `credit VAT ${credit.json.vatAmount}`);
     const itemId = ctx.sale.items[0]._id;
-    const returned = await request('POST', '/api/returns', { headers: S21_DEVICE, body: { returnType: 'cash', invoiceId: ctx.sale._id, items: [{ itemId, productId: ctx.productId, quantity: 1, returnReason: 'smoke' }] } });
+    const returned = await request('POST', '/api/returns', { headers: S21_DEVICE, body: { returnType: 'cash', invoiceId: ctx.sale._id, returnDate: docDay, items: [{ itemId, productId: ctx.productId, quantity: 1, returnReason: 'smoke' }] } });
     expectStatus(returned, 201, 'POST /api/returns');
     ctx.returnVat = returned.json.data.returnLog.vatAmount;
     expect(ctx.returnVat > 0, `return VAT ${ctx.returnVat}`);
@@ -1811,30 +1833,35 @@ async function runStage21Scenarios() {
   });
 
   await step('Stage 21: a purchase from the registered supplier (net 1,000 + VAT 140 = 1,140) and an expense with VAT (114, VAT 14)', async () => {
-    const purchase = await request('POST', '/api/purchases', { body: { supplierId: ctx.supplierId, date: localDay(), items: [{ productId: ctx.productId, qty: 10, unitPrice: 100 }] } });
+    const purchase = await request('POST', '/api/purchases', { body: { supplierId: ctx.supplierId, date: docDay, items: [{ productId: ctx.productId, qty: 10, unitPrice: 100 }] } });
     expectStatus(purchase, 201, 'POST /api/purchases');
     expect(purchase.json.netTotal === 1000 && purchase.json.vatAmount === 140 && purchase.json.total === 1140, JSON.stringify({ net: purchase.json.netTotal, vat: purchase.json.vatAmount, total: purchase.json.total }));
     const categories = await request('GET', '/api/expenses/categories');
     const utilities = categories.json.data.find((row) => row.code === '523');
-    const expense = await request('POST', '/api/expenses', { body: { accountId: utilities._id, amount: 114, vatAmount: 14, boxId: ctx.main._id, note: 'S21 electricity' } });
+    const expense = await request('POST', '/api/expenses', { body: { accountId: utilities._id, amount: 114, vatAmount: 14, boxId: ctx.main._id, date: docDay, note: 'S21 electricity' } });
     expectStatus(expense, 201, 'POST /api/expenses');
     expect(expense.json.vatAmount === 14, 'expense VAT');
     return `${purchase.json.number}: VAT 140; ${expense.json.number}: VAT 14`;
   });
 
-  await step('Stage 21: prepare this month, then file it: output - input = payable, the offset posts Dr 22 / Cr 115', async () => {
-    const period = localDay().slice(0, 7);
+  await step('Stage 21: prepare last month, then file it: output - input = payable, the offset posts Dr 22 / Cr 115; the running month cannot be filed (409 PERIOD_NOT_ENDED)', async () => {
+    const period = previousPeriod;
     ctx.period = period;
     const prepared = await request('GET', `/api/vat/returns/${period}`);
     expectStatus(prepared, 200, 'GET prepared return');
     const expectedOutput = r2(30.7 + 1400 + 14 - ctx.returnVat);
     expect(prepared.json.output === expectedOutput && prepared.json.input === 154 && prepared.json.net === r2(expectedOutput - 154), JSON.stringify({ output: prepared.json.output, input: prepared.json.input, net: prepared.json.net }));
     expect(prepared.json.canFile === true, 'the month can be filed');
+    const running = await request('GET', `/api/vat/returns/${currentPeriod}`);
+    expect(running.json.canFile === false, 'the running month cannot be filed yet');
     const filed = await request('POST', `/api/vat/returns/${period}/file`);
     expectStatus(filed, 201, 'POST file');
     expect(filed.json.number === 'VR-000001' && filed.json.offset === 154 && filed.json.payable === r2(expectedOutput - 154), JSON.stringify(filed.json));
     ctx.payable = filed.json.payable;
-    return `output ${prepared.json.output}, input ${prepared.json.input}, payable ${ctx.payable}, offset 154 (${filed.json.number})`;
+    const tooEarly = await request('POST', `/api/vat/returns/${currentPeriod}/file`);
+    expectStatus(tooEarly, 409, 'file the running month');
+    expect(tooEarly.json.code === 'PERIOD_NOT_ENDED', describe(tooEarly));
+    return `${period}: output ${prepared.json.output}, input ${prepared.json.input}, payable ${ctx.payable}, offset 154 (${filed.json.number}); ${currentPeriod}: ${describe(tooEarly)}`;
   });
 
   await step('Stage 21: pay 500 of it from the drawer in the shift (VP-000001); the shift expects it as "سداد ضريبة"', async () => {

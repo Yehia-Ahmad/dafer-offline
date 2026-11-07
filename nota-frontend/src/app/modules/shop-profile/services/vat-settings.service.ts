@@ -15,6 +15,17 @@ export class VatSettingsService {
   readonly settings = computed<VatSettingsLike | null>(() => this.shopProfile.profile()?.vat ?? null);
   readonly enabled = computed(() => Boolean(this.settings()?.enabled));
 
+  /** Re-reads the shop profile in the background. The sale, credit, purchase and expense screens call it when they open. */
+  refresh(): void {
+    this.shopProfile.refresh();
+  }
+
+  /** The `vat` block a 409 TOTAL_CHANGED / VAT_CHANGED answer carries: the server's current settings, used at once. */
+  applyServerVat(vat: VatSettingsLike | null | undefined): void {
+    if (vat) this.shopProfile.applyVat(vat as never);
+    else this.shopProfile.refresh();
+  }
+
   /** { rate, included } for a document dated `date` (yyyy-MM-dd), or null when it carries no VAT. */
   contextFor(date: string) {
     return vatContextFor(this.settings(), date);

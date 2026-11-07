@@ -7,6 +7,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { environment } from '../../../../../environments/environment';
 import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
 import { SellingComponent } from './selling.component';
+import { provideFakeVat } from '../../../shop-profile/services/vat-settings.testing';
 
 /** Stage 9 POS additions (frontend only): grid, chips, tile → line, stepper, F2 / F9. Rendered with the real template. */
 describe('SellingComponent POS layout (Stage 9)', () => {
@@ -24,7 +25,7 @@ describe('SellingComponent POS layout (Stage 9)', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SellingComponent, TranslateModule.forRoot()],
-      providers: [provideRouter([]), provideNoopAnimations(), provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideRouter([]), provideNoopAnimations(), provideHttpClient(), provideHttpClientTesting(), provideFakeVat()],
     }).compileComponents();
 
     http = TestBed.inject(HttpTestingController);

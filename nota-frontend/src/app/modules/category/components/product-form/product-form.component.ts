@@ -4,7 +4,8 @@ import { CommonModule, Location } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { hasMoneyPrecision } from '../../../shared/price-precision';
 import { DialogModule } from 'primeng/dialog';
 import { DatePickerModule } from 'primeng/datepicker';
 import { format as formatDate } from 'date-fns';
@@ -48,6 +49,9 @@ export class ProductFormComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly unsaved = inject(UnsavedWorkService);
+  private readonly translateService = inject(TranslateService);
+  /** The prices the product had when it was opened: an unchanged legacy price is not re-validated. */
+  private loadedPrices: Record<string, unknown> = {};
   /** Stage 15: the edit fields as loaded, to tell whether anything was changed. */
   private editSnapshot: string | null = null;
   /** Stage 15: saved or deleted; leaving does not ask. */
@@ -238,7 +242,18 @@ export class ProductFormComponent implements OnInit {
     });
   }
 
+  /** A price has at most two decimals (the server refuses more with PRICE_PRECISION): say so before sending. */
+  private refusePriceDecimals(prices: unknown[]): boolean {
+    if (prices.every((price) => hasMoneyPrecision(price))) return false;
+    this.errorMessage = this.translateService.instant('vat.priceDecimals');
+    this.errorVisible = true;
+    this.cdr.detectChanges();
+    return true;
+  }
+
   addNewProduct(addAnother = false) {
+    const typed = this.addProductForm.value;
+    if (this.refusePriceDecimals([typed.wholesalePrice, typed.purchasePrice, typed.retailPrice])) return;
     this.isAddingProduct = true;
     if (!this.addProductForm.value.categoryId) this.addProductForm.value.categoryId = this.categoryId;
     const payload: any = { ...this.addProductForm.value };
@@ -378,6 +393,7 @@ export class ProductFormComponent implements OnInit {
       next: (res: any) => {
         this.loading = false;
         this.product = res;
+        this.loadedPrices = { wholesalePrice: res?.wholesalePrice, purchasePrice: res?.purchasePrice, retailPrice: res?.retailPrice };
         this.productDetails = this.buildProductDetails(this.product);
         this.newInventory = null;
         this.editLowStockThreshold = isFilled(this.product?.lowStockThreshold) ? this.product.lowStockThreshold : '';
@@ -412,6 +428,10 @@ export class ProductFormComponent implements OnInit {
   }
 
   updateProduct() {
+    const changedPrices = (['wholesalePrice', 'purchasePrice', 'retailPrice'] as const)
+      .filter((key) => Number(this.product[key]) !== Number(this.loadedPrices[key]))
+      .map((key) => this.product[key]);
+    if (this.refusePriceDecimals(changedPrices)) return;
     this.loading = true;
     const currentInventoryCount = this.toNumber(this.product.inventoryCount);
     const newInventoryCount = Math.max(0, this.toNumber(this.newInventory));

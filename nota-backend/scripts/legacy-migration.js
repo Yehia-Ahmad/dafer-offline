@@ -353,27 +353,39 @@ async function main() {
 
     // Stage 21: the whole upgrade above ran with VAT off and is unchanged (health has a vat check at 0). Now the shop turns VAT on
     // and runs a day on the upgraded database: sale, credit sale, return, purchase, expense, file the return, pay it. Health 0.
+    // A month can be filed only after it has ended, so the day is dated in the PREVIOUS month (the 15th) and the VAT start date
+    // is moved back to its first day (as if the shop had turned VAT on last month).
     const vatOffHealth = await request(currentBase, "GET", "/api/accounting/health");
     assert.equal(vatOffHealth.vat.difference, 0, "VAT off: the vat check is 0 on the upgraded database");
     const pad21 = (value) => String(value).padStart(2, "0");
     const now21 = new Date();
-    const today21 = `${now21.getFullYear()}-${pad21(now21.getMonth() + 1)}-${pad21(now21.getDate())}`;
+    const lastMonth21 = new Date(now21.getFullYear(), now21.getMonth() - 1, 1);
+    const today21 = `${lastMonth21.getFullYear()}-${pad21(lastMonth21.getMonth() + 1)}-15`;
+    const currentPeriod21 = `${now21.getFullYear()}-${pad21(now21.getMonth() + 1)}`;
     const round21 = (value) => Math.round(value * 100) / 100;
     await request(currentBase, "PUT", "/api/shop-profile", { name: "Legacy shop", taxNumber: "LEG-TAX-1", vat: { enabled: true, rate: 14, pricesIncludeVat: true } });
+    const vatClient = new mongoose.mongo.MongoClient(mongoUri);
+    await vatClient.connect();
+    try {
+      const patched = await vatClient.db("nota_legacy").collection("shopprofiles").updateOne({ key: "default" }, { $set: { "vat.startDate": new Date(Date.UTC(lastMonth21.getFullYear(), lastMonth21.getMonth(), 1)) } });
+      assert.equal(patched.modifiedCount, 1, "the VAT start date moved back to the 1st of last month");
+    } finally { await vatClient.close(); }
     const vatSale = await request(currentBase, "POST", "/api/sellings", { customerName: "VAT cash", customerPhone: "01044444444", sellingDate: today21, items: [{ productId: product._id, quantity: 2, price: 500 }] });
     assert.equal(vatSale.totalPrice, 1000); assert.equal(vatSale.vatAmount, round21((1000 * 14) / 114));
     const vatCredit = await request(currentBase, "POST", "/api/credit-sales", { customerId: wizardCustomer._id, sellingDate: today21, items: [{ productId: product._id, quantity: 1, price: 500 }] });
     assert.equal(vatCredit.vatAmount, round21((500 * 14) / 114));
-    const vatReturn = await request(currentBase, "POST", "/api/returns", { returnType: "cash", invoiceId: vatSale._id, items: [{ productId: product._id, quantity: 1, returnReason: "legacy vat" }] });
+    const vatReturn = await request(currentBase, "POST", "/api/returns", { returnType: "cash", invoiceId: vatSale._id, returnDate: today21, items: [{ productId: product._id, quantity: 1, returnReason: "legacy vat" }] });
     assert.ok(vatReturn.data.returnLog.vatAmount > 0);
     const vatPurchase = await request(currentBase, "POST", "/api/purchases", { supplierId: wizardSupplier._id, date: today21, vatRegistered: true, items: [{ productId: product._id, qty: 3, unitPrice: 100 }] });
     assert.equal(vatPurchase.vatAmount, 42); assert.equal(vatPurchase.total, 342);
     const expenseCategory = (await request(currentBase, "GET", "/api/expenses/categories")).data[0]._id;
-    const vatExpense = await request(currentBase, "POST", "/api/expenses", { accountId: expenseCategory, amount: 114, vatAmount: 14 });
+    const vatExpense = await request(currentBase, "POST", "/api/expenses", { accountId: expenseCategory, amount: 114, vatAmount: 14, date: today21 });
     assert.equal(vatExpense.vatAmount, 14);
     const period21 = today21.slice(0, 7);
     const prepared21 = await request(currentBase, "GET", `/api/vat/returns/${period21}`);
     assert.equal(prepared21.input, 56); assert.ok(prepared21.output > 0);
+    const early21 = await fetch(`${currentBase}/api/vat/returns/${currentPeriod21}/file`, { method: "POST" });
+    assert.equal(early21.status, 409, "the running month cannot be filed yet");
     const filed21 = await request(currentBase, "POST", `/api/vat/returns/${period21}/file`);
     assert.equal(filed21.status, "filed"); assert.equal(filed21.payable, round21(prepared21.output - 56));
     const paid21 = await request(currentBase, "POST", `/api/vat/returns/${period21}/pay`, { amount: filed21.payable });

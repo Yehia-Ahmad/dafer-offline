@@ -43,6 +43,7 @@ import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.c
 import { PaymentBoxService } from '../../../cashbox/payment-box.service';
 import { VatSettingsService } from '../../../shop-profile/services/vat-settings.service';
 import { SaleVat, computeSaleVat } from '../../../shared/vat/vat-math';
+import { hasMoneyPrecision, twoDecimalsValidator } from '../../../shared/price-precision';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 
 type ProductSearchResult = {
@@ -111,6 +112,8 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
   submitAttempted = false;
   isSaving = false;
   saveError = '';
+  /** Stage 21 review: the VAT settings changed on another PC; the review dialog shows the new total and asks to confirm again. */
+  totalChangedNotice: { expected: number; current: number } | null = null;
   productsCount = 1;
   totalQuantity = 0;
   itemsSubtotal = 0;
@@ -173,6 +176,8 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Stage 21 review: another PC may have changed the VAT settings since this one signed in.
+    this.vatSettings.refresh();
     this.updateDirection();
     this.subscriptions.add(
       this.translate.onLangChange.subscribe(() => {
@@ -507,11 +512,17 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
     this.errorDialogVisible = false;
     this.saveError = '';
 
+    if (this.lineItemControls.some((control) => !hasMoneyPrecision(control.get('price')?.value))) {
+      this.saveError = this.translateKey('vat.priceDecimals');
+      return;
+    }
+
     if (this.creditSaleForm.invalid || this.itemsSubtotal <= 0 || this.isDownPaymentExceeded() || this.discountOverLimit) {
       this.markAllControlsTouched(this.creditSaleForm);
       return;
     }
 
+    this.totalChangedNotice = null;
     this.refreshDerivedState();
     this.reviewDialogVisible = true;
   }
@@ -534,6 +545,7 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
     if (!payload.items.length) {
       return;
     }
+    payload.expectedTotal = this.totalReceivable;
     // Stage 19: only a down payment moves money, so only it needs a box (and an open shift on it).
     if (payload.initialPaidAmount) {
       if (this.payment.needsShift()) return;
@@ -553,6 +565,15 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
       },
       error: (err: any) => {
         this.isSaving = false;
+        if (err?.status === 409 && err?.error?.code === 'TOTAL_CHANGED') {
+          // The server's VAT settings differ from the cached ones: take them, keep the review open with the new total.
+          this.vatSettings.applyServerVat(err.error.vat);
+          this.refreshDerivedState();
+          this.totalChangedNotice = { expected: Number(err.error.expected ?? payload.expectedTotal ?? 0), current: this.totalReceivable };
+          this.reviewDialogVisible = true;
+          this.cdr.detectChanges();
+          return;
+        }
         this.saveError =
           err?.error?.message || this.translateKey('creditSalePage.messages.createFailed');
         this.reviewDialogVisible = false;
@@ -592,7 +613,7 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
       productName: [{ value: '', disabled: true }],
       itemCode: [{ value: '', disabled: true }],
       categoryName: [{ value: '', disabled: true }],
-      price: [null, [Validators.required, Validators.min(0.01)]],
+      price: [null, [Validators.required, Validators.min(0.01), twoDecimalsValidator]],
       quantity: [1, [Validators.required, Validators.min(1)]],
       lineTotal: [{ value: 0, disabled: true }]
     });

@@ -10,6 +10,7 @@ import { LanguageService } from '../shared/services/translation.service';
 import { ExpenseCategory, ExpensesResponse } from './cashbox.models';
 import { ExpensesPageComponent } from './expenses-page.component';
 import { MAIN_ONLY_BOXES } from './testing/payment-boxes.testing';
+import { provideFakeVat } from '../shop-profile/services/vat-settings.testing';
 
 const base = environment.api_base_url;
 
@@ -39,7 +40,7 @@ describe('ExpensesPageComponent (Stage 19)', () => {
     sessionStorage.removeItem('nota.paymentBox');
     await TestBed.configureTestingModule({
       imports: [ExpensesPageComponent, TranslateModule.forRoot()],
-      providers: [provideRouter([]), provideNoopAnimations(), provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideRouter([]), provideNoopAnimations(), provideHttpClient(), provideHttpClientTesting(), provideFakeVat()],
     }).compileComponents();
     TestBed.inject(LanguageService).selectedLanguage.set('en');
     signIn();

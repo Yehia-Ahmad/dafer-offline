@@ -334,21 +334,32 @@ const getHealth = async (req, res) => {
  * 10. VAT (Stage 21), from documents only:
  *   VAT_PAYABLE = Σ output VAT of the (not cancelled) invoices still owed - Σ offsets of filed returns - Σ VAT payments
  *   VAT_INPUT   = Σ input VAT of the (not cancelled) purchases and expenses - Σ offsets of filed returns
- * and the stored VatEvent rows (what the monthly return reads) must add up to the same documents. difference = Σ |each difference|.
+ * (offsets are SIGNED: min(output, input + carriedIn) with no clamp, a negative one moves VAT back from VAT_INPUT to VAT_PAYABLE),
+ * the stored VatEvent rows (what the monthly return reads) must add up to the same documents, and every filed return must still
+ * equal its own period's events and its own offset rule. difference = Σ |each difference|.
  */
 const buildVatCheck = async ({ sales, credits, actual }) => {
   const [purchases, expenses, returns, payments, events] = await Promise.all([
     Purchase.find({ vatAmount: { $gt: 0 }, status: "posted" }).select("vatAmount vatReturnedAmount").lean(),
     Expense.find({ vatAmount: { $gt: 0 }, status: "posted" }).select("vatAmount").lean(),
-    VatReturn.find({ status: "filed" }).select("offset").lean(),
+    VatReturn.find({ status: "filed" }).select("period output input carriedIn offset").lean(),
     VatPayment.find({ status: "posted" }).select("amount").lean(),
-    VatEvent.aggregate([{ $group: { _id: "$direction", vat: { $sum: "$vat" } } }]),
+    VatEvent.aggregate([{ $group: { _id: { direction: "$direction", period: "$period" }, vat: { $sum: "$vat" } } }]),
   ]);
   const outputDocs = roundMoney(sum([...sales, ...credits].filter((invoice) => invoice.status !== "cancelled"), (invoice) => Number(invoice.vatAmount || 0) - Number(invoice.vatReturnedAmount || 0)));
   const inputDocs = roundMoney(sum(purchases, (row) => Number(row.vatAmount || 0) - Number(row.vatReturnedAmount || 0)) + sum(expenses, (row) => row.vatAmount));
   const offsets = roundMoney(sum(returns, (row) => row.offset));
   const paid = roundMoney(sum(payments, (row) => row.amount));
-  const eventTotal = (direction) => roundMoney(events.find((row) => row._id === direction)?.vat || 0);
+  const eventTotal = (direction) => roundMoney(sum(events.filter((row) => row._id.direction === direction), (row) => row.vat));
+  const periodEvents = (period, direction) => roundMoney(events.find((row) => row._id.period === period && row._id.direction === direction)?.vat || 0);
+  // A filed return never changes: its stored output and input still equal its period's events, and its offset follows the signed rule.
+  const filedChecks = returns.map((row) => ({
+    period: row.period,
+    output: roundMoney(Number(row.output || 0) - periodEvents(row.period, "output")),
+    input: roundMoney(Number(row.input || 0) - periodEvents(row.period, "input")),
+    offset: roundMoney(Number(row.offset || 0) - Math.min(Number(row.output || 0), Number(row.input || 0) + Number(row.carriedIn || 0))),
+  })).filter((row) => row.output !== 0 || row.input !== 0 || row.offset !== 0);
+  const filedDifference = roundMoney(sum(filedChecks, (row) => Math.abs(row.output) + Math.abs(row.input) + Math.abs(row.offset)));
   // Ledger balances are debit - credit: VAT_PAYABLE is a liability (owed = -balance), VAT_INPUT an asset (balance).
   const payable = check(roundMoney(outputDocs - offsets - paid), -actual("VAT_PAYABLE"));
   const input = check(roundMoney(inputDocs - offsets), actual("VAT_INPUT"));
@@ -356,8 +367,8 @@ const buildVatCheck = async ({ sales, credits, actual }) => {
   const inputEvents = check(inputDocs, eventTotal("input"));
   return {
     expected: payable.expected, actual: payable.actual,
-    difference: roundMoney(Math.abs(payable.difference) + Math.abs(input.difference) + Math.abs(outputEvents.difference) + Math.abs(inputEvents.difference)),
-    payable, input, outputEvents, inputEvents, offsets, paid,
+    difference: roundMoney(Math.abs(payable.difference) + Math.abs(input.difference) + Math.abs(outputEvents.difference) + Math.abs(inputEvents.difference) + filedDifference),
+    payable, input, outputEvents, inputEvents, filedReturns: { difference: filedDifference, byPeriod: filedChecks }, offsets, paid,
   };
 };
 

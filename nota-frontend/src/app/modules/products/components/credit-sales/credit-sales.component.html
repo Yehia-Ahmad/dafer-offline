@@ -102,7 +102,7 @@
                       [ariaLabel]="'creditSalePage.fields.quantity' | translate" styleClass="cs__control" inputStyleClass="cs__num-input" />
                   </td>
                   <td class="num cs__cell-input">
-                    <p-inputNumber formControlName="price" [mode]="'decimal'" [min]="0" [useGrouping]="false"
+                    <p-inputNumber formControlName="price" [mode]="'decimal'" [min]="0" [maxFractionDigits]="2" [useGrouping]="false"
                       [ariaLabel]="'creditSalePage.fields.unitPrice' | translate" styleClass="cs__control" inputStyleClass="cs__num-input" />
                   </td>
                   <td class="num cs__line-total">
@@ -198,6 +198,9 @@
   styleClass="nota-p-dialog">
   <nota-dialog-shell [title]="'creditSalePage.dialog.title' | translate" [closeLabel]="'creditSalePage.dialog.close' | translate"
     (closed)="closeReviewDialog()">
+    @if (totalChangedNotice) {
+      <p class="cs__msg" role="alert" data-test="total-changed">{{ 'vat.totalChanged.message' | translate: { current: (totalChangedNotice.current | notaMoney), expected: (totalChangedNotice.expected | notaMoney) } }}</p>
+    }
     <p class="cs__dialog-text">{{ 'creditSalePage.dialog.subtitle' | translate }}</p>
     <dl class="cs__review">
       <div><dt>{{ 'creditSalePage.fields.customerName' | translate }}</dt><dd>{{ creditSaleForm.get('customerName')?.value }}</dd></div>

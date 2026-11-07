@@ -142,7 +142,7 @@ describe('purchase form with VAT (Stage 21)', () => {
     component.supplierId.set('s1'); component.date.set('2026-11-03'); add(component, LED, 5, 100);
     component.save();
     let req = http.expectOne(`${base}purchases`);
-    expect(req.request.body).toEqual({ supplierId: 's1', date: '2026-11-03', items: [{ productId: 'p-led', qty: 5, unitPrice: 100 }], vatRegistered: true });
+    expect(req.request.body).toEqual({ supplierId: 's1', date: '2026-11-03', items: [{ productId: 'p-led', qty: 5, unitPrice: 100 }], vatRegistered: true, expectedVat: 70 });
     req.flush({ _id: 'po1', number: 'PO-1', pvNumber: null, supplierBalanceAfter: 0 });
     component.setVatAmount(69);
     component.save();
@@ -214,6 +214,11 @@ describe('expense with VAT (Stage 21)', () => {
     return fixture;
   };
   afterEach(() => { http.verify(); sessionStorage.removeItem('nota.paymentBox'); });
+
+  it('refreshes the VAT settings when the screen opens (another PC may have changed them)', async () => {
+    await open();
+    expect(fakeVat().refreshCalls).toBe(1);
+  });
 
   it('VAT off: no VAT field, the body is what it always was', async () => {
     const fixture = await open();

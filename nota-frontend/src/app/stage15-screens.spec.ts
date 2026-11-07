@@ -20,10 +20,11 @@ import { PosSnapshot, SellingComponent } from './modules/products/components/sel
 import { ShopProfileComponent } from './modules/shop-profile/components/shop-profile/shop-profile.component';
 import { UserFormDialogComponent } from './modules/users/user-form-dialog/user-form-dialog.component';
 import { OtherMainBannerComponent } from './offline/other-main-banner.component';
+import { provideFakeVat } from './modules/shop-profile/services/vat-settings.testing';
 
 /** Stage 15 screens: max discount (POS, credit, user form), cart restore, security card, restore notice, other main PC banner. */
 const base = environment.api_base_url;
-const providers = () => [provideRouter([]), provideNoopAnimations(), provideHttpClient(), provideHttpClientTesting()];
+const providers = () => [provideRouter([]), provideNoopAnimations(), provideHttpClient(), provideHttpClientTesting(), provideFakeVat()];
 const product = { id: 'p1', name: 'لمبة', displayLabel: 'لمبة', categoryName: 'لمبات', wholesalePrice: 100, retailPrice: 120, inventoryCount: 9 } as never;
 
 describe('Stage 15: discount limit helper', () => {

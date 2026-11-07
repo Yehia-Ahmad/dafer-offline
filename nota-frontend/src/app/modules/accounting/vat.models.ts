@@ -13,6 +13,7 @@ export interface VatReturnRow {
   carriedIn: number;
   /** output - input - carriedIn: positive = payable, negative = a credit carried forward. */
   net: number;
+  /** min(output, input + carriedIn), signed: positive = Dr 22 / Cr 115; negative (returns above sales) = Dr 115 / Cr 22. */
   offset: number;
   payable: number;
   credit: number;
@@ -60,7 +61,7 @@ export interface VatReturnDetail extends VatReturnRow {
   payments: VatPaymentRow[];
   canFile: boolean;
   canUnfile: boolean;
-  /** What a filing posts: Dr 22 / Cr 115 = offset. Null once filed. */
+  /** What a filing posts: Dr 22 / Cr 115 = offset (reversed when the offset is negative). Null once filed. */
   preview: { debit: { code: string; amount: number }; credit: { code: string; amount: number }; payable: number; credit_carried: number } | null;
 }
 

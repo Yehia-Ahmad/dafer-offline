@@ -119,6 +119,35 @@ describe('VatReturnsComponent (Stage 21)', () => {
     expect(el().querySelector('[data-test="dialog-error"]')!.textContent).toContain('vat.errors.OUT_OF_ORDER');
   });
 
+  it('PERIOD_NOT_ENDED: filing the running month is refused with its own reason', async () => {
+    await open();
+    (el().querySelector('[data-action="file"]') as HTMLButtonElement).click();
+    await settle();
+    (el().querySelector('[data-action="confirm-file"]') as HTMLButtonElement).click();
+    http.expectOne(`${base}vat/returns/2026-11/file`).flush({ code: 'PERIOD_NOT_ENDED', period: '2026-11', today: '2026-11' }, { status: 409, statusText: 'Conflict' });
+    await settle();
+    expect(el().querySelector('[data-test="dialog-error"]')!.textContent).toContain('vat.errors.PERIOD_NOT_ENDED');
+  });
+
+  it('a month that has not ended has no file button and says so', async () => {
+    await open(() => signInAs('owner'), detail({ canFile: false }));
+    expect(el().querySelector('[data-action="file"]')).toBeNull();
+    expect(el().querySelector('[data-test="order-note"]')!.textContent).toContain('vat.returns.notEnded');
+  });
+
+  it('a month whose returns exceed its sales posts the offset the other way: the dialog shows Dr 115 / Cr 22 and explains it', async () => {
+    await open(() => signInAs('owner'), detail({ output: -14, input: 0, carriedIn: 0, net: -14, offset: -14, payable: 0, credit: 14, preview: { debit: { code: '115', amount: 14 }, credit: { code: '22', amount: 14 }, payable: 0, credit_carried: 14 } }));
+    (el().querySelector('[data-action="file"]') as HTMLButtonElement).click();
+    await settle();
+    const posting = el().querySelector('[data-test="file-posting"]')!;
+    expect(posting.querySelector('[data-test="posting-negative"]')).not.toBeNull();
+    expect(posting.textContent).toContain('vat.file.debitInput');
+    expect(posting.textContent).toContain('vat.file.creditPayable');
+    expect(posting.textContent).toContain('14');
+    expect(posting.textContent).not.toContain('-14');
+    expect(el().querySelector('[data-test="negative-note"]')).not.toBeNull();
+  });
+
   it('pay: amount up to what remains, from a box; partial then the exact body', async () => {
     await open(() => signInAs('owner'), detail({ status: 'partial', number: 'VR-000002', returnId: 'r2', paid: 300, remaining: 398.4, canFile: false, preview: null }));
     (el().querySelector('[data-action="pay"]') as HTMLButtonElement).click();

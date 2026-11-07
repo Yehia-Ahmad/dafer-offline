@@ -12,6 +12,7 @@ import { NotaBalancePipe, NotaButtonDirective, NotaFormFieldComponent, NotaMoney
 import { Supplier, SuppliersService } from '../suppliers/suppliers.service';
 import { PaymentMode, allocateCosts, defaultPurchaseVat, journalPreview, paymentModeOf, round2, weightedAverage } from './purchase-math';
 import { VatSettingsService } from '../shop-profile/services/vat-settings.service';
+import { hasMoneyPrecision } from '../shared/price-precision';
 import { PurchaseProduct } from './purchases.models';
 import { PurchasesService } from './purchases.service';
 import { localDateKey } from '../../core/utilities/local-date';
@@ -129,7 +130,7 @@ interface Line {
                   </td>
                   <td class="nota-num"><input class="nota-input nota-num pf__qty" type="number" min="1" step="1" name="qty{{ row.key }}" data-test="qty" [attr.aria-label]="'purchases.new.qty' | translate"
                     [ngModel]="row.qty" (ngModelChange)="setLine(row.key, 'qty', $event)" /></td>
-                  <td class="nota-num"><input class="nota-input nota-num pf__price" type="number" min="0" step="0.01" name="price{{ row.key }}" data-test="unit-price" [attr.aria-label]="'purchases.new.unitPrice' | translate"
+                  <td class="nota-num"><input class="nota-input nota-num pf__price" type="number" min="0" step="0.01" name="price{{ row.key }}" [attr.aria-invalid]="hasMoneyPrecision(row.unitPrice) ? null : true" data-test="unit-price" [attr.aria-label]="'purchases.new.unitPrice' | translate"
                     [ngModel]="row.unitPrice" (ngModelChange)="setLine(row.key, 'unitPrice', $event)" /></td>
                   <td class="nota-num" data-test="line-total">{{ lineTotals()[i] | notaMoney }}</td>
                   <td class="nota-num" data-test="stock-after">{{ stocks()[i].before }} ← <b>{{ stocks()[i].after }}</b></td>
@@ -201,6 +202,8 @@ interface Line {
         </section>
       }
 
+      @if (priceDecimalsInvalid()) { <p class="nota-error" role="alert" data-test="price-decimals">{{ 'vat.priceDecimals' | translate }}</p> }
+      @if (vatChanged(); as changed) { <p class="nota-error" role="alert" data-test="vat-changed">{{ 'vat.purchaseChanged' | translate: { current: (changed.current | notaMoney), expected: (changed.expected | notaMoney) } }}</p> }
       @if (error()) { <p class="nota-error" role="alert" data-test="save-error">{{ error() | translate }}</p> }
       <div class="pf__footer">
         <button type="button" notaButton="primary" size="lg" data-action="save-purchase" [disabled]="!valid() || busy()" (click)="save()">{{ (busy() ? 'purchases.new.saving' : 'purchases.new.save') | translate }}</button>
@@ -287,6 +290,11 @@ export class PurchaseFormComponent implements OnInit {
   // ---- Stage 21: VAT. Only while the shop has VAT on and the purchase date is on/after its start date; otherwise nothing below shows.
   private readonly vatSettings = inject(VatSettingsService);
   readonly vatContext = computed(() => this.vatSettings.contextFor(this.date()));
+  /** Stage 21 review: the VAT settings changed on another PC; the form now shows the server's VAT and asks to save again. */
+  readonly vatChanged = signal<{ expected: number; current: number } | null>(null);
+  readonly hasMoneyPrecision = hasMoneyPrecision;
+  /** A unit price has at most two decimals (the server refuses more with PRICE_PRECISION). */
+  readonly priceDecimalsInvalid = computed(() => this.lines().some((row) => !hasMoneyPrecision(row.unitPrice)));
   /** null = follow the supplier's flag ("المورد مسجل ضريبيًا" default). */
   private readonly vatRegisteredChoice = signal<boolean | null>(null);
   readonly vatRegistered = computed(() => this.vatRegisteredChoice() ?? Boolean(this.supplier()?.vatRegistered));
@@ -356,7 +364,7 @@ export class PurchaseFormComponent implements OnInit {
 
   readonly valid = computed(() => {
     const rows = this.lines();
-    return Boolean(this.supplierId()) && rows.length > 0 && rows.every((row) => (row.qty ?? 0) > 0 && Number.isInteger(row.qty) && row.unitPrice !== null && row.unitPrice >= 0)
+    return Boolean(this.supplierId()) && rows.length > 0 && rows.every((row) => (row.qty ?? 0) > 0 && Number.isInteger(row.qty) && row.unitPrice !== null && row.unitPrice >= 0 && hasMoneyPrecision(row.unitPrice))
       && this.allocation().total > 0 && !this.paidInvalid() && (this.discount() ?? 0) <= this.allocation().subtotal && !this.vatInvalid();
   });
   readonly newProductValid = computed(() => {
@@ -365,6 +373,8 @@ export class PurchaseFormComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    // Stage 21 review: another PC may have changed the VAT settings since this one signed in.
+    this.vatSettings.refresh();
     this.paymentBox.load();
     this.suppliersService.list().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (rows) => {
@@ -464,7 +474,10 @@ export class PurchaseFormComponent implements OnInit {
       ...(paid > 0 ? this.paymentBox.withBox({ paidAmount: paid }) : {}),
       // Stage 21: only while VAT applies; the amount only when the user typed the supplier's printed one.
       ...(this.vatContext() ? { vatRegistered: this.vatRegistered(), ...(this.vatRegistered() && this.vatOverride() !== null ? { vatAmount: this.vatOverride() as number } : {}) } : {}),
+      // The VAT this form shows; the server answers 409 VAT_CHANGED when its VAT settings now give another figure.
+      expectedVat: this.vatAmount(),
     };
+    this.vatChanged.set(null);
     this.service.create(payload).subscribe({
       next: (created) => {
         this.busy.set(false);
@@ -473,6 +486,12 @@ export class PurchaseFormComponent implements OnInit {
       error: (response) => {
         this.busy.set(false);
         const code = response?.error?.code;
+        if (response?.status === 409 && code === 'VAT_CHANGED') {
+          // Take the server's settings; the form recomputes its VAT and the user reviews it before saving again.
+          this.vatSettings.applyServerVat(response.error.vat);
+          this.vatChanged.set({ expected: Number(response.error.expected ?? payload.expectedVat ?? 0), current: this.vatAmount() });
+          return;
+        }
         const known = ['INSUFFICIENT_BALANCE', 'NO_OPEN_SHIFT', 'BOX_INACTIVE', 'PAY_NOT_ALLOWED', 'PAID_EXCEEDS_TOTAL', 'BOX_NOT_ALLOWED', 'SUPPLIER_INACTIVE', 'PRODUCT_ARCHIVED'];
         this.error.set(known.includes(code) ? `purchases.errors.${code}` : 'purchases.errors.saveFailed');
       },

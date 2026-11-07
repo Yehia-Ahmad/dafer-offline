@@ -54,10 +54,25 @@ const computeSaleVat = ({ items, discountAmount = 0, shippingFees = 0, rate, inc
   const shipping = round2(shippingFees);
   const taxableGross = round2(Math.max(0, taxableLines - discountTaxable + shipping));
   const vatAmount = vatOf(taxableGross, rate, included);
-  // VAT per taxable line (on its value after its discount share), then shipping; the last taxable component absorbs the rest.
-  const components = [...taxableIdx.map((index) => ({ index, base: lineTotals[index] - shares[index] })), ...(shipping > 0 ? [{ index: -1, base: shipping }] : [])];
+  // VAT per taxable line (on its value after its discount share), then shipping. A line's VAT is never negative: the rounding
+  // remainder goes to the largest taxable line (shipping only when no line is taxable) and is clamped at 0, with any deficit
+  // taken back from the other components so the parts still add up to the invoice VAT.
+  const components = [...taxableIdx.map((index) => ({ index, base: Math.max(0, lineTotals[index] - shares[index]) })), ...(shipping > 0 ? [{ index: -1, base: shipping }] : [])];
   const vats = components.map((component) => vatOf(component.base, rate, included));
-  if (components.length) vats[components.length - 1] = round2(vatAmount - vats.slice(0, -1).reduce((sum, value) => sum + value, 0));
+  if (components.length) {
+    let big = 0;
+    components.forEach((component, i) => { if (component.index !== -1 && (components[big].index === -1 || component.base > components[big].base)) big = i; });
+    if (components[big].index === -1) components.forEach((component, i) => { if (component.base > components[big].base) big = i; });
+    const others = round2(vats.reduce((sum, value, i) => (i === big ? sum : sum + value), 0));
+    const remainder = round2(vatAmount - others);
+    vats[big] = Math.max(0, remainder);
+    let deficit = remainder < 0 ? -remainder : 0;
+    for (const i of vats.map((_, k) => k).filter((k) => k !== big).sort((a, b) => vats[b] - vats[a])) {
+      if (deficit <= 0) break;
+      const take = Math.min(vats[i], deficit);
+      vats[i] = round2(vats[i] - take); deficit = round2(deficit - take);
+    }
+  }
   const itemVat = items.map(() => 0);
   let shippingVat = 0;
   components.forEach((component, i) => { if (component.index === -1) shippingVat = vats[i]; else itemVat[component.index] = vats[i]; });
