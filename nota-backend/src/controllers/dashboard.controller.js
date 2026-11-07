@@ -6,6 +6,9 @@ const { roundMoney } = require("../utils/invoicePricing");
 const { DEFAULT_LOW_STOCK_THRESHOLD } = require("../utils/lowStock");
 const { toSellingInvoice } = require("./selling.controller");
 const { loadCustomerOpenItems } = require("../services/customerOpenItems.service");
+const Supplier = require("../models/supplier.model");
+const { supplierBalances } = require("./supplier.controller");
+const { hasPermission } = require("../auth/permissions");
 
 // Stage 12: read-only dashboard summary (GET /api/dashboard/summary).
 //
@@ -117,6 +120,13 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
       }
     }
   }
+  let suppliersDue = null;
+  if (!req.authEnabled || (req.user && hasPermission(req.user, "suppliers.view"))) {
+    const ids = (await Supplier.find({}).select("_id").lean()).map((row) => row._id);
+    const { balances } = await supplierBalances(ids);
+    const owed = [...balances.values()].filter((value) => value > 0);
+    suppliersDue = { owed: roundMoney(owed.reduce((sum, value) => sum + value, 0)), suppliersWithBalance: owed.length };
+  }
   const recentInvoices = [
     ...recentCash.map((selling) => ({
       id: String(selling._id),
@@ -153,6 +163,8 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
       overdueAmount: roundMoney(outstanding ? outstanding.overdueAmount : 0),
       overdueCount: outstanding ? outstanding.overdueCount : 0,
     },
+    // Stage 20: "مستحق للموردين" (what we owe suppliers), only for suppliers.view.
+    ...(suppliersDue ? { suppliersDue } : {}),
     last7Days,
     recentInvoices,
     lowStock: lowStock.map((product) => ({ ...product, id: String(product.id) })),

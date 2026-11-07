@@ -12,7 +12,7 @@ describe('nav menu config', () => {
     expect(keys(visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.owner)))).toEqual([
       ['main', ['home']],
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
-      ['inventory', ['products', 'suppliers']],
+      ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
       ['accounting', ['profit']],
       ['admin', ['users', 'audit', 'shop', 'backup']],
@@ -23,7 +23,7 @@ describe('nav menu config', () => {
     expect(keys(visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.manager)))).toEqual([
       ['main', ['home']],
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
-      ['inventory', ['products', 'suppliers']],
+      ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
       ['accounting', ['profit']],
       ['admin', ['audit', 'shop']],
@@ -41,7 +41,7 @@ describe('nav menu config', () => {
 
   it('storekeeper: products only (no dashboard, no sales)', () => {
     expect(keys(visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.storekeeper)))).toEqual([
-      ['inventory', ['products', 'suppliers']],
+      ['inventory', ['products', 'purchases', 'suppliers']],
     ]);
   });
 
@@ -49,7 +49,7 @@ describe('nav menu config', () => {
     expect(keys(visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.accountant)))).toEqual([
       ['main', ['home']],
       ['sales', ['credit', 'invoices', 'returns', 'customers']],
-      ['inventory', ['products', 'suppliers']],
+      ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
       ['accounting', ['profit']],
       ['admin', ['audit']],
@@ -80,13 +80,15 @@ describe('nav menu config', () => {
     expect(admin?.items.map((i) => i.key)).toEqual(['users', 'audit', 'shop']);
   });
 
-  it('keeps future screens defined but hidden', () => {
-    const all = NAV_GROUPS.flatMap((g) => g.items);
-    for (const key of ['purchases']) {
-      const item = all.find((i) => i.key === key);
-      expect(item).withContext(key).toBeDefined();
-      expect(item!.visible(ctxFor(ROLE_PERMISSIONS.owner))).withContext(key).toBeFalse();
-    }
+  it('Stage 20: purchases sit under المخزون and show only with purchases.view', () => {
+    const inventory = NAV_GROUPS.find((g) => g.key === 'inventory')!;
+    expect(inventory.items.map((i) => i.key)).toEqual(['products', 'purchases', 'suppliers']);
+    const purchases = inventory.items.find((i) => i.key === 'purchases')!;
+    expect(purchases.route).toBe('/purchases');
+    expect(purchases.visible(ctxFor(ROLE_PERMISSIONS.owner))).toBeTrue();
+    expect(purchases.visible(ctxFor(ROLE_PERMISSIONS.storekeeper))).toBeTrue();
+    expect(purchases.visible(ctxFor(ROLE_PERMISSIONS.accountant))).toBeTrue();
+    expect(purchases.visible(ctxFor(ROLE_PERMISSIONS.cashier))).toBeFalse();
   });
 
   it('Stage 17: accounts and journal show only with accounting.view', () => {

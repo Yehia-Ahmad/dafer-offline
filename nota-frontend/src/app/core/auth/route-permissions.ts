@@ -35,6 +35,9 @@ export const ROUTE_RULES = {
   accountingOpening: { all: ['accounting.manage'] },
   suppliers: { all: ['suppliers.view'] },
   supplierForm: { all: ['suppliers.manage'] },
+  /** Stage 20: purchases (the backend requires products.viewCost for every purchase permission). */
+  purchases: { all: ['purchases.view'] },
+  purchaseNew: { all: ['purchases.create'] },
   /** Stage 19: the cash boxes page and a box's detail. A cashier opens and closes their own shift from the POS. */
   cashbox: { all: ['cashbox.view'] },
   /** Stage 19: record expenses (create), cancel them and manage the categories (manage), or just read them (cashbox.view). */
@@ -56,6 +59,7 @@ export const LANDING_ORDER: readonly { path: string; rule: RouteRule }[] = [
   { path: '/products/profit-report', rule: ROUTE_RULES.profitReport },
   { path: '/users', rule: ROUTE_RULES.users },
   { path: '/audit', rule: ROUTE_RULES.audit },
+  { path: '/purchases', rule: ROUTE_RULES.purchases },
   { path: '/suppliers', rule: ROUTE_RULES.suppliers },
   { path: '/cashbox', rule: ROUTE_RULES.cashbox },
   { path: '/expenses', rule: ROUTE_RULES.expenses },

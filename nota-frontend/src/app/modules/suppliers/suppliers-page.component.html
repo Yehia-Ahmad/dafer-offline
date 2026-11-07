@@ -1,4 +1,4 @@
-<!-- Stage 18: suppliers (Suppliers.dc.html list). The statement, purchases and payments are Stage 20. -->
+<!-- Stage 18 list, Stage 20 statement panel, payment dialog and purchase links (Suppliers.dc.html). -->
 <div class="sp">
   <nota-page-header [title]="'suppliers.title' | translate" [subtitle]="'suppliers.subtitle' | translate: { amount: (totalWeOwe() | notaMoney) }">
     <div notaPageActions>
@@ -35,10 +35,11 @@
             </td></tr>
           } @else {
             @for (row of suppliers(); track row._id) {
-              <tr [attr.data-supplier]="row.name" [class.sp__row--off]="!row.isActive">
+              <tr [attr.data-supplier]="row.name" [class.sp__row--off]="!row.isActive" [class.sp__row--selected]="row._id === selectedId()">
                 <td>
                   <strong>{{ row.name }}</strong>
                   @if (row.supplies) { <div class="sp__meta">{{ row.supplies }}</div> }
+                  @if (row.lastPurchaseAt) { <div class="sp__meta" data-test="last-purchase">{{ 'suppliers.lastPurchase' | translate }} {{ row.lastPurchaseAt | date: 'yyyy-MM-dd' }}</div> }
                 </td>
                 <td>
                   @if (row.contactPerson) { <div>{{ row.contactPerson }}</div> }
@@ -57,6 +58,7 @@
                   @if (shown.warning) { <div class="sp__hint">{{ 'accounting.oppositeHint' | translate }}</div> }
                 </td>
                 <td class="sp__actions">
+                  <button type="button" notaButton data-action="statement" (click)="select(row)">{{ 'suppliers.statement.open' | translate }}</button>
                   @if (row.ledgerAccountId) {
                     <a notaButton [routerLink]="['/accounting/accounts', row.ledgerAccountId, 'ledger']" [queryParams]="{ partyId: row._id }" data-action="ledger">{{ 'suppliers.ledger' | translate }}</a>
                   }
@@ -72,4 +74,9 @@
       </table>
     </div>
   </section>
+
+  @if (selected(); as supplier) {
+    <app-supplier-statement [supplier]="supplier" [refreshKey]="refreshKey()" (pay)="payOpen.set(true)" />
+    <app-supplier-payment-dialog [(visible)]="payOpen" [supplier]="supplier" (done)="paid()" />
+  }
 </div>

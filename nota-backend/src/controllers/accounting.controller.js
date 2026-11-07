@@ -12,6 +12,11 @@ const { roundMoney } = require("../utils/invoicePricing");
 const { isLedgerDocument, returnedUnits } = require("../accounting/posting");
 const { customerStatementBalances } = require("../services/customerStatement.service");
 const Supplier = require("../models/supplier.model");
+const Purchase = require("../models/purchase.model");
+const SupplierPayment = require("../models/supplierPayment.model");
+const PurchaseReturn = require("../models/purchaseReturn.model");
+const SupplierRefund = require("../models/supplierRefund.model");
+const { supplierStatementBalances } = require("../services/supplierStatement.service");
 const PartyOpening = require("../models/partyOpening.model");
 const { loadOpeningState, saveOpening, finalizeOpening, currentOpeningEntry, getOpeningMeta } = require("../accounting/opening");
 const { audit } = require("../auth/audit");
@@ -160,12 +165,12 @@ const expectedLegacyCancelCost = (invoice, preLogs) => {
  */
 const getHealth = async (req, res) => {
   res.set("Cache-Control", "no-store");
-  const [lineTotals, balances, documentSources, products, customers, sales, credits, returns, receipts, meta, accounts] = await Promise.all([
+  const [lineTotals, balances, documentSources, products, customers, sales, credits, returns, receipts, meta, accounts, purchaseIds, paymentIds, purchaseReturnIds, refundIds] = await Promise.all([
     // Trial balance from the lines themselves, never the stored entry totals.
     JournalEntry.aggregate([{ $match: { status: "posted" } }, { $unwind: "$lines" }, { $group: { _id: null, debit: { $sum: "$lines.debit" }, credit: { $sum: "$lines.credit" } } }]),
     JournalEntry.aggregate([{ $match: { status: "posted" } }, { $unwind: "$lines" }, { $group: { _id: { accountId: "$lines.accountId", partyId: "$lines.partyId" }, balance: { $sum: { $subtract: ["$lines.debit", "$lines.credit"] } } } }]),
     JournalEntry.aggregate([
-      { $match: { status: "posted", "source.type": { $in: ["sale", "credit_sale", "return", "receipt"] } } },
+      { $match: { status: "posted", "source.type": { $in: ["sale", "credit_sale", "return", "receipt", "purchase", "supplier_payment", "purchase_return", "supplier_refund"] } } },
       { $group: { _id: { type: "$source.type", id: "$source.id" } } },
       { $group: { _id: "$_id.type", ids: { $addToSet: "$_id.id" } } },
     ]),
@@ -177,6 +182,8 @@ const getHealth = async (req, res) => {
     Receipt.find({}).select("_id createdAt").lean(),
     Meta.findById("schema").lean(),
     Account.find({ systemKey: { $ne: null } }).lean(),
+    // Stage 20: the supplier documents that must each have an entry.
+    Purchase.find({}).select("_id").lean(), SupplierPayment.find({}).select("_id").lean(), PurchaseReturn.find({}).select("_id").lean(), SupplierRefund.find({ status: "posted" }).select("_id").lean(),
   ]);
   const ledgerStartAt = meta?.ledgerStartAt ? new Date(meta.ledgerStartAt) : null;
   const inLedger = (doc) => isLedgerDocument(doc, ledgerStartAt);
@@ -264,6 +271,10 @@ const getHealth = async (req, res) => {
     credit_sale: new Set(credits.filter((row) => (inLedger(row) || cancelledInLedger(row)) && hasValue(row)).map((row) => String(row._id))),
     return: new Set(returns.filter(inLedger).map((row) => String(row._id))),
     receipt: new Set(receipts.filter(inLedger).map((row) => String(row._id))),
+    purchase: new Set(purchaseIds.map((row) => String(row._id))),
+    supplier_payment: new Set(paymentIds.map((row) => String(row._id))),
+    purchase_return: new Set(purchaseReturnIds.map((row) => String(row._id))),
+    supplier_refund: new Set(refundIds.map((row) => String(row._id))),
   };
   const bySource = {}; let expectedEntrySources = 0; let actualEntrySources = 0; let coverageIssues = 0;
   for (const [type, expectedIds] of Object.entries(expectedSourceIds)) {
@@ -275,11 +286,14 @@ const getHealth = async (req, res) => {
   }
   const entries = { expected: expectedEntrySources, actual: actualEntrySources, difference: coverageIssues, bySource };
 
-  // 7. Suppliers (Stage 18): each supplier's ledger party balance against the supplier opening record,
-  //    until Stage 20 adds purchases and payments. Ledger balances are signed (credit negative), so expected = -amount.
+  // 7. Suppliers (Stage 18, extended in Stage 20): each supplier's ledger party balance against the supplier statement.
   const supplierOpenings = await PartyOpening.find({ partyType: "supplier" }).lean();
-  const supplierNames = new Map((await Supplier.find({}).select("name").lean()).map((row) => [String(row._id), row.name]));
-  const expectedBySupplier = new Map(supplierOpenings.map((row) => [String(row.partyId), roundMoney(-row.amount)]));
+  const supplierRows = await Supplier.find({}).select("name paymentTermsDays").lean();
+  const supplierNames = new Map(supplierRows.map((row) => [String(row._id), row.name]));
+  // Stage 20: expected = the statement closing balance computed from documents (opening + purchases - PVs - returns + refunds +- cancels).
+  // Ledger balances are signed (credit negative), so expected = -closing.
+  const statementClosing = await supplierStatementBalances(supplierRows);
+  const expectedBySupplier = new Map([...statementClosing.entries()].filter(([, closing]) => closing !== 0).map(([id, closing]) => [id, roundMoney(-closing)]));
   const supplierIds = new Set([...expectedBySupplier.keys(), ...supplierPartyBalance.keys()]);
   const bySupplier = []; let expectedSuppliers = 0; let supplierDifference = 0;
   for (const id of supplierIds) {

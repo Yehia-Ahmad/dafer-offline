@@ -1040,7 +1040,9 @@
             "invoicesSplit": "{{cash}} cash · {{credit}} credit",
             "outstanding": "Credit owed by customers",
             "overdue": "{{count}} overdue invoices ({{amount}})",
-            "customersWithBalance": "From {{count}} customers"
+            "customersWithBalance": "From {{count}} customers",
+            "suppliersDue": "Due to suppliers",
+            "suppliersWithBalance": "{{count}} suppliers to pay"
         },
         "chart": {
             "title": "Sales, last 7 days",
@@ -1601,7 +1603,39 @@
             "cancel": "Cancel",
             "save": "Save supplier",
             "saveFailed": "Could not save the supplier."
-        }
+        },
+        "statement": {
+            "open": "Statement",
+            "pay": "Pay a supplier",
+            "newPurchase": "Purchase invoice",
+            "print": "Print statement",
+            "title": "Supplier statement",
+            "legend": "Credit = we bought, debit = we paid",
+            "loading": "Loading the statement…",
+            "loadFailed": "Could not load the statement.",
+            "date": "Date",
+            "description": "Description",
+            "document": "Document",
+            "debit": "Debit",
+            "credit": "Credit",
+            "balance": "Balance",
+            "totals": "Total",
+            "empty": "No movements yet.",
+            "weOweNow": "We owe them",
+            "advance": "Advance with the supplier",
+            "aging": {
+                "title": "Aging by due date",
+                "current": "Not due yet",
+                "d1_30": "1–30 days late",
+                "d31_60": "31–60 days late",
+                "d61_90": "61–90 days late",
+                "d90plus": "Over 90 days late",
+                "advance": "Advance (they owe us)"
+            }
+        },
+        "lastPurchase": "Last invoice",
+        "deleteHasDocuments": "This supplier has purchases or payments, so it cannot be deleted.",
+        "currency": "EGP"
     },
     "cashbox": {
         "title": "Cash boxes & shifts",
@@ -1673,7 +1707,9 @@
                 "expenses": "Expenses from the drawer",
                 "transfersOut": "Outgoing transfers",
                 "payouts": "Customer credit payouts",
-                "drawings": "Owner drawings"
+                "drawings": "Owner drawings",
+                "supplierPayments": "Supplier payments",
+                "supplierRefunds": "Supplier refunds"
             },
             "expected": "Should be in the drawer",
             "counted": "Actually counted",
@@ -1764,7 +1800,12 @@
                 "owner_drawing": "Owner drawing",
                 "customer_payout": "Customer credit payout",
                 "opening": "Opening balance",
-                "other": "Entry"
+                "other": "Entry",
+                "purchase": "Purchase invoice",
+                "purchase_cancel": "Purchase cancel cost",
+                "purchase_return": "Purchase return",
+                "supplier_payment": "Supplier payment",
+                "supplier_refund": "Supplier refund"
             }
         },
         "expenses": {
@@ -1825,6 +1866,157 @@
             "applied": "Applied to the open invoices.",
             "paidOut": "The balance was paid out.",
             "available": "Available to apply: {{amount}}"
+        }
+    },
+    "purchases": {
+        "title": "Purchases",
+        "subtitle": "Purchase invoices from suppliers. Goods enter stock when an invoice is saved.",
+        "newPurchase": "New purchase invoice",
+        "loading": "Loading purchases…",
+        "loadFailed": "Could not load the purchases.",
+        "retry": "Retry",
+        "empty": "No purchase invoices yet.",
+        "close": "Close",
+        "cancelAction": "Cancel",
+        "filters": {
+            "search": "PO number, supplier or supplier invoice no.",
+            "supplier": "Supplier",
+            "allSuppliers": "All suppliers",
+            "from": "From date",
+            "to": "To date",
+            "status": "Status",
+            "allStatuses": "All statuses",
+            "apply": "Apply"
+        },
+        "columns": {
+            "number": "Number",
+            "supplier": "Supplier",
+            "supplierInvoiceNo": "Supplier invoice no.",
+            "date": "Date",
+            "total": "Total",
+            "paid": "Paid",
+            "status": "Status"
+        },
+        "status": {
+            "posted": "Posted",
+            "cancelled": "Cancelled"
+        },
+        "new": {
+            "title": "New purchase invoice",
+            "subtitle": "The goods enter stock as soon as you save",
+            "supplier": "Supplier",
+            "supplierInvoiceNo": "Supplier invoice no.",
+            "date": "Date",
+            "balanceBefore": "Supplier balance before the invoice",
+            "balanceAfter": "Supplier balance after saving",
+            "searchProduct": "Search a product by name or code",
+            "newProduct": "New product",
+            "createProduct": "Create and add",
+            "productName": "Product name",
+            "productCode": "Code",
+            "productCategory": "Category",
+            "productWholesale": "Wholesale price",
+            "productRetail": "Retail price",
+            "inStock": "In stock: {{count}}",
+            "item": "Item",
+            "qty": "Quantity",
+            "unitPrice": "Purchase price",
+            "lineTotal": "Total",
+            "stockAfter": "Stock after",
+            "noLines": "Search for a product to add it.",
+            "newCost": "New cost",
+            "extras": "Discount and other costs",
+            "discount": "Discount",
+            "otherCosts": "Other costs (freight…)",
+            "extrasNote": "The discount and other costs are spread over the lines by value, so they end up in each product's cost.",
+            "total": "Total",
+            "payment": "Payment",
+            "modes": {
+                "all_cash": "All cash",
+                "part_cash": "Part cash",
+                "all_credit": "All on credit"
+            },
+            "creditOnly": "You can only record this invoice on credit. Paying a supplier needs another permission.",
+            "paid": "Paid",
+            "fromBox": "From box",
+            "remaining": "Left to pay the supplier",
+            "journalTitle": "The entry that will be posted",
+            "from": "From",
+            "to": "To",
+            "debit": "debit",
+            "credit": "credit",
+            "save": "Save purchase invoice",
+            "saving": "Saving…"
+        },
+        "detail": {
+            "journal": "View entry",
+            "savedWithPv": "Saved. Payment voucher {{pv}} was created.",
+            "cancelledBecause": "Cancelled because",
+            "unitCost": "Cost per unit",
+            "returned": "Returned",
+            "subtotal": "Subtotal",
+            "returns": "Returns to the supplier",
+            "return": "Return to supplier",
+            "cancel": "Cancel invoice",
+            "reason": "Reason (required)",
+            "confirmCancel": "Confirm cancel",
+            "pvNote": "Cancelling the invoice does not cancel its payment voucher: the supplier will show an advance. Cancel the voucher separately if the money came back."
+        },
+        "return": {
+            "title": "Return to supplier",
+            "available": "Available",
+            "qty": "Return",
+            "value": "Value",
+            "reason": "Reason",
+            "total": "Return value",
+            "refund": "Cash refund from the supplier (optional)",
+            "refundBox": "Received into box",
+            "submit": "Save return"
+        },
+        "errors": {
+            "loadSuppliers": "Could not load the suppliers.",
+            "loadCategories": "Could not load the categories.",
+            "productFailed": "Could not create the product. Check the code is not used.",
+            "paidRange": "The paid amount must be more than 0 and less than the total.",
+            "refundRange": "The refund cannot be more than the return value.",
+            "saveFailed": "Could not save the invoice.",
+            "returnFailed": "Could not save the return.",
+            "cancelFailed": "Could not cancel the invoice.",
+            "INSUFFICIENT_BALANCE": "The box does not have enough money.",
+            "NO_OPEN_SHIFT": "There is no open shift on this box.",
+            "BOX_INACTIVE": "This box is closed.",
+            "BOX_NOT_ALLOWED": "This box is not available to you.",
+            "PAY_NOT_ALLOWED": "You are not allowed to pay suppliers. Record the invoice on credit.",
+            "PAID_EXCEEDS_TOTAL": "The paid amount is more than the total.",
+            "SUPPLIER_INACTIVE": "This supplier is inactive.",
+            "PRODUCT_ARCHIVED": "A product in the invoice is archived.",
+            "OVER_RETURN": "The returned quantity is more than what is available.",
+            "STOCK_ALREADY_USED": "Part of this stock was already sold or changed.",
+            "HAS_RETURNS": "This invoice has returns, so it cannot be cancelled.",
+            "REFUND_EXCEEDS_RETURN": "The refund is more than the return value.",
+            "PURCHASE_CANCELLED": "This invoice is cancelled."
+        }
+    },
+    "supplierPay": {
+        "title": "Pay a supplier",
+        "owedNow": "We owe them now",
+        "afterPayment": "After the payment",
+        "amount": "Amount",
+        "fromBox": "From box",
+        "date": "Date",
+        "reference": "Cheque / transfer number",
+        "note": "Note",
+        "confirmAdvance": "The amount is more than we owe. Record the rest as an advance with the supplier.",
+        "advanceNote": "The supplier will owe us {{amount}} (an advance).",
+        "entryHint": "A payment voucher and an entry are created: from the supplier's account to the box.",
+        "save": "Save payment",
+        "errors": {
+            "failed": "Could not save the payment.",
+            "INSUFFICIENT_BALANCE": "The box does not have enough money.",
+            "NO_OPEN_SHIFT": "There is no open shift on this box.",
+            "BOX_INACTIVE": "This box is closed.",
+            "BOX_NOT_ALLOWED": "This box is not available to you.",
+            "ADVANCE_NOT_CONFIRMED": "Confirm the advance first."
         }
     }
 }

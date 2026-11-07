@@ -119,6 +119,16 @@ export class HomeComponent implements OnInit {
           : { count: formatNotaNumber(summary.credit.customersWithBalance, lang) },
         tone: summary.credit.overdueCount ? 'danger' : 'neutral',
       },
+      ...(summary.suppliersDue
+        ? [{
+            key: 'suppliersDue',
+            labelKey: 'dashboard.kpis.suppliersDue',
+            value: money(summary.suppliersDue.owed),
+            note: 'dashboard.kpis.suppliersWithBalance',
+            noteParams: { count: formatNotaNumber(summary.suppliersDue.suppliersWithBalance, lang) },
+            tone: 'neutral' as const,
+          }]
+        : []),
     ];
   });
 

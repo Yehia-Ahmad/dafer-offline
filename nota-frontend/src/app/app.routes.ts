@@ -122,6 +122,22 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/suppliers/supplier-form.component').then(m => m.SupplierFormComponent)
     },
     {
+        // Stage 20: purchases.
+        path: 'purchases',
+        canActivate: [permissionGuard(ROUTE_RULES.purchases)],
+        loadComponent: () => import('./modules/purchases/purchases-page.component').then(m => m.PurchasesPageComponent)
+    },
+    {
+        path: 'purchases/new',
+        canActivate: [permissionGuard(ROUTE_RULES.purchaseNew)],
+        loadComponent: () => import('./modules/purchases/purchase-form.component').then(m => m.PurchaseFormComponent)
+    },
+    {
+        path: 'purchases/:id',
+        canActivate: [permissionGuard(ROUTE_RULES.purchases)],
+        loadComponent: () => import('./modules/purchases/purchase-detail.component').then(m => m.PurchaseDetailComponent)
+    },
+    {
         // Stage 19: cash boxes, shifts, expenses.
         path: 'cashbox',
         canActivate: [permissionGuard(ROUTE_RULES.cashbox)],

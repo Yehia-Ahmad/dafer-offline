@@ -310,6 +310,24 @@ async function main() {
       if (check && typeof check === "object" && "difference" in check) { assert.equal(Number(check.difference), 0, `accounting health after the wizard: ${name}`); assert.notEqual(check.ok, false, `accounting health after the wizard: ${name} ok`); }
     }
     console.log(`opening wizard after the upgrade: OB ${saved.number}, capital ${saved.totals.capital}, health 0`);
+    // Stage 20: purchases and payments on an old supplier opening (200), on an upgraded database.
+    const stockBefore20 = (await request(currentBase, "GET", `/api/products/${product._id}`)).inventoryCount;
+    const purchase20 = await request(currentBase, "POST", "/api/purchases", {
+      supplierId: wizardSupplier._id, supplierInvoiceNo: "LEG-1", items: [{ productId: product._id, qty: 5, unitPrice: 40 }], discountAmount: 10, otherCosts: 20, paidAmount: 100,
+    });
+    assert.equal(purchase20.total, 210); assert.equal(purchase20.supplierBalanceAfter, 310, "200 opening + 210 - 100 paid");
+    assert.equal((await request(currentBase, "GET", `/api/products/${product._id}`)).inventoryCount, stockBefore20 + 5);
+    const pay20 = await request(currentBase, "POST", `/api/suppliers/${wizardSupplier._id}/payments`, { amount: 60, reference: "LEG-CHQ" });
+    assert.equal(pay20.balanceAfter, 250);
+    const return20 = await request(currentBase, "POST", `/api/purchases/${purchase20._id}/returns`, { items: [{ itemId: purchase20.items[0]._id, qty: 1 }] });
+    assert.equal(return20.total, 42); assert.equal(return20.supplierBalanceAfter, 208);
+    const statement20 = await request(currentBase, "GET", `/api/suppliers/${wizardSupplier._id}/statement`);
+    assert.equal(statement20.balance, 208); assert.equal(statement20.ledgerBalance, 208); assert.equal(statement20.lines[0].description, "رصيد أول المدة");
+    const health20 = await request(currentBase, "GET", "/api/accounting/health");
+    for (const [name, check] of Object.entries(health20)) {
+      if (check && typeof check === "object" && "difference" in check) { assert.equal(Number(check.difference), 0, `accounting health after purchases: ${name}`); assert.notEqual(check.ok, false, `accounting health after purchases: ${name} ok`); }
+    }
+    console.log(`stage 20 upgrade: purchase ${purchase20.number}, payments ${pay20.number}, return ${return20.number}, supplier balance ${statement20.balance}, health 0`);
     // Round 2: a pre-ledger invoice that Stage 17/18 already edited (+70, kept only in ledgerTrace.editNetSales, no boxMoves)
     // and that the current build edits again (-30): the boxes check counts the old edits once and the new move once.
     const traceItems = (price) => [{ productId: product._id, quantity: 2, price }];

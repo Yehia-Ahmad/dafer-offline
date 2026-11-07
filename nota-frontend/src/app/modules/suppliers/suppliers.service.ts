@@ -18,6 +18,8 @@ export interface Supplier {
   /** Ledger party balance: positive = we owe the supplier. */
   balance: number;
   openingAmount: number;
+  /** Stage 20: the date of the last posted purchase, null when there is none. */
+  lastPurchaseAt?: string | null;
   /** Account 21: the supplier row links to its ledger filtered by this supplier. */
   ledgerAccountId?: string | null;
 }

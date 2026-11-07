@@ -58,7 +58,7 @@ export interface ShiftSummary {
   status: 'open' | 'closed';
 }
 
-export type ShiftLineKey = 'float' | 'sales' | 'receipts' | 'transfersIn' | 'refunds' | 'expenses' | 'transfersOut' | 'payouts' | 'drawings';
+export type ShiftLineKey = 'float' | 'sales' | 'receipts' | 'transfersIn' | 'refunds' | 'expenses' | 'transfersOut' | 'payouts' | 'drawings' | 'supplierPayments' | 'supplierRefunds';
 
 export interface ShiftReport extends ShiftSummary {
   lines: { key: ShiftLineKey; amount: number }[];

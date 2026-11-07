@@ -236,6 +236,7 @@ it("credit cancel with down payment nets the customer party to zero", async () =
 it("auto-restock has its own entry and survives invoice cancel", async () => {
   const p = await product({ code: "RESTOCK", stock: 1, cost: 20, retail: 100 }); const sale = await call("POST", "/api/sellings", saleBody([{ productId: p._id, quantity: 2, price: 100 }], { confirmInsufficientInventory: true })); assert.equal(sale.status,201);
   const adjustment = await JournalEntry.findOne({ "source.type": "auto_restock", "source.id": sale.json._id }).lean(); assert.ok(adjustment); await call("POST", `/api/sellings/${sale.json._id}/cancel`, { reason: "cancel restocked sale" }); assert.equal((await JournalEntry.findById(adjustment._id)).reversedBy, null);
+  const health = await call("GET", "/api/accounting/health"); assert.equal(health.json.inventory.difference, 0, JSON.stringify(health.json.inventory)); await assertHealthy();
 });
 
 it("product create, stock edits and purchase-price revaluation post inside their transactions", async () => {

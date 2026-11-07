@@ -7,6 +7,8 @@ const Expense = require("../models/expense.model");
 const OwnerDrawing = require("../models/ownerDrawing.model");
 const CustomerPayout = require("../models/customerPayout.model");
 const Shift = require("../models/shift.model");
+const SupplierPayment = require("../models/supplierPayment.model");
+const SupplierRefund = require("../models/supplierRefund.model");
 const { roundMoney } = require("../utils/invoicePricing");
 
 // Stage 19: everything that moved money in or out of one box, read ONLY from operational documents
@@ -19,8 +21,8 @@ const { roundMoney } = require("../utils/invoicePricing");
 //   shiftDiff: the over/short posted when a shift closed (signed).
 // A cancelled expense/transfer/drawing/payout is its original event plus a reversing event at cancelledAt.
 
-const ADDING_KINDS = ["sales", "receipts", "transfersIn"];
-const SUBTRACTING_KINDS = ["refunds", "expenses", "transfersOut", "payouts", "drawings"];
+const ADDING_KINDS = ["sales", "receipts", "transfersIn", "supplierRefunds"];
+const SUBTRACTING_KINDS = ["refunds", "expenses", "transfersOut", "payouts", "drawings", "supplierPayments"];
 const KINDS = [...ADDING_KINDS, ...SUBTRACTING_KINDS];
 
 const within = (date, from, to) => Boolean(date) && (!from || new Date(date) >= from) && (!to || new Date(date) <= to);
@@ -43,7 +45,7 @@ async function boxEvents(box, { from = null, to = null, ledgerStartAt, session =
   // An old document without a box belongs to the main box.
   const own = (field = "boxId") => (box.isMain ? { $or: [{ [field]: id }, { [field]: { $exists: false } }, { [field]: null }] } : { [field]: id });
 
-  const [sales, returns, credits, receipts, transfers, expenses, drawings, payouts, shifts] = await Promise.all([
+  const [sales, returns, credits, receipts, transfers, expenses, drawings, payouts, shifts, supplierPayments, supplierRefunds] = await Promise.all([
     Selling.find({ $or: [...(box.isMain ? [{ boxId: id }, { boxId: { $exists: false } }, { boxId: null }] : [{ boxId: id }]), { cancelRefundBoxId: id }] }).select("+ledgerTrace").session(session).lean(),
     ReturnLog.find({ returnType: "cash", ...own() }).session(session).lean(),
     CreditSale.find({ status: "cancelled", cancelRefundAmount: { $gt: 0 }, ...own("cancelRefundBoxId") }).session(session).lean(),
@@ -53,6 +55,8 @@ async function boxEvents(box, { from = null, to = null, ledgerStartAt, session =
     OwnerDrawing.find({ boxId: id }).session(session).lean(),
     CustomerPayout.find({ boxId: id }).session(session).lean(),
     Shift.find({ boxId: id }).session(session).lean(),
+    SupplierPayment.find({ boxId: id }).session(session).lean(),
+    SupplierRefund.find({ boxId: id, status: "posted" }).session(session).lean(),
   ]);
 
   const sid = String(id);
@@ -93,6 +97,9 @@ async function boxEvents(box, { from = null, to = null, ledgerStartAt, session =
   outgoing(expenses, "expenses");
   outgoing(drawings, "drawings");
   outgoing(payouts, "payouts");
+  // Stage 20: a payment voucher is money out (and back in when cancelled); a supplier refund is money in.
+  outgoing(supplierPayments, "supplierPayments");
+  for (const refund of supplierRefunds) push("supplierRefunds", Number(refund.amount || 0), refund.createdAt, refund._id);
   for (const shift of shifts) {
     // The over/short posted when the shift opened with a confirmed float, and when it closed.
     if (Number(shift.openingDifference || 0) !== 0) push("shiftDiff", Number(shift.openingDifference), shift.openedAt, shift._id);

@@ -27,6 +27,8 @@ export interface DashboardSummary {
     sellingDate: string;
     createdAt: string;
   }>;
+  /** Stage 20: what we owe suppliers; absent without suppliers.view. */
+  suppliersDue?: { owed: number; suppliersWithBalance: number };
   lowStock: Array<{ id: string; name: string; code: string; inventoryCount: number; threshold: number }>;
 }
 

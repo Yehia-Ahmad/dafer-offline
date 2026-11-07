@@ -24,6 +24,11 @@ const PERMISSIONS = {
 
   "suppliers.view": { group: "suppliers", ar: "عرض الموردين", en: "View suppliers" },
   "suppliers.manage": { group: "suppliers", ar: "إدارة الموردين", en: "Manage suppliers" },
+  // Stage 20: purchases and paying suppliers.
+  "suppliers.pay": { group: "suppliers", ar: "سداد الموردين واسترداد منهم", en: "Pay suppliers and take refunds" },
+  "purchases.view": { group: "suppliers", ar: "عرض فواتير الشراء", en: "View purchases" },
+  "purchases.create": { group: "suppliers", ar: "تسجيل فاتورة شراء ومرتجع", en: "Record purchases and purchase returns" },
+  "purchases.cancel": { group: "suppliers", ar: "إلغاء فاتورة شراء", en: "Cancel purchases" },
 
   "products.view": { group: "products", ar: "عرض المنتجات والفئات", en: "View products and categories" },
   "products.manage": { group: "products", ar: "إدارة المنتجات", en: "Manage products" },
@@ -72,7 +77,13 @@ const ALL_PERMISSIONS = Object.freeze(Object.keys(PERMISSIONS));
  * Stage 17: a permission that needs another one. Journal and ledger amounts
  * reveal cost (COGS, inventory), so accounting.view requires products.viewCost.
  */
-const PERMISSION_DEPENDENCIES = Object.freeze({ "accounting.view": Object.freeze(["products.viewCost"]) });
+const PERMISSION_DEPENDENCIES = Object.freeze({
+  "accounting.view": Object.freeze(["products.viewCost"]),
+  // Stage 20: a purchase shows and sets the product cost.
+  "purchases.view": Object.freeze(["products.viewCost"]),
+  "purchases.create": Object.freeze(["products.viewCost"]),
+  "purchases.cancel": Object.freeze(["products.viewCost"]),
+});
 
 /** [{ permission, requires: [...] }] for every unmet dependency in `list`. */
 const missingDependencies = (list) => {
@@ -104,8 +115,8 @@ const ROLE_TEMPLATES = Object.freeze({
     "shift.operate",
     "expenses.create",
   ]),
-  storekeeper: Object.freeze(["products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view"]),
-  accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view", "cashbox.view", "expenses.create", "expenses.manage"]),
+  storekeeper: Object.freeze(["products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view", "purchases.view", "purchases.create"]),
+  accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view", "purchases.view", "suppliers.pay", "cashbox.view", "expenses.create", "expenses.manage"]),
 });
 
 const ROLE_LABELS = {

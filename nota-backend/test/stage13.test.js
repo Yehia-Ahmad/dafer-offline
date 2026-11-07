@@ -196,7 +196,7 @@ test("passwords: bcrypt cost 10, 6–128 characters, Arabic and spaces allowed; 
   const me = await call(on, "GET", "/api/auth/me", { token: created.json.token });
   assert.equal(me.status, 200);
   assert.equal(me.text.includes("passwordHash"), false);
-  assert.equal(me.json.permissions.length, 38);
+  assert.equal(me.json.permissions.length, 42);
 });
 
 test("login: success; wrong password, unknown user and disabled user get the same 401", skip, async () => {
@@ -548,7 +548,10 @@ test("cost stripping: a cashier sees no purchase price or profit; the owner does
   const dashOwner = await call(on, "GET", "/api/dashboard/summary", { token: owner.token });
   const dashCashier = await call(on, "GET", "/api/dashboard/summary", { token: cashier.token });
   assert.deepEqual(findCostKeys(dashOwner.json), []);
-  assert.deepEqual(dashCashier.json, dashOwner.json);
+  // Stage 20: the owner also sees what we owe suppliers (suppliers.view); everything else is identical.
+  const { suppliersDue: ownerSuppliersDue, ...ownerRest } = dashOwner.json;
+  assert.ok(ownerSuppliersDue);
+  assert.deepEqual(dashCashier.json, ownerRest);
 
   // Profit report: the cashier is refused outright; the owner gets it with profit.
   assert.equal((await call(on, "GET", "/api/products/profit-report", { token: cashier.token })).status, 403);

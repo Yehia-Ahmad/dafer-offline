@@ -12,6 +12,8 @@ const returnsRoutes = require("./routes/returns.routes");
 const sellingRoutes = require("./routes/selling.routes");
 const shopProfileRoutes = require("./routes/shopProfile.routes");
 const supplierRoutes = require("./routes/supplier.routes");
+const purchaseRoutes = require("./routes/purchase.routes");
+const supplierPaymentRoutes = require("./routes/supplierPayment.routes");
 const { createAuthRouter } = require("./routes/auth.routes");
 const usersRoutes = require("./routes/users.routes");
 const auditRoutes = require("./routes/audit.routes");
@@ -82,6 +84,8 @@ app.use("/api/returns", returnsRoutes);
 app.use("/api/sellings", sellingRoutes);
 app.use("/api/shop-profile", shopProfileRoutes);
 app.use("/api/suppliers", supplierRoutes);
+app.use("/api/purchases", purchaseRoutes);
+app.use("/api/supplier-payments", supplierPaymentRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

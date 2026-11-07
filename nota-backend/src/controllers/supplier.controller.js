@@ -3,6 +3,10 @@ const Supplier = require("../models/supplier.model");
 const PartyOpening = require("../models/partyOpening.model");
 const JournalEntry = require("../models/journalEntry.model");
 const Account = require("../models/account.model");
+const Purchase = require("../models/purchase.model");
+const SupplierPayment = require("../models/supplierPayment.model");
+const PurchaseReturn = require("../models/purchaseReturn.model");
+const SupplierRefund = require("../models/supplierRefund.model");
 const asyncHandler = require("../utils/asyncHandler");
 const { withTransaction } = require("../utils/transaction");
 const { roundMoney } = require("../utils/invoicePricing");
@@ -94,8 +98,10 @@ const getSuppliers = asyncHandler(async (req, res) => {
   const ids = suppliers.map((supplier) => supplier._id);
   const [balances, openingRows] = await Promise.all([supplierBalances(ids), PartyOpening.find({ partyType: "supplier", partyId: { $in: ids } }).lean()]);
   const openings = new Map(openingRows.map((row) => [String(row.partyId), row.amount]));
+  const lastRows = await Purchase.aggregate([{ $match: { supplierId: { $in: ids }, status: "posted" } }, { $group: { _id: "$supplierId", last: { $max: "$date" } } }]);
+  const last = new Map(lastRows.map((row) => [String(row._id), row.last]));
   res.set("Cache-Control", "no-store");
-  res.json(suppliers.map((supplier) => present(supplier, balances, openings)));
+  res.json(suppliers.map((supplier) => ({ ...present(supplier, balances, openings), lastPurchaseAt: last.get(String(supplier._id)) || null })));
 });
 
 const loadSupplier = async (req, session = null) => {
@@ -136,6 +142,11 @@ const updateSupplier = asyncHandler(async (req, res) => {
 const deleteSupplier = asyncHandler(async (req, res) => {
   await withTransaction(async (session) => {
     const supplier = await loadSupplier(req, session);
+    const [purchase, payment, purchaseReturn, refund] = await Promise.all([
+      Purchase.exists({ supplierId: supplier._id }).session(session), SupplierPayment.exists({ supplierId: supplier._id }).session(session),
+      PurchaseReturn.exists({ supplierId: supplier._id }).session(session), SupplierRefund.exists({ supplierId: supplier._id }).session(session),
+    ]);
+    if (purchase || payment || purchaseReturn || refund) fail(409, "لا يمكن حذف المورد لوجود فواتير شراء أو مدفوعات له", { code: "SUPPLIER_HAS_DOCUMENTS" });
     const [opening, ledgerLine] = await Promise.all([
       PartyOpening.exists({ partyType: "supplier", partyId: supplier._id }).session(session),
       JournalEntry.exists({ "lines.partyId": supplier._id }).session(session),
@@ -147,4 +158,4 @@ const deleteSupplier = asyncHandler(async (req, res) => {
   res.json({ message: "Supplier deleted successfully" });
 });
 
-module.exports = { getSuppliers, getSupplierById, createSupplier, updateSupplier, deleteSupplier };
+module.exports = { supplierBalances, getSuppliers, getSupplierById, createSupplier, updateSupplier, deleteSupplier };

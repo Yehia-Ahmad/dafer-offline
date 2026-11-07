@@ -52,6 +52,8 @@ const NOAUTH_DB_NAME = 'dafer_smoke_noauth';
 const OPENING_DB_NAME = 'dafer_smoke_opening';
 // Stage 19: a fourth fresh database (auth on) for cash boxes, shifts, expenses, drawings and customer credit.
 const STAGE19_DB_NAME = 'dafer_smoke_stage19';
+// Stage 20: a fifth fresh database (auth on) for purchases, supplier payments, returns and the supplier statement.
+const STAGE20_DB_NAME = 'dafer_smoke_stage20';
 const JWT_SECRET = 'smoke-jwt-secret-0123456789abcdef-0123456789';
 const OWNER = { name: 'Smoke Owner', username: 'smoke-owner', password: 'owner-pass-123' };
 const LAN_SECRET = 'smoke-secret-123';
@@ -1544,6 +1546,167 @@ function summarize() {
   return failed;
 }
 
+// Stage 20: purchases, supplier payments, purchase returns and refunds, cancel, the statement, on a fresh database (auth on).
+const S20_DEVICE = { 'x-nota-device-id': '1a9fad5b-d9cb-469f-a165-70867728950f', 'x-nota-device-name': encodeURIComponent('Smoke-S20-PC') };
+
+async function runStage20Scenarios() {
+  const ctx = {};
+  authToken = null;
+  const login = async (user) => {
+    const response = await request('POST', '/api/auth/login', { body: { username: user.username, password: user.password }, token: null });
+    expectStatus(response, 200, `${user.username} login`);
+    return response.json.token;
+  };
+  const utcDay = () => new Date().toISOString().slice(0, 10);
+  const balanceOfSupplier = async () => (await request('GET', `/api/suppliers/${ctx.supplierId}`)).json.balance;
+
+  await step('Stage 20: setup-owner, a cashier and a storekeeper on a fresh database', async () => {
+    const owner = await request('POST', '/api/auth/setup-owner', { body: OWNER, token: null });
+    expectStatus(owner, 201, 'POST /api/auth/setup-owner');
+    authToken = owner.json.token;
+    const cashier = { name: 'S20 Cashier', username: 's20-cashier', password: 'clerk-pass-1', role: 'cashier' };
+    const keeper = { name: 'S20 Keeper', username: 's20-keeper', password: 'clerk-pass-1', role: 'storekeeper' };
+    expectStatus(await request('POST', '/api/users', { body: cashier }), 201, 'POST cashier');
+    expectStatus(await request('POST', '/api/users', { body: keeper }), 201, 'POST storekeeper');
+    ctx.cashierToken = await login(cashier);
+    ctx.keeperToken = await login(keeper);
+    return 'owner, cashier, storekeeper';
+  });
+
+  await step('Stage 20: a supplier with an opening of 500 owed (main cash 20,000, a 30,000 bank), a product with 10 in stock at 20', async () => {
+    const category = await request('POST', '/api/categories', { body: { name: 'S20 Category' } });
+    expectStatus(category, 201, 'POST /api/categories');
+    const product = await request('POST', '/api/products', { body: { name: 'S20 Product', code: 'S20-1', categoryId: category.json._id, inventoryCount: 10, purchasePrice: 20, wholesalePrice: 30, retailPrice: 40 } });
+    expectStatus(product, 201, 'POST /api/products');
+    ctx.productId = product.json._id;
+    const supplier = await request('POST', '/api/suppliers', { body: { name: 'S20 Supplier', paymentTermsDays: 30 } });
+    expectStatus(supplier, 201, 'POST /api/suppliers');
+    ctx.supplierId = supplier.json._id;
+    const saved = await request('POST', '/api/accounting/opening', { body: { cash: 20000, banks: [{ name: 'S20 Bank', type: 'bank', amount: 30000 }], suppliers: [{ supplierId: ctx.supplierId, amount: 500 }] } });
+    expectStatus(saved, 200, 'POST /api/accounting/opening');
+    const boxes = await request('GET', '/api/cashbox/boxes');
+    ctx.main = boxes.json.data.find((box) => box.isMain);
+    ctx.bank = boxes.json.data.find((box) => box.type === 'bank');
+    expect((await balanceOfSupplier()) === 500, 'opening balance 500');
+    return `OB ${saved.json.number}, supplier balance 500`;
+  });
+
+  await step('Stage 20: a drawer with a shift (2,000 float) is the box the purchase pays from', async () => {
+    const drawer = await request('POST', '/api/cashbox/boxes', { body: { name: 'S20 Drawer', type: 'cash', deviceId: S20_DEVICE['x-nota-device-id'], shiftsEnabled: true } });
+    expectStatus(drawer, 201, 'POST drawer');
+    ctx.drawer = drawer.json;
+    const funded = await request('POST', '/api/cashbox/transfers', { body: { fromBoxId: ctx.main._id, toBoxId: ctx.drawer._id, amount: 2000 } });
+    expectStatus(funded, 201, 'POST transfer');
+    const shift = await request('POST', '/api/shifts', { headers: S20_DEVICE, body: { boxId: ctx.drawer._id, openingFloat: 2000 } });
+    expectStatus(shift, 201, 'POST /api/shifts');
+    ctx.shift = shift.json;
+    return `${shift.json.number} on ${ctx.drawer.name}`;
+  });
+
+  await step('Stage 20: PO-000001, 10 at 30 (total 300), 100 paid from the drawer → PV-000001, stock 20, cost 25, supplier balance 700', async () => {
+    const response = await request('POST', '/api/purchases', { headers: S20_DEVICE, body: { supplierId: ctx.supplierId, supplierInvoiceNo: 'S20-INV-1', date: utcDay(), items: [{ productId: ctx.productId, qty: 10, unitPrice: 30 }], paidAmount: 100, boxId: ctx.drawer._id } });
+    expectStatus(response, 201, 'POST /api/purchases');
+    expect(response.json.number === 'PO-000001' && response.json.pvNumber === 'PV-000001' && response.json.total === 300, JSON.stringify(response.json));
+    ctx.purchase = response.json;
+    const product = (await request('GET', `/api/products/${ctx.productId}`)).json;
+    expect(product.inventoryCount === 20 && product.purchasePrice === 25, `stock ${product.inventoryCount}, cost ${product.purchasePrice}`);
+    expect((await balanceOfSupplier()) === 700, `balance ${await balanceOfSupplier()}`);
+    return `${response.json.number} + ${response.json.pvNumber}, stock 20, cost 25, balance 700`;
+  });
+
+  await step('Stage 20: the shift expects the PV (supplier payments 100): 1,900 in the drawer', async () => {
+    const report = await request('GET', `/api/shifts/${ctx.shift._id}`, { headers: S20_DEVICE });
+    expectStatus(report, 200, 'GET /api/shifts/:id');
+    const lines = Object.fromEntries(report.json.lines.map((row) => [row.key, row.amount]));
+    expect(lines.supplierPayments === 100 && report.json.expected === 1900, JSON.stringify({ lines, expected: report.json.expected }));
+    return `supplierPayments ${lines.supplierPayments}, expected ${report.json.expected}`;
+  });
+
+  await step('Stage 20: pay the supplier 200 from the bank → PV-000002, balance 500; an advance needs a confirm (409)', async () => {
+    const paid = await request('POST', `/api/suppliers/${ctx.supplierId}/payments`, { body: { amount: 200, boxId: ctx.bank._id, reference: 'S20-CHQ' } });
+    expectStatus(paid, 201, 'POST payment');
+    expect(paid.json.number === 'PV-000002' && paid.json.balanceAfter === 500, JSON.stringify(paid.json));
+    const advance = await request('POST', `/api/suppliers/${ctx.supplierId}/payments`, { body: { amount: 900, boxId: ctx.bank._id } });
+    expectStatus(advance, 409, 'advance without confirm');
+    expect(advance.json.code === 'ADVANCE_NOT_CONFIRMED', describe(advance));
+    return `${paid.json.number}, balance ${paid.json.balanceAfter}; ${describe(advance)}`;
+  });
+
+  await step('Stage 20: return 2 units with a 60 refund into the drawer → PR-000001, SR-000001, balance 500', async () => {
+    const response = await request('POST', `/api/purchases/${ctx.purchase._id}/returns`, { headers: S20_DEVICE, body: { items: [{ itemId: ctx.purchase.items[0]._id, qty: 2 }], reason: 'smoke return', refundAmount: 60, boxId: ctx.drawer._id } });
+    expectStatus(response, 201, 'POST returns');
+    expect(response.json.number === 'PR-000001' && response.json.total === 60 && response.json.refund.number === 'SR-000001' && response.json.supplierBalanceAfter === 500, JSON.stringify(response.json));
+    const product = (await request('GET', `/api/products/${ctx.productId}`)).json;
+    expect(product.inventoryCount === 18 && product.purchasePrice === 25, `stock ${product.inventoryCount}, cost ${product.purchasePrice}`);
+    return `${response.json.number} ${response.json.total}, ${response.json.refund.number}, stock 18`;
+  });
+
+  await step('Stage 20: PO-000002 (4 at 50) on credit moves the average to 29.55; cancelling it takes the stock back and keeps the current average', async () => {
+    const second = await request('POST', '/api/purchases', { body: { supplierId: ctx.supplierId, date: utcDay(), items: [{ productId: ctx.productId, qty: 4, unitPrice: 50 }] } });
+    expectStatus(second, 201, 'POST second purchase');
+    expect(second.json.number === 'PO-000002' && second.json.pvNumber === null, JSON.stringify(second.json));
+    expect((await balanceOfSupplier()) === 700, 'balance 700 with the credit invoice');
+    const cancelled = await request('POST', `/api/purchases/${second.json._id}/cancel`, { body: { reason: 'smoke cancel' } });
+    expectStatus(cancelled, 200, 'POST cancel');
+    expect((await balanceOfSupplier()) === 500, `balance ${await balanceOfSupplier()}`);
+    const product = (await request('GET', `/api/products/${ctx.productId}`)).json;
+    expect(product.inventoryCount === 18 && product.purchasePrice === 29.55, `stock ${product.inventoryCount}, cost ${product.purchasePrice}`);
+    return `PO-000002 cancelled, stock 18, cost stays 29.55, balance 500`;
+  });
+
+  await step('Stage 20: the supplier statement lines and totals agree with the supplier balance', async () => {
+    const statement = await request('GET', `/api/suppliers/${ctx.supplierId}/statement`);
+    expectStatus(statement, 200, 'GET statement');
+    const types = statement.json.lines.map((row) => row.type);
+    expect(JSON.stringify(types) === JSON.stringify(['opening_balance', 'purchase', 'payment', 'purchase', 'payment', 'purchase_return', 'supplier_refund', 'purchase_cancel']), types.join(','));
+    expect(statement.json.balance === 500 && statement.json.ledgerBalance === 500 && statement.json.totals.balance === 500, JSON.stringify(statement.json.totals));
+    expect(statement.json.lines[1].supplierInvoiceNo === 'S20-INV-1', 'supplier invoice number on the purchase line');
+    return `${types.length} lines, balance ${statement.json.balance}, aging total ${statement.json.aging.total}`;
+  });
+
+  await step('Stage 20: a sale of the purchased product takes COGS at the current average cost (29.55)', async () => {
+    const sale = await request('POST', '/api/sellings', { headers: S20_DEVICE, body: { customerName: 'Walk-in', customerPhone: '01000002020', sellingDate: localDay(), items: [{ productId: ctx.productId, quantity: 1, price: 100 }] } });
+    expectStatus(sale, 201, 'POST /api/sellings');
+    const item = sale.json.items[0];
+    expect(item.purchasePrice === 29.55, `COGS cost ${item.purchasePrice}`);
+    const journal = await request('GET', `/api/accounting/journal?sourceType=sale&sourceId=${sale.json._id}`);
+    expectStatus(journal, 200, 'GET journal');
+    const lines = (journal.json.data || journal.json.entries || []).flatMap((entry) => entry.lines || []);
+    const cogs = lines.find((row) => row.accountCode === '510' || /cogs|cost of/i.test(row.accountNameEn || ''));
+    expect(cogs && cogs.debit === 29.55, `COGS line ${JSON.stringify(cogs)}`);
+    return `sale cost 29.55, COGS debit ${cogs.debit}`;
+  });
+
+  await step('Stage 20: accounting health: every check is 0 (suppliers, inventory, entries, boxes, shifts)', async () => {
+    const health = await request('GET', '/api/accounting/health');
+    expectStatus(health, 200, 'GET /api/accounting/health');
+    const rows = Object.entries(health.json).filter(([, check]) => check && typeof check === 'object' && 'difference' in check);
+    for (const [name, check] of rows) {
+      expect(Number(check.difference) === 0 && check.ok !== false, `health ${name}: ${JSON.stringify(check)}`);
+    }
+    expect(health.json.suppliers.difference === 0 && health.json.inventory.difference === 0 && health.json.entries.difference === 0 && health.json.boxes.difference === 0, 'the four Stage 20 checks');
+    return rows.map(([name, check]) => `${name}=${check.difference}`).join(', ');
+  });
+
+  await step('Stage 20: a cashier gets 403 on purchases, the supplier statement and paying suppliers', async () => {
+    expectStatus(await request('GET', '/api/purchases', { token: ctx.cashierToken }), 403, 'cashier GET /api/purchases');
+    expectStatus(await request('POST', '/api/purchases', { token: ctx.cashierToken, body: { supplierId: ctx.supplierId, items: [{ productId: ctx.productId, qty: 1, unitPrice: 1 }] } }), 403, 'cashier POST /api/purchases');
+    expectStatus(await request('GET', `/api/suppliers/${ctx.supplierId}/statement`, { token: ctx.cashierToken }), 403, 'cashier GET statement');
+    expectStatus(await request('POST', `/api/suppliers/${ctx.supplierId}/payments`, { token: ctx.cashierToken, body: { amount: 1 } }), 403, 'cashier POST payment');
+    return '403, 403, 403, 403';
+  });
+
+  await step('Stage 20: a storekeeper can buy on credit only (paying needs suppliers.pay → 403)', async () => {
+    const credit = await request('POST', '/api/purchases', { token: ctx.keeperToken, body: { supplierId: ctx.supplierId, date: utcDay(), items: [{ productId: ctx.productId, qty: 1, unitPrice: 30 }] } });
+    expectStatus(credit, 201, 'storekeeper credit purchase');
+    expect(credit.json.paidAmount === 0, 'a storekeeper purchase is all credit');
+    const paid = await request('POST', '/api/purchases', { token: ctx.keeperToken, body: { supplierId: ctx.supplierId, date: utcDay(), items: [{ productId: ctx.productId, qty: 1, unitPrice: 30 }], paidAmount: 10 } });
+    expectStatus(paid, 403, 'storekeeper paid purchase');
+    expect(paid.json.code === 'PAY_NOT_ALLOWED', describe(paid));
+    return `${credit.json.number} on credit; ${describe(paid)}`;
+  });
+}
+
 async function main() {
   for (const signal of ['SIGINT', 'SIGTERM']) {
     process.on(signal, async () => {
@@ -1577,8 +1740,13 @@ async function main() {
     // Stage 19: cash boxes, shifts, transfers, expenses, owner drawings and customer credit, on its own fresh database.
     await stopChild(openingBackend);
     children.splice(children.indexOf(openingBackend), 1);
-    await startBackend({ auth: true, dbName: STAGE19_DB_NAME });
+    const stage19Backend = await startBackend({ auth: true, dbName: STAGE19_DB_NAME });
     await runStage19Scenarios();
+    // Stage 20: purchases, supplier payments, returns, cancel and the statement, on its own fresh database.
+    await stopChild(stage19Backend);
+    children.splice(children.indexOf(stage19Backend), 1);
+    await startBackend({ auth: true, dbName: STAGE20_DB_NAME });
+    await runStage20Scenarios();
   } catch (error) {
     record(false, 'Smoke test setup', error.message);
   } finally {

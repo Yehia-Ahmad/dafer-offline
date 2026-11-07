@@ -1,9 +1,12 @@
+import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { NotaCanDirective } from '../../core/auth/nota-can.directive';
 import { NotaBalancePipe, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent } from '../shared/ui';
+import { SupplierPaymentDialogComponent } from './supplier-payment-dialog.component';
+import { SupplierStatementComponent } from './supplier-statement.component';
 import { Supplier, SuppliersService } from './suppliers.service';
 
 /**
@@ -14,7 +17,7 @@ import { Supplier, SuppliersService } from './suppliers.service';
 @Component({
   selector: 'app-suppliers-page',
   standalone: true,
-  imports: [FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent],
+  imports: [DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, SupplierStatementComponent, SupplierPaymentDialogComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './suppliers-page.component.html',
   styleUrl: './suppliers-page.component.scss',
@@ -27,6 +30,11 @@ export class SuppliersPageComponent implements OnInit {
   readonly loading = signal(true);
   readonly loadError = signal(false);
   readonly deleteError = signal('');
+  /** Stage 20: the supplier whose statement panel is open, and the payment dialog. */
+  readonly selectedId = signal<string | null>(null);
+  readonly payOpen = signal(false);
+  readonly refreshKey = signal(0);
+  readonly selected = computed(() => this.suppliers().find((row) => row._id === this.selectedId()) ?? null);
   search = '';
 
   /** What we owe all suppliers (the design's header figure). Only positive balances are debts. */
@@ -43,6 +51,16 @@ export class SuppliersPageComponent implements OnInit {
       next: (rows) => { this.suppliers.set(rows); this.loading.set(false); },
       error: () => { this.loadError.set(true); this.loading.set(false); },
     });
+  }
+
+  select(row: Supplier): void {
+    this.selectedId.set(row._id);
+  }
+
+  /** A payment was saved: the list (one balance source) and the statement both reload. */
+  paid(): void {
+    this.refreshKey.update((value) => value + 1);
+    this.load();
   }
 
   /** The ledger shows credit as negative; the party balance here is positive when we owe the supplier. */
@@ -63,7 +81,7 @@ export class SuppliersPageComponent implements OnInit {
     this.deleteError.set('');
     this.service.remove(row._id).subscribe({
       next: () => this.load(),
-      error: (error) => this.deleteError.set(error?.error?.code === 'SUPPLIER_HAS_BALANCE' ? 'suppliers.deleteBlocked' : 'suppliers.deleteFailed'),
+      error: (error) => this.deleteError.set(error?.error?.code === 'SUPPLIER_HAS_BALANCE' ? 'suppliers.deleteBlocked' : error?.error?.code === 'SUPPLIER_HAS_DOCUMENTS' ? 'suppliers.deleteHasDocuments' : 'suppliers.deleteFailed'),
     });
   }
 }

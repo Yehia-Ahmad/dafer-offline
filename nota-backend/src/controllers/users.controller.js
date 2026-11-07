@@ -68,7 +68,7 @@ const resolveAccess = (role, permissions) => {
     }
     const missing = missingDependencies(permissions);
     if (missing.length) {
-      const error = httpError(400, "PERMISSION_DEPENDENCY", "صلاحية عرض الحسابات تتطلب صلاحية عرض التكلفة");
+      const error = httpError(400, "PERMISSION_DEPENDENCY", "هذه الصلاحية تتطلب صلاحية عرض التكلفة");
       error.responseData.permissions = [...new Set(missing.flatMap((row) => row.requires))];
       error.responseData.dependencies = missing;
       throw error;

@@ -56,7 +56,6 @@ export const NAV_ICONS = {
 } as const;
 
 /** Screen not built yet (accounting phase). */
-const notYet = () => false;
 /** The route's permission rule, as its guard checks it. */
 const allowed = (rule: RouteRule) => (ctx: NavContext) =>
   (!rule.mainPcOnly || ctx.isMainPc) &&
@@ -88,7 +87,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       // Stage 11: plain link; /products/profit-report belongs to "تقرير الأرباح", not here.
       { key: 'products', labelKey: 'nav.items.products', route: '/products', icon: NAV_ICONS.products, visible: allowed(ROUTE_RULES.products),
         activePaths: ['/products/new', '/products/edit/'] },
-      { key: 'purchases', labelKey: 'nav.items.purchases', icon: NAV_ICONS.purchases, visible: notYet },
+      { key: 'purchases', labelKey: 'nav.items.purchases', route: '/purchases', icon: NAV_ICONS.purchases, visible: allowed(ROUTE_RULES.purchases), activePaths: ['/purchases/'] },
       { key: 'suppliers', labelKey: 'nav.items.suppliers', route: '/suppliers', icon: NAV_ICONS.suppliers, visible: allowed(ROUTE_RULES.suppliers) },
     ],
   },

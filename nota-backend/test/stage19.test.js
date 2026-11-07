@@ -395,7 +395,7 @@ it("the design's shift: float 500, sales 6,820, receipts 600, refunds 120, expen
 
   const report = (await call("GET", `/api/shifts/${opened.json._id}`)).json;
   const lines = Object.fromEntries(report.lines.map((row) => [row.key, row.amount]));
-  assert.deepEqual(lines, { float: 500, sales: 6820, receipts: 600, transfersIn: 0, refunds: 120, expenses: 250, transfersOut: 0, payouts: 0, drawings: 0 });
+  assert.deepEqual(lines, { float: 500, sales: 6820, receipts: 600, transfersIn: 0, supplierRefunds: 0, refunds: 120, expenses: 250, transfersOut: 0, payouts: 0, drawings: 0, supplierPayments: 0 });
   assert.equal(report.expected, 7550);
 
   const noNote = await call("POST", `/api/shifts/${opened.json._id}/close`, { counted: 7500 });
@@ -414,7 +414,7 @@ it("the design's shift: float 500, sales 6,820, receipts 600, refunds 120, expen
   assert.equal(await balanceOf(main), 20000 - 500 + 7000);
   assert.equal((await Account.findOne({ code: "530" }).lean()).systemKey, "CASH_OVER_SHORT");
   const shift = await Shift.findById(opened.json._id).lean();
-  assert.deepEqual(shift.breakdown.map((row) => row.key), ["float", "sales", "receipts", "transfersIn", "refunds", "expenses", "transfersOut", "payouts", "drawings"]);
+  assert.deepEqual(shift.breakdown.map((row) => row.key), ["float", "sales", "receipts", "transfersIn", "supplierRefunds", "refunds", "expenses", "transfersOut", "payouts", "drawings", "supplierPayments"]);
   assert.equal((await call("GET", `/api/shifts/${opened.json._id}`)).json.expected, 7550, "a closed shift's report never changes");
   assert.equal((await call("POST", `/api/shifts/${opened.json._id}/close`, { counted: 1 })).json.code, "SHIFT_CLOSED");
   const audit = await AuditLog.findOne({ action: "shift.closed" }).lean();

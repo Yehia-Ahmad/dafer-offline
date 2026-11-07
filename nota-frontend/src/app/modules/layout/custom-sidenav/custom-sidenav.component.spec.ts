@@ -35,7 +35,7 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
   it('renders the menu from the config with grouped links', () => {
     const hrefs = Array.from(el().querySelectorAll('a.nota-nav__link')).map((a) => a.getAttribute('href'));
     // Stage 14 (owner): users and audit under الإدارة.
-    expect(hrefs).toEqual(['/home', '/selling', '/credit-sales', '/invoice-history', '/returns', '/customers', '/products', '/suppliers', '/cashbox', '/expenses', '/products/profit-report', '/users', '/audit', '/shop-profile']);
+    expect(hrefs).toEqual(['/home', '/selling', '/credit-sales', '/invoice-history', '/returns', '/customers', '/products', '/purchases', '/suppliers', '/cashbox', '/expenses', '/products/profit-report', '/users', '/audit', '/shop-profile']);
     // Stage 11: no category list or tools in the sidebar any more.
     expect(el().querySelector('app-sidebar-categories')).toBeNull();
     // Not the main PC outside the desktop app: no backup link.

@@ -31,7 +31,7 @@ const EXPECTED_CATALOG = [
   "credit.create", "credit.view", "credit.edit", "credit.delete", "credit.collect",
   "returns.create", "returns.view",
   "customers.view", "customers.manage",
-  "suppliers.view", "suppliers.manage",
+  "suppliers.view", "suppliers.manage", "suppliers.pay", "purchases.view", "purchases.create", "purchases.cancel",
   "products.view", "products.manage", "products.viewCost", "products.syncPrice", "products.importExport",
   "categories.manage",
   "reports.profit", "dashboard.view",
@@ -61,11 +61,12 @@ test("role templates match the spec", () => {
   ]));
   assert.deepEqual(sorted(ROLE_TEMPLATES.storekeeper), sorted([
     "products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view",
+    "purchases.view", "purchases.create",
   ]));
   assert.deepEqual(sorted(ROLE_TEMPLATES.accountant), sorted([
     "sales.view", "credit.view", "returns.view", "customers.view", "products.view", "dashboard.view",
     "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view",
-    "cashbox.view", "expenses.create", "expenses.manage",
+    "purchases.view", "suppliers.pay", "cashbox.view", "expenses.create", "expenses.manage",
   ]));
   assert.deepEqual(permissionsForRole("custom"), []);
 });
@@ -187,6 +188,17 @@ const EXPECTED_ROUTES = {
   "GET /api/suppliers/:id": "suppliers.view",
   "PUT /api/suppliers/:id": "suppliers.manage",
   "DELETE /api/suppliers/:id": "suppliers.manage",
+  "GET /api/suppliers/:id/statement": "suppliers.view",
+  "GET /api/suppliers/:id/payments": "suppliers.view",
+  "POST /api/suppliers/:id/payments": "suppliers.pay",
+  "GET /api/suppliers/:id/refunds": "suppliers.view",
+  "POST /api/suppliers/:id/refunds": "suppliers.pay",
+  "POST /api/supplier-payments/:id/cancel": "suppliers.pay",
+  "GET /api/purchases": "purchases.view",
+  "POST /api/purchases": "purchases.create",
+  "GET /api/purchases/:id": "purchases.view",
+  "POST /api/purchases/:id/cancel": "purchases.cancel",
+  "POST /api/purchases/:id/returns": "purchases.create",
   "PUT /api/shop-profile": "shop.manage",
 };
 
