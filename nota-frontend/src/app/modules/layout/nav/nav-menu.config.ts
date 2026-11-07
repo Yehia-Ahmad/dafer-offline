@@ -55,7 +55,6 @@ export const NAV_ICONS = {
   backup: 'M12 3c4.4 0 8 1.3 8 3v12c0 1.7-3.6 3-8 3s-8-1.3-8-3V6c0-1.7 3.6-3 8-3zM4 6c0 1.7 3.6 3 8 3s8-1.3 8-3M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
 } as const;
 
-/** Screen not built yet (accounting phase). */
 /** The route's permission rule, as its guard checks it. */
 const allowed = (rule: RouteRule) => (ctx: NavContext) =>
   (!rule.mainPcOnly || ctx.isMainPc) &&

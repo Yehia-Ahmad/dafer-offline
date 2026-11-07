@@ -1994,8 +1994,8 @@
             "OVER_RETURN": "The returned quantity is more than what is available.",
             "STOCK_ALREADY_USED": "Part of this stock was already sold or changed.",
             "HAS_RETURNS": "This invoice has returns, so it cannot be cancelled.",
-            "REFUND_EXCEEDS_RETURN": "The refund is more than the return value.",
-            "PURCHASE_CANCELLED": "This invoice is cancelled."
+            "PURCHASE_CANCELLED": "This invoice is cancelled.",
+            "REFUND_EXCEEDS_DUE": "The supplier does not owe us this much, so no cash can come back. A return only reduces what we owe."
         }
     },
     "supplierPay": {

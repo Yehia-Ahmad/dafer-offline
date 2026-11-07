@@ -4,6 +4,7 @@ const PartyOpening = require("../models/partyOpening.model");
 const CustomerPayout = require("../models/customerPayout.model");
 const { loadCustomerOpenItems, ageOpenItems } = require("./customerOpenItems.service");
 const { roundMoney } = require("../utils/invoicePricing");
+const { businessDay } = require("../utils/clock");
 
 // Stage 16 customer statement. The HTTP handler, the ledger opening entry
 // (Stage 17 migration) and the accounting health check all call this one
@@ -26,7 +27,9 @@ function computeCustomerStatement({ invoices, returnById, opening = null, payout
     String(left._id).localeCompare(String(right._id)));
   const lines = [];
   let sequence = 0;
-  const add = (line) => lines.push({ ...line, debit: roundMoney(line.debit), credit: roundMoney(line.credit), _sequence: sequence++ });
+  // Every line is dated by its LOCAL business day (a date-only value stays as it is, an instant such as a payout or a cancel at 00:30
+  // becomes its local day), so lines of one day keep the order they were added in.
+  const add = (line) => lines.push({ ...line, date: businessDay(line.date), debit: roundMoney(line.debit), credit: roundMoney(line.credit), _sequence: sequence++ });
 
   // The opening balance is pinned first whatever date older invoices carry; its date is the ledger start.
   if (opening && Number(opening.amount) !== 0) {
@@ -65,13 +68,13 @@ function computeCustomerStatement({ invoices, returnById, opening = null, payout
     }
     if (invoice.status === "cancelled") {
       add({
-        date: invoice.cancelledAt || invoice.updatedAt, type: "cancel", number: invoice.number,
+        date: businessDay(invoice.cancelledAt || invoice.updatedAt), type: "cancel", number: invoice.number,
         description: "إلغاء فاتورة آجل", debit: 0, credit: invoice.totalPrice,
       });
       const downPayment = (invoice.payments || []).find((payment) => payment.source === "down_payment");
       if (Number(invoice.cancelRefundAmount || 0) > 0) {
         add({
-          date: invoice.cancelledAt || invoice.updatedAt, type: "cancel", number: downPayment?.number || null,
+          date: businessDay(invoice.cancelledAt || invoice.updatedAt), type: "cancel", number: downPayment?.number || null,
           description: "رد المقدم", debit: invoice.cancelRefundAmount, credit: 0,
         });
       }
@@ -82,7 +85,7 @@ function computeCustomerStatement({ invoices, returnById, opening = null, payout
   for (const payout of payouts) {
     add({ date: payout.date, type: "payout", number: payout.number, description: "صرف رصيد دائن", debit: payout.amount, credit: 0 });
     if (payout.status === "cancelled") {
-      add({ date: payout.cancelledAt || payout.updatedAt, type: "payout_cancel", number: payout.number, description: "إلغاء صرف رصيد دائن", debit: 0, credit: payout.amount });
+      add({ date: businessDay(payout.cancelledAt || payout.updatedAt), type: "payout_cancel", number: payout.number, description: "إلغاء صرف رصيد دائن", debit: 0, credit: payout.amount });
     }
   }
 

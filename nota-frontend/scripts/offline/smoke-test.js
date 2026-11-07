@@ -1632,36 +1632,53 @@ async function runStage20Scenarios() {
     return `${paid.json.number}, balance ${paid.json.balanceAfter}; ${describe(advance)}`;
   });
 
-  await step('Stage 20: return 2 units with a 60 refund into the drawer → PR-000001, SR-000001, balance 500', async () => {
-    const response = await request('POST', `/api/purchases/${ctx.purchase._id}/returns`, { headers: S20_DEVICE, body: { items: [{ itemId: ctx.purchase.items[0]._id, qty: 2 }], reason: 'smoke return', refundAmount: 60, boxId: ctx.drawer._id } });
+  await step('Stage 20: return 2 units → PR-000001 (60); a cash refund is refused while we still owe the supplier (409 REFUND_EXCEEDS_DUE); balance 440', async () => {
+    const url = `/api/purchases/${ctx.purchase._id}/returns`;
+    const items = [{ itemId: ctx.purchase.items[0]._id, qty: 2 }];
+    const refused = await request('POST', url, { headers: S20_DEVICE, body: { items, reason: 'smoke return', refundAmount: 60, boxId: ctx.drawer._id } });
+    expectStatus(refused, 409, 'return with a refund while we owe the supplier');
+    expect(refused.json.code === 'REFUND_EXCEEDS_DUE', describe(refused));
+    const response = await request('POST', url, { headers: S20_DEVICE, body: { items, reason: 'smoke return' } });
     expectStatus(response, 201, 'POST returns');
-    expect(response.json.number === 'PR-000001' && response.json.total === 60 && response.json.refund.number === 'SR-000001' && response.json.supplierBalanceAfter === 500, JSON.stringify(response.json));
+    expect(response.json.number === 'PR-000001' && response.json.total === 60 && response.json.supplierBalanceAfter === 440, JSON.stringify(response.json));
     const product = (await request('GET', `/api/products/${ctx.productId}`)).json;
     expect(product.inventoryCount === 18 && product.purchasePrice === 25, `stock ${product.inventoryCount}, cost ${product.purchasePrice}`);
-    return `${response.json.number} ${response.json.total}, ${response.json.refund.number}, stock 18`;
+    return `${describe(refused)}; ${response.json.number} ${response.json.total}, stock 18, balance 440`;
   });
 
   await step('Stage 20: PO-000002 (4 at 50) on credit moves the average to 29.55; cancelling it takes the stock back and keeps the current average', async () => {
     const second = await request('POST', '/api/purchases', { body: { supplierId: ctx.supplierId, date: utcDay(), items: [{ productId: ctx.productId, qty: 4, unitPrice: 50 }] } });
     expectStatus(second, 201, 'POST second purchase');
     expect(second.json.number === 'PO-000002' && second.json.pvNumber === null, JSON.stringify(second.json));
-    expect((await balanceOfSupplier()) === 700, 'balance 700 with the credit invoice');
+    expect((await balanceOfSupplier()) === 640, 'balance 640 with the credit invoice');
     const cancelled = await request('POST', `/api/purchases/${second.json._id}/cancel`, { body: { reason: 'smoke cancel' } });
     expectStatus(cancelled, 200, 'POST cancel');
-    expect((await balanceOfSupplier()) === 500, `balance ${await balanceOfSupplier()}`);
+    expect((await balanceOfSupplier()) === 440, `balance ${await balanceOfSupplier()}`);
     const product = (await request('GET', `/api/products/${ctx.productId}`)).json;
     expect(product.inventoryCount === 18 && product.purchasePrice === 29.55, `stock ${product.inventoryCount}, cost ${product.purchasePrice}`);
-    return `PO-000002 cancelled, stock 18, cost stays 29.55, balance 500`;
+    return `PO-000002 cancelled, stock 18, cost stays 29.55, balance 440`;
   });
 
   await step('Stage 20: the supplier statement lines and totals agree with the supplier balance', async () => {
     const statement = await request('GET', `/api/suppliers/${ctx.supplierId}/statement`);
     expectStatus(statement, 200, 'GET statement');
     const types = statement.json.lines.map((row) => row.type);
-    expect(JSON.stringify(types) === JSON.stringify(['opening_balance', 'purchase', 'payment', 'purchase', 'payment', 'purchase_return', 'supplier_refund', 'purchase_cancel']), types.join(','));
-    expect(statement.json.balance === 500 && statement.json.ledgerBalance === 500 && statement.json.totals.balance === 500, JSON.stringify(statement.json.totals));
+    expect(JSON.stringify(types) === JSON.stringify(['opening_balance', 'purchase', 'payment', 'payment', 'purchase_return', 'purchase', 'purchase_cancel']), types.join(','));
+    expect(statement.json.balance === 440 && statement.json.ledgerBalance === 440 && statement.json.totals.balance === 440, JSON.stringify(statement.json.totals));
     expect(statement.json.lines[1].supplierInvoiceNo === 'S20-INV-1', 'supplier invoice number on the purchase line');
     return `${types.length} lines, balance ${statement.json.balance}, aging total ${statement.json.aging.total}`;
+  });
+
+  await step('Stage 20: an advance of 540 from the bank (balance -100), then the supplier refunds 100 into the drawer → SR-000001, balance 0', async () => {
+    const advance = await request('POST', `/api/suppliers/${ctx.supplierId}/payments`, { body: { amount: 540, boxId: ctx.bank._id, confirmAdvance: true } });
+    expectStatus(advance, 201, 'POST advance payment');
+    expect(advance.json.balanceAfter === -100, JSON.stringify(advance.json));
+    const tooMuch = await request('POST', `/api/suppliers/${ctx.supplierId}/refunds`, { headers: S20_DEVICE, body: { amount: 101, boxId: ctx.drawer._id } });
+    expectStatus(tooMuch, 409, 'refund above the advance');
+    const refund = await request('POST', `/api/suppliers/${ctx.supplierId}/refunds`, { headers: S20_DEVICE, body: { amount: 100, boxId: ctx.drawer._id, note: 'smoke refund' } });
+    expectStatus(refund, 201, 'POST refund');
+    expect(refund.json.number === 'SR-000001' && (await balanceOfSupplier()) === 0, JSON.stringify(refund.json));
+    return `${advance.json.number} advance, ${describe(tooMuch)}, ${refund.json.number}, balance 0`;
   });
 
   await step('Stage 20: a sale of the purchased product takes COGS at the current average cost (29.55)', async () => {

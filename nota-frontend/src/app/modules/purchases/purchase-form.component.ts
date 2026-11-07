@@ -131,7 +131,7 @@ interface Line {
                   <td class="nota-num"><input class="nota-input nota-num pf__price" type="number" min="0" step="0.01" name="price{{ row.key }}" data-test="unit-price" [attr.aria-label]="'purchases.new.unitPrice' | translate"
                     [ngModel]="row.unitPrice" (ngModelChange)="setLine(row.key, 'unitPrice', $event)" /></td>
                   <td class="nota-num" data-test="line-total">{{ lineTotals()[i] | notaMoney }}</td>
-                  <td class="nota-num" data-test="stock-after">{{ row.product.inventoryCount }} ← <b>{{ stockAfter(row) }}</b></td>
+                  <td class="nota-num" data-test="stock-after">{{ stocks()[i].before }} ← <b>{{ stocks()[i].after }}</b></td>
                   <td><button type="button" notaButton="danger" data-action="remove-line" (click)="removeLine(row.key)">×</button></td>
                 </tr>
               } @empty {
@@ -288,6 +288,17 @@ export class PurchaseFormComponent implements OnInit {
     });
   });
 
+  /** "المخزون بعد" per line: the product's stock plus the earlier lines of the same product (like the cost hint). */
+  readonly stocks = computed(() => {
+    const running = new Map<string, number>();
+    return this.lines().map((row) => {
+      const before = running.get(row.product._id) ?? row.product.inventoryCount;
+      const after = before + (row.qty ?? 0);
+      running.set(row.product._id, after);
+      return { before, after };
+    });
+  });
+
   readonly paid = computed(() => {
     const total = this.allocation().total;
     if (this.mode() === 'all_cash') return total;
@@ -342,10 +353,6 @@ export class PurchaseFormComponent implements OnInit {
 
   removeLine(key: number): void {
     this.lines.update((rows) => rows.filter((row) => row.key !== key));
-  }
-
-  stockAfter(row: Line): number {
-    return row.product.inventoryCount + (row.qty ?? 0);
   }
 
   setMode(mode: PaymentMode): void {

@@ -136,7 +136,7 @@ export class PurchaseReturnDialogComponent {
       error: (response) => {
         this.busy.set(false);
         const code = response?.error?.code;
-        const known = ['OVER_RETURN', 'STOCK_ALREADY_USED', 'REFUND_EXCEEDS_RETURN', 'INSUFFICIENT_BALANCE', 'NO_OPEN_SHIFT', 'BOX_INACTIVE', 'PURCHASE_CANCELLED'];
+        const known = ['OVER_RETURN', 'STOCK_ALREADY_USED', 'REFUND_EXCEEDS_DUE', 'INSUFFICIENT_BALANCE', 'NO_OPEN_SHIFT', 'BOX_INACTIVE', 'PURCHASE_CANCELLED'];
         this.error.set(known.includes(code) ? `purchases.errors.${code}` : 'purchases.errors.returnFailed');
       },
     });

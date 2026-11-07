@@ -338,36 +338,112 @@ it("purchase return: stock already sold is refused (409 STOCK_ALREADY_USED) and 
   await assertHealthy();
 });
 
-it("supplier refunds: with a return into a box (SR), standalone, never more than the supplier owes us; shift lines", async () => {
+it("supplier refunds: cash only comes back for what the supplier owes US (return refund capped at min(value, advance)); standalone refunds; SR into a box", async () => {
   const s = await shop();
-  const purchase = await buy(designInvoice(s, { paidAmount: 5450 })); // fully paid
+  const purchase = await buy(designInvoice(s, { paidAmount: 5450 })); // fully paid; the 4,200 opening is still owed
   const mainBefore = await balanceOf(s.main);
-  const item = purchase.items[1];
-  const returned = await call("POST", `/api/purchases/${purchase._id}/returns`, { items: [{ itemId: item._id, qty: 2 }], refundAmount: 480, boxId: s.main._id, reason: "wrong model" });
+  const chargers = purchase.items[1]; const outlets = purchase.items[2];
+  const returnUrl = `/api/purchases/${purchase._id}/returns`;
+  // while we still owe the supplier a return only reduces what we owe: no cash comes back, and nothing is posted
+  const refused = await call("POST", returnUrl, { items: [{ itemId: chargers._id, qty: 2 }], refundAmount: 480, boxId: s.main._id, reason: "wrong model" });
+  assert.equal(refused.status, 409); assert.equal(refused.json.code, "REFUND_EXCEEDS_DUE"); assert.equal(refused.json.due, 0);
+  assert.equal((await call("GET", `/api/purchases/${purchase._id}`)).json.returns.length, 0, "the refused return left nothing behind");
+  assert.equal((await stockOf(s.charger)).inventoryCount, 23); assert.equal(await balanceOf(s.main), mainBefore);
+  const plain = await call("POST", returnUrl, { items: [{ itemId: chargers._id, qty: 2 }], reason: "wrong model" });
+  assert.equal(plain.status, 201, JSON.stringify(plain.json)); assert.equal(plain.json.supplierBalanceAfter, 4200 - 480);
+  // an advance: 4,000 paid over what we owe turns the balance into -280
+  assert.equal((await call("POST", `/api/suppliers/${s.supplier._id}/payments`, { amount: 4000, boxId: s.bank._id, confirmAdvance: true })).status, 201);
+  assert.equal(await supplierBalance(s.supplier), -280);
+  // a return of 55 with a refund of 56: capped at min(55, 335) = 55
+  const over = await call("POST", returnUrl, { items: [{ itemId: outlets._id, qty: 1 }], refundAmount: 56, boxId: s.main._id });
+  assert.equal(over.status, 409); assert.equal(over.json.code, "REFUND_EXCEEDS_DUE"); assert.equal(over.json.due, 55);
+  const returned = await call("POST", returnUrl, { items: [{ itemId: outlets._id, qty: 1 }], refundAmount: 55, boxId: s.main._id });
   assert.equal(returned.status, 201, JSON.stringify(returned.json)); assert.equal(returned.json.refund.number, "SR-000001");
-  assert.equal(returned.json.supplierBalanceAfter, 4200 - 0 + 0, "480 owed to us, 480 refunded: only the opening is left");
-  assert.equal(await balanceOf(s.main), mainBefore + 480);
+  assert.equal(returned.json.supplierBalanceAfter, -280, "55 returned, 55 refunded");
+  assert.equal(await balanceOf(s.main), mainBefore + 55);
   const [srEntry] = await entriesOf("supplier_refund", returned.json.refund._id);
-  assert.equal(lineOf(srEntry, "CASH_MAIN", "debit").debit, 480); assert.equal(lineOf(srEntry, "SUPPLIERS", "credit").credit, 480);
-  // a refund larger than what the supplier owes us
-  const refused = await call("POST", `/api/suppliers/${s.supplier._id}/refunds`, { amount: 1, boxId: s.main._id });
-  assert.equal(refused.status, 409); assert.equal(refused.json.code, "REFUND_EXCEEDS_DUE");
-  assert.equal((await call("POST", `/api/purchases/${purchase._id}/returns`, { items: [{ itemId: purchase.items[2]._id, qty: 1 }], refundAmount: 9999, boxId: s.main._id })).json.code, "REFUND_EXCEEDS_RETURN");
-  // an overpaid supplier (an advance) refunds into the bank
-  const url = `/api/suppliers/${s.supplier._id}/payments`;
-  assert.equal((await call("POST", url, { amount: 4300, boxId: s.main._id, confirmAdvance: true })).status, 201); // balance -100
+  assert.equal(lineOf(srEntry, "CASH_MAIN", "debit").debit, 55); assert.equal(lineOf(srEntry, "SUPPLIERS", "credit").credit, 55);
+  // the advance left is 280: a standalone refund up to it
+  const tooMuch = await call("POST", `/api/suppliers/${s.supplier._id}/refunds`, { amount: 281, boxId: s.main._id });
+  assert.equal(tooMuch.status, 409); assert.equal(tooMuch.json.code, "REFUND_EXCEEDS_DUE");
   const bankBefore = await balanceOf(s.bank);
-  const standalone = await call("POST", `/api/suppliers/${s.supplier._id}/refunds`, { amount: 100, boxId: s.bank._id, note: "advance back" });
+  const standalone = await call("POST", `/api/suppliers/${s.supplier._id}/refunds`, { amount: 280, boxId: s.bank._id, note: "advance back" });
   assert.equal(standalone.status, 201, JSON.stringify(standalone.json)); assert.equal(standalone.json.number, "SR-000002");
-  assert.equal(await balanceOf(s.bank), bankBefore + 100); assert.equal(await supplierBalance(s.supplier), 0);
+  assert.equal(await balanceOf(s.bank), bankBefore + 280); assert.equal(await supplierBalance(s.supplier), 0);
   assert.equal((await call("GET", `/api/suppliers/${s.supplier._id}/refunds`)).json.data.length, 2);
   await assertHealthy();
   // storekeeper cannot take money back
   token = await makeUser("keeper2", "storekeeper");
-  assert.equal((await call("POST", `/api/purchases/${purchase._id}/returns`, { items: [{ itemId: purchase.items[2]._id, qty: 1 }], refundAmount: 10, boxId: s.main._id })).status, 403);
-  assert.equal((await call("POST", `/api/purchases/${purchase._id}/returns`, { items: [{ itemId: purchase.items[2]._id, qty: 1 }] })).status, 201);
+  assert.equal((await call("POST", returnUrl, { items: [{ itemId: outlets._id, qty: 1 }], refundAmount: 10, boxId: s.main._id })).status, 403);
+  assert.equal((await call("POST", returnUrl, { items: [{ itemId: outlets._id, qty: 1 }] })).status, 201);
 });
 
+it("a credit purchase of 100 returned in full with a refund of 100 is refused (409 REFUND_EXCEEDS_DUE): we still owe the supplier", async () => {
+  const s = await shop({ withProducts: false });
+  const p = await product({ code: "CREDIT-RET", stock: 0, cost: 10 });
+  const purchase = await buy({ supplierId: String(s.other._id), items: [{ productId: p._id, qty: 10, unitPrice: 10 }] });
+  assert.equal(await supplierBalance(s.other), 100);
+  const refused = await call("POST", `/api/purchases/${purchase._id}/returns`, { items: [{ itemId: purchase.items[0]._id, qty: 10 }], refundAmount: 100, boxId: s.main._id });
+  assert.equal(refused.status, 409); assert.equal(refused.json.code, "REFUND_EXCEEDS_DUE");
+  assert.equal((await stockOf(p)).inventoryCount, 10);
+  const ok = await call("POST", `/api/purchases/${purchase._id}/returns`, { items: [{ itemId: purchase.items[0]._id, qty: 10 }] });
+  assert.equal(ok.status, 201); assert.equal(await supplierBalance(s.other), 0);
+  await assertHealthy();
+});
+
+it("two concurrent payments that would each pass the advance check alone: one wins, the other retries and is told it is an advance", async () => {
+  const s = await shop();
+  const url = `/api/suppliers/${s.supplier._id}/payments`;
+  // balance 4,200: 3,000 is fine alone, two of them are 6,000 (an advance). Different boxes, so only the supplier document can serialise them.
+  const [a, b] = await Promise.all([call("POST", url, { amount: 3000, boxId: s.main._id }), call("POST", url, { amount: 3000, boxId: s.bank._id })]);
+  assert.deepEqual([a.status, b.status].sort(), [201, 409], JSON.stringify([a.json, b.json]));
+  const refused = a.status === 409 ? a : b; assert.equal(refused.json.code, "ADVANCE_NOT_CONFIRMED");
+  assert.equal(await supplierBalance(s.supplier), 1200); assert.equal(await SupplierPayment.countDocuments({}), 1);
+  await assertHealthy();
+});
+
+it("two concurrent refunds that would each fit the advance alone: one wins, the other is refused (REFUND_EXCEEDS_DUE)", async () => {
+  const s = await shop();
+  assert.equal((await call("POST", `/api/suppliers/${s.supplier._id}/payments`, { amount: 5000, boxId: s.bank._id, confirmAdvance: true })).status, 201); // balance -800
+  const url = `/api/suppliers/${s.supplier._id}/refunds`;
+  const [a, b] = await Promise.all([call("POST", url, { amount: 500, boxId: s.main._id }), call("POST", url, { amount: 500, boxId: s.bank._id })]);
+  assert.deepEqual([a.status, b.status].sort(), [201, 409], JSON.stringify([a.json, b.json]));
+  assert.equal((a.status === 409 ? a : b).json.code, "REFUND_EXCEEDS_DUE");
+  assert.equal(await supplierBalance(s.supplier), -300);
+  await assertHealthy();
+});
+
+it("a deactivated supplier can still be paid and refunded (we may owe them) but purchases refuse it (SUPPLIER_INACTIVE)", async () => {
+  const s = await shop();
+  assert.equal((await call("PUT", `/api/suppliers/${s.supplier._id}`, { isActive: false })).status, 200);
+  assert.equal((await call("POST", "/api/purchases", designInvoice(s))).json.code, "SUPPLIER_INACTIVE");
+  const paid = await call("POST", `/api/suppliers/${s.supplier._id}/payments`, { amount: 1000, boxId: s.main._id });
+  assert.equal(paid.status, 201, JSON.stringify(paid.json)); assert.equal(paid.json.balanceAfter, 3200);
+  assert.equal((await call("POST", `/api/suppliers/${s.supplier._id}/payments`, { amount: 4000, boxId: s.main._id, confirmAdvance: true })).status, 201); // -800
+  assert.equal((await call("POST", `/api/suppliers/${s.supplier._id}/refunds`, { amount: 300, boxId: s.main._id })).status, 201);
+  assert.equal((await call("GET", `/api/suppliers/${s.supplier._id}/statement`)).status, 200);
+  await assertHealthy();
+});
+
+it("aging leaves a cancelled purchase and a cancelled payment out together with their cancel lines", async () => {
+  const { computeSupplierStatement } = require("../src/services/supplierStatement.service");
+  const now = new Date("2026-11-07T10:00:00.000Z"); const day = 86400000;
+  const opening = { amount: 1000, date: new Date(now - 120 * day), number: "OB-000001" };
+  const ledgerStartAt = new Date(now - 120 * day);
+  const purchase = { _id: "p1", number: "PO-000001", date: new Date(now - day), createdAt: new Date(now - day), total: 500, status: "cancelled", cancelledAt: new Date(now - 3600000) };
+  const statement = computeSupplierStatement({ supplier: { paymentTermsDays: 0 }, opening, ledgerStartAt, purchases: [purchase], now });
+  assert.equal(statement.balance, 1000);
+  assert.deepEqual(statement.lines.map((row) => row.type), ["opening_balance", "purchase", "purchase_cancel"], "the lines stay on the statement");
+  assert.equal(statement.aging.d90plus, 1000); assert.equal(statement.aging.total, 1000);
+  assert.equal(statement.aging.current + statement.aging.d1_30 + statement.aging.d31_60 + statement.aging.d61_90, 0);
+  // a cancelled payment: its debit and its credit are both left out, so the old debt keeps its full age
+  const payment = { _id: "pv1", number: "PV-000001", date: new Date(now - 2 * day), createdAt: new Date(now - 2 * day), amount: 300, status: "cancelled", cancelledAt: new Date(now - 3600000) };
+  const second = computeSupplierStatement({ supplier: { paymentTermsDays: 0 }, opening, ledgerStartAt, payments: [payment], now });
+  assert.equal(second.balance, 1000); assert.equal(second.aging.d90plus, 1000); assert.equal(second.aging.total, 1000);
+  // a live payment still settles the oldest credit first
+  const live = computeSupplierStatement({ supplier: { paymentTermsDays: 0 }, opening, ledgerStartAt, payments: [{ ...payment, status: "posted", cancelledAt: undefined }], now });
+  assert.equal(live.aging.d90plus, 700);
+});
 // ------------------------------------------------------------ cancel
 
 it("cancel a purchase: allowed, stock and INVENTORY follow the current cost, the PV stays as an advance; health 0", async () => {
@@ -514,6 +590,8 @@ it("a PV and an SR on a shift box: expected cash includes them as their own line
   const purchase = await buy(designInvoice(s, { paidAmount: 5450, boxId: s.main._id }));
   assert.equal((await call("POST", `/api/suppliers/${s.supplier._id}/payments`, { amount: 500, boxId: drawer._id })).status, 201);
   assert.equal((await call("POST", `/api/suppliers/${s.supplier._id}/payments`, { amount: 300, boxId: drawer._id })).status, 201);
+  // an advance (paid from the bank) so the supplier owes US money and a cash refund may come back
+  assert.equal((await call("POST", `/api/suppliers/${s.supplier._id}/payments`, { amount: 4000, boxId: s.bank._id, confirmAdvance: true })).status, 201);
   const returned = await call("POST", `/api/purchases/${purchase._id}/returns`, { items: [{ itemId: purchase.items[1]._id, qty: 3 }], refundAmount: 720, boxId: drawer._id });
   assert.equal(returned.status, 201, JSON.stringify(returned.json));
   const report = (await call("GET", `/api/shifts/${opened.json._id}`)).json;
@@ -570,6 +648,7 @@ it("health after a mixed day is all zero, and each supplier check can fail", asy
 it("a supplier refund can fail the boxes check too", async () => {
   const s = await shop();
   const purchase = await buy(designInvoice(s, { paidAmount: 5450 }));
+  assert.equal((await call("POST", `/api/suppliers/${s.supplier._id}/payments`, { amount: 5000, boxId: s.bank._id, confirmAdvance: true })).status, 201); // an advance: they owe us
   const refunded = await call("POST", `/api/purchases/${purchase._id}/returns`, { items: [{ itemId: purchase.items[1]._id, qty: 1 }], refundAmount: 240, boxId: s.main._id }); assert.equal(refunded.status, 201);
   await assertHealthy();
   const SupplierRefund = require("../src/models/supplierRefund.model");

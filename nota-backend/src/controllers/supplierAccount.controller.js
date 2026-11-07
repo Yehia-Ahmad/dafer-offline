@@ -23,12 +23,20 @@ const { httpError, isId } = boxes;
 
 const partyOf = (supplier) => ({ partyType: "supplier", partyId: supplier._id, partyName: supplier.name });
 
-const loadActiveSupplier = async (id, session) => {
+// Paying or refunding a DEACTIVATED supplier stays allowed: we may still owe them (or they us). Only purchases refuse an
+// inactive supplier (SUPPLIER_INACTIVE, purchase.controller.js).
+const loadSupplier = async (id, session) => {
   if (!isId(id)) throw httpError(404, "SUPPLIER_NOT_FOUND", "المورد غير موجود");
   const supplier = await Supplier.findById(id).session(session || null);
   if (!supplier) throw httpError(404, "SUPPLIER_NOT_FOUND", "المورد غير موجود");
   return supplier;
 };
+
+/**
+ * Writes the supplier document (updatedAt) so two transactions that read its balance and then post against it conflict on it:
+ * one retries and its advance / refund check sees the other's posting. Call it before reading the balance.
+ */
+const touchSupplier = (supplierId, session) => Supplier.collection.updateOne({ _id: new mongoose.Types.ObjectId(String(supplierId)) }, { $currentDate: { updatedAt: true } }, { session });
 
 /** The balance of one supplier inside a transaction (positive = we owe). */
 const balanceOf = async (supplierId, session) => (await supplierBalances([supplierId], session)).balances.get(String(supplierId)) || 0;
@@ -81,7 +89,8 @@ const createPayment = async (req, res) => {
   const reference = optionalText(body.reference, 100, "المرجع");
   const note = optionalText(body.note, 500);
   const payment = await withTransaction(async (session) => {
-    const supplier = await loadActiveSupplier(req.params.id, session);
+    const supplier = await loadSupplier(req.params.id, session);
+    await touchSupplier(supplier._id, session);
     const balance = await balanceOf(supplier._id, session);
     // More than what we owe (or anything when we owe nothing) is an advance: the supplier balance turns into "لينا".
     if (roundMoney(amount - Math.max(0, balance)) > 0 && body.confirmAdvance !== true) {
@@ -129,7 +138,8 @@ const createRefund = async (req, res) => {
   const date = optionalDate(body.date);
   const note = optionalText(body.note, 500);
   const refund = await withTransaction(async (session) => {
-    const supplier = await loadActiveSupplier(req.params.id, session);
+    const supplier = await loadSupplier(req.params.id, session);
+    await touchSupplier(supplier._id, session);
     await assertRefundCovered(supplier, amount, session);
     const { refund: created, box } = await postSupplierRefund({ req, session, supplier, amount, boxId: body.boxId, date, note });
     await audit(req, { action: "supplier.refund.created", entity: "SupplierRefund", entityId: created._id, details: { number: created.number, amount, supplier: supplier.name, box: box.name }, session, strict: true });
@@ -148,7 +158,7 @@ const getRefunds = async (req, res) => {
 // GET /api/suppliers/:id/statement?from&to (suppliers.view)
 const getStatement = async (req, res) => {
   res.set("Cache-Control", "no-store");
-  const supplier = await loadActiveSupplier(req.params.id, null);
+  const supplier = await loadSupplier(req.params.id, null);
   const range = (value, label) => {
     if (value === undefined || value === "") return null;
     const date = new Date(value);
@@ -164,4 +174,4 @@ const getStatement = async (req, res) => {
   res.json({ supplier: { _id: supplier._id, name: supplier.name, paymentTermsDays: supplier.paymentTermsDays ?? null }, ...statement, ledgerBalance: balances.get(String(supplier._id)) || 0 });
 };
 
-module.exports = { postSupplierPayment, postSupplierRefund, assertRefundCovered, balanceOf, createPayment, getPayments, cancelPayment, createRefund, getRefunds, getStatement };
+module.exports = { touchSupplier, postSupplierPayment, postSupplierRefund, assertRefundCovered, balanceOf, createPayment, getPayments, cancelPayment, createRefund, getRefunds, getStatement };

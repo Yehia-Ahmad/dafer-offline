@@ -63,7 +63,7 @@ describe('PurchaseFormComponent (Stage 20)', () => {
     await settle(fixture);
     expect(component.allocation().total).toBe(5450);
     expect(component.remaining()).toBe(2450);
-    expect(component.lines().map((row) => component.stockAfter(row))).toEqual([52, 23, 36]);
+    expect(component.stocks().map((row) => row.after)).toEqual([52, 23, 36]);
     expect(text(fixture)).toContain('5,450');
     const preview = fixture.nativeElement.querySelector('[data-test="journal-preview"]').textContent as string;
     expect(preview).toContain('5,450'); expect(preview).toContain('3,000'); expect(preview).toContain('2,450'); expect(preview).toContain('الشركة المصرية للإضاءة');
@@ -393,6 +393,29 @@ describe('PurchaseFormComponent: cost above the selling price (Stage 20 review)'
     component.addProduct({ ...CHARGER, retailPrice: 240 });
     component.setLine(component.lines()[1].key, 'qty', 1); component.setLine(component.lines()[1].key, 'unitPrice', 240);
     expect(component.hints()[1]?.aboveRetail).toBeFalse();
+    http.verify();
+  });
+});
+
+describe('PurchaseFormComponent: "المخزون بعد" counts earlier lines of the same product (Stage 20 review)', () => {
+  it('a second line of one product starts from the stock the first line leaves, like the cost hint', async () => {
+    const ctx = await setup(PurchaseFormComponent);
+    ctx.fixture.detectChanges();
+    ctx.http.expectOne((r) => r.url === `${base}suppliers`).flush([SUPPLIER]);
+    flushPaymentBoxes(ctx.http);
+    await settle(ctx.fixture);
+    const { component, fixture, http } = ctx;
+    component.lines.set([
+      { key: 1, product: LED, qty: 20, unitPrice: 70 },
+      { key: 2, product: CHARGER, qty: 4, unitPrice: 240 },
+      { key: 3, product: LED, qty: 5, unitPrice: 100 },
+    ]);
+    await settle(fixture);
+    expect(component.stocks()).toEqual([{ before: 32, after: 52 }, { before: 13, after: 17 }, { before: 52, after: 57 }]);
+    const cells = Array.from(fixture.nativeElement.querySelectorAll('[data-test="stock-after"]')).map((cell) => (cell as HTMLElement).textContent!.replace(/\s+/g, ' ').trim());
+    expect(cells[2]).toContain('52'); expect(cells[2]).toContain('57');
+    // the cost hint builds on the same running stock: 52 at 70 + 5 at 100
+    expect(component.hints()[2]?.newCost).toBe(72.63);
     http.verify();
   });
 });

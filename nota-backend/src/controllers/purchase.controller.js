@@ -13,7 +13,7 @@ const { audit } = require("../auth/audit");
 const boxes = require("../cashbox/boxes");
 const { nonNegativeAmount, positiveAmount, optionalDate, optionalText, requiredReason } = require("../cashbox/validate");
 const { can } = require("./cashbox.controller");
-const { postSupplierPayment, postSupplierRefund, balanceOf } = require("./supplierAccount.controller");
+const { postSupplierPayment, postSupplierRefund, balanceOf, touchSupplier } = require("./supplierAccount.controller");
 
 const { httpError, isId } = boxes;
 
@@ -236,8 +236,12 @@ const createPurchaseReturn = async (req, res) => {
     ] });
     let refund = null;
     if (refundAmount > 0) {
-      // The supplier hands back cash for these goods: never more than the return is worth.
-      if (roundMoney(refundAmount - total) > 0) throw httpError(409, "REFUND_EXCEEDS_RETURN", "المبلغ المسترد أكبر من قيمة المرتجع", { total, refundAmount });
+      // Cash only comes back for what the supplier now owes US: min(return value, max(0, -balance after the return)). While we still
+      // owe the supplier, a return only reduces what we owe. The supplier is written first so concurrent refunds conflict and retry.
+      await touchSupplier(supplier._id, session);
+      const owedToUs = Math.max(0, -(await balanceOf(supplier._id, session)));
+      const cap = Math.min(total, owedToUs);
+      if (roundMoney(refundAmount - cap) > 0) throw httpError(409, "REFUND_EXCEEDS_DUE", "المبلغ المسترد أكبر من اللي المورد مدينلنا بيه", { due: cap, total, refundAmount });
       ({ refund } = await postSupplierRefund({ req, session, supplier, amount: refundAmount, boxId: body.boxId, date, note: `Refund for ${number}`, purchaseReturnId: created._id }));
       created.refundId = refund._id; await created.save({ session });
     }

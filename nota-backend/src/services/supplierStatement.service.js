@@ -4,6 +4,7 @@ const SupplierPayment = require("../models/supplierPayment.model");
 const PurchaseReturn = require("../models/purchaseReturn.model");
 const SupplierRefund = require("../models/supplierRefund.model");
 const Meta = require("../models/meta.model");
+const clock = require("../utils/clock");
 const { roundMoney } = require("../utils/invoicePricing");
 
 // Stage 20: the supplier statement, computed from DOCUMENTS only (never from the ledger). The HTTP handler and the
@@ -36,11 +37,12 @@ const bucketOf = (daysOverdue) => {
  * @param {Date|null} [args.from] @param {Date|null} [args.to] period of the lines (the balance and the aging are always today's)
  * @param {Date} [args.now]
  */
-function computeSupplierStatement({ supplier = {}, opening = null, ledgerStartAt = null, purchases = [], payments = [], returns = [], refunds = [], from = null, to = null, now = require("../utils/clock").now() }) {
+function computeSupplierStatement({ supplier = {}, opening = null, ledgerStartAt = null, purchases = [], payments = [], returns = [], refunds = [], from = null, to = null, now = clock.now() }) {
   const terms = Number(supplier.paymentTermsDays || 0);
   const events = [];
   let sequence = 0;
-  const add = (event) => events.push({ ...event, debit: roundMoney(event.debit || 0), credit: roundMoney(event.credit || 0), _sequence: sequence++ });
+  // Every event is dated by its LOCAL business day (an instant becomes its local day); lines of one day sort by creation time.
+  const add = (event) => events.push({ ...event, date: clock.businessDay(event.date), debit: roundMoney(event.debit || 0), credit: roundMoney(event.credit || 0), _sequence: sequence++ });
 
   if (opening && Number(opening.amount) !== 0) {
     add({
@@ -52,16 +54,17 @@ function computeSupplierStatement({ supplier = {}, opening = null, ledgerStartAt
   for (const purchase of purchases) {
     add({
       date: purchase.date, createdAt: purchase.createdAt, type: "purchase", number: purchase.number, supplierInvoiceNo: purchase.supplierInvoiceNo || null,
-      description: "فاتورة شراء", docId: purchase._id, debit: 0, credit: purchase.total, due: new Date(new Date(purchase.date).getTime() + terms * DAY_MS),
+      description: "فاتورة شراء", docId: purchase._id, debit: 0, credit: purchase.total, due: new Date(clock.businessDay(purchase.date).getTime() + terms * DAY_MS),
+      noAging: purchase.status === "cancelled",
     });
     if (purchase.status === "cancelled" && purchase.cancelledAt) {
-      add({ date: purchase.cancelledAt, createdAt: purchase.cancelledAt, type: "purchase_cancel", number: purchase.number, supplierInvoiceNo: purchase.supplierInvoiceNo || null, description: "إلغاء فاتورة شراء", docId: purchase._id, debit: purchase.total, credit: 0 });
+      add({ date: clock.businessDay(purchase.cancelledAt), createdAt: purchase.cancelledAt, noAging: true, type: "purchase_cancel", number: purchase.number, supplierInvoiceNo: purchase.supplierInvoiceNo || null, description: "إلغاء فاتورة شراء", docId: purchase._id, debit: purchase.total, credit: 0 });
     }
   }
   for (const payment of payments) {
-    add({ date: payment.date, createdAt: payment.createdAt, type: "payment", number: payment.number, reference: payment.reference || null, description: payment.purchaseId ? "دفعة مع الفاتورة" : "سداد", docId: payment._id, debit: payment.amount, credit: 0 });
+    add({ date: payment.date, createdAt: payment.createdAt, type: "payment", number: payment.number, reference: payment.reference || null, description: payment.purchaseId ? "دفعة مع الفاتورة" : "سداد", docId: payment._id, debit: payment.amount, credit: 0, noAging: payment.status === "cancelled" });
     if (payment.status === "cancelled" && payment.cancelledAt) {
-      add({ date: payment.cancelledAt, createdAt: payment.cancelledAt, type: "payment_cancel", number: payment.number, description: "إلغاء سند صرف", docId: payment._id, debit: 0, credit: payment.amount, due: payment.cancelledAt });
+      add({ date: clock.businessDay(payment.cancelledAt), createdAt: payment.cancelledAt, noAging: true, type: "payment_cancel", number: payment.number, description: "إلغاء سند صرف", docId: payment._id, debit: 0, credit: payment.amount, due: payment.cancelledAt });
     }
   }
   for (const row of returns) add({ date: row.date, createdAt: row.createdAt, type: "purchase_return", number: row.number, description: "مرتجع مشتريات", docId: row._id, debit: row.total, credit: 0 });
@@ -90,16 +93,19 @@ function computeSupplierStatement({ supplier = {}, opening = null, ledgerStartAt
   };
 
   // Aging: debits settle the oldest credits first (by due date); what is left is what we owe, by days overdue.
-  const credits = all.filter((row) => row.credit > 0).map((row) => ({ amount: row.credit, due: new Date(row.due || row.date) }))
+  // A cancelled purchase or payment leaves the aging together with its cancel line (they net to zero).
+  const agingRows = all.filter((row) => !row.noAging);
+  const credits = agingRows.filter((row) => row.credit > 0).map((row) => ({ amount: row.credit, due: clock.businessDay(row.due || row.date) }))
     .sort((left, right) => left.due - right.due);
-  let settle = roundMoney(all.reduce((sum, row) => sum + row.debit, 0));
+  let settle = roundMoney(agingRows.reduce((sum, row) => sum + row.debit, 0));
   const aging = { current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90plus: 0, total: 0, advance: 0 };
   for (const credit of credits) {
     const used = Math.min(settle, credit.amount);
     settle = roundMoney(settle - used);
     const remaining = roundMoney(credit.amount - used);
     if (remaining <= 0) continue;
-    const overdue = Math.floor((now.getTime() - credit.due.getTime()) / DAY_MS);
+    // Days overdue count local calendar days (today's local date as a UTC midnight), never the current instant.
+    const overdue = Math.round((clock.localDayAsUtc(now).getTime() - credit.due.getTime()) / DAY_MS);
     aging[bucketOf(overdue)] = roundMoney(aging[bucketOf(overdue)] + remaining);
     aging.total = roundMoney(aging.total + remaining);
   }

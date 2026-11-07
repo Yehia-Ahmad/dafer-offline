@@ -47,8 +47,10 @@ async function loadCustomerOpenItems(customerIds = null, { session = null } = {}
 
 /** Overdue days of an item at `now`: the opening ages from its date, an invoice from dueDate (else sellingDate). */
 const overdueDays = (item, now) => {
-  const due = new Date(item.kind === "invoice" ? (item.dueDate || item.date) : item.date);
-  return Math.floor((now.getTime() - due.getTime()) / DAY_MS);
+  const clock = require("../utils/clock");
+  const due = clock.businessDay(item.kind === "invoice" ? (item.dueDate || item.date) : item.date);
+  // local calendar days: today's local date as a UTC midnight, not the current instant
+  return Math.round((clock.localDayAsUtc(now).getTime() - due.getTime()) / DAY_MS);
 };
 
 /** Buckets: current (not overdue), 1-30, 31-60 and more than 60 days overdue. */

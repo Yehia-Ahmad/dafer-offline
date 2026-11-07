@@ -110,3 +110,45 @@ it("a sale, a credit sale and a purchase dated today at 00:30 local show up in t
   const health = await call("GET", "/api/accounting/health"); assert.equal(health.status, 200);
   for (const [name, check] of Object.entries(health.json)) { assert.equal(check.difference, 0, `${name}: ${JSON.stringify(check)}`); if ("ok" in check) assert.equal(check.ok, true, name); }
 });
+
+it("days overdue are local calendar days: at 00:30 local an item due yesterday is 1 day overdue, one due today is not overdue", () => {
+  const { overdueDays, ageOpenItems } = require("../src/services/customerOpenItems.service");
+  const { computeSupplierStatement } = require("../src/services/supplierStatement.service");
+  const yesterday = new Date("2026-11-06T00:00:00.000Z"); const today = new Date(`${TODAY}T00:00:00.000Z`);
+  assert.equal(overdueDays({ kind: "invoice", dueDate: yesterday, date: yesterday }, FAKE_NOW), 1, "customer invoice due yesterday");
+  assert.equal(overdueDays({ kind: "invoice", dueDate: today, date: today }, FAKE_NOW), 0, "due today");
+  assert.equal(ageOpenItems([{ kind: "invoice", dueDate: yesterday, date: yesterday, remaining: 40 }, { kind: "invoice", dueDate: today, date: today, remaining: 60 }], FAKE_NOW).days1to30, 40);
+  const statement = computeSupplierStatement({
+    supplier: { paymentTermsDays: 0 }, now: FAKE_NOW,
+    purchases: [{ _id: "a", number: "PO-000001", date: yesterday, createdAt: yesterday, total: 70 }, { _id: "b", number: "PO-000002", date: today, createdAt: today, total: 30 }],
+  });
+  assert.equal(statement.aging.d1_30, 70, "supplier purchase due yesterday is 1 day overdue"); assert.equal(statement.aging.current, 30);
+  // the same item an hour later in the day and the next morning still counts whole local days
+  assert.equal(overdueDays({ kind: "invoice", dueDate: yesterday, date: yesterday }, new Date("2026-11-07T08:00:00.000Z")), 1);
+  assert.equal(overdueDays({ kind: "invoice", dueDate: yesterday, date: yesterday }, new Date("2026-11-07T22:30:00.000Z")), 2);
+});
+
+it("a cancel line made at 00:30 local is dated, sorted and filtered as TODAY on the supplier and the customer statements", () => {
+  const { computeSupplierStatement } = require("../src/services/supplierStatement.service");
+  const { computeCustomerStatement } = require("../src/services/customerStatement.service");
+  const today = new Date(`${TODAY}T00:00:00.000Z`);
+  // FAKE_NOW (22:30 UTC on the 6th) is 00:30 on the 7th locally
+  const purchase = { _id: "p", number: "PO-000001", date: today, createdAt: new Date("2026-11-06T22:00:00.000Z"), total: 500, status: "cancelled", cancelledAt: FAKE_NOW };
+  const payment = { _id: "v", number: "PV-000001", date: today, createdAt: new Date("2026-11-06T22:05:00.000Z"), amount: 200, status: "cancelled", cancelledAt: FAKE_NOW };
+  const supplier = computeSupplierStatement({ supplier: {}, purchases: [purchase], payments: [payment], from: today, to: new Date("2026-11-07T23:59:59.999Z"), now: FAKE_NOW });
+  const cancels = supplier.lines.filter((row) => row.type.endsWith("_cancel"));
+  assert.equal(cancels.length, 2);
+  assert.ok(cancels.every((row) => new Date(row.date).toISOString() === `${TODAY}T00:00:00.000Z`), "dated by the local business day");
+  assert.equal(supplier.lines.length, 4, "all four lines are in a statement that starts today");
+  assert.deepEqual(supplier.lines.map((row) => row.type), ["purchase", "payment", "purchase_cancel", "payment_cancel"], "cancelledAt only breaks ties: after their own documents");
+  // yesterday's statement does not show them
+  const before = computeSupplierStatement({ supplier: {}, purchases: [purchase], payments: [payment], to: new Date("2026-11-06T23:59:59.999Z"), now: FAKE_NOW });
+  assert.equal(before.lines.length, 0);
+
+  const invoice = { _id: "i", number: "CR-000001", sellingDate: today, createdAt: new Date("2026-11-06T22:00:00.000Z"), totalPrice: 150, status: "cancelled", cancelledAt: FAKE_NOW, payments: [], refunds: [], cancelRefundAmount: 0 };
+  const customer = computeCustomerStatement({ invoices: [invoice], returnById: new Map(), from: today, to: new Date("2026-11-07T23:59:59.999Z") });
+  const lines = customer.lines.filter((row) => row.type === "invoice" || row.type === "cancel");
+  assert.deepEqual(lines.map((row) => row.type), ["invoice", "cancel"]);
+  assert.equal(new Date(lines[1].date).toISOString(), `${TODAY}T00:00:00.000Z`);
+  assert.equal(customer.totals.balance, 0);
+});
