@@ -201,6 +201,14 @@ export class CategoryToolsComponent implements OnInit {
       };
       worksheet.getColumn('specifications').alignment = { wrapText: true, vertical: 'top' };
 
+      // Stage 21 review: the import refuses a price with more than 2 decimals (the whole file is rejected, nothing is saved).
+      const notes = workbook.addWorksheet('Notes');
+      notes.columns = [{ header: 'Note', key: 'note', width: 110 }];
+      notes.addRow({ note: 'Products sheet (optional, same file): WholesalePrice, PurchasePrice and RetailPrice must have at most 2 decimals (for example 12.5 or 12.55, not 12.555).' });
+      notes.addRow({ note: 'أعمدة الأسعار (سعر الجملة وسعر الشراء وسعر التجزئة) بحد أقصى خانتين عشريتين. أي صف بسعر أكثر من خانتين يرفض الملف كله ولا يتم حفظ أي شيء.' });
+      notes.getRow(1).font = { bold: true };
+      notes.getColumn('note').alignment = { wrapText: true, vertical: 'top' };
+
       const buffer = await workbook.xlsx.writeBuffer();
       const template = new Blob([buffer as ArrayBuffer], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

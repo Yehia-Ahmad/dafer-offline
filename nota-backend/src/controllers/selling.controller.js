@@ -173,7 +173,15 @@ const getSellingItemProductId = (item) => {
 
 const normalizeSellingItems = (body, res, options = {}) => {
   // options.storedPrice: the price comes from the stored invoice (an edit that only changes the quantity), so a legacy price is kept as is.
-  const checkPrice = (price, label) => { if (!options.storedPrice) assertPricePrecision(price, label); };
+  // options.storedPrices: productId -> the unit prices that product already has on the invoice being edited. A line that sends
+  // its stored price back (a full-items edit that changes only a quantity) keeps it even with 3 decimals; a new or changed price
+  // must have at most 2.
+  const checkPrice = (price, label, productId) => {
+    if (options.storedPrice) return;
+    const stored = options.storedPrices && options.storedPrices.get(String(productId));
+    if (stored && stored.has(Number(price))) return;
+    assertPricePrecision(price, label);
+  };
   if (body.items !== undefined) {
     if (!Array.isArray(body.items)) {
       res.status(400);
@@ -226,7 +234,7 @@ const normalizeSellingItems = (body, res, options = {}) => {
         res.status(400);
         throw new Error(`يجب أن يكون السعر رقمًا غير سالب في العنصر رقم ${itemNumber}`);
       }
-      checkPrice(price, `السعر في العنصر رقم ${itemNumber}`);
+      checkPrice(price, `السعر في العنصر رقم ${itemNumber}`, productId);
 
       return {
         productId,
@@ -270,7 +278,7 @@ const normalizeSellingItems = (body, res, options = {}) => {
     res.status(400);
     throw new Error("يجب أن يكون السعر رقمًا غير سالب");
   }
-  checkPrice(price, "السعر");
+  checkPrice(price, "السعر", productId);
 
   return [
     {
@@ -279,6 +287,17 @@ const normalizeSellingItems = (body, res, options = {}) => {
       unitPrice,
     },
   ];
+};
+
+/** productId -> Set of the unit prices the invoice being edited already has for it. */
+const storedPricesOf = (items) => {
+  const map = new Map();
+  for (const item of items) {
+    const key = String(item.productId);
+    if (!map.has(key)) map.set(key, new Set());
+    map.get(key).add(Number(item.unitPrice));
+  }
+  return map;
 };
 
 const hasInvoiceItems = (selling) => Array.isArray(selling.items) && selling.items.length > 0;
@@ -966,7 +985,7 @@ const updateSellingInTransaction = async (req, res, session) => {
     }
 
     if (req.body.items !== undefined) {
-      nextItems = normalizeSellingItems(req.body, res);
+      nextItems = normalizeSellingItems(req.body, res, { storedPrices: storedPricesOf(currentItems) });
     } else {
       const currentItem = currentItems[0];
       if (!currentItem) {

@@ -3,6 +3,7 @@ const Category = require("../models/category.model");
 const Product = require("../models/product.model");
 const { postStockAdjustment, isSetupMode } = require("../accounting/opening");
 const isBase64Image = require("../utils/isBase64Image");
+const { hasMoneyPrecision } = require("../utils/pricePrecision");
 const {
   createCategoryWorkbook,
   readCategoryAndProductWorkbook,
@@ -99,6 +100,14 @@ const validateImportRow = ({ rowNumber, values }) => {
   };
 };
 
+// Stage 21 review: a price has at most 2 decimals (the same rule as the product form and the sale/purchase screens).
+const assertPriceDecimals = (value, fieldName) => {
+  const serializedValue = normalizeStringCell(value);
+  if (serializedValue && !hasMoneyPrecision(Number(serializedValue))) {
+    throw new Error(`${fieldName} must have at most 2 decimals`);
+  }
+};
+
 const parseRequiredNonNegativeNumber = (value, fieldName) => {
   const serializedValue = normalizeStringCell(value);
   const parsedValue = Number(serializedValue);
@@ -153,6 +162,9 @@ const validateProductImportRow = ({ rowNumber, values }) => {
     throw new Error("ProductId must be a valid MongoDB ObjectId");
   }
 
+  assertPriceDecimals(values.WholesalePrice, "WholesalePrice");
+  assertPriceDecimals(values.PurchasePrice, "PurchasePrice");
+  assertPriceDecimals(values.RetailPrice, "RetailPrice");
   const inventoryCount = parseRequiredNonNegativeNumber(
     values.InventoryCount,
     "InventoryCount"

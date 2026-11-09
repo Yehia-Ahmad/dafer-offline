@@ -324,7 +324,7 @@ it("original-total migration restores removed credit lines, estimates missing co
     payments: [], createdAt: new Date("2025-01-01"), updatedAt: new Date("2025-01-02"),
   });
 
-  assert.equal(await runMigrations(), 9);
+  assert.equal(await runMigrations(), 10);
   const migrated = await CreditSale.findById(invoiceId).lean();
   assert.equal(migrated.number, "CR-000001");
   assert.equal(migrated.status, "returned");
@@ -338,9 +338,9 @@ it("original-total migration restores removed credit lines, estimates missing co
   const migrationAudit = await AuditLog.findOne({ action: "system.migration", "details.version": 2 }).lean();
   assert.deepEqual(migrationAudit.details.estimatedCostInvoices, [String(invoiceId)]);
   const auditCount = await AuditLog.countDocuments({ action: "system.migration" });
-  assert.equal(await runMigrations(), 9);
+  assert.equal(await runMigrations(), 10);
   assert.equal(await AuditLog.countDocuments({ action: "system.migration" }), auditCount);
-  assert.equal((await Meta.findById("schema")).version, 9);
+  assert.equal((await Meta.findById("schema")).version, 10);
 });
 
 it("original-total migration preserves historical cost on a fully removed credit line", async () => {
@@ -748,7 +748,7 @@ it("original-total migration resumes after a committed first chunk and matches a
 
   await runMigrations();
   const resumed = await snapshot();
-  assert.equal((await Meta.findById("schema")).version, 9);
+  assert.equal((await Meta.findById("schema")).version, 10);
   assert.equal((await Meta.findById("schema")).migrationProgress, undefined);
 
   await clearDatabase();
@@ -780,7 +780,7 @@ it("desktop startup kills a leftover transaction before resuming migrations", as
   process.env.NOTA_LAN_MODE = "1";
   process.env.MONGO_URI = uri;
   try {
-  assert.equal(await runMigrations(), 9);
+  assert.equal(await runMigrations(), 10);
   } finally {
     if (oldLanMode === undefined) delete process.env.NOTA_LAN_MODE; else process.env.NOTA_LAN_MODE = oldLanMode;
     if (oldMongoUri === undefined) delete process.env.MONGO_URI; else process.env.MONGO_URI = oldMongoUri;
@@ -788,7 +788,7 @@ it("desktop startup kills a leftover transaction before resuming migrations", as
     await session.endSession().catch(() => {});
     await client.close();
   }
-  assert.equal((await Meta.findById("schema")).version, 9);
+  assert.equal((await Meta.findById("schema")).version, 10);
   assert.equal((await Selling.collection.findOne({ _id: invoiceId })).shippingLocation, undefined);
 });
 

@@ -442,6 +442,122 @@ it("9. migration 9 stops with a clear error when account 115 already exists and 
   await assert.rejects(() => runMigrations(), /account code 115 already exists/);
   assert.equal((await Meta.findById("schema").lean()).version, 8, "the schema version did not move");
   await Account.deleteMany({});
-  assert.equal(await runMigrations(), 9);
+  assert.equal(await runMigrations(), 10);
   assert.equal((await Account.findOne({ code: "115" }).lean()).systemKey, "VAT_INPUT");
 });
+
+// ============================================================ N1. 3-decimal product prices: migration 10 and the import
+
+const AuditLog = require("../src/models/auditLog.model");
+const { createCategoryWorkbook } = require("../src/helpers/categoryWorkbook.helper");
+const { withTransaction } = require("../src/utils/transaction");
+const { postStockAdjustment } = require("../src/accounting/opening");
+
+it("N1. migration 10 rounds 3-decimal product prices to 2 decimals, revalues the stock so INVENTORY stays exact, is idempotent and logged; the product then sells", async () => {
+  const s = await shop();
+  const stockOf = async () => (await Product.findById(s.a._id).lean()).inventoryCount;
+  // What an older build allowed: 3-decimal prices, with the books exact (the cost change was revalued when it was made).
+  await Product.collection.updateOne({ _id: new mongoose.Types.ObjectId(s.a._id) }, { $set: { purchasePrice: 20.126, wholesalePrice: 25.126, retailPrice: 120.126 } });
+  await withTransaction((session) => postStockAdjustment({ date: new Date(), source: { type: "cost_revaluation", id: new mongoose.Types.ObjectId(s.a._id), number: "A35" }, amount: r2(500 * 0.126), increase: true, session }));
+  assert.equal(await stockOf(), 500);
+  const sold = await call("POST", "/api/sellings", { customerName: "c", customerPhone: "010", sellingDate: TODAY, items: [{ productId: s.a._id, quantity: 1, price: 120.126 }] });
+  assert.equal(sold.status, 400); assert.equal(sold.json.code, "PRICE_PRECISION", "the 3-decimal price can no longer be sold");
+  assert.equal((await assertHealthy()).inventory.difference, 0, "the books were exact before the migration");
+
+  await Meta.updateOne({ _id: "schema" }, { $set: { version: 9 } });
+  assert.equal(await runMigrations(), 10);
+  const after = await Product.findById(s.a._id).lean();
+  assert.equal(after.purchasePrice, 20.13); assert.equal(after.wholesalePrice, 25.13); assert.equal(after.retailPrice, 120.13);
+  const other = await Product.findById(s.b._id).lean();
+  assert.equal(other.purchasePrice, 40, "a product with 2-decimal prices is untouched");
+  assert.equal((await assertHealthy()).inventory.difference, 0, "INVENTORY = Σ stock × purchasePrice after the revaluation");
+  const log = await AuditLog.findOne({ action: "system.migration", "details.version": 10 }).sort({ at: -1 }).lean();
+  assert.equal(log.details.productsChanged, 1); assert.equal(log.details.revalued, 1); assert.equal(log.details.revaluationTotal, 2);
+
+  // It sells now.
+  const sale = await call("POST", "/api/sellings", { customerName: "c", customerPhone: "010", sellingDate: TODAY, items: [{ productId: s.a._id, quantity: 2, price: after.retailPrice }] });
+  assert.equal(sale.status, 201, JSON.stringify(sale.json));
+  await assertHealthy();
+
+  // Idempotent: running it again changes and posts nothing.
+  const entries = await JournalEntry.countDocuments({});
+  await Meta.updateOne({ _id: "schema" }, { $set: { version: 9 } });
+  assert.equal(await runMigrations(), 10);
+  assert.equal(await JournalEntry.countDocuments({}), entries);
+  const again = await AuditLog.find({ action: "system.migration", "details.version": 10 }).sort({ at: -1 }).lean();
+  assert.equal(again[0].details.productsChanged, 0);
+  await assertHealthy();
+});
+
+it("N1. migration 10 revalues exactly across many products (the rounding is carried, no piaster drifts)", async () => {
+  await shop();
+  const ids = [];
+  for (let i = 0; i < 7; i += 1) ids.push((await product({ code: `R${i}`, stock: 3 + i, cost: 10 + i }))._id);
+  let delta = 0;
+  for (const [i, id] of ids.entries()) {
+    const cost = Math.round((10 + i + 0.005 + 0.001 * i) * 1000) / 1000; // 3-decimal costs
+    delta += (3 + i) * (cost - (10 + i));
+    await Product.collection.updateOne({ _id: new mongoose.Types.ObjectId(id) }, { $set: { purchasePrice: cost } });
+  }
+  // books exact for the 3-decimal costs: the total revaluation, posted once
+  await withTransaction((session) => postStockAdjustment({ date: new Date(), source: { type: "cost_revaluation", id: new mongoose.Types.ObjectId(ids[0]), number: "R0" }, amount: r2(delta), increase: true, session }));
+  await Meta.updateOne({ _id: "schema" }, { $set: { version: 9 } });
+  await runMigrations();
+  const after = await Product.find({ _id: { $in: ids } }).lean();
+  assert.ok(after.every((p) => Math.abs(p.purchasePrice * 100 - Math.round(p.purchasePrice * 100)) < 1e-6));
+  const report = ok(await call("GET", "/api/accounting/health"));
+  assert.equal(report.inventory.difference, 0, JSON.stringify(report.inventory));
+});
+
+it("N1. the category/Excel import rejects a price with more than 2 decimals as a row error and saves nothing", async () => {
+  await startLedger();
+  const categoryId = new mongoose.Types.ObjectId();
+  const row = (code, extra = {}) => ({ productId: String(new mongoose.Types.ObjectId()), categoryId: String(categoryId), categoryName: "فئة استيراد", name: `صنف ${code}`, code, inventoryCount: 2, imageBase64: "", wholesalePrice: 30, purchasePrice: 20, retailPrice: 40, soldItemCount: 0, specifications: [], ...extra });
+  const upload = async (rows) => {
+    const buffer = createCategoryWorkbook([{ _id: categoryId, name: "فئة استيراد", image: "", specifications: [] }], rows);
+    const form = new FormData();
+    form.append("file", new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "import.xlsx");
+    const response = await fetch(`${baseUrl}/api/categories/import`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
+    const text = await response.text();
+    return { status: response.status, json: text ? JSON.parse(text) : null };
+  };
+  for (const [field, label, value] of [["retailPrice", "RetailPrice", 40.126], ["wholesalePrice", "WholesalePrice", 30.126], ["purchasePrice", "PurchasePrice", 20.126]]) {
+    const bad = await upload([row("OK-1"), row("BAD-1", { [field]: value })]);
+    assert.equal(bad.status, 400, `${field}: ${JSON.stringify(bad.json)}`);
+    assert.match(JSON.stringify(bad.json), new RegExp(`${label} must have at most 2 decimals`));
+    assert.equal(await Product.countDocuments({}), 0, `${field}: the valid row was not saved either (all or nothing)`);
+    assert.equal(await Category.countDocuments({ name: "فئة استيراد" }), 0, `${field}: no category saved`);
+  }
+  const fine = await upload([row("OK-2", { retailPrice: 40.5 })]);
+  assert.equal(fine.status, 200, JSON.stringify(fine.json));
+  assert.equal(await Product.countDocuments({ code: "OK-2" }), 1);
+});
+
+// ============================================================ N2. a full-items edit keeps a stored 3-decimal price
+
+for (const kind of ["cash", "credit"]) {
+  it(`N2. ${kind}: an old 3-decimal invoice, a full-items edit that changes only a quantity -> 200; a changed 3-decimal price -> 400`, async () => {
+    const s = await shop();
+    const customer = await Customer.create({ name: "عميل", phone: "01000000005" });
+    const Model = kind === "cash" ? Selling : CreditSale;
+    const path = kind === "cash" ? "/api/sellings" : "/api/credit-sales";
+    const lines = [{ productId: s.a._id, quantity: 2, price: 35 }, { productId: s.b._id, quantity: 1, price: 65 }];
+    const invoice = kind === "cash" ? await cashSale(lines) : await creditSale(customer, lines);
+    // the old build stored a 3-decimal price on the first line
+    const total = r2(35.126 * 2 + 65);
+    await Model.updateOne({ _id: invoice._id }, { $set: { "items.0.unitPrice": 35.126, "items.0.totalPrice": r2(35.126 * 2), totalPrice: total, ...(kind === "credit" ? { remainingAmount: total } : {}) } });
+    const line = (productId, quantity, price) => ({ productId, quantity, price });
+    // only a quantity changes: the stored price comes back as it was
+    const okEdit = await call("PUT", `${path}/${invoice._id}`, { items: [line(s.a._id, 3, 35.126), line(s.b._id, 1, 65)] });
+    assert.equal(okEdit.status, 200, JSON.stringify(okEdit.json));
+    const stored = await Model.findById(invoice._id).lean();
+    assert.equal(stored.items[0].unitPrice, 35.126); assert.equal(stored.items[0].quantity, 3);
+    // a changed 3-decimal price is refused, a new 3-decimal price on the other line too
+    const changed = await call("PUT", `${path}/${invoice._id}`, { items: [line(s.a._id, 3, 35.127), line(s.b._id, 1, 65)] });
+    assert.equal(changed.status, 400); assert.equal(changed.json.code, "PRICE_PRECISION");
+    const other = await call("PUT", `${path}/${invoice._id}`, { items: [line(s.a._id, 3, 35.126), line(s.b._id, 1, 65.005)] });
+    assert.equal(other.status, 400); assert.equal(other.json.code, "PRICE_PRECISION");
+    // a changed price with 2 decimals is fine
+    assert.equal((await call("PUT", `${path}/${invoice._id}`, { items: [line(s.a._id, 3, 35.13), line(s.b._id, 1, 65)] })).status, 200);
+  });
+}

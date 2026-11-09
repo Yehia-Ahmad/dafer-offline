@@ -11,7 +11,7 @@ const Customer = require("../models/customer.model");
 const Account = require("../models/account.model");
 const JournalEntry = require("../models/journalEntry.model");
 const { seedAccounts, postEntry, accountMap } = require("../accounting/posting");
-const { hasLedgerActivity } = require("../accounting/opening");
+const { hasLedgerActivity, postStockAdjustment, isSetupMode } = require("../accounting/opening");
 const { customerStatementBalances } = require("../services/customerStatement.service");
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { PREFIXES, formatDocumentNumber, nextDocumentNumber } = require("../utils/documentNumber");
@@ -574,6 +574,42 @@ async function stage21VatInputAccountMigration(session) {
   return { vatInputAccount: account.code };
 }
 
+// Stage 21 review: unit prices have at most 2 decimals now, so a product that still carries a 3-decimal price (an older build allowed
+// it) could no longer be sold. Round every product's retail, wholesale and purchase price to 2 decimals. A changed purchase price
+// on a product with stock is a cost revaluation: it goes through the same cost_revaluation path as editing the cost (INVENTORY
+// against INVENTORY_ADJUSTMENT, or CAPITAL in setup mode) inside this transaction, so INVENTORY = Σ stock × purchasePrice stays exact
+// (the rounding is carried from product to product, so the posted total equals the exact change to the piaster). Idempotent: once
+// rounded nothing is left to change.
+async function stage21ProductPricesMigration(session) {
+  const fields = ["retailPrice", "wholesalePrice", "purchasePrice"];
+  const products = await Product.collection.find({}, { session, projection: { code: 1, inventoryCount: 1, retailPrice: 1, wholesalePrice: 1, purchasePrice: 1 } }).toArray();
+  const setup = await isSetupMode(session);
+  let changed = 0; let revalued = 0; let exact = 0; let posted = 0;
+  for (const product of products) {
+    const $set = {};
+    for (const field of fields) {
+      const value = product[field];
+      if (typeof value !== "number" || !Number.isFinite(value)) continue;
+      const rounded = roundMoney(value);
+      if (rounded !== value) $set[field] = rounded;
+    }
+    if (!Object.keys($set).length) continue;
+    await Product.collection.updateOne({ _id: product._id }, { $set }, { session });
+    changed += 1;
+    const stock = Number(product.inventoryCount || 0);
+    if ($set.purchasePrice !== undefined && stock > 0) {
+      exact += stock * ($set.purchasePrice - product.purchasePrice);
+      const amount = roundMoney(roundMoney(exact) - posted);
+      if (amount !== 0) {
+        await postStockAdjustment({ date: new Date(), source: { type: "cost_revaluation", id: product._id, number: product.code }, amount: Math.abs(amount), increase: amount > 0, session, setup });
+        posted = roundMoney(posted + amount);
+        revalued += 1;
+      }
+    }
+  }
+  return { productsChanged: changed, revalued, revaluationTotal: posted };
+}
+
 const migrations = [
   { version: 1, name: "document numbers and receipts", run: numbersMigration },
   { version: 2, name: "original invoice totals and returned status", chunked: true, runChunk: originalTotalsMigrationChunk },
@@ -584,6 +620,7 @@ const migrations = [
   { version: 7, name: "stage 19 cash boxes: main box, bank/wallet boxes, boxId on money documents", run: stage19BoxesMigration },
   { version: 8, name: "stage 19 review: custom expense categories get 5-digit codes under 520", run: stage19CategoryCodesMigration },
   { version: 9, name: "stage 21 VAT: input VAT account 115", run: stage21VatInputAccountMigration },
+  { version: 10, name: "stage 21 review: product prices rounded to 2 decimals (cost revaluation posted)", run: stage21ProductPricesMigration },
 ];
 
 async function recordMigration(migration, details, session) {
