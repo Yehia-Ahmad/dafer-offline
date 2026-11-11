@@ -1410,7 +1410,9 @@
             "auto": "Automatic",
             "reversal": "Reversal",
             "opening": "Opening",
-            "legacy_reversal": "Pre-ledger cancellation"
+            "legacy_reversal": "Pre-ledger cancellation",
+            "manual": "Manual",
+            "closing": "Closing"
         },
         "asOf": "As of",
         "number": "Number",
@@ -2188,5 +2190,242 @@
             "cancel": "Back to review"
         },
         "purchaseChanged": "The VAT settings were changed on another PC. The VAT is now {{current}} instead of {{expected}}. Check the invoice and save again."
+    },
+  "reports": {
+    "title": "Financial reports",
+    "subtitle": "Read the books: income statement, balance sheet, trial balance, box movements, customer and supplier balances",
+    "print": "Print",
+    "excel": "Excel for the accountant",
+    "tabs": {
+      "income": "Income statement",
+      "balance": "Balance sheet",
+      "trial": "Trial balance",
+      "boxes": "Box movements",
+      "parties": "Customer & supplier balances"
+    },
+    "presets": {
+      "thisMonth": "This month",
+      "lastMonth": "Last month",
+      "thisYear": "This year",
+      "custom": "Custom range"
+    },
+    "period": "Period",
+    "from": "From",
+    "to": "To",
+    "asOf": "As of",
+    "compare": "Compare with the previous period",
+    "showZero": "Show zero rows",
+    "item": "Item",
+    "amount": "Amount",
+    "previous": "Previous period",
+    "change": "Change",
+    "account": "Account",
+    "opening": "Opening",
+    "movement": "Movement",
+    "closing": "Closing",
+    "total": "Total",
+    "box": "Box",
+    "in": "In",
+    "out": "Out",
+    "noMovement": "No movement in the period",
+    "inactive": "stopped",
+    "currency": "in EGP",
+    "periodRange": "for {{from}} to {{to}}",
+    "asOfDate": "as of {{date}}",
+    "checkFailed": "Warning: the net profit in this report does not match the books",
+    "trialBalanced": "The trial balance is balanced: debit = credit",
+    "trialUnbalanced": "The trial balance is not balanced",
+    "loadFailed": "Could not load the report",
+    "exportFailed": "Could not export the Excel file",
+    "sheet": {
+      "assets": "Assets",
+      "liabilities": "Liabilities",
+      "equity": "Equity",
+      "total": "Total {{name}}",
+      "check": "Assets = liabilities + equity",
+      "difference": "Difference"
+    },
+    "parties": {
+      "customers": "Customer balances",
+      "suppliers": "Supplier balances",
+      "name": "Name",
+      "balance": "Balance",
+      "advance": "Credit / advance",
+      "none": "None"
+    },
+    "aging": {
+      "current": "Current",
+      "d1_30": "1–30 days",
+      "d31_60": "31–60 days",
+      "d61_90": "61–90 days",
+      "d90plus": "Over 90"
     }
+  },
+  "manual": {
+    "title": "Manual entry",
+    "subtitle": "For adjustments and things that have no screen, like writing off a customer's bad debt",
+    "back": "Chart of accounts and entries",
+    "number": "Entry number",
+    "numberOnPost": "Assigned when posted",
+    "date": "Date",
+    "memo": "Memo",
+    "memoHint": "Why this entry",
+    "account": "Account",
+    "pickAccount": "Pick an account",
+    "pickCustomer": "Pick the customer",
+    "pickSupplier": "Pick the supplier",
+    "description": "Description",
+    "addLine": "+ Line",
+    "removeLine": "Remove the line",
+    "totals": "Total",
+    "balanced": "The entry is balanced: debit = credit",
+    "unbalanced": "The entry is not balanced (off by {{diff}}). It can only be posted when it balances",
+    "saveDraft": "Save as draft",
+    "post": "Post the entry",
+    "deleteDraft": "Delete the draft",
+    "afterPost": "A posted entry cannot be edited. If it is wrong, reverse it.",
+    "drafts": "Drafts",
+    "noDrafts": "No drafts",
+    "noMemo": "No memo",
+    "status": {
+      "posted": "Posted",
+      "reversed": "Reversed"
+    },
+    "allocated": "{{amount}} was set against {{count}} open invoice(s) / opening balance, oldest first",
+    "reversedBy": "Reversed by {{number}} on {{date}}: {{reason}}",
+    "reverse": "Reverse entry",
+    "reverseHint": "A reversing entry linked to the original is posted. A write-off that was set against a customer's invoices is undone.",
+    "reason": "Reason",
+    "reverseDate": "Date of the reversal (today if left empty)",
+    "close": "Close",
+    "cancel": "Cancel",
+    "errors": {
+      "customerDebit": "Make a credit invoice instead of a manual entry",
+      "customerRequired": "Pick the customer",
+      "supplierRequired": "Pick the supplier",
+      "dateRequired": "The date is required",
+      "generic": "The operation failed"
+    },
+    "loadFailed": "Could not load the data"
+  },
+  "accountsAdmin": {
+    "add": "Account",
+    "manualEntry": "Manual entry",
+    "showInactive": "Show stopped accounts",
+    "edit": "Edit the account",
+    "inactive": "Stopped",
+    "active": "Active",
+    "addTitle": "New account",
+    "editTitle": "Edit account",
+    "parent": "Under account",
+    "pickParent": "Pick the parent account",
+    "code": "Code",
+    "codeAuto": "Automatic",
+    "typeInherited": "Type: {{type}} (from the parent)",
+    "typeFixed": "Type: {{type}} (cannot change)",
+    "types": {
+      "asset": "Assets",
+      "liability": "Liabilities",
+      "equity": "Equity",
+      "revenue": "Revenue",
+      "expense": "Expenses"
+    },
+    "nameAr": "Account name (Arabic)",
+    "nameEn": "English name (optional)",
+    "isGroup": "Group account (it will have other accounts under it and takes no entries directly)",
+    "expenseCategoryHint": "This account shows in the income statement under expenses, and the cashier can pick it as an expense category.",
+    "structureSystem": "This is a system account: its code and parent are fixed, only the name changes.",
+    "structureBox": "This is a box account. Change it from the cash boxes screen.",
+    "structureLines": "The account has entries: its code and parent are fixed.",
+    "deactivate": "Stop the account",
+    "reactivate": "Start again",
+    "delete": "Delete the account",
+    "cannotDeactivate": "Cannot be stopped",
+    "balanceNote": "Current balance: {{amount}}",
+    "cancel": "Cancel",
+    "save": "Save the account",
+    "close": "Close",
+    "errors": {
+      "generic": "The operation failed"
+    }
+  },
+  "closing": {
+    "navLabel": "Period closing",
+    "title": "Period closing",
+    "subtitle": "Once a period is closed nobody can post or edit anything dated inside it",
+    "lockedThrough": "Closed through",
+    "nothingClosed": "No period has been closed yet",
+    "settingsLine": "Closing is {{frequency}} · the fiscal year starts in month {{month}}",
+    "frequency": {
+      "monthly": "monthly",
+      "yearly": "yearly"
+    },
+    "next": "Next period to close",
+    "yearEnd": "Fiscal year end",
+    "notEnded": "The period has not ended yet. It can be closed after {{date}}",
+    "yearEndNote": "A closing entry is posted: revenue, expenses and owner drawings are zeroed and the net profit moves to retained earnings.",
+    "checklist": "Before closing",
+    "checks": {
+      "openShifts": "No open shifts",
+      "manualDrafts": "No unposted manual drafts in the period",
+      "health": "Every health check is zero",
+      "vatUnfiled": "Every VAT return is filed",
+      "openingNotFinalized": "The opening balances are finalized"
+    },
+    "fix": {
+      "openShifts": "Close the shifts opened before the end of the period.",
+      "manualDrafts": "Post or delete the drafts.",
+      "health": "A health check shows a difference. Find out why first.",
+      "vatUnfiled": "File these months' returns in order.",
+      "openingNotFinalized": "Finalize the opening balances first."
+    },
+    "open": "Open",
+    "warnings": {
+      "customerBalances": "{{count}} customer(s) have a balance ({{total}})",
+      "supplierBalances": "{{count}} supplier(s) have a balance ({{total}})"
+    },
+    "close": "Close {{label}}",
+    "noPermission": "Closing periods needs the close-periods permission",
+    "nothingToClose": "Nothing to close",
+    "history": "Closing history",
+    "period": "Period",
+    "status": "Status",
+    "by": "By",
+    "when": "When",
+    "entry": "Closing entry",
+    "state": {
+      "closed": "Closed",
+      "reopened": "Reopened"
+    },
+    "reopen": "Reopen",
+    "reopenTitle": "Reopen {{label}}",
+    "reopenText": "The latest closed period opens again for posting. Owner only.",
+    "reopenReverses": "The closing entry {{number}} will be reversed.",
+    "reopenedBy": "Reopened by {{name}} on {{date}}: {{reason}}",
+    "reason": "Reason",
+    "reversal": "(reversal)",
+    "cancel": "Cancel",
+    "confirmTitle": "Close {{label}}",
+    "confirmText": "Every date through {{end}} will be locked. Nobody can post or edit inside it.",
+    "confirmYearEnd": "This is the fiscal year end: a closing entry zeroes revenue, expenses and owner drawings.",
+    "confirmHint": "Press “Sure” and then “Close the period” to confirm.",
+    "sure": "Sure",
+    "confirmClose": "Close the period",
+    "noHistory": "No closes yet",
+    "loadFailed": "Could not load the closing data",
+    "errors": {
+      "generic": "The operation failed"
+    },
+    "settings": {
+      "title": "Period closing",
+      "hint": "Owner only. Closing stops posting and editing dated inside closed periods.",
+      "frequency": "Closing frequency",
+      "startMonth": "The fiscal year starts in month",
+      "startMonthHint": "Cannot change after the first close"
+    }
+  },
+  "lock": {
+    "banner": "This period is closed through {{date}}",
+    "selectedLocked": "This date is in a closed period. Pick a date after {{date}}"
+  }
 }

@@ -13,7 +13,9 @@ const paymentSchema = new mongoose.Schema({
   number: { type: String, trim: true },
   receipt: { type: mongoose.Schema.Types.ObjectId, ref: "Receipt" },
   // "return_reallocation": credit moved here from a returned invoice (already on the statement as that return); absent = a receipt.
-  source: { type: String, enum: ["return_reallocation", "credit_application"], default: undefined },
+  source: { type: String, enum: ["return_reallocation", "credit_application", "manual_entry"], default: undefined },
+  // Stage 22: the manual entry that set a customer credit against this opening (a reversal removes exactly this payment).
+  manualEntryId: { type: mongoose.Schema.Types.ObjectId, default: undefined },
 }, { _id: true });
 
 const partyOpeningSchema = new mongoose.Schema({

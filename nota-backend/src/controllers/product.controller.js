@@ -12,6 +12,8 @@ const { calculatePriceAfterDiscount } = require("../utils/productPricing");
 const { withTransaction } = require("../utils/transaction");
 const { postCostSync, getLedgerStartAt, isLedgerDocument, returnedUnits } = require("../accounting/posting");
 const { postStockAdjustment } = require("../accounting/opening");
+const { getLockedThrough } = require("../accounting/period");
+const { businessDay } = require("../utils/clock");
 const { audit } = require("../auth/audit");
 const { hasPermission } = require("../auth/middleware");
 
@@ -986,7 +988,7 @@ const syncProductPurchasePriceInTransaction = async (req, res, session) => {
     if (dateTo) dateQuery.sellingDate.$lte = dateTo;
   }
 
-  const [sellings, creditSales] = await Promise.all([
+  const [allSellings, allCreditSales] = await Promise.all([
     Selling.find({
       ...dateQuery,
       $or: [{ "items.product": product._id }, { product: product._id }],
@@ -996,6 +998,12 @@ const syncProductPurchasePriceInTransaction = async (req, res, session) => {
       "items.product": product._id,
     }).session(session),
   ]);
+  // Stage 22: an invoice dated in a closed period never changes, so the sync skips it (its cost stays as it was).
+  const lockedThrough = await getLockedThrough(session);
+  const inClosedPeriod = (invoice) => Boolean(lockedThrough) && businessDay(invoice.sellingDate).getTime() <= lockedThrough.getTime();
+  const sellings = allSellings.filter((invoice) => !inClosedPeriod(invoice));
+  const creditSales = allCreditSales.filter((invoice) => !inClosedPeriod(invoice));
+  const skippedClosedPeriod = allSellings.length - sellings.length + allCreditSales.length - creditSales.length;
 
   let updatedCashInvoices = 0;
   let updatedCreditInvoices = 0;
@@ -1094,6 +1102,7 @@ const syncProductPurchasePriceInTransaction = async (req, res, session) => {
     updatedCreditInvoices,
     updatedInvoices: updatedCashInvoices + updatedCreditInvoices,
     updatedItemsCount,
+    ...(skippedClosedPeriod ? { skippedClosedPeriod } : {}),
   };
 };
 

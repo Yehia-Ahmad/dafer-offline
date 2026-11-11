@@ -92,7 +92,8 @@
 
           <nota-form-field class="pos__span" [label]="'sellingPage.fields.sellingDate' | translate" forId="sellingDate" [required]="true">
             <p-datepicker formControlName="sellingDate" [showIcon]="true" [iconDisplay]="'input'" inputId="sellingDate"
-              appendTo="body" styleClass="pos__control" />
+              appendTo="body" styleClass="pos__control" [minDate]="lock.minOpenDate()" />
+            <nota-lock-banner />
           </nota-form-field>
         </div>
 

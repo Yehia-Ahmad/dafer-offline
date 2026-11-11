@@ -1,3 +1,4 @@
+import { LockDateService } from '../../../../core/accounting-lock/lock-date.service';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectorRef,
@@ -25,14 +26,7 @@ import { CustomersService } from '../../../customer/services/customers.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { UnsavedWorkService } from '../../../../core/unsaved-work/unsaved-work.service';
 import { isOverDiscountLimit } from '../../../../core/auth/discount-limit';
-import {
-  NotaButtonDirective,
-  NotaDialogShellComponent,
-  NotaFormFieldComponent,
-  NotaMoneyPipe,
-  NotaNumberPipe,
-  NotaPageHeaderComponent
-} from '../../../shared/ui';
+import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, NotaLockBannerComponent } from '../../../shared/ui';
 import {
   CreateCreditSalePayload,
   CreditSalesService
@@ -82,7 +76,7 @@ type CreditLineItemState = {
 @Component({
   selector: 'app-credit-sales',
   standalone: true,
-  imports: [LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
+  imports: [NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
     CommonModule,
     ReactiveFormsModule,
     TranslatePipe,
@@ -102,6 +96,8 @@ type CreditLineItemState = {
   encapsulation: ViewEncapsulation.None
 })
 export class CreditSalesComponent implements OnInit, OnDestroy {
+  /** Stage 22: locked days are disabled in the date picker. */
+  protected readonly lock = inject(LockDateService);
   /** Product search boxes of the lines without a product (F2 focuses the first one). */
   @ViewChildren('lineSearch') private lineSearchInputs?: QueryList<ElementRef<HTMLInputElement>>;
   direction: 'rtl' | 'ltr' = 'ltr';

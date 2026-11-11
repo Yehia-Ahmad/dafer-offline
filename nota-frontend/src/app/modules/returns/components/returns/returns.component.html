@@ -182,7 +182,8 @@
           } @else {
             <div class="rt__form-row">
               <nota-form-field [label]="'returnsPage.fields.returnDate' | translate" forId="rtWizDate" [required]="true">
-                <p-datepicker inputId="rtWizDate" [(ngModel)]="wizardDate" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="rt__control" />
+                <p-datepicker inputId="rtWizDate" [(ngModel)]="wizardDate" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="rt__control" [minDate]="lock.minOpenDate()" />
+                <nota-lock-banner />
               </nota-form-field>
               <nota-form-field [label]="'returnsPage.fields.note' | translate" forId="rtWizNote">
                 <input id="rtWizNote" type="text" class="nota-input" [(ngModel)]="wizardNote" maxlength="500" />

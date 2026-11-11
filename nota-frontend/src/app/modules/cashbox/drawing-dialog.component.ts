@@ -1,8 +1,9 @@
+import { LockDateService } from '../../core/accounting-lock/lock-date.service';
 import { ChangeDetectionStrategy, Component, computed, inject, input, model, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Dialog } from 'primeng/dialog';
-import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent } from '../shared/ui';
+import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaLockBannerComponent, NotaLockedDateDirective } from '../shared/ui';
 import { CashboxService, DrawingPayload } from './cashbox.service';
 import { CashBox, DrawingRow } from './cashbox.models';
 import { localDateKey } from '../../core/utilities/local-date';
@@ -11,7 +12,7 @@ import { localDateKey } from '../../core/utilities/local-date';
 @Component({
   selector: 'app-drawing-dialog',
   standalone: true,
-  imports: [FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent],
+  imports: [NotaLockBannerComponent, NotaLockedDateDirective, FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <p-dialog [visible]="visible()" (visibleChange)="visible.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
@@ -27,7 +28,8 @@ import { localDateKey } from '../../core/utilities/local-date';
           <input id="drAmount" class="nota-input nota-num" type="number" min="0" step="0.01" name="amount" data-test="drawing-amount" [ngModel]="amount()" (ngModelChange)="amount.set($event)" />
         </nota-form-field>
         <nota-form-field [label]="'cashbox.drawing.date' | translate" forId="drDate">
-          <input id="drDate" class="nota-input nota-num" type="date" name="date" data-test="drawing-date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+          <input id="drDate" class="nota-input nota-num" type="date" notaLockedDate name="date" data-test="drawing-date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+      <nota-lock-banner [selected]="date()" />
         </nota-form-field>
         <nota-form-field [label]="'cashbox.drawing.note' | translate" forId="drNote">
           <input id="drNote" class="nota-input" type="text" name="note" data-test="drawing-note" [ngModel]="note()" (ngModelChange)="note.set($event)" />
@@ -42,6 +44,8 @@ import { localDateKey } from '../../core/utilities/local-date';
   `,
 })
 export class DrawingDialogComponent {
+  /** Stage 22: a date inside a closed period cannot be submitted (the banner explains, the server refuses too). */
+  private readonly lock = inject(LockDateService);
   private readonly cashbox = inject(CashboxService);
 
   readonly visible = model(false);
@@ -55,7 +59,7 @@ export class DrawingDialogComponent {
   readonly error = signal('');
   readonly busy = signal(false);
 
-  readonly valid = computed(() => (this.amount() ?? 0) > 0 && Boolean(this.boxId() || this.boxes().length));
+  readonly valid = computed(() => (this.amount() ?? 0) > 0 && Boolean(this.boxId() || this.boxes().length) && !this.lock.isLocked(this.date()));
 
   cancel(): void {
     this.visible.set(false);

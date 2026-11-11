@@ -116,7 +116,7 @@ export interface SupplierPaymentPayload {
   confirmAdvance?: boolean;
 }
 
-export type StatementLineType = 'opening_balance' | 'purchase' | 'purchase_cancel' | 'payment' | 'payment_cancel' | 'purchase_return' | 'supplier_refund';
+export type StatementLineType = 'opening_balance' | 'purchase' | 'purchase_cancel' | 'payment' | 'payment_cancel' | 'purchase_return' | 'supplier_refund' | 'manual' | 'manual_reversal';
 
 export interface StatementLine {
   date: string;
@@ -124,6 +124,8 @@ export interface StatementLine {
   number: string | null;
   supplierInvoiceNo?: string | null;
   reference?: string | null;
+  /** Stage 22: the memo of a manual entry. */
+  memo?: string | null;
   description: string;
   debit: number;
   credit: number;

@@ -7,6 +7,7 @@ const { postEntry, line, boxAccount, accountMap } = require("../accounting/posti
 const { nextDocumentNumber, PREFIXES } = require("../utils/documentNumber");
 const { roundMoney } = require("../utils/invoicePricing");
 const { withTransaction } = require("../utils/transaction");
+const { assertOpenDate } = require("../accounting/period");
 const { audit } = require("../auth/audit");
 const boxes = require("../cashbox/boxes");
 const { can } = require("./cashbox.controller");
@@ -162,6 +163,7 @@ const createExpense = async (req, res) => {
   const vat = body.vatAmount === undefined || body.vatAmount === null || body.vatAmount === "" ? 0 : Number(body.vatAmount);
   if (!Number.isFinite(vat) || vat < 0 || roundMoney(vat) !== vat) throw httpError(400, "INVALID_VAT", "قيمة الضريبة غير صالحة");
   const expense = await withTransaction(async (session) => {
+    await assertOpenDate(date, { session }); // Stage 22: the period lock, before anything else is checked
     const vatCtx = vatContext(await loadVatSettings(session), date);
     if (vat > 0 && !vatCtx) throw httpError(400, "VAT_NOT_ENABLED", "الضريبة غير مفعّلة");
     if (vat >= amount) throw httpError(400, "VAT_TOO_LARGE", "الضريبة لازم تكون أقل من إجمالي الفاتورة");

@@ -56,6 +56,8 @@ const STAGE19_DB_NAME = 'dafer_smoke_stage19';
 const STAGE20_DB_NAME = 'dafer_smoke_stage20';
 // Stage 21: a sixth fresh database (auth on) for VAT: settings, sales, returns, purchases, expenses and the monthly VAT return.
 const STAGE21_DB_NAME = 'dafer_smoke_stage21';
+// Stage 22: a seventh fresh database (auth on) for the financial reports, manual entries, accounts and period closing.
+const STAGE22_DB_NAME = 'dafer_smoke_stage22';
 const JWT_SECRET = 'smoke-jwt-secret-0123456789abcdef-0123456789';
 const OWNER = { name: 'Smoke Owner', username: 'smoke-owner', password: 'owner-pass-123' };
 const LAN_SECRET = 'smoke-secret-123';
@@ -1913,6 +1915,212 @@ async function runStage21Scenarios() {
   });
 }
 
+// Stage 22: the financial reports, manual entries (draft, post, reverse, forbidden accounts, a bad debt), the account tree and
+// closing last month (PERIOD_LOCKED, a return on a locked invoice, reopen), on a fresh database (auth on).
+async function runStage22Scenarios() {
+  const ctx = {};
+  authToken = null;
+  const pad = (n) => String(n).padStart(2, '0');
+  const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const now = new Date();
+  const LAST15 = dayKey(new Date(now.getFullYear(), now.getMonth() - 1, 15));
+  const LAST_START = dayKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  const LAST_END = dayKey(new Date(now.getFullYear(), now.getMonth(), 0));
+  const TODAY = dayKey(now);
+  const login = async (user) => {
+    const response = await request('POST', '/api/auth/login', { body: { username: user.username, password: user.password }, token: null });
+    expectStatus(response, 200, `${user.username} login`);
+    return response.json.token;
+  };
+  const code = (codeValue) => { const option = ctx.options.find((row) => row.code === codeValue); if (!option) throw new Error(`no account ${codeValue}`); return option._id; };
+  const manual = async (lines, extra = {}) => {
+    const draft = await request('POST', '/api/accounting/manual-entries', { body: { date: TODAY, memo: 'Smoke entry', lines, ...extra } });
+    expectStatus(draft, 201, 'POST manual draft');
+    return draft.json;
+  };
+
+  await step('Stage 22: setup-owner and a cashier on a fresh database', async () => {
+    const owner = await request('POST', '/api/auth/setup-owner', { body: OWNER, token: null });
+    expectStatus(owner, 201, 'POST /api/auth/setup-owner');
+    authToken = owner.json.token;
+    const cashier = { name: 'S22 Cashier', username: 's22-cashier', password: 'clerk-pass-1', role: 'cashier' };
+    expectStatus(await request('POST', '/api/users', { body: cashier }), 201, 'POST cashier');
+    ctx.cashierToken = await login(cashier);
+    return 'owner, cashier';
+  });
+
+  await step('Stage 22: last month = main cash 50,000, a cash sale 10 x 35, a credit sale 4 x 35, an expense 100 (utilities)', async () => {
+    ctx.options = (await request('GET', '/api/accounting/manual-entries/accounts')).json.data;
+    const category = await request('POST', '/api/categories', { body: { name: 'S22 Category' } });
+    expectStatus(category, 201, 'POST /api/categories');
+    const product = await request('POST', '/api/products', { body: { name: 'S22 Product', code: 'S22-1', categoryId: category.json._id, inventoryCount: 500, purchasePrice: 20, wholesalePrice: 30, retailPrice: 35 } });
+    expectStatus(product, 201, 'POST /api/products');
+    ctx.productId = product.json._id;
+    const customer = await request('POST', '/api/customers', { body: { name: 'S22 Customer', phone: '01041414141' } });
+    expectStatus(customer, 201, 'POST /api/customers');
+    ctx.customerId = customer.json._id;
+    expectStatus(await request('POST', '/api/accounting/opening', { body: { cash: 50000 } }), 200, 'POST /api/accounting/opening');
+    const cash = await request('POST', '/api/sellings', { body: { customerName: 'S22 Cash', customerPhone: '01051515151', sellingDate: LAST15, items: [{ productId: ctx.productId, quantity: 10, price: 35 }] } });
+    expectStatus(cash, 201, 'cash sale');
+    ctx.cash = cash.json;
+    const credit = await request('POST', '/api/credit-sales', { body: { customerId: ctx.customerId, sellingDate: LAST15, items: [{ productId: ctx.productId, quantity: 4, price: 35 }] } });
+    expectStatus(credit, 201, 'credit sale');
+    ctx.credit = credit.json;
+    expectStatus(await request('POST', '/api/expenses', { body: { accountId: code('523'), amount: 100, date: LAST15 } }), 201, 'expense');
+    return `${ctx.cash.number}, ${ctx.credit.number}, expense dated ${LAST15}`;
+  });
+
+  await step('Stage 22: the five reports return and balance (income statement net profit 110, balance sheet difference 0, trial balance balanced, box closing = box balance, party aging)', async () => {
+    requireCtx(ctx, 'cash');
+    const income = await request('GET', `/api/reports/income-statement?from=${LAST_START}&to=${LAST_END}`);
+    expectStatus(income, 200, 'income statement');
+    // sales 490 - COGS 280 - expenses 100
+    expect(income.json.summary.sales === 490 && income.json.summary.cogs === 280 && income.json.summary.netProfit === 110, JSON.stringify(income.json.summary));
+    expect(income.json.check.difference === 0, 'the net profit equals the ledger');
+    const sheet = await request('GET', `/api/reports/balance-sheet?asOf=${TODAY}`);
+    expectStatus(sheet, 200, 'balance sheet');
+    expect(sheet.json.check.difference === 0 && sheet.json.periodProfit === 110, JSON.stringify({ check: sheet.json.check, profit: sheet.json.periodProfit }));
+    const trial = await request('GET', `/api/reports/trial-balance?from=${LAST_START}&to=${TODAY}`);
+    expectStatus(trial, 200, 'trial balance');
+    expect(trial.json.balanced === true, 'the trial balance totals balance');
+    const boxes = await request('GET', `/api/reports/box-movements?from=${LAST_START}&to=${TODAY}`);
+    expectStatus(boxes, 200, 'box movements');
+    for (const box of boxes.json.boxes) {
+      const ledger = await request('GET', `/api/cashbox/boxes/${box.boxId}`);
+      expect(ledger.json.balance === box.closing, `box ${box.name}: ${box.closing} vs ${ledger.json.balance}`);
+    }
+    const parties = await request('GET', '/api/reports/party-balances');
+    expectStatus(parties, 200, 'party balances');
+    const row = parties.json.customers.rows.find((entry) => entry.partyId === ctx.customerId);
+    expect(row && row.balance === 140 && row.aging.total === 140, JSON.stringify(row));
+    return `net profit ${income.json.summary.netProfit}, assets ${sheet.json.totals.assets} = ${sheet.json.totals.liabilitiesAndEquity}, customer aging ${row.aging.total}`;
+  });
+
+  await step('Stage 22: an Excel export downloads (.xlsx, numbers as numbers)', async () => {
+    const file = await request('GET', `/api/reports/income-statement?from=${LAST_START}&to=${LAST_END}&format=xlsx`, { binary: true });
+    expectStatus(file, 200, 'income statement xlsx');
+    expect(String(file.headers.get('content-type')).includes('spreadsheetml'), file.headers.get('content-type'));
+    expect(file.buffer.length > 1000 && file.buffer.subarray(0, 2).toString() === 'PK', 'a zip (xlsx) body');
+    return `${file.buffer.length} bytes`;
+  });
+
+  await step('Stage 22: a manual draft is saved, edited, posted (JE number) and reversed (linked)', async () => {
+    const draft = await manual([{ accountId: code('523'), debit: 50 }, { accountId: code('23'), credit: 40 }]);
+    const edited = await request('PUT', `/api/accounting/manual-entries/${draft._id}`, { body: { lines: [{ accountId: code('523'), debit: 50 }, { accountId: code('23'), credit: 50 }] } });
+    expectStatus(edited, 200, 'PUT draft');
+    const posted = await request('POST', `/api/accounting/manual-entries/${draft._id}/post`);
+    expectStatus(posted, 200, 'post');
+    expect(/^JE-\d+$/.test(posted.json.number) && posted.json.status === 'posted', JSON.stringify(posted.json).slice(0, 200));
+    expectStatus(await request('PUT', `/api/accounting/manual-entries/${draft._id}`, { body: { memo: 'x' } }), 409, 'a posted entry is not edited');
+    const reversed = await request('POST', `/api/accounting/manual-entries/${draft._id}/reverse`, { body: { reason: 'Smoke reversal' } });
+    expectStatus(reversed, 200, 'reverse');
+    expect(reversed.json.reversal && /^JE-\d+$/.test(reversed.json.reversal.number), JSON.stringify(reversed.json.reversal));
+    expectStatus(await request('POST', `/api/accounting/manual-entries/${draft._id}/reverse`, { body: { reason: 'Again' } }), 409, 'reversed twice');
+    return `${posted.json.number} reversed by ${reversed.json.reversal.number}`;
+  });
+
+  await step('Stage 22: a forbidden account is refused (400): a box, inventory, an invoice account; a customer debit too', async () => {
+    const attempt = async (lines) => {
+      const draft = await manual(lines);
+      return request('POST', `/api/accounting/manual-entries/${draft._id}/post`);
+    };
+    const balanced = (accountId) => [{ accountId, debit: 10 }, { accountId: code('31'), credit: 10 }];
+    const box = await attempt(balanced(code('1111')));
+    expectStatus(box, 400, 'box account');
+    expect(box.json.reason === 'BOX_ACCOUNT' && box.json.message.includes('استخدم شاشة الخزائن أو المصروفات'), describe(box));
+    const inventory = await attempt(balanced(code('114')));
+    expectStatus(inventory, 400, 'inventory');
+    expect(inventory.json.message.includes('استخدم تعديل الصنف'), describe(inventory));
+    const sales = await attempt(balanced(code('410')));
+    expectStatus(sales, 400, 'sales account');
+    expect(sales.json.message.includes('الحساب ده بيتحرك من الفواتير'), describe(sales));
+    const debit = await attempt([{ accountId: code('113'), debit: 10, partyType: 'customer', partyId: ctx.customerId }, { accountId: code('31'), credit: 10 }]);
+    expectStatus(debit, 400, 'customer debit');
+    expect(debit.json.message === 'اعمل فاتورة آجل بدل القيد اليدوي', describe(debit));
+    return 'box, inventory, sales, customer debit: 400';
+  });
+
+  await step('Stage 22: a bad debt: a manual credit on the customer settles the open invoice, the statement shows one line, health stays 0', async () => {
+    requireCtx(ctx, 'credit');
+    const draft = await manual([{ accountId: code('525'), debit: 140 }, { accountId: code('113'), credit: 140, partyType: 'customer', partyId: ctx.customerId }], { memo: 'Smoke bad debt' });
+    const posted = await request('POST', `/api/accounting/manual-entries/${draft._id}/post`);
+    expectStatus(posted, 200, 'post bad debt');
+    const invoice = await request('GET', `/api/credit-sales/${ctx.credit._id}`);
+    expect(invoice.json.remainingAmount === 0 && invoice.json.status === 'paid', JSON.stringify({ remaining: invoice.json.remainingAmount, status: invoice.json.status }));
+    const statement = await request('GET', `/api/customers/${ctx.customerId}/statement`);
+    const lines = statement.json.lines.filter((line) => line.type === 'manual');
+    expect(lines.length === 1 && lines[0].credit === 140 && statement.json.totals.balance === 0, JSON.stringify(statement.json.totals));
+    const health = await request('GET', '/api/accounting/health');
+    expect(health.json.customers.difference === 0, JSON.stringify(health.json.customers));
+    return `${posted.json.number}: invoice ${invoice.json.number} paid, balance 0`;
+  });
+
+  await step('Stage 22: accounts: a new leaf under 520 gets 52001, becomes an expense category and shows in the income statement; a system account is renamed', async () => {
+    const parent = (await request('GET', '/api/accounting/accounts')).json.accounts;
+    const flat = []; const walk = (rows) => rows.forEach((row) => { flat.push(row); walk(row.children || []); }); walk(parent);
+    const group = flat.find((row) => row.code === '520');
+    const created = await request('POST', '/api/accounting/accounts', { body: { parentId: group._id, nameAr: 'صيانة المحل', nameEn: 'Maintenance' } });
+    expectStatus(created, 201, 'create account');
+    expect(created.json.code === '52001' && created.json.type === 'expense', JSON.stringify(created.json));
+    const categories = await request('GET', '/api/expenses/categories');
+    expect(categories.json.data.some((row) => row.code === '52001'), 'the new account is an expense category');
+    expectStatus(await request('POST', '/api/expenses', { body: { accountId: created.json._id, amount: 25, date: TODAY } }), 201, 'expense in the new category');
+    const income = await request('GET', `/api/reports/income-statement?from=${TODAY}&to=${TODAY}`);
+    const find = (rows) => rows.flatMap((row) => [row, ...(row.children ? find(row.children) : [])]);
+    expect(find(income.json.rows).some((row) => row.code === '52001' && row.amount === 25), 'the income statement shows the new account');
+    const sales = flat.find((row) => row.code === '410');
+    const renamed = await request('PUT', `/api/accounting/accounts/${sales._id}`, { body: { nameAr: 'مبيعات البضاعة' } });
+    expectStatus(renamed, 200, 'rename a system account');
+    expectStatus(await request('POST', '/api/accounting/accounts', { body: { parentId: flat.find((row) => row.code === '111')._id, nameAr: 'x' } }), 400, 'no accounts under the box branch');
+    return `52001 created, 410 renamed to ${renamed.json.nameAr}`;
+  });
+
+  await step('Stage 22: a cashier gets 403 on the reports, manual entries and closing', async () => {
+    const token = ctx.cashierToken;
+    expectStatus(await request('GET', '/api/reports/income-statement', { token }), 403, 'cashier report');
+    expectStatus(await request('GET', '/api/reports/party-balances', { token }), 403, 'cashier party balances');
+    expectStatus(await request('POST', '/api/accounting/manual-entries', { token, body: { date: TODAY, memo: 'x', lines: [] } }), 403, 'cashier manual entry');
+    expectStatus(await request('POST', '/api/accounting/closing/close', { token, body: { confirm: true } }), 403, 'cashier close');
+    expectStatus(await request('GET', '/api/accounting/lock-date', { token }), 200, 'every signed-in user reads the lock date');
+    return '403, 403, 403, 403; lock date readable';
+  });
+
+  await step('Stage 22: close last month: PERIOD_LOCKED on a back-dated sale, a return on a locked invoice still works (dated today), then reopen', async () => {
+    requireCtx(ctx, 'cash');
+    expectStatus(await request('POST', '/api/accounting/opening/finalize', { body: { confirm: true } }), 200, 'finalize the opening');
+    const state = await request('GET', '/api/accounting/closing');
+    expect(state.json.next.end === LAST_END && state.json.checklist.canClose === true, JSON.stringify({ next: state.json.next, blocking: state.json.checklist.blocking.filter((item) => !item.ok) }));
+    const closed = await request('POST', '/api/accounting/closing/close', { body: { confirm: true, periodEnd: LAST_END } });
+    expectStatus(closed, 200, 'close last month');
+    expect(closed.json.lockedThrough === LAST_END, JSON.stringify(closed.json));
+    const lockDate = await request('GET', '/api/accounting/lock-date');
+    expect(lockDate.json.lockedThrough === LAST_END, JSON.stringify(lockDate.json));
+    const locked = await request('POST', '/api/sellings', { body: { customerName: 'late', customerPhone: '01061616161', sellingDate: LAST15, items: [{ productId: ctx.productId, quantity: 1, price: 35 }] } });
+    expectStatus(locked, 409, 'a sale into the closed month');
+    expect(locked.json.code === 'PERIOD_LOCKED' && locked.json.message.includes(LAST_END.split('-').reverse().join('/')), describe(locked));
+    const edit = await request('PUT', `/api/sellings/${ctx.cash._id}`, { body: { customerName: 'edited' } });
+    expectStatus(edit, 409, 'editing a locked invoice');
+    const returned = await request('POST', '/api/returns', { body: { returnType: 'cash', invoiceId: ctx.cash._id, items: [{ productId: ctx.productId, quantity: 1, returnReason: 'after the close' }] } });
+    expectStatus(returned, 201, 'a return on a locked invoice');
+    const health = await request('GET', '/api/accounting/health');
+    for (const [name, check] of Object.entries(health.json).filter(([, value]) => value && typeof value === 'object' && 'difference' in value)) expect(Number(check.difference) === 0 && check.ok !== false, `health ${name}: ${JSON.stringify(check)}`);
+    const reopened = await request('POST', '/api/accounting/closing/reopen', { body: { confirm: true, reason: 'Smoke reopen' } });
+    expectStatus(reopened, 200, 'reopen');
+    expect(reopened.json.lockedThrough === null, JSON.stringify(reopened.json));
+    expectStatus(await request('POST', '/api/sellings', { body: { customerName: 'late', customerPhone: '01061616161', sellingDate: LAST15, items: [{ productId: ctx.productId, quantity: 1, price: 35 }] } }), 201, 'back-dating works after the reopen');
+    return `locked through ${LAST_END}: sale 409, edit 409, return ${returned.json.data ? returned.json.data.returnLog.number : 'ok'} ok; reopened`;
+  });
+
+  await step('Stage 22: accounting health printed and every check is 0 (including closing)', async () => {
+    const health = await request('GET', '/api/accounting/health');
+    expectStatus(health, 200, 'GET /api/accounting/health');
+    const rows = Object.entries(health.json).filter(([, check]) => check && typeof check === 'object' && 'difference' in check);
+    for (const [name, check] of rows) expect(Number(check.difference) === 0 && check.ok !== false, `health ${name}: ${JSON.stringify(check)}`);
+    expect('closing' in health.json && health.json.closing.difference === 0, 'the closing check exists and is 0');
+    return rows.map(([name, check]) => `${name}=${check.difference}`).join(', ');
+  });
+}
+
 async function main() {
   for (const signal of ['SIGINT', 'SIGTERM']) {
     process.on(signal, async () => {
@@ -1956,8 +2164,13 @@ async function main() {
     // Stage 21: VAT: settings, sales, returns, purchases, expenses, the monthly return and its payment, on its own fresh database.
     await stopChild(stage20Backend);
     children.splice(children.indexOf(stage20Backend), 1);
-    await startBackend({ auth: true, dbName: STAGE21_DB_NAME });
+    const stage21Backend = await startBackend({ auth: true, dbName: STAGE21_DB_NAME });
     await runStage21Scenarios();
+    // Stage 22: reports, manual entries, accounts and period closing, on its own fresh database.
+    await stopChild(stage21Backend);
+    children.splice(children.indexOf(stage21Backend), 1);
+    await startBackend({ auth: true, dbName: STAGE22_DB_NAME });
+    await runStage22Scenarios();
   } catch (error) {
     record(false, 'Smoke test setup', error.message);
   } finally {

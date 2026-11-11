@@ -65,6 +65,21 @@ function ageOpenItems(items, now = require("../utils/clock").now()) {
   return aging;
 }
 
+/**
+ * Stage 22 (reports): the same open items in the five buckets of the supplier aging (current, 1-30, 31-60, 61-90, 90+). The
+ * customer statement keeps its four (over60 = days61to90 + over90), so the two always add up to the same figures.
+ */
+function ageOpenItemsFine(items, now = require("../utils/clock").now()) {
+  const aging = { current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90plus: 0, total: 0 };
+  for (const item of items) {
+    const days = overdueDays(item, now);
+    const key = days <= 0 ? "current" : days <= 30 ? "d1_30" : days <= 60 ? "d31_60" : days <= 90 ? "d61_90" : "d90plus";
+    aging[key] = roundMoney(aging[key] + item.remaining);
+    aging.total = roundMoney(aging.total + item.remaining);
+  }
+  return aging;
+}
+
 /** Collection order. firstInvoice: oldest first (opening first). lastInvoice: newest first (opening last). */
 const sortForCollection = (items, selection) => {
   const invoices = items.filter((item) => item.kind === "invoice");
@@ -72,4 +87,4 @@ const sortForCollection = (items, selection) => {
   return selection === "lastInvoice" ? [...[...invoices].reverse(), ...openings] : [...openings, ...invoices];
 };
 
-module.exports = { OPEN_CREDIT_SALE_STATUSES, collectedOf, openingRemaining, loadCustomerOpenItems, ageOpenItems, overdueDays, sortForCollection };
+module.exports = { OPEN_CREDIT_SALE_STATUSES, collectedOf, openingRemaining, loadCustomerOpenItems, ageOpenItems, ageOpenItemsFine, overdueDays, sortForCollection };

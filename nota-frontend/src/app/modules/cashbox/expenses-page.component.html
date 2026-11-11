@@ -25,7 +25,8 @@
     }
     <nota-payment-box-select labelKey="cashbox.expenses.fromBox" class="ex__f180" />
     <nota-form-field [label]="'cashbox.expenses.date' | translate" forId="exDate" class="ex__f140">
-      <input id="exDate" class="nota-input nota-num" type="date" name="date" data-test="expense-date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+      <input id="exDate" class="nota-input nota-num" type="date" notaLockedDate name="date" data-test="expense-date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+      <nota-lock-banner [selected]="date()" />
     </nota-form-field>
     <nota-form-field [label]="'cashbox.expenses.note' | translate" forId="exNote" class="ex__f220">
       <input id="exNote" class="nota-input" type="text" name="note" data-test="expense-note" [ngModel]="note()" (ngModelChange)="note.set($event)" />

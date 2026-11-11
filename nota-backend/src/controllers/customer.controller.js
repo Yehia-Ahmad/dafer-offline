@@ -10,6 +10,7 @@ const {
 } = require("../utils/creditSaleFormatter");
 const asyncHandler = require("../utils/asyncHandler");
 const { withTransaction } = require("../utils/transaction");
+const { assertOpenDate } = require("../accounting/period");
 const { PREFIXES, nextDocumentNumber } = require("../utils/documentNumber");
 const { postReceipt } = require("../accounting/posting");
 const { resolveBox } = require("../cashbox/boxes");
@@ -390,6 +391,7 @@ const addCustomerCreditSalePaymentInTransaction = async (req, res, session) => {
     req.body.paymentDate !== undefined
       ? normalizeRequiredDate(req.body.paymentDate, "تاريخ الدفعة", res)
       : new Date();
+  await assertOpenDate(paymentDate, { session }); // Stage 22: a receipt is dated by the request (today by default), never into a closed period
   const note = normalizeOptionalPaymentNote(req.body.note, "ملاحظة الدفعة", res);
 
   const invoiceDocs = await CreditSale.find({

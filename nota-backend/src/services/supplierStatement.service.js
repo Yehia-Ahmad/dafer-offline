@@ -5,6 +5,7 @@ const PurchaseReturn = require("../models/purchaseReturn.model");
 const SupplierRefund = require("../models/supplierRefund.model");
 const Meta = require("../models/meta.model");
 const clock = require("../utils/clock");
+const { loadManualPartyLines } = require("./manualLines.service");
 const { roundMoney } = require("../utils/invoicePricing");
 
 // Stage 20: the supplier statement, computed from DOCUMENTS only (never from the ledger). The HTTP handler and the
@@ -37,7 +38,7 @@ const bucketOf = (daysOverdue) => {
  * @param {Date|null} [args.from] @param {Date|null} [args.to] period of the lines (the balance and the aging are always today's)
  * @param {Date} [args.now]
  */
-function computeSupplierStatement({ supplier = {}, opening = null, ledgerStartAt = null, purchases = [], payments = [], returns = [], refunds = [], from = null, to = null, now = clock.now() }) {
+function computeSupplierStatement({ supplier = {}, opening = null, ledgerStartAt = null, purchases = [], payments = [], returns = [], refunds = [], manual = [], from = null, to = null, now = clock.now() }) {
   const terms = Number(supplier.paymentTermsDays || 0);
   const events = [];
   let sequence = 0;
@@ -69,6 +70,15 @@ function computeSupplierStatement({ supplier = {}, opening = null, ledgerStartAt
   }
   for (const row of returns) add({ date: row.date, createdAt: row.createdAt, type: "purchase_return", number: row.number, description: "مرتجع مشتريات", docId: row._id, debit: row.total, credit: 0 });
   for (const row of refunds) add({ date: row.date, createdAt: row.createdAt, type: "supplier_refund", number: row.number, description: "استرداد من مورد", docId: row._id, debit: 0, credit: row.amount, due: row.date });
+
+  // Stage 22: posted manual entries. A credit is a payable item due on the entry date; a debit settles the oldest. A reversed entry
+  // leaves the aging together with its mirror line (they net to zero), like a cancelled purchase.
+  for (const row of manual) {
+    add({ date: row.date, type: "manual", number: row.number, description: `قيد يدوي ${row.number || ""}`.trim(), memo: row.memo || undefined, docId: row.draftId, debit: row.debit, credit: row.credit, due: row.date, noAging: Boolean(row.reversal) });
+  }
+  for (const row of manual.filter((entry) => entry.reversal)) {
+    add({ date: row.reversal.date, type: "manual_reversal", number: row.reversal.number || row.number, description: `عكس قيد يدوي ${row.number || ""}`.trim(), memo: row.reversal.reason || undefined, docId: row.draftId, debit: row.credit, credit: row.debit, due: row.reversal.date, noAging: true });
+  }
 
   events.sort((left, right) => (right._pinned ? 1 : 0) - (left._pinned ? 1 : 0)
     || new Date(left.date) - new Date(right.date)
@@ -119,17 +129,18 @@ function computeSupplierStatement({ supplier = {}, opening = null, ledgerStartAt
  */
 async function loadSupplierDocuments(supplierIds = null, { session = null } = {}) {
   const filter = supplierIds ? { $in: supplierIds } : { $exists: true };
-  const [purchases, payments, returns, refunds, openings, meta] = await Promise.all([
+  const [purchases, payments, returns, refunds, openings, meta, manual] = await Promise.all([
     Purchase.find({ supplierId: filter }).session(session).lean(),
     SupplierPayment.find({ supplierId: filter }).session(session).lean(),
     PurchaseReturn.find({ supplierId: filter }).session(session).lean(),
     SupplierRefund.find({ supplierId: filter, status: "posted" }).session(session).lean(),
     PartyOpening.find({ partyType: "supplier", ...(supplierIds ? { partyId: { $in: supplierIds } } : {}) }).session(session).lean(),
     Meta.findById("schema").select("ledgerStartAt").session(session).lean(),
+    loadManualPartyLines("supplier", supplierIds, { session }),
   ]);
   const group = (rows, key) => { const map = new Map(); for (const row of rows) { const id = String(row[key]); if (!map.has(id)) map.set(id, []); map.get(id).push(row); } return map; };
   return {
-    purchases: group(purchases, "supplierId"), payments: group(payments, "supplierId"), returns: group(returns, "supplierId"), refunds: group(refunds, "supplierId"),
+    purchases: group(purchases, "supplierId"), payments: group(payments, "supplierId"), returns: group(returns, "supplierId"), refunds: group(refunds, "supplierId"), manual,
     openings: new Map(openings.map((row) => [String(row.partyId), row])), ledgerStartAt: meta?.ledgerStartAt ? new Date(meta.ledgerStartAt) : null,
   };
 }
@@ -137,7 +148,7 @@ async function loadSupplierDocuments(supplierIds = null, { session = null } = {}
 const statementFor = (supplier, docs, options = {}) => computeSupplierStatement({
   supplier, opening: docs.openings.get(String(supplier._id)) || null, ledgerStartAt: docs.ledgerStartAt,
   purchases: docs.purchases.get(String(supplier._id)) || [], payments: docs.payments.get(String(supplier._id)) || [],
-  returns: docs.returns.get(String(supplier._id)) || [], refunds: docs.refunds.get(String(supplier._id)) || [], ...options,
+  returns: docs.returns.get(String(supplier._id)) || [], refunds: docs.refunds.get(String(supplier._id)) || [], manual: docs.manual.get(String(supplier._id)) || [], ...options,
 });
 
 /** Closing statement balance (positive = we owe) per supplier id, from documents. Used by the health check. */

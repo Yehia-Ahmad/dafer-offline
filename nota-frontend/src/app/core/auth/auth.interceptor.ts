@@ -9,6 +9,7 @@ import { AuthService, HANDLES_OWN_ERRORS } from './auth.service';
 import { errorCode, errorMessage, lockedMinutes } from './auth-errors';
 import { CartRescueService } from './cart-rescue.service';
 import { LockStateService } from './lock-state.service';
+import { LockDateService } from '../accounting-lock/lock-date.service';
 import { ToastService } from './toast.service';
 
 /**
@@ -64,6 +65,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
           const message = errorMessage(error);
           if (message) toast().error(message);
           else translate().get(`auth.errors.${code}`).subscribe((text: string) => toast().error(text));
+        } else if (error.status === 409 && code === 'PERIOD_LOCKED') {
+          // Stage 22: another PC closed a period since this one signed in. The error names the lock date; the form shows the server message.
+          injector.get(LockDateService).set((error.error as { lockedThrough?: string } | null)?.lockedThrough);
         } else if (error.status === 429 && code === 'LOGIN_LOCKED') {
           translate().get('auth.errors.LOGIN_LOCKED', { minutes: lockedMinutes(error) }).subscribe((text: string) => toast().error(text));
         }

@@ -30,6 +30,9 @@ const { boxEvents } = require("../cashbox/events");
 const { withTransaction } = require("../utils/transaction");
 const { endOfLocalDay } = require("../utils/clock");
 const { hasPermission } = require("../auth/permissions");
+const ManualEntryDraft = require("../models/manualEntryDraft.model");
+const PeriodClose = require("../models/periodClose.model");
+const { localStartOf, localEndOf, getLockedThrough } = require("../accounting/period");
 
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -170,12 +173,16 @@ const expectedLegacyCancelCost = (invoice, preLogs) => {
  */
 const getHealth = async (req, res) => {
   res.set("Cache-Control", "no-store");
+  res.json(await computeHealth());
+};
+
+const computeHealth = async () => {
   const [lineTotals, balances, documentSources, products, customers, sales, credits, returns, receipts, meta, accounts, purchaseIds, paymentIds, purchaseReturnIds, refundIds] = await Promise.all([
     // Trial balance from the lines themselves, never the stored entry totals.
     JournalEntry.aggregate([{ $match: { status: "posted" } }, { $unwind: "$lines" }, { $group: { _id: null, debit: { $sum: "$lines.debit" }, credit: { $sum: "$lines.credit" } } }]),
     JournalEntry.aggregate([{ $match: { status: "posted" } }, { $unwind: "$lines" }, { $group: { _id: { accountId: "$lines.accountId", partyId: "$lines.partyId" }, balance: { $sum: { $subtract: ["$lines.debit", "$lines.credit"] } } } }]),
     JournalEntry.aggregate([
-      { $match: { status: "posted", "source.type": { $in: ["sale", "credit_sale", "return", "receipt", "purchase", "supplier_payment", "purchase_return", "supplier_refund"] } } },
+      { $match: { status: "posted", "source.type": { $in: ["sale", "credit_sale", "return", "receipt", "purchase", "supplier_payment", "purchase_return", "supplier_refund", "manual"] } } },
       { $group: { _id: { type: "$source.type", id: "$source.id" } } },
       { $group: { _id: "$_id.type", ids: { $addToSet: "$_id.id" } } },
     ]),
@@ -204,6 +211,14 @@ const getHealth = async (req, res) => {
     if (accountId === supplierAccountId && row._id.partyId) supplierPartyBalance.set(String(row._id.partyId), roundMoney((supplierPartyBalance.get(String(row._id.partyId)) || 0) + Number(row.balance || 0)));
   }
   const actual = (key) => accountBalance.get(String(byKey.get(key)?._id)) || 0;
+  // Stage 22: the year-end closing entry (and its reversal) zeroes the revenue and expense accounts on purpose, so net sales and COGS
+  // are compared on the ledger WITHOUT the entries whose source is period_close.
+  const operationalRows = await JournalEntry.aggregate([
+    { $match: { status: "posted", "source.type": { $ne: "period_close" } } }, { $unwind: "$lines" },
+    { $group: { _id: "$lines.accountId", balance: { $sum: { $subtract: ["$lines.debit", "$lines.credit"] } } } },
+  ]);
+  const operationalBalance = new Map(operationalRows.map((row) => [String(row._id), roundMoney(row.balance)]));
+  const actualOperational = (key) => operationalBalance.get(String(byKey.get(key)?._id)) || 0;
 
   // 1. Trial balance: Σ line debits − Σ line credits.
   const trialBalance = check(0, Number(lineTotals[0]?.debit || 0) - Number(lineTotals[0]?.credit || 0));
@@ -262,9 +277,9 @@ const getHealth = async (req, res) => {
       expectedCogs -= sum(postLogs, (row) => sum(row.items || [], (item) => Number(item.purchasePrice || 0) * Number(item.quantity || 0)));
     }
   }
-  const netSalesActual = -(actual("SALES") + actual("SALES_RETURNS") + actual("SALES_DISCOUNT") + actual("SHIPPING_INCOME"));
+  const netSalesActual = -(actualOperational("SALES") + actualOperational("SALES_RETURNS") + actualOperational("SALES_DISCOUNT") + actualOperational("SHIPPING_INCOME"));
   const netSales = check(expectedNetSales, netSalesActual);
-  const cogs = check(expectedCogs, actual("COGS"));
+  const cogs = check(expectedCogs, actualOperational("COGS"));
 
   // 6. Coverage: every ledger-period document has an entry, and no entry is orphaned.
   const sourceRows = new Map(documentSources.map((row) => [row._id, row]));
@@ -281,6 +296,8 @@ const getHealth = async (req, res) => {
     supplier_payment: new Set(paymentIds.map((row) => String(row._id))),
     purchase_return: new Set(purchaseReturnIds.map((row) => String(row._id))),
     supplier_refund: new Set(refundIds.map((row) => String(row._id))),
+    // Stage 22: a manual entry exists in the ledger only for a draft that is marked posted (a reversal shares the source).
+    manual: new Set((await ManualEntryDraft.find({ status: "posted" }).select("_id").lean()).map((row) => String(row._id))),
   };
   const bySource = {}; let expectedEntrySources = 0; let actualEntrySources = 0; let coverageIssues = 0;
   for (const [type, expectedIds] of Object.entries(expectedSourceIds)) {
@@ -327,7 +344,46 @@ const getHealth = async (req, res) => {
   const shiftsCheck = await buildShiftsCheck();
   const vatCheck = await buildVatCheck({ sales, credits, actual });
 
-  res.json({ trialBalance, inventory, customers: customersCheck, suppliers: suppliersCheck, opening: openingCheck, netSales, cogs, entries, boxes: boxesCheck, shifts: shiftsCheck, vat: vatCheck });
+  const closingCheck = await buildClosingCheck();
+
+  return { trialBalance, inventory, customers: customersCheck, suppliers: suppliersCheck, opening: openingCheck, netSales, cogs, entries, boxes: boxesCheck, shifts: shiftsCheck, vat: vatCheck, closing: closingCheck };
+};
+
+/**
+ * 11. Closing (Stage 22), from the close records and the entries' own timestamps:
+ *   (a) no entry with a business date inside a closed period was created after that period was closed (createdAt > closedAt), except
+ *       the closing entry / reversal of a close (source period_close);
+ *   (b) the year-end closing entry zeroes the revenue, expense and owner-drawings accounts as of that year end, exactly.
+ * difference = the money of the violating entries + Σ|leftover balance|.
+ */
+const buildClosingCheck = async () => {
+  const [closes, lockedThrough] = await Promise.all([PeriodClose.find({ status: "closed" }).sort({ periodEnd: 1 }).lean(), getLockedThrough()]);
+  const violations = []; let violationAmount = 0;
+  const yearEnd = []; let yearEndDifference = 0;
+  const plAccounts = closes.some((close) => close.yearEnd)
+    ? await Account.find({ $or: [{ type: { $in: ["revenue", "expense"] } }, { systemKey: "OWNER_DRAWINGS" }], isGroup: false }).select("_id code").lean() : [];
+  for (const close of closes) {
+    const from = localStartOf(close.periodStart); const to = localEndOf(close.periodEnd);
+    const late = await JournalEntry.find({ status: "posted", date: { $gte: from, $lte: to }, createdAt: { $gt: close.closedAt }, "source.type": { $ne: "period_close" } })
+      .select("number date createdAt totalDebit source").limit(50).lean();
+    for (const entry of late) {
+      violationAmount += Number(entry.totalDebit || 0);
+      violations.push({ period: close.label, number: entry.number, date: entry.date, createdAt: entry.createdAt, amount: roundMoney(entry.totalDebit || 0), source: entry.source?.type || null });
+    }
+    if (close.yearEnd && plAccounts.length) {
+      const ids = plAccounts.map((account) => account._id);
+      const rows = await JournalEntry.aggregate([
+        { $match: { status: "posted", date: { $lte: to }, "lines.accountId": { $in: ids } } }, { $unwind: "$lines" }, { $match: { "lines.accountId": { $in: ids } } },
+        { $group: { _id: "$lines.accountId", balance: { $sum: { $subtract: ["$lines.debit", "$lines.credit"] } } } },
+      ]);
+      const left = rows.map((row) => ({ code: plAccounts.find((account) => String(account._id) === String(row._id))?.code, balance: roundMoney(row.balance) })).filter((row) => row.balance !== 0);
+      const leftover = roundMoney(left.reduce((total, row) => total + Math.abs(row.balance), 0));
+      yearEndDifference += leftover;
+      yearEnd.push({ period: close.label, leftover, accounts: left });
+    }
+  }
+  const difference = roundMoney(violationAmount + yearEndDifference);
+  return { expected: 0, actual: difference, difference, lockedThrough: lockedThrough || null, closes: closes.length, violations, yearEnd: { difference: roundMoney(yearEndDifference), byPeriod: yearEnd } };
 };
 
 /**
@@ -539,4 +595,4 @@ const finalizeOpeningHandler = async (req, res) => {
   res.json({ message: "تم اعتماد أرصدة بداية المحل نهائيًا", finalizedAt: result.finalizedAt, ...state });
 };
 
-module.exports = { getAccounts, getLedger, getJournal, getJournalEntry, getHealth, parseQueryDate, getOpening, saveOpening: saveOpeningHandler, finalizeOpening: finalizeOpeningHandler };
+module.exports = { getAccounts, getLedger, getJournal, getJournalEntry, getHealth, computeHealth, parseQueryDate, getOpening, saveOpening: saveOpeningHandler, finalizeOpening: finalizeOpeningHandler };

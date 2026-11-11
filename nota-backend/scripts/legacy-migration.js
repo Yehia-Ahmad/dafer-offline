@@ -396,8 +396,47 @@ async function main() {
     }
     console.log(`stage 21 upgrade: VAT on, sale VAT ${vatSale.vatAmount}, purchase VAT ${vatPurchase.vatAmount}, return ${filed21.number} payable ${filed21.payable} paid, health 0`);
 
+    // Stage 22: after the upgrade the financial reports read the books and balance, a past month closes, a closed month refuses postings
+    // (a return on a locked invoice still works), health stays 0, and the month reopens.
+    const monthStart22 = `${lastMonth21.getFullYear()}-${pad21(lastMonth21.getMonth() + 1)}-01`;
+    const monthEnd22 = `${lastMonth21.getFullYear()}-${pad21(lastMonth21.getMonth() + 1)}-${pad21(new Date(lastMonth21.getFullYear(), lastMonth21.getMonth() + 1, 0).getDate())}`;
+    const todayIso22 = `${now21.getFullYear()}-${pad21(now21.getMonth() + 1)}-${pad21(now21.getDate())}`;
+    const income22 = await request(currentBase, "GET", `/api/reports/income-statement?from=${monthStart22}&to=${monthEnd22}&compare=1`);
+    assert.equal(income22.check.difference, 0, "the income statement equals the ledger net profit");
+    const sheet22 = await request(currentBase, "GET", `/api/reports/balance-sheet?asOf=${todayIso22}`);
+    assert.equal(sheet22.check.difference, 0, "the balance sheet balances after the upgrade");
+    const trial22 = await request(currentBase, "GET", `/api/reports/trial-balance?from=${monthStart22}&to=${todayIso22}`);
+    assert.equal(trial22.balanced, true, "the trial balance totals balance");
+    const boxes22 = await request(currentBase, "GET", `/api/reports/box-movements?from=${monthStart22}&to=${todayIso22}`);
+    for (const box of boxes22.boxes) assert.equal(box.closing, (await request(currentBase, "GET", `/api/cashbox/boxes/${box.boxId}`)).balance, `box movements equal the box ledger: ${box.name}`);
+    const parties22 = await request(currentBase, "GET", "/api/reports/party-balances");
+    assert.ok(parties22.customers.rows.length > 0 && parties22.suppliers.rows.length > 0);
+    const opening22 = await request(currentBase, "GET", "/api/accounting/opening");
+    if (opening22.status !== "finalized") await request(currentBase, "POST", "/api/accounting/opening/finalize", { confirm: true });
+    const closing22 = await request(currentBase, "GET", "/api/accounting/closing");
+    assert.equal(closing22.next.end, monthEnd22, "the oldest open month is last month");
+    assert.equal(closing22.checklist.canClose, true, JSON.stringify(closing22.checklist.blocking.filter((item) => !item.ok)));
+    const closed22 = await request(currentBase, "POST", "/api/accounting/closing/close", { confirm: true, periodEnd: monthEnd22 });
+    assert.equal(closed22.lockedThrough, monthEnd22);
+    const locked22 = await fetch(`${currentBase}/api/sellings`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerName: "late", customerPhone: "01055555555", sellingDate: today21, items: [{ productId: product._id, quantity: 1, price: 500 }] }) });
+    assert.equal(locked22.status, 409, "a sale dated in the closed month is refused");
+    assert.equal((await locked22.json()).code, "PERIOD_LOCKED");
+    const lateReturn22 = await request(currentBase, "POST", "/api/returns", { returnType: "cash", invoiceId: vatSale._id, items: [{ productId: product._id, quantity: 1, returnReason: "after the close" }] });
+    assert.ok(lateReturn22.data.returnLog, "a return on a locked invoice still works (dated today)");
+    const afterClose22 = await request(currentBase, "GET", "/api/accounting/health");
+    for (const [name, check] of Object.entries(afterClose22)) {
+      if (check && typeof check === "object" && "difference" in check) { assert.equal(Number(check.difference), 0, `accounting health after a close: ${name}`); assert.notEqual(check.ok, false, `accounting health after a close: ${name}`); }
+    }
+    const reopened22 = await request(currentBase, "POST", "/api/accounting/closing/reopen", { confirm: true, reason: "legacy script reopen" });
+    assert.equal(reopened22.lockedThrough, null);
+    const afterReopen22 = await request(currentBase, "GET", "/api/accounting/health");
+    for (const [name, check] of Object.entries(afterReopen22)) {
+      if (check && typeof check === "object" && "difference" in check) assert.equal(Number(check.difference), 0, `accounting health after a reopen: ${name}`);
+    }
+    console.log(`stage 22 upgrade: reports balance (assets ${sheet22.totals.assets}), closed ${closed22.close.label} (lock ${closed22.lockedThrough}), PERIOD_LOCKED 409, return on a locked invoice ok, reopened, health 0`);
+
     assert.doesNotMatch(currentErrors, /TypeError/);
-    console.log("legacy migration scenarios passed: cash partial/full/single-line, discount+shipping credit return, reallocation, down payment, repeated partial-line merge, Stage 17 ledger repro (10 checkpoints), Stage 18 opening wizard");
+    console.log("legacy migration scenarios passed: cash partial/full/single-line, discount+shipping credit return, reallocation, down payment, repeated partial-line merge, Stage 17 ledger repro (10 checkpoints), Stage 18 opening wizard, Stage 21 VAT day, Stage 22 reports and period close");
   } finally {
     await stopChild(oldBackend);
     await stopChild(currentBackend);

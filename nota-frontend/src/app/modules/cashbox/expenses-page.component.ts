@@ -1,3 +1,4 @@
+import { LockDateService } from '../../core/accounting-lock/lock-date.service';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -5,7 +6,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { Dialog } from 'primeng/dialog';
 import { NotaCanDirective } from '../../core/auth/nota-can.directive';
 import { LanguageService } from '../shared/services/translation.service';
-import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent } from '../shared/ui';
+import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, NotaLockBannerComponent, NotaLockedDateDirective } from '../shared/ui';
 import { CategoryTotal, ExpenseCategory, ExpenseRow, ExpensesResponse } from './cashbox.models';
 import { ExpensesService } from './expenses.service';
 import { PaymentBoxSelectComponent } from './payment-box-select.component';
@@ -26,12 +27,14 @@ const thisMonth = () => {
 @Component({
   selector: 'app-expenses-page',
   standalone: true,
-  imports: [DatePipe, FormsModule, TranslatePipe, Dialog, NotaCanDirective, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, PaymentBoxSelectComponent],
+  imports: [NotaLockBannerComponent, NotaLockedDateDirective, DatePipe, FormsModule, TranslatePipe, Dialog, NotaCanDirective, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, PaymentBoxSelectComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './expenses-page.component.html',
   styleUrl: './expenses-page.component.scss',
 })
 export class ExpensesPageComponent implements OnInit {
+  /** Stage 22: a date inside a closed period cannot be submitted (the banner explains, the server refuses too). */
+  private readonly lock = inject(LockDateService);
   private readonly expenses = inject(ExpensesService);
   private readonly language = inject(LanguageService);
   protected readonly payment = inject(PaymentBoxService);
@@ -74,7 +77,7 @@ export class ExpensesPageComponent implements OnInit {
 
   readonly activeCategories = computed(() => this.categories().filter((category) => category.isActive));
   readonly maxCategory = computed(() => Math.max(1, ...(this.data()?.previous.byCategory ?? []).map((row) => row.total)));
-  readonly canSave = computed(() => Boolean(this.category()) && (this.amount() ?? 0) > 0 && !this.saving() && !this.payment.needsShift() && !(this.vatContext() && this.vatInvalid()));
+  readonly canSave = computed(() => Boolean(this.category()) && (this.amount() ?? 0) > 0 && !this.saving() && !this.payment.needsShift() && !(this.vatContext() && this.vatInvalid()) && !this.lock.isLocked(this.date()));
 
   ngOnInit(): void {
     // Stage 21 review: another PC may have changed the VAT settings since this one signed in.

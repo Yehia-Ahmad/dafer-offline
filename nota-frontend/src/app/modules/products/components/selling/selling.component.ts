@@ -1,3 +1,4 @@
+import { LockDateService } from '../../../../core/accounting-lock/lock-date.service';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectorRef,
@@ -21,14 +22,7 @@ import { CartRescueService } from '../../../../core/auth/cart-rescue.service';
 import { isOverDiscountLimit } from '../../../../core/auth/discount-limit';
 import { ToastService } from '../../../../core/auth/toast.service';
 import { UnsavedWorkService } from '../../../../core/unsaved-work/unsaved-work.service';
-import {
-  NotaButtonDirective,
-  NotaDialogShellComponent,
-  NotaFormFieldComponent,
-  NotaMoneyPipe,
-  NotaNumberPipe,
-  NotaPageHeaderComponent
-} from '../../../shared/ui';
+import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, NotaLockBannerComponent } from '../../../shared/ui';
 import {
   FormArray,
   FormBuilder,
@@ -134,7 +128,7 @@ type InvoiceItemState = {
 @Component({
   selector: 'app-selling',
   standalone: true,
-  imports: [LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
+  imports: [NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
@@ -156,6 +150,8 @@ type InvoiceItemState = {
   encapsulation: ViewEncapsulation.None
 })
 export class SellingComponent implements OnInit, OnDestroy {
+  /** Stage 22: locked days are disabled in the date picker. */
+  protected readonly lock = inject(LockDateService);
   private isBrowser: boolean;
   /** Category chips: the list the sidebar already loads (no extra request). */
   readonly categories = inject(CatalogStateService).categories;

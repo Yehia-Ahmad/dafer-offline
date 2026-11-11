@@ -6,6 +6,7 @@ const { postEntry, line, accountMap, boxAccount } = require("../accounting/posti
 const { nextDocumentNumber, PREFIXES } = require("../utils/documentNumber");
 const { roundMoney } = require("../utils/invoicePricing");
 const { withTransaction } = require("../utils/transaction");
+const { assertOpenDate } = require("../accounting/period");
 const { audit } = require("../auth/audit");
 const boxes = require("../cashbox/boxes");
 const { loadCustomerOpenItems, sortForCollection } = require("../services/customerOpenItems.service");
@@ -49,6 +50,7 @@ const createPayout = async (req, res) => {
   const note = optionalText(body.note, 500);
   const date = optionalDate(body.date);
   const result = await withTransaction(async (session) => {
+    await assertOpenDate(date, { session }); // Stage 22: the period lock, before anything else is checked
     const customer = await loadCustomer(req.params.id, session);
     await touchCustomer(customer, session);
     const { credit } = await customerCreditOf(customer._id, { session });

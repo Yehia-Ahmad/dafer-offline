@@ -9,7 +9,7 @@ import { NotaBalancePipe } from '../shared/ui';
 @Component({ selector: 'app-account-ledger', standalone: true, imports: [CommonModule, FormsModule, RouterLink, TranslateModule, NotaBalancePipe], templateUrl: './ledger.component.html', styleUrl: './ledger.component.scss' })
 export class LedgerComponent {
   private http = inject(HttpClient); private route = inject(ActivatedRoute); private translate = inject(TranslateService); private cdr = inject(ChangeDetectorRef); account: any; parties: any[] = []; lines: any[] = []; openingBalance = 0; balance = 0; side: 'debit' | 'credit' = 'debit'; absBalance = 0; openingSide: 'debit' | 'credit' = 'debit'; openingAbs = 0; from = ''; to = ''; partyId = ''; loading = true;
-  ngOnInit(): void { this.partyId = this.route.snapshot.queryParamMap.get('partyId') || ''; this.load(); }
+  ngOnInit(): void { const query = this.route.snapshot.queryParamMap; this.partyId = query.get('partyId') || ''; this.from = query.get('from') || this.from; this.to = query.get('to') || this.to; this.load(); }
   get accountName(): string { return (this.translate.currentLang || this.translate.defaultLang) === 'en' ? this.account?.nameEn : this.account?.nameAr; }
   /** The ledger shows every balance on the account's normal side rule: a positive number labelled debit / credit. */
   shown(source: any) { return { ...source, normalSide: this.account?.normalSide }; }

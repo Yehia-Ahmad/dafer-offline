@@ -25,6 +25,8 @@ export interface AuthResult {
   permissions: string[];
   /** setup-owner and recover only; shown once. */
   recoveryCode?: string;
+  /** Stage 22: the last closed business day (YYYY-MM-DD), present only while a period is closed (login, /me and refresh). */
+  lockedThrough?: string;
 }
 
 export interface BootstrapInfo {

@@ -12,6 +12,15 @@ export interface VatSettings {
 
 export const DEFAULT_VAT: VatSettings = { enabled: false, rate: 14, pricesIncludeVat: true, startDate: null };
 
+/** Stage 22: the period-closing settings (owner). Absent from the response until they were ever saved (= monthly, fiscal year from January). */
+export interface ClosingSettings {
+  frequency: 'monthly' | 'yearly';
+  /** 1-12: the month the fiscal year starts in. */
+  fiscalYearStartMonth: number;
+}
+
+export const DEFAULT_CLOSING: ClosingSettings = { frequency: 'monthly', fiscalYearStartMonth: 1 };
+
 export interface ShopProfile {
   name: string;
   address: string;
@@ -24,6 +33,8 @@ export interface ShopProfile {
   autoLockMinutes?: number;
   /** Stage 21 (absent until VAT settings were saved). */
   vat?: VatSettings;
+  /** Stage 22 (absent until the closing settings were saved). */
+  closing?: ClosingSettings;
 }
 
 /** The PUT body: the `vat` block is only sent once VAT is in use or the card was touched, so a shop without VAT sends what it always sent. */

@@ -8,6 +8,7 @@ const Supplier = require("../models/supplier.model");
 const { nextDocumentNumber, PREFIXES } = require("../utils/documentNumber");
 const { roundMoney } = require("../utils/invoicePricing");
 const { computeCustomerStatement } = require("../services/customerStatement.service");
+const { assertOpenDate } = require("./period");
 
 const ACCOUNT_DEFINITIONS = [
   ["1", "الأصول", "Assets", "asset", "debit", null, true, null], ["11", "أصول متداولة", "Current assets", "asset", "debit", "1", true, null],
@@ -103,7 +104,7 @@ const isLedgerDocument = (doc, ledgerStartAt) =>
  * Posts one journal entry. Returns null when every line is zero (a document
  * with nothing to post), so callers never need to special-case free invoices.
  */
-const postEntry = async ({ date, type = "auto", source, lines, memo = "", session, createdBy = null, createdByName = null, number: suppliedNumber = null, reversalOf = null }) => {
+const postEntry = async ({ date, type = "auto", source, lines, memo = "", session, createdBy = null, createdByName = null, number: suppliedNumber = null, reversalOf = null, allowLocked = false }) => {
   if (!session) throw new Error("Accounting entries require a transaction session");
   if (!source?.type || !source.id || !Array.isArray(lines)) throw new Error("Invalid journal source or lines");
   for (const row of lines) {
@@ -114,6 +115,8 @@ const postEntry = async ({ date, type = "auto", source, lines, memo = "", sessio
     .filter((row) => row.debit > 0 || row.credit > 0);
   if (clean.length === 0) return null;
   if (clean.length < 2) throw new Error("A journal entry needs at least two non-zero lines");
+  // Stage 22: the period lock, the safety net behind every posting path (only a close/reopen closing entry passes allowLocked).
+  if (!allowLocked) await assertOpenDate(date, { session });
   for (const row of clean) {
     if ((row.debit > 0) === (row.credit > 0)) throw new Error("Journal line must have exactly one side");
     if (row.partyId && !row.partyType) throw new Error("Party type is required when a party is set");
@@ -212,14 +215,14 @@ const netLines = (signedRows) => {
  * options.redirect = { from: Set<accountId string>, to: account }: lines on one of the `from` accounts are
  * reversed on the `to` account instead (Stage 19: see reverseAllFor).
  */
-const reverseEntry = async (id, { date, memo, session, redirect = null }) => {
+const reverseEntry = async (id, { date, memo, session, redirect = null, allowLocked = false }) => {
   const original = await JournalEntry.findById(id).session(session);
   if (!original) return null;
   const existing = await JournalEntry.findOne({ reversalOf: original._id }).session(session)
     || (original.reversedBy ? await JournalEntry.findById(original.reversedBy).session(session) : null);
   if (existing) return existing;
   const reversed = await postEntry({
-    date, type: "reversal", source: original.source, memo, session, reversalOf: original._id,
+    date, type: "reversal", source: original.source, memo, session, reversalOf: original._id, allowLocked,
     lines: original.lines.map((row) => {
       const reversed = { ...(row.toObject?.() || row), debit: row.credit, credit: row.debit };
       if (redirect && redirect.from.has(String(row.accountId))) {

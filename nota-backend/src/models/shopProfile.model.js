@@ -90,6 +90,11 @@ const shopProfileSchema = new mongoose.Schema(
       enum: { values: AUTO_LOCK_MINUTES, message: "مدة القفل التلقائي غير صالحة" },
       default: DEFAULT_AUTO_LOCK_MINUTES,
     },
+    // Stage 22: period closing settings (owner). Additive: absent from GET until saved.
+    closing: {
+      frequency: { type: String, enum: ["monthly", "yearly"], default: "monthly" },
+      fiscalYearStartMonth: { type: Number, min: 1, max: 12, default: 1 },
+    },
     // Stage 21: optional VAT. `startDate` is set each time VAT is turned on (documents dated before it are untouched).
     vat: {
       enabled: { type: Boolean, default: false },

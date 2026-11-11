@@ -1,8 +1,9 @@
+import { LockDateService } from '../../core/accounting-lock/lock-date.service';
 import { ChangeDetectionStrategy, Component, computed, inject, input, model, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Dialog } from 'primeng/dialog';
-import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe } from '../shared/ui';
+import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaLockBannerComponent, NotaLockedDateDirective } from '../shared/ui';
 import { CashboxService, TransferPayload } from './cashbox.service';
 import { CashBox, TransferRow } from './cashbox.models';
 import { localDateKey } from '../../core/utilities/local-date';
@@ -13,7 +14,7 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
 @Component({
   selector: 'app-transfer-dialog',
   standalone: true,
-  imports: [FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe],
+  imports: [NotaLockBannerComponent, NotaLockedDateDirective, FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <p-dialog [visible]="visible()" (visibleChange)="visible.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
@@ -53,7 +54,8 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
         </nota-form-field>
         <div class="td__grid">
           <nota-form-field [label]="'cashbox.transfer.date' | translate" forId="trDate">
-            <input id="trDate" class="nota-input nota-num" type="date" name="date" data-test="transfer-date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+            <input id="trDate" class="nota-input nota-num" type="date" notaLockedDate name="date" data-test="transfer-date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+      <nota-lock-banner [selected]="date()" />
           </nota-form-field>
           <nota-form-field [label]="'cashbox.transfer.note' | translate" forId="trNote">
             <input id="trNote" class="nota-input" type="text" name="note" data-test="transfer-note" [ngModel]="note()" (ngModelChange)="note.set($event)" />
@@ -79,6 +81,8 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
   `,
 })
 export class TransferDialogComponent {
+  /** Stage 22: a date inside a closed period cannot be submitted (the banner explains, the server refuses too). */
+  private readonly lock = inject(LockDateService);
   private readonly cashbox = inject(CashboxService);
 
   readonly visible = model(false);
@@ -101,7 +105,7 @@ export class TransferDialogComponent {
   readonly toAfter = computed(() => round2((this.to()?.balance ?? 0) + this.amountValue()));
   readonly insufficient = computed(() => Boolean(this.from()) && this.amountValue() > (this.from()?.balance ?? 0));
   readonly sameBox = computed(() => Boolean(this.fromId()) && this.fromId() === this.toId());
-  readonly valid = computed(() => Boolean(this.from() && this.to()) && !this.sameBox() && this.amountValue() > 0 && !this.insufficient());
+  readonly valid = computed(() => Boolean(this.from() && this.to()) && !this.sameBox() && this.amountValue() > 0 && !this.insufficient() && !this.lock.isLocked(this.date()));
 
   cancel(): void {
     this.visible.set(false);

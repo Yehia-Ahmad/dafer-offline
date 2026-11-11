@@ -123,7 +123,7 @@
                 @for (row of statement.rows; track $index) {
                   <tr>
                     <td class="nota-num">{{ formatDate(row.date) }}</td>
-                    <td>{{ row.description || row.detail }}</td>
+                    <td>{{ row.description }}@if (row.detail) { <small class="cd__memo"> · {{ row.detail }}</small> }</td>
                     <td class="nota-num" dir="ltr">{{ row.number || '—' }}</td>
                     <td class="num">{{ row.debit ? (row.debit | notaMoney) : '—' }}</td>
                     <td class="num cd__in">{{ row.credit ? (row.credit | notaMoney) : '—' }}</td>
@@ -325,7 +325,8 @@
         <p-inputNumber inputId="cdPayAmount" formControlName="amount" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cd__control" inputStyleClass="cd__num-input" />
       </nota-form-field>
       <nota-form-field [label]="'customerDetailsPage.paymentDialog.paymentDate' | translate" forId="cdPayDate" [required]="true">
-        <p-datepicker inputId="cdPayDate" formControlName="paymentDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" styleClass="cd__control" />
+        <p-datepicker inputId="cdPayDate" formControlName="paymentDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" styleClass="cd__control" [minDate]="lock.minOpenDate()" />
+        <nota-lock-banner />
       </nota-form-field>
       <nota-form-field [label]="'customerDetailsPage.paymentDialog.note' | translate" forId="cdPayNote">
         <input id="cdPayNote" type="text" class="nota-input" formControlName="note" [placeholder]="'customerDetailsPage.paymentDialog.notePlaceholder' | translate" />
@@ -389,7 +390,8 @@
     <form [formGroup]="refundForm" class="cd__form" (ngSubmit)="saveRefund()" novalidate>
       <div class="cd__form-row">
         <nota-form-field [label]="'customerDetailsPage.refundDialog.refundDate' | translate" forId="cdRefundDate" [required]="true">
-          <p-datepicker inputId="cdRefundDate" formControlName="refundDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" styleClass="cd__control" />
+          <p-datepicker inputId="cdRefundDate" formControlName="refundDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" styleClass="cd__control" [minDate]="lock.minOpenDate()" />
+          <nota-lock-banner />
         </nota-form-field>
         <nota-form-field [label]="'customerDetailsPage.refundDialog.note' | translate" forId="cdRefundNote">
           <input id="cdRefundNote" type="text" class="nota-input" formControlName="note" [placeholder]="'customerDetailsPage.refundDialog.notePlaceholder' | translate" />

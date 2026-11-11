@@ -106,6 +106,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { key: 'opening', labelKey: 'nav.items.opening', route: '/accounting/opening', icon: NAV_ICONS.shop, visible: allowed(ROUTE_RULES.accountingOpening) },
       { key: 'journal', labelKey: 'nav.items.journal', route: '/accounting/journal', icon: NAV_ICONS.reports, visible: allowed(ROUTE_RULES.accounting) },
       { key: 'vat', labelKey: 'nav.items.vat', route: '/accounting/vat', icon: NAV_ICONS.reports, visible: allowed(ROUTE_RULES.vat) },
+      { key: 'reports', labelKey: 'nav.items.reports', route: '/accounting/reports', icon: NAV_ICONS.reports, visible: allowed(ROUTE_RULES.financialReports) },
+      { key: 'closing', labelKey: 'closing.navLabel', route: '/accounting/closing', icon: NAV_ICONS.audit, visible: allowed(ROUTE_RULES.closing) },
       { key: 'profit', labelKey: 'nav.items.profit', route: '/products/profit-report', icon: NAV_ICONS.profit, visible: allowed(ROUTE_RULES.profitReport) },
     ],
   },

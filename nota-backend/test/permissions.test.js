@@ -42,6 +42,8 @@ const EXPECTED_CATALOG = [
   "cashbox.view", "cashbox.manage", "shift.operate", "shift.manage", "expenses.create", "expenses.manage", "owner.drawings",
   // Stage 21
   "vat.file",
+  // Stage 22
+  "reports.financial", "accounting.close",
 ];
 
 test("catalog: exactly the Stage 13 keys, each with an Arabic and English label and a group", () => {
@@ -55,7 +57,7 @@ test("catalog: exactly the Stage 13 keys, each with an Arabic and English label 
 test("role templates match the spec", () => {
   const sorted = (list) => [...list].sort();
   assert.deepEqual(sorted(ROLE_TEMPLATES.owner), sorted(EXPECTED_CATALOG));
-  assert.deepEqual(sorted(ROLE_TEMPLATES.manager), sorted(EXPECTED_CATALOG.filter((k) => !["users.manage", "backup.manage", "accounting.manage", "owner.drawings"].includes(k))));
+  assert.deepEqual(sorted(ROLE_TEMPLATES.manager), sorted(EXPECTED_CATALOG.filter((k) => !["users.manage", "backup.manage", "accounting.manage", "accounting.close", "owner.drawings"].includes(k))));
   assert.deepEqual(sorted(ROLE_TEMPLATES.cashier), sorted([
     "sales.create", "sales.view", "credit.create", "credit.view", "credit.collect",
     "returns.create", "customers.view", "products.view", "dashboard.view",
@@ -68,7 +70,7 @@ test("role templates match the spec", () => {
   assert.deepEqual(sorted(ROLE_TEMPLATES.accountant), sorted([
     "sales.view", "credit.view", "returns.view", "customers.view", "products.view", "dashboard.view",
     "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view",
-    "purchases.view", "suppliers.pay", "cashbox.view", "expenses.create", "expenses.manage", "vat.file",
+    "purchases.view", "suppliers.pay", "cashbox.view", "expenses.create", "expenses.manage", "vat.file", "reports.financial",
   ]));
   assert.deepEqual(permissionsForRole("custom"), []);
 });
@@ -113,6 +115,31 @@ const EXPECTED_ROUTES = {
   "GET /api/accounting/opening": "accounting.view",
   "POST /api/accounting/opening": "accounting.manage",
   "POST /api/accounting/opening/finalize": "accounting.manage",
+  // Stage 22
+  "GET /api/accounting/accounts/next-code": "accounting.manage",
+  "POST /api/accounting/accounts": "accounting.manage",
+  "GET /api/accounting/accounts/:id/usage": "accounting.manage",
+  "PUT /api/accounting/accounts/:id": "accounting.manage",
+  "POST /api/accounting/accounts/:id/deactivate": "accounting.manage",
+  "POST /api/accounting/accounts/:id/reactivate": "accounting.manage",
+  "DELETE /api/accounting/accounts/:id": "accounting.manage",
+  "GET /api/accounting/manual-entries/accounts": "accounting.manage",
+  "GET /api/accounting/manual-entries": "accounting.manage",
+  "POST /api/accounting/manual-entries": "accounting.manage",
+  "GET /api/accounting/manual-entries/:id": "accounting.manage",
+  "PUT /api/accounting/manual-entries/:id": "accounting.manage",
+  "DELETE /api/accounting/manual-entries/:id": "accounting.manage",
+  "POST /api/accounting/manual-entries/:id/post": "accounting.manage",
+  "POST /api/accounting/manual-entries/:id/reverse": "accounting.manage",
+  "GET /api/accounting/lock-date": "AUTHENTICATED",
+  "GET /api/accounting/closing": "accounting.view",
+  "POST /api/accounting/closing/close": "accounting.close",
+  "POST /api/accounting/closing/reopen": "accounting.close",
+  "GET /api/reports/income-statement": "reports.financial",
+  "GET /api/reports/balance-sheet": "reports.financial",
+  "GET /api/reports/trial-balance": "reports.financial",
+  "GET /api/reports/box-movements": "reports.financial",
+  "GET /api/reports/party-balances": "reports.financial",
   "GET /api/categories": "products.view",
   "POST /api/categories": "categories.manage",
   "GET /api/categories/export": "products.importExport + products.viewCost",

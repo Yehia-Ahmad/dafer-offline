@@ -5,6 +5,15 @@ const metaSchema = new mongoose.Schema({
   version: { type: Number, required: true, min: 0, default: 0 },
   migrationProgress: { type: mongoose.Schema.Types.Mixed, default: undefined },
   ledgerStartAt: { type: Date, default: undefined },
+  // Stage 22: period closing. lockedThrough = the last closed business day (a UTC-midnight date); nothing may post on or before it.
+  // touchedAt is written by back-dated postings so a concurrent close conflicts with them and one retries.
+  closing: {
+    type: new mongoose.Schema({
+      lockedThrough: { type: Date, default: undefined },
+      touchedAt: { type: Date, default: undefined },
+    }, { _id: false }),
+    default: undefined,
+  },
   // Stage 18: the opening-balance wizard. Absent = still "setup" (nothing saved yet).
   opening: {
     type: new mongoose.Schema({

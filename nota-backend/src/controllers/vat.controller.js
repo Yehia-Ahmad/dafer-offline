@@ -8,6 +8,7 @@ const { loadVatSettings, lastFiledPeriod, touchVatLock, today } = require("../ac
 const { monthOf, nextMonth, round2 } = require("../utils/vat");
 const { nextDocumentNumber, PREFIXES } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
+const { assertOpenDate } = require("../accounting/period");
 const { audit } = require("../auth/audit");
 const boxes = require("../cashbox/boxes");
 const { positiveAmount, optionalDate, optionalText, requiredReason } = require("../cashbox/validate");
@@ -205,6 +206,7 @@ const payReturn = async (req, res) => {
   const reference = optionalText(body.reference, 100, "المرجع");
   const note = optionalText(body.note, 500);
   const payment = await withTransaction(async (session) => {
+    await assertOpenDate(date, { session }); // Stage 22: the period lock, before anything else is checked
     const vatReturn = await VatReturn.findOne({ period, status: "filed" }).session(session);
     if (!vatReturn) throw httpError(409, "NOT_FILED", "الإقرار لسه ما اتقدمش");
     // The return is written first, so two payments (or a payment and an unfiling) conflict and one retries on fresh numbers.

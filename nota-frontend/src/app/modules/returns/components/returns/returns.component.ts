@@ -1,3 +1,4 @@
+import { LockDateService } from '../../../../core/accounting-lock/lock-date.service';
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -23,14 +24,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { ProductsService } from '../../../products/services/products.service';
 import { CreditSalesService } from '../../../products/services/credit-sales.service';
 import { toCreditSaleView } from '../../../customer/utils/credit-sale-view.util';
-import {
-  NotaButtonDirective,
-  NotaDialogShellComponent,
-  NotaFormFieldComponent,
-  NotaMoneyPipe,
-  NotaNumberPipe,
-  NotaPageHeaderComponent
-} from '../../../shared/ui';
+import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, NotaLockBannerComponent } from '../../../shared/ui';
 import {
   ApiDataResponse,
   ReturnLog,
@@ -137,7 +131,7 @@ class ReturnsPaginatorIntl extends MatPaginatorIntl {
 @Component({
   selector: 'app-returns',
   standalone: true,
-  imports: [NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
+  imports: [NotaLockBannerComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
     CommonModule,
     TranslatePipe,
     ReactiveFormsModule,
@@ -160,6 +154,8 @@ class ReturnsPaginatorIntl extends MatPaginatorIntl {
   providers: [{ provide: MatPaginatorIntl, useClass: ReturnsPaginatorIntl }]
 })
 export class ReturnsComponent implements OnInit {
+  /** Stage 22: locked days are disabled in the date picker. */
+  protected readonly lock = inject(LockDateService);
   private readonly _auth = inject(AuthService);
   /** Stage 19: the box a cash refund comes out of. */
   readonly payment = inject(PaymentBoxService);

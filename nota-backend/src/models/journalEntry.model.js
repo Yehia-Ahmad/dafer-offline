@@ -17,7 +17,7 @@ const lineSchema = new mongoose.Schema({
 const journalEntrySchema = new mongoose.Schema({
   number: { type: String, required: true, unique: true, index: true },
   date: { type: Date, required: true, index: true },
-  type: { type: String, enum: ["auto", "reversal", "opening", "legacy_reversal"], required: true, index: true },
+  type: { type: String, enum: ["auto", "reversal", "opening", "legacy_reversal", "manual", "closing"], required: true, index: true },
   source: {
     type: { type: String, required: true }, id: { type: mongoose.Schema.Types.ObjectId, required: true }, number: { type: String, default: null },
   },

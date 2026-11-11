@@ -12,6 +12,7 @@ const { buildPaginatedResponse, getPaginationParams } = require("../utils/pagina
 const { canSellBelowCost } = require("../auth/middleware");
 const { PREFIXES, normalizeNumberSearch } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
+const { assertOpenDate } = require("../accounting/period");
 const { postSale, postReceipt, postReturn, postInvoiceEdit, postInvoiceCancel, postEntry, accountMap, line, boxAccount } = require("../accounting/posting");
 const { resolveBox } = require("../cashbox/boxes");
 const { audit } = require("../auth/audit");
@@ -999,6 +1000,7 @@ const createCreditSaleInTransaction = async (req, res, session) => {
     session,
   });
   const normalizedSellingDate = normalizeRequiredDate(req.body.sellingDate, "تاريخ البيع", res);
+  await assertOpenDate(normalizedSellingDate, { session }); // Stage 22: a sale cannot be dated in a closed period
   const normalizedDueDate = normalizeOptionalDate(req.body.dueDate, "تاريخ الاستحقاق", res);
   const normalizedNotes = normalizeOptionalString(req.body.notes, "ملاحظات البيع الآجل", res);
   const items = normalizeCreditSaleItems(req.body, res);
@@ -1277,6 +1279,9 @@ const updateCreditSaleInTransaction = async (req, res, session) => {
     req.body.sellingDate !== undefined
       ? normalizeRequiredDate(req.body.sellingDate, "تاريخ البيع", res)
       : creditSale.sellingDate;
+  // Stage 22: an edit re-posts the sale on its own date, so a document dated in a closed period (or moved into one) cannot be edited.
+  await assertOpenDate(creditSale.sellingDate, { session });
+  await assertOpenDate(normalizedSellingDate, { session });
   const normalizedDueDate =
     req.body.dueDate !== undefined
       ? normalizeOptionalDate(req.body.dueDate, "تاريخ الاستحقاق", res)
@@ -1491,6 +1496,7 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
     req.body.paymentDate !== undefined
       ? normalizeRequiredDate(req.body.paymentDate, "تاريخ الدفعة", res)
       : new Date();
+  await assertOpenDate(paymentDate, { session }); // Stage 22: a receipt is dated by the request (today by default), never into a closed period
   const note = normalizeOptionalString(req.body.note, "ملاحظة الدفعة", res);
 
   const selectedRemainingAmount = roundMoney(Number(creditSale.remainingAmount || 0));
@@ -1653,6 +1659,7 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
     const refundDate = rawRefundDate !== undefined
       ? normalizeRequiredDate(rawRefundDate, "تاريخ المرتجع", res)
       : new Date();
+    await assertOpenDate(refundDate, { session }); // Stage 22: a return is dated by the request (today by default), never into a closed period
     const refundNote = normalizeOptionalString(getFirstDefined(req.body.note, req.body.reason), "ملاحظة المرتجع", res);
     const productIds = [...new Set(refundSelections.map(({ invoiceItem }) => getCreditSaleItemProductId(invoiceItem).toString()))];
     const products = await Product.find({ _id: { $in: productIds } }).session(session);

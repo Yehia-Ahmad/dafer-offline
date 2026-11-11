@@ -63,7 +63,7 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
               @for (line of st.lines; track $index) {
                 <tr [attr.data-line]="line.type">
                   <td class="nota-num">{{ line.date | date: 'yyyy-MM-dd' }}</td>
-                  <td>{{ line.description }}@if (line.reference) { <small> · {{ line.reference }}</small> }</td>
+                  <td>{{ line.description }}@if (line.reference) { <small> · {{ line.reference }}</small> }@if (line.memo) { <small data-test="memo"> · {{ line.memo }}</small> }</td>
                   <td dir="ltr" class="ss__doc" data-test="document">{{ document(line) }}</td>
                   <td class="nota-num">{{ line.debit ? (line.debit | notaMoney) : '' }}</td>
                   <td class="nota-num">{{ line.credit ? (line.credit | notaMoney) : '' }}</td>

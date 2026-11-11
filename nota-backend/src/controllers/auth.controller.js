@@ -8,6 +8,14 @@ const { signToken } = require("../auth/jwt");
 const { createLoginLimiter } = require("../auth/loginLimiter");
 const { audit } = require("../auth/audit");
 const { httpError, isLoopback } = require("../auth/middleware");
+const { getLockedThrough, isoDay } = require("../accounting/period");
+
+// Stage 22: the posting forms disable locked dates. The lock date rides on the responses the screen already asks for (login, /me,
+// refresh), only while a period is closed, so nothing else changes and no extra request is needed.
+const lockInfo = async () => {
+  const locked = await getLockedThrough();
+  return locked ? { lockedThrough: isoDay(locked) } : {};
+};
 
 const SHOP_PROFILE_KEY = "default"; // the single ShopProfile document (shopProfile.controller.js)
 
@@ -141,11 +149,11 @@ function createAuthController({ secret, now = () => Date.now() } = {}) {
     user.lastLoginAt = new Date(now());
     await user.save();
     await audit(req, { action: "auth.login", entity: "User", entityId: user._id, user });
-    res.json({ user: presentUser(user), token: issue(user), permissions: effectivePermissions(user) });
+    res.json({ user: presentUser(user), token: issue(user), permissions: effectivePermissions(user), ...(await lockInfo()) });
   });
 
   const me = asyncHandler(async (req, res) => {
-    res.json({ user: presentUser(req.user), permissions: effectivePermissions(req.user) });
+    res.json({ user: presentUser(req.user), permissions: effectivePermissions(req.user), ...(await lockInfo()) });
   });
 
   const changePassword = asyncHandler(async (req, res) => {
@@ -187,7 +195,7 @@ function createAuthController({ secret, now = () => Date.now() } = {}) {
   // Stage 15: a new 12-hour token for the same user and tokenVersion. requireAuth already refused
   // an expired, wrongly signed or outdated (old tokenVersion, disabled user) token.
   const refresh = asyncHandler(async (req, res) => {
-    res.json({ user: presentUser(req.user), token: issue(req.user), permissions: effectivePermissions(req.user) });
+    res.json({ user: presentUser(req.user), token: issue(req.user), permissions: effectivePermissions(req.user), ...(await lockInfo()) });
   });
 
   const recover = asyncHandler(async (req, res) => {

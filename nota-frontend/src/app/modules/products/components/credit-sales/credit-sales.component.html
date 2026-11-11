@@ -43,7 +43,8 @@
 
         <nota-form-field [label]="'creditSalePage.fields.saleDate' | translate" forId="creditSaleDate" [required]="true">
           <p-datepicker formControlName="sellingDate" [showIcon]="true" [iconDisplay]="'input'" inputId="creditSaleDate"
-            appendTo="body" styleClass="cs__control" />
+            appendTo="body" styleClass="cs__control" [minDate]="lock.minOpenDate()" />
+          <nota-lock-banner />
         </nota-form-field>
       </div>
     </section>

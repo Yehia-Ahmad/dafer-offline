@@ -7,6 +7,7 @@ import { AuthResult, AuthUser, BootstrapInfo, PermissionCatalog } from './auth.m
 import { LANDING_ORDER, NO_ACCESS_PATH, RouteRule, ruleAllows } from './route-permissions';
 import { readStoredToken, writeStoredToken } from './session-storage';
 import { LockStateService } from './lock-state.service';
+import { LockDateService } from '../accounting-lock/lock-date.service';
 
 /**
  * Requests whose errors the screen shows itself (login, first run, recover, change password):
@@ -23,6 +24,7 @@ const ownErrors = () => ({ context: new HttpContext().set(HANDLES_OWN_ERRORS, tr
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly lockState = inject(LockStateService);
+  private readonly lockDate = inject(LockDateService);
 
   readonly token = signal<string | null>(readStoredToken());
   readonly user = signal<AuthUser | null>(null);
@@ -109,9 +111,10 @@ export class AuthService {
     return this.http.post<AuthResult>(`${this.base}refresh`, {}, ownErrors()).pipe(tap((result) => this.apply(result)));
   }
 
-  refreshMe(): Observable<{ user: AuthUser; permissions: string[] }> {
-    return this.http.get<{ user: AuthUser; permissions: string[] }>(`${this.base}me`, ownErrors()).pipe(
+  refreshMe(): Observable<{ user: AuthUser; permissions: string[]; lockedThrough?: string }> {
+    return this.http.get<{ user: AuthUser; permissions: string[]; lockedThrough?: string }>(`${this.base}me`, ownErrors()).pipe(
       tap((result) => {
+        this.lockDate.set(result.lockedThrough);
         this.user.set(result.user);
         this.permissions.set(result.permissions ?? result.user.permissions ?? []);
       })
@@ -133,10 +136,12 @@ export class AuthService {
     this.token.set(null);
     this.user.set(null);
     this.permissions.set([]);
+    this.lockDate.set(null);
     writeStoredToken(null);
   }
 
   private apply(result: AuthResult): void {
+    this.lockDate.set(result.lockedThrough);
     this.token.set(result.token);
     this.user.set(result.user);
     this.permissions.set(result.permissions ?? result.user.permissions ?? []);

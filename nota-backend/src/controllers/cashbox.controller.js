@@ -9,6 +9,7 @@ const { postEntry, line, accountMap } = require("../accounting/posting");
 const { nextDocumentNumber, PREFIXES } = require("../utils/documentNumber");
 const { roundMoney } = require("../utils/invoicePricing");
 const { withTransaction } = require("../utils/transaction");
+const { assertOpenDate } = require("../accounting/period");
 const { audit } = require("../auth/audit");
 const { hasPermission } = require("../auth/permissions");
 const accountingController = require("./accounting.controller");
@@ -295,6 +296,7 @@ const createTransfer = async (req, res) => {
   const date = optionalDate(body.date);
   const note = optionalText(body.note, 500);
   const transfer = await withTransaction(async (session) => {
+    await assertOpenDate(date, { session }); // Stage 22: the period lock, before anything else is checked
     await boxes.ensureMainBox(session);
     const from = await loadActiveBox(body.fromBoxId, "الخزنة المحوّل منها", session);
     const to = await loadActiveBox(body.toBoxId, "الخزنة المحوّل إليها", session);
@@ -359,6 +361,7 @@ const createDrawing = async (req, res) => {
   const date = optionalDate(body.date);
   const note = optionalText(body.note, 500);
   const drawing = await withTransaction(async (session) => {
+    await assertOpenDate(date, { session }); // Stage 22: the period lock, before anything else is checked
     const box = await boxes.resolveBox({ req, boxId: body.boxId, session, direction: "out", alsoAllow: ["owner.drawings"], oneBoxAllowed: false });
     await boxes.lockBoxes([box._id], session);
     const balance = await boxes.boxBalance(box, session);

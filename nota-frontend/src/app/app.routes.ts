@@ -113,6 +113,29 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/accounting/vat-returns.component').then(m => m.VatReturnsComponent)
     },
     {
+        // Stage 22: the financial reports.
+        path: 'accounting/reports',
+        canActivate: [permissionGuard(ROUTE_RULES.financialReports)],
+        loadComponent: () => import('./modules/accounting/reports/financial-reports.component').then(m => m.FinancialReportsComponent)
+    },
+    {
+        // Stage 22: a manual journal entry (new, a draft, or a posted one).
+        path: 'accounting/manual-entry',
+        canActivate: [permissionGuard(ROUTE_RULES.manualEntry)],
+        loadComponent: () => import('./modules/accounting/manual-entry/manual-entry.component').then(m => m.ManualEntryComponent)
+    },
+    {
+        path: 'accounting/manual-entry/:id',
+        canActivate: [permissionGuard(ROUTE_RULES.manualEntry)],
+        loadComponent: () => import('./modules/accounting/manual-entry/manual-entry.component').then(m => m.ManualEntryComponent)
+    },
+    {
+        // Stage 22: closing accounting periods.
+        path: 'accounting/closing',
+        canActivate: [permissionGuard(ROUTE_RULES.closing)],
+        loadComponent: () => import('./modules/accounting/closing/closing.component').then(m => m.ClosingComponent)
+    },
+    {
         path: 'suppliers',
         canActivate: [permissionGuard(ROUTE_RULES.suppliers)],
         loadComponent: () => import('./modules/suppliers/suppliers-page.component').then(m => m.SuppliersPageComponent)

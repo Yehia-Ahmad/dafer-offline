@@ -129,6 +129,23 @@
           }
         </section>
 
+        @if (isOwner()) {
+          <section class="sp__closing" data-test="closing-card" aria-labelledby="sp-closing-title">
+            <h2 id="sp-closing-title" class="nota-section-title sp__security-title">{{ 'closing.settings.title' | translate }}</h2>
+            <p class="nota-hint">{{ 'closing.settings.hint' | translate }}</p>
+            <fieldset class="sp__vat-mode">
+              <legend>{{ 'closing.settings.frequency' | translate }}</legend>
+              <label class="sp__check"><input type="radio" value="monthly" formControlName="closingFrequency" data-field="closing-monthly" /> {{ 'closing.frequency.monthly' | translate }}</label>
+              <label class="sp__check"><input type="radio" value="yearly" formControlName="closingFrequency" data-field="closing-yearly" /> {{ 'closing.frequency.yearly' | translate }}</label>
+            </fieldset>
+            <nota-form-field [label]="'closing.settings.startMonth' | translate" forId="sp-closing-month" [hint]="'closing.settings.startMonthHint' | translate">
+              <select id="sp-closing-month" class="nota-select" formControlName="closingStartMonth" data-field="closing-month">
+                @for (month of months; track month) { <option [ngValue]="month">{{ month }}</option> }
+              </select>
+            </nota-form-field>
+          </section>
+        }
+
         <div class="sp__footer">
           @if (outcome(); as result) {
             <span class="sp__status" role="status" [class.is-error]="result.kind === 'error'">

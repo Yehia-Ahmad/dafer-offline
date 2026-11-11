@@ -12,6 +12,7 @@ const { canSellBelowCost } = require("../auth/middleware");
 const { actorFields } = require("../utils/actorFields");
 const { PREFIXES, nextDocumentNumber, normalizeNumberSearch } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
+const { assertOpenDate } = require("../accounting/period");
 const { postSale, postReturn, postInventoryAdjustment, postInvoiceEdit, postInvoiceCancel } = require("../accounting/posting");
 const { resolveBox, usableBoxOf } = require("../cashbox/boxes");
 const { priceNewInvoice, repriceEditedInvoice, recordVatEvent, periodFor, today, assertExpectedAmount } = require("../accounting/vat");
@@ -730,6 +731,7 @@ const createSellingInvoice = async ({ body, res, allowBelowCost = false, session
   const normalizedCustomerName = normalizeRequiredString(customerName, "اسم العميل", res);
   const normalizedCustomerPhone = normalizeRequiredString(customerPhone, "رقم هاتف العميل", res);
   const normalizedSellingDate = normalizeSellingDate(body.sellingDate, res);
+  await assertOpenDate(normalizedSellingDate, { session }); // Stage 22: a sale cannot be dated in a closed period
   const items = normalizeSellingItems(body, res);
   const invoicePricing = resolveInvoicePricing(body, {}, res);
 
@@ -960,6 +962,9 @@ const updateSellingInTransaction = async (req, res, session) => {
     req.body.sellingDate !== undefined
       ? normalizeSellingDate(req.body.sellingDate, res)
       : selling.sellingDate;
+  // Stage 22: an edit re-posts the sale on its own date, so a document dated in a closed period (or moved into one) cannot be edited.
+  await assertOpenDate(selling.sellingDate, { session });
+  await assertOpenDate(normalizedSellingDate, { session });
   const invoicePricing = resolveInvoicePricing(req.body, selling, res);
 
   const shouldUpdateItems = hasLineItemChanges(req.body);
@@ -1147,6 +1152,7 @@ const addSellingRefund = asyncHandler(async (req, res) => {
 
     const selections = normalizeRefundSelections(selling, req.body, res);
     const refundDate = new Date(req.body.returnDate ?? req.body.refundDate ?? Date.now());
+    await assertOpenDate(refundDate, { session }); // Stage 22: a return is dated by the request (today by default), never into a closed period
     if (Number.isNaN(refundDate.getTime())) { res.status(400); throw new Error("تنسيق تاريخ المرتجع غير صالح"); }
     const note = req.body.note;
     if (note !== undefined && (typeof note !== "string" || note.trim().length > 1000)) { res.status(400); throw new Error("ملاحظة المرتجع غير صالحة"); }

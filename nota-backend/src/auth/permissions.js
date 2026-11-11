@@ -47,6 +47,9 @@ const PERMISSIONS = {
   "backup.manage": { group: "admin", ar: "النسخ الاحتياطي والاستعادة", en: "Backup and restore" },
   "accounting.view": { group: "accounting", ar: "عرض الحسابات", en: "View accounting" },
   "accounting.manage": { group: "accounting", ar: "إدارة الحسابات", en: "Manage accounting" },
+  // Stage 22: financial reports (read-only), closing and reopening accounting periods.
+  "reports.financial": { group: "accounting", ar: "التقارير المالية", en: "Financial reports" },
+  "accounting.close": { group: "accounting", ar: "إقفال الفترات المحاسبية", en: "Close accounting periods" },
   // Stage 21: prepare/file/pay/unfile the monthly VAT return.
   "vat.file": { group: "accounting", ar: "تقديم الإقرار الضريبي وسداد الضريبة", en: "File the VAT return and pay VAT" },
 
@@ -85,6 +88,8 @@ const PERMISSION_DEPENDENCIES = Object.freeze({
   "purchases.view": Object.freeze(["products.viewCost"]),
   "purchases.create": Object.freeze(["products.viewCost"]),
   "purchases.cancel": Object.freeze(["products.viewCost"]),
+  // Stage 22: the financial reports show COGS and inventory.
+  "reports.financial": Object.freeze(["products.viewCost"]),
 });
 
 /** [{ permission, requires: [...] }] for every unmet dependency in `list`. */
@@ -103,7 +108,7 @@ const VIEW_PERMISSIONS = ["sales.view", "credit.view", "returns.view", "customer
 
 const ROLE_TEMPLATES = Object.freeze({
   owner: ALL_PERMISSIONS,
-  manager: Object.freeze(ALL_PERMISSIONS.filter((key) => key !== "users.manage" && key !== "backup.manage" && key !== "accounting.manage" && key !== "owner.drawings")),
+  manager: Object.freeze(ALL_PERMISSIONS.filter((key) => key !== "users.manage" && key !== "backup.manage" && key !== "accounting.manage" && key !== "accounting.close" && key !== "owner.drawings")),
   cashier: Object.freeze([
     "sales.create",
     "sales.view",
@@ -118,7 +123,7 @@ const ROLE_TEMPLATES = Object.freeze({
     "expenses.create",
   ]),
   storekeeper: Object.freeze(["products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view", "purchases.view", "purchases.create"]),
-  accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view", "purchases.view", "suppliers.pay", "cashbox.view", "expenses.create", "expenses.manage", "vat.file"]),
+  accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view", "purchases.view", "suppliers.pay", "cashbox.view", "expenses.create", "expenses.manage", "vat.file", "reports.financial"]),
 });
 
 const ROLE_LABELS = {

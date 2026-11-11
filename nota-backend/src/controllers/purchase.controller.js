@@ -10,6 +10,7 @@ const { nextDocumentNumber, normalizeNumberSearch, PREFIXES } = require("../util
 const { roundMoney } = require("../utils/invoicePricing");
 const { assertPricePrecision } = require("../utils/pricePrecision");
 const { withTransaction } = require("../utils/transaction");
+const { assertOpenDate } = require("../accounting/period");
 const { audit } = require("../auth/audit");
 const boxes = require("../cashbox/boxes");
 const { nonNegativeAmount, positiveAmount, optionalDate, optionalText, requiredReason } = require("../cashbox/validate");
@@ -81,6 +82,7 @@ const createPurchase = async (req, res) => {
   if (vatInput.registered !== undefined && typeof vatInput.registered !== "boolean") throw httpError(400, "INVALID_VAT", "حالة تسجيل المورد ضريبيًا غير صالحة");
 
   const purchase = await withTransaction(async (session) => {
+    await assertOpenDate(date, { session }); // Stage 22: the period lock, before anything else is checked
     const supplier = await Supplier.findById(body.supplierId).session(session);
     if (!supplier) throw httpError(404, "SUPPLIER_NOT_FOUND", "المورد غير موجود");
     if (supplier.isActive === false) throw httpError(409, "SUPPLIER_INACTIVE", "المورد موقوف");
@@ -231,6 +233,7 @@ const createPurchaseReturn = async (req, res) => {
   if (refundAmount > 0 && !can(req, "suppliers.pay")) throw httpError(403, "PAY_NOT_ALLOWED", "استرداد الفلوس من المورد محتاج صلاحية سداد الموردين");
 
   const result = await withTransaction(async (session) => {
+    await assertOpenDate(date, { session }); // Stage 22: the period lock, before anything else is checked
     const purchase = await Purchase.findById(req.params.id).session(session);
     if (!purchase) throw httpError(404, "PURCHASE_NOT_FOUND", "فاتورة الشراء غير موجودة");
     if (purchase.status !== "posted") throw httpError(409, "PURCHASE_CANCELLED", "فاتورة الشراء ملغية");

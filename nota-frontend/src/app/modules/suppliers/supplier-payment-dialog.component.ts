@@ -1,3 +1,4 @@
+import { LockDateService } from '../../core/accounting-lock/lock-date.service';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, model, output, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -6,7 +7,7 @@ import { PaymentBoxSelectComponent } from '../cashbox/payment-box-select.compone
 import { PaymentBoxService } from '../cashbox/payment-box.service';
 import { round2 } from '../purchases/purchase-math';
 import { PurchasesService } from '../purchases/purchases.service';
-import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe } from '../shared/ui';
+import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaLockBannerComponent, NotaLockedDateDirective } from '../shared/ui';
 import { Supplier } from './suppliers.service';
 import { localDateKey } from '../../core/utilities/local-date';
 
@@ -18,7 +19,7 @@ import { localDateKey } from '../../core/utilities/local-date';
 @Component({
   selector: 'app-supplier-payment-dialog',
   standalone: true,
-  imports: [FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, PaymentBoxSelectComponent],
+  imports: [NotaLockBannerComponent, NotaLockedDateDirective, FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, PaymentBoxSelectComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <p-dialog [visible]="visible()" (visibleChange)="visible.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
@@ -38,7 +39,8 @@ import { localDateKey } from '../../core/utilities/local-date';
         <nota-payment-box-select labelKey="supplierPay.fromBox" />
         <div class="spd__grid">
           <nota-form-field [label]="'supplierPay.date' | translate" forId="spdDate">
-            <input id="spdDate" class="nota-input nota-num" type="date" name="date" data-test="payment-date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+            <input id="spdDate" class="nota-input nota-num" type="date" notaLockedDate name="date" data-test="payment-date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+      <nota-lock-banner [selected]="date()" />
           </nota-form-field>
           <nota-form-field [label]="'supplierPay.reference' | translate" forId="spdRef">
             <input id="spdRef" class="nota-input" type="text" name="reference" maxlength="100" data-test="payment-reference" [ngModel]="reference()" (ngModelChange)="reference.set($event)" />
@@ -74,6 +76,8 @@ import { localDateKey } from '../../core/utilities/local-date';
   `,
 })
 export class SupplierPaymentDialogComponent {
+  /** Stage 22: a date inside a closed period cannot be submitted (the banner explains, the server refuses too). */
+  private readonly lock = inject(LockDateService);
   private readonly service = inject(PurchasesService);
   private readonly paymentBox = inject(PaymentBoxService);
 
@@ -94,7 +98,7 @@ export class SupplierPaymentDialogComponent {
   readonly after = computed(() => round2((this.supplier()?.balance ?? 0) - this.amountValue()));
   /** More than we owe (or anything when we owe nothing). */
   readonly isAdvance = computed(() => this.amountValue() > Math.max(0, this.supplier()?.balance ?? 0));
-  readonly valid = computed(() => this.amountValue() > 0 && (!this.isAdvance() || this.confirmAdvance()));
+  readonly valid = computed(() => this.amountValue() > 0 && (!this.isAdvance() || this.confirmAdvance()) && !this.lock.isLocked(this.date()));
 
   constructor() {
     effect(() => {

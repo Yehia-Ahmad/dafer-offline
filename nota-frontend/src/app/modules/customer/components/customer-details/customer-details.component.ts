@@ -1,3 +1,4 @@
+import { LockDateService } from '../../../../core/accounting-lock/lock-date.service';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectorRef, Component, Inject, OnDestroy, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -7,14 +8,7 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { Dialog } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { Subscription } from 'rxjs';
-import {
-  NotaButtonDirective,
-  NotaDialogShellComponent,
-  NotaFormFieldComponent,
-  NotaMoneyPipe,
-  NotaNumberPipe,
-  NotaPageHeaderComponent
-} from '../../../shared/ui';
+import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, NotaLockBannerComponent } from '../../../shared/ui';
 import {
   creditSaleStatusPill,
   CreditSaleView,
@@ -76,12 +70,14 @@ interface CustomerStatement {
 @Component({
   selector: 'app-customer-details',
   standalone: true,
-  imports: [LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink, CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
+  imports: [NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink, CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
     NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
   templateUrl: './customer-details.component.html',
   styleUrl: './customer-details.component.scss'
 })
 export class CustomerDetailsComponent implements OnInit, OnDestroy {
+  /** Stage 22: locked days are disabled in the date picker. */
+  protected readonly lock = inject(LockDateService);
   /** Stage 10 tabs (frontend only). */
   activeTab: CustomerTab = 'statement';
   statement: CustomerStatement = { rows: [], totalDebit: 0, totalCredit: 0, balance: 0 };
@@ -732,7 +728,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
             invoiceId: String(line.number || ''),
             number: line.number ? String(line.number) : null,
             description: String(line.description || ''),
-            detail: '', debit: Number(line.debit || 0), credit: Number(line.credit || 0), balance: Number(line.balance || 0),
+            detail: String(line.memo || ''), debit: Number(line.debit || 0), credit: Number(line.credit || 0), balance: Number(line.balance || 0),
           })),
           totalDebit: Number(source.totals?.debit || 0),
           totalCredit: Number(source.totals?.credit || 0),

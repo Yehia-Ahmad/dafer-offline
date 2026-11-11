@@ -3,3 +3,12 @@
 .warn { color: var(--danger); }
 .hint { display: block; font-size: .75rem; color: var(--danger); font-weight: 400; }
 .balance { display: inline-flex; flex-direction: column; align-items: flex-end; }
+// Stage 22: "+ حساب", "+ قيد يدوي", the stopped-accounts toggle and the edit action of a row.
+.head-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .75rem; }
+.head-actions .toggle { display: flex; flex-direction: row; align-items: center; gap: .4rem; min-height: var(--touch-target); }
+.btn { display: inline-flex; align-items: center; justify-content: center; min-height: var(--touch-target); padding: 0 1rem; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--surface); color: var(--text); font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
+.btn:hover { background: var(--brand-soft); }
+.row-edit { min-width: 2rem; min-height: 2rem; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); color: var(--brand); cursor: pointer; }
+.stopped { color: var(--text-muted); font-weight: 400; }
+.tree-row.inactive .account-name { opacity: .65; }
+@media (max-width: 640px) { .head-actions { width: 100%; } .head-actions > * { flex: 1 1 140px; } }

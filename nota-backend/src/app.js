@@ -18,6 +18,7 @@ const { createAuthRouter } = require("./routes/auth.routes");
 const usersRoutes = require("./routes/users.routes");
 const auditRoutes = require("./routes/audit.routes");
 const accountingRoutes = require("./routes/accounting.routes");
+const reportsRoutes = require("./routes/reports.routes");
 const cashboxRoutes = require("./routes/cashbox.routes");
 const shiftRoutes = require("./routes/shift.routes");
 const expenseRoutes = require("./routes/expense.routes");
@@ -71,6 +72,7 @@ app.use("/api", deviceContext());
 // runner when authentication is disabled; requirePermission is a no-op in
 // that mode and enforces accounting.view/manage when auth is enabled.
 app.use("/api/accounting", accountingRoutes);
+app.use("/api/reports", reportsRoutes);
 
 app.use("/api/cashbox", cashboxRoutes);
 app.use("/api/shifts", shiftRoutes);

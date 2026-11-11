@@ -1,3 +1,4 @@
+import { LockDateService } from '../../core/accounting-lock/lock-date.service';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -8,7 +9,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { NotaCanDirective } from '../../core/auth/nota-can.directive';
 import { PaymentBoxSelectComponent } from '../cashbox/payment-box-select.component';
 import { PaymentBoxService } from '../cashbox/payment-box.service';
-import { NotaBalancePipe, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent } from '../shared/ui';
+import { NotaBalancePipe, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, NotaLockBannerComponent, NotaLockedDateDirective } from '../shared/ui';
 import { Supplier, SuppliersService } from '../suppliers/suppliers.service';
 import { PaymentMode, allocateCosts, defaultPurchaseVat, journalPreview, paymentModeOf, round2, weightedAverage } from './purchase-math';
 import { VatSettingsService } from '../shop-profile/services/vat-settings.service';
@@ -32,7 +33,7 @@ interface Line {
 @Component({
   selector: 'app-purchase-form',
   standalone: true,
-  imports: [FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, PaymentBoxSelectComponent],
+  imports: [NotaLockBannerComponent, NotaLockedDateDirective, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, PaymentBoxSelectComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="pf">
@@ -52,7 +53,8 @@ interface Line {
             <input id="pfInvoiceNo" class="nota-input" type="text" name="invoiceNo" maxlength="60" data-test="supplier-invoice-no" [ngModel]="supplierInvoiceNo()" (ngModelChange)="supplierInvoiceNo.set($event)" />
           </nota-form-field>
           <nota-form-field [label]="'purchases.new.date' | translate" forId="pfDate">
-            <input id="pfDate" class="nota-input nota-num" type="date" name="date" data-test="date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+            <input id="pfDate" class="nota-input nota-num" type="date" notaLockedDate name="date" data-test="date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+      <nota-lock-banner [selected]="date()" />
           </nota-form-field>
         </div>
         @if (supplier(); as s) {
@@ -255,6 +257,8 @@ interface Line {
   `,
 })
 export class PurchaseFormComponent implements OnInit {
+  /** Stage 22: a date inside a closed period cannot be submitted (the banner explains, the server refuses too). */
+  private readonly lock = inject(LockDateService);
   private readonly service = inject(PurchasesService);
   private readonly suppliersService = inject(SuppliersService);
   private readonly router = inject(Router);
@@ -365,7 +369,7 @@ export class PurchaseFormComponent implements OnInit {
   readonly valid = computed(() => {
     const rows = this.lines();
     return Boolean(this.supplierId()) && rows.length > 0 && rows.every((row) => (row.qty ?? 0) > 0 && Number.isInteger(row.qty) && row.unitPrice !== null && row.unitPrice >= 0 && hasMoneyPrecision(row.unitPrice))
-      && this.allocation().total > 0 && !this.paidInvalid() && (this.discount() ?? 0) <= this.allocation().subtotal && !this.vatInvalid();
+      && this.allocation().total > 0 && !this.paidInvalid() && (this.discount() ?? 0) <= this.allocation().subtotal && !this.vatInvalid() && !this.lock.isLocked(this.date());
   });
   readonly newProductValid = computed(() => {
     const value = this.np();

@@ -8,6 +8,7 @@ const { postEntry, line, boxAccount, accountMap } = require("../accounting/posti
 const { nextDocumentNumber, PREFIXES } = require("../utils/documentNumber");
 const { roundMoney } = require("../utils/invoicePricing");
 const { withTransaction } = require("../utils/transaction");
+const { assertOpenDate } = require("../accounting/period");
 const { audit } = require("../auth/audit");
 const boxes = require("../cashbox/boxes");
 const { positiveAmount, optionalDate, optionalText, requiredReason } = require("../cashbox/validate");
@@ -89,6 +90,7 @@ const createPayment = async (req, res) => {
   const reference = optionalText(body.reference, 100, "المرجع");
   const note = optionalText(body.note, 500);
   const payment = await withTransaction(async (session) => {
+    await assertOpenDate(date, { session }); // Stage 22: the period lock, before anything else is checked
     const supplier = await loadSupplier(req.params.id, session);
     await touchSupplier(supplier._id, session);
     const balance = await balanceOf(supplier._id, session);
@@ -138,6 +140,7 @@ const createRefund = async (req, res) => {
   const date = optionalDate(body.date);
   const note = optionalText(body.note, 500);
   const refund = await withTransaction(async (session) => {
+    await assertOpenDate(date, { session }); // Stage 22: the period lock, before anything else is checked
     const supplier = await loadSupplier(req.params.id, session);
     await touchSupplier(supplier._id, session);
     await assertRefundCovered(supplier, amount, session);

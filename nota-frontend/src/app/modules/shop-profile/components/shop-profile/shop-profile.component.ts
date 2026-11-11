@@ -6,7 +6,8 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { LanguageService } from '../../../shared/services/translation.service';
 import { brandName } from '../../../../core/brand';
 import { NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent } from '../../../shared/ui';
-import { DEFAULT_VAT, SHOP_PROFILE_LIMITS, ShopProfile } from '../../models/shop-profile.model';
+import { DEFAULT_CLOSING, DEFAULT_VAT, SHOP_PROFILE_LIMITS, ShopProfile } from '../../models/shop-profile.model';
+import { AuthService } from '../../../../core/auth/auth.service';
 import { ShopProfileService } from '../../services/shop-profile.service';
 import { AUTO_LOCK_CHOICES, DEFAULT_AUTO_LOCK_MINUTES, normalizeAutoLock } from '../../../../core/auth/idle-lock.service';
 import { UnsavedWorkService } from '../../../../core/unsaved-work/unsaved-work.service';
@@ -26,6 +27,10 @@ export class ShopProfileComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private readonly language = inject(LanguageService);
+  private readonly auth = inject(AuthService);
+  /** Stage 22: the "إقفال الفترات" card is the owner's. */
+  protected readonly isOwner = computed(() => this.auth.user()?.role === 'owner');
+  protected readonly months = Array.from({ length: 12 }, (_, index) => index + 1);
   protected readonly appName = computed(() => brandName(this.language.selectedLanguage()));
   protected readonly limits = SHOP_PROFILE_LIMITS;
   /** Stage 15: the "الأمان" card (auto-lock after N idle minutes, 0 = off). */
@@ -52,6 +57,9 @@ export class ShopProfileComponent implements OnInit {
     vatEnabled: [false],
     vatRate: [String(DEFAULT_VAT.rate), [Validators.required, Validators.pattern(/^\d{1,3}(\.\d{1,2})?$/)]],
     vatIncludes: [DEFAULT_VAT.pricesIncludeVat],
+    // Stage 22: the "إقفال الفترات" card (frequency and the month the fiscal year starts in).
+    closingFrequency: [DEFAULT_CLOSING.frequency as string],
+    closingStartMonth: [DEFAULT_CLOSING.fiscalYearStartMonth as number],
   });
   /** Stage 21: the start date shown once VAT is on (read only; the server sets it when VAT is turned on). */
   protected readonly vatStartDate = signal<string | null>(null);
@@ -181,6 +189,11 @@ export class ShopProfileComponent implements OnInit {
     const vat = this.lastProfile?.vat || vatTouched
       ? { enabled: raw.vatEnabled, rate: Number(raw.vatRate), pricesIncludeVat: raw.vatIncludes }
       : undefined;
+    // Stage 22: the closing block goes out only for the owner, and only once it was ever saved or the card was touched.
+    const closingTouched = this.form.controls.closingFrequency.dirty || this.form.controls.closingStartMonth.dirty;
+    const closing = this.isOwner() && (this.lastProfile?.closing || closingTouched)
+      ? { frequency: raw.closingFrequency === 'yearly' ? ('yearly' as const) : ('monthly' as const), fiscalYearStartMonth: Number(raw.closingStartMonth) }
+      : undefined;
     this.saving.set(true);
     this.shopProfileService
       .saveProfile({
@@ -193,6 +206,7 @@ export class ShopProfileComponent implements OnInit {
         invoiceFooter: raw.invoiceFooter.trim(),
         autoLockMinutes: normalizeAutoLock(raw.autoLockMinutes),
         ...(vat ? { vat } : {}),
+        ...(closing ? { closing } : {}),
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
@@ -223,6 +237,8 @@ export class ShopProfileComponent implements OnInit {
       vatEnabled: profile.vat?.enabled ?? false,
       vatRate: String(profile.vat?.rate ?? DEFAULT_VAT.rate),
       vatIncludes: profile.vat?.pricesIncludeVat ?? DEFAULT_VAT.pricesIncludeVat,
+      closingFrequency: profile.closing?.frequency ?? DEFAULT_CLOSING.frequency,
+      closingStartMonth: profile.closing?.fiscalYearStartMonth ?? DEFAULT_CLOSING.fiscalYearStartMonth,
     });
     this.vatStartDate.set(profile.vat?.enabled ? profile.vat.startDate ?? null : null);
     this.form.markAsPristine();

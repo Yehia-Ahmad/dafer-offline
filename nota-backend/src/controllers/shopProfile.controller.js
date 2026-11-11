@@ -2,6 +2,8 @@ const ShopProfile = require("../models/shopProfile.model");
 const { AUTO_LOCK_MINUTES, DEFAULT_AUTO_LOCK_MINUTES } = ShopProfile;
 const asyncHandler = require("../utils/asyncHandler");
 const { readVatUpdate, DEFAULT_VAT } = require("../utils/vatSettings");
+const { DEFAULT_CLOSING } = require("../accounting/closing");
+const { getLockedThrough } = require("../accounting/period");
 
 const SHOP_PROFILE_KEY = "default";
 
@@ -22,7 +24,7 @@ const OPTIONAL_STRING_FIELDS = ["address", "logo", "taxNumber", "commercialRegis
 const toShopProfileResponse = (profile) =>
   // `vat` is only present once VAT settings were ever saved (absent = off, rate 14, prices include VAT).
   profile
-    ? { ...EMPTY_PROFILE, ...profile, ...(profile.vat ? { vat: { ...DEFAULT_VAT, ...profile.vat } } : {}) }
+    ? { ...EMPTY_PROFILE, ...profile, ...(profile.vat ? { vat: { ...DEFAULT_VAT, ...profile.vat } } : {}), ...(profile.closing ? { closing: { ...DEFAULT_CLOSING, ...profile.closing } } : {}) }
     : { ...EMPTY_PROFILE, phones: [] };
 
 const isBlank = (value) =>
@@ -62,6 +64,28 @@ const updateShopProfile = asyncHandler(async (req, res) => {
   if (body.vat !== undefined) {
     const existing = await ShopProfile.findOne({ key: SHOP_PROFILE_KEY }).lean();
     Object.assign($set, readVatUpdate(body.vat, existing?.vat, isBlank(body.taxNumber) ? "" : body.taxNumber));
+  }
+
+  // Stage 22: additive, owner only. The fiscal year start cannot move once a period was closed (the periods would stop lining up).
+  if (body.closing !== undefined) {
+    if (req.authEnabled && req.user?.role !== "owner") {
+      res.status(403);
+      throw new Error("إعدادات إقفال الفترات للمالك فقط");
+    }
+    const input = body.closing;
+    const existing = await ShopProfile.findOne({ key: SHOP_PROFILE_KEY }).select("closing").lean();
+    const stored = { ...DEFAULT_CLOSING, ...(existing?.closing || {}) };
+    if (!input || typeof input !== "object" || Array.isArray(input)) { res.status(400); throw new Error("إعدادات الإقفال غير صالحة"); }
+    const frequency = input.frequency === undefined ? stored.frequency : input.frequency;
+    const month = input.fiscalYearStartMonth === undefined ? stored.fiscalYearStartMonth : input.fiscalYearStartMonth;
+    if (frequency !== "monthly" && frequency !== "yearly") { res.status(400); throw new Error("نوع الإقفال غير صالح"); }
+    if (!Number.isInteger(month) || month < 1 || month > 12) { res.status(400); throw new Error("شهر بداية السنة المالية غير صالح"); }
+    if (month !== stored.fiscalYearStartMonth && await getLockedThrough()) {
+      const error = new Error("مينفعش تغيّر بداية السنة المالية بعد ما فترة اتقفلت");
+      error.statusCode = 409; error.responseData = { code: "CLOSING_SETTINGS_LOCKED" };
+      throw error;
+    }
+    $set["closing.frequency"] = frequency; $set["closing.fiscalYearStartMonth"] = month;
   }
 
   const update = Object.keys($unset).length > 0 ? { $set, $unset } : { $set };

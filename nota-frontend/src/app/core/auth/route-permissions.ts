@@ -35,6 +35,12 @@ export const ROUTE_RULES = {
   accountingOpening: { all: ['accounting.manage'] },
   /** Stage 21: the monthly VAT return (view with vat.file or accounting.view; filing, paying and unfiling need vat.file). */
   vat: { any: ['vat.file', 'accounting.view'] },
+  /** Stage 22: the financial reports (income statement, balance sheet, trial balance, box movements, party balances). */
+  financialReports: { all: ['reports.financial'] },
+  /** Stage 22: a manual journal entry (drafts, post, reverse). Owner only by default. */
+  manualEntry: { all: ['accounting.manage'] },
+  /** Stage 22: period closing. Anyone with accounting.view reads it; closing needs accounting.close, reopening the owner. */
+  closing: { all: ['accounting.view'] },
   suppliers: { all: ['suppliers.view'] },
   supplierForm: { all: ['suppliers.manage'] },
   /** Stage 20: purchases (the backend requires products.viewCost for every purchase permission). */
@@ -68,6 +74,8 @@ export const LANDING_ORDER: readonly { path: string; rule: RouteRule }[] = [
   { path: '/accounting/accounts', rule: ROUTE_RULES.accounting },
   { path: '/accounting/opening', rule: ROUTE_RULES.accountingOpening },
   { path: '/accounting/vat', rule: ROUTE_RULES.vat },
+  { path: '/accounting/reports', rule: ROUTE_RULES.financialReports },
+  { path: '/accounting/closing', rule: ROUTE_RULES.closing },
   { path: '/shop-profile', rule: ROUTE_RULES.shopProfile },
   { path: '/backup', rule: ROUTE_RULES.backup },
 ];

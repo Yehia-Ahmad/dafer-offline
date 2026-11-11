@@ -21,7 +21,9 @@ const creditSalePaymentSchema = new mongoose.Schema(
     },
     number: { type: String, trim: true },
     receipt: { type: mongoose.Schema.Types.ObjectId, ref: "Receipt" },
-    source: { type: String, enum: ["receipt", "down_payment", "return_reallocation", "credit_application"], default: "receipt" },
+    source: { type: String, enum: ["receipt", "down_payment", "return_reallocation", "credit_application", "manual_entry"], default: "receipt" },
+    // Stage 22: a manual customer credit (bad debt write-off) that was set against this invoice; a reversal removes exactly this payment.
+    manualEntryId: { type: mongoose.Schema.Types.ObjectId, default: undefined },
   },
   { _id: true }
 );
