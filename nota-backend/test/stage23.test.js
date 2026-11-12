@@ -73,47 +73,98 @@ async function product({ code, stock = 100, cost = 20, category } = {}) {
   return ok(await call("POST", "/api/products", { name: `منتج ${code}`, code, categoryId: String(cat._id), inventoryCount: stock, purchasePrice: cost, wholesalePrice: cost + 5, retailPrice: cost + 100 }), 201);
 }
 
-it("print log: copy 0 is the first print of a document, 1+ are reprints; each print writes a document.printed audit entry", async () => {
+// Minimal real documents (only the number matters to the print log): one per prefix.
+const { PREFIX_MODELS } = require("../src/controllers/print.controller");
+const seedDocument = async (number) => { await PREFIX_MODELS[number.split("-")[0]].collection.insertOne({ number }); return number; };
+const nextCopy = async (number, paper) => ok(await call("GET", `/api/print/next-copy?number=${number}${paper ? `&paper=${paper}` : ""}`)).copy;
+const commit = async (number, paper) => ok(await call("POST", "/api/print/log", { number, paper })).copy;
+
+it("print log: next-copy counts nothing; copy 0 is the first print, 1+ are reprints; each commit writes a document.printed audit entry with the real number", async () => {
+  await seedDocument("INV-000125"); await seedDocument("INV-000126");
+  assert.equal(await nextCopy("INV-000125", "80mm"), 0);
+  assert.equal(await nextCopy("INV-000125", "80mm"), 0, "asking does not count");
+  assert.equal(await PrintCount.countDocuments({}), 0);
   const first = ok(await call("POST", "/api/print/log", { number: "INV-000125", paper: "80mm" }));
   assert.equal(first.copy, 0);
   assert.equal(first.number, "INV-000125");
   assert.ok(!Number.isNaN(Date.parse(first.printedAt)));
-  assert.equal(ok(await call("POST", "/api/print/log", { number: "inv-000125", paper: "A4" })).copy, 1);
-  assert.equal(ok(await call("POST", "/api/print/log", { number: "INV-000125" })).copy, 2);
-  assert.equal(ok(await call("POST", "/api/print/log", { number: "INV-000126" })).copy, 0);
+  assert.equal(await nextCopy("INV-000125", "80mm"), 1);
+  assert.equal(await commit("inv-000125", "80mm"), 1);
+  assert.equal(await commit("INV-000125", "80mm"), 2);
+  assert.equal(await commit("INV-000126", "80mm"), 0);
   const entries = await AuditLog.find({ action: "document.printed", entityId: "INV-000125" }).sort({ at: 1 }).lean();
-  assert.equal(entries.length, 3);
   assert.deepEqual(entries.map((entry) => entry.details.copy), [0, 1, 2]);
   assert.equal(entries[0].userName, "Owner");
-  assert.deepEqual({ number: entries[0].details.number, type: entries[0].details.type, paper: entries[0].details.paper }, { number: "INV-000125", type: "INV", paper: "80mm" });
-  assert.equal(entries[1].details.paper, "A4");
-  assert.equal(entries[2].details.paper, undefined);
-  assert.equal((await PrintCount.findById("INV-000125").lean()).count, 3);
+  assert.deepEqual({ number: entries[0].details.number, type: entries[0].details.type, paper: entries[0].details.paper, paperClass: entries[0].details.paperClass }, { number: "INV-000125", type: "INV", paper: "80mm", paperClass: "receipt" });
+  assert.equal((await PrintCount.findById("INV-000125|receipt").lean()).count, 3);
 });
 
-it("print log: two PCs printing at the same moment can never both get the original", async () => {
-  const answers = await Promise.all(Array.from({ length: 8 }, () => call("POST", "/api/print/log", { number: "RC-000007" })));
+it("print log: a receipt and a page are separate counters (an A4 print does not make the next 80mm receipt a copy); a PDF counts in its paper's class", async () => {
+  await seedDocument("INV-000130");
+  assert.equal(await commit("INV-000130", "A4"), 0);
+  assert.equal(await commit("INV-000130", "A5"), 1, "A4 and A5 share the page counter (a PDF of an A4 document is a page print)");
+  assert.equal(await nextCopy("INV-000130", "80mm"), 0, "the receipt was never printed");
+  assert.equal(await commit("INV-000130", "80mm"), 0);
+  assert.equal(await nextCopy("INV-000130", "A4"), 2);
+  assert.equal(await nextCopy("INV-000130", "80mm"), 1);
+  assert.equal(await commit("INV-000130"), 2, "no paper given: counted as a page");
+  const audit = await AuditLog.find({ action: "document.printed", entityId: "INV-000130" }).lean();
+  assert.equal(audit.filter((entry) => entry.details.paperClass === "page").length, 3);
+});
+
+it("print log: a cancelled dialog logs nothing (the page never commits): counters and audit stay empty however often the next number is asked", async () => {
+  await seedDocument("RC-000020");
+  for (let i = 0; i < 3; i += 1) assert.equal(await nextCopy("RC-000020", "80mm"), 0);
+  assert.equal(await PrintCount.countDocuments({}), 0);
+  assert.equal(await AuditLog.countDocuments({ action: "document.printed" }), 0);
+});
+
+it("print log: parallel commits each get a distinct real copy number, the audit records those numbers and the counter ends at the number of commits", async () => {
+  await seedDocument("RC-000007");
+  const answers = await Promise.all(Array.from({ length: 8 }, () => call("POST", "/api/print/log", { number: "RC-000007", paper: "80mm" })));
   const copies = answers.map((answer) => ok(answer).copy).sort((a, b) => a - b);
   assert.deepEqual(copies, [0, 1, 2, 3, 4, 5, 6, 7]);
+  const audited = (await AuditLog.find({ action: "document.printed", entityId: "RC-000007" }).lean()).map((entry) => entry.details.copy).sort((a, b) => a - b);
+  assert.deepEqual(audited, copies);
+  assert.equal(await nextCopy("RC-000007", "80mm"), 8);
+});
+
+it("print log: a document that does not exist is 404 DOCUMENT_NOT_FOUND on both endpoints and is never counted", async () => {
+  const missing = await call("POST", "/api/print/log", { number: "INV-000999", paper: "80mm" });
+  assert.equal(missing.status, 404);
+  assert.equal(missing.json.code, "DOCUMENT_NOT_FOUND");
+  const next = await call("GET", "/api/print/next-copy?number=CR-000999&paper=A4");
+  assert.equal(next.status, 404);
+  assert.equal(next.json.code, "DOCUMENT_NOT_FOUND");
+  assert.equal(await PrintCount.countDocuments({}), 0);
+  assert.equal(await AuditLog.countDocuments({ action: "document.printed" }), 0);
+  // the prefix decides the collection: an INV number that exists only as a CR is still not found
+  await seedDocument("CR-000010");
+  assert.equal((await call("POST", "/api/print/log", { number: "INV-000010" })).status, 404);
+  assert.equal((await call("POST", "/api/print/log", { number: "CR-000010" })).status, 200);
 });
 
 it("print log refuses bad numbers and needs the document's permission (cashier: sales and receipts yes, journal/purchase/drawing no)", async () => {
   for (const number of ["", "INV", "INV-1", "XX-000001", "INV-000001; DROP", 5, null]) {
     assert.equal((await call("POST", "/api/print/log", { number })).status, 400, String(number));
+    assert.equal((await call("GET", `/api/print/next-copy?number=${encodeURIComponent(String(number))}`)).status, 400, String(number));
   }
   assert.equal((await call("POST", "/api/print/log", {})).status, 400);
+  for (const prefix of ["INV", "CR", "RC", "RT", "SH", "CP", "PO", "PV", "JE", "DR", "VP", "EX"]) await seedDocument(`${prefix}-000001`);
   const cashier = await makeUser("cashier23", "cashier");
   const status = async (number) => (await as(cashier, () => call("POST", "/api/print/log", { number }))).status;
   for (const number of ["INV-000001", "CR-000001", "RC-000001", "RT-000001", "SH-000001", "CP-000001"]) assert.equal(await status(number), 200, number);
   for (const number of ["PO-000001", "PV-000001", "JE-000001", "DR-000001", "VP-000001", "EX-000001"]) {
     if (ROLE_TEMPLATES.cashier.some((key) => PREFIX_PERMISSIONS[number.split("-")[0]].includes(key))) continue;
     assert.equal(await status(number), 403, number);
+    assert.equal((await as(cashier, () => call("GET", `/api/print/next-copy?number=${number}`))).status, 403, number);
   }
-  assert.equal(await PrintCount.countDocuments({ _id: { $in: ["PO-000001", "JE-000001", "DR-000001"] } }), 0, "a refused print is not counted");
+  assert.equal(await PrintCount.countDocuments({ number: { $in: ["PO-000001", "JE-000001", "DR-000001"] } }), 0, "a refused print is not counted");
   const accountant = await makeUser("accountant23", "accountant");
   assert.equal((await as(accountant, () => call("POST", "/api/print/log", { number: "JE-000001" }))).status, 200);
   token = null;
   assert.equal((await call("POST", "/api/print/log", { number: "INV-000001" })).status, 401);
+  assert.equal((await call("GET", "/api/print/next-copy?number=INV-000001")).status, 401);
 });
 
 it("receipt print-data: the receipt, its invoices and the customer balance before and after are the statement's stored numbers", async () => {

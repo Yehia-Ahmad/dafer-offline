@@ -5,7 +5,7 @@
 import { BalanceSheet, BoxMovements, IncomeRow, IncomeStatement, PartyBalances, PartyRow, PartyTotals, SheetRow, TrialBalance, TrialRow } from '../../../modules/accounting/reports/reports.models';
 import { VatLineGroup, VatReturnDetail } from '../../../modules/accounting/vat.models';
 import { escapeHtml, formatDate, formatMoney, formatPercent, formatQty, localizeDigits } from '../print-format';
-import { Cell, PrintContext, PrintDocument, a4Header, a4Page, pick, row, closing, shopNote, signatures, table } from '../print-kit';
+import { Cell, PrintContext, PrintDocument, a4Header, a4Page, pick, row, closing, signatures, table } from '../print-kit';
 import { kpiRow } from './statements';
 
 const money = (ctx: PrintContext, value: number | null | undefined): string => formatMoney(value ?? 0, ctx.lang);
@@ -87,7 +87,7 @@ export function profitReport(ctx: PrintContext, data: ProfitReportData): PrintDo
     productRows
   )}
   <div class="muted keep" style="font-size:12px">${pick(ctx, 'الربح هنا = سعر البيع − سعر الشراء، قبل المصروفات. صافي الربح بعد المصروفات في قائمة الدخل.', 'Profit here = selling price − purchase price, before expenses. Net profit after expenses is in the income statement.')}</div>
-  ${shopNote(ctx)}`);
+  `);
   return { paper: 'A4', title: pick(ctx, 'تقرير الأرباح', 'Profit report'), body, pageNumbers: true };
 }
 
@@ -217,7 +217,7 @@ export function boxMovements(ctx: PrintContext, report: BoxMovements): PrintDocu
   const body = a4Page(`
   ${a4Header(ctx, { title: pick(ctx, 'حركة الخزائن', 'Cash box movements'), date: formatDate(ctx.printedAt, ctx.lang), extraLabel: pick(ctx, 'الفترة', 'Period'), extra: `${formatDate(report.period.from, ctx.lang)} — ${formatDate(report.period.to, ctx.lang)}` })}
   ${table([{ label: pick(ctx, 'الخزنة', 'Box') }, { label: pick(ctx, 'رصيد أول الفترة', 'Opening'), numeric: true, width: 110 }, { label: pick(ctx, 'داخل', 'In'), numeric: true, width: 110 }, { label: pick(ctx, 'خارج', 'Out'), numeric: true, width: 110 }, { label: pick(ctx, 'الرصيد', 'Closing'), numeric: true, width: 110 }], rows, { foot })}
-  ${shopNote(ctx)}`);
+  `);
   return { paper: 'A4', title: pick(ctx, 'حركة الخزائن', 'Cash box movements'), body, pageNumbers: true };
 }
 
@@ -235,7 +235,7 @@ export function partyBalances(ctx: PrintContext, report: PartyBalances): PrintDo
   ${a4Header(ctx, { title: pick(ctx, 'أرصدة العملاء والموردين', 'Customer and supplier balances'), date: formatDate(ctx.printedAt, ctx.lang), extraLabel: pick(ctx, 'بالأرصدة في', 'Balances as of'), extra: formatDate(report.asOf, ctx.lang) })}
   ${report.customers ? part(pick(ctx, 'العملاء (مدينون لنا)', 'Customers (owe us)'), report.customers.rows, report.customers.totals) : ''}
   ${report.suppliers ? part(pick(ctx, 'الموردون (نحن مدينون لهم)', 'Suppliers (we owe)'), report.suppliers.rows, report.suppliers.totals) : ''}
-  ${shopNote(ctx)}`);
+  `);
   return { paper: 'A4', title: pick(ctx, 'أرصدة العملاء والموردين', 'Customer and supplier balances'), body, pageNumbers: true };
 }
 
@@ -287,7 +287,7 @@ export function journalEntry(ctx: PrintContext, data: JournalEntryData): PrintDo
   <div class="muted keep" style="font-size:12px">${pick(ctx, 'القيد المرحَّل مايتعدلش ولا يتمسح. لو فيه غلط بيتعمل قيد عكسي بنفس القيمة ويتربط بالقيد ده.', 'A posted entry cannot be edited or deleted. A mistake is corrected by a reversing entry of the same amount, linked to this one.')}</div>
   <div class="grow"></div>
   ${closing(ctx, [
-    { who: `${pick(ctx, 'إعداد', 'Prepared by')} ${escapeHtml(data.preparedBy || pick(ctx, 'النظام', 'the system'))}`, line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') },
+    { who: `${pick(ctx, 'إعداد', 'Prepared by')} ${data.preparedBy || pick(ctx, 'النظام', 'the system')}`, line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') },
     { who: pick(ctx, 'اعتماد', 'Approved by'), line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') },
   ])}`);
   return { paper: 'A4', title: data.number, body, pageNumbers: true };
@@ -306,10 +306,13 @@ const VAT_GROUP_LABELS: Record<VatLineGroup, { ar: string; en: string }> = {
 export function vatReturn(ctx: PrintContext, data: VatReturnDetail): PrintDocument {
   const groups = (Object.keys(VAT_GROUP_LABELS) as VatLineGroup[])
     .map((key) => {
+      // The totals the API stores for the group; lines are only a fallback for an answer without them.
       const lines = data.lines[key] || [];
-      const net = Math.round(lines.reduce((sum, entry) => sum + entry.net, 0) * 100) / 100;
-      const vat = Math.round(lines.reduce((sum, entry) => sum + entry.vat, 0) * 100) / 100;
-      return row([pick(ctx, VAT_GROUP_LABELS[key].ar, VAT_GROUP_LABELS[key].en), { html: formatQty(lines.length, ctx.lang), numeric: true }, { html: money(ctx, net), numeric: true }, { html: money(ctx, vat), numeric: true, bold: true }]);
+      const stored = data.groupTotals?.[key];
+      const count = stored ? stored.count : lines.length;
+      const net = stored ? stored.net : Math.round(lines.reduce((sum, entry) => sum + entry.net, 0) * 100) / 100;
+      const vat = stored ? stored.vat : Math.round(lines.reduce((sum, entry) => sum + entry.vat, 0) * 100) / 100;
+      return row([pick(ctx, VAT_GROUP_LABELS[key].ar, VAT_GROUP_LABELS[key].en), { html: formatQty(count, ctx.lang), numeric: true }, { html: money(ctx, net), numeric: true }, { html: money(ctx, vat), numeric: true, bold: true }]);
     })
     .join('');
   const statusLabel: Record<string, [string, string]> = { open: ['مفتوح', 'Open'], filed: ['مقدَّم', 'Filed'], paid: ['مسدَّد', 'Paid'], partial: ['مسدَّد جزئيًا', 'Partly paid'] };

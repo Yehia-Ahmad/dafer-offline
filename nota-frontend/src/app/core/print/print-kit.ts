@@ -295,9 +295,10 @@ export function receiptHeader(ctx: PrintContext): string {
 export const receiptRow = (label: string, value: string, extra = ''): string =>
   `<div class="r n"${extra ? ` ${extra}` : ''}><span>${label}</span><span>${value}</span></div>`;
 
-/** The bottom of an 80mm receipt: shop footer text, "printed by", the generated-by line. */
-export function receiptFooter(ctx: PrintContext, noun: 'document' | 'voucher' | 'receipt' = 'document'): string {
-  const note = ctx.shop && ctx.shop.invoiceFooter ? `<div class="note" data-footer-note>${escapeHtml(ctx.shop.invoiceFooter)}</div>` : '';
+/** The bottom of an 80mm receipt: the shop footer text (sales documents only), "printed by", the generated-by line. */
+export function receiptFooter(ctx: PrintContext, noun: 'document' | 'voucher' | 'receipt' = 'document', salesFooter = false): string {
+  // The shop's footer ("لا ترد ولا تستبدل") belongs to sales documents only.
+  const note = salesFooter && ctx.shop && ctx.shop.invoiceFooter ? `<div class="note" data-footer-note>${escapeHtml(ctx.shop.invoiceFooter)}</div>` : '';
   return `<div class="dash"></div>${note}
   <div class="fine" data-printed-by>${escapeHtml(printedByText(ctx))}</div>
   <div class="fine">${escapeHtml(generatedText(ctx, noun))}</div>`;
@@ -330,16 +331,16 @@ export function row(cells: Cell[], className = ''): string {
   return `<tr${className ? ` class="${className}"` : ''}>${tds}</tr>`;
 }
 
-/** The signature block: two or three columns of "who" + a line. */
+/** The signature block: two or three columns of "who" + a line. The strings are RAW text (escaped here, once). */
 export function signatures(items: Array<{ who: string; line: string }>): string {
   return `<div class="sig keep" style="grid-template-columns:repeat(${items.length}, minmax(0, 1fr))" data-signatures>${items
     .map((item) => `<div><span>${escapeHtml(item.who)}</span><span class="line">${escapeHtml(item.line)}</span></div>`)
     .join('')}</div>`;
 }
 
-/** The signature block and the shop's footer text, kept together on the last page (never split across two). */
-export function closing(ctx: PrintContext, items: Array<{ who: string; line: string }>): string {
-  return `<div class="col keep" style="gap:14px" data-closing>${signatures(items)}${shopNote(ctx)}</div>`;
+/** The signature block (and, on sales documents only, the shop's footer text), kept together on the last page. Pass RAW strings: signatures() escapes them, once. */
+export function closing(ctx: PrintContext, items: Array<{ who: string; line: string }>, salesFooter = false): string {
+  return `<div class="col keep" style="gap:14px" data-closing>${signatures(items)}${salesFooter ? shopNote(ctx) : ''}</div>`;
 }
 
 /** The shop's footer text at the end of an A4/A5 document. */

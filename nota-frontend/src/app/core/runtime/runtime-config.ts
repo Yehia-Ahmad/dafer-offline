@@ -133,7 +133,7 @@ export interface DesktopPrintBridge {
   printers(token: string | null): Promise<DesktopResult<DesktopPrinter[]>>;
   getSettings(token: string | null): Promise<DesktopResult<DesktopPrintSettings>>;
   setSettings(token: string | null, patch: Partial<DesktopPrintSettings>): Promise<DesktopResult<DesktopPrintSettings>>;
-  testPage(token: string | null, request: { kind: 'receipt' | 'document'; html: string; heightMm?: number }): Promise<DesktopResult<{ printed: boolean; printer: string | null; cancelled?: boolean }>>;
+  testPage(token: string | null, request: { kind: 'receipt' | 'document'; html: string; heightMm?: number; /** The printer picked in the settings dropdown ('' = the system dialog); absent = the saved one. */ printer?: string }): Promise<DesktopResult<{ printed: boolean; printer: string | null; cancelled?: boolean }>>;
   print(token: string | null, job: DesktopPrintJob): Promise<DesktopResult<{ printed: boolean; silent: boolean; printer: string | null; cancelled?: boolean }>>;
   savePdf(token: string | null, job: DesktopPrintJob, options?: { suggestedName?: string }): Promise<DesktopResult<{ saved: boolean; path?: string; bytes?: number }>>;
 }

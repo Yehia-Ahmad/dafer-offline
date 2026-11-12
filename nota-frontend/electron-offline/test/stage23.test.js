@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
+const { pathToFileURL } = require('node:url');
 
 const { IPC_RULES, SESSION } = require('../lib/ipc-guard');
 const { createPrintHandlers } = require('../lib/print-handlers');
@@ -22,7 +23,7 @@ const PRINTERS = [
 ];
 const HTML = '<!doctype html><html><body>مرحبا</body></html>';
 
-function harness({ printOutcome = { success: true }, saveResult, printers = PRINTERS } = {}) {
+function harness({ printOutcome = { success: true }, saveResult, printers = PRINTERS, loadMode = 'ok', loadTimeoutMs } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-print-test-'));
   const windows = [];
   const dialogCalls = [];
@@ -46,14 +47,20 @@ function harness({ printOutcome = { success: true }, saveResult, printers = PRIN
       };
       windows.push(this);
     }
-    async loadFile(file) { this.loaded = file; this.htmlAtLoad = fs.readFileSync(file, 'utf8'); loads.push(file); }
+    async loadFile(file) {
+      this.loaded = file; this.htmlAtLoad = fs.readFileSync(file, 'utf8'); loads.push(file);
+      // the request filter sees the job's own file while it loads
+      if (this.requestFilter) this.requestFilter({ url: pathToFileURL(file).href }, (answer) => { this.ownFileVerdict = answer.cancel; });
+      if (loadMode === 'hang') await new Promise(() => {});
+      if (loadMode === 'fail') throw new Error('ERR_FAILED');
+    }
     async loadURL(url) { this.url = url; }
     isDestroyed() { return this.destroyed; }
     destroy() { this.destroyed = true; }
   }
   const mainWindow = { webContents: { getPrintersAsync: async () => printers } };
   const dialog = { showSaveDialog: async (parent, options) => { dialogCalls.push({ parent, options }); return saveResult || { canceled: false, filePath: path.join(dir, 'out.pdf') }; } };
-  const service = createPrintService({ BrowserWindow: FakeWindow, dialog, getMainWindow: () => mainWindow, settingsPath: path.join(dir, 'print-settings.json'), tempDir: dir, log: quietLog });
+  const service = createPrintService({ BrowserWindow: FakeWindow, dialog, getMainWindow: () => mainWindow, settingsPath: path.join(dir, 'print-settings.json'), tempDir: dir, log: quietLog, loadTimeoutMs });
   return { service, dir, windows, dialogCalls, prints, pdfs, loads, mainWindow };
 }
 const cleanup = (h) => fs.rmSync(h.dir, { recursive: true, force: true });
@@ -131,6 +138,8 @@ test('the hidden print window is locked down: sandbox, no JavaScript, no preload
   assert.equal(prefs.nodeIntegration, false);
   assert.equal(prefs.contextIsolation, true);
   assert.equal('preload' in prefs, false);
+  assert.equal(prefs.partition, 'nota-print', 'its own session: the default session of the app is never used');
+  assert.equal(String(prefs.partition).startsWith('persist:'), false, 'in memory only');
   let prevented = 0;
   win.handlers['will-navigate']({ preventDefault: () => { prevented += 1; } });
   win.handlers['will-redirect']({ preventDefault: () => { prevented += 1; } });
@@ -140,10 +149,13 @@ test('the hidden print window is locked down: sandbox, no JavaScript, no preload
   assert.equal(verdict('https://fonts.googleapis.com/css2?family=Alexandria'), true, 'Google Fonts is never loaded');
   assert.equal(verdict('http://192.168.1.5:5055/api/x'), true);
   assert.equal(verdict('data:font/woff2;base64,AAAA'), false);
-  assert.equal(verdict('file:///C:/Users/x/AppData/Local/Temp/nota-print-1.html'), false);
+  assert.equal(win.ownFileVerdict, false, 'the own temp file of the job is allowed while it loads');
+  assert.equal(verdict('file:///C:/Users/x/AppData/Local/Temp/nota-print-1.html'), true, 'no other file: URL, and none once the job is over');
+  assert.equal(verdict('about:blank'), false);
+  assert.equal(verdict('blob:null/abc'), true);
+  assert.equal(verdict('ws://127.0.0.1:5055/'), true);
   assert.match(win.htmlAtLoad, /مرحبا/, 'the document HTML is what was loaded');
   assert.equal(win.destroyed, false, 'one hidden window, reused: destroying a sandboxed window broke the next load');
-  assert.equal(win.url, 'about:blank', 'it goes back to a blank page between jobs');
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.equal(fs.existsSync(win.loaded), false, 'the temporary HTML file is removed');
   cleanup(h);
@@ -246,6 +258,69 @@ test('test pages go straight to the chosen printer: the receipt printer at 80mm,
   assert.equal(h.prints[2].silent, false);
   await assert.rejects(() => h.service.printTestPage({ kind: 'x', html: HTML }), PrintError);
   cleanup(h);
+});
+
+test('test page: the printer picked in the dropdown is the one used (sent with the request), even before it is saved; an unknown one is refused', async () => {
+  const h = harness();
+  await h.service.setSettings({ receiptPrinter: 'EPSON TM-T20' });
+  await h.service.printTestPage({ kind: 'receipt', html: HTML, heightMm: 90, printer: 'HP LaserJet' });
+  assert.deepEqual([h.prints[0].silent, h.prints[0].deviceName], [true, 'HP LaserJet'], 'the request wins over the saved printer');
+  await h.service.printTestPage({ kind: 'document', html: HTML, printer: '' });
+  assert.equal(h.prints[1].silent, false, 'an empty choice means the system dialog');
+  assert.equal(h.prints[1].deviceName, undefined);
+  await assert.rejects(() => h.service.printTestPage({ kind: 'document', html: HTML, printer: 'Ghost' }), (error) => error.code === 'PRINTER_NOT_FOUND');
+  assert.equal(h.prints.length, 2);
+  assert.equal(h.service.getSettings().receiptPrinter, 'EPSON TM-T20', 'nothing was saved by the test');
+  cleanup(h);
+});
+
+test('a renderer crash destroys the hidden window and the next job gets a new one; the job that was running fails', async () => {
+  const h = harness();
+  await h.service.print({ html: HTML, paper: 'A4' });
+  const first = h.windows[0];
+  first.handlers['render-process-gone']();
+  assert.equal(first.destroyed, true, 'the crashed window is destroyed');
+  const result = await h.service.print({ html: HTML, paper: 'A4' });
+  assert.equal(result.printed, true);
+  assert.equal(h.windows.length, 2, 'a new window for the next job');
+  assert.notEqual(h.windows[1], first);
+  // a crash in the middle of a job fails that job, and the queue goes on
+  const mid = harness();
+  mid.windows.length = 0;
+  const running = mid.service.print({ html: HTML, paper: 'A4' });
+  await new Promise((resolve) => setImmediate(resolve));
+  mid.windows[0].handlers['render-process-gone']();
+  await running.catch(() => {});
+  assert.equal((await mid.service.print({ html: HTML, paper: 'A4' })).printed, true);
+  cleanup(h); cleanup(mid);
+});
+
+test('a load that never finishes times out (PRINT_TIMEOUT), the window is discarded, the queue is free and the temp file is gone', async () => {
+  const h = harness({ loadMode: 'hang', loadTimeoutMs: 40 });
+  const started = Date.now();
+  await assert.rejects(() => h.service.print({ html: HTML, paper: 'A4' }), (error) => error.code === 'PRINT_TIMEOUT');
+  assert.ok(Date.now() - started < 2000);
+  assert.equal(h.windows[0].destroyed, true);
+  assert.equal(fs.readdirSync(h.dir).filter((name) => name.startsWith('nota-print-')).length, 0, 'no temp file left');
+  await assert.rejects(() => h.service.savePdf({ html: HTML, paper: 'A4' }), (error) => error.code === 'PRINT_TIMEOUT');
+  assert.equal(h.windows.length, 2, 'each job after a timeout gets a fresh window and is not stuck behind the hung one');
+  cleanup(h);
+});
+
+test('every job removes its temporary file right after it, on success, on a print failure and on a load failure', async () => {
+  const left = (h) => fs.readdirSync(h.dir).filter((name) => name.startsWith('nota-print-'));
+  const ok = harness();
+  await ok.service.print({ html: HTML, paper: 'A4' });
+  assert.deepEqual(left(ok), [], 'right after the job, no waiting');
+  await ok.service.savePdf({ html: HTML, paper: 'A4' });
+  assert.deepEqual(left(ok), []);
+  const failing = harness({ printOutcome: { success: false, reason: 'Printer offline' } });
+  await assert.rejects(() => failing.service.print({ html: HTML, paper: 'A4' }));
+  assert.deepEqual(left(failing), []);
+  const broken = harness({ loadMode: 'fail' });
+  await assert.rejects(() => broken.service.print({ html: HTML, paper: 'A4' }));
+  assert.deepEqual(left(broken), []);
+  cleanup(ok); cleanup(failing); cleanup(broken);
 });
 
 function handlerHarness(permissions, { me } = {}) {

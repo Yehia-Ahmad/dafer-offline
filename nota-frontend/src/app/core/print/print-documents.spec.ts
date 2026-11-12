@@ -9,7 +9,8 @@ import { boxMovements, financials, journalEntry, partyBalances, profitReport, re
 import { customerStatement, stockList, supplierStatement } from './documents/statements';
 import { documentTestPage, receiptTestPage } from './documents/test-page';
 import { InvoiceHistoryRow, sellingResponseToCashSaleData, toCashSaleData, toCreditInvoiceData } from './print-adapters';
-import { amountInWords, formatDate, formatDateTime, formatMoney, formatPercent, formatQty, formatTime, localizeDigits } from './print-format';
+import { measureRollHeightMm } from './print-render';
+import { amountInWords, cssString, formatDate, formatDateTime, formatMoney, formatPercent, formatQty, formatTime, localizeDigits } from './print-format';
 import { PrintContext, PrintDocument, buildPrintHtml, toShopInfo } from './print-kit';
 
 const SHOP = { name: 'النور للأدوات الكهربائية', address: 'المنصورة', phones: ['01002223344'], logo: '', taxNumber: '123-456-789', commercialRegister: '45678', invoiceFooter: 'البضاعة المباعة لا ترد' };
@@ -457,7 +458,7 @@ describe('print adapters (stored values, never recomputed)', () => {
       payments: [{ id: 'p1', number: 'RC-000040', amount: 200, paymentDate: '2026-11-05', note: 'مقدم مع الفاتورة' }], writtenOff: false, refunds: [], refundedAmount: 0, cancellationReason: '',
     }, { customerTaxNumber: '777', balanceBefore: 0, balanceAfter: 590 });
     expect(data).toEqual(jasmine.objectContaining({ number: 'CR-000032', paid: 200, remaining: 590, total: 790, dueDate: '2026-12-05', note: 'ملاحظة', balanceBefore: 0, balanceAfter: 590, customerTaxNumber: '777' }));
-    expect(data.payments).toEqual([{ label: 'مقدم مع الفاتورة', date: '2026-11-05', amount: 200 }]);
+    expect(data.payments).toEqual([{ label: 'مقدم مع الفاتورة', kind: 'payment', date: '2026-11-05', amount: 200 }]);
   });
 
   it('toInvoiceVat reads the stored fields and is undefined for an invoice saved with VAT off', () => {
@@ -521,5 +522,205 @@ describe('escaping: every value inserted into print HTML is HTML-escaped', () =>
     expect(out).not.toContain('<script');
     expect(out).not.toContain('<img src=x');
     expect(out).toContain('\\3C /style>');
+  });
+});
+
+// ---------------------------------------------------------------- Stage 23 review fixes
+
+describe('Stage 23 review fixes', () => {
+  const NAME = "O'Brien & Co";
+  const SHIFT = { number: 'SH-000058', boxName: 'درج', cashier: 'ك', openedAt: null, closedAt: null, summary: [], movement: [], expected: 7550, counted: 7500, difference: -50 };
+  const copyCtx = (extra: Partial<PrintContext> = {}) => ctxOf('ar', { copy: { n: 1, at: new Date(2026, 10, 6, 9, 5) }, ...extra });
+  const STOCK_ROWS = [{ code: 'A1', name: 'لمبة', categoryName: 'إضاءة', inventoryCount: 2, lowStock: true, purchasePrice: 30 }];
+  const STATEMENT = { customer: { name: 'م. سامي' }, lines: [], totals: { openingBalance: 0, debit: 0, credit: 0, balance: 0 }, aging: { current: 0, days1to30: 0, days31to60: 0, over60: 0, total: 0 } };
+  const JOURNAL = { number: 'JE-000415', date: '2026-11-05', typeLabel: 'يدوي', lines: [{ code: '110', name: 'الخزنة', debit: 5, credit: 0 }], totalDebit: 5, totalCredit: 5, related: [] as string[] };
+  const VAT_RETURN = { period: '2026-10', status: 'filed', output: 5200, input: 3100, carriedIn: 0, net: 2100, offset: 3100, payable: 2100, credit: 0, paid: 1000, remaining: 1100, returnId: '1', number: 'VR-000007', filedAt: '2026-11-03', lines: { sales: [{ kind: 'sale', number: 'INV-1', date: '2026-10-05', net: 100, vat: 14, sourceType: 'sale', sourceId: '1' }], returns: [], purchases: [], purchaseReturns: [], expenses: [] }, payments: [], canFile: false, canUnfile: true, preview: null };
+
+  describe('cash invoice and receipt with returns', () => {
+    const returned: InvoiceHistoryRow = {
+      id: 'i1', invoiceId: 'i1', invoiceNumber: 'INV-000012', createdByName: 'محمود', customerName: 'سامي', customerPhone: '010', sellingDate: '2026-11-05T10:00:00Z', itemCount: 2, totalQuantity: 3,
+      subtotal: 270, discountAmount: 20, discountPercentage: null, shippingFees: null, totalPrice: 250, netTotal: 180, refundedAmount: 70, refundStatus: 'partial',
+      items: [{ id: 'a', invoiceId: 'i1', productId: 'p1', productCode: 'A35', productName: 'لمبة', customerName: '', customerPhone: '', categoryName: '', sellingDate: null, quantity: 2, unitPrice: 35, totalPrice: 70 }],
+    };
+
+    it('the total is the STORED invoice total (250), the return and the net after it (180) are their own rows', () => {
+      const data = toCashSaleData(returned);
+      expect(data.total).toBe(250);
+      expect(data.returned).toBe(70);
+      expect(data.netAfterReturn).toBe(180);
+      for (const out of [html(cashInvoice(ctxOf(), data)), html(cashReceipt(ctxOf(), data))]) {
+        expect(out).toMatch(/data-total[^>]*>[\s\S]*?٢٥٠٫٠٠/);
+        expect(out).toMatch(/data-returned[^>]*>[\s\S]*?٧٠٫٠٠/);
+        expect(out).toContain('مرتجع');
+        expect(out).toContain('الصافي بعد المرتجع');
+        expect(out.split('١٨٠٫٠٠').length - 1).toBe(1, 'the net after the return appears only on its own row');
+        expect(out).toMatch(/data-net-after-return[^>]*>[\s\S]*?١٨٠٫٠٠/);
+      }
+    });
+
+    it('an invoice without returns has no return rows and the total is still the stored one', () => {
+      const data = toCashSaleData({ ...returned, refundedAmount: 0, netTotal: 250, refundStatus: 'none' });
+      expect(data.total).toBe(250);
+      expect('returned' in data).toBeFalse();
+      for (const out of [html(cashInvoice(ctxOf(), data)), html(cashReceipt(ctxOf(), data))]) {
+        expect(out).not.toContain('data-returned');
+        expect(out).not.toContain('data-net-after-return');
+      }
+    });
+
+    it('English prints say "Returned" and "Net after returns"', () => {
+      const out = html(cashInvoice(ctxOf('en'), toCashSaleData(returned)), ctxOf('en'));
+      expect(out).toContain('Returned');
+      expect(out).toContain('Net after returns');
+    });
+  });
+
+  describe('shift close report', () => {
+    it('shows the "نسخة" mark under its title on a reprint, and not on the first print', () => {
+      const out = html(shiftClose(copyCtx(), SHIFT), copyCtx());
+      expect(out).toContain('data-copy-mark');
+      expect(out.indexOf('data-title')).toBeLessThan(out.indexOf('data-copy-mark'));
+      expect(out.indexOf('data-copy-mark')).toBeLessThan(out.indexOf('data-no-row', 0) === -1 ? out.indexOf('الخزنة', out.indexOf('data-title')) : 0);
+      expect(html(shiftClose(ctxOf(), SHIFT))).not.toContain('data-copy-mark');
+    });
+
+    it('boxes the shortage / overage row like the design (2px border, 18px); a matching count is a plain row', () => {
+      const short = html(shiftClose(ctxOf(), SHIFT));
+      expect(short).toMatch(/data-difference data-difference-box style="[^"]*font-size:18px[^"]*border:2px solid/);
+      expect(short).toContain('عجز');
+      expect(html(shiftClose(ctxOf(), { ...SHIFT, counted: 7600, difference: 50 }))).toMatch(/data-difference-box[\s\S]*?زيادة/);
+      const matching = html(shiftClose(ctxOf(), { ...SHIFT, counted: 7550, difference: 0 }));
+      expect(matching).not.toContain('data-difference-box');
+      expect(matching).toContain('مطابق');
+    });
+  });
+
+  describe('credit invoice: the debt acknowledgment and the signatures stay on one page', () => {
+    const eightLines = Array.from({ length: 8 }, (_, index) => ({ code: `P${index}`, name: `صنف ${index + 1}`, quantity: 1, unitPrice: 100, total: 100 }));
+    const credit8 = { number: 'CR-000050', date: new Date(2026, 10, 5), customerName: 'م. سامي', dueDate: new Date(2026, 11, 5), items: eightLines, subtotal: 800, discount: 0, shipping: 0, total: 800, paid: 200, remaining: 600, payments: [{ kind: 'down_payment' as const, date: new Date(2026, 10, 5), amount: 200 }] };
+
+    it('the acknowledgment and both signature columns share ONE .keep block', () => {
+      const doc = document.createElement('div');
+      doc.innerHTML = creditInvoice(ctxOf(), credit8).body;
+      const block = doc.querySelector('[data-debt-block]') as HTMLElement;
+      expect(block.classList.contains('keep')).toBeTrue();
+      expect(block.querySelector('[data-acknowledgment]')).not.toBeNull();
+      expect(block.querySelectorAll('[data-signatures] > div').length).toBe(2);
+    });
+
+    it('fragmented into pages of every height near the end, the acknowledgment and both signatures are always on the same page (real Chromium layout)', async () => {
+      const full = html(creditInvoice(ctxOf(), credit8));
+      const frame = document.createElement('iframe');
+      frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:700px;height:3000px;border:0;visibility:hidden';
+      document.body.appendChild(frame);
+      try {
+        await new Promise<void>((resolve) => { frame.onload = () => resolve(); frame.srcdoc = full; });
+        const doc = frame.contentDocument as Document;
+        const body = doc.body;
+        const style = doc.createElement('style');
+        doc.head.appendChild(style);
+        const pageOf = (element: Element, width: number): number => {
+          const box = element.getBoundingClientRect();
+          return Math.floor((body.getBoundingClientRect().right - (box.left + box.width / 2)) / width);
+        };
+        style.textContent = 'body{width:700px;height:auto}';
+        const natural = body.getBoundingClientRect().height;
+        const block = doc.querySelector('[data-debt-block]') as HTMLElement;
+        const blockHeight = block.getBoundingClientRect().height;
+        const checked: number[] = [];
+        for (let page = Math.floor(natural - blockHeight - 40); page <= Math.ceil(natural); page += 6) {
+          // The body is a multi-column box of fixed height: every column is a page, break-inside: avoid decides what moves.
+          style.textContent = `html{direction:rtl} body{width:700px;height:${page}px;columns:700px;column-gap:0;column-fill:auto}`;
+          const ack = doc.querySelector('[data-acknowledgment]') as Element;
+          const sigs = Array.from(doc.querySelectorAll('[data-debt-block] [data-signatures] > div'));
+          const pages = [pageOf(ack, 700), ...sigs.map((sig) => pageOf(sig, 700))];
+          expect(new Set(pages).size).toBe(1, `page height ${page}px: acknowledgment and signatures on pages ${pages}`);
+          checked.push(pages[0]);
+        }
+        expect(Math.max(...checked)).toBeGreaterThan(0, 'at least one of the heights really pushed the block to a second page');
+      } finally {
+        frame.remove();
+      }
+    });
+  });
+
+  describe('signatures get raw strings (no double escaping)', () => {
+    const noDouble = (out: string) => {
+      expect(out).toContain('O&#39;Brien &amp; Co');
+      expect(out).not.toContain('&amp;amp;');
+      expect(out).not.toContain('&amp;#39;');
+      expect(out).not.toContain("O'Brien");
+    };
+
+    it('purchase invoice (received by), stock list (counted by) and journal entry (prepared by)', () => {
+      const purchase = { number: 'PO-000001', date: null, supplier: { name: 'م' }, items: [], subtotal: 0, discount: 0, otherCosts: 0, total: 0, paid: 0, remaining: 0, receivedBy: NAME };
+      noDouble(html(purchaseInvoice(ctxOf(), purchase)));
+      noDouble(html(stockList(ctxOf(), { rows: STOCK_ROWS, categoryLabel: 'الكل', preparedBy: NAME })));
+      noDouble(html(journalEntry(ctxOf(), { ...JOURNAL, preparedBy: NAME })));
+    });
+  });
+
+  describe('smaller fixes', () => {
+    it('cssString strips form feeds as well as CR and LF', () => {
+      expect(cssString('a\fb\r\nc\nd')).toBe('a b c d');
+      expect(cssString('x"y\\z')).toBe('x\\"y\\\\z');
+    });
+
+    it('the measuring iframe is sandboxed (allow-same-origin only: no scripts, forms or popups)', async () => {
+      const measuring = measureRollHeightMm('<!doctype html><html><body><p>x</p></body></html>');
+      const frame = document.querySelector('iframe[aria-hidden="true"]') as HTMLIFrameElement;
+      expect(frame.getAttribute('sandbox')).toBe('allow-same-origin');
+      expect(await measuring).toBeGreaterThan(0);
+    });
+
+    it('the shop footer ("لا ترد ولا تستبدل") is on sales documents only', () => {
+      const FOOTER = 'البضاعة المباعة لا ترد';
+      const sales = [
+        cashReceipt(ctxOf(), sale),
+        paymentReceipt(ctxOf(), { number: 'RC-000041', date: null, customerName: 'س', invoiceNumbers: [], amount: 1 }),
+        returnReceipt(ctxOf(), { number: 'RT-000009', date: null, invoiceKind: 'cash', items: [], total: 0 }),
+        cashInvoice(ctxOf(), sale),
+        creditInvoice(ctxOf(), { ...sale, paid: 0, remaining: 250 }),
+      ];
+      for (const doc of sales) expect(html(doc)).toContain(FOOTER);
+      const others = [
+        shiftClose(ctxOf(), SHIFT),
+        stockList(ctxOf(), { rows: STOCK_ROWS, categoryLabel: 'الكل' }),
+        customerStatement(ctxOf(), STATEMENT),
+        supplierStatement(ctxOf(), { supplier: { name: 'م' }, lines: [], totals: { openingBalance: 0, debit: 0, credit: 0, balance: 0 } }),
+        profitReport(ctxOf(), { periodLabel: 'x', from: null, to: null, kpis: { sales: 0, cost: 0, profit: 0, margin: null }, months: [], products: [] } as never),
+        journalEntry(ctxOf(), JOURNAL),
+        vatReturn(ctxOf(), VAT_RETURN as never),
+        purchaseInvoice(ctxOf(), { number: 'PO-000001', date: null, supplier: { name: 'م' }, items: [], subtotal: 0, discount: 0, otherCosts: 0, total: 0, paid: 0, remaining: 0 }),
+      ];
+      for (const doc of others) expect(html(doc)).not.toContain(FOOTER);
+    });
+
+    it('VAT return group rows show the stored group totals from the API (count, net, VAT), not a re-addition of the lines', () => {
+      const out = html(vatReturn(ctxOf(), { ...VAT_RETURN, groupTotals: { sales: { count: 7, net: 1000, vat: 140 }, returns: { count: 0, net: 0, vat: 0 }, purchases: { count: 0, net: 0, vat: 0 }, purchaseReturns: { count: 0, net: 0, vat: 0 }, expenses: { count: 0, net: 0, vat: 0 } } } as never));
+      expect(out).toContain('١٬٠٠٠٫٠٠');
+      expect(out).toContain('١٤٠٫٠٠');
+      expect(out).toContain('>٧<');
+    });
+
+    it('statement headers print the customer / supplier name in its own labelled row, not in the number slot', () => {
+      const customer = html(customerStatement(ctxOf(), STATEMENT));
+      expect(customer).toMatch(/<span class="muted">العميل<\/span><span style="font-weight:700">م\. سامي<\/span>/);
+      expect(customer).not.toMatch(/<span class="muted">رقم<\/span>/);
+      const supplier = html(supplierStatement(ctxOf(), { supplier: { name: 'الشركة' }, lines: [], totals: { openingBalance: 0, debit: 0, credit: 0, balance: 0 } }));
+      expect(supplier).toMatch(/<span class="muted">المورد<\/span><span style="font-weight:700">الشركة<\/span>/);
+      expect(supplier).not.toMatch(/<span class="muted">رقم<\/span>/);
+    });
+
+    it('credit invoice payment labels follow the print language (own note wins)', () => {
+      const base = { ...sale, paid: 200, remaining: 50, total: 250 };
+      const en = html(creditInvoice(ctxOf('en'), { ...base, payments: [{ kind: 'down_payment', date: null, amount: 100 }, { kind: 'payment', date: null, amount: 100 }] }), ctxOf('en'));
+      expect(en).toContain('Down payment with the invoice');
+      expect(en).toContain('>Payment<');
+      expect(en).not.toMatch(/دفعة|مقدم/);
+      const ar = html(creditInvoice(ctxOf(), { ...base, payments: [{ kind: 'down_payment', date: null, amount: 100 }, { kind: 'payment', label: 'دفعة تانية', date: null, amount: 100 }] }));
+      expect(ar).toContain('مقدم مع الفاتورة');
+      expect(ar).toContain('دفعة تانية');
+    });
   });
 });

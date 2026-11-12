@@ -112,11 +112,11 @@ export class PrintSettingsCardComponent implements OnInit {
     return false;
   }
 
-  /** The test page goes to the printer that is chosen now: it is saved first, so the desktop app prints on that printer. */
+  /** The test page goes to the printer that is selected in the dropdown now (sent with the request; nothing is saved by testing). */
   async test(kind: 'receipt' | 'document'): Promise<void> {
-    if (!(await this.save())) return;
     this.busy.set(true);
-    await this.printer.testPage(kind);
+    this.message.set('');
+    await this.printer.testPage(kind, kind === 'receipt' ? this.receiptPrinter() : this.documentPrinter());
     this.busy.set(false);
   }
 }

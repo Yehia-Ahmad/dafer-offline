@@ -2181,11 +2181,14 @@ async function runStage23Scenarios() {
   await step('Stage 23: POST /api/print/log → copy 0 for the first print, 1 and 2 for reprints (from the server, so two PCs never both print the original)', async () => {
     const copies = [];
     for (let i = 0; i < 3; i += 1) {
-      const response = await request('POST', '/api/print/log', { body: { number: ctx.cash.number, paper: i === 0 ? '80mm' : 'A4' } });
+      const response = await request('POST', '/api/print/log', { body: { number: ctx.cash.number, paper: '80mm' } });
       expectStatus(response, 200, 'POST /api/print/log');
       copies.push(response.json.copy);
     }
     expect(copies.join(',') === '0,1,2', `copies ${copies}`);
+    const nextA4 = await request('GET', `/api/print/next-copy?number=${ctx.cash.number}&paper=A4`);
+    expect(nextA4.json.copy === 0, 'an A4 print is counted apart from the 80mm receipt: next A4 copy is 0');
+    expectStatus(await request('POST', '/api/print/log', { body: { number: 'INV-000999', paper: 'A4' } }), 404, 'unknown document');
     const parallel = await Promise.all([1, 2, 3, 4].map(() => request('POST', '/api/print/log', { body: { number: ctx.receiptNumber } })));
     const sorted = parallel.map((r) => r.json.copy).sort().join(',');
     expect(sorted === '0,1,2,3', `four parallel prints: ${sorted}`);
@@ -2205,13 +2208,13 @@ async function runStage23Scenarios() {
   });
 
   await step('Stage 23: print log permissions: a cashier prints INV and RC, not a journal entry or a purchase; a bad number is 400; no token is 401', async () => {
-    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: 'INV-000999' }), 200, 'cashier INV');
-    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: 'RC-000999' }), 200, 'cashier RC');
+    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: ctx.cash.number }), 200, 'cashier INV');
+    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: ctx.receiptNumber }), 200, 'cashier RC');
     expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: 'JE-000001' }), 403, 'cashier JE');
     expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: 'PO-000001' }), 403, 'cashier PO');
     expectStatus(await as(ctx.accountantToken, 'POST', '/api/print/log', { number: 'JE-000001' }), 200, 'accountant JE');
     expectStatus(await request('POST', '/api/print/log', { body: { number: 'nope' } }), 400, 'bad number');
-    expectStatus(await request('POST', '/api/print/log', { body: { number: 'INV-000001' }, token: null }), 401, 'no token');
+    expectStatus(await request('POST', '/api/print/log', { body: { number: ctx.cash.number }, token: null }), 401, 'no token');
     return 'cashier 200/200/403/403, accountant 200, 400, 401';
   });
 

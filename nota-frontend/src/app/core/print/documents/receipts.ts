@@ -32,8 +32,11 @@ export interface CashSaleData {
   discount: number;
   discountPercent?: number | null;
   shipping: number;
-  /** The stored invoice total (never recomputed by the print). */
+  /** The stored invoice total (never recomputed by the print, and never the net after returns). */
   total: number;
+  /** An invoice with returns: the stored refunded amount and the stored net after it, each printed on its own row under the total. */
+  returned?: number | null;
+  netAfterReturn?: number | null;
   /** VAT as stored on the invoice (absent with VAT off). */
   vat?: InvoiceVatInfo;
   paymentMethod?: string | null;
@@ -86,12 +89,15 @@ export function cashReceipt(ctx: PrintContext, data: CashSaleData): PrintDocumen
   <div class="solid2"></div>
   <div class="r n big" data-total><span>${pick(ctx, 'المطلوب', 'Total')}</span><span>${money(ctx, data.total)} ${currency(ctx)}</span></div>
   <div class="solid2"></div>
+  ${data.returned ? `${receiptRow(pick(ctx, 'مرتجع', 'Returned'), money(ctx, data.returned), 'data-returned')}
+  ${receiptRow(pick(ctx, 'الصافي بعد المرتجع', 'Net after returns'), `<b>${money(ctx, data.netAfterReturn ?? data.total - data.returned)}</b>`, 'data-net-after-return style="font-size:15px"')}
+  <div class="solid2"></div>` : ''}
   ${data.paymentMethod ? receiptRow(pick(ctx, 'طريقة الدفع', 'Payment'), escapeHtml(data.paymentMethod)) : ''}
   ${data.paid !== null && data.paid !== undefined ? receiptRow(pick(ctx, 'المدفوع', 'Paid'), money(ctx, data.paid), 'data-paid') : ''}
   ${data.change !== null && data.change !== undefined && data.change > 0 ? receiptRow(pick(ctx, 'الباقي للزبون', 'Change'), money(ctx, data.change), 'data-change style="font-weight:700"') : ''}
   <div class="barcode" data-barcode-box>${barcodeSvg(data.number)}</div>
   <div class="fine code n" style="align-self:center">${escapeHtml(data.number)}</div>
-  ${receiptFooter(ctx)}
+  ${receiptFooter(ctx, 'document', true)}
   <div class="center" style="font-size:13px;font-weight:700;margin-top:4px">${pick(ctx, 'شكرًا لزيارتكم', 'Thank you for your visit')}</div>`;
   return { paper: '80mm', title: data.number, body: receiptPage(body), cancelled: data.cancelled || null };
 }
@@ -139,7 +145,7 @@ export function paymentReceipt(ctx: PrintContext, data: PaymentReceiptData): Pri
   ${data.note ? receiptRow(pick(ctx, 'ملاحظة', 'Note'), escapeHtml(data.note)) : ''}
   <div class="sigline"><span>${pick(ctx, 'توقيع المستلم', 'Receiver signature')}</span><span>.................</span></div>
   <div class="barcode" data-barcode-box>${barcodeSvg(data.number)}</div>
-  ${receiptFooter(ctx, 'receipt')}`;
+  ${receiptFooter(ctx, 'receipt', true)}`;
   return { paper: '80mm', title: data.number, body: receiptPage(body) };
 }
 
@@ -193,7 +199,7 @@ export function returnReceipt(ctx: PrintContext, data: ReturnReceiptData): Print
   ${data.stockNote ? receiptRow(pick(ctx, 'المخزون', 'Stock'), escapeHtml(data.stockNote)) : ''}
   <div class="sigline"><span>${pick(ctx, 'توقيع العميل', 'Customer signature')}</span><span>.................</span></div>
   <div class="barcode" data-barcode-box>${barcodeSvg(data.number)}</div>
-  ${receiptFooter(ctx, 'receipt')}`;
+  ${receiptFooter(ctx, 'receipt', true)}`;
   return { paper: '80mm', title: data.number, body: receiptPage(body) };
 }
 
@@ -227,6 +233,7 @@ export function shiftClose(ctx: PrintContext, data: ShiftCloseData): PrintDocume
     .join('');
   const body = `${receiptHeader(ctx)}
   <div class="center" style="font-size:15px;font-weight:800" data-title>${pick(ctx, 'تقرير إقفال وردية', 'Shift close report')}</div>
+  ${copyMark(ctx)}
   ${receiptRow(pick(ctx, 'رقم', 'No.'), ltrText(data.number), 'style="font-size:12px"')}
   ${receiptRow(pick(ctx, 'الخزنة', 'Box'), escapeHtml(data.boxName), 'style="font-size:12px"')}
   ${receiptRow(pick(ctx, 'الكاشير', 'Cashier'), escapeHtml(data.cashier), 'style="font-size:12px"')}
@@ -239,8 +246,10 @@ export function shiftClose(ctx: PrintContext, data: ShiftCloseData): PrintDocume
   <div class="solid2"></div>
   ${receiptRow(pick(ctx, 'المفروض في الدرج', 'Expected in drawer'), `<b>${money(ctx, data.expected)}</b>`, 'data-expected')}
   ${receiptRow(pick(ctx, 'المعدود فعلًا', 'Counted'), `<b>${money(ctx, data.counted)}</b>`, 'data-counted')}
-  ${receiptRow(diffLabel, `<b>${money(ctx, Math.abs(data.difference))}</b>`, 'data-difference')}
-  ${data.differenceNote ? receiptRow(pick(ctx, 'ملاحظة', 'Note'), escapeHtml(data.differenceNote)) : ''}
+  ${data.difference === 0
+    ? receiptRow(diffLabel, `<b>${money(ctx, 0)}</b>`, 'data-difference')
+    : `<div class="r n" data-difference data-difference-box style="font-size:18px;font-weight:800;border:2px solid var(--p-text);padding:4px 8px;margin-top:6px"><span>${diffLabel}</span><span>${money(ctx, Math.abs(data.difference))}</span></div>`}
+  ${data.differenceNote ? receiptRow(pick(ctx, 'ملاحظة', 'Note'), escapeHtml(data.differenceNote), 'style="font-size:12px;margin-top:4px"') : ''}
   ${data.deposit ? `${dash}<div style="font-weight:800;font-size:13px;margin-bottom:2px">${pick(ctx, 'التسليم', 'Handover')}</div>
     ${receiptRow(`${pick(ctx, 'توريد ل', 'Deposit to')} ${escapeHtml(data.deposit.boxName)}`, money(ctx, data.deposit.amount), 'data-deposit')}
     ${data.remaining !== null && data.remaining !== undefined ? receiptRow(pick(ctx, 'يفضل في الدرج', 'Stays in drawer'), money(ctx, data.remaining), 'data-remaining') : ''}` : ''}

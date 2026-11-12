@@ -4,9 +4,9 @@
 //
 // The Angular app builds the document's complete HTML (fonts embedded, light palette, `@page`
 // rules, page-number margin boxes) and sends it here. This module:
-//   * renders it in a HIDDEN BrowserWindow with no preload, no Node, sandbox on, JavaScript off,
-//     navigation and new windows blocked and every network request refused (prints work offline
-//     and never load Google Fonts);
+//   * renders it in a HIDDEN BrowserWindow with no preload, no Node, sandbox on, JavaScript off, its OWN in-memory
+//     session (partition 'nota-print'), navigation and new windows blocked and every request refused except the
+//     job's own temp file, data: and about:blank (prints work offline and never load Google Fonts);
 //   * "طباعة": webContents.print(). 80mm receipts go silently to the configured receipt printer;
 //     everything else (and a receipt with no printer configured) shows the system dialog;
 //   * "حفظ PDF": webContents.printToPDF() (vector text, the right page size) saved through a save dialog;
@@ -20,6 +20,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
+const { pathToFileURL } = require('node:url');
 
 const SETTINGS_VERSION = 1;
 const DEFAULT_SETTINGS = Object.freeze({
@@ -32,6 +33,8 @@ const DEFAULT_SETTINGS = Object.freeze({
 const MAX_COPIES = 5;
 const MAX_HTML_BYTES = 25 * 1024 * 1024;
 const PAPERS = Object.freeze({ '80mm': { widthMm: 80 }, A4: { name: 'A4' }, A5: { name: 'A5' } });
+const PRINT_PARTITION = 'nota-print';
+const LOAD_TIMEOUT_MS = 30000;
 const MIN_ROLL_MM = 40;
 const MAX_ROLL_MM = 1500;
 
@@ -107,6 +110,7 @@ const safeFileName = (name) => {
 function createPrintService(deps) {
   const { BrowserWindow, dialog, getMainWindow, settingsPath, log } = deps;
   const tempDir = deps.tempDir || os.tmpdir();
+  const loadTimeoutMs = deps.loadTimeoutMs || LOAD_TIMEOUT_MS;
 
   async function listPrinters() {
     const main = getMainWindow();
@@ -133,12 +137,34 @@ function createPrintService(deps) {
     return next;
   }
 
-  // ONE hidden window, created on the first print and reused for every later one. Destroying a sandboxed
-  // window and creating the next one made the next load fail with ERR_FAILED (and crash the renderer) on
-  // Electron 35 / Windows, so the window is never destroyed: between jobs it goes back to about:blank.
+  // ONE hidden window, created on the first print and reused for every later one (destroying a healthy sandboxed
+  // window between jobs made the next load fail on Electron 35 / Windows; a reset to about:blank fails with ERR_FAILED
+  // there too, so the previous document simply stays until the next job replaces it). It is destroyed only when its renderer crashes or a load times out; the next job makes a new one.
   // Jobs run one at a time (a queue), because they share that window.
+  //
+  // The window has its OWN in-memory session (partition 'nota-print': no "persist:" prefix, so nothing is written to
+  // disk) and the request filter is installed on THAT session only. session.defaultSession (the app's own window and
+  // its API calls) is never touched.
   let shared = null;
   let queue = Promise.resolve();
+  let allowedUrl = ''; // the one file: URL the current job may load
+  let abortJob = null; // rejects the running job (renderer crash)
+
+  const sameUrl = (a, b) => a.toLowerCase() === b.toLowerCase();
+  /** Only the job's own temp file, data: URIs (embedded fonts / images) and about:blank. Everything else is refused. */
+  function allowRequest(url) {
+    if (/^data:/i.test(url) || /^about:blank$/i.test(url)) return true;
+    return Boolean(allowedUrl) && sameUrl(url, allowedUrl);
+  }
+
+  function discardWindow(win) {
+    if (shared === win) shared = null;
+    try {
+      if (win && !win.isDestroyed()) win.destroy();
+    } catch (error) {
+      log.warn(`print window destroy: ${error.message}`);
+    }
+  }
 
   function sharedWindow() {
     if (shared && !shared.isDestroyed()) return shared;
@@ -146,37 +172,53 @@ function createPrintService(deps) {
       show: false,
       width: 900,
       height: 1200,
-      webPreferences: { sandbox: true, javascript: false, contextIsolation: true, nodeIntegration: false, webSecurity: true, spellcheck: false },
+      webPreferences: { partition: PRINT_PARTITION, sandbox: true, javascript: false, contextIsolation: true, nodeIntegration: false, webSecurity: true, spellcheck: false },
     });
     const contents = win.webContents;
     contents.on('will-navigate', (event) => event.preventDefault());
     contents.on('will-redirect', (event) => event.preventDefault());
-    contents.on('render-process-gone', () => { shared = null; });
+    contents.on('render-process-gone', () => {
+      log.warn('print window renderer gone: window discarded, the next job makes a new one');
+      const abort = abortJob;
+      discardWindow(win);
+      if (abort) abort(new PrintError('PRINT_FAILED', 'توقفت نافذة الطباعة. حاول مرة أخرى.'));
+    });
     contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    // THIS window's own session (never defaultSession).
     if (contents.session && contents.session.webRequest) {
-      // Only the document itself (file:) and its embedded data: URIs: nothing from the network.
-      contents.session.webRequest.onBeforeRequest((details, callback) => callback({ cancel: !/^(file|data|blob|about):/i.test(details.url) }));
+      contents.session.webRequest.onBeforeRequest((details, callback) => callback({ cancel: !allowRequest(details.url) }));
     }
     shared = win;
     return win;
   }
 
-  /** Renders `html` in the locked-down hidden window; run(win) gets it loaded; the temp file is always removed. */
+  const withTimeout = (promise, ms, onTimeout) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { onTimeout(); reject(new PrintError('PRINT_TIMEOUT', 'استغرق تجهيز المستند للطباعة وقتًا طويلًا.')); }, ms);
+    promise.then((value) => { clearTimeout(timer); resolve(value); }, (error) => { clearTimeout(timer); reject(error); });
+  });
+
+  /** Renders `html` in the locked-down hidden window; run(win) gets it loaded. The temp file is removed after every job, failed or not. */
   function withRenderedWindow(html, run) {
     const job = queue.then(async () => {
       const file = path.join(tempDir, `nota-print-${randomUUID()}.html`);
-      fs.writeFileSync(file, html, 'utf8');
-      const win = sharedWindow();
+      let win = null;
       try {
-        await win.loadFile(file);
-        return await run(win);
+        fs.writeFileSync(file, html, 'utf8');
+        allowedUrl = pathToFileURL(file).href;
+        win = sharedWindow();
+        const current = win;
+        const crashed = new Promise((_, reject) => { abortJob = reject; });
+        crashed.catch(() => {});
+        await Promise.race([withTimeout(current.loadFile(file), loadTimeoutMs, () => discardWindow(current)), crashed]);
+        return await Promise.race([run(current), crashed]);
       } finally {
+        abortJob = null;
+        allowedUrl = '';
         try {
-          if (!win.isDestroyed() && typeof win.loadURL === 'function') await win.loadURL('about:blank');
+          fs.rmSync(file, { force: true });
         } catch (error) {
-          log.warn(`print window reset: ${error.message}`);
+          log.warn(`print temp file: ${error.message}`);
         }
-        fs.rm(file, { force: true }, () => {});
       }
     });
     queue = job.catch(() => {});
@@ -232,10 +274,15 @@ function createPrintService(deps) {
   }
 
   /** A test page to the chosen printer ("receipt" = 80mm, "document" = A4), always silent: that is the point of the button. */
-  async function printTestPage({ kind, html, heightMm }) {
+  async function printTestPage({ kind, html, heightMm, printer: chosen }) {
     if (kind !== 'receipt' && kind !== 'document') throw badInput('نوع صفحة التجربة غير صحيح.');
     const settings = getSettings();
-    const printer = kind === 'receipt' ? settings.receiptPrinter : settings.documentPrinter;
+    // The printer picked in the dropdown right now (sent with the request); the saved one only when none is sent.
+    let printer = kind === 'receipt' ? settings.receiptPrinter : settings.documentPrinter;
+    if (typeof chosen === 'string') {
+      printer = chosen.trim().slice(0, 256);
+      if (printer && !(await listPrinters()).some((entry) => entry.name === printer)) throw new PrintError('PRINTER_NOT_FOUND', 'الطابعة المختارة غير موجودة على هذا الجهاز.');
+    }
     const paper = kind === 'receipt' ? '80mm' : 'A4';
     const job = validateJob({ html, paper, heightMm: kind === 'receipt' ? heightMm : undefined, title: 'Nota test page' });
     const options = { silent: Boolean(printer), printBackground: true, copies: 1 };

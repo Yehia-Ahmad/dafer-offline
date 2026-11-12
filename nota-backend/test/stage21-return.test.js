@@ -114,6 +114,9 @@ it("the return: October has input > output (a credit that carries); a late docum
   atClock(2026, 11, 1);
   assert.equal(ok(await call("GET", "/api/vat/returns/2026-10")).canFile, true);
   assert.equal(prepared.lines.sales.length, 1); assert.equal(prepared.lines.purchases.length, 1); assert.equal(prepared.lines.sales[0].vat, 30.7);
+  assert.deepEqual(prepared.groupTotals.sales, { count: 1, net: prepared.lines.sales[0].net, vat: 30.7 }, "Stage 23: the group subtotals come from the API (the VAT return print shows them)");
+  assert.deepEqual(prepared.groupTotals.purchases, { count: 1, net: prepared.lines.purchases[0].net, vat: 763 });
+  assert.deepEqual(prepared.groupTotals.expenses, { count: 0, net: 0, vat: 0 });
 
   // Filing is one transaction: the offset entry, the stored figures, the filed status.
   const filed = ok(await file("2026-10"), 201);

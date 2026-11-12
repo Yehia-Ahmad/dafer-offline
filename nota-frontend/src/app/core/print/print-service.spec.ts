@@ -42,9 +42,14 @@ describe('PrintService (Stage 23)', () => {
   let service: PrintService;
   let bridge: Fake;
   let toast: ToastService;
+  /** What the page asked the server, in order: 'next:<number>:<paper>' and 'log:<number>:<paper>', mixed with 'bridge:print' / 'bridge:pdf'. */
+  let events: string[] = [];
 
   const setup = (settings?: DesktopPrintSettings) => {
+    events = [];
     bridge = fakeBridge(settings);
+    bridge['print'].and.callFake(async () => { events.push('bridge:print'); return { ok: true, value: { printed: true, silent: true, printer: 'EPSON' } }; });
+    bridge['savePdf'].and.callFake(async () => { events.push('bridge:pdf'); return { ok: true, value: { saved: true, path: 'C:\\x.pdf' } }; });
     (window as unknown as { notaDesktop?: Partial<NotaDesktopBridge> }).notaDesktop = { print: bridge as unknown as DesktopPrintBridge };
     TestBed.configureTestingModule({
       imports: [TranslateModule.forRoot()],
@@ -62,13 +67,19 @@ describe('PrintService (Stage 23)', () => {
     http.match(`${base}shop-profile`).forEach((request) => request.flush(PROFILE));
   };
   /** Runs the request while answering the GETs/POSTs it makes. */
-  const run = async (promise: Promise<unknown>, answers: { copy?: number; fail?: number } = {}) => {
+  const run = async (promise: Promise<unknown>, answers: { copy?: number; next?: number; commit?: number; fail?: number; failCommit?: number } = {}) => {
     for (let i = 0; i < 6; i += 1) {
       await new Promise((resolve) => setTimeout(resolve, 5));
       http.match(`${base}shop-profile`).forEach((request) => request.flush(PROFILE));
-      http.match(`${base}print/log`).forEach((request) => {
+      http.match((request) => request.url === `${base}print/next-copy`).forEach((request) => {
+        events.push(`next:${request.request.params.get('number')}:${request.request.params.get('paper')}`);
         if (answers.fail) request.flush({ message: 'مفيش صلاحية' }, { status: answers.fail, statusText: 'Forbidden' });
-        else request.flush({ number: request.request.body.number, copy: answers.copy ?? 0, printedAt: new Date(2026, 10, 6, 9, 5).toISOString() });
+        else request.flush({ number: request.request.params.get('number'), copy: answers.next ?? answers.copy ?? 0 });
+      });
+      http.match(`${base}print/log`).forEach((request) => {
+        events.push(`log:${request.request.body.number}:${request.request.body.paper}`);
+        if (answers.failCommit) request.flush({ message: 'x' }, { status: answers.failCommit, statusText: 'Error' });
+        else request.flush({ number: request.request.body.number, copy: answers.commit ?? answers.copy ?? 0, printedAt: new Date(2026, 10, 6, 9, 5).toISOString() });
       });
     }
     return promise;
@@ -78,7 +89,7 @@ describe('PrintService (Stage 23)', () => {
     http.verify();
   });
 
-  it('prints a numbered 80mm receipt: logs it first (the server numbers the copy), then sends the HTML, paper and measured height with the session token', async () => {
+  it('prints a numbered 80mm receipt: asks the NEXT copy number first, prints, and logs only after the print went out; sends the HTML, paper and measured height with the session token', async () => {
     setup();
     const request: PrintRequest = { number: 'INV-000125', build: (ctx) => cashReceipt(ctx, SALE) };
     const outcome = await run(service.print(request));
@@ -92,19 +103,62 @@ describe('PrintService (Stage 23)', () => {
     expect(job.html).toContain('النور');
     expect(job.html).not.toContain('data-copy-mark');
     expect(job.html).toContain('طُبع بواسطة محمود');
+    expect(events).toEqual(['next:INV-000125:80mm', 'bridge:print', 'log:INV-000125:80mm']);
+  });
+
+  it('a cancelled print dialog logs nothing (only the next-copy question was asked)', async () => {
+    setup();
+    bridge['print'].and.callFake(async () => { events.push('bridge:print'); return { ok: true, value: { printed: false, cancelled: true, silent: false, printer: null } }; });
+    const outcome = await run(service.print({ number: 'INV-000125', build: (ctx) => cashInvoice(ctx, SALE) }));
+    expect(outcome).toEqual(jasmine.objectContaining({ ok: true, cancelled: true, copy: 0 }));
+    expect(events).toEqual(['next:INV-000125:A4', 'bridge:print']);
+  });
+
+  it('a print that FAILS logs nothing either', async () => {
+    setup();
+    bridge['print'].and.callFake(async () => { events.push('bridge:print'); return { ok: false, error: { message: 'الطابعة غير متصلة', code: 'PRINT_FAILED' } }; });
+    const outcome = await run(service.print({ number: 'INV-000125', build: (ctx) => cashInvoice(ctx, SALE) }));
+    expect(outcome).toEqual({ ok: false, message: 'الطابعة غير متصلة' });
+    expect(events).toEqual(['next:INV-000125:A4', 'bridge:print']);
+  });
+
+  it('a PDF save counts (in the paper class of the document); a cancelled save dialog does not', async () => {
+    setup();
+    const saved = await run(service.savePdf({ number: 'INV-000125', build: (ctx) => cashInvoice(ctx, SALE) }), { copy: 0 });
+    expect(saved).toEqual(jasmine.objectContaining({ ok: true, cancelled: false }));
+    expect(events).toEqual(['next:INV-000125:A4', 'bridge:pdf', 'log:INV-000125:A4']);
+    events.length = 0;
+    bridge['savePdf'].and.callFake(async () => { events.push('bridge:pdf'); return { ok: true, value: { saved: false } }; });
+    const cancelled = await run(service.savePdf({ number: 'INV-000125', build: (ctx) => cashInvoice(ctx, SALE) }));
+    expect(cancelled).toEqual(jasmine.objectContaining({ ok: true, cancelled: true }));
+    expect(events).toEqual(['next:INV-000125:A4', 'bridge:pdf']);
+  });
+
+  it('two PCs racing: the mark printed is the next number that was read, the outcome carries the real number the server committed', async () => {
+    setup();
+    const outcome = await run(service.print({ number: 'INV-000125', build: (ctx) => cashInvoice(ctx, SALE) }), { next: 1, commit: 2 });
+    expect(bridge['print'].calls.mostRecent().args[1].html).toContain('data-copy-mark');
+    expect(bridge['print'].calls.mostRecent().args[1].html).not.toContain('نسخة ٢');
+    expect(outcome).toEqual(jasmine.objectContaining({ ok: true, copy: 2 }));
+  });
+
+  it('if only the log fails AFTER a good print, the print is still reported as done', async () => {
+    setup();
+    const outcome = await run(service.print({ number: 'INV-000125', build: (ctx) => cashInvoice(ctx, SALE) }), { failCommit: 500 });
+    expect(outcome).toEqual(jasmine.objectContaining({ ok: true, copy: 0 }));
   });
 
   it('a reprint (the server says copy 1+) is rebuilt with the "نسخة" mark and the reprint time', async () => {
     setup();
     let builds = 0;
-    const outcome = await run(service.print({ number: 'INV-000125', build: (ctx) => { builds += 1; return cashInvoice(ctx, SALE); } }), { copy: 2 });
+    const outcome = await run(service.print({ number: 'INV-000125', build: (ctx) => { builds += 1; return cashInvoice(ctx, SALE); } }), { next: 2, commit: 2 });
     expect(outcome).toEqual(jasmine.objectContaining({ ok: true, copy: 2 }));
     expect(builds).toBe(2);
     const job = bridge['print'].calls.mostRecent().args[1];
     expect(job.paper).toBe('A4');
     expect(job.html).toContain('data-copy-mark');
     expect(job.html).toContain('نسخة ٢');
-    expect(job.html).toContain('٦ / ١١ / ٢٠٢٦ ٩:٠٥ ص');
+    expect(job.html).toContain('أُعيدت الطباعة');
   });
 
   it('"حفظ PDF" goes through savePdf with the document title as the suggested name', async () => {
@@ -165,6 +219,17 @@ describe('PrintService (Stage 23)', () => {
     await run(service.print({ noShop: true, build: (ctx) => cashInvoice(ctx, SALE) }));
     expect(http.match(`${base}shop-profile`).length).toBe(0);
     expect(bridge['print'].calls.mostRecent().args[1].html).not.toContain('المنصورة');
+  });
+
+  it('a test page goes to the printer picked in the dropdown (sent with the request); without a pick, the saved one', async () => {
+    setup();
+    await run(service.testPage('receipt', 'HP'));
+    expect(bridge['testPage'].calls.mostRecent().args[1].printer).toBe('HP');
+    expect(bridge['testPage'].calls.mostRecent().args[1].html).toContain('HP');
+    await run(service.testPage('receipt', ''));
+    expect(bridge['testPage'].calls.mostRecent().args[1].printer).toBe('');
+    await run(service.testPage('receipt'));
+    expect(bridge['testPage'].calls.mostRecent().args[1].printer).toBe('EPSON');
   });
 
   it('test pages go to the desktop app with the page kind and the HTML', async () => {
@@ -229,7 +294,7 @@ describe('print buttons and the print settings card (Stage 23)', () => {
     expect(fixture.componentInstance.loading()).toBeFalse();
   });
 
-  it('the settings card lists the printers, saves the choice per device, and the test page saves first; outside the desktop app it says so', async () => {
+  it('the settings card lists the printers, saves the choice per device, and the test page uses the selected printer without saving; outside the desktop app it says so', async () => {
     const bridge = fakeBridge();
     (window as unknown as { notaDesktop?: Partial<NotaDesktopBridge> }).notaDesktop = { print: bridge as unknown as DesktopPrintBridge };
     const testPage = jasmine.createSpy('testPage').and.resolveTo({ ok: true });
@@ -253,15 +318,19 @@ describe('print buttons and the print settings card (Stage 23)', () => {
     await fixture.whenStable();
     expect(bridge['setSettings']).toHaveBeenCalledWith('test-token-owner', { receiptPrinter: 'HP', documentPrinter: '', autoPrintReceipt: true, receiptCopies: 3 });
     bridge['setSettings'].calls.reset();
+    // the test page goes to the printer selected NOW in the dropdown, saved or not, and saves nothing
+    component.documentPrinter.set('HP');
     await component.test('document');
-    expect(bridge['setSettings']).toHaveBeenCalledTimes(1);
-    expect(testPage).toHaveBeenCalledOnceWith('document');
-    // a refused save shows the message and does not print the test page
-    bridge['setSettings'].and.resolveTo({ ok: false, error: { message: 'الطابعة غير موجودة', code: 'PRINTER_NOT_FOUND' } });
+    expect(bridge['setSettings']).not.toHaveBeenCalled();
+    expect(testPage).toHaveBeenCalledOnceWith('document', 'HP');
     testPage.calls.reset();
+    component.receiptPrinter.set('EPSON');
     await component.test('receipt');
-    expect(testPage).not.toHaveBeenCalled();
-    expect(component.message()).toBe('الطابعة غير موجودة');
+    expect(testPage).toHaveBeenCalledOnceWith('receipt', 'EPSON');
+    testPage.calls.reset();
+    component.receiptPrinter.set('');
+    await component.test('receipt');
+    expect(testPage).toHaveBeenCalledOnceWith('receipt', '');
     http.verify();
   });
 

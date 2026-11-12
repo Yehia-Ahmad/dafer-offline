@@ -126,6 +126,14 @@ const linesOf = async (period) => {
   return out;
 };
 
+/** The documents of each group AND each group's stored totals { count, net, vat } (the printed return shows these; the page never re-adds lines). */
+const linesWithTotals = async (period) => {
+  const lines = await linesOf(period);
+  const totals = {};
+  for (const [group, rows] of Object.entries(lines)) totals[group] = { count: rows.length, net: round2(rows.reduce((sum, row) => sum + row.net, 0)), vat: round2(rows.reduce((sum, row) => sum + row.vat, 0)) };
+  return { lines, totals };
+};
+
 // GET /api/vat/returns/:period: the figures, the documents behind them, the payments and the posting a filing would make.
 const getReturn = async (req, res) => {
   res.set("Cache-Control", "no-store");
@@ -133,11 +141,13 @@ const getReturn = async (req, res) => {
   const figures = await figuresFor(period);
   const payments = figures.filed ? await VatPayment.find({ returnId: figures.filed._id, status: "posted" }).sort({ date: 1, createdAt: 1 }).lean() : [];
   const paid = round2(payments.reduce((sum, row) => sum + row.amount, 0));
+  const lines = await linesWithTotals(period);
   const [next, last] = await Promise.all([nextPeriod(), lastFiledPeriod()]);
   const boxNames = new Map((await CashBox.find({}).select("name").lean()).map((box) => [String(box._id), box.name]));
   res.json({
     ...view(period, figures, paid),
-    lines: await linesOf(period),
+    lines: lines.lines,
+    groupTotals: lines.totals,
     payments: payments.map((row) => ({ _id: row._id, number: row.number, date: row.date, amount: row.amount, boxId: row.boxId, boxName: boxNames.get(String(row.boxId)) || null, reference: row.reference || null, note: row.note || null })),
     canFile: !figures.filed && period === next && period < monthOf(today()),
     canUnfile: Boolean(figures.filed) && period === last && paid === 0,

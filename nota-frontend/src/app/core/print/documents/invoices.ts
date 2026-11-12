@@ -3,7 +3,7 @@
 
 import { InvoiceVatInfo, vatPrintLabels } from '../../../modules/shared/vat/vat-print';
 import { amountInWords, escapeHtml, formatDate, formatMoney, formatPercent, formatQty, localizeDigits } from '../print-format';
-import { Cell, PrintContext, PrintDocument, a4Header, a4Page, cancelBox, copyMark, generatedText, pick, printedByText, row, closing, shopNote, signatures, table } from '../print-kit';
+import { Cell, PrintContext, PrintDocument, a4Header, a4Page, cancelBox, copyMark, generatedText, pick, printedByText, row, closing, signatures, table } from '../print-kit';
 import { CashSaleData, PaymentReceiptData, SaleLine } from './receipts';
 
 const money = (ctx: PrintContext, value: number | null | undefined): string => formatMoney(value ?? 0, ctx.lang);
@@ -81,12 +81,13 @@ export function cashInvoice(ctx: PrintContext, data: CashSaleData): PrintDocumen
       ${data.shipping ? totalsRow(pick(ctx, 'التوصيل', 'Delivery'), money(ctx, data.shipping)) : ''}
       ${vatTotals(ctx, data.vat)}
       ${grandRow(data.vat ? pick(ctx, 'الإجمالي شامل الضريبة', 'Total incl. VAT') : pick(ctx, 'الصافي', 'Net total'), `${money(ctx, data.total)} ${currency(ctx)}`, 'data-total')}
+      ${data.returned ? `${totalsRow(pick(ctx, 'مرتجع', 'Returned'), money(ctx, data.returned), 'data-returned')}${totalsRow(pick(ctx, 'الصافي بعد المرتجع', 'Net after returns'), `<b>${money(ctx, data.netAfterReturn ?? data.total - data.returned)}</b>`, 'data-net-after-return')}` : ''}
       ${data.paid !== null && data.paid !== undefined ? totalsRow(pick(ctx, 'المدفوع', 'Paid'), money(ctx, data.paid), 'data-paid') : ''}
       ${data.change !== null && data.change !== undefined && data.change > 0 ? totalsRow(pick(ctx, 'الباقي للزبون', 'Change'), money(ctx, data.change), 'data-change') : ''}
     </tbody></table>
   </div>
   <div class="grow"></div>
-  ${closing(ctx, [{ who: pick(ctx, 'البائع', 'Seller'), line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') }, { who: pick(ctx, 'المستلم', 'Receiver'), line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') }])}`);
+  ${closing(ctx, [{ who: pick(ctx, 'البائع', 'Seller'), line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') }, { who: pick(ctx, 'المستلم', 'Receiver'), line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') }], true)}`);
   return { paper: 'A4', title: data.number, body, pageNumbers: true, cancelled: data.cancelled || null };
 }
 
@@ -97,7 +98,8 @@ export interface CreditInvoiceData extends CashSaleData {
   note?: string | null;
   paid: number;
   remaining: number;
-  payments?: Array<{ label: string; date: string | Date | null; amount: number }>;
+  /** `label` is the payment's own note; empty = the template writes "دفعة" / "مقدم مع الفاتورة" in the print language. */
+  payments?: Array<{ label?: string; kind?: 'down_payment' | 'payment'; date: string | Date | null; amount: number }>;
   balanceBefore?: number | null;
   balanceAfter?: number | null;
 }
@@ -110,7 +112,7 @@ export function creditInvoice(ctx: PrintContext, data: CreditInvoiceData): Print
   const payments = (data.payments || []).length
     ? table(
         [{ label: pick(ctx, 'الدفعات', 'Payments') }, { label: pick(ctx, 'التاريخ', 'Date'), numeric: true }, { label: pick(ctx, 'المبلغ', 'Amount'), numeric: true }],
-        (data.payments || []).map((payment) => row([escapeHtml(payment.label), { html: formatDate(payment.date, ctx.lang), numeric: true }, { html: money(ctx, payment.amount), numeric: true }])).join('')
+        (data.payments || []).map((payment) => row([escapeHtml(payment.label || (payment.kind === 'down_payment' ? pick(ctx, 'مقدم مع الفاتورة', 'Down payment with the invoice') : pick(ctx, 'دفعة', 'Payment'))), { html: formatDate(payment.date, ctx.lang), numeric: true }, { html: money(ctx, payment.amount), numeric: true }])).join('')
       )
     : '';
   const balanceBox =
@@ -153,12 +155,14 @@ export function creditInvoice(ctx: PrintContext, data: CreditInvoiceData): Print
       ${grandRow(pick(ctx, 'المتبقي', 'Remaining'), `${money(ctx, data.remaining)} ${currency(ctx)}`, 'data-remaining')}
     </tbody></table>
   </div>
-  <div class="box keep" style="font-size:13px;line-height:1.8" data-acknowledgment>${acknowledgment}</div>
   <div class="grow"></div>
-  ${closing(ctx, [
-    { who: pick(ctx, 'عن المحل', 'For the shop'), line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') },
-    { who: pick(ctx, 'العميل', 'Customer'), line: pick(ctx, 'الاسم والتوقيع والرقم القومي', 'Name, signature and national ID') },
-  ])}`,
+  <div class="col keep" style="gap:16px" data-debt-block>
+    <div class="box" style="font-size:13px;line-height:1.8" data-acknowledgment>${acknowledgment}</div>
+    ${closing(ctx, [
+      { who: pick(ctx, 'عن المحل', 'For the shop'), line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') },
+      { who: pick(ctx, 'العميل', 'Customer'), line: pick(ctx, 'الاسم والتوقيع والرقم القومي', 'Name, signature and national ID') },
+    ], true)}
+  </div>`,
     16
   );
   return { paper: 'A4', title: data.number, body, pageNumbers: true, cancelled: data.cancelled || null };
@@ -258,7 +262,7 @@ export function purchaseInvoice(ctx: PrintContext, data: PurchaseInvoiceData): P
   </div>
   <div class="grow"></div>
   ${closing(ctx, [
-    { who: `${pick(ctx, 'استلم البضاعة', 'Goods received by')}${data.receivedBy ? ` ${escapeHtml(data.receivedBy)}` : ''}`, line: pick(ctx, 'أمين المخزن', 'Storekeeper') },
+    { who: `${pick(ctx, 'استلم البضاعة', 'Goods received by')}${data.receivedBy ? ` ${data.receivedBy}` : ''}`, line: pick(ctx, 'أمين المخزن', 'Storekeeper') },
     { who: pick(ctx, 'المحاسب', 'Accountant'), line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') },
     { who: pick(ctx, 'مندوب المورد', 'Supplier representative'), line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') },
   ])}`);

@@ -58,6 +58,8 @@ export interface VatPaymentRow {
 
 export interface VatReturnDetail extends VatReturnRow {
   lines: Record<VatLineGroup, VatLine[]>;
+  /** Per group: the number of documents and the stored net / VAT totals (the VAT return print shows these). */
+  groupTotals?: Record<VatLineGroup, { count: number; net: number; vat: number }>;
   payments: VatPaymentRow[];
   canFile: boolean;
   canUnfile: boolean;

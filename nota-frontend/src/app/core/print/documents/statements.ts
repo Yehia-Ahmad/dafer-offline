@@ -1,7 +1,7 @@
 // Stage 23: the A4 statements and lists: PrCustomerStatement, PrSupplierStatement, PrStockList.
 
 import { escapeHtml, formatDate, formatDayMonth, formatMoney, formatQty } from '../print-format';
-import { Cell, PrintContext, PrintDocument, a4Header, a4Page, pick, row, closing, shopNote, signatures, table } from '../print-kit';
+import { Cell, PrintContext, PrintDocument, a4Header, a4Page, pick, row, closing, signatures, table } from '../print-kit';
 
 const money = (ctx: PrintContext, value: number | null | undefined): string => formatMoney(value ?? 0, ctx.lang);
 const currency = (ctx: PrintContext): string => pick(ctx, 'ج.م', 'EGP');
@@ -91,7 +91,7 @@ export function customerStatement(ctx: PrintContext, data: CustomerStatementData
       ? `نرجو مراجعة الكشف، وإبلاغنا بأي ملاحظة خلال ٧ أيام من تاريخه. بعد كده يُعتبر الرصيد الموضح <b class="n">${money(ctx, data.totals.balance)} ج.م</b> صحيحًا ونهائيًا.`
       : `Please review this statement and tell us of any remark within 7 days of its date. After that the balance shown, <b class="n">${money(ctx, data.totals.balance)} EGP</b>, is considered correct and final.`;
   const body = a4Page(`
-  ${a4Header(ctx, { title: pick(ctx, 'كشف حساب عميل', 'Customer statement'), no: data.customer.name, date: formatDate(ctx.printedAt, ctx.lang), extraLabel: pick(ctx, 'الفترة', 'Period'), extra: periodText(ctx, data.from, data.to) })}
+  ${a4Header(ctx, { title: pick(ctx, 'كشف حساب عميل', 'Customer statement'), date: formatDate(ctx.printedAt, ctx.lang), extraLabel: pick(ctx, 'العميل', 'Customer'), extra: data.customer.name, extra2Label: pick(ctx, 'الفترة', 'Period'), extra2: periodText(ctx, data.from, data.to) })}
   ${kpiRow([
     { label: pick(ctx, 'رصيد أول الفترة', 'Opening balance'), value: money(ctx, data.totals.openingBalance) },
     { label: pick(ctx, 'إجمالي المدين', 'Total debit'), value: money(ctx, data.totals.debit) },
@@ -127,7 +127,7 @@ export function supplierStatement(ctx: PrintContext, data: SupplierStatementData
   ].filter(Boolean);
   const totalsFoot = `<tr class="total"><td colspan="3">${pick(ctx, 'الإجمالي', 'Total')}</td><td class="n">${money(ctx, data.totals.debit)}</td><td class="n">${money(ctx, data.totals.credit)}</td><td class="n" data-balance>${money(ctx, data.totals.balance)}</td></tr>`;
   const body = a4Page(`
-  ${a4Header(ctx, { title: pick(ctx, 'كشف حساب مورد', 'Supplier statement'), no: data.supplier.name, date: formatDate(ctx.printedAt, ctx.lang), extraLabel: pick(ctx, 'الفترة', 'Period'), extra: periodText(ctx, data.from, data.to) })}
+  ${a4Header(ctx, { title: pick(ctx, 'كشف حساب مورد', 'Supplier statement'), date: formatDate(ctx.printedAt, ctx.lang), extraLabel: pick(ctx, 'المورد', 'Supplier'), extra: data.supplier.name, extra2Label: pick(ctx, 'الفترة', 'Period'), extra2: periodText(ctx, data.from, data.to) })}
   ${kpiRow([
     { label: pick(ctx, 'رصيد أول الفترة', 'Opening balance'), value: money(ctx, data.totals.openingBalance) },
     { label: pick(ctx, 'مشتريات (دائن)', 'Purchases (credit)'), value: money(ctx, data.totals.credit) },
@@ -221,7 +221,7 @@ export function stockList(ctx: PrintContext, data: StockListData): PrintDocument
   <div class="muted keep" style="font-size:12px">${pick(ctx, '★ = تحت حد التنبيه · عمود "المعدود" و"الفرق" فاضيين عشان تكتب فيهم وأنت بتعدّ البضاعة على الرف.', '★ = below the alert level · the "Counted" and "Difference" columns are blank for you to fill in while counting the shelf.')}</div>
   <div class="grow"></div>
   ${closing(ctx, [
-    { who: `${pick(ctx, 'قام بالجرد', 'Counted by')}${data.preparedBy ? ` ${escapeHtml(data.preparedBy)}` : ''}`, line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') },
+    { who: `${pick(ctx, 'قام بالجرد', 'Counted by')}${data.preparedBy ? ` ${data.preparedBy}` : ''}`, line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') },
     { who: pick(ctx, 'راجع واعتمد', 'Reviewed and approved'), line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') },
   ])}`);
   return { paper: 'A4', title: pick(ctx, 'كشف جرد المخزون', 'Stock count sheet'), body, pageNumbers: true };

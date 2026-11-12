@@ -85,7 +85,11 @@ export function toCashSaleData(row: InvoiceHistoryRow, options: { paymentMethod?
     discount: Number(row.discountAmount ?? 0),
     discountPercent: row.discountPercentage ?? null,
     shipping: Number(row.shippingFees ?? 0),
-    total: Number(row.netTotal ?? row.totalPrice ?? 0),
+    // The STORED invoice total (what the customer was charged), never the net after returns: the returns are their own rows below it.
+    total: Number(row.totalPrice ?? 0),
+    ...(Number(row.refundedAmount ?? 0) > 0
+      ? { returned: Number(row.refundedAmount), netAfterReturn: Number(row.netTotal ?? Number(row.totalPrice ?? 0) - Number(row.refundedAmount)) }
+      : {}),
     ...(row.vat ? { vat: row.vat as InvoiceVatInfo } : {}),
     paymentMethod: options.paymentMethod ?? null,
     ...(row.status === 'cancelled' ? { cancelled: { reason: row.cancellationReason || null } } : {}),
@@ -122,7 +126,9 @@ export function toCreditInvoiceData(
     paid: entry.paidAmount,
     remaining: entry.remainingAmount,
     payments: entry.payments.map((payment) => ({
-      label: payment.note || (payment.source === 'down_payment' ? 'مقدم مع الفاتورة' : 'دفعة'),
+      // The user's own note, or nothing: the template writes "دفعة" / "Payment" in the print language.
+      label: payment.note || '',
+      kind: payment.source === 'down_payment' ? ('down_payment' as const) : ('payment' as const),
       date: payment.paymentDate,
       amount: payment.amount,
     })),

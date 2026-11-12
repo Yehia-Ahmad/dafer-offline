@@ -25,7 +25,7 @@ export function escapeHtml(value: unknown): string {
 /** A value inside a CSS string ("…") such as `content:` of a page margin box. */
 export function cssString(value: unknown): string {
   // `<` becomes a CSS escape: a name like "</style><img ...>" must never close the <style> element it is printed in.
-  return String(value ?? '').replace(/[\\"]/g, '\\$&').replace(/[\r\n]+/g, ' ').replace(/</g, '\\3C ');
+  return String(value ?? '').replace(/[\\"]/g, '\\$&').replace(/[\r\n\f]+/g, ' ').replace(/</g, '\\3C ');
 }
 
 const group = (digits: string): string => digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -47,12 +47,6 @@ export const formatMoney = (value: number | string | null | undefined, lang: Pri
 export function formatQty(value: number | string | null | undefined, lang: PrintLanguage): string {
   const number = Number(value ?? 0);
   return formatNumber(number, lang, Number.isInteger(number) ? 0 : 3).replace(/([.٫]\d*?)0+$/, '$1').replace(/[.٫]$/, '');
-}
-/** Whole currency amounts of the financial statements ("١٨٬٤٠٠"; negatives in parentheses like the design: "(٦٥٠)"). */
-export function formatWhole(value: number | string | null | undefined, lang: PrintLanguage, parentheses = false): string {
-  const number = Number(value ?? 0);
-  const text = formatNumber(Math.abs(number), lang, 0);
-  return parentheses && number < 0 ? `(${text})` : number < 0 ? `${lang === 'ar' ? '−' : '-'}${text}` : text;
 }
 /** "٣٠٫٨٪" / "30.8%". */
 export const formatPercent = (value: number | null | undefined, lang: PrintLanguage): string =>

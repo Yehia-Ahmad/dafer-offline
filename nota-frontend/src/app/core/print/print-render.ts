@@ -3,10 +3,12 @@
 
 const PX_PER_MM = 96 / 25.4;
 
-function hiddenFrame(html: string, widthCss: string): Promise<HTMLIFrameElement> {
+function hiddenFrame(html: string, widthCss: string, options: { sandbox?: boolean } = {}): Promise<HTMLIFrameElement> {
   return new Promise((resolve, reject) => {
     const frame = document.createElement('iframe');
     frame.setAttribute('aria-hidden', 'true');
+    // Measuring only needs the layout: no scripts, forms or popups (allow-same-origin is there so the parent can read the height).
+    if (options.sandbox) frame.setAttribute('sandbox', 'allow-same-origin');
     frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${widthCss};height:200px;border:0;visibility:hidden`;
     frame.onload = () => resolve(frame);
     frame.onerror = () => reject(new Error('print frame failed to load'));
@@ -17,7 +19,7 @@ function hiddenFrame(html: string, widthCss: string): Promise<HTMLIFrameElement>
 
 /** The height of an 80mm receipt in whole millimetres (the page of a roll is as tall as the receipt). */
 export async function measureRollHeightMm(html: string): Promise<number> {
-  const frame = await hiddenFrame(html, '80mm');
+  const frame = await hiddenFrame(html, '80mm', { sandbox: true });
   try {
     const doc = frame.contentDocument;
     if (doc && doc.fonts && doc.fonts.ready) await doc.fonts.ready;
