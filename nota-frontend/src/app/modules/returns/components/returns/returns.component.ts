@@ -70,6 +70,8 @@ export type WizardInvoice = {
   remaining: number | null;
   items: Array<{ productId: string; productName: string; productCode: string; quantity: number; unitPrice: number }>;
   returnedByProduct: Record<string, number>;
+  /** Stage 22: a credit invoice with an unreversed write-off cannot be returned until the entry is reversed. */
+  writtenOff?: boolean;
 };
 
 export type WizardLine = {
@@ -226,6 +228,8 @@ export class ReturnsComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Stage 22 review: another PC may have closed a period since this one signed in.
+    this.lock.refresh();
     // Stage 14: the log needs returns.view; a user who may only record returns (the cashier
     // template) opens straight on the new-return wizard and never requests the log.
     if (this._auth.has('returns.view')) {
@@ -494,7 +498,7 @@ export class ReturnsComponent implements OnInit {
   confirmWizardReturn(): void {
     const invoice = this.wizardInvoice;
     const lines = this.wizardSelectedLines;
-    if (!invoice || !lines.length || this.wizardSaving) return;
+    if (!invoice || !lines.length || this.wizardSaving || invoice.writtenOff) return;
 
     const note = this.wizardNote.trim();
     const items = lines.map((line) => ({
@@ -585,7 +589,8 @@ export class ReturnsComponent implements OnInit {
       items: view.items.map((item) => ({
         productId: item.productId, productName: item.productName, productCode: item.productCode, quantity: item.quantity, unitPrice: item.pricePerEach
       })),
-      returnedByProduct: this.sumReturned(source?.refunds)
+      returnedByProduct: this.sumReturned(source?.refunds),
+      writtenOff: view.writtenOff
     };
   }
 

@@ -1,4 +1,5 @@
 import { Type } from '@angular/core';
+import { lockRefreshSpy } from '../../test-setup.spec';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -182,6 +183,12 @@ describe('TransferDialogComponent (Stage 19)', () => {
     ctx.component.visible.set(true);
     return ctx;
   };
+
+  it('re-reads the lock date when it opens (Stage 22 review)', async () => {
+    const { fixture } = await open();
+    await settle(fixture);
+    expect(lockRefreshSpy()).toHaveBeenCalled();
+  });
 
   it('shows both balances before and after, and refuses more than the from-box holds', async () => {
     const { fixture, component } = await open();

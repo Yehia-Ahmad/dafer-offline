@@ -208,6 +208,8 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Stage 22 review: another PC may have closed a period since this one signed in.
+    this.lock.refresh();
     this.updateDirection();
     if (this.isBrowser) {
       // Cached for printing; without it the invoice prints with a neutral header.
@@ -418,7 +420,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
 
   deleteCreditInvoice(): void {
     const invoice = this.selectedInvoiceForDelete;
-    if (!invoice?.id || this.isDeletingCreditSale) return;
+    if (!invoice?.id || invoice.writtenOff || this.isDeletingCreditSale) return;
 
     const reason = this.cancelReason.trim();
     if (reason.length < 3) return;
@@ -440,6 +442,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
           HAS_PAYMENTS: 'invoiceHistoryPage.cancel.blocked.hasPayments',
           HAS_RETURNS: 'invoiceHistoryPage.cancel.blocked.hasReturns',
           ALREADY_CANCELLED: 'invoiceHistoryPage.cancel.blocked.alreadyCancelled',
+          WRITTEN_OFF: 'invoiceHistoryPage.cancel.blocked.writtenOff',
         };
         this.deleteCreditErrorMessage = blockedKey[code]
           ? this.translate.instant(blockedKey[code])
@@ -473,7 +476,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
 
   saveRefund(): void {
     const invoice = this.selectedInvoiceForRefund;
-    if (!invoice?.id) {
+    if (!invoice?.id || invoice.writtenOff) {
       return;
     }
 

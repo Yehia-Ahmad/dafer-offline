@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { NotaCanDirective } from '../../core/auth/nota-can.directive';
 import { NotaBalancePipe, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent } from '../shared/ui';
@@ -25,6 +25,7 @@ import { Supplier, SuppliersService } from './suppliers.service';
 export class SuppliersPageComponent implements OnInit {
   private readonly service = inject(SuppliersService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   readonly suppliers = signal<Supplier[]>([]);
   readonly loading = signal(true);
@@ -41,6 +42,9 @@ export class SuppliersPageComponent implements OnInit {
   readonly totalWeOwe = computed(() => Math.round(this.suppliers().reduce((sum, row) => sum + Math.max(0, row.balance), 0) * 100) / 100);
 
   ngOnInit(): void {
+    // Stage 22: the balances report links a supplier's name here (?statement=<id>): that supplier's statement opens.
+    const statement = this.route.snapshot.queryParamMap.get('statement');
+    if (statement) this.selectedId.set(statement);
     this.load();
   }
 

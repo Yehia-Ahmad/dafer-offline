@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { lockRefreshSpy } from '../../../../test-setup.spec';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -40,6 +41,10 @@ describe('ReturnsComponent new-return wizard (Stage 10)', () => {
   });
 
   afterEach(() => http.verify());
+
+  it('re-reads the lock date when it opens (Stage 22 review)', () => {
+    expect(lockRefreshSpy()).toHaveBeenCalled();
+  });
 
   it('cash: GET sellings by name → pick → POST returns with the invoice-history body', () => {
     component.wizardQuery = ' زبون ';
@@ -101,6 +106,25 @@ describe('ReturnsComponent new-return wizard (Stage 10)', () => {
     post.flush({ message: 'تعذر' }, { status: 400, statusText: 'Bad Request' });
     expect(component.wizardSaveError).toBe('تعذر');
     expect(component.view).toBe('wizard');
+  });
+
+  it('credit invoice with an unreversed write-off: the wizard flags it and sends no return (the screen shows the message)', () => {
+    component.setWizardType('credit');
+    component.wizardQuery = '0122 555';
+    component.searchWizardInvoices();
+    http.expectOne((r) => r.url === `${base}credit-sales`).flush({ success: true, data: [{
+      _id: 'cs1', invoiceId: 'cs1', customerName: 'محمد', customerPhone: '01225550199', sellingDate: '2026-10-15', status: 'partially_paid',
+      totalPrice: 2800, paidAmount: 800, remainingAmount: 2000, refunds: [],
+      payments: [{ _id: 'w1', amount: 800, paymentDate: '2026-10-20', note: 'قيد يدوي JE-000009', source: 'manual_entry' }],
+      items: [{ _id: 'i1', productId: 'p9', productName: 'كشاف طوارئ', productQuantity: 4, productPricePerEach: 275, totalPrice: 1100 }],
+    }], pagination: {} });
+    component.pickWizardInvoice(component.wizardResults[0]);
+    expect(component.wizardInvoice?.writtenOff).toBeTrue();
+    component.wizardLines[0].quantity = 1;
+    component.goToWizardStep(3);
+    component.wizardDate = new Date(2026, 10, 4);
+    component.confirmWizardReturn();
+    http.expectNone(`${base}returns`);
   });
 
   it('invoice-number search trims and normalizes the number', () => {

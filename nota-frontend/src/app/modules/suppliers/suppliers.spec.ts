@@ -85,6 +85,21 @@ describe('SuppliersPageComponent', () => {
     http.verify();
   });
 
+  it("the balances report links a supplier's name here with ?statement=<id>: that supplier's statement opens", async () => {
+    TestBed.configureTestingModule({
+      imports: [SuppliersPageComponent, TranslateModule.forRoot()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({ statement: 's2' }) } } }],
+    });
+    http = TestBed.inject(HttpTestingController);
+    TestBed.inject(LanguageService).selectedLanguage.set('en');
+    const fixture = TestBed.createComponent(SuppliersPageComponent);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.selectedId()).toBe('s2');
+    http.expectOne((r) => r.url === `${base}suppliers`).flush([supplier(), supplier({ _id: 's2', name: 'الدلتا', balance: 0, openingAmount: 0, paymentTermsDays: 0 })]);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.selected()?.name).toBe('الدلتا');
+  });
+
   it('a supplier with a debit balance (they owe us) gets the warning hint', async () => {
     const fixture = create();
     await flushList(fixture, [supplier({ balance: -200 })]);

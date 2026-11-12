@@ -174,6 +174,8 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Stage 21 review: another PC may have changed the VAT settings since this one signed in.
     this.vatSettings.refresh();
+    // Stage 22 review: another PC may have closed a period since this one signed in.
+    this.lock.refresh();
     this.updateDirection();
     this.subscriptions.add(
       this.translate.onLangChange.subscribe(() => {

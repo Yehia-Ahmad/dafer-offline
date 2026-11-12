@@ -356,7 +356,8 @@
             "blocked": {
                 "hasPayments": "An invoice with payments cannot be cancelled. Create a return instead.",
                 "hasReturns": "An invoice with returns cannot be cancelled. Create a return instead.",
-                "alreadyCancelled": "This invoice is already cancelled."
+                "alreadyCancelled": "This invoice is already cancelled.",
+                "writtenOff": "This invoice carries a bad-debt write-off entry; reverse the entry first."
             },
             "number": "Invoice number",
             "originalTotal": "Original total",
@@ -1440,7 +1441,8 @@
             "debit": "Dr",
             "credit": "Cr"
         },
-        "oppositeHint": "Balance is on the opposite side of normal"
+        "oppositeHint": "Balance is on the opposite side of normal",
+        "closingExcluded": "Year-end closing entries are excluded here so the figures match the income statement."
     },
     "openingWizard": {
         "title": "Shop opening balances",

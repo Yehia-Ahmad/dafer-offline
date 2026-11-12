@@ -12,6 +12,7 @@ import { authInterceptor } from '../auth/auth.interceptor';
 import { signInAs } from '../auth/testing/sign-in';
 import { NotaLockBannerComponent, NotaLockedDateDirective } from '../../modules/shared/ui';
 import { LockDateService } from './lock-date.service';
+import { lockRefreshSpy } from '../../test-setup.spec';
 
 const base = environment.api_base_url;
 
@@ -48,6 +49,34 @@ describe('LockDateService (Stage 22)', () => {
     expect(lock.lockedThrough()).toBeNull();
     lock.set(undefined);
     expect(lock.lockedThrough()).toBeNull();
+  });
+});
+
+describe('LockDateService.refresh: a posting form re-reads GET /accounting/lock-date when it opens (Stage 22 review)', () => {
+  let http: HttpTestingController;
+  let lock: LockDateService;
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    lockRefreshSpy().and.callThrough(); // the real call (every other spec has it stubbed)
+    http = TestBed.inject(HttpTestingController);
+    lock = TestBed.inject(LockDateService);
+  });
+  afterEach(() => http.verify());
+
+  it('takes the server value: a period closed on another PC locks this one, a reopened one unlocks it', () => {
+    lock.refresh();
+    http.expectOne(`${base}accounting/lock-date`).flush({ lockedThrough: '2026-10-31' });
+    expect(lock.lockedThrough()).toBe('2026-10-31');
+    lock.refresh();
+    http.expectOne(`${base}accounting/lock-date`).flush({ lockedThrough: null });
+    expect(lock.lockedThrough()).toBeNull();
+  });
+
+  it('a failed read keeps what is known (the server still enforces the lock)', () => {
+    lock.set('2026-09-30');
+    lock.refresh();
+    http.expectOne(`${base}accounting/lock-date`).flush({}, { status: 500, statusText: 'x' });
+    expect(lock.lockedThrough()).toBe('2026-09-30');
   });
 });
 

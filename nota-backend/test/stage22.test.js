@@ -367,7 +367,7 @@ it("manual draft: saved unbalanced, edited, deleted; never in the ledger, report
   await assertHealthy();
 });
 
-it("manual entry forbidden accounts: boxes, inventory, VAT (when on), invoice accounts and a customer debit are refused with the Arabic errors; the rest is allowed", async () => {
+it("manual entry forbidden accounts: boxes, inventory, VAT (always), invoice accounts and a customer debit are refused with the Arabic errors; the rest is allowed", async () => {
   await poorShop();
   const customer = await makeCustomer();
   const capital = await accountId("CAPITAL");
@@ -384,12 +384,11 @@ it("manual entry forbidden accounts: boxes, inventory, VAT (when on), invoice ac
   const INVOICE = "الحساب ده بيتحرك من الفواتير؛ صحّح بالمرتجع أو الإلغاء أو تعديل الفاتورة";
   for (const code of ["410", "420", "430", "440", "510"]) await refused(await accountId(code), INVOICE, "INVOICE_ACCOUNT");
   await refused(await accountId("520"), "تجميعي", "GROUP_ACCOUNT");
-  // VAT accounts: allowed while VAT is off, forbidden once it is on
+  // VAT accounts (22, 115): forbidden in a manual entry ALWAYS, whether VAT is off or on
   const vatInput = await accountId("VAT_INPUT"); const vatPayable = await accountId("VAT_PAYABLE");
-  const vatEntry = await postManual([{ accountId: vatInput, debit: 10 }, { accountId: capital, credit: 10 }]);
-  ok(vatEntry.response);
-  // (a VAT balance with no document behind it would fail the VAT health check once VAT is on, so this one is reversed first)
-  ok(await call("POST", `${MANUAL}/${vatEntry.draft._id}/reverse`, { reason: "تجربة قبل تفعيل الضريبة" }));
+  await refused(vatInput, "استخدم شاشة الضريبة", "VAT_ACCOUNT"); await refused(vatPayable, "استخدم شاشة الضريبة", "VAT_ACCOUNT");
+  assert.equal((await postManual([{ accountId: capital, debit: 10 }, { accountId: vatPayable, credit: 10 }])).response.status, 400);
+  assert.equal(((await call("GET", `${MANUAL}/accounts`)).json.data.find((row) => row.code === "22")).blocked.code, "VAT_ACCOUNT"); // VAT off: still blocked in the picker
   ok(await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "123-456-789", vat: { enabled: true, rate: 14, pricesIncludeVat: true } }));
   await refused(vatInput, "استخدم شاشة الضريبة", "VAT_ACCOUNT"); await refused(vatPayable, "استخدم شاشة الضريبة", "VAT_ACCOUNT");
   // a customer DEBIT is forbidden (make a credit invoice instead); party rules
@@ -1056,4 +1055,131 @@ it("timing: the five reports over ~20,000 journal entries", async () => {
   assert.equal(balance.check.difference, 0); assert.equal(trial.balanced, true);
   assert.equal(boxes.boxes.find((box) => box.isMain).in > 0, true);
   for (const [name, ms] of Object.entries(timings)) assert.ok(ms < 5000, `${name} took ${ms} ms`);
+});
+
+// ------------------------------------------------------------ Stage 22 review fixes
+
+it("WRITTEN_OFF: while a write-off is unreversed, returns and cancels of the invoice are 409 (full or partial write-off); reversing it makes the return work; health 0", async () => {
+  const { p, customer, inv1, inv2 } = await twoInvoices();
+  const MESSAGE = "الفاتورة عليها قيد دين معدوم؛ اعكس القيد الأول";
+  const tryReturn = (invoice) => call("POST", "/api/returns", { returnType: "credit", invoiceId: invoice._id, items: [{ productId: p._id, quantity: 1, returnReason: "x" }] });
+  const tryCancel = (invoice) => call("POST", `/api/credit-sales/${invoice._id}/cancel`, { reason: "سبب الإلغاء" });
+  const refusedAs = (response) => { assert.equal(response.status, 409, JSON.stringify(response.json)); assert.equal(response.json.code, "WRITTEN_OFF"); assert.equal(response.json.message, MESSAGE); };
+  // a full write-off (700 = both invoices)
+  const full = await writeOff(customer, 700); ok(full.response);
+  refusedAs(await tryReturn(inv1)); refusedAs(await tryReturn(inv2)); refusedAs(await tryCancel(inv1)); refusedAs(await tryCancel(inv2));
+  await assertHealthy();
+  // reversing it: the return works again
+  ok(await call("POST", `${MANUAL}/${full.draft._id}/reverse`, { reason: "العميل سدّد" }));
+  ok(await tryReturn(inv1), 201);
+  await assertHealthy();
+  // a partial write-off: inv1 (100 left after its return) takes the oldest 50; that invoice is blocked, the untouched inv2 is not
+  const partial = await writeOff(customer, 50); ok(partial.response);
+  refusedAs(await tryReturn(inv1)); refusedAs(await tryCancel(inv1));
+  await assertHealthy();
+  ok(await call("POST", `${MANUAL}/${partial.draft._id}/reverse`, { reason: "تراجع" }));
+  ok(await tryReturn(inv1), 201);
+  ok(await tryCancel(inv2));
+  await assertHealthy();
+});
+
+it("a reversal may post to an account deactivated since: the reviewer's repro (52001 expense, close Nov and Dec, deactivate, reopen) and a manual-entry reversal → 200; a normal post to it is 409 ACCOUNT_INACTIVE", async () => {
+  await poorShop();
+  const leaf = await addAccount("520", { nameAr: "بند 52001" });
+  await expense(leaf.code, 120, `${LAST_YEAR}-11-10`);
+  await finalizeOpening();
+  ok(await closeNext()); const december = ok(await closeNext());
+  assert.equal(december.close.yearEnd, true);
+  assert.equal(ok(await call("POST", `${ACCOUNTS}/${leaf._id}/deactivate`)).isActive, false);
+  const reopened = ok(await reopen("اكتشفنا فاتورة ناقصة")); // the year-end entry carries a line on the now inactive account
+  assert.ok(reopened.reversal.number.startsWith("JE-"));
+  assert.equal(await accountBalance(leaf.code), 120);
+  await assertHealthy();
+  // a manual entry on an account that is deactivated afterwards (its balance zeroed by a second entry) can still be reversed
+  ok(await call("POST", `${ACCOUNTS}/${leaf._id}/reactivate`));
+  const first = await postManual([{ accountId: leaf._id, debit: 50 }, { accountId: await accountId("31"), credit: 50 }]); ok(first.response);
+  ok((await postManual([{ accountId: await accountId("31"), debit: 170 }, { accountId: leaf._id, credit: 170 }])).response);
+  assert.equal(await accountBalance(leaf.code), 0);
+  assert.equal(ok(await call("POST", `${ACCOUNTS}/${leaf._id}/deactivate`)).isActive, false);
+  const reversed = ok(await call("POST", `${MANUAL}/${first.draft._id}/reverse`, { reason: "غلط" }));
+  assert.ok(reversed.reversal.number.startsWith("JE-"));
+  await assertHealthy();
+  // a normal posting to the inactive account is a 409 with a code, never a 500
+  const { postEntry, line } = require("../src/accounting/posting");
+  const { withTransaction } = require("../src/utils/transaction");
+  const inactive = await Account.findById(leaf._id).lean(); const capital = await Account.findOne({ systemKey: "CAPITAL" }).lean();
+  await assert.rejects(withTransaction((session) => postEntry({ date: new Date(), source: { type: "manual", id: new mongoose.Types.ObjectId() }, session, lines: [line(inactive, 5, "debit"), line(capital, 5, "credit")] })),
+    (error) => error.statusCode === 409 && error.responseData.code === "ACCOUNT_INACTIVE");
+});
+
+test("comparison periods: N whole months compare with the N whole months before; anything else with the same number of days", () => {
+  const { previousRange, dayString } = require("../src/reports/financial");
+  const compare = (from, to) => { const [fy, fm, fd] = from.split("-").map(Number); const [ty, tm, td] = to.split("-").map(Number); const r = previousRange({ fromDay: new Date(fy, fm - 1, fd), toDay: new Date(ty, tm - 1, td) }); return [dayString(r.fromDay), dayString(r.toDay)]; };
+  assert.deepEqual(compare("2026-01-01", "2026-03-31"), ["2025-10-01", "2025-12-31"], "Q1 2026 -> Q4 2025");
+  assert.deepEqual(compare("2026-04-01", "2026-06-30"), ["2026-01-01", "2026-03-31"], "Q2 -> Q1");
+  assert.deepEqual(compare("2023-07-01", "2024-06-30"), ["2022-07-01", "2023-06-30"], "a fiscal year crossing a leap February -> the fiscal year before");
+  assert.deepEqual(compare("2025-01-01", "2025-12-31"), ["2024-01-01", "2024-12-31"], "a calendar year");
+  assert.deepEqual(compare("2024-02-01", "2024-02-29"), ["2024-01-01", "2024-01-31"], "a single (leap February) month");
+  assert.deepEqual(compare("2026-03-10", "2026-03-19"), ["2026-02-28", "2026-03-09"], "a custom 10-day range keeps the same number of days");
+  assert.deepEqual(compare("2026-01-15", "2026-03-31"), ["2025-10-31", "2026-01-14"], "a month-end but not a 1st: days");
+});
+
+it("income statement comparison over HTTP: a quarter compares with the quarter before", async () => {
+  await poorShop();
+  const report = ok(await call("GET", "/api/reports/income-statement?from=2026-01-01&to=2026-03-31&compare=1"));
+  assert.deepEqual(report.comparison, { from: "2025-10-01", to: "2025-12-31" });
+});
+
+it("closing checklist: a health difference is recomputed once before it blocks; a difference that survives blocks (a posting committing in the middle does not)", async () => {
+  await poorShop(); await finalizeOpening();
+  const { buildChecklist } = require("../src/accounting/closing");
+  const period = { start: new Date(Date.UTC(LAST_YEAR, 10, 1)), end: new Date(Date.UTC(LAST_YEAR, 10, 30)) };
+  const healthOf2 = (checklist) => checklist.blocking.find((item) => item.key === "health");
+  // the first read catches a posting half-way (a difference), the second sees it committed: not blocked
+  let calls = 0;
+  const flaky = await buildChecklist(period, { computeHealth: async () => { calls += 1; return { inventory: { difference: calls === 1 ? 25 : 0 } }; } });
+  assert.equal(calls, 2); assert.equal(healthOf2(flaky).ok, true); assert.deepEqual(healthOf2(flaky).items, []);
+  // a clean first read is not repeated
+  calls = 0;
+  await buildChecklist(period, { computeHealth: async () => { calls += 1; return { inventory: { difference: 0 } }; } });
+  assert.equal(calls, 1);
+  // a difference on both reads blocks, naming the second run's numbers
+  calls = 0;
+  const real = await buildChecklist(period, { computeHealth: async () => { calls += 1; return { inventory: { difference: 10 + calls } }; } });
+  assert.equal(calls, 2); assert.equal(healthOf2(real).ok, false); assert.deepEqual(healthOf2(real).items, [{ name: "inventory", difference: 12 }]);
+});
+
+it("box movements: an invoice edit (reversal + re-post) is its own kind 'تعديل فاتورة' that nets, never a refund plus a new sale; a cancel is still a refund", async () => {
+  await poorShop();
+  const p = await product({ code: "EDT", stock: 100, cost: 20 });
+  const sale = await cashSale([{ productId: p._id, quantity: 2, price: 100 }]);
+  const main = async () => ok(await call("GET", `/api/reports/box-movements?from=${TODAY}&to=${TODAY}`)).boxes.find((box) => box.isMain);
+  const kindOf = (box, key) => box.byKind.find((kind) => kind.key === key);
+  ok(await call("PUT", `/api/sellings/${sale._id}`, { items: [{ productId: p._id, quantity: 2, price: 150 }], discountAmount: 0 }));
+  const edited = await main();
+  assert.equal(kindOf(edited, "sales").in, 200, "only the original sale");
+  assert.equal(kindOf(edited, "refunds"), undefined, "the edit's reversal is not a refund");
+  assert.deepEqual([kindOf(edited, "invoiceEdit").ar, kindOf(edited, "invoiceEdit").in, kindOf(edited, "invoiceEdit").out], ["تعديل فاتورة", 300, 200]);
+  assert.equal(kindOf(edited, "invoiceEdit").in - kindOf(edited, "invoiceEdit").out, 100, "the net of the edit");
+  assert.equal(edited.closing, 10000 + 300);
+  ok(await call("POST", `/api/sellings/${sale._id}/cancel`, { reason: "إلغاء بعد التعديل" }));
+  const cancelled = await main();
+  assert.equal(kindOf(cancelled, "refunds").out, 300, "a cancel is still a refund paid out of the box");
+  assert.equal(cancelled.closing, 10000);
+});
+
+it("ledger excludeClosing: over a range holding the year end the ledger equals the income statement (the closing entry is left out) and says so", async () => {
+  await lastYearShop();
+  ok(await closeNext()); ok(await closeNext());
+  const expenseAccount = await accountId("523");
+  const range = `from=${LAST_YEAR}-01-01&to=${LAST_YEAR}-12-31`;
+  const withClosing = ok(await call("GET", `${ACCOUNTS}/${expenseAccount}/ledger?${range}`));
+  assert.equal(withClosing.balance, 0); assert.equal(withClosing.excludeClosing, false);
+  const without = ok(await call("GET", `${ACCOUNTS}/${expenseAccount}/ledger?${range}&excludeClosing=1`));
+  assert.equal(without.excludeClosing, true); assert.equal(without.lines.length, 1);
+  const statement = ok(await call("GET", `/api/reports/income-statement?${range}`));
+  assert.equal(without.balance, flat(rowOf(statement, "expenses").children).find((row) => row.code === "523").amount); assert.equal(without.balance, 100);
+  // opening of the next year: the closing entry stays out too
+  const next = ok(await call("GET", `${ACCOUNTS}/${expenseAccount}/ledger?from=${LAST_YEAR + 1}-01-01&excludeClosing=1`));
+  assert.equal(next.openingBalance, 100);
 });

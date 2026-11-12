@@ -52,15 +52,18 @@ const parseRange = (query) => {
   return { fromDay, toDay, from: startOfDay(fromDay), to: endOfDay(toDay) };
 };
 
-/** The previous period for the comparison column: a whole calendar month -> the previous month, a whole year -> the previous year, else the same length before. */
+/**
+ * The previous period for the comparison column. A range that starts on the 1st of a month and ends on a month-end is N whole months:
+ * it is compared with the N whole months immediately before it (a month -> the month before, Q1 -> Q4 of the year before, a whole
+ * calendar or fiscal year, even across a leap February, -> the year before). Any other range is compared with the same number of days.
+ */
 const previousRange = ({ fromDay, toDay }) => {
-  const wholeMonth = fromDay.getDate() === 1 && toDay.getFullYear() === fromDay.getFullYear() && toDay.getMonth() === fromDay.getMonth()
-    && addLocalDays(toDay, 1).getDate() === 1;
-  const wholeYear = fromDay.getMonth() === 0 && fromDay.getDate() === 1 && toDay.getMonth() === 11 && toDay.getDate() === 31 && toDay.getFullYear() === fromDay.getFullYear();
+  const wholeMonths = fromDay.getDate() === 1 && addLocalDays(toDay, 1).getDate() === 1;
   let prevFrom; let prevTo;
-  if (wholeMonth) { prevFrom = new Date(fromDay.getFullYear(), fromDay.getMonth() - 1, 1); prevTo = new Date(fromDay.getFullYear(), fromDay.getMonth(), 0); }
-  else if (wholeYear) { prevFrom = new Date(fromDay.getFullYear() - 1, 0, 1); prevTo = new Date(fromDay.getFullYear() - 1, 11, 31); }
-  else {
+  if (wholeMonths) {
+    const months = (toDay.getFullYear() * 12 + toDay.getMonth()) - (fromDay.getFullYear() * 12 + fromDay.getMonth()) + 1;
+    prevFrom = new Date(fromDay.getFullYear(), fromDay.getMonth() - months, 1); prevTo = new Date(fromDay.getFullYear(), fromDay.getMonth(), 0);
+  } else {
     const length = Math.round((Date.UTC(toDay.getFullYear(), toDay.getMonth(), toDay.getDate()) - Date.UTC(fromDay.getFullYear(), fromDay.getMonth(), fromDay.getDate())) / DAY_MS) + 1;
     prevTo = addLocalDays(fromDay, -1); prevFrom = addLocalDays(prevTo, -(length - 1));
   }
@@ -267,6 +270,7 @@ const BOX_KINDS = [
   { key: "sales", ar: "مبيعات", en: "Sales" },
   { key: "receipts", ar: "تحصيلات", en: "Receipts" },
   { key: "refunds", ar: "مرتجعات وردّ", en: "Refunds" },
+  { key: "invoiceEdit", ar: "تعديل فاتورة", en: "Invoice edit" },
   { key: "expenses", ar: "مصروفات", en: "Expenses" },
   { key: "transfers", ar: "تحويلات", en: "Transfers" },
   { key: "shiftDiff", ar: "عجز وزيادة الورديات", en: "Shift differences" },
@@ -278,12 +282,16 @@ const BOX_KINDS = [
   { key: "other", ar: "أخرى", en: "Other" },
 ];
 const KIND_BY_SOURCE = {
-  sale: "sales", sale_edit: "sales", credit_sale_edit: "sales", auto_restock: "sales", receipt: "receipts", return: "refunds", refund: "refunds",
+  sale: "sales", sale_edit: "invoiceEdit", credit_sale_edit: "invoiceEdit", auto_restock: "sales", receipt: "receipts", return: "refunds", refund: "refunds",
   expense: "expenses", transfer: "transfers", shift: "shiftDiff", shift_open: "shiftDiff", supplier_payment: "supplierPayments", supplier_refund: "supplierRefunds",
   vat_payment: "vatPayments", owner_drawing: "drawings", customer_payout: "payouts", opening: "opening", opening_inventory: "opening",
 };
-/** The kind of a box line from its entry: a cancelled sale or credit sale (a reversal / legacy reversal) is a refund paid out of the box. */
-const boxKindOf = (sourceType, entryType) => {
+// An invoice edit reverses the sale entry and posts it again (both carry one of these memos, see postInvoiceEdit): together they are
+// "تعديل فاتورة" and show only the net, never as a refund plus a new sale.
+const EDIT_MEMOS = ["Sale edit", "Credit sale edit"];
+/** The kind of a box line from its entry: an invoice edit (its reversal and re-post) is its own kind; a cancelled sale or credit sale (a reversal / legacy reversal) is a refund paid out of the box. */
+const boxKindOf = (sourceType, entryType, isEdit = false) => {
+  if (isEdit && (sourceType === "sale" || sourceType === "credit_sale")) return "invoiceEdit";
   if ((sourceType === "sale" || sourceType === "credit_sale") && (entryType === "reversal" || entryType === "legacy_reversal")) return "refunds";
   return KIND_BY_SOURCE[sourceType] || "other";
 };
@@ -295,14 +303,14 @@ const boxMovements = async ({ range }) => {
   const ids = boxes.map((box) => box.accountId);
   const rows = ids.length ? await JournalEntry.aggregate([
     { $match: { status: "posted", date: { $lte: range.to }, "lines.accountId": { $in: ids } } }, { $unwind: "$lines" }, { $match: { "lines.accountId": { $in: ids } } },
-    { $group: { _id: { accountId: "$lines.accountId", before: { $lt: ["$date", range.from] }, source: "$source.type", entry: "$type" }, debit: { $sum: "$lines.debit" }, credit: { $sum: "$lines.credit" } } },
+    { $group: { _id: { accountId: "$lines.accountId", before: { $lt: ["$date", range.from] }, source: "$source.type", entry: "$type", edit: { $in: ["$memo", EDIT_MEMOS] } }, debit: { $sum: "$lines.debit" }, credit: { $sum: "$lines.credit" } } },
   ]).allowDiskUse(true) : [];
   const perBox = new Map(boxes.map((box) => [String(box.accountId), { opening: 0, byKind: new Map() }]));
   for (const row of rows) {
     const target = perBox.get(String(row._id.accountId));
     if (!target) continue;
     if (row._id.before) { target.opening = roundMoney(target.opening + row.debit - row.credit); continue; }
-    const kind = boxKindOf(row._id.source, row._id.entry);
+    const kind = boxKindOf(row._id.source, row._id.entry, row._id.edit);
     const cell = target.byKind.get(kind) || { in: 0, out: 0 };
     cell.in = roundMoney(cell.in + row.debit); cell.out = roundMoney(cell.out + row.credit);
     target.byKind.set(kind, cell);

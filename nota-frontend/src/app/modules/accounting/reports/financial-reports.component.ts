@@ -6,6 +6,7 @@ import { localDateKey } from '../../../core/utilities/local-date';
 import { NotaButtonDirective, NotaPageHeaderComponent } from '../../shared/ui';
 import { formatNotaNumber } from '../../shared/ui/nota-number';
 import { LanguageService } from '../../shared/services/translation.service';
+import { ShopProfileService } from '../../shop-profile/services/shop-profile.service';
 import { ReportsService } from './reports.service';
 import {
   AGING_KEYS, BalanceSheet, BoxMovements, IncomeRow, IncomeStatement, PartyBalances, PartyRow, ReportKey, ReportQuery, ReportTab, SheetRow, TrialBalance, TrialRow,
@@ -112,7 +113,7 @@ const flatten = <T extends { children?: T[]; isZero: boolean; kind: string }>(ro
                       <tr class="fr__row" [class.fr__row--sub]="item.row.kind === 'subtotal' || item.row.kind === 'group'" [class.fr__row--total]="item.row.kind === 'total'" [attr.data-row]="item.row.code || item.row.id">
                         <td [style.padding-inline-start.px]="12 + item.depth * 20">
                           @if (item.row.accountId && item.row.kind === 'line') {
-                            <a class="fr__link" [routerLink]="ledgerLink(item.row.accountId)" [queryParams]="{ from: r.period.from, to: r.period.to }" data-link="ledger">{{ name(item.row) }}</a>
+                            <a class="fr__link" [routerLink]="ledgerLink(item.row.accountId)" [queryParams]="{ from: r.period.from, to: r.period.to, excludeClosing: 1 }" data-link="ledger">{{ name(item.row) }}</a>
                           } @else { {{ name(item.row) }} }
                           @if (item.row.sign < 0 && (item.row.kind === 'line' || item.row.kind === 'group')) { <small class="fr__muted">(−)</small> }
                         </td>
@@ -238,7 +239,7 @@ const flatten = <T extends { children?: T[]; isZero: boolean; kind: string }>(ro
                       @for (row of group.rows; track row.partyId) {
                         <tr class="fr__row" [attr.data-party]="row.partyId">
                           <td>@if (group.key === 'customers') { <a class="fr__link" [routerLink]="['/customers', row.partyId]" data-link="party">{{ row.name }}</a> }
-                            @else { <a class="fr__link" routerLink="/suppliers" data-link="party">{{ row.name }}</a> }</td>
+                            @else { <a class="fr__link" routerLink="/suppliers" [queryParams]="{ statement: row.partyId }" data-link="party">{{ row.name }}</a> }</td>
                           <td class="nota-num" [class.fr__warn]="row.opposite">{{ money(row.absBalance) }} <small>{{ 'accounting.side.' + row.side | translate }}</small></td>
                           @for (bucket of buckets; track bucket) { <td class="nota-num">{{ cell(row.aging[bucket]) }}</td> }
                           <td class="nota-num">{{ cell(row.advance) }}</td>
@@ -292,6 +293,7 @@ const flatten = <T extends { children?: T[]; isZero: boolean; kind: string }>(ro
 export class FinancialReportsComponent implements OnInit {
   private readonly service = inject(ReportsService);
   private readonly language = inject(LanguageService);
+  private readonly shopProfile = inject(ShopProfileService);
 
   readonly printEnabled = REPORTS_PRINT_ENABLED;
   readonly tabs = TABS;
@@ -357,7 +359,12 @@ export class FinancialReportsComponent implements OnInit {
     const now = new Date();
     if (preset === 'thisMonth') { this.range(new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 0)); }
     else if (preset === 'lastMonth') { this.range(new Date(now.getFullYear(), now.getMonth() - 1, 1), new Date(now.getFullYear(), now.getMonth(), 0)); }
-    else if (preset === 'thisYear') { this.range(new Date(now.getFullYear(), 0, 1), new Date(now.getFullYear(), 11, 31)); }
+    else if (preset === 'thisYear') {
+      // "This year" is the FISCAL year of the closing settings: it starts on the 1st of fiscalYearStartMonth (January when never set).
+      const startMonth = Math.min(12, Math.max(1, Number(this.shopProfile.profile()?.closing?.fiscalYearStartMonth) || 1));
+      const year = now.getMonth() + 1 >= startMonth ? now.getFullYear() : now.getFullYear() - 1;
+      this.range(new Date(year, startMonth - 1, 1), new Date(year + 1, startMonth - 1, 0));
+    }
     else if (!this.from()) { this.range(new Date(now.getFullYear(), now.getMonth(), 1), now); }
     this.load();
   }

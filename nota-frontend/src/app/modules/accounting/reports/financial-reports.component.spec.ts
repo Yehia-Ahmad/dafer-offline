@@ -6,6 +6,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule } from '@ngx-translate/core';
 import { environment } from '../../../../environments/environment';
 import { LanguageService } from '../../shared/services/translation.service';
+import { ShopProfileService } from '../../shop-profile/services/shop-profile.service';
 import { FinancialReportsComponent, REPORTS_PRINT_ENABLED } from './financial-reports.component';
 import { BalanceSheet, BoxMovements, IncomeRow, IncomeStatement, PartyBalances, TrialBalance } from './reports.models';
 
@@ -177,6 +178,7 @@ describe('FinancialReportsComponent (Stage 22)', () => {
     expect(link.getAttribute('href')).toContain('/accounting/accounts/acc-410/ledger');
     expect(link.getAttribute('href')).toContain('from=2026-10-01');
     expect(link.getAttribute('href')).toContain('to=2026-10-31');
+    expect(link.getAttribute('href')).toContain('excludeClosing=1'); // the statement never sees the year-end closing entry, so neither does the ledger
     expect(q('[data-row="netSales"] [data-link]')).toBeNull();
   });
 
@@ -199,6 +201,19 @@ describe('FinancialReportsComponent (Stage 22)', () => {
     from.value = '2026-09-10'; from.dispatchEvent(new Event('input')); await settle();
     request = expectGet('income-statement');
     expect(request.request.params.get('from')).toBe('2026-09-10');
+    request.flush(INCOME);
+  });
+
+  it('"this year" is the fiscal year of the closing settings: from the 1st of fiscalYearStartMonth to the day before it a year later', async () => {
+    await open();
+    expectGet('income-statement').flush(INCOME);
+    await settle();
+    TestBed.inject(ShopProfileService).refresh();
+    http.expectOne(`${environment.api_base_url}shop-profile`).flush({ name: 'x', closing: { frequency: 'monthly', fiscalYearStartMonth: 7 } });
+    await click('[data-preset="thisYear"]');
+    const request = expectGet('income-statement');
+    const year = now.getMonth() + 1 >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+    expect(request.request.params.get('from')).toBe(`${year}-07-01`); expect(request.request.params.get('to')).toBe(`${year + 1}-06-30`);
     request.flush(INCOME);
   });
 
@@ -325,7 +340,7 @@ describe('FinancialReportsComponent (Stage 22)', () => {
     expect(q('[data-party="c2"]')).toBeNull();
     expect((q('[data-party="c3"] td:nth-child(2)') as HTMLElement).classList).toContain('fr__warn');
     expect(q('[data-party="c1"] [data-link="party"]')?.getAttribute('href')).toBe('/customers/c1');
-    expect(q('[data-party="s1"] [data-link="party"]')?.getAttribute('href')).toBe('/suppliers');
+    expect(q('[data-party="s1"] [data-link="party"]')?.getAttribute('href')).toBe('/suppliers?statement=s1'); // that supplier's statement opens
     expect(qa('[data-totals="customers"] td')[1].textContent?.trim()).toBe('6,900');
     expect(qa('[data-totals="suppliers"] td')[1].textContent?.trim()).toBe('600');
     (q('[data-test="zero-toggle"]') as HTMLInputElement).click(); await settle();

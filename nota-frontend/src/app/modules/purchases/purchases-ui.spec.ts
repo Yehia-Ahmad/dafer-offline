@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { lockRefreshSpy } from '../../test-setup.spec';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
@@ -53,6 +54,11 @@ describe('PurchaseFormComponent (Stage 20)', () => {
     component.setLine(row.key, 'qty', qty);
     component.setLine(row.key, 'unitPrice', price);
   };
+
+  it('re-reads the lock date when it opens (Stage 22 review)', async () => {
+    await open();
+    expect(lockRefreshSpy()).toHaveBeenCalled();
+  });
 
   it("the design's invoice: totals, stock after, the journal preview and the supplier balance after (4,200 -> 6,650)", async () => {
     const { fixture, component, http } = await open();

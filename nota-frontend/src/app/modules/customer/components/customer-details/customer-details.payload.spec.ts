@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { lockRefreshSpy } from '../../../../test-setup.spec';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
@@ -7,6 +8,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { of } from 'rxjs';
 import { environment } from '../../../../../environments/environment';
 import { CustomerDetailsComponent } from './customer-details.component';
+import { toCreditSaleView } from '../../utils/credit-sale-view.util';
 
 /** Stage 10 payload safety for /customers/:id. Template-free so it runs unchanged before and after the redesign. */
 describe('CustomerDetailsComponent payloads (Stage 10 safety)', () => {
@@ -56,6 +58,10 @@ describe('CustomerDetailsComponent payloads (Stage 10 safety)', () => {
   });
 
   afterEach(() => http.verify());
+
+  it('re-reads the lock date when it opens (Stage 22 review)', () => {
+    expect(lockRefreshSpy()).toHaveBeenCalled();
+  });
 
   it('invoice payment: POST credit-sales/:id/payments {amount, paymentDate, note}', () => {
     component.openPaymentDialog(history()[0]);
@@ -149,6 +155,7 @@ describe('CustomerDetailsComponent payloads (Stage 10 safety)', () => {
     ['HAS_PAYMENTS', 'invoiceHistoryPage.cancel.blocked.hasPayments'],
     ['HAS_RETURNS', 'invoiceHistoryPage.cancel.blocked.hasReturns'],
     ['ALREADY_CANCELLED', 'invoiceHistoryPage.cancel.blocked.alreadyCancelled'],
+    ['WRITTEN_OFF', 'invoiceHistoryPage.cancel.blocked.writtenOff'],
   ] as const) {
     it(`cancel conflict ${code} shows its blocked message and keeps the dialog open`, () => {
       component.openDeleteCreditDialog(history()[0]);
@@ -159,6 +166,23 @@ describe('CustomerDetailsComponent payloads (Stage 10 safety)', () => {
       expect(component.deleteCreditDialogVisible).toBeTrue();
     });
   }
+
+  it('an invoice with an unreversed write-off (a manual_entry payment): the view flags it, and neither a return nor a cancel is sent (the dialogs show the message)', () => {
+    const writtenOff = { ...customer.creditHistory[1], payments: [{ _id: 'w1', amount: 300, paymentDate: '2026-10-05', note: 'قيد يدوي JE-000009', source: 'manual_entry' }] };
+    component.customer = { ...component.customer!, creditHistory: [component.customer!.creditHistory[0], toCreditSaleView(writtenOff)!] } as any;
+    const entry = history()[1];
+    expect(entry.writtenOff).toBeTrue();
+    expect(history()[0].writtenOff).toBeFalse();
+    component.openRefundDialog(entry);
+    component.refundItems.at(0).get('quantity')!.setValue(1);
+    component.saveRefund();
+    http.expectNone(`${base}returns`);
+    component.openDeleteCreditDialog(entry);
+    component.cancelReason = 'سبب كافي';
+    component.deleteCreditInvoice();
+    http.expectNone((r) => r.url.includes('/cancel'));
+    expect(component.isDeletingCreditSale).toBeFalse();
+  });
 
   it('a cancel reason shorter than three characters sends nothing and does not lock the dialog', () => {
     component.openDeleteCreditDialog(history()[0]);

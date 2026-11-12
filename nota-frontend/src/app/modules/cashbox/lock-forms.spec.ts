@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { lockRefreshSpy } from '../../test-setup.spec';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -38,6 +39,13 @@ describe('posting forms and the closed period (Stage 22)', () => {
 
   const amount = async (value: string) => { const input = q('[data-test="drawing-amount"]') as HTMLInputElement; input.value = value; input.dispatchEvent(new Event('input')); await settle(); };
   const setDate = async (value: string) => { const input = q('[data-test="drawing-date"]') as HTMLInputElement; input.value = value; input.dispatchEvent(new Event('input')); await settle(); };
+
+  it('re-reads the lock date each time the dialog opens (Stage 22 review)', async () => {
+    expect(lockRefreshSpy()).toHaveBeenCalledTimes(1);
+    fixture.componentRef.setInput('visible', false); await settle();
+    fixture.componentRef.setInput('visible', true); await settle();
+    expect(lockRefreshSpy()).toHaveBeenCalledTimes(2);
+  });
 
   it('no closed period: no banner, no min on the date, the drawing can be submitted', async () => {
     expect(q('[data-test="lock-banner"]')).toBeNull();

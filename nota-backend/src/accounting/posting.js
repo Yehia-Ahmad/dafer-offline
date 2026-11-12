@@ -104,7 +104,7 @@ const isLedgerDocument = (doc, ledgerStartAt) =>
  * Posts one journal entry. Returns null when every line is zero (a document
  * with nothing to post), so callers never need to special-case free invoices.
  */
-const postEntry = async ({ date, type = "auto", source, lines, memo = "", session, createdBy = null, createdByName = null, number: suppliedNumber = null, reversalOf = null, allowLocked = false }) => {
+const postEntry = async ({ date, type = "auto", source, lines, memo = "", session, createdBy = null, createdByName = null, number: suppliedNumber = null, reversalOf = null, allowLocked = false, allowInactive = false }) => {
   if (!session) throw new Error("Accounting entries require a transaction session");
   if (!source?.type || !source.id || !Array.isArray(lines)) throw new Error("Invalid journal source or lines");
   for (const row of lines) {
@@ -121,7 +121,12 @@ const postEntry = async ({ date, type = "auto", source, lines, memo = "", sessio
     if ((row.debit > 0) === (row.credit > 0)) throw new Error("Journal line must have exactly one side");
     if (row.partyId && !row.partyType) throw new Error("Party type is required when a party is set");
     const account = await Account.findById(row.accountId).session(session).lean();
-    if (!account || account.isGroup || !account.isActive) throw new Error("Cannot post to inactive or group account");
+    // Stage 22: only a reversal (allowInactive) may post to an account that was deactivated after the original entry; it never
+    // posts to a group account. Anything else is a 409 for the user, never a 500.
+    if (!account || account.isGroup || (!account.isActive && !allowInactive)) {
+      const error = new Error(`الحساب ${account?.code || ""} ${account?.nameAr || ""} موقوف أو تجميعي ومينفعش يتسجل عليه (Cannot post to inactive or group account)`.replace(/\s+/g, " "));
+      error.statusCode = 409; error.responseData = { code: "ACCOUNT_INACTIVE", accountId: row.accountId }; throw error;
+    }
     row.accountCode ||= account.code;
     row.accountNameAr ||= account.nameAr;
     row.accountNameEn ||= account.nameEn;
@@ -194,9 +199,9 @@ const buildSaleLines = async ({ sale, credit = false, customer, session }) => {
   return lines;
 };
 
-const postSale = async ({ sale, credit = false, customer, session, sourceType = credit ? "credit_sale" : "sale" }) => {
+const postSale = async ({ sale, credit = false, customer, session, sourceType = credit ? "credit_sale" : "sale", memo = "" }) => {
   const lines = await buildSaleLines({ sale, credit, customer, session });
-  return postEntry({ date: sale.sellingDate, source: { type: sourceType, id: sale._id, number: sale.number }, lines, session });
+  return postEntry({ date: sale.sellingDate, source: { type: sourceType, id: sale._id, number: sale.number }, lines, session, memo });
 };
 
 /** Nets signed lines per account+party into debit/credit lines. */
@@ -222,7 +227,7 @@ const reverseEntry = async (id, { date, memo, session, redirect = null, allowLoc
     || (original.reversedBy ? await JournalEntry.findById(original.reversedBy).session(session) : null);
   if (existing) return existing;
   const reversed = await postEntry({
-    date, type: "reversal", source: original.source, memo, session, reversalOf: original._id, allowLocked,
+    date, type: "reversal", source: original.source, memo, session, reversalOf: original._id, allowLocked, allowInactive: true, // a reversal undoes what was posted, even on an account deactivated since
     lines: original.lines.map((row) => {
       const reversed = { ...(row.toObject?.() || row), debit: row.credit, credit: row.debit };
       if (redirect && redirect.from.has(String(row.accountId))) {
@@ -390,8 +395,9 @@ const postInvoiceEdit = async ({ Model, oldSale, newSale, credit = false, custom
   const ledgerStartAt = await getLedgerStartAt(session);
   let entries;
   if (isLedgerDocument(oldSale, ledgerStartAt)) {
-    const reversals = await reverseSaleAndCostSync(sourceType, newSale._id, { date, memo: credit ? "Credit sale edit" : "Sale edit", session });
-    entries = [...reversals, await postSale({ sale: newSale, credit, customer, session })];
+    const memo = credit ? "Credit sale edit" : "Sale edit"; // the box-movements report reads this memo: reversal + re-post = "تعديل فاتورة"
+    const reversals = await reverseSaleAndCostSync(sourceType, newSale._id, { date, memo, session });
+    entries = [...reversals, await postSale({ sale: newSale, credit, customer, session, memo })];
   } else {
     entries = [await postSaleDifference({ oldSale, newSale, credit, customer, oldCustomer, date, session })];
     const netSalesDelta = roundMoney(Number(newSale.totalPrice || 0) - Number(oldSale.totalPrice || 0));

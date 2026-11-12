@@ -7,11 +7,13 @@ import { InputNumberModule } from 'primeng/inputnumber';
 import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
+import { LockDateService } from '../../../../core/accounting-lock/lock-date.service';
 import { CateoryService } from '../../../category/services/cateory.service';
 import {
   NotaButtonDirective,
   NotaDialogShellComponent,
   NotaFormFieldComponent,
+  NotaLockBannerComponent,
   NotaMoneyPipe,
   NotaNumberPipe,
   NotaPageHeaderComponent
@@ -79,6 +81,7 @@ const DEFAULT_SELLINGS_PAGINATION: SellingsPagination = {
     NotaButtonDirective,
     NotaDialogShellComponent,
     NotaFormFieldComponent,
+    NotaLockBannerComponent,
     NotaMoneyPipe,
     NotaNumberPipe,
     NotaPageHeaderComponent
@@ -122,6 +125,8 @@ export class InvoiceHistoryComponent implements OnInit {
   private readonly _shopProfileService = inject(ShopProfileService);
   /** Stage 19: the box a cash refund comes out of. */
   readonly payment = inject(PaymentBoxService);
+  /** Stage 22: locked days are disabled in the return date picker and a locked date cannot be submitted. */
+  protected readonly lock = inject(LockDateService);
 
   constructor(
     private _productsService: ProductsService,
@@ -136,6 +141,8 @@ export class InvoiceHistoryComponent implements OnInit {
 
   ngOnInit(): void {
     if (!this.isBrowser) return;
+    // Stage 22 review: another PC may have closed a period since this one signed in.
+    this.lock.refresh();
     this.loadCategories();
     this.loadSellings();
     // Cached for printing; without it the invoice prints with a neutral header.
@@ -570,7 +577,7 @@ export class InvoiceHistoryComponent implements OnInit {
   createCashReturn(): void {
     const selling = this.selectedSellingToReturn;
     const returnDate = this.formatDateParam(this.cashReturnDate);
-    if (!selling?.id || !returnDate || !this.hasCashReturnSelection()) return;
+    if (!selling?.id || !returnDate || !this.hasCashReturnSelection() || this.lock.isLocked(this.cashReturnDate)) return;
 
     const items = this.cashReturnItems
       .map((item) => ({

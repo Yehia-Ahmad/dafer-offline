@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { lockRefreshSpy } from '../../../../test-setup.spec';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -6,6 +7,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule } from '@ngx-translate/core';
 import { environment } from '../../../../../environments/environment';
 import { CreditSalesListComponent } from './credit-sales-list.component';
+import { LockDateService } from '../../../../core/accounting-lock/lock-date.service';
 
 /** Stage 10: /credit-sales list — GET /credit-sales params and the payment POST (same body as the customer page). */
 describe('CreditSalesListComponent payloads (Stage 10)', () => {
@@ -43,6 +45,10 @@ describe('CreditSalesListComponent payloads (Stage 10)', () => {
 
   afterEach(() => http.verify());
 
+  it('re-reads the lock date when it opens (Stage 22 review)', () => {
+    expect(lockRefreshSpy()).toHaveBeenCalled();
+  });
+
   it('loads, selects the first invoice, KPIs; overdue = due date passed with money remaining', () => {
     expect(component.rows.length).toBe(2);
     expect(component.selected?.id).toBe('cs1');
@@ -78,6 +84,19 @@ describe('CreditSalesListComponent payloads (Stage 10)', () => {
     req.flush({});
     flushList({ page: '1', limit: '10' });
     expect(component.paymentSaved).toBeTrue();
+  });
+
+  it('a receipt dated inside a closed period sends nothing; on the first open day it does (Stage 22 review)', () => {
+    TestBed.inject(LockDateService).set('2026-10-31');
+    component.paymentForm.patchValue({ amount: 100, paymentDate: new Date(2026, 9, 15) });
+    component.savePayment();
+    http.expectNone((r) => r.url.includes('/payments'));
+    component.paymentForm.patchValue({ paymentDate: new Date(2026, 10, 1) });
+    component.savePayment();
+    const req = http.expectOne(`${base}credit-sales/cs1/payments`);
+    expect(req.request.body.paymentDate).toBe('2026-11-01');
+    req.flush({});
+    flushList({ page: '1', limit: '10' });
   });
 
   it('payment without note → note undefined (dropped); no request without an amount or on a paid invoice', () => {

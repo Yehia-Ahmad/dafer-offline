@@ -1641,6 +1641,15 @@ const addCreditSalePayment = asyncHandler(async (req, res) => {
   if (result !== undefined) res.status(201).json(result);
 });
 
+// Stage 22: a write-off (a manual entry's customer-credit allocation, payment source "manual_entry") is part of the invoice's money.
+// While one is unreversed, a return or a cancel would double-count it, so both are refused until the entry is reversed.
+const WRITTEN_OFF_MESSAGE = "الفاتورة عليها قيد دين معدوم؛ اعكس القيد الأول";
+const assertNotWrittenOff = (invoice) => {
+  if (!(invoice.payments || []).some((payment) => payment.source === "manual_entry")) return;
+  const error = new Error(WRITTEN_OFF_MESSAGE);
+  error.statusCode = 409; error.responseData = { code: "WRITTEN_OFF" }; throw error;
+};
+
 const addCreditSaleRefund = asyncHandler(async (req, res) => {
   const updatedCreditSale = await withTransaction(async (session) => {
     const creditSale = await CreditSale.findById(req.params.id).session(session);
@@ -1653,6 +1662,7 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
       const error = new Error("تم إرجاع الفاتورة بالكامل بالفعل");
       error.statusCode = 409; error.responseData = { code: "FULLY_RETURNED" }; throw error;
     }
+    assertNotWrittenOff(creditSale);
 
     const refundSelections = normalizeCreditSaleRefundItems(creditSale, req.body, res);
     const rawRefundDate = getFirstDefined(req.body.returnDate, req.body.refundDate);
@@ -1799,6 +1809,7 @@ const cancelCreditSale = asyncHandler(async (req, res) => {
     if (!invoice) { const error = new Error("سجل البيع الآجل غير موجود"); error.statusCode = 404; throw error; }
     const conflict = (code, message) => { const error = new Error(message); error.statusCode = 409; error.responseData = { code }; return error; };
     if (invoice.status === "cancelled") throw conflict("ALREADY_CANCELLED", "الفاتورة ملغية بالفعل");
+    assertNotWrittenOff(invoice);
     if ((invoice.refunds || []).length) throw conflict("HAS_RETURNS", "اعمل مرتجع بدل الإلغاء");
     const payments = invoice.payments || [];
     if (payments.some((payment) => payment.source !== "down_payment")) throw conflict("HAS_PAYMENTS", "اعمل مرتجع بدل الإلغاء");

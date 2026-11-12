@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { lockRefreshSpy } from '../../../../test-setup.spec';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -79,6 +80,10 @@ describe('CreditSalesComponent payloads (Stage 9 safety)', () => {
   });
 
   afterEach(() => http.verify());
+
+  it('re-reads the lock date when it opens (Stage 22 review)', () => {
+    expect(lockRefreshSpy()).toHaveBeenCalled();
+  });
 
   it('POST credit-sales with a selected customer sends customerId (no name/phone) and no initialPaidAmount', () => {
     pickCustomer();

@@ -82,6 +82,8 @@ export class ExpensesPageComponent implements OnInit {
   ngOnInit(): void {
     // Stage 21 review: another PC may have changed the VAT settings since this one signed in.
     this.vatSettings.refresh();
+    // Stage 22 review: another PC may have closed a period since this one signed in.
+    this.lock.refresh();
     this.payment.load();
     this.loadCategories();
     this.load();

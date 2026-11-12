@@ -1,5 +1,5 @@
 import { LockDateService } from '../../core/accounting-lock/lock-date.service';
-import { ChangeDetectionStrategy, Component, computed, inject, input, model, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, model, output, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Dialog } from 'primeng/dialog';
@@ -105,6 +105,11 @@ export class TransferDialogComponent {
   readonly toAfter = computed(() => round2((this.to()?.balance ?? 0) + this.amountValue()));
   readonly insufficient = computed(() => Boolean(this.from()) && this.amountValue() > (this.from()?.balance ?? 0));
   readonly sameBox = computed(() => Boolean(this.fromId()) && this.fromId() === this.toId());
+  constructor() {
+    // Stage 22 review: re-read the lock date each time the dialog opens (another PC may have closed a period).
+    effect(() => { if (this.visible()) untracked(() => this.lock.refresh()); });
+  }
+
   readonly valid = computed(() => Boolean(this.from() && this.to()) && !this.sameBox() && this.amountValue() > 0 && !this.insufficient() && !this.lock.isLocked(this.date()));
 
   cancel(): void {

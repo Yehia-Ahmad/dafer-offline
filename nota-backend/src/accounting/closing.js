@@ -83,14 +83,18 @@ const today = () => localDayAsUtc(now());
  */
 const buildChecklist = async (period, { computeHealth, session = null }) => {
   const periodEndLocal = localEndOf(period.end);
-  const [shifts, drafts, meta, vat, filed, health] = await Promise.all([
+  const [shifts, drafts, meta, vat, filed] = await Promise.all([
     Shift.find({ status: "open", openedAt: { $lte: periodEndLocal } }).select("number boxId openedAt").session(session).lean(),
     ManualEntryDraft.find({ status: "draft", date: { $lte: period.end } }).select("memo date").session(session).lean(),
     Meta.findById("schema").select("opening").session(session).lean(),
     loadVatSettings(session),
     VatReturn.find({ status: "filed" }).select("period").session(session).lean(),
-    computeHealth(),
   ]);
+  let health = await computeHealth();
+  // A posting can commit between the snapshot above and the health read: before reporting a difference, read health once more.
+  // Only a difference that is still there on the second run blocks the close.
+  const hasDifference = (result) => Object.values(result).some((check) => Number(check.difference || 0) !== 0 || check.ok === false);
+  if (hasDifference(health)) health = await computeHealth();
   const boxes = await CashBox.find({ _id: { $in: shifts.map((shift) => shift.boxId) } }).select("name").lean();
   const boxName = new Map(boxes.map((box) => [String(box._id), box.name]));
   const failing = Object.entries(health).filter(([, check]) => Number(check.difference || 0) !== 0 || check.ok === false).map(([name, check]) => ({ name, difference: roundMoney(check.difference || 0) }));

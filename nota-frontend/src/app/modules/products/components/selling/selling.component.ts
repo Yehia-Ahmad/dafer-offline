@@ -279,6 +279,8 @@ export class SellingComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Stage 21 review: another PC may have changed the VAT settings since this one signed in.
     this._vat.refresh();
+    // Stage 22 review: another PC may have closed a period since this one signed in.
+    this.lock.refresh();
     // Stage 15: the invoice that was open when the session expired, for the same user only.
     const saved = this._cartRescue.take<PosSnapshot>(this._auth.user()?._id);
     if (saved) {

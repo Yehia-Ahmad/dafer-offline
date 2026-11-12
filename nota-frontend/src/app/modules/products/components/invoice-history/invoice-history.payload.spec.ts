@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { lockRefreshSpy } from '../../../../test-setup.spec';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -6,6 +7,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule } from '@ngx-translate/core';
 import { environment } from '../../../../../environments/environment';
 import { InvoiceHistoryComponent } from './invoice-history.component';
+import { LockDateService } from '../../../../core/accounting-lock/lock-date.service';
 
 /**
  * Stage 10 payload safety: every /invoice-history request built from sample input, asserting the exact URL,
@@ -58,6 +60,10 @@ describe('InvoiceHistoryComponent payloads (Stage 10 safety)', () => {
 
   afterEach(() => http.verify());
 
+  it('re-reads the lock date when it opens (Stage 22 review)', () => {
+    expect(lockRefreshSpy()).toHaveBeenCalled();
+  });
+
   it('filters: category → GET products?categoryId; apply sends every filter + page/limit', () => {
     component.onCategoryFilterChange('c1');
     const products = http.expectOne((r) => r.url === `${base}products`);
@@ -103,6 +109,21 @@ describe('InvoiceHistoryComponent payloads (Stage 10 safety)', () => {
       returnType: 'cash', invoiceId: 's1', returnDate: '2026-11-04', note: 'عيب',
       items: [{ productId: 'p1', quantity: 2, returnReason: 'كسر' }],
     }));
+    req.flush({});
+    expectSellings({ page: '1', limit: '10' });
+  });
+
+  it('cash return on a locked date (a closed period): nothing is sent; on the first open day it is (Stage 22 review)', () => {
+    TestBed.inject(LockDateService).set('2026-10-31');
+    component.openReturnDialog(component.sellings[0]);
+    component.cashReturnItems[0].quantity = 1;
+    component.cashReturnDate = new Date(Date.UTC(2026, 9, 15, 12));
+    component.createCashReturn();
+    http.expectNone(`${base}returns`);
+    component.cashReturnDate = new Date(Date.UTC(2026, 10, 1, 12));
+    component.createCashReturn();
+    const req = http.expectOne(`${base}returns`);
+    expect(req.request.body.returnDate).toBe('2026-11-01');
     req.flush({});
     expectSellings({ page: '1', limit: '10' });
   });

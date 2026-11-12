@@ -161,10 +161,10 @@ it("accounts and journal indexes exist and aggregation handles 5,000 entries", a
   assert.ok(journalIndexes.some((index) => index.key["source.type"] === 1 && index.key["source.id"] === 1)); assert.ok(accountIndexes.some((index) => index.unique && index.key.code === 1));
 });
 
-it("forced posting failure rolls back document, stock, INV and JE counters", async () => {
+it("a posting refused for an inactive account (409 ACCOUNT_INACTIVE, never 500) rolls back document, stock, INV and JE counters", async () => {
   const p = await product({ code: "ROLLBACK", stock: 2, cost: 20, retail: 100 });
   await Account.updateOne({ systemKey: "SALES" }, { isActive: false });
-  const failed = await call("POST", "/api/sellings", saleBody([{ productId: p._id, quantity: 1, price: 100 }])); assert.equal(failed.status, 500);
+  const failed = await call("POST", "/api/sellings", saleBody([{ productId: p._id, quantity: 1, price: 100 }])); assert.equal(failed.status, 409); assert.equal(failed.json.code, "ACCOUNT_INACTIVE");
   assert.equal((await Product.findById(p._id)).inventoryCount, 2); assert.equal(await Counter.countDocuments({ _id: "INV" }), 0); assert.equal(await Counter.countDocuments({ _id: "JE" }), 1, "only product-create JE remains");
 });
 
@@ -372,7 +372,7 @@ it("item 13: asOf=YYYY-MM-DD means end of that local day, so an entry dated now 
   assert.equal(flat((await call("GET", `/api/accounting/accounts?asOf=${ymdY}`)).json.accounts).find((row) => row.systemKey === "INVENTORY").balance, 0);
 });
 
-it("item 16: a posting failure during category import is a server error, not a bad row", async () => {
+it("item 16: a posting refusal during category import is not a bad row (no productErrors) and rolls the import back", async () => {
   await withTransaction(async (session) => { await seedAccounts(session); });
   await Account.updateOne({ systemKey: "INVENTORY_ADJUSTMENT" }, { isActive: false });
   const categoryId = new mongoose.Types.ObjectId(); const productId = new mongoose.Types.ObjectId();

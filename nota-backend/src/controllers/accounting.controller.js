@@ -95,16 +95,20 @@ const getLedger = async (req, res) => {
   const to = parseQueryDate(req.query.to, { endOfDay: true });
   if ((from && Number.isNaN(from.getTime())) || (to && Number.isNaN(to.getTime()))) { res.status(400); throw new Error("Invalid date range"); }
   const lineMatch = { "lines.accountId": account._id, ...(partyId ? { "lines.partyId": partyId } : {}) };
+  // Stage 22: the income statement never sees the year-end closing entry and its reversal (source period_close); its ledger links pass
+  // excludeClosing so the ledger over a range that holds the year end adds up to the statement.
+  const excludeClosing = ["1", "true"].includes(String(req.query.excludeClosing));
+  const closingFilter = excludeClosing ? { "source.type": { $ne: "period_close" } } : {};
   // One row per line of THIS account (never the entry's other lines).
   const linesPipeline = [
-    { $match: { status: "posted", "lines.accountId": account._id, ...(from || to ? { date: { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) } } : {}) } },
+    { $match: { status: "posted", ...closingFilter, "lines.accountId": account._id, ...(from || to ? { date: { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) } } : {}) } },
     { $sort: { date: 1, createdAt: 1, _id: 1 } },
     { $unwind: "$lines" },
     { $match: lineMatch },
     { $project: { _id: 0, entryId: "$_id", number: 1, date: 1, source: 1, memo: 1, type: 1, line: "$lines" } },
   ];
   const openingPipeline = [
-    { $match: { status: "posted", date: { $lt: from || new Date(0) }, "lines.accountId": account._id } },
+    { $match: { status: "posted", ...closingFilter, date: { $lt: from || new Date(0) }, "lines.accountId": account._id } },
     { $unwind: "$lines" },
     { $match: lineMatch },
     { $group: { _id: null, balance: { $sum: { $subtract: ["$lines.debit", "$lines.credit"] } } } },
@@ -121,7 +125,7 @@ const getLedger = async (req, res) => {
     balance = roundMoney(balance + Number(line.debit || 0) - Number(line.credit || 0));
     return withSide({ ...line, ...entry, balance }, balance, account.normalSide);
   });
-  res.json({ account, parties, openingBalance, openingSide: sideOf(openingBalance, account.normalSide), openingAbsBalance: roundMoney(Math.abs(openingBalance)), lines: output, balance, side: sideOf(balance, account.normalSide), absBalance: roundMoney(Math.abs(balance)) });
+  res.json({ account, parties, excludeClosing, openingBalance, openingSide: sideOf(openingBalance, account.normalSide), openingAbsBalance: roundMoney(Math.abs(openingBalance)), lines: output, balance, side: sideOf(balance, account.normalSide), absBalance: roundMoney(Math.abs(balance)) });
 };
 
 const getJournal = async (req, res) => {

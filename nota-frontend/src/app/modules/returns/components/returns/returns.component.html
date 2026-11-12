@@ -209,11 +209,12 @@
           <div class="rt__sum-total"><span>{{ 'returnsPage.s10.wizard.estimate' | translate }}</span><strong class="nota-num">{{ wizardEstimatedAmount | notaMoney }}</strong></div>
           <p class="rt__muted rt__small">{{ 'returnsPage.s10.wizard.estimateNote' | translate }}</p>
           @if (wizardInvoice?.type === 'cash' && wizardStep === 3) { <nota-payment-box-select labelKey="cashbox.refundFrom" /> }
+          @if (wizardInvoice?.writtenOff) {<p class="rt__msg" role="alert" data-test="written-off">{{ 'invoiceHistoryPage.cancel.blocked.writtenOff' | translate }}</p>}
           @if (wizardSaveError) {<p class="rt__msg" role="alert">{{ wizardSaveError }}</p>}
           @if (wizardStep === 2) {
             <button type="button" notaButton="primary" size="lg" (click)="goToWizardStep(3)" [disabled]="!wizardSelectedLines.length">{{ 'returnsPage.s10.wizard.next' | translate }}</button>
           } @else {
-            <button type="button" notaButton="primary" size="lg" (click)="confirmWizardReturn()" [disabled]="wizardSaving || !wizardSelectedLines.length || (wizardInvoice?.type === 'cash' && payment.needsShift())">
+            <button type="button" notaButton="primary" size="lg" (click)="confirmWizardReturn()" [disabled]="wizardSaving || wizardInvoice?.writtenOff || !wizardSelectedLines.length || (wizardInvoice?.type === 'cash' && payment.needsShift())">
               {{ (wizardSaving ? 'actions.loading' : 'returnsPage.s10.wizard.confirm') | translate }}
             </button>
             <button type="button" notaButton (click)="goToWizardStep(2)" [disabled]="wizardSaving">{{ 'returnsPage.s10.wizard.back' | translate }}</button>

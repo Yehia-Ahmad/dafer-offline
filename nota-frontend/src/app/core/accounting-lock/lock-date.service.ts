@@ -1,4 +1,7 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Injectable, Injector, computed, inject, signal } from '@angular/core';
+import { catchError, of } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 const pad = (value: number) => String(value).padStart(2, '0');
 const parts = (key: string): [number, number, number] => {
@@ -13,6 +16,8 @@ const parts = (key: string): [number, number, number] => {
  */
 @Injectable({ providedIn: 'root' })
 export class LockDateService {
+  // HttpClient is taken on first use: most screens only read the signal and never need it.
+  private readonly injector = inject(Injector);
   readonly lockedThrough = signal<string | null>(null);
 
   /** The first open day (YYYY-MM-DD), for a native date input's `min`. */
@@ -39,6 +44,16 @@ export class LockDateService {
     const [year, month, day] = parts(locked);
     return `${pad(day)}/${pad(month)}/${year}`;
   });
+
+  /**
+   * Re-reads GET /accounting/lock-date in the background. A posting form calls it when it opens: another PC may have closed (or
+   * reopened) a period since this one signed in. A failed read keeps what is known (the server still enforces the lock).
+   */
+  refresh(): void {
+    this.injector.get(HttpClient).get<{ lockedThrough?: string | null }>(`${environment.api_base_url}accounting/lock-date`).pipe(catchError(() => of(null))).subscribe((result) => {
+      if (result) this.set(result.lockedThrough);
+    });
+  }
 
   set(value: string | null | undefined): void {
     this.lockedThrough.set(typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null);

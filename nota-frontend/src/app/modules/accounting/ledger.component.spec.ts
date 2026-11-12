@@ -44,6 +44,29 @@ describe('LedgerComponent', () => {
     expect((f.nativeElement.querySelector('[data-test="closing-balance"]') as HTMLElement).classList).toContain('warn');
   });
 
+  it('excludeClosing from the income statement link: the request carries it and the page says closing entries are left out', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ imports: [LedgerComponent, TranslateModule.forRoot()], providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'a1' }), queryParamMap: convertToParamMap({ from: '2025-01-01', to: '2025-12-31', excludeClosing: '1' }) } } }] });
+    TestBed.inject(LanguageService).selectedLanguage.set('en');
+    const f = TestBed.createComponent(LedgerComponent); const http = TestBed.inject(HttpTestingController); f.detectChanges();
+    const req = http.expectOne((r) => r.url.includes('/a1/ledger'));
+    expect(req.request.params.get('excludeClosing')).toBe('1'); expect(req.request.params.get('from')).toBe('2025-01-01');
+    req.flush({ account: { code: '523', nameEn: 'Utilities', normalSide: 'debit' }, excludeClosing: true, openingBalance: 0, balance: 100, side: 'debit', absBalance: 100, lines: [] });
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('[data-test="closing-excluded"]')?.textContent).toContain('accounting.closingExcluded');
+    f.componentInstance.excludeClosing = false; f.componentInstance.load();
+    expect(http.expectOne((r) => r.url.includes('/a1/ledger')).request.params.has('excludeClosing')).toBeFalse();
+  });
+
+  it('no excludeClosing: no flag on the request and no note', () => {
+    const f = TestBed.createComponent(LedgerComponent); const http = TestBed.inject(HttpTestingController); f.detectChanges();
+    const req = http.expectOne((r) => r.url.includes('/a1/ledger'));
+    expect(req.request.params.has('excludeClosing')).toBeFalse();
+    req.flush({ account: { code: '113' }, openingBalance: 0, balance: 0, lines: [] });
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('[data-test="closing-excluded"]')).toBeNull();
+  });
+
   it('the supplier ledger (account 21) offers the supplier filter', () => {
     const f = TestBed.createComponent(LedgerComponent); const http = TestBed.inject(HttpTestingController); f.detectChanges();
     http.expectOne((r) => r.url.includes('/a1/ledger')).flush({ account: { code: '21', nameEn: 'Suppliers', systemKey: 'SUPPLIERS', normalSide: 'credit' }, parties: [{ _id: 's1', name: 'Light Co', phones: ['0102'] }], openingBalance: 0, balance: 0, lines: [] });

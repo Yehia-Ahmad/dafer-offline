@@ -51,7 +51,11 @@ export type CreditSaleView = {
     amount: number;
     paymentDate: string | null;
     note: string;
+    /** Stage 22: "manual_entry" = a bad-debt write-off (a manual entry's customer-credit allocation). */
+    source?: string;
   }>;
+  /** Stage 22: an unreversed write-off sits on the invoice, so a return or a cancel is refused until the entry is reversed. */
+  writtenOff: boolean;
   refunds: Array<{
     id: string;
     refundDate: string | null;
@@ -130,7 +134,7 @@ function normalizePayments(source: any): CreditSaleView['payments'] {
       const paymentDate = payment?.paymentDate ? String(payment.paymentDate) : null;
       const note = String(payment?.note || '').trim();
       if (amount <= 0 && !paymentDate && !note) return null;
-      return { id: String(payment?._id || `${index}`), number: String(payment?.number || ''), amount, paymentDate, note };
+      return { id: String(payment?._id || `${index}`), number: String(payment?.number || ''), amount, paymentDate, note, ...(payment?.source ? { source: String(payment.source) } : {}) };
     })
     .filter((item): item is CreditSaleView['payments'][number] => item !== null);
 }
@@ -201,6 +205,7 @@ export function toCreditSaleView(source: any): CreditSaleView | null {
     totalQuantity: toInteger(source.totalQuantity),
     notes: String(source.notes || '').trim(),
     paymentsCount: payments.length,
+    writtenOff: payments.some((payment) => payment.source === 'manual_entry'),
     ...(toInvoiceVat(source) ? { vat: toInvoiceVat(source) } : {}),
     items,
     payments,

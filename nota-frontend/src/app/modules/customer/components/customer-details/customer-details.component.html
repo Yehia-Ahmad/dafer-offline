@@ -432,11 +432,12 @@
       @if (refundSubmitAttempted && !hasRefundSelection()) {
         <p class="cd__msg" role="alert">{{ 'customerDetailsPage.refundDialog.selectionRequired' | translate }}</p>
       }
+      @if (selectedInvoiceForRefund?.writtenOff) {<p class="cd__msg" role="alert" data-test="written-off">{{ 'invoiceHistoryPage.cancel.blocked.writtenOff' | translate }}</p>}
       @if (refundErrorMessage) {<p class="cd__msg" role="alert">{{ refundErrorMessage }}</p>}
     </form>
     <ng-container notaDialogFooter>
       <button type="button" notaButton (click)="closeRefundDialog()">{{ 'customerDetailsPage.refundDialog.cancel' | translate }}</button>
-      <button type="button" notaButton="primary" [disabled]="isSavingRefund" (click)="saveRefund()">
+      <button type="button" notaButton="primary" [disabled]="isSavingRefund || selectedInvoiceForRefund?.writtenOff" (click)="saveRefund()">
         {{ (isSavingRefund ? 'customerDetailsPage.refundDialog.saving' : 'customerDetailsPage.refundDialog.save') | translate }}
       </button>
     </ng-container>
@@ -452,10 +453,11 @@
       <textarea id="creditCancelReason" class="nota-input" [(ngModel)]="cancelReason" maxlength="500"></textarea>
     </nota-form-field>
     @if ((selectedInvoiceForDelete?.paidAmount || 0) > 0) { <nota-payment-box-select labelKey="cashbox.refundFrom" /> }
+    @if (selectedInvoiceForDelete?.writtenOff) {<p class="cd__msg" role="alert" data-test="written-off">{{ 'invoiceHistoryPage.cancel.blocked.writtenOff' | translate }}</p>}
     @if (deleteCreditErrorMessage) {<p class="cd__msg" role="alert">{{ deleteCreditErrorMessage }}</p>}
     <ng-container notaDialogFooter>
       <button type="button" notaButton (click)="closeDeleteCreditDialog()" [disabled]="isDeletingCreditSale">{{ 'actions.cancelButton' | translate }}</button>
-      <button type="button" notaButton="danger" (click)="deleteCreditInvoice()" [disabled]="isDeletingCreditSale || cancelReason.trim().length < 3">
+      <button type="button" notaButton="danger" (click)="deleteCreditInvoice()" [disabled]="isDeletingCreditSale || cancelReason.trim().length < 3 || selectedInvoiceForDelete?.writtenOff">
         {{ (isDeletingCreditSale ? 'actions.loading' : 'invoiceHistoryPage.cancel.action') | translate }}
       </button>
     </ng-container>

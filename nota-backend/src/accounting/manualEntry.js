@@ -11,7 +11,6 @@ const PartyOpening = require("../models/partyOpening.model");
 const ManualEntryDraft = require("../models/manualEntryDraft.model");
 const { postEntry, reverseEntry, line } = require("./posting");
 const { assertOpenDate } = require("./period");
-const { loadVatSettings } = require("./vat");
 const { nextDocumentNumber, PREFIXES } = require("../utils/documentNumber");
 const { roundMoney } = require("../utils/invoicePricing");
 const { businessDay, localDayAsUtc, now } = require("../utils/clock");
@@ -39,9 +38,9 @@ const BLOCK_MESSAGES = Object.freeze({
 });
 
 /**
- * Why an account cannot be used in a manual entry, or null. Box accounts, INVENTORY, VAT (when VAT is on) and the invoice accounts
+ * Why an account cannot be used in a manual entry, or null. Box accounts, INVENTORY, VAT (22 and 115: always, whether VAT is on or off) and the invoice accounts
  * have operational documents behind them and health compares them with those documents.
- * ctx: { boxAccountIds: Set<string>, vatEnabled: boolean }.
+ * ctx: { boxAccountIds: Set<string> }.
  */
 const blockReasonOf = (account, ctx) => {
   if (account.isGroup) return { code: "GROUP_ACCOUNT", message: BLOCK_MESSAGES.GROUP_ACCOUNT };
@@ -49,14 +48,14 @@ const blockReasonOf = (account, ctx) => {
   const code = String(account.code || "");
   if (ctx.boxAccountIds.has(String(account._id)) || code.startsWith("111") || code.startsWith("112")) return { code: "BOX_ACCOUNT", message: BLOCK_MESSAGES.BOX_ACCOUNT };
   if (account.systemKey === "INVENTORY") return { code: "INVENTORY_ACCOUNT", message: BLOCK_MESSAGES.INVENTORY_ACCOUNT };
-  if ((account.systemKey === "VAT_INPUT" || account.systemKey === "VAT_PAYABLE") && ctx.vatEnabled) return { code: "VAT_ACCOUNT", message: BLOCK_MESSAGES.VAT_ACCOUNT };
+  if (account.systemKey === "VAT_INPUT" || account.systemKey === "VAT_PAYABLE") return { code: "VAT_ACCOUNT", message: BLOCK_MESSAGES.VAT_ACCOUNT };
   if (INVOICE_ACCOUNT_KEYS.has(account.systemKey)) return { code: "INVOICE_ACCOUNT", message: BLOCK_MESSAGES.INVOICE_ACCOUNT };
   return null;
 };
 
 const blockContext = async (session = null) => {
-  const [boxes, vat] = await Promise.all([CashBox.find({}).select("accountId").session(session).lean(), loadVatSettings(session)]);
-  return { boxAccountIds: new Set(boxes.map((box) => String(box.accountId))), vatEnabled: vat.enabled };
+  const boxes = await CashBox.find({}).select("accountId").session(session).lean();
+  return { boxAccountIds: new Set(boxes.map((box) => String(box.accountId))) };
 };
 
 /** Accounts a manual entry may use, each with its block reason (the picker shows blocked ones disabled). */

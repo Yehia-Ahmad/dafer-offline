@@ -21,10 +21,12 @@ import { brandName } from '../../../../core/brand';
 import {
   NotaButtonDirective,
   NotaFormFieldComponent,
+  NotaLockBannerComponent,
   NotaMoneyPipe,
   NotaNumberPipe,
   NotaPageHeaderComponent
 } from '../../../shared/ui';
+import { LockDateService } from '../../../../core/accounting-lock/lock-date.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
 import { PaymentBoxService } from '../../../cashbox/payment-box.service';
@@ -46,7 +48,7 @@ const PAGE_SIZE = 10;
   selector: 'app-credit-sales-list',
   standalone: true,
   imports: [LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, CommonModule, FormsModule, ReactiveFormsModule, RouterLink, TranslatePipe, DatePickerModule, InputNumberModule,
-    NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
+    NotaButtonDirective, NotaFormFieldComponent, NotaLockBannerComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
   templateUrl: './credit-sales-list.component.html',
   styleUrl: './credit-sales-list.component.scss'
 })
@@ -54,6 +56,8 @@ export class CreditSalesListComponent implements OnInit {
   private readonly creditSalesService = inject(CreditSalesService);
   /** Stage 19: the box the payment goes into. */
   readonly payment = inject(PaymentBoxService);
+  /** Stage 22: locked days are disabled in the receipt date picker and a locked date cannot be submitted. */
+  protected readonly lock = inject(LockDateService);
   private readonly shopProfileService = inject(ShopProfileService);
   private readonly translate = inject(TranslateService);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -84,6 +88,8 @@ export class CreditSalesListComponent implements OnInit {
 
   ngOnInit(): void {
     if (this.isBrowser) {
+      // Stage 22 review: another PC may have closed a period since this one signed in.
+      this.lock.refresh();
       // Cached for printing; without it the invoice prints with a neutral header.
       this.shopProfileService.refresh();
     }
@@ -196,7 +202,7 @@ export class CreditSalesListComponent implements OnInit {
     this.paymentSaved = false;
     const invoice = this.selected;
 
-    if (!invoice?.id || !this.canPay(invoice) || this.paymentForm.invalid || this.isSavingPayment) {
+    if (!invoice?.id || !this.canPay(invoice) || this.paymentForm.invalid || this.isSavingPayment || this.lock.isLocked(this.paymentForm.getRawValue().paymentDate)) {
       this.paymentForm.markAllAsTouched();
       return;
     }

@@ -102,7 +102,7 @@ export class SupplierPaymentDialogComponent {
 
   constructor() {
     effect(() => {
-      if (this.visible()) untracked(() => { this.amount.set(null); this.reference.set(''); this.note.set(''); this.confirmAdvance.set(false); this.error.set(''); this.paymentBox.load(); });
+      if (this.visible()) untracked(() => { this.amount.set(null); this.reference.set(''); this.note.set(''); this.confirmAdvance.set(false); this.error.set(''); this.paymentBox.load(); this.lock.refresh(); });
     });
   }
 

@@ -117,14 +117,15 @@
               <p-inputNumber inputId="clAmount" formControlName="amount" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cl__control" inputStyleClass="cl__num-input" />
             </nota-form-field>
             <nota-form-field [label]="'customerDetailsPage.paymentDialog.paymentDate' | translate" forId="clDate" [required]="true">
-              <p-datepicker inputId="clDate" formControlName="paymentDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" styleClass="cl__control" />
+              <p-datepicker inputId="clDate" formControlName="paymentDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" styleClass="cl__control" [minDate]="lock.minOpenDate()" />
+              <nota-lock-banner [selected]="paymentForm.controls.paymentDate.value" />
             </nota-form-field>
             <nota-form-field [label]="'customerDetailsPage.paymentDialog.note' | translate" forId="clNote">
               <input id="clNote" type="text" class="nota-input" formControlName="note" [placeholder]="'customerDetailsPage.paymentDialog.notePlaceholder' | translate" />
             </nota-form-field>
             <nota-payment-box-select />
             @if (paymentError) {<p class="cl__msg" role="alert">{{ paymentError }}</p>}
-            <button type="submit" notaButton="primary" [disabled]="isSavingPayment || payment.needsShift()">
+            <button type="submit" notaButton="primary" [disabled]="isSavingPayment || payment.needsShift() || lock.isLocked(paymentForm.controls.paymentDate.value)">
               {{ (isSavingPayment ? 'customerDetailsPage.paymentDialog.saving' : 'customerDetailsPage.paymentDialog.save') | translate }}
             </button>
           </form>

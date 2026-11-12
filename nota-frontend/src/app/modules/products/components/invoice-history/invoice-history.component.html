@@ -184,7 +184,8 @@
     <p class="ih__muted">{{ 'invoiceHistoryPage.returnDialog.subtitle' | translate }}</p>
     <div class="ih__form-row">
       <nota-form-field [label]="'invoiceHistoryPage.returnDialog.returnDate' | translate" forId="cashReturnDate">
-        <p-datepicker inputId="cashReturnDate" [(ngModel)]="cashReturnDate" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="ih__control" />
+        <p-datepicker inputId="cashReturnDate" [(ngModel)]="cashReturnDate" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="ih__control" [minDate]="lock.minOpenDate()" />
+        <nota-lock-banner [selected]="cashReturnDate" />
       </nota-form-field>
       <nota-form-field [label]="'invoiceHistoryPage.returnDialog.note' | translate" forId="cashReturnNote">
         <input id="cashReturnNote" type="text" class="nota-input" [(ngModel)]="cashReturnNote" [placeholder]="'invoiceHistoryPage.returnDialog.notePlaceholder' | translate" />
@@ -224,7 +225,7 @@
     @if (!hasCashReturnSelection()) {<p class="ih__muted">{{ 'invoiceHistoryPage.returnDialog.selectionRequired' | translate }}</p>}
     <ng-container notaDialogFooter>
       <button type="button" notaButton (click)="closeReturnDialog()" [disabled]="isReturningSelectedSelling">{{ 'actions.cancelButton' | translate }}</button>
-      <button type="button" notaButton="primary" (click)="createCashReturn()" [disabled]="isReturningSelectedSelling || !hasCashReturnSelection()">
+      <button type="button" notaButton="primary" (click)="createCashReturn()" [disabled]="isReturningSelectedSelling || !hasCashReturnSelection() || lock.isLocked(cashReturnDate)">
         {{ (isReturningSelectedSelling ? 'actions.loading' : 'invoiceHistoryPage.actions.createReturn') | translate }}
       </button>
     </ng-container>

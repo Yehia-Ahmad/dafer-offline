@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { lockRefreshSpy } from '../../test-setup.spec';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -56,6 +57,11 @@ describe('ExpensesPageComponent (Stage 19)', () => {
   const settle = async (fixture: ComponentFixture<unknown>) => { fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges(); };
   const el = (fixture: ComponentFixture<unknown>) => fixture.nativeElement as HTMLElement;
   afterEach(() => { http.verify(); sessionStorage.removeItem('nota.paymentBox'); });
+
+  it('re-reads the lock date when it opens (Stage 22 review)', async () => {
+    await open();
+    expect(lockRefreshSpy()).toHaveBeenCalled();
+  });
 
   it('lists this month with its total, and last month by category with the total', async () => {
     const fixture = await open();

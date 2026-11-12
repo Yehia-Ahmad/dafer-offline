@@ -1,5 +1,5 @@
 import { LockDateService } from '../../core/accounting-lock/lock-date.service';
-import { ChangeDetectionStrategy, Component, computed, inject, input, model, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, model, output, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Dialog } from 'primeng/dialog';
@@ -58,6 +58,11 @@ export class DrawingDialogComponent {
   readonly note = signal('');
   readonly error = signal('');
   readonly busy = signal(false);
+
+  constructor() {
+    // Stage 22 review: re-read the lock date each time the dialog opens (another PC may have closed a period).
+    effect(() => { if (this.visible()) untracked(() => this.lock.refresh()); });
+  }
 
   readonly valid = computed(() => (this.amount() ?? 0) > 0 && Boolean(this.boxId() || this.boxes().length) && !this.lock.isLocked(this.date()));
 

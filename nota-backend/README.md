@@ -587,3 +587,10 @@ Sample selling invoice from `GET /api/sellings`:
   ]
 }
 ```
+
+## Tests
+
+`npm test` runs every backend test. Most of them need a real `mongod`: it is found at `NOTA_TEST_MONGOD`, else at the bundled
+`nota-frontend/vendor/mongodb/bin/mongod(.exe)` (found automatically on Windows after `npm run offline:vendor`). With no `mongod`
+`npm test` **fails** instead of silently skipping; set `NOTA_ALLOW_SKIP=1` to run without one on purpose. The skip count is printed at
+the end of every run.

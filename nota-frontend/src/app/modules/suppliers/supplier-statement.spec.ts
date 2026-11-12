@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { lockRefreshSpy } from '../../test-setup.spec';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -140,6 +141,14 @@ describe('SupplierPaymentDialogComponent (Stage 20)', () => {
     await settle(fixture);
     return { fixture, http, component: fixture.componentInstance };
   };
+
+  it('re-reads the lock date each time the dialog opens (Stage 22 review)', async () => {
+    const { fixture, component } = await open();
+    expect(lockRefreshSpy()).toHaveBeenCalledTimes(1);
+    component.visible.set(false); await settle(fixture);
+    component.visible.set(true); await settle(fixture);
+    expect(lockRefreshSpy()).toHaveBeenCalledTimes(2);
+  });
 
   it("the design's payment: 6,650 now, 2,500 from the bank, 4,150 after; saves the exact body", async () => {
     const { fixture, http, component } = await open();
