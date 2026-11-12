@@ -107,8 +107,8 @@ function createBackupHandlers(deps) {
     'backup:open-folder': guarded('backup:open-folder', () => deps.openBackupsFolder().then(() => true)),
   };
 
-  // Every guarded handler has a rule and every rule has a handler.
-  for (const channel of Object.keys(IPC_RULES)) {
+  // Every guarded handler has a rule and every backup rule has a handler (the print channels are handled by print-handlers.js).
+  for (const channel of Object.keys(IPC_RULES).filter((name) => name.startsWith('backup:'))) {
     if (!handlers[channel]) throw new Error(`missing handler for ${channel}`);
   }
   return handlers;

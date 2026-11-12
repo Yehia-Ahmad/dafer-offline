@@ -7,6 +7,9 @@ import { NotaCanDirective } from '../../core/auth/nota-can.directive';
 import { NotaBalancePipe, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent } from '../shared/ui';
 import { SupplierPaymentDialogComponent } from './supplier-payment-dialog.component';
 import { SupplierStatementComponent } from './supplier-statement.component';
+import { TranslateService } from '@ngx-translate/core';
+import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-actions.component';
+import { PrintDataService } from '../../core/print/print-data.service';
 import { Supplier, SuppliersService } from './suppliers.service';
 
 /**
@@ -17,13 +20,15 @@ import { Supplier, SuppliersService } from './suppliers.service';
 @Component({
   selector: 'app-suppliers-page',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, SupplierStatementComponent, SupplierPaymentDialogComponent],
+  imports: [PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, SupplierStatementComponent, SupplierPaymentDialogComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './suppliers-page.component.html',
   styleUrl: './suppliers-page.component.scss',
 })
 export class SuppliersPageComponent implements OnInit {
   private readonly service = inject(SuppliersService);
+  private readonly printData = inject(PrintDataService);
+  private readonly translate = inject(TranslateService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -61,8 +66,26 @@ export class SuppliersPageComponent implements OnInit {
     this.selectedId.set(row._id);
   }
 
+  /** Stage 23: the payment just saved (its PV voucher's print buttons). */
+  lastPayment: { number: string; balanceAfter: number; amount: number; date: string; boxName: string | null; reference: string | null; note: string | null } | null = null;
+
+  voucherItems(supplier: Supplier): PrintActionItem[] {
+    const payment = this.lastPayment;
+    if (!payment) return [];
+    return [{ key: 'voucher', label: this.translate.instant('print.voucherA5'), load: async () => {
+      const journalNumber = await this.printData.journalNumber(payment.number);
+      return this.printData.voucher({
+        type: 'PV', number: payment.number, date: payment.date, amount: payment.amount, party: supplier.name,
+        reason: [this.translate.instant('suppliers.statement.pay'), payment.reference, payment.note].filter(Boolean).join(' · '),
+        method: payment.boxName, balanceLabel: this.translate.instant('suppliers.statement.weOweNow'),
+        balanceBefore: Math.round((payment.balanceAfter + payment.amount) * 100) / 100, balanceAfter: payment.balanceAfter, journalNumber,
+      });
+    } }];
+  }
+
   /** A payment was saved: the list (one balance source) and the statement both reload. */
-  paid(): void {
+  paid(payment?: { number: string; balanceAfter: number; amount: number; date: string; boxName: string | null; reference: string | null; note: string | null }): void {
+    if (payment) this.lastPayment = payment;
     this.refreshKey.update((value) => value + 1);
     this.load();
   }

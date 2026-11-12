@@ -84,7 +84,7 @@ export class SupplierPaymentDialogComponent {
   readonly visible = model(false);
   /** The supplier with its current balance (positive = we owe). */
   readonly supplier = input<Supplier | null>(null);
-  readonly done = output<{ number: string; balanceAfter: number }>();
+  readonly done = output<{ number: string; balanceAfter: number; amount: number; date: string; boxName: string | null; reference: string | null; note: string | null }>();
 
   readonly amount = signal<number | null>(null);
   readonly date = signal(localDateKey());
@@ -123,7 +123,7 @@ export class SupplierPaymentDialogComponent {
       ...(this.isAdvance() ? { confirmAdvance: true } : {}),
     });
     this.service.pay(s._id, payload).subscribe({
-      next: (row) => { this.busy.set(false); this.visible.set(false); this.done.emit({ number: row.number, balanceAfter: row.balanceAfter }); },
+      next: (row) => { this.busy.set(false); this.visible.set(false); this.done.emit({ number: row.number, balanceAfter: row.balanceAfter, amount: row.amount ?? this.amountValue(), date: row.date || this.date() || new Date().toISOString(), boxName: this.paymentBox.effective()?.name || null, reference: row.reference ?? (this.reference().trim() || null), note: row.note ?? (this.note().trim() || null) }); },
       error: (response) => {
         this.busy.set(false);
         const code = response?.error?.code;

@@ -135,12 +135,11 @@
         @if (paymentSaved) {<p class="cl__ok" role="status">{{ 'creditSalePage.list.paymentSaved' | translate }}</p>}
 
         <div class="cl__panel-actions">
-          <button type="button" notaButton (click)="print(invoice)" [disabled]="printingId === invoice.id">{{ 'customerDetailsPage.actions.printInvoice' | translate }}</button>
+          <nota-print-actions [items]="printItems(invoice)" />
           @if (invoice.customerId) {
             <a notaButton [routerLink]="['/customers', invoice.customerId]">{{ 'creditSalePage.list.customerPage' | translate }}</a>
           }
         </div>
-        @if (printError) {<p class="cl__msg" role="alert">{{ printError }}</p>}
 
         <div class="cl__prev">
           <span class="cl__muted">{{ 'creditSalePage.list.previousPayments' | translate }}</span>

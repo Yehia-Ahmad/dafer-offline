@@ -102,6 +102,42 @@ export interface DesktopBackupBridge {
   clearCopyFolder(token: string | null): Promise<DesktopResult<BackupStatus>>;
 }
 
+/** Stage 23: this PC's print settings (print-settings.json in the Nota home folder). */
+export interface DesktopPrintSettings {
+  receiptPrinter: string;
+  documentPrinter: string;
+  autoPrintReceipt: boolean;
+  receiptCopies: number;
+}
+
+export interface DesktopPrinter {
+  name: string;
+  displayName: string;
+  isDefault: boolean;
+}
+
+/** What the page sends to print: the document's complete HTML, its paper, and (80mm only) the measured receipt height. */
+export interface DesktopPrintJob {
+  html: string;
+  paper: '80mm' | 'A4' | 'A5';
+  heightMm?: number;
+  title?: string;
+  copies?: number;
+}
+
+/**
+ * Stage 23: printing. The first argument is always the page's session token (checked in the main process:
+ * SESSION_EXPIRED / FORBIDDEN). Results are { ok, value } / { ok: false, error }.
+ */
+export interface DesktopPrintBridge {
+  printers(token: string | null): Promise<DesktopResult<DesktopPrinter[]>>;
+  getSettings(token: string | null): Promise<DesktopResult<DesktopPrintSettings>>;
+  setSettings(token: string | null, patch: Partial<DesktopPrintSettings>): Promise<DesktopResult<DesktopPrintSettings>>;
+  testPage(token: string | null, request: { kind: 'receipt' | 'document'; html: string; heightMm?: number }): Promise<DesktopResult<{ printed: boolean; printer: string | null; cancelled?: boolean }>>;
+  print(token: string | null, job: DesktopPrintJob): Promise<DesktopResult<{ printed: boolean; silent: boolean; printer: string | null; cancelled?: boolean }>>;
+  savePdf(token: string | null, job: DesktopPrintJob, options?: { suggestedName?: string }): Promise<DesktopResult<{ saved: boolean; path?: string; bytes?: number }>>;
+}
+
 /** Stage 15: another main PC answering on the LAN (the main PC's own answer is never listed). */
 export interface OtherMainPc {
   instanceId: string;
@@ -119,6 +155,8 @@ export interface NotaDesktopBridge {
   changeServerAddress?(): Promise<void>;
   onNavigate?(callback: (url: string) => void): () => void;
   backup?: DesktopBackupBridge;
+  /** Stage 23: printing and PDF export. */
+  print?: DesktopPrintBridge;
   /** Stage 15: after a restore every window goes to the sign-in screen. */
   onSessionReset?(callback: (event: { reason: 'restored' }) => void): () => void;
   /** Stage 15 (main PC): other main PCs answering on the LAN. */

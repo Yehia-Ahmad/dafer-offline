@@ -235,6 +235,7 @@
   [resizable]="false" styleClass="nota-p-dialog pos-dialog">
   <nota-dialog-shell [title]="'sellingPage.messages.createdSuccess' | translate" [closeLabel]="'sellingPage.pos.ok' | translate"
     (closed)="closeSuccessPopup()">
+    <nota-print-actions [items]="lastSalePrintItems()" [pdf]="false" data-testid="sale-print" />
     <ng-container notaDialogFooter>
       <button type="button" notaButton="primary" (click)="closeSuccessPopup()">{{ 'sellingPage.pos.ok' | translate }}</button>
     </ng-container>

@@ -2,6 +2,9 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import { firstValueFrom } from 'rxjs';
+import { PrintActionItem, PrintActionsComponent } from '../../../core/print/print-actions.component';
+import { PrintDataService } from '../../../core/print/print-data.service';
 import { localDateKey } from '../../../core/utilities/local-date';
 import { NotaButtonDirective, NotaPageHeaderComponent } from '../../shared/ui';
 import { formatNotaNumber } from '../../shared/ui/nota-number';
@@ -12,8 +15,6 @@ import {
   AGING_KEYS, BalanceSheet, BoxMovements, IncomeRow, IncomeStatement, PartyBalances, PartyRow, ReportKey, ReportQuery, ReportTab, SheetRow, TrialBalance, TrialRow,
 } from './reports.models';
 
-/** طباعة: the printed layouts (PrFinancials, PrTrialBalance) are Stage 23, so the button stays hidden until then. */
-export const REPORTS_PRINT_ENABLED = false;
 
 type Preset = 'thisMonth' | 'lastMonth' | 'thisYear' | 'custom';
 const TABS: readonly ReportTab[] = ['income', 'balance', 'trial', 'boxes', 'parties'];
@@ -38,13 +39,13 @@ const flatten = <T extends { children?: T[]; isZero: boolean; kind: string }>(ro
  */
 @Component({
   selector: 'app-financial-reports',
-  imports: [FormsModule, RouterLink, TranslatePipe, NotaButtonDirective, NotaPageHeaderComponent],
+  imports: [PrintActionsComponent, FormsModule, RouterLink, TranslatePipe, NotaButtonDirective, NotaPageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="fr">
       <nota-page-header [title]="'reports.title' | translate" [subtitle]="'reports.subtitle' | translate">
         <div notaPageActions class="fr__actions">
-          @if (printEnabled) { <button type="button" notaButton data-action="print">{{ 'reports.print' | translate }}</button> }
+          <nota-print-actions [items]="printItems()" data-test="report-print" />
           <button type="button" notaButton data-action="export" [disabled]="exporting() || !current()" (click)="exportExcel()">{{ 'reports.excel' | translate }}</button>
         </div>
       </nota-page-header>
@@ -295,7 +296,31 @@ export class FinancialReportsComponent implements OnInit {
   private readonly language = inject(LanguageService);
   private readonly shopProfile = inject(ShopProfileService);
 
-  readonly printEnabled = REPORTS_PRINT_ENABLED;
+  private readonly printData = inject(PrintDataService);
+
+  /**
+   * Stage 23: طباعة / حفظ PDF of the shown report. The income statement and the balance sheet print together as
+   * "القوائم المالية" (PrFinancials; the other one is read for the same period); the trial balance, box movements and
+   * party balances use the trial-balance table style.
+   */
+  readonly printItems = computed<PrintActionItem[]>(() => {
+    const tab = this.tab();
+    return [{ key: 'report', load: async () => {
+      const query = this.query();
+      if (tab === 'income' || tab === 'balance') {
+        const [income, balance, trial] = await Promise.all([
+          tab === 'income' && this.income() ? Promise.resolve(this.income()) : firstValueFrom(this.service.incomeStatement(query)),
+          tab === 'balance' && this.balance() ? Promise.resolve(this.balance()) : firstValueFrom(this.service.balanceSheet({ ...query, asOf: query.to })),
+          firstValueFrom(this.service.trialBalance(query)).catch(() => null),
+        ]);
+        return this.printData.financials(income, balance, trial ? trial.balanced : null);
+      }
+      if (tab === 'trial' && this.trial()) return this.printData.trialBalance(this.trial() as TrialBalance);
+      if (tab === 'boxes' && this.boxes()) return this.printData.boxMovements(this.boxes() as BoxMovements);
+      if (tab === 'parties' && this.parties()) return this.printData.partyBalances(this.parties() as PartyBalances);
+      return null;
+    } }];
+  });
   readonly tabs = TABS;
   readonly presets: readonly Preset[] = ['thisMonth', 'lastMonth', 'thisYear', 'custom'];
   readonly buckets = AGING_KEYS;

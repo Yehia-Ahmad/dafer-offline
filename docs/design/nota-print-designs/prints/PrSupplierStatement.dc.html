@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Supplier statement A4</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+.n{font-variant-numeric:tabular-nums}
+.t{width:100%;border-collapse:collapse;font-size:13px}
+.t th{background:#EEF3F1;color:#142321;font-weight:700;padding:9px 10px;border:1px solid #9A9A9A;text-align:right}
+.t td{padding:9px 10px;border:1px solid #9A9A9A}
+.t td.n,.t th.n{text-align:left}
+.box{border:1px solid #9A9A9A;border-radius:8px;padding:12px 14px}
+.lbl{font-size:12px;color:#4A5856}
+</style>
+</helmet>
+<div style="width: 794px; height: 1123px; box-sizing: border-box; padding: 40px; background: #FFFFFF; color: #142321; font-family: 'Alexandria', system-ui, sans-serif; display: flex; flex-direction: column; gap: 16px">
+  <dc-import name="PrHeader" title="كشف حساب مورد" no="الشركة المصرية للإضاءة" date="٥ / ١١ / ٢٠٢٦" extra-label="الفترة" extra="١ / ٩ — ٥ / ١١ / ٢٠٢٦" hint-size="714px,120px"></dc-import>
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+    <div class="box"><div class="lbl">رصيد أول الفترة</div><div class="n" style="font-size: 17px; font-weight: 800">٠٫٠٠</div></div>
+    <div class="box"><div class="lbl">مشتريات (دائن)</div><div class="n" style="font-size: 17px; font-weight: 800">١٤٬١٥٠٫٠٠</div></div>
+    <div class="box"><div class="lbl">مدفوعات (مدين)</div><div class="n" style="font-size: 17px; font-weight: 800">٧٬٥٠٠٫٠٠</div></div>
+    <div class="box" style="border: 2px solid #142321"><div class="lbl">الرصيد المستحق له</div><div class="n" style="font-size: 17px; font-weight: 800">٦٬٦٥٠٫٠٠</div></div>
+  </div>
+  <div class="box" style="display: flex; flex-direction: row; justify-content: space-between; font-size: 13px">
+    <span>المورد: <b>الشركة المصرية للإضاءة</b></span>
+    <span>المسؤول: <b>م. وائل</b></span>
+    <span class="n">التليفون: <b style="direction: ltr; display: inline-block">01027784410</b></span>
+  </div>
+  <table class="t">
+    <thead><tr><th style="width: 90px">التاريخ</th><th>البيان</th><th style="width: 110px">المستند</th><th class="n" style="width: 90px">مدين</th><th class="n" style="width: 90px">دائن</th><th class="n" style="width: 100px">الرصيد</th></tr></thead>
+    <tbody>
+      <tr style="background: #FAF9F6"><td class="n">١ / ٩</td><td>رصيد أول الفترة</td><td></td><td class="n"></td><td class="n"></td><td class="n" style="font-weight: 700">٠٫٠٠</td></tr>
+      <tr><td class="n">١٠ / ٩</td><td>فاتورة شراء · مورد EL-8790</td><td class="n" style="direction: ltr; text-align: right">PO-000004</td><td class="n"></td><td class="n">٦٬٠٠٠٫٠٠</td><td class="n" style="font-weight: 700">٦٬٠٠٠٫٠٠</td></tr>
+      <tr><td class="n">٢٠ / ٩</td><td>سداد · بنك مصر</td><td class="n" style="direction: ltr; text-align: right">PV-000008</td><td class="n">٣٬٠٠٠٫٠٠</td><td class="n"></td><td class="n" style="font-weight: 700">٣٬٠٠٠٫٠٠</td></tr>
+      <tr><td class="n">١٥ / ١٠</td><td>فاتورة شراء · مورد EL-8815</td><td class="n" style="direction: ltr; text-align: right">PO-000009</td><td class="n"></td><td class="n">٢٬٧٠٠٫٠٠</td><td class="n" style="font-weight: 700">٥٬٧٠٠٫٠٠</td></tr>
+      <tr><td class="n">٢٥ / ١٠</td><td>سداد · نقدي</td><td class="n" style="direction: ltr; text-align: right">PV-000013</td><td class="n">١٬٥٠٠٫٠٠</td><td class="n"></td><td class="n" style="font-weight: 700">٤٬٢٠٠٫٠٠</td></tr>
+      <tr><td class="n">٥ / ١١</td><td>فاتورة شراء · مورد EL-8841</td><td class="n" style="direction: ltr; text-align: right">PO-000012</td><td class="n"></td><td class="n">٥٬٤٥٠٫٠٠</td><td class="n" style="font-weight: 700">٩٬٦٥٠٫٠٠</td></tr>
+      <tr><td class="n">٥ / ١١</td><td>دفعة مع الفاتورة · الخزنة الرئيسية</td><td class="n" style="direction: ltr; text-align: right">PV-000016</td><td class="n">٣٬٠٠٠٫٠٠</td><td class="n"></td><td class="n" style="font-weight: 700">٦٬٦٥٠٫٠٠</td></tr>
+    </tbody>
+    <tfoot>
+      <tr style="background: #EEF3F1; font-weight: 800"><td colspan="3" style="padding: 10px; border: 1px solid #9A9A9A">الإجمالي</td><td class="n" style="padding: 10px; border: 1px solid #9A9A9A">٧٬٥٠٠٫٠٠</td><td class="n" style="padding: 10px; border: 1px solid #9A9A9A">١٤٬١٥٠٫٠٠</td><td class="n" style="padding: 10px; border: 1px solid #9A9A9A">٦٬٦٥٠٫٠٠</td></tr>
+    </tfoot>
+  </table>
+  <div class="box" style="font-size: 13px; line-height: 1.8">
+    دائن = بضاعة اشتريناها من المورد · مدين = فلوس دفعناها له. الرصيد الموجب = مبلغ مستحق للمورد علينا.
+  </div>
+  <div style="flex: 1 1 auto"></div>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; font-size: 13px">
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>عن المحل</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">الاسم والتوقيع</span></div>
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>عن المورد (مطابقة الرصيد)</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">الاسم والتوقيع والختم</span></div>
+  </div>
+  <dc-import name="PrFooter" note="" user="سارة (المحاسب)" printed="٥ / ١١ / ٢٠٢٦ ٤:١٠ م" hint-size="714px,60px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":794,"height":1123}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

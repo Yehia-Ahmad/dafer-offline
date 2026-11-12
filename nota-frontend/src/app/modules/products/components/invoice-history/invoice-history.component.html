@@ -2,6 +2,8 @@
 <div class="ih">
   <nota-page-header [title]="'home.cards.invoiceHistory.title' | translate" [subtitle]="'invoiceHistoryPage.s10.subtitle' | translate" />
 
+  @if (lastReturnInvoiceId) { <nota-return-print-banner [invoiceId]="lastReturnInvoiceId" /> }
+
   <!-- Filters -->
   <section class="nota-card ih__filters" [attr.aria-label]="'invoiceHistoryPage.s10.filters' | translate">
     <nota-form-field [label]="'invoiceHistoryPage.cancel.number' | translate" forId="ihNumber">
@@ -136,17 +138,14 @@
         @if (selling.status === 'cancelled' && selling.cancelRefundBoxName) {<p class="ih__msg" data-line="cancelRefundBox">{{ 'invoiceHistoryPage.cancel.refundBox' | translate: { box: selling.cancelRefundBoxName, amount: (selling.cancelRefundAmount ?? 0 | notaMoney) } }}</p>}
         <div class="ih__actions">
           <a *notaCan="'accounting.view'" notaButton [routerLink]="['/accounting/journal']" [queryParams]="{ sourceType: 'sale', sourceId: selling.id }">{{ 'accounting.viewEntry' | translate }}</a>
-          <button type="button" notaButton="primary" (click)="downloadInvoice(selling)"
-            [disabled]="isDeletingSelling(selling.id) || isReturningSelling(selling.id) || isDownloadingInvoice(selling.id)">
-            {{ (isDownloadingInvoice(selling.id) ? 'actions.loading' : 'invoiceHistoryPage.s10.print') | translate }}
-          </button>
+          <nota-print-actions [items]="printItems(selling)" />
           <button *notaCan="'returns.create'" type="button" notaButton (click)="openReturnDialog(selling)"
-            [disabled]="!canReturnSelling(selling) || isDeletingSelling(selling.id) || isReturningSelling(selling.id) || isDownloadingInvoice(selling.id)">
+            [disabled]="!canReturnSelling(selling) || isDeletingSelling(selling.id) || isReturningSelling(selling.id)">
             {{ (isReturningSelling(selling.id) ? 'actions.loading' : 'invoiceHistoryPage.actions.createReturn') | translate }}
           </button>
           <!-- Stage 14: delete needs sales.delete; without it the permission-locked pattern shows instead. -->
           <button *notaCan="'sales.delete'; else ihDeleteLocked" type="button" notaButton="danger" class="ih__delete" (click)="openDeleteDialog(selling)"
-            [disabled]="isDeletingSelling(selling.id) || isReturningSelling(selling.id) || isDownloadingInvoice(selling.id)">
+            [disabled]="isDeletingSelling(selling.id) || isReturningSelling(selling.id)">
             {{ (isDeletingSelling(selling.id) ? 'actions.loading' : 'invoiceHistoryPage.cancel.action') | translate }}
           </button>
           <ng-template #ihDeleteLocked><nota-locked-action class="ih__delete" data-testid="delete-locked" note="auth.locked.delete" /></ng-template>

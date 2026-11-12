@@ -7,7 +7,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { environment } from '../../../../environments/environment';
 import { LanguageService } from '../../shared/services/translation.service';
 import { ShopProfileService } from '../../shop-profile/services/shop-profile.service';
-import { FinancialReportsComponent, REPORTS_PRINT_ENABLED } from './financial-reports.component';
+import { FinancialReportsComponent } from './financial-reports.component';
 import { BalanceSheet, BoxMovements, IncomeRow, IncomeStatement, PartyBalances, TrialBalance } from './reports.models';
 
 const base = `${environment.api_base_url}reports`;
@@ -243,12 +243,12 @@ describe('FinancialReportsComponent (Stage 22)', () => {
     expect(q('[data-test="error"]')?.textContent).toContain('reports.loadFailed');
   });
 
-  it('Excel للمحاسب: the same report as an .xlsx file (format=xlsx with the same filters), a download starts; print stays hidden until Stage 23', async () => {
+  it('Excel للمحاسب: the same report as an .xlsx file (format=xlsx with the same filters), a download starts; print and PDF buttons are there (Stage 23)', async () => {
     await open();
     expectGet('income-statement').flush(INCOME);
     await settle();
-    expect(REPORTS_PRINT_ENABLED).toBeFalse();
-    expect(q('[data-action="print"]')).toBeNull();
+    expect(q('[data-action="print-report"]')).toBeTruthy();
+    expect(q('[data-action="pdf-report"]')).toBeTruthy();
     const created = spyOn(URL, 'createObjectURL').and.returnValue('blob:report');
     const revoked = spyOn(URL, 'revokeObjectURL');
     const clicked = spyOn(HTMLAnchorElement.prototype, 'click');

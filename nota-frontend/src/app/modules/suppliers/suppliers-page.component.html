@@ -77,6 +77,12 @@
 
   @if (selected(); as supplier) {
     <app-supplier-statement [supplier]="supplier" [refreshKey]="refreshKey()" (pay)="payOpen.set(true)" />
-    <app-supplier-payment-dialog [(visible)]="payOpen" [supplier]="supplier" (done)="paid()" />
+    @if (lastPayment) {
+      <div class="nota-card" role="status" data-test="last-payment" style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:10px 14px">
+        <span><b dir="ltr">{{ lastPayment.number }}</b></span>
+        <nota-print-actions [items]="voucherItems(supplier)" />
+      </div>
+    }
+    <app-supplier-payment-dialog [(visible)]="payOpen" [supplier]="supplier" (done)="paid($event)" />
   }
 </div>

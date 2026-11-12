@@ -9,6 +9,9 @@ import { PaymentBoxSelectComponent } from '../cashbox/payment-box-select.compone
 import { PaymentBoxService } from '../cashbox/payment-box.service';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaKpiCardComponent, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent } from '../shared/ui';
 import { NotaPillVariant } from '../shared/ui/status-pill.component';
+import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-actions.component';
+import { PrintDataService } from '../../core/print/print-data.service';
+import { TranslateService } from '@ngx-translate/core';
 import { VatReturnsService } from './vat-returns.service';
 import { VAT_LINE_GROUPS, VatLine, VatLineGroup, VatReturnDetail, VatReturnList, VatReturnRow, VatReturnStatus } from './vat.models';
 
@@ -25,7 +28,7 @@ const KNOWN_ERRORS = ['OUT_OF_ORDER', 'ALREADY_FILED', 'PERIOD_NOT_ENDED', 'EXCE
 @Component({
   selector: 'app-vat-returns',
   standalone: true,
-  imports: [DatePipe, FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaKpiCardComponent, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, PaymentBoxSelectComponent],
+  imports: [PrintActionsComponent, DatePipe, FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaKpiCardComponent, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, PaymentBoxSelectComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="vr">
@@ -77,6 +80,7 @@ const KNOWN_ERRORS = ['OUT_OF_ORDER', 'ALREADY_FILED', 'PERIOD_NOT_ENDED', 'EXCE
               @if (d.number) { <p class="vr__muted" dir="ltr">{{ d.number }}</p> }
             </div>
             <div class="vr__actions">
+              <nota-print-actions [items]="returnPrintItems(d)" data-test="vat-print" />
               <button type="button" notaButton data-action="export" [disabled]="exporting()" (click)="exportExcel(d)">{{ 'vat.returns.export' | translate }}</button>
               @if (canFile() && d.canFile) { <button type="button" notaButton="primary" data-action="file" (click)="fileOpen.set(true)">{{ 'vat.returns.file' | translate }}</button> }
               @if (canFile() && d.status !== 'open' && d.remaining > 0) { <button type="button" notaButton="primary" data-action="pay" (click)="openPay(d)">{{ 'vat.returns.pay' | translate }}</button> }
@@ -123,7 +127,7 @@ const KNOWN_ERRORS = ['OUT_OF_ORDER', 'ALREADY_FILED', 'PERIOD_NOT_ENDED', 'EXCE
             <h3 class="vr__h">{{ 'vat.returns.payments' | translate }}</h3>
             <ul class="vr__payments" data-test="payments">
               @for (p of d.payments; track p._id) {
-                <li><span dir="ltr">{{ p.number }}</span><span class="vr__muted">{{ p.date | date: 'yyyy-MM-dd' }}@if (p.boxName) { · {{ p.boxName }} }@if (p.reference) { · {{ p.reference }} }</span><strong class="nota-num">{{ p.amount | notaMoney }}</strong></li>
+                <li><span dir="ltr">{{ p.number }}</span><span class="vr__muted">{{ p.date | date: 'yyyy-MM-dd' }}@if (p.boxName) { · {{ p.boxName }} }@if (p.reference) { · {{ p.reference }} }</span><strong class="nota-num">{{ p.amount | notaMoney }}</strong><nota-print-actions [items]="paymentPrintItems(d, p)" [pdf]="false" /></li>
               }
             </ul>
           }
@@ -234,6 +238,21 @@ const KNOWN_ERRORS = ['OUT_OF_ORDER', 'ALREADY_FILED', 'PERIOD_NOT_ENDED', 'EXCE
 })
 export class VatReturnsComponent implements OnInit {
   private readonly service = inject(VatReturnsService);
+  private readonly printData = inject(PrintDataService);
+  private readonly translate = inject(TranslateService);
+
+  /** Stage 23: the one-page A4 VAT return of the month. */
+  returnPrintItems(d: VatReturnDetail): PrintActionItem[] {
+    return [{ key: 'vat', load: async () => this.printData.vatReturn(d) }];
+  }
+
+  /** Stage 23: the A5 VAT payment voucher (VP). */
+  paymentPrintItems(d: VatReturnDetail, p: VatReturnDetail['payments'][number]): PrintActionItem[] {
+    return [{ key: 'vp-' + p.number, label: this.translate.instant('print.voucherA5'), load: async () => {
+      const journalNumber = await this.printData.journalNumber(p.number);
+      return this.printData.voucher({ type: 'VP', number: p.number, date: p.date, amount: p.amount, party: this.translate.currentLang === 'en' ? 'Tax Authority' : 'مصلحة الضرائب', reason: `${this.translate.instant('vat.returns.payments')} ${d.period}`, method: p.boxName, journalNumber });
+    } }];
+  }
   private readonly auth = inject(AuthService);
   protected readonly payment = inject(PaymentBoxService);
 

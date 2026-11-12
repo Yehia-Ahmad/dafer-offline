@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Receipt voucher A5</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+.n{font-variant-numeric:tabular-nums}
+.f{display:flex;flex-direction:row;align-items:baseline;gap:10px;font-size:14px;padding:8px 0;border-bottom:1px dotted #767676}
+.f span:first-child{color:#4A5856;min-width:96px;font-size:13px}
+</style>
+</helmet>
+<div style="width: 559px; height: 794px; box-sizing: border-box; padding: 40px; background: #FFFFFF; color: #142321; font-family: 'Alexandria', system-ui, sans-serif; display: flex; flex-direction: column; gap: 14px">
+  <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <span style="font-size: 16px; font-weight: 800">النور للأدوات الكهربائية</span>
+      <span style="font-size: 12px; color: #4A5856">١٢ شارع الجيش، المنصورة · <span class="n" style="direction: ltr; display: inline-block">01002223344</span></span>
+    </div>
+    <svg width="48" height="48" viewBox="0 0 600 600" role="img" aria-label="لوجو المحل"><rect width="600" height="600" rx="120" fill="#1F3A5F"></rect><circle cx="300" cy="250" r="140" fill="#F2B134"></circle><path d="M318 140 L230 275 h62 l-28 125 112-160 h-66 l38-100z" fill="#1F3A5F"></path></svg>
+  </div>
+  <div style="height: 3px; background: #0E4D45; border-radius: 2px"></div>
+  <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center">
+    <span style="font-size: 26px; font-weight: 800; color: #0E4D45">سند قبض</span>
+    <div style="display: flex; flex-direction: column; align-items: flex-end; font-size: 13px; gap: 2px">
+      <span>رقم <b class="n" style="direction: ltr; display: inline-block">RC-000041</b></span>
+      <span class="n">التاريخ <b>٥ / ١١ / ٢٠٢٦</b></span>
+    </div>
+  </div>
+  <div style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; border: 2px solid #142321; border-radius: 10px; padding: 12px 16px">
+    <span style="font-size: 14px">المبلغ</span>
+    <span class="n" style="font-size: 26px; font-weight: 800">٣٠٠٫٠٠ ج.م</span>
+  </div>
+  <div style="display: flex; flex-direction: column">
+    <div class="f"><span>استلمنا من</span><b>م. سامي للمقاولات</b></div>
+    <div class="f"><span>مبلغ وقدره</span><b>ثلاثمائة جنيه مصري فقط لا غير</b></div>
+    <div class="f"><span>وذلك عن</span><span style="color: #142321; min-width: 0">دفعة من فاتورة آجل <b class="n" style="direction: ltr; display: inline-block">CR-000032</b></span></div>
+    <div class="f"><span>طريقة الدفع</span><span style="color: #142321; min-width: 0">نقدي · درج الكاشير ١</span></div>
+    <div class="f"><span>رصيد العميل</span><span class="n" style="color: #142321; min-width: 0">قبل ٥٩٠٫٠٠ · بعد <b>٢٩٠٫٠٠</b></span></div>
+  </div>
+  <div style="flex: 1 1 auto"></div>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px; font-size: 13px">
+    <div style="display: flex; flex-direction: column; gap: 28px"><span>المستلم (عن المحل)</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">محمود</span></div>
+    <div style="display: flex; flex-direction: column; gap: 28px"><span>الدافع</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">الاسم والتوقيع</span></div>
+  </div>
+  <div style="display: flex; flex-direction: row; justify-content: space-between; font-size: 12px; color: #4A5856; border-top: 1px solid #9A9A9A; padding-top: 8px">
+    <span>قيد رقم JE-000415</span><span>تم إنشاء السند إلكترونيًا بواسطة نوتة</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":559,"height":794}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

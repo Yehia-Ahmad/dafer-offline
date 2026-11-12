@@ -58,6 +58,8 @@ const STAGE20_DB_NAME = 'dafer_smoke_stage20';
 const STAGE21_DB_NAME = 'dafer_smoke_stage21';
 // Stage 22: a seventh fresh database (auth on) for the financial reports, manual entries, accounts and period closing.
 const STAGE22_DB_NAME = 'dafer_smoke_stage22';
+// Stage 23: an eighth fresh database (auth on) for the prints.
+const STAGE23_DB_NAME = 'dafer_smoke_stage23';
 const JWT_SECRET = 'smoke-jwt-secret-0123456789abcdef-0123456789';
 const OWNER = { name: 'Smoke Owner', username: 'smoke-owner', password: 'owner-pass-123' };
 const LAN_SECRET = 'smoke-secret-123';
@@ -2121,6 +2123,181 @@ async function runStage22Scenarios() {
   });
 }
 
+// Stage 23: prints. The print log (copy numbers, the audit), the print-data of each kind of document, and the cost-bearing
+// prints refusing a cashier (403), on a fresh database with auth on.
+async function runStage23Scenarios() {
+  const ctx = {};
+  authToken = null;
+  const pad = (n) => String(n).padStart(2, '0');
+  const TODAY = (() => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })();
+  const login = async (user) => {
+    const response = await request('POST', '/api/auth/login', { body: { username: user.username, password: user.password }, token: null });
+    expectStatus(response, 200, `${user.username} login`);
+    return response.json.token;
+  };
+  const as = async (token, method, urlPath, body) => request(method, urlPath, { token, ...(body ? { body } : {}) });
+
+  await step('Stage 23: setup-owner, a cashier and an accountant on a fresh database', async () => {
+    const owner = await request('POST', '/api/auth/setup-owner', { body: OWNER, token: null });
+    expectStatus(owner, 201, 'POST /api/auth/setup-owner');
+    authToken = owner.json.token;
+    const cashier = { name: 'S23 Cashier', username: 's23-cashier', password: 'clerk-pass-1', role: 'cashier' };
+    const accountant = { name: 'S23 Accountant', username: 's23-accountant', password: 'clerk-pass-1', role: 'accountant' };
+    expectStatus(await request('POST', '/api/users', { body: cashier }), 201, 'POST cashier');
+    expectStatus(await request('POST', '/api/users', { body: accountant }), 201, 'POST accountant');
+    ctx.cashierToken = await login(cashier);
+    ctx.accountantToken = await login(accountant);
+    return 'owner, cashier, accountant';
+  });
+
+  await step('Stage 23: seed: a cash sale, a credit sale, a customer receipt (balance 1,000 → 700), a purchase from a supplier', async () => {
+    const category = await request('POST', '/api/categories', { body: { name: 'S23 Category' } });
+    expectStatus(category, 201, 'POST /api/categories');
+    ctx.categoryId = category.json._id;
+    const product = await request('POST', '/api/products', { body: { name: 'S23 Product', code: 'S23-1', categoryId: ctx.categoryId, inventoryCount: 100, purchasePrice: 20, wholesalePrice: 30, retailPrice: 40 } });
+    expectStatus(product, 201, 'POST /api/products');
+    ctx.productId = product.json._id;
+    const customer = await request('POST', '/api/customers', { body: { name: 'S23 Customer', phone: '01061616161' } });
+    expectStatus(customer, 201, 'POST /api/customers');
+    ctx.customerId = customer.json._id;
+    const supplier = await request('POST', '/api/suppliers', { body: { name: 'S23 Supplier' } });
+    expectStatus(supplier, 201, 'POST /api/suppliers');
+    ctx.supplierId = supplier.json._id;
+    expectStatus(await request('POST', '/api/accounting/opening', { body: { cash: 20000 } }), 200, 'POST /api/accounting/opening');
+    const cash = await request('POST', '/api/sellings', { body: { customerName: 'S23 Cash', customerPhone: '01071717171', sellingDate: TODAY, items: [{ productId: ctx.productId, quantity: 2, price: 40 }] } });
+    expectStatus(cash, 201, 'cash sale');
+    ctx.cash = cash.json;
+    const credit = await request('POST', '/api/credit-sales', { body: { customerId: ctx.customerId, sellingDate: TODAY, items: [{ productId: ctx.productId, quantity: 25, price: 40 }] } });
+    expectStatus(credit, 201, 'credit sale');
+    const paid = await request('POST', `/api/customers/${ctx.customerId}/payments`, { body: { amount: 300, firstInvoice: true } });
+    expectStatus(paid, 201, 'customer payment');
+    ctx.receiptNumber = paid.json.receiptNumber;
+    const purchase = await request('POST', '/api/purchases', { body: { supplierId: ctx.supplierId, supplierInvoiceNo: 'S23-1', date: TODAY, items: [{ productId: ctx.productId, qty: 10, unitPrice: 20 }] } });
+    expectStatus(purchase, 201, 'purchase');
+    ctx.purchase = purchase.json;
+    return `${ctx.cash.number}, ${ctx.receiptNumber}, ${ctx.purchase.number}`;
+  });
+
+  await step('Stage 23: POST /api/print/log → copy 0 for the first print, 1 and 2 for reprints (from the server, so two PCs never both print the original)', async () => {
+    const copies = [];
+    for (let i = 0; i < 3; i += 1) {
+      const response = await request('POST', '/api/print/log', { body: { number: ctx.cash.number, paper: i === 0 ? '80mm' : 'A4' } });
+      expectStatus(response, 200, 'POST /api/print/log');
+      copies.push(response.json.copy);
+    }
+    expect(copies.join(',') === '0,1,2', `copies ${copies}`);
+    const parallel = await Promise.all([1, 2, 3, 4].map(() => request('POST', '/api/print/log', { body: { number: ctx.receiptNumber } })));
+    const sorted = parallel.map((r) => r.json.copy).sort().join(',');
+    expect(sorted === '0,1,2,3', `four parallel prints: ${sorted}`);
+    return `copies ${copies.join(',')}, parallel ${sorted}`;
+  });
+
+  await step('Stage 23: the audit log has document.printed with the number, type, user and copy', async () => {
+    const response = await request('GET', '/api/audit?action=document.printed&limit=100');
+    expectStatus(response, 200, 'GET /api/audit');
+    const list = Array.isArray(response.json) ? response.json : response.json.data || response.json.items || [];
+    const rows = list.filter((row) => row.action === 'document.printed' && row.entityId === ctx.cash.number);
+    expect(rows.length === 3, `${rows.length} audit rows for ${ctx.cash.number}`);
+    const copiesLogged = rows.map((row) => row.details && row.details.copy).sort().join(',');
+    expect(copiesLogged === '0,1,2', `copies ${copiesLogged}`);
+    expect(rows.every((row) => row.userName && row.details.type === 'INV'), 'user and type are in every row');
+    return `3 rows, copies ${copiesLogged}`;
+  });
+
+  await step('Stage 23: print log permissions: a cashier prints INV and RC, not a journal entry or a purchase; a bad number is 400; no token is 401', async () => {
+    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: 'INV-000999' }), 200, 'cashier INV');
+    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: 'RC-000999' }), 200, 'cashier RC');
+    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: 'JE-000001' }), 403, 'cashier JE');
+    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: 'PO-000001' }), 403, 'cashier PO');
+    expectStatus(await as(ctx.accountantToken, 'POST', '/api/print/log', { number: 'JE-000001' }), 200, 'accountant JE');
+    expectStatus(await request('POST', '/api/print/log', { body: { number: 'nope' } }), 400, 'bad number');
+    expectStatus(await request('POST', '/api/print/log', { body: { number: 'INV-000001' }, token: null }), 401, 'no token');
+    return 'cashier 200/200/403/403, accountant 200, 400, 401';
+  });
+
+  await step('Stage 23: receipt print-data: balance before 1,000 → after 700 equals the statement; a cashier may read it', async () => {
+    const data = await request('GET', `/api/customers/${ctx.customerId}/receipts/${ctx.receiptNumber}/print-data`);
+    expectStatus(data, 200, 'receipt print-data');
+    expect(data.json.balanceBefore === 1000 && data.json.balanceAfter === 700, `${data.json.balanceBefore} → ${data.json.balanceAfter}`);
+    expect(data.json.receipt.number === ctx.receiptNumber && data.json.receipt.amount === 300, 'the stored receipt');
+    const statement = await request('GET', `/api/customers/${ctx.customerId}/statement`);
+    const line = statement.json.lines.find((row) => row.number === ctx.receiptNumber);
+    expect(line && line.balance === data.json.balanceAfter, 'the statement line balance');
+    expectStatus(await as(ctx.cashierToken, 'GET', `/api/customers/${ctx.customerId}/receipts/${ctx.receiptNumber}/print-data`), 200, 'cashier receipt print-data');
+    return `${data.json.balanceBefore} → ${data.json.balanceAfter}`;
+  });
+
+  await step('Stage 23: purchase print-data: supplier balance, the journal number and lines; a cashier gets 403', async () => {
+    const data = await request('GET', `/api/purchases/${ctx.purchase._id}/print-data`);
+    expectStatus(data, 200, 'purchase print-data');
+    expect(data.json.purchase.total === 200 && data.json.balanceAfter === 200 && data.json.balanceBefore === 0, `${data.json.balanceBefore} → ${data.json.balanceAfter}`);
+    expect(data.json.journal && /^JE-\d+$/.test(data.json.journal.number) && Array.isArray(data.json.journal.lines) && data.json.journal.lines.length >= 2, 'the journal entry');
+    expectStatus(await as(ctx.cashierToken, 'GET', `/api/purchases/${ctx.purchase._id}/print-data`), 403, 'cashier purchase print-data');
+    return `journal ${data.json.journal.number}`;
+  });
+
+  await step('Stage 23: stock print-data: the owner sees the cost, a cashier does not; the category filter works', async () => {
+    const owner = await request('GET', '/api/products/print-data');
+    expectStatus(owner, 200, 'owner stock print-data');
+    expect(owner.json.products.length === 1 && owner.json.products[0].purchasePrice !== undefined, 'owner sees purchasePrice');
+    const cashier = await as(ctx.cashierToken, 'GET', '/api/products/print-data');
+    expectStatus(cashier, 200, 'cashier stock print-data');
+    expect(cashier.json.products.length === 1 && !('purchasePrice' in cashier.json.products[0]), 'a cashier gets no cost');
+    const filtered = await request('GET', `/api/products/print-data?categoryId=${ctx.categoryId}`);
+    expect(filtered.json.count === 1, 'category filter');
+    expectStatus(await request('GET', '/api/products/print-data?categoryId=nope'), 400, 'bad category');
+    return 'owner cost yes, cashier cost no';
+  });
+
+  await step('Stage 23: journal-ref for a voucher footer, and the cost-bearing prints refuse a cashier (profit report, financial reports, journal)', async () => {
+    const ref = await request('GET', `/api/print/journal-ref/${ctx.receiptNumber}`);
+    expectStatus(ref, 200, 'journal-ref');
+    expect(/^JE-\d+$/.test(ref.json.journalNumber), 'the receipt has a journal entry number');
+    for (const urlPath of ['/api/products/profit-report', '/api/reports/income-statement', '/api/reports/balance-sheet', '/api/reports/trial-balance', '/api/accounting/journal']) {
+      expectStatus(await as(ctx.cashierToken, 'GET', urlPath), 403, `cashier ${urlPath}`);
+      expectStatus(await request('GET', urlPath), 200, `owner ${urlPath}`);
+    }
+    expectStatus(await as(ctx.cashierToken, 'GET', '/api/print/journal-ref/JE-000001'), 403, 'cashier journal-ref JE');
+    return `receipt → ${ref.json.journalNumber}; cashier 403 on 5 cost-bearing prints`;
+  });
+
+  await step('Stage 23: shift close report: the sales summary (cash, credit, returns, discounts) on GET /shifts/:id, stored at close', async () => {
+    const drawer = await request('POST', '/api/cashbox/boxes', { body: { name: 'S23 Drawer', type: 'cash', shiftsEnabled: true } });
+    expectStatus(drawer, 201, 'POST drawer box');
+    const shift = await request('POST', '/api/shifts', { body: { boxId: drawer.json._id, openingFloat: 0 } });
+    expectStatus(shift, 201, 'POST /api/shifts');
+    const sale = (quantity, price, extra = {}) => request('POST', '/api/sellings', { body: { customerName: 'S23 Shift', customerPhone: '01081818181', sellingDate: TODAY, boxId: drawer.json._id, items: [{ productId: ctx.productId, quantity, price }], ...extra } });
+    const first = await sale(2, 50);
+    expectStatus(first, 201, 'shift sale 1');
+    expectStatus(await sale(3, 40, { discountAmount: 20 }), 201, 'shift sale 2');
+    expectStatus(await request('POST', '/api/credit-sales', { body: { customerId: ctx.customerId, sellingDate: TODAY, items: [{ productId: ctx.productId, quantity: 1, price: 40 }] } }), 201, 'shift credit sale');
+    expectStatus(await request('POST', '/api/returns', { body: { returnType: 'cash', invoiceId: first.json._id, boxId: drawer.json._id, returnDate: TODAY, items: [{ productId: ctx.productId, quantity: 1, returnReason: 'x' }] } }), 201, 'shift return');
+    const live = await request('GET', `/api/shifts/${shift.json._id}`);
+    expectStatus(live, 200, 'GET shift');
+    const summary = live.json.salesSummary;
+    expect(summary.cash.count === 2 && summary.cash.total === live.json.lines.find((row) => row.key === 'sales').amount, `cash ${JSON.stringify(summary.cash)}`);
+    expect(summary.credit.count === 1 && summary.credit.total === 40, `credit ${JSON.stringify(summary.credit)}`);
+    expect(summary.returns.count === 1 && summary.returns.total === 50 && summary.discounts === 20, `returns/discounts ${JSON.stringify(summary)}`);
+    const closed = await request('POST', `/api/shifts/${shift.json._id}/close`, { body: { counted: live.json.expected } });
+    expectStatus(closed, 200, 'close shift');
+    expect(JSON.stringify(closed.json.salesSummary) === JSON.stringify(summary), 'the stored summary equals the live one');
+    return `cash ${summary.cash.count} · ${summary.cash.total}, credit ${summary.credit.count}, returns ${summary.returns.count}, discounts ${summary.discounts}`;
+  });
+
+  await step('Stage 23: supplier refund list carries the box name for the SR voucher; its statement line has the same number', async () => {
+    expectStatus(await request('POST', `/api/suppliers/${ctx.supplierId}/payments`, { body: { amount: 500, confirmAdvance: true } }), 201, 'supplier advance payment');
+    const refund = await request('POST', `/api/suppliers/${ctx.supplierId}/refunds`, { body: { amount: 100, note: 'S23 refund' } });
+    expectStatus(refund, 201, 'supplier refund');
+    const list = await request('GET', `/api/suppliers/${ctx.supplierId}/refunds`);
+    expectStatus(list, 200, 'GET refunds');
+    expect(list.json.data.length === 1 && list.json.data[0].number === refund.json.number && Boolean(list.json.data[0].boxName), 'refund row with boxName');
+    const statement = await request('GET', `/api/suppliers/${ctx.supplierId}/statement`);
+    expect(statement.json.lines.some((row) => row.type === 'supplier_refund' && row.number === refund.json.number), 'statement line');
+    expectStatus(await request('POST', '/api/print/log', { body: { number: refund.json.number, paper: 'A5' } }), 200, 'print log SR');
+    return `${refund.json.number} in ${list.json.data[0].boxName}`;
+  });
+}
+
 async function main() {
   for (const signal of ['SIGINT', 'SIGTERM']) {
     process.on(signal, async () => {
@@ -2169,8 +2346,13 @@ async function main() {
     // Stage 22: reports, manual entries, accounts and period closing, on its own fresh database.
     await stopChild(stage21Backend);
     children.splice(children.indexOf(stage21Backend), 1);
-    await startBackend({ auth: true, dbName: STAGE22_DB_NAME });
+    const stage22Backend = await startBackend({ auth: true, dbName: STAGE22_DB_NAME });
     await runStage22Scenarios();
+    // Stage 23: prints (the print log, print-data, the cost-bearing prints), on its own fresh database.
+    await stopChild(stage22Backend);
+    children.splice(children.indexOf(stage22Backend), 1);
+    await startBackend({ auth: true, dbName: STAGE23_DB_NAME });
+    await runStage23Scenarios();
   } catch (error) {
     record(false, 'Smoke test setup', error.message);
   } finally {

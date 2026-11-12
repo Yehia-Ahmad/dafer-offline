@@ -1,6 +1,7 @@
 <!-- Returns (docs/design/screens/Returns.dc.html). Stage 10: the log (default) + a new-return wizard; requests unchanged. -->
 <div class="rt">
   @if (view === 'log') {
+    @if (lastReturnInvoiceId) { <nota-return-print-banner [invoiceId]="lastReturnInvoiceId" /> }
     <nota-page-header [title]="'returnsPage.title' | translate" [subtitle]="'returnsPage.subtitle' | translate">
       <div notaPageActions>
         <button type="button" notaButton [disabled]="isExporting || returns.length === 0 || isLoading" (click)="exportToExcel()">
@@ -244,6 +245,7 @@
         <div><dt>{{ 'returnsPage.fields.returnType' | translate }}</dt><dd>{{ formatType(item.returnType) }}</dd></div>
         <div><dt>{{ 'returnsPage.fields.returnDate' | translate }}</dt><dd>{{ formatDisplayDate(item.returnDate) }}</dd></div>
       </dl>
+      <nota-print-actions [items]="returnPrintItems(item)" />
       <p class="rt__note"><strong>{{ 'returnsPage.fields.note' | translate }}:</strong> {{ item.note || ('returnsPage.messages.noNote' | translate) }}</p>
       <h3 class="nota-section-title">{{ 'returnsPage.dialog.returnedItems' | translate }}</h3>
       <div class="nota-table-wrap">

@@ -11,6 +11,9 @@ import { CategoryTotal, ExpenseCategory, ExpenseRow, ExpensesResponse } from './
 import { ExpensesService } from './expenses.service';
 import { PaymentBoxSelectComponent } from './payment-box-select.component';
 import { PaymentBoxService } from './payment-box.service';
+import { TranslateService } from '@ngx-translate/core';
+import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-actions.component';
+import { PrintDataService } from '../../core/print/print-data.service';
 import { localDateKey } from '../../core/utilities/local-date';
 import { VatSettingsService } from '../shop-profile/services/vat-settings.service';
 
@@ -27,7 +30,7 @@ const thisMonth = () => {
 @Component({
   selector: 'app-expenses-page',
   standalone: true,
-  imports: [NotaLockBannerComponent, NotaLockedDateDirective, DatePipe, FormsModule, TranslatePipe, Dialog, NotaCanDirective, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, PaymentBoxSelectComponent],
+  imports: [PrintActionsComponent, NotaLockBannerComponent, NotaLockedDateDirective, DatePipe, FormsModule, TranslatePipe, Dialog, NotaCanDirective, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, PaymentBoxSelectComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './expenses-page.component.html',
   styleUrl: './expenses-page.component.scss',
@@ -36,6 +39,16 @@ export class ExpensesPageComponent implements OnInit {
   /** Stage 22: a date inside a closed period cannot be submitted (the banner explains, the server refuses too). */
   private readonly lock = inject(LockDateService);
   private readonly expenses = inject(ExpensesService);
+  private readonly printData = inject(PrintDataService);
+  private readonly translate = inject(TranslateService);
+
+  /** Stage 23: the A5 expense voucher (EX). A cancelled expense prints with the "ملغي" watermark and its reason. */
+  printItems(row: ExpenseRow): PrintActionItem[] {
+    return [{ key: 'expense', label: this.translate.instant('print.voucherA5'), load: async () => {
+      const journalNumber = await this.printData.journalNumber(row.number);
+      return this.printData.voucher({ type: 'EX', number: row.number, date: row.date, amount: row.amount, party: row.categoryName || '', reason: row.note || null, method: row.boxName, journalNumber, preparedBy: row.createdByName || null, ...(row.status === 'cancelled' ? { cancelled: { reason: row.cancelReason || null } } : {}) });
+    } }];
+  }
   private readonly language = inject(LanguageService);
   protected readonly payment = inject(PaymentBoxService);
   /** Stage 21: the optional "ضريبة على الفاتورة", only while VAT applies to the expense date. */

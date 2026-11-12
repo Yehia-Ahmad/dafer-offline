@@ -3,6 +3,7 @@
   <nota-page-header [title]="'productsPage.title' | translate">
     <div notaPageActions class="pp__actions">
       <app-category-tools />
+      <nota-print-actions [items]="stockPrintItems()" data-test="stock-print" />
       <!-- Creating a product requires knowing its cost: products.manage + products.viewCost. -->
       <button *notaCan="['products.manage', 'products.viewCost']" type="button" notaButton="primary" data-action="new-product" (click)="newProduct()" [disabled]="!categories().length">
         + {{ 'productsPage.newProduct' | translate }}

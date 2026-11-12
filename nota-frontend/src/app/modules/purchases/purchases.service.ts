@@ -40,7 +40,7 @@ export class PurchasesService {
     return this.http.post<PurchaseReturnRow & { supplierBalanceAfter: number }>(`${this.api}purchases/${encodeURIComponent(id)}/returns`, payload);
   }
 
-  pay(supplierId: string, payload: SupplierPaymentPayload): Observable<{ _id: string; number: string; balanceAfter: number }> {
+  pay(supplierId: string, payload: SupplierPaymentPayload): Observable<{ _id: string; number: string; balanceAfter: number; amount?: number; date?: string; reference?: string | null; note?: string | null }> {
     return this.http.post<{ _id: string; number: string; balanceAfter: number }>(`${this.api}suppliers/${encodeURIComponent(supplierId)}/payments`, payload);
   }
 

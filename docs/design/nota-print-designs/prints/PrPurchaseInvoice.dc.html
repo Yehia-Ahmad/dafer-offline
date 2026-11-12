@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Purchase invoice A4</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+.n{font-variant-numeric:tabular-nums}
+.t{width:100%;border-collapse:collapse;font-size:13px}
+.t th{background:#EEF3F1;color:#142321;font-weight:700;padding:9px 10px;border:1px solid #9A9A9A;text-align:right}
+.t td{padding:9px 10px;border:1px solid #9A9A9A}
+.t td.n,.t th.n{text-align:left}
+.box{border:1px solid #9A9A9A;border-radius:8px;padding:12px 14px}
+.lbl{font-size:12px;color:#4A5856}
+</style>
+</helmet>
+<div style="width: 794px; height: 1123px; box-sizing: border-box; padding: 40px; background: #FFFFFF; color: #142321; font-family: 'Alexandria', system-ui, sans-serif; display: flex; flex-direction: column; gap: 16px">
+  <dc-import name="PrHeader" title="فاتورة شراء" no="PO-000012" date="٥ / ١١ / ٢٠٢٦" extra-label="فاتورة المورد" extra="EL-8841" hint-size="714px,120px"></dc-import>
+  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 14px">
+    <div class="box" style="display: flex; flex-direction: column; gap: 4px">
+      <span class="lbl">المورد</span>
+      <span style="font-size: 15px; font-weight: 700">الشركة المصرية للإضاءة</span>
+      <span style="font-size: 13px">م. وائل · <span class="n" style="direction: ltr; display: inline-block">01027784410</span></span>
+      <span style="font-size: 13px">العبور، المنطقة الصناعية</span>
+    </div>
+    <div class="box" style="display: flex; flex-direction: column; gap: 4px">
+      <span class="lbl">رصيد المورد (علينا)</span>
+      <span class="n" style="font-size: 13px">قبل الفاتورة: ٤٬٢٠٠٫٠٠</span>
+      <span class="n" style="font-size: 15px; font-weight: 800">بعد الفاتورة: ٦٬٦٥٠٫٠٠</span>
+    </div>
+  </div>
+  <table class="t">
+    <thead><tr><th style="width: 36px">#</th><th style="width: 100px">الكود</th><th>الصنف</th><th class="n" style="width: 70px">الكمية</th><th class="n" style="width: 100px">سعر الشراء</th><th class="n" style="width: 110px">الإجمالي</th></tr></thead>
+    <tbody>
+      <tr><td class="n">١</td><td class="n" style="direction: ltr; text-align: right">LED-12</td><td>لمبة LED ١٢ وات</td><td class="n">٥٠</td><td class="n">٢٨٫٠٠</td><td class="n" style="font-weight: 700">١٬٤٠٠٫٠٠</td></tr>
+      <tr><td class="n">٢</td><td class="n" style="direction: ltr; text-align: right">CH-25C</td><td>شاحن تايب سي ٢٥ وات</td><td class="n">٢٠</td><td class="n">١٢٠٫٠٠</td><td class="n" style="font-weight: 700">٢٬٤٠٠٫٠٠</td></tr>
+      <tr><td class="n">٣</td><td class="n" style="direction: ltr; text-align: right">EXT-5</td><td>مشترك ٥ مخارج</td><td class="n">٣٠</td><td class="n">٥٥٫٠٠</td><td class="n" style="font-weight: 700">١٬٦٥٠٫٠٠</td></tr>
+    </tbody>
+  </table>
+  <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; gap: 20px">
+    <div class="box" style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; font-size: 13px">
+      <span style="font-weight: 700">القيد المحاسبي</span>
+      <div style="display: flex; flex-direction: row; justify-content: space-between"><span>من حـ/ المخزون</span><span class="n">٥٬٤٥٠٫٠٠ مدين</span></div>
+      <div style="display: flex; flex-direction: row; justify-content: space-between"><span>إلى حـ/ الخزنة الرئيسية</span><span class="n">٣٬٠٠٠٫٠٠ دائن</span></div>
+      <div style="display: flex; flex-direction: row; justify-content: space-between"><span>إلى حـ/ الشركة المصرية للإضاءة</span><span class="n">٢٬٤٥٠٫٠٠ دائن</span></div>
+      <span class="lbl n">قيد رقم JE-000410</span>
+    </div>
+    <table class="t" style="width: 300px">
+      <tbody>
+        <tr><td>عدد القطع</td><td class="n">١٠٠</td></tr>
+        <tr style="background: #0E4D45; color: #FFFFFF"><td style="font-weight: 800; border-color: #0E4D45">الإجمالي</td><td class="n" style="font-weight: 800; font-size: 16px; border-color: #0E4D45">٥٬٤٥٠٫٠٠ ج.م</td></tr>
+        <tr><td>المدفوع (الخزنة الرئيسية)</td><td class="n">٣٬٠٠٠٫٠٠</td></tr>
+        <tr><td style="font-weight: 700">المتبقي للمورد</td><td class="n" style="font-weight: 700">٢٬٤٥٠٫٠٠</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="flex: 1 1 auto"></div>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px; font-size: 13px">
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>استلم البضاعة</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">عم رضا · أمين المخزن</span></div>
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>المحاسب</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">الاسم والتوقيع</span></div>
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>مندوب المورد</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">الاسم والتوقيع</span></div>
+  </div>
+  <dc-import name="PrFooter" note="" user="أحمد" printed="٥ / ١١ / ٢٠٢٦ ٣:٣٠ م" hint-size="714px,60px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":794,"height":1123}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

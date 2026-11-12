@@ -155,7 +155,10 @@ const createRefund = async (req, res) => {
 const getRefunds = async (req, res) => {
   res.set("Cache-Control", "no-store");
   if (!isId(req.params.id)) throw httpError(404, "SUPPLIER_NOT_FOUND", "المورد غير موجود");
-  res.json({ data: await SupplierRefund.find({ supplierId: req.params.id }).sort({ date: -1, createdAt: -1 }).lean() });
+  const [rows, boxRows] = await Promise.all([SupplierRefund.find({ supplierId: req.params.id }).sort({ date: -1, createdAt: -1 }).lean(), CashBox.find({}).select("name").lean()]);
+  // Stage 23 (additive): the box name, for the printed SR voucher.
+  const names = new Map(boxRows.map((box) => [String(box._id), box.name]));
+  res.json({ data: rows.map((row) => ({ ...row, boxName: names.get(String(row.boxId)) || null })) });
 };
 
 // GET /api/suppliers/:id/statement?from&to (suppliers.view)

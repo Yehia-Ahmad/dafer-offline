@@ -4,8 +4,13 @@ import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../../environments/environment';
-@Component({ selector: 'app-journal-detail', standalone: true, imports: [CommonModule, RouterLink, TranslateModule], templateUrl: './journal-detail.component.html', styleUrl: './journal-detail.component.scss' })
+import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-actions.component';
+import { PrintDataService } from '../../core/print/print-data.service';
+@Component({ selector: 'app-journal-detail', standalone: true, imports: [CommonModule, RouterLink, TranslateModule, PrintActionsComponent], templateUrl: './journal-detail.component.html', styleUrl: './journal-detail.component.scss' })
 export class JournalDetailComponent {
+  private printData = inject(PrintDataService);
+  /** Stage 23: the A4 journal entry (PrJournalEntry; accounting.view, like the screen). */
+  printItems(): PrintActionItem[] { return this.entry?._id ? [{ key: 'journal', load: () => this.printData.journalEntry(this.entry._id) }] : []; }
   private http = inject(HttpClient); private route = inject(ActivatedRoute); private translate = inject(TranslateService); private cdr = inject(ChangeDetectorRef); entry: any; loading = true;
   ngOnInit(): void { this.http.get<any>(`${environment.api_base_url}accounting/journal/${this.route.snapshot.paramMap.get('id')}`).subscribe(entry => { this.entry = entry; this.loading = false; this.cdr.detectChanges(); }); }
   name(line: any): string { return (this.translate.currentLang || this.translate.defaultLang) === 'en' ? (line.accountNameEn || line.accountName) : (line.accountNameAr || line.accountName); }

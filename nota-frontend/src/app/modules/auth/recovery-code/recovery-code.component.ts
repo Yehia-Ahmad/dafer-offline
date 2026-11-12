@@ -1,6 +1,8 @@
-import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { NotaButtonDirective } from '../../shared/ui';
+import { recoveryCodeSheet } from '../../../core/print/documents/reports';
+import { PrintService } from '../../../core/print/print.service';
 
 /**
  * Stage 14: the owner's recovery code, shown once (after setup-owner, and after a recovery).
@@ -40,6 +42,7 @@ import { NotaButtonDirective } from '../../shared/ui';
   `,
 })
 export class RecoveryCodeComponent {
+  private readonly printService = inject(PrintService);
   readonly code = input.required<string>();
   /** setup: first run. recover: a new code after a recovery (the old one stopped working). */
   readonly kind = input<'setup' | 'recover'>('setup');
@@ -59,13 +62,9 @@ export class RecoveryCodeComponent {
     }
   }
 
-  print(): void {
-    // Global print styles (styles/_auth.scss) print only the code block.
-    document.body.classList.add('nota-printing-code');
-    try {
-      window.print();
-    } finally {
-      document.body.classList.remove('nota-printing-code');
-    }
+  /** Stage 23: the same print system as every document (shared header, no shop data: the shop may not exist yet). */
+  async print(): Promise<void> {
+    const code = this.code();
+    await this.printService.print({ noShop: true, build: (ctx) => recoveryCodeSheet(ctx, { code }) });
   }
 }

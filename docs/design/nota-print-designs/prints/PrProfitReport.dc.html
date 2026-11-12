@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Profit report A4</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+.n{font-variant-numeric:tabular-nums}
+.t{width:100%;border-collapse:collapse;font-size:12px}
+.t th{background:#EEF3F1;color:#142321;font-weight:700;padding:8px;border:1px solid #9A9A9A;text-align:right}
+.t td{padding:8px;border:1px solid #9A9A9A}
+.t td.n,.t th.n{text-align:left}
+.box{border:1px solid #9A9A9A;border-radius:8px;padding:10px 14px}
+.lbl{font-size:12px;color:#4A5856}
+</style>
+</helmet>
+<div style="width: 794px; height: 1123px; box-sizing: border-box; padding: 40px; background: #FFFFFF; color: #142321; font-family: 'Alexandria', system-ui, sans-serif; display: flex; flex-direction: column; gap: 14px">
+  <dc-import name="PrHeader" title="تقرير الأرباح" no="آخر ٦ شهور" date="٥ / ١١ / ٢٠٢٦" extra-label="الفترة" extra="١ / ٦ — ٥ / ١١ / ٢٠٢٦" hint-size="714px,120px"></dc-import>
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+    <div class="box"><div class="lbl">صافي المبيعات</div><div class="n" style="font-size: 17px; font-weight: 800">١٨٦٬٤٠٠</div></div>
+    <div class="box"><div class="lbl">تكلفة البضاعة</div><div class="n" style="font-size: 17px; font-weight: 800">١٢٨٬٩٠٠</div></div>
+    <div class="box" style="border: 2px solid #142321"><div class="lbl">مجمل الربح</div><div class="n" style="font-size: 17px; font-weight: 800">٥٧٬٥٠٠</div></div>
+    <div class="box"><div class="lbl">هامش الربح</div><div class="n" style="font-size: 17px; font-weight: 800">٣٠٫٨٪</div></div>
+  </div>
+  <div style="display: flex; flex-direction: row; gap: 16px; align-items: stretch">
+    <div class="box" style="flex: 1 1 0; display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 13px; font-weight: 700">المبيعات والربح بالشهر</span>
+      <div style="display: flex; flex-direction: row; align-items: flex-end; gap: 12px; height: 170px; border-bottom: 1px solid #142321; padding: 0 4px">
+        <sc-for list="{{months}}" as="m" hint-placeholder-count="6">
+          <div style="flex: 1 1 0; display: flex; flex-direction: row; align-items: flex-end; justify-content: center; gap: 3px; height: 100%">
+            <div style="width: 14px; height: {{m.sh}}; background: #B9D9D0; border: 1px solid #0E4D45"></div>
+            <div style="width: 14px; height: {{m.ph}}; background: #0E4D45"></div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-direction: row; gap: 12px; padding: 0 4px">
+        <sc-for list="{{months}}" as="m" hint-placeholder-count="6"><span style="flex: 1 1 0; text-align: center; font-size: 11px">{{m.n}}</span></sc-for>
+      </div>
+      <div style="display: flex; flex-direction: row; gap: 14px; font-size: 11px; color: #4A5856"><span>▢ المبيعات</span><span>■ الربح</span></div>
+    </div>
+    <table class="t" style="width: 300px">
+      <thead><tr><th>الشهر</th><th class="n">المبيعات</th><th class="n">الربح</th><th class="n">الهامش</th></tr></thead>
+      <tbody>
+        <sc-for list="{{months}}" as="m" hint-placeholder-count="6"><tr><td>{{m.n}}</td><td class="n">{{m.s}}</td><td class="n" style="font-weight: 700">{{m.p}}</td><td class="n">{{m.mg}}</td></tr></sc-for>
+      </tbody>
+    </table>
+  </div>
+  <table class="t">
+    <thead><tr><th style="width: 30px">#</th><th>الصنف</th><th>الفئة</th><th class="n">الكمية</th><th class="n">المبيعات</th><th class="n">التكلفة</th><th class="n">الربح</th><th class="n">الهامش</th></tr></thead>
+    <tbody>
+      <sc-for list="{{top}}" as="r" hint-placeholder-count="8">
+        <tr><td class="n">{{r.i}}</td><td>{{r.name}}</td><td>{{r.cat}}</td><td class="n">{{r.q}}</td><td class="n">{{r.s}}</td><td class="n">{{r.c}}</td><td class="n" style="font-weight: 700">{{r.p}}</td><td class="n">{{r.m}}</td></tr>
+      </sc-for>
+    </tbody>
+  </table>
+  <span class="lbl">الربح هنا = سعر البيع − سعر الشراء، قبل المصروفات. صافي الربح بعد المصروفات في قائمة الدخل.</span>
+  <div style="flex: 1 1 auto"></div>
+  <dc-import name="PrFooter" note="" user="أحمد" printed="٥ / ١١ / ٢٠٢٦ ٩:٠٠ م" hint-size="714px,60px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":794,"height":1123}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const i = (n) => n.toLocaleString('ar-EG');
+    const data = [['يونيو', 27100, 8200], ['يوليو', 29800, 9100], ['أغسطس', 26400, 7900], ['سبتمبر', 33200, 10300], ['أكتوبر', 36800, 11500], ['نوفمبر', 33100, 10500]];
+    const max = 36800;
+    const months = data.map(([n, s, p]) => ({ n, s: i(s), p: i(p), mg: (p / s * 100).toLocaleString('ar-EG', { maximumFractionDigits: 1 }) + '٪', sh: Math.round(s / max * 160) + 'px', ph: Math.round(p / max * 160) + 'px' }));
+    const t = [['بانل سقف ٢٤ وات', 'لمبات', 84, 26880, 8400], ['لمبة LED ١٨ وات', 'لمبات', 310, 18600, 6820], ['كشاف طوارئ', 'لمبات', 62, 17050, 5270], ['شاحن تايب سي ٢٥ وات', 'شواحن وكابلات', 75, 13500, 4500], ['كشاف خارجي ٥٠ وات', 'لمبات', 44, 10560, 3080], ['مشترك ٥ مخارج', 'شواحن وكابلات', 90, 13500, 2970], ['كابل تايب سي ١ متر', 'شواحن وكابلات', 140, 9100, 4200], ['لمبة LED ٩ وات', 'لمبات', 260, 9100, 3380]];
+    const top = t.map(([name, cat, q, s, p], k) => ({ i: i(k + 1), name, cat, q: i(q), s: i(s), c: i(s - p), p: i(p), m: Math.round(p / s * 100).toLocaleString('ar-EG') + '٪' }));
+    return { months, top };
+  }
+}
+</script>
+</body>
+</html>

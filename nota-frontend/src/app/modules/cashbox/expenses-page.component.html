@@ -83,6 +83,7 @@
                     @if (row.vatAmount) { <small class="ex__vat" data-test="expense-row-vat">{{ 'vat.expense.inside' | translate: { vat: (row.vatAmount | notaMoney) } }}</small> }</td>
                   <td>{{ row.createdByName }}</td>
                   <td class="ex__actions">
+                    <nota-print-actions [items]="printItems(row)" [pdf]="false" />
                     @if (row.status === 'cancelled') {
                       <span class="nota-pill nota-pill--overdue" [attr.title]="row.cancelReason">{{ 'cashbox.expenses.cancelled' | translate }}</span>
                     } @else {

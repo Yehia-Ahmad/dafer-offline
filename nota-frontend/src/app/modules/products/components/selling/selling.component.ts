@@ -21,6 +21,9 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { CartRescueService } from '../../../../core/auth/cart-rescue.service';
 import { isOverDiscountLimit } from '../../../../core/auth/discount-limit';
 import { ToastService } from '../../../../core/auth/toast.service';
+import { PrintActionItem, PrintActionsComponent } from '../../../../core/print/print-actions.component';
+import { PrintDataService } from '../../../../core/print/print-data.service';
+import { PrintService } from '../../../../core/print/print.service';
 import { UnsavedWorkService } from '../../../../core/unsaved-work/unsaved-work.service';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, NotaLockBannerComponent } from '../../../shared/ui';
 import {
@@ -128,7 +131,7 @@ type InvoiceItemState = {
 @Component({
   selector: 'app-selling',
   standalone: true,
-  imports: [NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
+  imports: [PrintActionsComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
@@ -162,6 +165,15 @@ export class SellingComponent implements OnInit, OnDestroy {
   private readonly _unsaved = inject(UnsavedWorkService);
   private readonly _cartRescue = inject(CartRescueService);
   private readonly _toast = inject(ToastService);
+  private readonly _printData = inject(PrintDataService);
+  private readonly _print = inject(PrintService);
+  /** Stage 23: the sale just saved (its receipt's print buttons show in the success dialog). */
+  lastSale: unknown = null;
+
+  lastSalePrintItems(): PrintActionItem[] {
+    const sale = this.lastSale;
+    return sale ? [{ key: 'receipt', label: this._translate.instant('print.receipt80'), load: async () => this._printData.savedSaleReceipt(sale, this.payment.effective()?.name || null) }] : [];
+  }
   /** Stage 21: the shop's VAT settings (null/off = the POS shows and sends exactly what it always did). */
   private readonly _vat = inject(VatSettingsService);
   /** Stage 15: "أقصى خصم: X٪" for this user, or null (no limit). */
@@ -729,7 +741,10 @@ export class SellingComponent implements OnInit, OnDestroy {
     this.isSaving = true;
 
     this._productsService.createSelling(payload).subscribe({
-      next: () => {
+      next: (response: unknown) => {
+        this.lastSale = response;
+        const method = this.payment.effective()?.name || null;
+        void this._print.autoPrintReceipt(() => this._printData.savedSaleReceipt(response, method));
         this.isSaving = false;
         this.pendingSellingPayload = null;
         this.inventoryShortages = [];

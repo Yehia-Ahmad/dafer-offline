@@ -3,6 +3,8 @@ import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe } from '../shared/ui';
+import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-actions.component';
+import { PrintDataService } from '../../core/print/print-data.service';
 import { CashboxService } from './cashbox.service';
 import { ShiftLineKey, ShiftReport } from './cashbox.models';
 
@@ -15,9 +17,6 @@ export interface DepositOption {
 const ALWAYS_SHOWN: readonly ShiftLineKey[] = ['float', 'sales', 'receipts', 'refunds', 'expenses'];
 const MINUS_LINES: readonly ShiftLineKey[] = ['refunds', 'expenses', 'transfersOut', 'payouts', 'drawings', 'supplierPayments', 'vatPayments'];
 
-/** TODO(Stage 23 PrShiftClose): turn on when the shift report print template exists. */
-export const SHIFT_PRINT_ENABLED = false;
-
 /**
  * Stage 19: one shift (CashBox.dc.html "إقفال الوردية"). Open: the expected-cash lines, the counted amount, the live
  * difference (عجز / زيادة), a note (required when there is a difference), an optional deposit to another box and the
@@ -26,13 +25,14 @@ export const SHIFT_PRINT_ENABLED = false;
 @Component({
   selector: 'app-shift-panel',
   standalone: true,
-  imports: [DatePipe, FormsModule, TranslatePipe, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe],
+  imports: [DatePipe, FormsModule, TranslatePipe, PrintActionsComponent, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './shift-panel.component.html',
   styleUrl: './shift-panel.component.scss',
 })
 export class ShiftPanelComponent implements OnInit {
   private readonly cashbox = inject(CashboxService);
+  private readonly printData = inject(PrintDataService);
 
   readonly shiftId = input.required<string>();
   /** Where the deposit can go (never the shift's own box). */
@@ -47,7 +47,6 @@ export class ShiftPanelComponent implements OnInit {
   readonly deposit = signal<number | null>(null);
   readonly busy = signal(false);
   readonly error = signal('');
-  readonly printEnabled = SHIFT_PRINT_ENABLED;
 
   readonly lines = computed(() => (this.report()?.lines ?? []).filter((line) => ALWAYS_SHOWN.includes(line.key) || line.amount !== 0));
   readonly isOpen = computed(() => this.report()?.status === 'open');
@@ -71,6 +70,14 @@ export class ShiftPanelComponent implements OnInit {
   });
   readonly canClose = computed(() => this.isOpen() && this.counted() !== null && (this.counted() ?? -1) >= 0
     && (!this.needsNote() || this.note().trim().length > 0) && !this.depositInvalid() && !this.busy());
+
+  /** Stage 23: the 80mm shift close report (PrShiftClose) of a closed shift. */
+  readonly printItems = computed<PrintActionItem[]>(() => {
+    const report = this.report();
+    if (!report || report.status !== 'closed') return [];
+    const deposit = this.depositOptions().find((option) => option._id === report.depositBoxId);
+    return [{ key: 'shift', label: undefined, load: async () => this.printData.shiftClose(report, deposit?.name ?? null) }];
+  });
 
   isMinus = (key: ShiftLineKey) => MINUS_LINES.includes(key);
 
@@ -110,7 +117,5 @@ export class ShiftPanelComponent implements OnInit {
     });
   }
 
-  print(): void {
-    if (this.printEnabled) window.print();
-  }
+
 }

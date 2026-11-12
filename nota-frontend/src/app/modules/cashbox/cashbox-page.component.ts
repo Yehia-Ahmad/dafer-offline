@@ -1,6 +1,9 @@
 import { ChangeDetectionStrategy, Component, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-actions.component';
+import { PrintDataService } from '../../core/print/print-data.service';
+import { DrawingRow } from './cashbox.models';
 import { AuthService } from '../../core/auth/auth.service';
 import { NotaCanDirective } from '../../core/auth/nota-can.directive';
 import { NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent } from '../shared/ui';
@@ -21,7 +24,7 @@ import { TransferDialogComponent } from './transfer-dialog.component';
   selector: 'app-cashbox-page',
   standalone: true,
   imports: [
-    RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent,
+    PrintActionsComponent, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent,
     AddBoxDialogComponent, TransferDialogComponent, DrawingDialogComponent, OpenShiftDialogComponent, ShiftPanelComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,6 +33,24 @@ import { TransferDialogComponent } from './transfer-dialog.component';
 })
 export class CashboxPageComponent implements OnInit {
   private readonly cashbox = inject(CashboxService);
+  private readonly printData = inject(PrintDataService);
+  private readonly translate = inject(TranslateService);
+  /** Stage 23: the drawing just recorded (its DR voucher's print buttons). */
+  readonly lastDrawing = signal<DrawingRow | null>(null);
+
+  drawingDone(row: DrawingRow): void {
+    this.lastDrawing.set(row);
+    this.load();
+  }
+
+  drawingPrintItems(): PrintActionItem[] {
+    const row = this.lastDrawing();
+    if (!row) return [];
+    return [{ key: 'drawing', label: this.translate.instant('print.voucherA5'), load: async () => {
+      const journalNumber = await this.printData.journalNumber(row.number);
+      return this.printData.voucher({ type: 'DR', number: row.number, date: row.date, amount: row.amount, party: this.translate.instant('cashbox.drawing.title'), reason: row.note || null, method: row.boxName, journalNumber, ...(row.status === 'cancelled' ? { cancelled: {} } : {}) });
+    } }];
+  }
   private readonly auth = inject(AuthService);
 
   @ViewChild(AddBoxDialogComponent) private addDialog?: AddBoxDialogComponent;

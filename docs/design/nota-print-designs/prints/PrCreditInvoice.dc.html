@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Credit sale invoice A4</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+.n{font-variant-numeric:tabular-nums}
+.t{width:100%;border-collapse:collapse;font-size:13px}
+.t th{background:#EEF3F1;color:#142321;font-weight:700;padding:9px 10px;border:1px solid #9A9A9A;text-align:right}
+.t td{padding:9px 10px;border:1px solid #9A9A9A}
+.t td.n,.t th.n{text-align:left}
+.box{border:1px solid #9A9A9A;border-radius:8px;padding:12px 14px}
+.lbl{font-size:12px;color:#4A5856}
+</style>
+</helmet>
+<div style="width: 794px; height: 1123px; box-sizing: border-box; padding: 40px; background: #FFFFFF; color: #142321; font-family: 'Alexandria', system-ui, sans-serif; display: flex; flex-direction: column; gap: 16px">
+  <dc-import name="PrHeader" title="فاتورة بيع آجل" no="CR-000032" date="٥ / ١١ / ٢٠٢٦" extra-label="ميعاد السداد" extra="٥ / ١٢ / ٢٠٢٦" hint-size="714px,120px"></dc-import>
+  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 14px">
+    <div class="box" style="display: flex; flex-direction: column; gap: 4px">
+      <span class="lbl">العميل</span>
+      <span style="font-size: 15px; font-weight: 700">م. سامي للمقاولات</span>
+      <span class="n" style="font-size: 13px; direction: ltr; text-align: right">01001234567</span>
+      <span style="font-size: 13px">ملاحظة: توريد موقع الجلاء</span>
+    </div>
+    <div class="box" style="display: flex; flex-direction: column; gap: 4px">
+      <span class="lbl">رصيد العميل</span>
+      <span class="n" style="font-size: 13px">قبل الفاتورة: ٠٫٠٠</span>
+      <span class="n" style="font-size: 15px; font-weight: 800">بعد الفاتورة: ٥٩٠٫٠٠</span>
+    </div>
+  </div>
+  <table class="t">
+    <thead><tr><th style="width: 36px">#</th><th style="width: 110px">الكود</th><th>الصنف</th><th class="n" style="width: 70px">الكمية</th><th class="n" style="width: 100px">سعر الوحدة</th><th class="n" style="width: 110px">الإجمالي</th></tr></thead>
+    <tbody>
+      <tr><td class="n">١</td><td class="n" style="direction: ltr; text-align: right">PNL-24</td><td>بانل سقف ٢٤ وات</td><td class="n">٢</td><td class="n">٣٢٠٫٠٠</td><td class="n" style="font-weight: 700">٦٤٠٫٠٠</td></tr>
+      <tr><td class="n">٢</td><td class="n" style="direction: ltr; text-align: right">EXT-5</td><td>مشترك ٥ مخارج</td><td class="n">١</td><td class="n">١٥٠٫٠٠</td><td class="n" style="font-weight: 700">١٥٠٫٠٠</td></tr>
+    </tbody>
+  </table>
+  <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; gap: 20px">
+    <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px">
+      <div class="box" style="display: flex; flex-direction: column; gap: 4px">
+        <span class="lbl">المبلغ المتبقي بالحروف</span>
+        <span style="font-size: 14px; font-weight: 700">خمسمائة وتسعون جنيهًا مصريًا فقط لا غير</span>
+      </div>
+      <table class="t">
+        <thead><tr><th>الدفعات</th><th class="n">التاريخ</th><th class="n">المبلغ</th></tr></thead>
+        <tbody><tr><td>مقدم مع الفاتورة</td><td class="n">٥ / ١١ / ٢٠٢٦</td><td class="n">٢٠٠٫٠٠</td></tr></tbody>
+      </table>
+    </div>
+    <table class="t" style="width: 300px">
+      <tbody>
+        <tr><td>الإجمالي</td><td class="n">٧٩٠٫٠٠</td></tr>
+        <tr><td>الخصم</td><td class="n">٠٫٠٠</td></tr>
+        <tr><td>التوصيل</td><td class="n">٠٫٠٠</td></tr>
+        <tr><td style="font-weight: 700">صافي الفاتورة</td><td class="n" style="font-weight: 700">٧٩٠٫٠٠</td></tr>
+        <tr><td>المدفوع</td><td class="n">٢٠٠٫٠٠</td></tr>
+        <tr style="background: #0E4D45; color: #FFFFFF"><td style="font-weight: 800; border-color: #0E4D45">المتبقي</td><td class="n" style="font-weight: 800; font-size: 16px; border-color: #0E4D45">٥٩٠٫٠٠ ج.م</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="box" style="font-size: 13px; line-height: 1.8">
+    أقر أنا الموقّع أدناه باستلام البضاعة الموضحة بالفاتورة بحالة جيدة، وبأن المتبقي عليّ مبلغ <b class="n">٥٩٠٫٠٠ ج.م</b> أتعهد بسداده في موعد أقصاه <b class="n">٥ / ١٢ / ٢٠٢٦</b>.
+  </div>
+  <div style="flex: 1 1 auto"></div>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; font-size: 13px">
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>عن المحل</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">الاسم والتوقيع</span></div>
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>العميل</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">الاسم والتوقيع والرقم القومي</span></div>
+  </div>
+  <dc-import name="PrFooter" user="أحمد" printed="٥ / ١١ / ٢٠٢٦ ١٢:١٨ م" hint-size="714px,60px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":794,"height":1123}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

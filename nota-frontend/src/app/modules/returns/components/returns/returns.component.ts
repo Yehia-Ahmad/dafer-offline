@@ -35,6 +35,9 @@ import {
   ReturnType
 } from '../../models/returns.model';
 import { ReturnsService } from '../../services/returns.service';
+import { PrintActionItem, PrintActionsComponent } from '../../../../core/print/print-actions.component';
+import { PrintDataService } from '../../../../core/print/print-data.service';
+import { ReturnPrintBannerComponent } from '../../../../core/print/return-print-banner.component';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
 import { PaymentBoxService } from '../../../cashbox/payment-box.service';
@@ -133,7 +136,7 @@ class ReturnsPaginatorIntl extends MatPaginatorIntl {
 @Component({
   selector: 'app-returns',
   standalone: true,
-  imports: [NotaLockBannerComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
+  imports: [PrintActionsComponent, ReturnPrintBannerComponent, NotaLockBannerComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
     CommonModule,
     TranslatePipe,
     ReactiveFormsModule,
@@ -159,6 +162,14 @@ export class ReturnsComponent implements OnInit {
   /** Stage 22: locked days are disabled in the date picker. */
   protected readonly lock = inject(LockDateService);
   private readonly _auth = inject(AuthService);
+  private readonly printData = inject(PrintDataService);
+  /** Stage 23: the invoice of the return just recorded (its receipt's print buttons show in the log). */
+  lastReturnInvoiceId = '';
+
+  /** Stage 23: the 80mm return receipt of the open return. */
+  returnPrintItems(item: ReturnLog): PrintActionItem[] {
+    return [{ key: 'return', label: this.translate.instant('print.receipt80'), load: () => this.printData.returnReceipt(item) }];
+  }
   /** Stage 19: the box a cash refund comes out of. */
   readonly payment = inject(PaymentBoxService);
   readonly pageSizeOptions = [10, 25, 50, 100];
@@ -529,6 +540,7 @@ export class ReturnsComponent implements OnInit {
     this.returnsService.createReturn(payload).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.wizardSaving = false;
+        this.lastReturnInvoiceId = invoice.id;
         this.snackBar.open(this.translate.instant('returnsPage.s10.wizard.saved'), undefined, { duration: 3000 });
         this.resetWizard();
         if (this._auth.has('returns.view')) {

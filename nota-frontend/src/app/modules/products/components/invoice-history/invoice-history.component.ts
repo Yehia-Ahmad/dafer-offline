@@ -19,15 +19,11 @@ import {
   NotaPageHeaderComponent
 } from '../../../shared/ui';
 import { ReturnsService } from '../../../returns/services/returns.service';
-import {
-  buildFallbackInvoiceNumber,
-  buildInvoiceDocument,
-  InvoiceHistoryRow,
-  InvoicePrintLanguage
-} from './invoice-history-print.util';
+import { InvoiceHistoryRow, buildFallbackInvoiceNumber } from '../../../../core/print/print-adapters';
+import { ReturnPrintBannerComponent } from '../../../../core/print/return-print-banner.component';
+import { PrintActionItem, PrintActionsComponent } from '../../../../core/print/print-actions.component';
+import { PrintDataService } from '../../../../core/print/print-data.service';
 import { ShopProfileService } from '../../../shop-profile/services/shop-profile.service';
-import { InvoiceBranding, toPrintableShop } from '../../../shop-profile/utils/invoice-branding.util';
-import { brandName } from '../../../../core/brand';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
 import { PaymentBoxService } from '../../../cashbox/payment-box.service';
@@ -70,7 +66,7 @@ const DEFAULT_SELLINGS_PAGINATION: SellingsPagination = {
 @Component({
   selector: 'app-invoice-history',
   standalone: true,
-  imports: [LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
+  imports: [ReturnPrintBannerComponent, PrintActionsComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
     CommonModule,
     FormsModule,
     TranslatePipe,
@@ -111,7 +107,6 @@ export class InvoiceHistoryComponent implements OnInit {
   filterNumber = '';
   cancelReason = '';
   deletingSellingId = '';
-  downloadingInvoiceId = '';
   deleteDialogVisible = false;
   selectedSellingToDelete: InvoiceHistoryRow | null = null;
   returnDialogVisible = false;
@@ -123,6 +118,9 @@ export class InvoiceHistoryComponent implements OnInit {
   returningSellingId = '';
 
   private readonly _shopProfileService = inject(ShopProfileService);
+  private readonly printData = inject(PrintDataService);
+  /** Stage 23: the invoice of the return just recorded (shows the return receipt's print buttons). */
+  lastReturnInvoiceId = '';
   /** Stage 19: the box a cash refund comes out of. */
   readonly payment = inject(PaymentBoxService);
   /** Stage 22: locked days are disabled in the return date picker and a locked date cannot be submitted. */
@@ -488,46 +486,12 @@ export class InvoiceHistoryComponent implements OnInit {
     };
   }
 
-  downloadInvoice(selling: InvoiceHistoryRow): void {
-    if (!this.isBrowser || !selling?.id) {
-      return;
-    }
-
-    this.downloadingInvoiceId = selling.id;
-    this.loadError = '';
-    this._cdr.detectChanges();
-
-    try {
-      const invoiceWindow = window.open('', '_blank', 'width=1180,height=860');
-
-      if (!invoiceWindow) {
-        this.loadError = this.translateKey('invoiceHistoryPage.messages.invoiceWindowBlocked');
-        return;
-      }
-
-      const language = this.getInvoiceLanguage();
-      invoiceWindow.document.open();
-      invoiceWindow.document.write(buildInvoiceDocument({
-        selling,
-        language,
-        branding: this.getInvoiceBranding(),
-        fontUrls: {
-          arabic: this.resolveAssetUrl('assets/fonts/alexandria/alexandria-arabic-wght-normal.woff2'),
-          latin: this.resolveAssetUrl('assets/fonts/alexandria/alexandria-latin-wght-normal.woff2'),
-        }
-      }));
-      invoiceWindow.document.close();
-      invoiceWindow.focus();
-    } catch {
-      this.loadError = this.translateKey('invoiceHistoryPage.messages.invoiceDownloadFailed');
-    } finally {
-      this.downloadingInvoiceId = '';
-      this._cdr.detectChanges();
-    }
-  }
-
-  isDownloadingInvoice(sellingId: string): boolean {
-    return this.downloadingInvoiceId === sellingId;
+  /** Stage 23: the A4 invoice and the 80mm receipt of a cash sale (a cancelled one prints with the "ملغي" watermark). */
+  printItems(selling: InvoiceHistoryRow): PrintActionItem[] {
+    return [
+      { key: 'invoice', label: this.translateKey('print.invoiceA4'), load: async () => this.printData.cashInvoice(selling) },
+      { key: 'receipt', label: this.translateKey('print.receipt80'), load: async () => this.printData.cashReceipt(selling) }
+    ];
   }
 
   canReturnSelling(selling: InvoiceHistoryRow): boolean {
@@ -598,6 +562,7 @@ export class InvoiceHistoryComponent implements OnInit {
       items
     }).subscribe({
       next: () => {
+        this.lastReturnInvoiceId = selling.id;
         this.returningSellingId = '';
         this.returnDialogVisible = false;
         this.selectedSellingToReturn = null;
@@ -738,35 +703,5 @@ export class InvoiceHistoryComponent implements OnInit {
 
   private translateKey(key: string): string {
     return this._translate.instant(key);
-  }
-
-  private getInvoiceBranding(): InvoiceBranding {
-    return {
-      shop: toPrintableShop(this._shopProfileService.profile()),
-      texts: {
-        neutralTitle: this.translateKey('invoicePrint.salesTitle'),
-        systemNote: this._translate.instant('invoicePrint.systemNote', { appName: brandName(this._translate.currentLang) }),
-        taxNumberLabel: this.translateKey('invoicePrint.taxNumber'),
-        commercialRegisterLabel: this.translateKey('invoicePrint.commercialRegister')
-      }
-    };
-  }
-
-  private getInvoiceLanguage(): InvoicePrintLanguage {
-    const activeLanguage = (
-      this._translate.currentLang ||
-      this._translate.getDefaultLang() ||
-      'en'
-    ).toLowerCase();
-
-    return activeLanguage.startsWith('ar') ? 'ar' : 'en';
-  }
-
-  private resolveAssetUrl(assetPath: string): string {
-    if (!this.isBrowser) {
-      return assetPath;
-    }
-
-    return new URL(assetPath, document.baseURI).href;
   }
 }

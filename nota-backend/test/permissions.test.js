@@ -219,6 +219,12 @@ const EXPECTED_ROUTES = {
   "POST /api/vat/returns/:period/pay": "vat.file",
   "POST /api/vat/returns/:period/unfile": "vat.file",
   "GET /api/devices": "cashbox.manage",
+  // Stage 23: prints
+  "POST /api/print/log": "AUTHENTICATED",
+  "GET /api/print/journal-ref/:number": "AUTHENTICATED",
+  "GET /api/customers/:id/receipts/:number/print-data": "customers.view | credit.collect",
+  "GET /api/purchases/:id/print-data": "purchases.view",
+  "GET /api/products/print-data": "products.view",
   "GET /api/suppliers": "suppliers.view",
   "POST /api/suppliers": "suppliers.manage",
   "GET /api/suppliers/:id": "suppliers.view",

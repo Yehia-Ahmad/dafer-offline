@@ -60,10 +60,20 @@ export interface ShiftSummary {
 
 export type ShiftLineKey = 'float' | 'sales' | 'receipts' | 'transfersIn' | 'refunds' | 'expenses' | 'transfersOut' | 'payouts' | 'drawings' | 'supplierPayments' | 'vatPayments' | 'supplierRefunds';
 
+/** Stage 23: cash invoices and returns of the box in the shift window (the expected cash's own documents); credit invoices by the shift's user, for information. */
+export interface ShiftSalesSummary {
+  cash: { count: number; total: number };
+  credit: { count: number; total: number };
+  returns: { count: number; total: number };
+  discounts: number;
+}
+
 export interface ShiftReport extends ShiftSummary {
   lines: { key: ShiftLineKey; amount: number }[];
   /** What stays in the drawer after the deposit (closed shifts). */
   remaining: number | null;
+  /** Stage 23: the sales summary of the close report (absent on an older server). */
+  salesSummary?: ShiftSalesSummary;
   boxName?: string | null;
 }
 

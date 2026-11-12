@@ -353,7 +353,8 @@ describe('ShiftPanelComponent (Stage 19)', () => {
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-test="shift-summary"]')!.textContent).toContain('500');
     expect(el.querySelector('[data-action="close-shift"]')).toBeNull();
-    expect(el.querySelector('[data-action="print-shift"]')).toBeNull();
+    expect(el.querySelector('[data-action="print-shift"]')).toBeTruthy(); // Stage 23: PrShiftClose
+    expect(el.querySelector('[data-action="pdf-shift"]')).toBeTruthy();
     http.verify();
   });
 

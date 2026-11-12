@@ -77,13 +77,8 @@
           <input id="profitYear" type="number" min="1970" [max]="maxProfitYear" class="nota-input pr__year"
             [(ngModel)]="profitYear" (change)="onProfitYearChange()" [placeholder]="'profitReportPage.export.yearPlaceholder' | translate" />
         </nota-form-field>
-        <button type="button" notaButton data-action="export-pdf" (click)="generateProfitPdf()" [disabled]="isPdfGenerating">
-          {{ (isPdfGenerating ? 'actions.loading' : 'profitReportPage.export.action') | translate }}
-        </button>
+        <nota-print-actions [items]="printItems()" data-test="profit-print" />
       </div>
-      @if (pdfError) {
-        <p class="pr__error" role="alert">{{ pdfError }}</p>
-      }
     </section>
 
     <section class="nota-card pr__table-card">

@@ -146,6 +146,8 @@
           </section>
         }
 
+        <app-print-settings-card />
+
         <div class="sp__footer">
           @if (outcome(); as result) {
             <span class="sp__status" role="status" [class.is-error]="result.kind === 'error'">

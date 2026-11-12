@@ -7,7 +7,7 @@ const { roundMoney } = require("../utils/invoicePricing");
 const { withTransaction } = require("../utils/transaction");
 const { audit } = require("../auth/audit");
 const boxes = require("../cashbox/boxes");
-const { shiftExpected } = require("../cashbox/events");
+const { shiftExpected, shiftSalesSummary } = require("../cashbox/events");
 const { postTransfer, can } = require("./cashbox.controller");
 const { nonNegativeAmount, positiveAmount, optionalText } = require("../cashbox/validate");
 
@@ -33,10 +33,12 @@ const shiftView = (shift) => ({
 /** The shift with its expected-cash lines: live for an open shift, as stored for a closed one. */
 const reportOf = async (shift, box, session) => {
   if (shift.status === "closed") {
-    return { ...shiftView(shift), lines: shift.breakdown || [], remaining: roundMoney((shift.counted || 0) - (shift.depositAmount || 0)) };
+    // Stage 23: the sales summary stored at close (an older closed shift without one is read once from its documents up to the close cut).
+    const salesSummary = shift.salesSummary || await shiftSalesSummary(shift, box, { session, to: shift.closeCutAt || shift.closedAt });
+    return { ...shiftView(shift), lines: shift.breakdown || [], remaining: roundMoney((shift.counted || 0) - (shift.depositAmount || 0)), salesSummary };
   }
   const { expected, lines } = await shiftExpected(shift, box, { session });
-  return { ...shiftView(shift), expected, lines, remaining: null };
+  return { ...shiftView(shift), expected, lines, remaining: null, salesSummary: await shiftSalesSummary(shift, box, { session }) };
 };
 
 const loadShift = async (req, session) => {
@@ -169,7 +171,7 @@ const closeShift = async (req, res) => {
 
     Object.assign(shift, {
       status: "closed", closedAt: now, closeCutAt, closedBy: req.user?._id, closedByName: req.user?.name, expected, counted, difference,
-      differenceNote: note, breakdown: lines, depositAmount,
+      differenceNote: note, breakdown: lines, depositAmount, salesSummary: await shiftSalesSummary(shift, box, { session, to: closeCutAt }),
       ...(transfer ? { depositBoxId: depositBox._id, depositTransferId: transfer._id } : {}),
     });
     await shift.save({ session });

@@ -10,7 +10,8 @@ const {
 } = require("../controllers/customer.controller");
 const credit = require("../controllers/customerCredit.controller");
 const asyncHandler = require("../utils/asyncHandler");
-const { requirePermission } = require("../auth/middleware");
+const { requireAnyPermission, requirePermission } = require("../auth/middleware");
+const { getReceiptPrintData } = require("../controllers/printData.controller");
 const { auditOnSuccess } = require("../auth/audit");
 
 const router = express.Router();
@@ -27,6 +28,8 @@ router.post(
   requirePermission("credit.collect"),
   addCustomerCreditSalePayment
 );
+// Stage 23: a receipt with its customer balance before/after, for the printed receipt.
+router.get("/:id/receipts/:number/print-data", requireAnyPermission("customers.view", "credit.collect"), asyncHandler(getReceiptPrintData));
 router.get("/:id/statement", requirePermission("customers.view"), getCustomerStatement);
 // Stage 19: a credit balance (we owe the customer): pay it out of a box, or set it against open items.
 router.get("/:id/credit", requirePermission("customers.view"), asyncHandler(credit.getCredit));

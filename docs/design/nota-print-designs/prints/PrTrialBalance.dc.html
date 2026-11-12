@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Trial balance A4</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+.n{font-variant-numeric:tabular-nums}
+.t{width:100%;border-collapse:collapse;font-size:13px}
+.t th{background:#EEF3F1;color:#142321;font-weight:700;padding:8px 10px;border:1px solid #9A9A9A;text-align:right}
+.t td{padding:7px 10px;border:1px solid #9A9A9A}
+.t td.n,.t th.n{text-align:left}
+.g td{background:#FAF9F6;font-weight:800}
+.box{border:1px solid #9A9A9A;border-radius:8px;padding:10px 14px}
+.lbl{font-size:12px;color:#4A5856}
+</style>
+</helmet>
+<div style="width: 794px; height: 1123px; box-sizing: border-box; padding: 40px; background: #FFFFFF; color: #142321; font-family: 'Alexandria', system-ui, sans-serif; display: flex; flex-direction: column; gap: 14px">
+  <dc-import name="PrHeader" title="ميزان المراجعة" no="أكتوبر ٢٠٢٦" date="٥ / ١١ / ٢٠٢٦" extra-label="بالأرصدة في" extra="٣١ / ١٠ / ٢٠٢٦" hint-size="714px,120px"></dc-import>
+  <table class="t">
+    <thead><tr><th style="width: 80px">الكود</th><th>الحساب</th><th class="n" style="width: 130px">مدين</th><th class="n" style="width: 130px">دائن</th></tr></thead>
+    <tbody>
+      <tr class="g"><td colspan="4">١ · الأصول</td></tr>
+      <tr><td class="n">١١١</td><td>الخزائن</td><td class="n">٢٨٬٢٥٠٫٠٠</td><td class="n"></td></tr>
+      <tr><td class="n">١١٢</td><td>البنوك</td><td class="n">٤١٬٠٠٠٫٠٠</td><td class="n"></td></tr>
+      <tr><td class="n">١١٣</td><td>العملاء</td><td class="n">١٢٬٩٠٠٫٠٠</td><td class="n"></td></tr>
+      <tr><td class="n">١١٤</td><td>المخزون</td><td class="n">٩٦٬٣٠٠٫٠٠</td><td class="n"></td></tr>
+      <tr class="g"><td colspan="4">٢ · الخصوم</td></tr>
+      <tr><td class="n">٢١</td><td>الموردين</td><td class="n"></td><td class="n">١٤٬٦٥٠٫٠٠</td></tr>
+      <tr class="g"><td colspan="4">٣ · حقوق الملكية</td></tr>
+      <tr><td class="n">٣١</td><td>رأس المال</td><td class="n"></td><td class="n">١٥٠٬٠٠٠٫٠٠</td></tr>
+      <tr><td class="n">٣٢</td><td>الأرباح المحتجزة</td><td class="n"></td><td class="n">١١٬٧٠٠٫٠٠</td></tr>
+      <tr class="g"><td colspan="4">٤ · الإيرادات</td></tr>
+      <tr><td class="n">٤١٠</td><td>المبيعات</td><td class="n"></td><td class="n">٣٧٬٤٥٠٫٠٠</td></tr>
+      <tr><td class="n">٤٢٠</td><td>خصم مسموح به</td><td class="n">٦٥٠٫٠٠</td><td class="n"></td></tr>
+      <tr class="g"><td colspan="4">٥ · المصروفات</td></tr>
+      <tr><td class="n">٥١٠</td><td>تكلفة البضاعة المباعة</td><td class="n">٢٥٬٣٠٠٫٠٠</td><td class="n"></td></tr>
+      <tr><td class="n">٥٢١</td><td>مرتبات</td><td class="n">٤٬٥٠٠٫٠٠</td><td class="n"></td></tr>
+      <tr><td class="n">٥٢٢</td><td>إيجار</td><td class="n">٣٬٥٠٠٫٠٠</td><td class="n"></td></tr>
+      <tr><td class="n">٥٢٣</td><td>كهرباء</td><td class="n">٦٥٠٫٠٠</td><td class="n"></td></tr>
+      <tr><td class="n">٥٢٤</td><td>نقل ومشاوير</td><td class="n">٤٢٠٫٠٠</td><td class="n"></td></tr>
+      <tr><td class="n">٥٢٥</td><td>متنوع</td><td class="n">٣٣٠٫٠٠</td><td class="n"></td></tr>
+    </tbody>
+    <tfoot>
+      <tr style="background: #0E4D45; color: #FFFFFF; font-weight: 800"><td colspan="2" style="padding: 10px; border: 1px solid #0E4D45">الإجمالي</td><td class="n" style="padding: 10px; border: 1px solid #0E4D45">٢١٣٬٨٠٠٫٠٠</td><td class="n" style="padding: 10px; border: 1px solid #0E4D45">٢١٣٬٨٠٠٫٠٠</td></tr>
+    </tfoot>
+  </table>
+  <div class="box" style="font-size: 13px; font-weight: 700">✓ الميزان متوازن: إجمالي المدين = إجمالي الدائن · الفرق ٠٫٠٠</div>
+  <span class="lbl">ده ميزان قبل الإقفال: أرباح الشهر (٢٬١٠٠) لسه جوه حسابات الإيرادات والمصروفات، وبتنزل على الأرباح المحتجزة عند إقفال السنة.</span>
+  <div style="flex: 1 1 auto"></div>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; font-size: 13px">
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>المحاسب</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">سارة عادل</span></div>
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>راجع واعتمد</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">الاسم والتوقيع</span></div>
+  </div>
+  <dc-import name="PrFooter" note="" user="سارة (المحاسب)" printed="٥ / ١١ / ٢٠٢٦ ٤:٣٥ م" hint-size="714px,60px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":794,"height":1123}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

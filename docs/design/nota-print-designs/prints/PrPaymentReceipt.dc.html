@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Payment receipt 80mm</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+.r{display:flex;flex-direction:row;justify-content:space-between;gap:8px}
+.n{font-variant-numeric:tabular-nums}
+.dash{border-top:1px dashed #142321;margin:8px 0}
+</style>
+</helmet>
+<div style="width: 302px; height: 640px; box-sizing: border-box; padding: 16px 15px; background: #FFFFFF; color: #142321; font-family: 'Alexandria', system-ui, sans-serif; font-size: 13px; line-height: 1.5; display: flex; flex-direction: column">
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center">
+    <span style="font-size: 17px; font-weight: 800">النور للأدوات الكهربائية</span>
+    <span class="n" style="font-size: 12px; direction: ltr">01002223344</span>
+  </div>
+  <div class="dash"></div>
+  <div style="text-align: center; font-size: 15px; font-weight: 800">سند قبض</div>
+  <div class="r" style="font-size: 12px"><span>رقم</span><span class="n" style="direction: ltr">RC-000041</span></div>
+  <div class="r" style="font-size: 12px"><span>التاريخ</span><span class="n">٥ / ١١ / ٢٠٢٦ · ١:١٥ م</span></div>
+  <div class="r" style="font-size: 12px"><span>الكاشير</span><span>محمود</span></div>
+  <div class="dash"></div>
+  <div class="r"><span>استلمنا من</span><span style="font-weight: 700">م. سامي للمقاولات</span></div>
+  <div class="r n" style="font-size: 12px"><span>التليفون</span><span style="direction: ltr">01001234567</span></div>
+  <div class="r n" style="font-size: 12px"><span>عن فاتورة</span><span style="direction: ltr">CR-000032</span></div>
+  <div class="dash" style="border-top-style: solid; border-top-width: 2px"></div>
+  <div class="r n" style="font-size: 20px; font-weight: 800"><span>المبلغ</span><span>٣٠٠٫٠٠ ج.م</span></div>
+  <div style="font-size: 12px; text-align: center">فقط ثلاثمائة جنيه لا غير</div>
+  <div class="dash" style="border-top-style: solid; border-top-width: 2px"></div>
+  <div class="r n"><span>طريقة الدفع</span><span>كاش · درج الكاشير ١</span></div>
+  <div class="r n"><span>الباقي قبل الدفعة</span><span>٥٩٠٫٠٠</span></div>
+  <div class="r n" style="font-weight: 700"><span>الباقي بعد الدفعة</span><span>٢٩٠٫٠٠</span></div>
+  <div class="r n" style="font-size: 12px"><span>ملاحظة</span><span>دفعة تانية</span></div>
+  <div style="flex: 1 1 auto"></div>
+  <div class="r" style="font-size: 12px; margin-top: 18px"><span>توقيع المستلم</span><span>.................</span></div>
+  <div class="dash"></div>
+  <div style="text-align: center; font-size: 12px">تم إنشاء السند إلكترونيًا بواسطة نوتة</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":302,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

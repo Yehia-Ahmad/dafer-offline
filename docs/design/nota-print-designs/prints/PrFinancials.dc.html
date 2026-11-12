@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Income statement and balance sheet A4</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+.n{font-variant-numeric:tabular-nums}
+.r{display:flex;flex-direction:row;justify-content:space-between;padding:7px 0;border-bottom:1px solid #D5D1C8;font-size:13px}
+.s{padding-inline-start:18px}
+.tot{font-weight:800;border-bottom:none;border-top:2px solid #142321;padding-top:9px}
+.sec{font-weight:800;font-size:13px;padding:12px 0 4px 0;color:#0E4D45;border-bottom:1px solid #142321}
+.card{border:1px solid #9A9A9A;border-radius:8px;padding:14px 18px;display:flex;flex-direction:column}
+</style>
+</helmet>
+<div style="width: 794px; height: 1123px; box-sizing: border-box; padding: 40px; background: #FFFFFF; color: #142321; font-family: 'Alexandria', system-ui, sans-serif; display: flex; flex-direction: column; gap: 16px">
+  <dc-import name="PrHeader" title="القوائم المالية" no="أكتوبر ٢٠٢٦" date="٥ / ١١ / ٢٠٢٦" extra-label="الفترة" extra="١ / ١٠ — ٣١ / ١٠ / ٢٠٢٦" hint-size="714px,120px"></dc-import>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start">
+    <section class="card">
+      <span style="font-size: 16px; font-weight: 800; text-align: center">قائمة الدخل</span>
+      <span style="font-size: 12px; color: #4A5856; text-align: center; padding-bottom: 6px">عن شهر أكتوبر ٢٠٢٦ · بالجنيه</span>
+      <div class="r"><span>المبيعات</span><span class="n">٣٧٬٤٥٠</span></div>
+      <div class="r s"><span>(−) خصم مسموح به</span><span class="n">(٦٥٠)</span></div>
+      <div class="r" style="font-weight: 700"><span>صافي المبيعات</span><span class="n">٣٦٬٨٠٠</span></div>
+      <div class="r s"><span>(−) تكلفة البضاعة المباعة</span><span class="n">(٢٥٬٣٠٠)</span></div>
+      <div class="r" style="font-weight: 800; background: #EEF3F1; padding-inline: 8px"><span>مجمل الربح</span><span class="n">١١٬٥٠٠</span></div>
+      <div class="sec">المصروفات</div>
+      <div class="r s"><span>مرتبات</span><span class="n">٤٬٥٠٠</span></div>
+      <div class="r s"><span>إيجار</span><span class="n">٣٬٥٠٠</span></div>
+      <div class="r s"><span>كهرباء</span><span class="n">٦٥٠</span></div>
+      <div class="r s"><span>نقل ومشاوير</span><span class="n">٤٢٠</span></div>
+      <div class="r s"><span>متنوع</span><span class="n">٣٣٠</span></div>
+      <div class="r" style="font-weight: 700"><span>إجمالي المصروفات</span><span class="n">(٩٬٤٠٠)</span></div>
+      <div class="r tot" style="font-size: 16px"><span>صافي الربح</span><span class="n">٢٬١٠٠</span></div>
+    </section>
+    <section class="card">
+      <span style="font-size: 16px; font-weight: 800; text-align: center">الميزانية</span>
+      <span style="font-size: 12px; color: #4A5856; text-align: center; padding-bottom: 6px">في ٣١ / ١٠ / ٢٠٢٦ · بالجنيه</span>
+      <div class="sec">الأصول</div>
+      <div class="r s"><span>الخزائن</span><span class="n">٢٨٬٢٥٠</span></div>
+      <div class="r s"><span>البنوك</span><span class="n">٤١٬٠٠٠</span></div>
+      <div class="r s"><span>العملاء</span><span class="n">١٢٬٩٠٠</span></div>
+      <div class="r s"><span>المخزون</span><span class="n">٩٦٬٣٠٠</span></div>
+      <div class="r tot"><span>إجمالي الأصول</span><span class="n">١٧٨٬٤٥٠</span></div>
+      <div class="sec">الخصوم</div>
+      <div class="r s"><span>الموردين</span><span class="n">١٤٬٦٥٠</span></div>
+      <div class="r s"><span>ضريبة مستحقة</span><span class="n">٠</span></div>
+      <div class="sec">حقوق الملكية</div>
+      <div class="r s"><span>رأس المال</span><span class="n">١٥٠٬٠٠٠</span></div>
+      <div class="r s"><span>الأرباح المحتجزة وأرباح الفترة</span><span class="n">١٣٬٨٠٠</span></div>
+      <div class="r tot"><span>الخصوم + حقوق الملكية</span><span class="n">١٧٨٬٤٥٠</span></div>
+    </section>
+  </div>
+  <div style="border: 1px solid #142321; border-radius: 8px; padding: 10px 14px; font-size: 13px; font-weight: 700">✓ الميزانية متوازنة: الأصول (١٧٨٬٤٥٠) = الخصوم وحقوق الملكية (١٧٨٬٤٥٠) · ميزان المراجعة متوازن</div>
+  <div style="flex: 1 1 auto"></div>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; font-size: 13px">
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>المحاسب</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">سارة عادل</span></div>
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>المالك</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">اعتماد</span></div>
+  </div>
+  <dc-import name="PrFooter" note="" user="سارة (المحاسب)" printed="٥ / ١١ / ٢٠٢٦ ٤:٣٠ م" hint-size="714px,60px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":794,"height":1123}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

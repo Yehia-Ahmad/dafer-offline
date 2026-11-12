@@ -128,8 +128,11 @@ const ARGS = {
 
 // ---- the rule table ---------------------------------------------------------------------------
 
+// Stage 23 added the print channels to the same table (tested in stage23.test.js): this file is about the backup handlers.
+const BACKUP_RULES = Object.fromEntries(Object.entries(IPC_RULES).filter(([channel]) => channel.startsWith('backup:')));
+
 test('IPC rule table: every backup handler is guarded; only status needs just a session', () => {
-  assert.deepEqual(IPC_RULES, {
+  assert.deepEqual(BACKUP_RULES, {
     'backup:create': BACKUP_MANAGE,
     'backup:restore': BACKUP_MANAGE,
     'backup:choose-copy-folder': BACKUP_MANAGE,
@@ -139,12 +142,12 @@ test('IPC rule table: every backup handler is guarded; only status needs just a 
     'backup:status': SESSION,
   });
   const { deps } = makeDeps();
-  assert.deepEqual(Object.keys(createBackupHandlers(deps)).sort(), Object.keys(IPC_RULES).sort());
+  assert.deepEqual(Object.keys(createBackupHandlers(deps)).sort(), Object.keys(BACKUP_RULES).sort());
 });
 
 // ---- each handler × no token / expired token / no backup.manage / owner -----------------------
 
-for (const channel of Object.keys(IPC_RULES)) {
+for (const channel of Object.keys(BACKUP_RULES)) {
   test(`${channel}: no token, expired token, cashier token, owner token`, async () => {
     for (const [label, token, expected] of [
       ['no token', undefined, 'SESSION_EXPIRED'],

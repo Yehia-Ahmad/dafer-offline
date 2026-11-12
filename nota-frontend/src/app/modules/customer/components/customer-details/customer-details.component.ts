@@ -13,24 +13,21 @@ import {
   creditSaleStatusPill,
   CreditSaleView,
   isCreditSaleOverdue,
-  toCreditInvoicePrintData,
   toCreditSaleView
 } from '../../utils/credit-sale-view.util';
-import {
-  buildCreditInvoiceDocument,
-  CreditInvoicePrintLanguage
-} from './credit-invoice-print.util';
+import { ReturnPrintBannerComponent } from '../../../../core/print/return-print-banner.component';
+import { PrintActionItem, PrintActionsComponent } from '../../../../core/print/print-actions.component';
+import { PrintDataService } from '../../../../core/print/print-data.service';
+import { PrintService } from '../../../../core/print/print.service';
 import { CreditSalesService } from '../../../products/services/credit-sales.service';
 import { ReturnsService } from '../../../returns/services/returns.service';
 import { ShopProfileService } from '../../../shop-profile/services/shop-profile.service';
-import { InvoiceBranding, toPrintableShop } from '../../../shop-profile/utils/invoice-branding.util';
 import {
   Customer,
   CustomerCreditHistoryEntry,
   CustomerCreditSummary,
   CustomerDetails,
   CustomersService, CustomerAging } from '../../services/customers.service';
-import { brandName } from '../../../../core/brand';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 import { CashboxService } from '../../../cashbox/cashbox.service';
@@ -70,7 +67,7 @@ interface CustomerStatement {
 @Component({
   selector: 'app-customer-details',
   standalone: true,
-  imports: [NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink, CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
+  imports: [ReturnPrintBannerComponent, PrintActionsComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink, CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
     NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
   templateUrl: './customer-details.component.html',
   styleUrl: './customer-details.component.scss'
@@ -89,7 +86,12 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   customer: CustomerDetailsView | null = null;
   paymentForm: FormGroup;
   refundForm: FormGroup;
-  printingInvoiceId = '';
+  /** Stage 23: the receipt / payout just recorded (a banner with its print buttons). */
+  lastReceipt: { number: string } | null = null;
+  lastReturnInvoiceId = '';
+  lastPayout: { number: string; amount: number; boxName: string | null } | null = null;
+  private readonly printData = inject(PrintDataService);
+  private readonly printService = inject(PrintService);
   isLoading = true;
   paymentDialogVisible = false;
   paymentDialogMode: 'invoice' | 'customer' = 'invoice';
@@ -140,7 +142,8 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     }
     this.payout = { ...this.payout, saving: true, error: '' };
     this.cashbox.payoutCredit(this.currentCustomerId, this.payment.withBox({ amount, ...(this.payout.note.trim() ? { note: this.payout.note.trim() } : {}) })).subscribe({
-      next: () => {
+      next: (result) => {
+        this.lastPayout = { number: result.payout.number, amount, boxName: this.payment.effective()?.name || null };
         this.payout = { open: false, amount: null, note: '', saving: false, error: '' };
         this.payment.load(true);
         this.loadCustomer(this.currentCustomerId as string);
@@ -289,50 +292,43 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     return !!entry.id && !['returned', 'cancelled'].includes(entry.status) && entry.items.some((item) => item.productId && item.quantity > 0);
   }
 
-  printCreditInvoice(entry: CustomerHistoryView): void {
-    if (!this.isBrowser || !entry?.id || !this.customer) {
-      return;
-    }
-
-    this.printingInvoiceId = entry.id;
-    this.historyActionError = '';
-    this.cdr.detectChanges();
-
-    try {
-      const invoiceWindow = window.open('', '_blank', 'width=1180,height=860');
-
-      if (!invoiceWindow) {
-        this.historyActionError = this.translate.instant('invoiceHistoryPage.messages.invoiceWindowBlocked');
-        return;
-      }
-
-      const language = this.getInvoiceLanguage();
-      const printableInvoice = toCreditInvoicePrintData(
-        entry, this.customer.name || '', this.customer.phone || '', this.getStatusLabel(entry.status), this.customer.taxNumber
-      );
-
-      invoiceWindow.document.open();
-      invoiceWindow.document.write(buildCreditInvoiceDocument({
-        invoice: printableInvoice,
-        language,
-        branding: this.getInvoiceBranding(),
-        fontUrls: {
-          arabic: this.resolveAssetUrl('assets/fonts/alexandria/alexandria-arabic-wght-normal.woff2'),
-          latin: this.resolveAssetUrl('assets/fonts/alexandria/alexandria-latin-wght-normal.woff2'),
-        },
-      }));
-      invoiceWindow.document.close();
-      invoiceWindow.focus();
-    } catch {
-      this.historyActionError = this.translate.instant('invoiceHistoryPage.messages.invoiceDownloadFailed');
-    } finally {
-      this.printingInvoiceId = '';
-      this.cdr.detectChanges();
-    }
+  /** Stage 23: the A4 credit invoice (with the debt acknowledgment). */
+  invoicePrintItems(entry: CustomerHistoryView): PrintActionItem[] {
+    return [{ key: 'credit', load: () => this.printData.creditInvoice(entry, this.customer?.taxNumber) }];
   }
 
-  isPrintingInvoice(invoiceId: string): boolean {
-    return this.printingInvoiceId === invoiceId;
+  /** Stage 23: the customer statement of the chosen period (A4, with the aging and the acknowledgment text). */
+  statementPrintItems(): PrintActionItem[] {
+    return [{ key: 'statement', load: async () => (this.currentCustomerId ? this.printData.customerStatement(this.currentCustomerId, this.statementFrom || null, this.statementTo || null, { taxNumber: this.customer?.taxNumber }) : null) }];
+  }
+
+  /** Stage 23: a payment receipt as the 80mm slip or the A5 voucher. */
+  receiptPrintItems(number: string): PrintActionItem[] {
+    const customerId = this.currentCustomerId;
+    if (!customerId || !number) return [];
+    return [
+      { key: 'receipt', label: this.translate.instant('print.receipt80'), load: () => this.printData.paymentReceipt(customerId, number, '80mm') },
+      { key: 'voucher', label: this.translate.instant('print.voucherA5'), load: () => this.printData.paymentReceipt(customerId, number, 'A5') }
+    ];
+  }
+
+  payoutPrintItems(): PrintActionItem[] {
+    const payout = this.lastPayout;
+    const customer = this.customer;
+    if (!payout || !customer) return [];
+    return [{ key: 'payout', label: this.translate.instant('print.voucherA5'), load: async () => {
+      const journalNumber = await this.printData.journalNumber(payout.number);
+      return this.printData.voucher({ type: 'CP', number: payout.number, date: new Date(), amount: payout.amount, party: customer.name || '', reason: this.translate.instant('cashbox.credit.payout'), method: payout.boxName, journalNumber });
+    } }];
+  }
+
+  /** After a payment is saved: show its print buttons, and print it right away when this PC has auto-print on. */
+  private receiptSaved(response: unknown): void {
+    const number = (response as { receiptNumber?: string } | null)?.receiptNumber;
+    if (!number || !this.currentCustomerId) return;
+    this.lastReceipt = { number };
+    const customerId = this.currentCustomerId;
+    void this.printService.autoPrintReceipt(() => this.printData.paymentReceipt(customerId, number, '80mm'));
   }
 
   openPaymentDialog(entry: CustomerHistoryView): void {
@@ -511,6 +507,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: () => {
         this.isSavingRefund = false;
+        this.lastReturnInvoiceId = invoice.id;
         this.closeRefundDialog();
         if (this.currentCustomerId) {
           this.loadCustomer(this.currentCustomerId);
@@ -603,8 +600,9 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
       paymentDate: this.formatRequestDate(raw.paymentDate),
       note: String(raw.note || '').trim() || undefined
     })).subscribe({
-      next: () => {
+      next: (response) => {
         this.isSavingPayment = false;
+        this.receiptSaved(response);
         this.closePaymentDialog();
         if (this.currentCustomerId) {
           this.loadCustomer(this.currentCustomerId);
@@ -701,7 +699,8 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     }
     this.openingPay = { ...this.openingPay, saving: true, error: '' };
     this.customersService.collectPayment(this.currentCustomerId, this.payment.withBox({ amount, paymentDate: this.formatRequestDate(new Date()), note: this.openingPay.note.trim() || undefined })).subscribe({
-      next: () => {
+      next: (response) => {
+        this.receiptSaved(response);
         this.openingPay = { open: false, amount: null, note: '', saving: false, error: '' };
         this.loadCustomer(this.currentCustomerId as string); // reloads the statement too
       },
@@ -1002,36 +1001,6 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     }
 
     return null;
-  }
-
-  private getInvoiceBranding(): InvoiceBranding {
-    return {
-      shop: toPrintableShop(this.shopProfileService.profile()),
-      texts: {
-        neutralTitle: this.translate.instant('invoicePrint.creditTitle'),
-        systemNote: this.translate.instant('invoicePrint.systemNote', { appName: brandName(this.translate.currentLang) }),
-        taxNumberLabel: this.translate.instant('invoicePrint.taxNumber'),
-        commercialRegisterLabel: this.translate.instant('invoicePrint.commercialRegister')
-      }
-    };
-  }
-
-  private getInvoiceLanguage(): CreditInvoicePrintLanguage {
-    const activeLanguage = (
-      this.translate.currentLang ||
-      this.translate.getDefaultLang() ||
-      'en'
-    ).toLowerCase();
-
-    return activeLanguage.startsWith('ar') ? 'ar' : 'en';
-  }
-
-  private resolveAssetUrl(assetPath: string): string {
-    if (!this.isBrowser) {
-      return assetPath;
-    }
-
-    return new URL(assetPath, document.baseURI).href;
   }
 
   private toNumber(value: unknown): number {

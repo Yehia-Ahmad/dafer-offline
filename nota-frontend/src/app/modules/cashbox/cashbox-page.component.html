@@ -8,6 +8,13 @@
     </div>
   </nota-page-header>
 
+  @if (lastDrawing(); as drawing) {
+    <div class="nota-card" role="status" data-testid="last-drawing" style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:10px 14px">
+      <span><b dir="ltr">{{ drawing.number }}</b></span>
+      <nota-print-actions [items]="drawingPrintItems()" />
+    </div>
+  }
+
   @if (loading()) {
     <p role="status">{{ 'cashbox.loading' | translate }}</p>
   } @else if (loadError()) {
@@ -50,7 +57,7 @@
 
 <app-add-box-dialog [(visible)]="addOpen" (created)="load()" />
 <app-transfer-dialog [(visible)]="transferOpen" [boxes]="activeBoxes()" (done)="load()" />
-<app-drawing-dialog [(visible)]="drawingOpen" [boxes]="activeBoxes()" (done)="load()" />
+<app-drawing-dialog [(visible)]="drawingOpen" [boxes]="activeBoxes()" (done)="drawingDone($event)" />
 @if (openShiftBox(); as box) {
   <app-open-shift-dialog [(visible)]="openShiftOpen" [boxId]="box._id" [boxName]="box.name" (opened)="shiftChanged()" />
 }

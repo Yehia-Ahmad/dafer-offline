@@ -42,7 +42,7 @@ async function boxEvents(box, { from = null, to = null, ledgerStartAt, session =
   const checkLedger = ledgerStartAt !== undefined;
   const inLedger = (doc) => !checkLedger || !ledgerStartAt || Boolean(doc.createdAt && new Date(doc.createdAt) >= ledgerStartAt);
   const cancelledInLedger = (doc) => !checkLedger || !ledgerStartAt || Boolean(doc.cancelledAt && new Date(doc.cancelledAt) >= ledgerStartAt);
-  const push = (kind, delta, at, ref) => { if (delta && within(at, from, to)) events.push({ kind, delta: roundMoney(delta), at: new Date(at), ref }); };
+  const push = (kind, delta, at, ref, tag) => { if (delta && within(at, from, to)) events.push({ kind, delta: roundMoney(delta), at: new Date(at), ref, ...(tag ? { tag } : {}) }); };
   // An old document without a box belongs to the main box.
   const own = (field = "boxId") => (box.isMain ? { $or: [{ [field]: id }, { [field]: { $exists: false } }, { [field]: null }] } : { [field]: id });
 
@@ -80,7 +80,7 @@ async function boxEvents(box, { from = null, to = null, ledgerStartAt, session =
     }
     if (sale.status === "cancelled" && cancelledInLedger(sale) && here(sale.cancelRefundBoxId, saleHere)) push("refunds", -Number(sale.cancelRefundAmount || 0), sale.cancelledAt, sale._id);
   }
-  for (const log of returns) if (inLedger(log)) push("refunds", -Number(log.finalReturnedAmount || 0), log.createdAt, log._id);
+  for (const log of returns) if (inLedger(log)) push("refunds", -Number(log.finalReturnedAmount || 0), log.createdAt, log._id, "return");
   for (const invoice of credits) if (cancelledInLedger(invoice)) push("refunds", -Number(invoice.cancelRefundAmount || 0), invoice.cancelledAt, invoice._id);
   for (const receipt of receipts) if (inLedger(receipt)) push("receipts", Number(receipt.amount || 0), receipt.createdAt, receipt._id);
 
@@ -136,4 +136,32 @@ async function shiftExpected(shift, box, { session = null, to = null } = {}) {
   return { expected, lines };
 }
 
-module.exports = { ADDING_KINDS, SUBTRACTING_KINDS, KINDS, boxEvents, sumByKind, shiftExpected };
+/**
+ * Stage 23: the sales summary printed on the shift close report (PrShiftClose). It reads the SAME events as the expected cash:
+ *   cash   = the box's "sales" events of the shift window: the invoices created in it (count) and the "sales" line (total);
+ *   returns = the box's cash-return events (ReturnLog) of the window: count and total refunded;
+ *   discounts = the discount of those cash invoices.
+ * Credit invoices move no cash, so expected never reads them: for information they are the credit invoices CREATED in the window
+ * by the shift's user (count and stored total; cancelled ones left out).
+ * Stored on the shift when it closes, so a closed shift's report never changes.
+ */
+async function shiftSalesSummary(shift, box, { session = null, to = null } = {}) {
+  const events = (await boxEvents(box, { from: shift.openedAt, to, session })).filter((event) => event.kind !== "shiftDiff");
+  const saleRefs = [...new Set(events.filter((event) => event.kind === "sales").map((event) => String(event.ref)))];
+  const sales = saleRefs.length ? await Selling.find({ _id: { $in: saleRefs } }).select("createdAt discountAmount").session(session).lean() : [];
+  const created = sales.filter((sale) => within(sale.createdAt, shift.openedAt, to));
+  const returnEvents = events.filter((event) => event.tag === "return");
+  const credits = await CreditSale.find({
+    createdAt: { $gte: shift.openedAt, ...(to ? { $lte: to } : {}) }, status: { $ne: "cancelled" },
+    ...(shift.userId ? { createdBy: shift.userId } : {}),
+  }).select("totalPrice").session(session).lean();
+  const total = (rows, pick) => roundMoney(rows.reduce((sum, row) => sum + Number(pick(row) || 0), 0));
+  return {
+    cash: { count: created.length, total: total(events.filter((event) => event.kind === "sales"), (event) => event.delta) },
+    credit: { count: credits.length, total: total(credits, (row) => row.totalPrice) },
+    returns: { count: new Set(returnEvents.map((event) => String(event.ref))).size, total: total(returnEvents, (event) => -event.delta) },
+    discounts: total(created, (sale) => sale.discountAmount),
+  };
+}
+
+module.exports = { ADDING_KINDS, SUBTRACTING_KINDS, KINDS, boxEvents, sumByKind, shiftExpected, shiftSalesSummary };

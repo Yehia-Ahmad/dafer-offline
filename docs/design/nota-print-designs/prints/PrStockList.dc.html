@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Stock list A4</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+.n{font-variant-numeric:tabular-nums}
+.t{width:100%;border-collapse:collapse;font-size:12px}
+.t th{background:#EEF3F1;color:#142321;font-weight:700;padding:8px;border:1px solid #9A9A9A;text-align:right}
+.t td{padding:8px;border:1px solid #9A9A9A}
+.t td.n,.t th.n{text-align:left}
+.box{border:1px solid #9A9A9A;border-radius:8px;padding:10px 14px}
+.lbl{font-size:12px;color:#4A5856}
+</style>
+</helmet>
+<div style="width: 794px; height: 1123px; box-sizing: border-box; padding: 40px; background: #FFFFFF; color: #142321; font-family: 'Alexandria', system-ui, sans-serif; display: flex; flex-direction: column; gap: 14px">
+  <dc-import name="PrHeader" title="كشف جرد المخزون" no="ST-000003" date="٥ / ١١ / ٢٠٢٦" extra-label="الفئات" extra="الكل" hint-size="714px,120px"></dc-import>
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+    <div class="box"><div class="lbl">عدد الأصناف</div><div class="n" style="font-size: 17px; font-weight: 800">١٠</div></div>
+    <div class="box"><div class="lbl">إجمالي القطع</div><div class="n" style="font-size: 17px; font-weight: 800">١٣٣</div></div>
+    <div class="box" style="border: 2px solid #142321"><div class="lbl">قيمة المخزون بسعر الشراء</div><div class="n" style="font-size: 17px; font-weight: 800">٨٬٦٣١٫٠٠</div></div>
+    <div class="box"><div class="lbl">تحت حد التنبيه</div><div class="n" style="font-size: 17px; font-weight: 800">٤</div></div>
+  </div>
+  <table class="t">
+    <thead><tr><th style="width: 70px">الكود</th><th>الصنف</th><th class="n" style="width: 56px">الكمية</th><th class="n" style="width: 70px">سعر الشراء</th><th class="n" style="width: 80px">القيمة</th><th class="n" style="width: 64px">المعدود</th><th class="n" style="width: 56px">الفرق</th></tr></thead>
+    <tbody>
+      <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+        <tr style="background: #FAF9F6"><td colspan="7" style="font-weight: 800">{{g.name}}</td></tr>
+        <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="5">
+          <tr>
+            <td class="n" style="direction: ltr; text-align: right">{{r.code}}</td>
+            <td>{{r.name}} <span style="font-weight: 700">{{r.flag}}</span></td>
+            <td class="n" style="font-weight: 700">{{r.qty}}</td>
+            <td class="n">{{r.cost}}</td>
+            <td class="n">{{r.value}}</td>
+            <td></td>
+            <td></td>
+          </tr>
+        </sc-for>
+        <tr><td colspan="2" style="font-weight: 700">إجمالي {{g.name}}</td><td class="n" style="font-weight: 700">{{g.qty}}</td><td></td><td class="n" style="font-weight: 700">{{g.value}}</td><td></td><td></td></tr>
+      </sc-for>
+    </tbody>
+    <tfoot>
+      <tr style="background: #EEF3F1; font-weight: 800"><td colspan="2" style="padding: 9px 8px; border: 1px solid #9A9A9A">الإجمالي العام</td><td class="n" style="padding: 9px 8px; border: 1px solid #9A9A9A">١٣٣</td><td style="border: 1px solid #9A9A9A"></td><td class="n" style="padding: 9px 8px; border: 1px solid #9A9A9A">٨٬٦٣١٫٠٠</td><td style="border: 1px solid #9A9A9A"></td><td style="border: 1px solid #9A9A9A"></td></tr>
+    </tfoot>
+  </table>
+  <span class="lbl">★ = تحت حد التنبيه · عمود "المعدود" و"الفرق" فاضيين عشان تكتب فيهم وأنت بتعدّ البضاعة على الرف.</span>
+  <div style="flex: 1 1 auto"></div>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; font-size: 13px">
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>قام بالجرد</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">عم رضا · أمين المخزن</span></div>
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>راجع واعتمد</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">الاسم والتوقيع</span></div>
+  </div>
+  <dc-import name="PrFooter" note="" user="عم رضا" printed="٥ / ١١ / ٢٠٢٦ ٨:٠٠ م" hint-size="714px,60px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":794,"height":1123}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const f = (n) => n.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const i = (n) => n.toLocaleString('ar-EG');
+    const mk = (name, items) => {
+      const rows = items.map(([code, nm, qty, cost, thr]) => ({ code, name: nm, qty: i(qty), cost: f(cost), value: f(qty * cost), flag: qty <= thr ? '★' : '' }));
+      const q = items.reduce((s, x) => s + x[2], 0);
+      const v = items.reduce((s, x) => s + x[2] * x[3], 0);
+      return { name, rows, qty: i(q), value: f(v) };
+    };
+    const groups = [
+      mk('لمبات', [['LED-9', 'لمبة LED ٩ وات', 26, 22, 5], ['LED-12', 'لمبة LED ١٢ وات', 3, 28, 10], ['LED-18', 'لمبة LED ١٨ وات', 25, 38, 5], ['PNL-24', 'بانل سقف ٢٤ وات', 13, 220, 5], ['FL-50', 'كشاف خارجي ٥٠ وات', 0, 170, 5]]),
+      mk('شواحن وكابلات', [['CH-25C', 'شاحن تايب سي ٢٥ وات', 10, 120, 5], ['CH-20L', 'شاحن لايتنينج ٢٠ وات', 3, 150, 5], ['CB-C1', 'كابل تايب سي ١ متر', 27, 35, 5], ['CB-C2', 'كابل تايب سي ٢ متر', 18, 45, 5], ['EXT-5', 'مشترك ٥ مخارج', 8, 95, 10]])
+    ];
+    return { groups };
+  }
+}
+</script>
+</body>
+</html>

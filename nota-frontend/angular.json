@@ -19,7 +19,8 @@
           "options": {
             "browser": "src/main.ts",
             "allowedCommonJsDependencies": [
-              "qrcode"
+              "qrcode",
+              "jsbarcode/bin/barcodes/CODE128/CODE128_AUTO.js"
             ],
             "polyfills": [
               "zone.js"

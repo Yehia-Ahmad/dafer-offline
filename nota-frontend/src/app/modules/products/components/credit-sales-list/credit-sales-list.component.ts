@@ -11,13 +11,11 @@ import {
   creditSaleStatusPill,
   CreditSaleView,
   isCreditSaleOverdue,
-  toCreditInvoicePrintData,
   toCreditSaleView
 } from '../../../customer/utils/credit-sale-view.util';
-import { buildCreditInvoiceDocument } from '../../../customer/components/customer-details/credit-invoice-print.util';
+import { PrintActionItem, PrintActionsComponent } from '../../../../core/print/print-actions.component';
+import { PrintDataService } from '../../../../core/print/print-data.service';
 import { ShopProfileService } from '../../../shop-profile/services/shop-profile.service';
-import { InvoiceBranding, toPrintableShop } from '../../../shop-profile/utils/invoice-branding.util';
-import { brandName } from '../../../../core/brand';
 import {
   NotaButtonDirective,
   NotaFormFieldComponent,
@@ -47,7 +45,7 @@ const PAGE_SIZE = 10;
 @Component({
   selector: 'app-credit-sales-list',
   standalone: true,
-  imports: [LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, CommonModule, FormsModule, ReactiveFormsModule, RouterLink, TranslatePipe, DatePickerModule, InputNumberModule,
+  imports: [PrintActionsComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, CommonModule, FormsModule, ReactiveFormsModule, RouterLink, TranslatePipe, DatePickerModule, InputNumberModule,
     NotaButtonDirective, NotaFormFieldComponent, NotaLockBannerComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
   templateUrl: './credit-sales-list.component.html',
   styleUrl: './credit-sales-list.component.scss'
@@ -59,6 +57,7 @@ export class CreditSalesListComponent implements OnInit {
   /** Stage 22: locked days are disabled in the receipt date picker and a locked date cannot be submitted. */
   protected readonly lock = inject(LockDateService);
   private readonly shopProfileService = inject(ShopProfileService);
+  private readonly printData = inject(PrintDataService);
   private readonly translate = inject(TranslateService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
@@ -73,8 +72,6 @@ export class CreditSalesListComponent implements OnInit {
   isLoading = false;
   loadError = '';
   selected: CreditSaleView | null = null;
-  printingId = '';
-  printError = '';
 
   readonly paymentForm = inject(FormBuilder).group({
     amount: [null as number | null, [Validators.required, Validators.min(0.01)]],
@@ -228,51 +225,10 @@ export class CreditSalesListComponent implements OnInit {
     });
   }
 
-  // ---------- Print (existing credit-invoice print util) ----------
+  // ---------- Print (Stage 23: the one print system) ----------
 
-  print(row: CreditSaleView): void {
-    if (!this.isBrowser || !row?.id) return;
-    this.printingId = row.id;
-    this.printError = '';
-    try {
-      const invoiceWindow = window.open('', '_blank', 'width=1180,height=860');
-      if (!invoiceWindow) {
-        this.printError = this.translate.instant('invoiceHistoryPage.messages.invoiceWindowBlocked');
-        return;
-      }
-      invoiceWindow.document.open();
-      invoiceWindow.document.write(buildCreditInvoiceDocument({
-        invoice: toCreditInvoicePrintData(row, row.customerName, row.customerPhone, this.translate.instant(`customerDetailsPage.status.${row.status}`)),
-        language: this.printLanguage(),
-        branding: this.branding(),
-        fontUrls: {
-          arabic: new URL('assets/fonts/alexandria/alexandria-arabic-wght-normal.woff2', document.baseURI).href,
-          latin: new URL('assets/fonts/alexandria/alexandria-latin-wght-normal.woff2', document.baseURI).href,
-        },
-      }));
-      invoiceWindow.document.close();
-      invoiceWindow.focus();
-    } catch {
-      this.printError = this.translate.instant('invoiceHistoryPage.messages.invoiceDownloadFailed');
-    } finally {
-      this.printingId = '';
-    }
-  }
-
-  private branding(): InvoiceBranding {
-    return {
-      shop: toPrintableShop(this.shopProfileService.profile()),
-      texts: {
-        neutralTitle: this.translate.instant('invoicePrint.creditTitle'),
-        systemNote: this.translate.instant('invoicePrint.systemNote', { appName: brandName(this.translate.currentLang) }),
-        taxNumberLabel: this.translate.instant('invoicePrint.taxNumber'),
-        commercialRegisterLabel: this.translate.instant('invoicePrint.commercialRegister')
-      }
-    };
-  }
-
-  private printLanguage(): 'ar' | 'en' {
-    return (this.translate.currentLang || this.translate.getDefaultLang() || 'en').toLowerCase().startsWith('ar') ? 'ar' : 'en';
+  printItems(row: CreditSaleView): PrintActionItem[] {
+    return [{ key: 'credit', load: () => this.printData.creditInvoice(row) }];
   }
 
   formatDate(value: string | null | undefined): string {

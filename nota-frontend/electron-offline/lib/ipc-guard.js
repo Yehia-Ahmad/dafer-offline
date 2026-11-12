@@ -16,6 +16,7 @@ const { LAN_KEY_HEADER } = require('./lan-auth');
 
 const SESSION = 'session'; // any signed-in user
 const BACKUP_MANAGE = 'backup.manage';
+const SHOP_MANAGE = 'shop.manage';
 
 // channel → rule. Handlers not listed here are not guarded by a session (see OFFLINE_PLAN.md).
 const IPC_RULES = Object.freeze({
@@ -26,6 +27,13 @@ const IPC_RULES = Object.freeze({
   'backup:show-file': BACKUP_MANAGE,
   'backup:open-folder': BACKUP_MANAGE,
   'backup:status': SESSION,
+  // Stage 23: printing. The print settings and test pages need shop.manage; the rest any signed-in user.
+  'print:printers': SESSION,
+  'print:settings-get': SESSION,
+  'print:settings-set': SHOP_MANAGE,
+  'print:test-page': SHOP_MANAGE,
+  'print:print': SESSION,
+  'print:pdf': SESSION,
 });
 
 const ME_TIMEOUT_MS = 5000;

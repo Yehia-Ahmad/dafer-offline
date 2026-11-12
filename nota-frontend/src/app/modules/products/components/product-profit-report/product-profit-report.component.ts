@@ -3,7 +3,6 @@ import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID } from '@angu
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { format as formatDate } from 'date-fns';
-import { firstValueFrom } from 'rxjs';
 import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
@@ -23,6 +22,8 @@ import {
   NotaNumberPipe,
   NotaPageHeaderComponent,
 } from '../../../shared/ui';
+import { PrintActionItem, PrintActionsComponent } from '../../../../core/print/print-actions.component';
+import { PrintDataService } from '../../../../core/print/print-data.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 
 /** Stage 11 period pills; each one only sets the existing dateFrom / dateTo filters. */
@@ -47,6 +48,7 @@ type SelectOption = {
   selector: 'app-product-profit-report',
   standalone: true,
   imports: [
+    PrintActionsComponent,
     CommonModule,
     FormsModule,
     TranslatePipe,
@@ -82,8 +84,6 @@ export class ProductProfitReportComponent implements OnInit {
   selectedReportRow: ProductProfitReportRow | null = null;
   profitYear = new Date().getFullYear();
   maxProfitYear = new Date().getFullYear() + 5;
-  isPdfGenerating = false;
-  pdfError = '';
   period: ProfitPeriod = 'all';
   readonly periods: ProfitPeriod[] = ['all', 'month', 'sixMonths', 'year', 'custom'];
   /** Monthly chart (Stage 11): GET products/profit-bar?year, the endpoint the PDF export uses. */
@@ -94,6 +94,7 @@ export class ProductProfitReportComponent implements OnInit {
   constructor(
     private readonly productsService: ProductsService,
     private readonly profitBarService: ProfitBarService,
+    private readonly printData: PrintDataService,
     private readonly categoryService: CateoryService,
     private readonly translate: TranslateService,
     private readonly cdr: ChangeDetectorRef,
@@ -219,145 +220,38 @@ export class ProductProfitReportComponent implements OnInit {
     this.loadProfitReport();
   }
 
-  async generateProfitPdf(): Promise<void> {
-    if (!this.isBrowser || this.isPdfGenerating) {
-      return;
-    }
-
-    this.isPdfGenerating = true;
-    this.pdfError = '';
-    this.cdr.detectChanges();
-
-    const year = this.normalizeYear(this.profitYear);
-
-    try {
-      const response = await firstValueFrom(this.profitBarService.getYearProfitBar({ year }), { defaultValue: null });
-      if (!response) return;
-      const chartData = this.extractProfitBarChartData(response);
-
-      const [{ jsPDF }, { default: ChartJS }] = await Promise.all([
-        import('jspdf'),
-        import('chart.js/auto')
-      ]);
-
-      const { default: html2canvas } = await import('html2canvas');
-
-      const canvas = document.createElement('canvas');
-      canvas.width = 1200;
-      canvas.height = 600;
-
-      const context = canvas.getContext('2d');
-      if (!context) {
-        throw new Error('Unable to initialize canvas.');
-      }
-
-      const chart = new ChartJS(context, {
-        type: 'bar',
-        data: {
-          labels: chartData.labels,
-          datasets: [
-            {
-              label: 'Profit',
-              data: chartData.values,
-              backgroundColor: '#ff9933'
-            }
-          ]
-        },
-        options: {
-          responsive: false,
-          animation: false,
-          plugins: {
-            legend: {
-              display: false
-            }
-          },
-          scales: {
-            x: {
-              ticks: {
-                color: '#111111'
-              }
-            },
-            y: {
-              beginAtZero: true,
-              ticks: {
-                color: '#111111'
-              }
-            }
-          }
-        }
+  /**
+   * Stage 23: the A4 profit report (PrProfitReport), real text instead of the old raster jsPDF page. The numbers are the
+   * screen's own (KPIs, ranked rows, the year chart's months); the cost columns exist because this screen needs
+   * reports.profit and products.viewCost.
+   */
+  printItems(): PrintActionItem[] {
+    return [{ key: 'profit', load: async () => {
+      const kpis = this.kpis;
+      const months = (this.profitBar?.months ?? []).map((month, index) => ({
+        label: this.chartMonths[index]?.label ?? String(month.month),
+        cashProfit: this.toNumber(month.cashProfit),
+        creditProfit: this.toNumber(month.creditProfit),
+        profit: this.toNumber(month.profit),
+      }));
+      const params = this.buildFilterParams();
+      return this.printData.profitReport({
+        periodLabel: this.translate.instant(`profitReportPage.s11.periods.${this.period}`),
+        from: params.dateFrom ?? null,
+        to: params.dateTo ?? null,
+        kpis,
+        months,
+        products: this.rankedReports.map((row) => ({
+          name: row.productName,
+          category: row.categoryName,
+          quantity: row.quantity,
+          sales: row.sales,
+          cost: Math.round((row.sales - row.totalProfit) * 100) / 100,
+          profit: row.totalProfit,
+          margin: row.margin,
+        })),
       });
-
-      await this.waitForNextFrame();
-      await this.waitForNextFrame();
-
-      const chartImage = canvas.toDataURL('image/png', 1.0);
-      chart.destroy();
-
-      const detailsElement = this.buildArabicProfitBarDetailsElement(response);
-      document.body.appendChild(detailsElement);
-
-      await this.waitForNextFrame();
-      const detailsCanvas = await html2canvas(detailsElement, {
-        backgroundColor: '#ffffff',
-        scale: 2
-      });
-      detailsElement.remove();
-      const detailsImage = detailsCanvas.toDataURL('image/png', 1.0);
-
-      const doc = new jsPDF({
-        orientation: 'p',
-        unit: 'pt',
-        format: 'a4'
-      });
-
-      const margin = 24;
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const maxImageWidth = pageWidth - margin * 2;
-      const maxImageHeight = pageHeight - margin * 2;
-
-      const imageAspectRatio = canvas.width / canvas.height;
-      let imageWidth = maxImageWidth;
-      let imageHeight = imageWidth / imageAspectRatio;
-
-      const detailsGap = 12;
-      const reservedForDetails = Math.min(220, pageHeight * 0.32);
-      const maxChartHeight = maxImageHeight - reservedForDetails - detailsGap;
-
-      if (imageHeight > maxChartHeight) {
-        imageHeight = maxChartHeight;
-        imageWidth = imageHeight * imageAspectRatio;
-      }
-
-      const x = (pageWidth - imageWidth) / 2;
-      const y = margin;
-
-      doc.addImage(chartImage, 'PNG', x, y, imageWidth, imageHeight);
-
-      const detailsMaxWidth = maxImageWidth;
-      const detailsX = margin;
-      const detailsY = y + imageHeight + detailsGap;
-      const detailsAspectRatio = detailsCanvas.width / detailsCanvas.height;
-      let detailsWidth = detailsMaxWidth;
-      let detailsHeight = detailsWidth / detailsAspectRatio;
-
-      if (detailsY + detailsHeight > pageHeight - margin) {
-        detailsHeight = pageHeight - margin - detailsY;
-        detailsWidth = detailsHeight * detailsAspectRatio;
-      }
-
-      if (detailsHeight > 0 && detailsWidth > 0) {
-        doc.addImage(detailsImage, 'PNG', detailsX, detailsY, detailsWidth, detailsHeight);
-      }
-
-      doc.save(`profit-bar-${response?.year ?? year}.pdf`);
-    } catch (err: any) {
-      this.pdfError =
-        err?.error?.message || err?.message || this.translate.instant('profitReportPage.messages.loadFailed');
-    } finally {
-      this.isPdfGenerating = false;
-      this.cdr.detectChanges();
-    }
+    } }];
   }
 
   onCategoryFilterChange(categoryId: string): void {
@@ -485,105 +379,6 @@ export class ProductProfitReportComponent implements OnInit {
     }
 
     return { labels, values };
-  }
-
-  private async waitForNextFrame(): Promise<void> {
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  }
-
-  private buildArabicProfitBarDetailsElement(response: YearProfitBarResponse): HTMLDivElement {
-    const formatter = new Intl.NumberFormat('ar-EG', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    });
-
-    const container = document.createElement('div');
-    container.dir = 'rtl';
-    container.lang = 'ar';
-    container.style.position = 'fixed';
-    container.style.left = '-10000px';
-    container.style.top = '0';
-    container.style.width = '1200px';
-    container.style.padding = '16px';
-    container.style.background = '#ffffff';
-    container.style.color = '#111111';
-    container.style.fontFamily = "'Alexandria', Tahoma, Arial, sans-serif";
-
-    const header = document.createElement('div');
-    header.style.display = 'flex';
-    header.style.justifyContent = 'space-between';
-    header.style.gap = '12px';
-    header.style.alignItems = 'center';
-    header.style.marginBottom = '12px';
-
-    const yearText = document.createElement('div');
-    yearText.style.fontSize = '20px';
-    yearText.style.fontWeight = '700';
-    yearText.textContent = `السنة: ${formatter.format(this.toNumber(response?.year))}`;
-
-    const totalText = document.createElement('div');
-    totalText.style.fontSize = '20px';
-    totalText.style.fontWeight = '700';
-    totalText.textContent = `إجمالي الربح: ${formatter.format(this.toNumber(response?.totalProfit))}`;
-
-    header.appendChild(yearText);
-    header.appendChild(totalText);
-    container.appendChild(header);
-
-    const table = document.createElement('table');
-    table.style.width = '100%';
-    table.style.borderCollapse = 'collapse';
-    table.style.fontSize = '16px';
-
-    const thead = document.createElement('thead');
-    const headRow = document.createElement('tr');
-    for (const title of ['الشهر', 'الربح', 'نقدي', 'آجل']) {
-      const th = document.createElement('th');
-      th.textContent = title;
-      th.style.border = '1px solid #e4e4e4';
-      th.style.padding = '10px 8px';
-      th.style.background = '#f7f7f7';
-      th.style.textAlign = 'right';
-      headRow.appendChild(th);
-    }
-    thead.appendChild(headRow);
-    table.appendChild(thead);
-
-    const tbody = document.createElement('tbody');
-    const months = Array.isArray(response?.months) ? response.months : [];
-    for (const monthItem of months) {
-      const tr = document.createElement('tr');
-
-      const monthCell = document.createElement('td');
-      monthCell.textContent = String(monthItem?.labelAr || monthItem?.label || monthItem?.month || '-');
-      monthCell.style.border = '1px solid #e4e4e4';
-      monthCell.style.padding = '10px 8px';
-
-      const profitCell = document.createElement('td');
-      profitCell.textContent = formatter.format(this.toNumber(monthItem?.profit));
-      profitCell.style.border = '1px solid #e4e4e4';
-      profitCell.style.padding = '10px 8px';
-
-      const cashCell = document.createElement('td');
-      cashCell.textContent = formatter.format(this.toNumber(monthItem?.cashProfit));
-      cashCell.style.border = '1px solid #e4e4e4';
-      cashCell.style.padding = '10px 8px';
-
-      const creditCell = document.createElement('td');
-      creditCell.textContent = formatter.format(this.toNumber(monthItem?.creditProfit));
-      creditCell.style.border = '1px solid #e4e4e4';
-      creditCell.style.padding = '10px 8px';
-
-      tr.appendChild(monthCell);
-      tr.appendChild(profitCell);
-      tr.appendChild(cashCell);
-      tr.appendChild(creditCell);
-      tbody.appendChild(tr);
-    }
-
-    table.appendChild(tbody);
-    container.appendChild(table);
-    return container;
   }
 
   private buildFilterParams(): {

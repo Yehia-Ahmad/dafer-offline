@@ -1,3 +1,5 @@
+import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-actions.component';
+import { PrintDataService } from '../../core/print/print-data.service';
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -18,7 +20,7 @@ import { PurchasesService } from './purchases.service';
 @Component({
   selector: 'app-purchase-detail',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, LockedActionComponent, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, PurchaseReturnDialogComponent],
+  imports: [PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, LockedActionComponent, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, PurchaseReturnDialogComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="pd">
@@ -26,6 +28,7 @@ import { PurchasesService } from './purchases.service';
         <nota-page-header [title]="p.number" [subtitle]="p.supplierName || ''">
           <div notaPageActions>
             <a notaButton routerLink="/purchases" data-action="back">{{ 'purchases.title' | translate }}</a>
+            <nota-print-actions [items]="printItems(p._id)" data-test="purchase-print" />
             <a *notaCan="'accounting.view'" notaButton [routerLink]="['/accounting/journal']" [queryParams]="{ sourceType: 'purchase', sourceId: p._id, sourceNumber: p.number }" data-action="journal">{{ 'purchases.detail.journal' | translate }}</a>
           </div>
         </nota-page-header>
@@ -133,6 +136,11 @@ import { PurchasesService } from './purchases.service';
 })
 export class PurchaseDetailComponent implements OnInit {
   private readonly service = inject(PurchasesService);
+  private readonly printData = inject(PrintDataService);
+  /** Stage 23: the A4 purchase invoice (PrPurchaseInvoice). */
+  printItems(id: string): PrintActionItem[] {
+    return [{ key: 'purchase', load: () => this.printData.purchaseInvoice(id) }];
+  }
   private readonly route = inject(ActivatedRoute);
 
   readonly purchase = signal<PurchaseDetail | null>(null);

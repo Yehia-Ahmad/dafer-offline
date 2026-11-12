@@ -12,7 +12,6 @@ import { SupplierStatement } from '../purchases/purchases.models';
 import { LanguageService } from '../shared/services/translation.service';
 import { SupplierPaymentDialogComponent } from './supplier-payment-dialog.component';
 import { SupplierStatementComponent, statementDocument } from './supplier-statement.component';
-import { SUPPLIER_PRINT_ENABLED } from './supplier-print';
 import { SuppliersPageComponent } from './suppliers-page.component';
 import { Supplier } from './suppliers.service';
 
@@ -78,6 +77,18 @@ describe('SupplierStatementComponent (Stage 20)', () => {
     http.verify();
   });
 
+  it('a supplier refund line (SR) has its A5 voucher print button; no other line has one (Stage 23)', async () => {
+    const { fixture, http } = await open();
+    http.expectOne((r) => r.url === `${base}suppliers/s1/statement`).flush({ ...STATEMENT, lines: [...STATEMENT.lines, { date: '2026-11-04', type: 'supplier_refund', number: 'SR-000003', description: 'استرداد من مورد', debit: 0, credit: 300, balance: 6950 }] });
+    await settle(fixture);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelectorAll('[data-test="refund-print"]').length).toBe(1);
+    expect(el.querySelector('[data-test="refund-print"] [data-action="print-refund-SR-000003"]')).toBeTruthy();
+    expect(el.querySelector('[data-line="supplier_refund"] [data-test="refund-print"]')).toBeTruthy();
+    expect(el.querySelector('[data-line="purchase"] [data-test="refund-print"]')).toBeNull();
+    http.verify();
+  });
+
   it('an advance shows as "لينا" with the advance line in the aging', async () => {
     const { fixture, http } = await open('owner', supplier({ balance: -800 }));
     http.expectOne((r) => r.url === `${base}suppliers/s1/statement`).flush({ ...STATEMENT, balance: -800, aging: { ...STATEMENT.aging, total: 0, current: 0, d90plus: 0, advance: 800 } });
@@ -95,8 +106,9 @@ describe('SupplierStatementComponent (Stage 20)', () => {
     const el = owner.fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-action="pay"]')).toBeTruthy();
     expect(el.querySelector('[data-action="new-purchase"]')!.getAttribute('href')).toBe('/purchases/new?supplier=s1');
-    expect(SUPPLIER_PRINT_ENABLED).toBeFalse();
-    expect(el.querySelector('[data-action="print-statement"]')).toBeNull();
+    // Stage 23: the statement has its print buttons (PrSupplierStatement)
+    expect(el.querySelector('[data-action="print-statement"]')).toBeTruthy();
+    expect(el.querySelector('[data-action="pdf-statement"]')).toBeTruthy();
     const paid: unknown[] = [];
     owner.component.pay.subscribe((row) => paid.push(row));
     (el.querySelector('[data-action="pay"]') as HTMLButtonElement).click();
@@ -159,13 +171,14 @@ describe('SupplierPaymentDialogComponent (Stage 20)', () => {
     expect(document.body.querySelector('[data-test="balance-after"]')!.textContent).toContain('4,150');
     expect(component.valid()).toBeTrue();
     expect(component.isAdvance()).toBeFalse();
-    const done: { number: string; balanceAfter: number }[] = [];
+    const done: { number: string; balanceAfter: number; amount?: number }[] = [];
     component.done.subscribe((row) => done.push(row));
     component.save();
     const req = http.expectOne(`${base}suppliers/s1/payments`);
     expect(req.request.body).toEqual({ amount: 2500, date: '2026-11-04', reference: 'CHQ-77', note: 'دفعة' });
-    req.flush({ _id: 'pv2', number: 'PV-000002', balanceAfter: 4150 });
-    expect(done).toEqual([{ number: 'PV-000002', balanceAfter: 4150 }]);
+    req.flush({ _id: 'pv2', number: 'PV-000002', balanceAfter: 4150, amount: 2500, date: '2026-11-04' });
+    // Stage 23: the event also carries what the PV voucher prints (amount, date, box name, reference, note)
+    expect(done).toEqual([jasmine.objectContaining({ number: 'PV-000002', balanceAfter: 4150, amount: 2500, date: '2026-11-04', reference: 'CHQ-77', note: 'دفعة' })]);
     expect(component.visible()).toBeFalse();
     http.verify();
   });

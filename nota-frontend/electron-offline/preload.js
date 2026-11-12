@@ -39,6 +39,17 @@ contextBridge.exposeInMainWorld('notaDesktop', {
     clearCopyFolder: (token) => ipcRenderer.invoke('backup:clear-copy-folder', token),
   },
 
+  // Stage 23: printing. Every call takes the session token first (checked in the main process) and
+  // resolves to { ok, value } or { ok: false, error: { message, code } }.
+  print: {
+    printers: (token) => ipcRenderer.invoke('print:printers', token),
+    getSettings: (token) => ipcRenderer.invoke('print:settings-get', token),
+    setSettings: (token, patch) => ipcRenderer.invoke('print:settings-set', token, patch),
+    testPage: (token, request) => ipcRenderer.invoke('print:test-page', token, request),
+    print: (token, job) => ipcRenderer.invoke('print:print', token, job),
+    savePdf: (token, job, options) => ipcRenderer.invoke('print:pdf', token, job, options),
+  },
+
   // Stage 15: after a restore every window goes to the sign-in screen ({ reason: 'restored' }).
   onSessionReset: (callback) => subscribe('nota:session-reset', callback),
   // Stage 15 (main PC): other main PCs answering on the LAN: [{ instanceId, shopName, address, port }].

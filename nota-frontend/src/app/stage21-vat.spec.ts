@@ -57,7 +57,7 @@ describe('purchase form with VAT (Stage 21)', () => {
     component.addProduct({ _id: 'p-out', name: 'بريزة', code: 'OUT3', inventoryCount: 6, purchasePrice: 55 });
     component.setLine(component.lines()[2].key, 'qty', 30); component.setLine(component.lines()[2].key, 'unitPrice', 55);
   };
-  afterEach(() => { flushPaymentBoxes(http); http.verify(); });
+  afterEach(() => { if (http) { flushPaymentBoxes(http); http.verify(); } });
 
   it('VAT off: nothing about VAT on the screen or in the body; the total is the net', async () => {
     const { fixture, component } = await open();

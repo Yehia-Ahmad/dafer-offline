@@ -358,20 +358,6 @@
   input { width: 20px; height: 20px; accent-color: var(--brand); }
 }
 
-@media print {
-  body.nota-printing-code * { visibility: hidden; }
-  body.nota-printing-code .nota-rc-print,
-  body.nota-printing-code .nota-rc-print * { visibility: visible; }
-  body.nota-printing-code .nota-rc-print {
-    position: fixed;
-    inset: 0 0 auto 0;
-    border: 2px dashed currentColor;
-    background: none;
-  }
-  body.nota-printing-code .nota-rc__print-title,
-  body.nota-printing-code .nota-rc__print-note { display: block; }
-}
-
 /* ---------- toasts ---------- */
 .nota-toasts {
   position: fixed;

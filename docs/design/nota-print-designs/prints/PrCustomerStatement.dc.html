@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Customer statement A4</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+.n{font-variant-numeric:tabular-nums}
+.t{width:100%;border-collapse:collapse;font-size:13px}
+.t th{background:#EEF3F1;color:#142321;font-weight:700;padding:9px 10px;border:1px solid #9A9A9A;text-align:right}
+.t td{padding:9px 10px;border:1px solid #9A9A9A}
+.t td.n,.t th.n{text-align:left}
+.box{border:1px solid #9A9A9A;border-radius:8px;padding:12px 14px}
+.lbl{font-size:12px;color:#4A5856}
+</style>
+</helmet>
+<div style="width: 794px; height: 1123px; box-sizing: border-box; padding: 40px; background: #FFFFFF; color: #142321; font-family: 'Alexandria', system-ui, sans-serif; display: flex; flex-direction: column; gap: 16px">
+  <dc-import name="PrHeader" title="كشف حساب عميل" no="م. سامي للمقاولات" date="٥ / ١١ / ٢٠٢٦" extra-label="الفترة" extra="١ / ١١ — ٥ / ١١ / ٢٠٢٦" hint-size="714px,120px"></dc-import>
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+    <div class="box"><div class="lbl">رصيد أول الفترة</div><div class="n" style="font-size: 17px; font-weight: 800">٠٫٠٠</div></div>
+    <div class="box"><div class="lbl">إجمالي المدين</div><div class="n" style="font-size: 17px; font-weight: 800">٧٩٠٫٠٠</div></div>
+    <div class="box"><div class="lbl">إجمالي الدائن</div><div class="n" style="font-size: 17px; font-weight: 800">٦٥٠٫٠٠</div></div>
+    <div class="box" style="border: 2px solid #142321"><div class="lbl">الرصيد المستحق</div><div class="n" style="font-size: 17px; font-weight: 800">١٤٠٫٠٠</div></div>
+  </div>
+  <div class="box" style="display: flex; flex-direction: row; justify-content: space-between; font-size: 13px">
+    <span>العميل: <b>م. سامي للمقاولات</b></span>
+    <span class="n">التليفون: <b style="direction: ltr; display: inline-block">01001234567</b></span>
+    <span class="n">حد الآجل: <b>١٠٬٠٠٠٫٠٠</b></span>
+  </div>
+  <table class="t">
+    <thead><tr><th style="width: 90px">التاريخ</th><th>البيان</th><th style="width: 110px">المستند</th><th class="n" style="width: 90px">مدين</th><th class="n" style="width: 90px">دائن</th><th class="n" style="width: 100px">الرصيد</th></tr></thead>
+    <tbody>
+      <tr style="background: #FAF9F6"><td class="n">١ / ١١</td><td>رصيد أول الفترة</td><td></td><td class="n"></td><td class="n"></td><td class="n" style="font-weight: 700">٠٫٠٠</td></tr>
+      <tr><td class="n">٥ / ١١</td><td>فاتورة بيع آجل (بانل سقف × ٢، مشترك × ١)</td><td class="n" style="direction: ltr; text-align: right">CR-000032</td><td class="n">٧٩٠٫٠٠</td><td class="n"></td><td class="n" style="font-weight: 700">٧٩٠٫٠٠</td></tr>
+      <tr><td class="n">٥ / ١١</td><td>مقدم مع الفاتورة · نقدي</td><td class="n" style="direction: ltr; text-align: right">RC-000040</td><td class="n"></td><td class="n">٢٠٠٫٠٠</td><td class="n" style="font-weight: 700">٥٩٠٫٠٠</td></tr>
+      <tr><td class="n">٥ / ١١</td><td>دفعة · نقدي</td><td class="n" style="direction: ltr; text-align: right">RC-000041</td><td class="n"></td><td class="n">٣٠٠٫٠٠</td><td class="n" style="font-weight: 700">٢٩٠٫٠٠</td></tr>
+      <tr><td class="n">٥ / ١١</td><td>مرتجع: مشترك ٥ مخارج × ١ (عيب صناعة)</td><td class="n" style="direction: ltr; text-align: right">RT-000009</td><td class="n"></td><td class="n">١٥٠٫٠٠</td><td class="n" style="font-weight: 700">١٤٠٫٠٠</td></tr>
+    </tbody>
+    <tfoot>
+      <tr style="background: #EEF3F1; font-weight: 800"><td colspan="3" style="padding: 10px; border: 1px solid #9A9A9A">الإجمالي</td><td class="n" style="padding: 10px; border: 1px solid #9A9A9A">٧٩٠٫٠٠</td><td class="n" style="padding: 10px; border: 1px solid #9A9A9A">٦٥٠٫٠٠</td><td class="n" style="padding: 10px; border: 1px solid #9A9A9A">١٤٠٫٠٠</td></tr>
+    </tfoot>
+  </table>
+  <div style="display: flex; flex-direction: row; gap: 14px; align-items: flex-start">
+    <table class="t" style="width: 360px">
+      <thead><tr><th colspan="2">أعمار الدين</th></tr></thead>
+      <tbody>
+        <tr><td>لسه ما استحقش</td><td class="n">١٤٠٫٠٠</td></tr>
+        <tr><td>متأخر ١–٣٠ يوم</td><td class="n">٠٫٠٠</td></tr>
+        <tr><td>متأخر ٣١–٦٠ يوم</td><td class="n">٠٫٠٠</td></tr>
+        <tr><td>متأخر أكتر من ٦٠ يوم</td><td class="n">٠٫٠٠</td></tr>
+      </tbody>
+    </table>
+    <div class="box" style="flex: 1 1 auto; font-size: 13px; line-height: 1.8">
+      نرجو مراجعة الكشف، وإبلاغنا بأي ملاحظة خلال ٧ أيام من تاريخه. بعد كده يُعتبر الرصيد الموضح <b class="n">١٤٠٫٠٠ ج.م</b> صحيحًا ونهائيًا.
+      <div style="margin-top: 26px; display: flex; flex-direction: row; justify-content: space-between"><span>توقيع العميل بالموافقة</span><span>.....................</span></div>
+    </div>
+  </div>
+  <div style="flex: 1 1 auto"></div>
+  <dc-import name="PrFooter" note="" user="سارة (المحاسب)" printed="٥ / ١١ / ٢٠٢٦ ٤:٠٠ م" hint-size="714px,60px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":794,"height":1123}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

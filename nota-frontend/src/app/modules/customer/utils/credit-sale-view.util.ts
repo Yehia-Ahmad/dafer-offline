@@ -1,4 +1,3 @@
-import { CreditInvoicePrintData } from '../components/customer-details/credit-invoice-print.util';
 import { InvoiceVatInfo, toInvoiceVat } from '../../shared/vat/vat-print';
 
 /**
@@ -224,46 +223,6 @@ export function isCreditSaleOverdue(entry: Pick<CreditSaleView, 'dueDate' | 'rem
   today.setHours(0, 0, 0, 0);
   dueDate.setHours(0, 0, 0, 0);
   return dueDate < today;
-}
-
-/** The printable shape the credit-invoice print util expects (moved unchanged from CustomerDetailsComponent). */
-export function toCreditInvoicePrintData(
-  entry: CreditSaleView,
-  customerName: string,
-  customerPhone: string,
-  statusLabel: string,
-  customerTaxNumber?: string | null
-): CreditInvoicePrintData {
-  return {
-    id: entry.id,
-    invoiceId: entry.invoiceId || entry.id,
-    invoiceNumber: entry.number || entry.invoiceId || entry.id,
-    customerName: customerName || '',
-    customerPhone: customerPhone || '',
-    sellingDate: entry.sellingDate,
-    dueDate: entry.dueDate,
-    statusLabel,
-    itemCount: entry.itemCount,
-    totalQuantity: entry.totalQuantity,
-    subtotal: entry.subtotal,
-    discountPercentage: entry.discountPercentage,
-    shippingFees: entry.shippingFees,
-    totalPrice: entry.totalPrice,
-    paidAmount: entry.paidAmount,
-    remainingAmount: entry.remainingAmount,
-    items: entry.items.map((item) => ({
-      id: item.id,
-      productCode: item.productCode,
-      productName: item.productName,
-      categoryName: item.categoryName,
-      quantity: item.quantity,
-      unitPrice: item.pricePerEach,
-      totalPrice: item.totalPrice,
-      ...(item.vatExempt ? { vatExempt: true } : {})
-    })),
-    ...(entry.vat ? { vat: entry.vat } : {}),
-    ...(customerTaxNumber ? { customerTaxNumber } : {})
-  };
 }
 
 /** Pill class for a credit invoice status (tokens only). */

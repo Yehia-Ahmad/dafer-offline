@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Print header</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 714px; box-sizing: border-box; font-family: 'Alexandria', system-ui, sans-serif; color: #142321; display: flex; flex-direction: column; gap: 14px; direction: rtl">
+  <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; gap: 20px">
+    <div style="display: flex; flex-direction: row; align-items: center; gap: 14px">
+      <svg width="72" height="72" viewBox="0 0 600 600" role="img" aria-label="لوجو المحل">
+        <rect width="600" height="600" rx="120" fill="#1F3A5F"></rect>
+        <circle cx="300" cy="250" r="140" fill="#F2B134"></circle>
+        <path d="M318 140 L230 275 h62 l-28 125 112-160 h-66 l38-100z" fill="#1F3A5F"></path>
+        <text x="300" y="500" font-family="Alexandria, sans-serif" font-weight="700" font-size="92" fill="#FFFFFF" text-anchor="middle">النور</text>
+      </svg>
+      <div style="display: flex; flex-direction: column; gap: 3px">
+        <span style="font-size: 20px; font-weight: 800">النور للأدوات الكهربائية</span>
+        <span style="font-size: 12px; color: #4A5856">١٢ شارع الجيش، المنصورة</span>
+        <span style="font-size: 12px; color: #4A5856; direction: ltr; text-align: right">01002223344 · 0502345678</span>
+        <span style="font-size: 12px; color: #4A5856">س.ت ٤٥٦٧٨</span>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: left">
+      <span style="font-size: 24px; font-weight: 800; color: #0E4D45">{{title}}</span>
+      <div style="display: grid; grid-template-columns: auto auto; column-gap: 12px; row-gap: 2px; font-size: 12px">
+        <span style="color: #4A5856">رقم</span><span style="font-weight: 700; direction: ltr; text-align: right">{{no}}</span>
+        <span style="color: #4A5856">التاريخ</span><span style="font-weight: 700">{{date}}</span>
+        <sc-if value="{{extra}}" hint-placeholder-val="{{ true }}">
+          <span style="color: #4A5856">{{extraLabel}}</span><span style="font-weight: 700">{{extra}}</span>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+  <div style="height: 3px; background: #0E4D45; border-radius: 2px"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"title":{"editor":"text","default":"فاتورة بيع"},"no":{"editor":"text","default":"INV-000125"},"date":{"editor":"text","default":"٥ / ١١ / ٢٠٢٦"},"extraLabel":{"editor":"text","default":""},"extra":{"editor":"text","default":""},"$preview":{"width":714,"height":170}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      title: this.props.title ?? 'فاتورة بيع',
+      no: this.props.no ?? 'INV-000125',
+      date: this.props.date ?? '٥ / ١١ / ٢٠٢٦',
+      extraLabel: this.props.extraLabel ?? '',
+      extra: this.props.extra ?? ''
+    };
+  }
+}
+</script>
+</body>
+</html>

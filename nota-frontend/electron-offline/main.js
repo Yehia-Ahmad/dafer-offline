@@ -44,6 +44,8 @@ const { AutoBackup, onSameDrive } = require('./lib/auto-backup');
 const { missingFirewallRules } = require('./lib/firewall');
 const { createBackendClient } = require('./lib/ipc-guard');
 const { createBackupHandlers } = require('./lib/backup-handlers');
+const { createPrintService } = require('./lib/print-service');
+const { createPrintHandlers } = require('./lib/print-handlers');
 const { AUDIT_INBOX_NAME, appendAuditEntry } = require('./lib/audit-inbox');
 const { MainPcWatcher } = require('./lib/main-pc-watcher');
 
@@ -635,8 +637,22 @@ function deviceHeaderOptions() {
   };
 }
 
+// Stage 23: printing and PDF export (lib/print-service.js, lib/print-handlers.js). Per-PC settings in the Nota home folder.
+function registerPrintIpc() {
+  const service = createPrintService({
+    BrowserWindow,
+    dialog,
+    getMainWindow: () => state.window,
+    settingsPath: path.join(state.paths.home, 'print-settings.json'),
+    log: state.logger('print'),
+  });
+  const handlers = createPrintHandlers({ service, backend: backendClient, log: state.logger('print') });
+  for (const [channel, handler] of Object.entries(handlers)) handle(channel, handler);
+}
+
 function registerIpc() {
   registerBackupIpc();
+  registerPrintIpc();
   handle('nota:runtime-config', () => {
     if (!state.apiOrigin || !state.config) throw new Error('the app is not configured');
     return {

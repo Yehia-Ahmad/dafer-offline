@@ -1,12 +1,13 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { NotaCanDirective } from '../../core/auth/nota-can.directive';
 import { StatementLine, SupplierStatement } from '../purchases/purchases.models';
 import { PurchasesService } from '../purchases/purchases.service';
 import { NotaButtonDirective, NotaMoneyPipe } from '../shared/ui';
-import { SUPPLIER_PRINT_ENABLED } from './supplier-print';
+import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-actions.component';
+import { PrintDataService } from '../../core/print/print-data.service';
 import { Supplier } from './suppliers.service';
 
 /** "PO-000012 · EL-8841" (our number first, always); a payment shows its PV number, a line without a number (the opening) shows nothing. */
@@ -23,7 +24,7 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
 @Component({
   selector: 'app-supplier-statement',
   standalone: true,
-  imports: [DatePipe, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe],
+  imports: [PrintActionsComponent, DatePipe, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="nota-card ss" data-test="supplier-panel">
@@ -40,7 +41,7 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
       <div class="ss__actions">
         <button *notaCan="'suppliers.pay'" type="button" notaButton="primary" data-action="pay" (click)="pay.emit(supplier())">{{ 'suppliers.statement.pay' | translate }}</button>
         <a *notaCan="'purchases.create'" notaButton routerLink="/purchases/new" [queryParams]="{ supplier: supplier()._id }" data-action="new-purchase">{{ 'suppliers.statement.newPurchase' | translate }}</a>
-        @if (printEnabled) { <button type="button" notaButton data-action="print-statement">{{ 'suppliers.statement.print' | translate }}</button> }
+        <nota-print-actions [items]="printItems()" data-test="statement-print" />
       </div>
 
       @if (loading()) {
@@ -58,6 +59,7 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
               <th class="nota-num">{{ 'suppliers.statement.debit' | translate }}</th>
               <th class="nota-num">{{ 'suppliers.statement.credit' | translate }}</th>
               <th class="nota-num">{{ 'suppliers.statement.balance' | translate }}</th>
+              <th></th>
             </tr></thead>
             <tbody>
               @for (line of st.lines; track $index) {
@@ -68,14 +70,15 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
                   <td class="nota-num">{{ line.debit ? (line.debit | notaMoney) : '' }}</td>
                   <td class="nota-num">{{ line.credit ? (line.credit | notaMoney) : '' }}</td>
                   <td class="nota-num">{{ line.balance | notaMoney }}</td>
+                  <td>@if (line.type === 'supplier_refund' && line.number) { <nota-print-actions [items]="refundPrintItems(line)" [pdf]="false" data-test="refund-print" /> }</td>
                 </tr>
               } @empty {
-                <tr><td colspan="6" class="ss__empty" data-test="statement-empty">{{ 'suppliers.statement.empty' | translate }}</td></tr>
+                <tr><td colspan="7" class="ss__empty" data-test="statement-empty">{{ 'suppliers.statement.empty' | translate }}</td></tr>
               }
             </tbody>
             <tfoot>
               <tr data-test="statement-totals"><td colspan="3">{{ 'suppliers.statement.totals' | translate }}</td>
-                <td class="nota-num">{{ st.totals.debit | notaMoney }}</td><td class="nota-num">{{ st.totals.credit | notaMoney }}</td><td class="nota-num">{{ st.totals.balance | notaMoney }}</td></tr>
+                <td class="nota-num">{{ st.totals.debit | notaMoney }}</td><td class="nota-num">{{ st.totals.credit | notaMoney }}</td><td class="nota-num">{{ st.totals.balance | notaMoney }}</td><td></td></tr>
             </tfoot>
           </table>
         </div>
@@ -115,7 +118,19 @@ export class SupplierStatementComponent {
   readonly statement = signal<SupplierStatement | null>(null);
   readonly loading = signal(true);
   readonly loadError = signal(false);
-  readonly printEnabled = SUPPLIER_PRINT_ENABLED;
+  private readonly printData = inject(PrintDataService);
+  private readonly translate = inject(TranslateService);
+  /** Stage 23: the A5 SR voucher of a supplier refund row of the statement. */
+  refundPrintItems(line: { number?: string | null; balance: number; credit: number; debit: number }): PrintActionItem[] {
+    const supplier = this.supplier();
+    return [{ key: 'refund-' + line.number, label: this.translate.instant('print.voucherA5'), load: () => this.printData.supplierRefundVoucher(supplier._id, supplier.name, line) }];
+  }
+
+  /** Stage 23: the A4 supplier statement (PrSupplierStatement). */
+  printItems(): PrintActionItem[] {
+    const supplier = this.supplier();
+    return [{ key: 'statement', load: () => this.printData.supplierStatement(supplier._id, null, null, { contact: supplier.contactPerson || null, phone: supplier.phones[0] || null }) }];
+  }
   readonly buckets = ['current', 'd1_30', 'd31_60', 'd61_90', 'd90plus'] as const;
   readonly present = (value: string | undefined | null) => Boolean(value);
   readonly document = statementDocument;

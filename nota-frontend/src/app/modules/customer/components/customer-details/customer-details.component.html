@@ -36,6 +36,19 @@
           }
         }
       </div>
+      @if (lastReturnInvoiceId) { <nota-return-print-banner [invoiceId]="lastReturnInvoiceId" /> }
+      @if (lastReceipt; as receipt) {
+        <div class="cd__msg" role="status" data-testid="last-receipt">
+          <span>{{ 'print.receiptSlip' | translate }} <b dir="ltr">{{ receipt.number }}</b></span>
+          <nota-print-actions [items]="receiptPrintItems(receipt.number)" />
+        </div>
+      }
+      @if (lastPayout) {
+        <div class="cd__msg" role="status" data-testid="last-payout">
+          <span><b dir="ltr">{{ lastPayout.number }}</b></span>
+          <nota-print-actions [items]="payoutPrintItems()" />
+        </div>
+      }
       <dl class="cd__facts">
         <div><dt>{{ 'customerDetailsPage.labels.customerId' | translate }}</dt><dd dir="ltr">{{ customer._id || ('customerDetailsPage.labels.notAvailable' | translate) }}</dd></div>
         <div><dt>{{ 'customerDetailsPage.labels.updatedAt' | translate }}</dt><dd>{{ formatDate(customer.updatedAt) }}</dd></div>
@@ -87,6 +100,7 @@
               <input id="statementTo" type="date" class="nota-input" [(ngModel)]="statementTo" />
             </nota-form-field>
             <button type="button" notaButton (click)="applyStatementFilters()">{{ 'customerDetailsPage.s10.statement.apply' | translate }}</button>
+            <nota-print-actions [items]="statementPrintItems()" data-testid="statement-print" />
           </div>
           @if (openingRemaining > 0) {
             <div class="cd__opening" *notaCan="'credit.collect'" data-testid="opening-collect">
@@ -194,9 +208,7 @@
                       <!-- Stage 11: per-invoice payment, same POST credit-sales/:id/payments as the credit list. -->
                       <button *notaCan="'credit.collect'" type="button" notaButton="primary" data-action="invoice-payment" (click)="openPaymentDialog(entry)">{{ 'customerDetailsPage.actions.addPayment' | translate }}</button>
                     }
-                    <button type="button" notaButton (click)="printCreditInvoice(entry)" [disabled]="isPrintingInvoice(entry.id)">
-                      {{ (isPrintingInvoice(entry.id) ? 'actions.loading' : 'customerDetailsPage.actions.printInvoice') | translate }}
-                    </button>
+                    <nota-print-actions [items]="invoicePrintItems(entry)" />
                     @if (canAddRefund(entry)) {
                       <button *notaCan="'returns.create'" type="button" notaButton (click)="openRefundDialog(entry)" [disabled]="isDeletingCreditSale">{{ 'customerDetailsPage.actions.addRefund' | translate }}</button>
                     }
@@ -271,13 +283,15 @@
                 <th>{{ 'customerDetailsPage.s10.invoice' | translate }}</th>
                 <th class="num">{{ 'customerDetailsPage.s10.amount' | translate }}</th>
                 <th>{{ 'customerDetailsPage.paymentDialog.note' | translate }}</th>
+                <th></th>
               </tr></thead>
               <tbody>
                 @for (payment of allPayments; track $index) {
                   <tr><td class="nota-num">{{ formatDate(payment.paymentDate) }}</td><td class="nota-num" dir="ltr">{{ payment.number || payment.invoiceNumber || shortRef(payment.invoiceId) }}</td>
-                    <td class="num cd__in">{{ payment.amount | notaMoney }}</td><td>{{ payment.note || '—' }}</td></tr>
+                    <td class="num cd__in">{{ payment.amount | notaMoney }}</td><td>{{ payment.note || '—' }}</td>
+                    <td>@if (payment.number) {<nota-print-actions [items]="receiptPrintItems(payment.number)" [pdf]="false" />}</td></tr>
                 } @empty {
-                  <tr><td colspan="4" class="cd__empty">{{ 'customerDetailsPage.s10.noPayments' | translate }}</td></tr>
+                  <tr><td colspan="5" class="cd__empty">{{ 'customerDetailsPage.s10.noPayments' | translate }}</td></tr>
                 }
               </tbody>
             </table>

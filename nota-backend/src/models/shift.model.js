@@ -37,6 +37,8 @@ const shiftSchema = new mongoose.Schema({
   depositTransferId: { type: mongoose.Schema.Types.ObjectId, ref: "Transfer" },
   // The expected-cash lines as they were at close (a closed shift's report never changes).
   breakdown: { type: [breakdownSchema], default: undefined },
+  // Stage 23: the sales summary of the close report (cash / credit / returns / discounts), stored at close like the breakdown.
+  salesSummary: { type: mongoose.Schema.Types.Mixed, default: undefined },
   status: { type: String, enum: ["open", "closed"], default: "open", index: true },
 }, { timestamps: true });
 

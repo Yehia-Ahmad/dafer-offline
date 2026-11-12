@@ -14,6 +14,8 @@ const {
   restoreProduct,
 } = require("../controllers/product.controller");
 const { requirePermission } = require("../auth/middleware");
+const asyncHandler = require("../utils/asyncHandler");
+const { getStockPrintData } = require("../controllers/printData.controller");
 
 const router = express.Router();
 
@@ -24,6 +26,7 @@ router
   .route("/")
   .get(requirePermission("products.view"), getProducts)
   .post(requirePermission("products.manage", "products.viewCost"), createProduct); // Stage 14: creating a product needs its cost
+router.get("/print-data", requirePermission("products.view"), asyncHandler(getStockPrintData)); // Stage 23: the stock count sheet
 router.get("/search", requirePermission("products.view"), searchProducts);
 router.get("/export/excel", requirePermission("products.importExport", "products.viewCost"), exportProductsExcel);
 router.get("/profit-report", profit, getProductsProfitReport);

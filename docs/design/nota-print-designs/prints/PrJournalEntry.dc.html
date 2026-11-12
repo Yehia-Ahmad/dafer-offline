@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Journal entry A4</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+.n{font-variant-numeric:tabular-nums}
+.t{width:100%;border-collapse:collapse;font-size:13px}
+.t th{background:#EEF3F1;color:#142321;font-weight:700;padding:9px 10px;border:1px solid #9A9A9A;text-align:right}
+.t td{padding:9px 10px;border:1px solid #9A9A9A}
+.t td.n,.t th.n{text-align:left}
+.box{border:1px solid #9A9A9A;border-radius:8px;padding:12px 14px}
+.lbl{font-size:12px;color:#4A5856}
+</style>
+</helmet>
+<div style="width: 794px; height: 1123px; box-sizing: border-box; padding: 40px; background: #FFFFFF; color: #142321; font-family: 'Alexandria', system-ui, sans-serif; display: flex; flex-direction: column; gap: 16px">
+  <dc-import name="PrHeader" title="قيد يومية" no="JE-000411" date="٥ / ١١ / ٢٠٢٦" extra-label="الحالة" extra="مُرحَّل" hint-size="714px,120px"></dc-import>
+  <div class="box" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; font-size: 13px">
+    <div><div class="lbl">النوع</div><b>تلقائي من فاتورة</b></div>
+    <div><div class="lbl">المستند المصدر</div><b class="n" style="direction: ltr; display: inline-block">CR-000032</b></div>
+    <div><div class="lbl">العميل</div><b>م. سامي للمقاولات</b></div>
+  </div>
+  <div class="box" style="font-size: 13px"><span class="lbl">البيان: </span>بيع آجل لـ م. سامي للمقاولات — بانل سقف ٢٤ وات × ٢، مشترك ٥ مخارج × ١</div>
+  <table class="t">
+    <thead><tr><th style="width: 34px">#</th><th style="width: 80px">الكود</th><th>الحساب</th><th>البيان</th><th class="n" style="width: 100px">مدين</th><th class="n" style="width: 100px">دائن</th></tr></thead>
+    <tbody>
+      <tr><td class="n">١</td><td class="n">١١٣١</td><td>م. سامي للمقاولات</td><td>قيمة الفاتورة</td><td class="n">٧٩٠٫٠٠</td><td class="n"></td></tr>
+      <tr><td class="n">٢</td><td class="n">٤١٠</td><td style="padding-inline-start: 26px">المبيعات</td><td>قيمة الفاتورة</td><td class="n"></td><td class="n">٧٩٠٫٠٠</td></tr>
+      <tr><td class="n">٣</td><td class="n">٥١٠</td><td>تكلفة البضاعة المباعة</td><td>تكلفة الأصناف</td><td class="n">٥٣٥٫٠٠</td><td class="n"></td></tr>
+      <tr><td class="n">٤</td><td class="n">١١٤</td><td style="padding-inline-start: 26px">المخزون</td><td>خروج بضاعة</td><td class="n"></td><td class="n">٥٣٥٫٠٠</td></tr>
+    </tbody>
+    <tfoot>
+      <tr style="background: #0E4D45; color: #FFFFFF; font-weight: 800"><td colspan="4" style="padding: 10px; border: 1px solid #0E4D45">الإجمالي</td><td class="n" style="padding: 10px; border: 1px solid #0E4D45">١٬٣٢٥٫٠٠</td><td class="n" style="padding: 10px; border: 1px solid #0E4D45">١٬٣٢٥٫٠٠</td></tr>
+    </tfoot>
+  </table>
+  <div class="box" style="font-size: 13px; font-weight: 700">✓ القيد متوازن · الفرق ٠٫٠٠</div>
+  <div class="box" style="font-size: 12px; line-height: 1.9; color: #4A5856">
+    قيود مرتبطة: المقدم ٢٠٠ ج.م اتسجل في قيد منفصل <b class="n" style="direction: ltr; display: inline-block; color: #142321">JE-000412</b> مع إيصال <b class="n" style="direction: ltr; display: inline-block; color: #142321">RC-000040</b>.<br>
+    القيد المرحَّل مايتعدلش ولا يتمسح. لو فيه غلط بيتعمل قيد عكسي بنفس القيمة ويتربط بالقيد ده.
+  </div>
+  <div style="flex: 1 1 auto"></div>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; font-size: 13px">
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>أعدّه</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">النظام · أحمد (الكاشير)</span></div>
+    <div style="display: flex; flex-direction: column; gap: 30px"><span>راجعه واعتمده</span><span style="border-top: 1px solid #142321; padding-top: 4px; color: #4A5856">سارة عادل (المحاسب)</span></div>
+  </div>
+  <dc-import name="PrFooter" note="" user="سارة (المحاسب)" printed="٥ / ١١ / ٢٠٢٦ ٤:٤٠ م" hint-size="714px,60px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":794,"height":1123}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

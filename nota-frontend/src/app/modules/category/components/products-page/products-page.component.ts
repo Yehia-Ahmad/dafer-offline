@@ -1,3 +1,5 @@
+import { PrintActionItem, PrintActionsComponent } from '../../../../core/print/print-actions.component';
+import { PrintDataService } from '../../../../core/print/print-data.service';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectorRef,
@@ -51,13 +53,19 @@ export function stockThreshold(product: { lowStockThreshold?: unknown } | null |
 @Component({
   selector: 'app-products-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, TranslatePipe, DialogModule, NotaButtonDirective, NotaDialogShellComponent,
+  imports: [PrintActionsComponent, CommonModule, FormsModule, RouterLink, TranslatePipe, DialogModule, NotaButtonDirective, NotaDialogShellComponent,
     NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, CategoryToolsComponent, NotaCanDirective],
   templateUrl: './products-page.component.html',
   styleUrl: './products-page.component.scss',
 })
 export class ProductsPageComponent implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
+  private readonly printData = inject(PrintDataService);
+
+  /** Stage 23: the stock count sheet (PrStockList) of the open category, or of every product. The cost and value columns come only with products.viewCost. */
+  stockPrintItems(): PrintActionItem[] {
+    return [{ key: 'stock', load: () => this.printData.stockList(this.categoryId || null, this.categoryId ? (this.categories().find((category) => category.id === this.categoryId)?.label ?? '') : '') }];
+  }
   private readonly _auth = inject(AuthService);
   /** Table columns: the purchase-price column is there only with products.viewCost. */
   readonly columnCount = computed(() => (this._auth.has('products.viewCost') ? 8 : 7));

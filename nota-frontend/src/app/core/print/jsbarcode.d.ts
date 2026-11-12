@@ -1,0 +1,1 @@
+declare module 'jsbarcode/bin/barcodes/CODE128/CODE128_AUTO.js';
