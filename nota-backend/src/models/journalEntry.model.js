@@ -20,6 +20,8 @@ const journalEntrySchema = new mongoose.Schema({
   type: { type: String, enum: ["auto", "reversal", "opening", "legacy_reversal", "manual", "closing"], required: true, index: true },
   source: {
     type: { type: String, required: true }, id: { type: mongoose.Schema.Types.ObjectId, required: true }, number: { type: String, default: null },
+    // "edit": the reversal and the re-post of an invoice edit (box movements show them as one kind). Absent on every other entry.
+    kind: { type: String, enum: ["edit"], default: undefined },
   },
   lines: { type: [lineSchema], required: true, validate: (lines) => lines.length >= 2 },
   totalDebit: { type: Number, required: true, min: 0 },

@@ -157,7 +157,8 @@ const postYearEndEntry = async ({ close, period, actor, session }) => {
   if (drawings !== 0) lines.push(line(retained, Math.abs(drawings), drawings > 0 ? "debit" : "credit", { description: "إقفال جاري المالك" }));
   const entry = await postEntry({
     date: period.end, type: "closing", source: { type: "period_close", id: close._id, number: period.label }, memo: `إقفال ${period.label}`,
-    lines, session, allowLocked: true, createdBy: actor?._id || null, createdByName: actor?.name || null,
+    lines, session, allowLocked: true, allowInactive: true, // zeroing a balance into 32 is legitimate on an account deactivated since (like a reversal)
+    createdBy: actor?._id || null, createdByName: actor?.name || null,
   });
   return { entry, netProfit: profit };
 };

@@ -199,9 +199,9 @@ const buildSaleLines = async ({ sale, credit = false, customer, session }) => {
   return lines;
 };
 
-const postSale = async ({ sale, credit = false, customer, session, sourceType = credit ? "credit_sale" : "sale", memo = "" }) => {
+const postSale = async ({ sale, credit = false, customer, session, sourceType = credit ? "credit_sale" : "sale", memo = "", kind = undefined }) => {
   const lines = await buildSaleLines({ sale, credit, customer, session });
-  return postEntry({ date: sale.sellingDate, source: { type: sourceType, id: sale._id, number: sale.number }, lines, session, memo });
+  return postEntry({ date: sale.sellingDate, source: { type: sourceType, id: sale._id, number: sale.number, ...(kind ? { kind } : {}) }, lines, session, memo });
 };
 
 /** Nets signed lines per account+party into debit/credit lines. */
@@ -220,14 +220,14 @@ const netLines = (signedRows) => {
  * options.redirect = { from: Set<accountId string>, to: account }: lines on one of the `from` accounts are
  * reversed on the `to` account instead (Stage 19: see reverseAllFor).
  */
-const reverseEntry = async (id, { date, memo, session, redirect = null, allowLocked = false }) => {
+const reverseEntry = async (id, { date, memo, session, redirect = null, allowLocked = false, kind = undefined }) => {
   const original = await JournalEntry.findById(id).session(session);
   if (!original) return null;
   const existing = await JournalEntry.findOne({ reversalOf: original._id }).session(session)
     || (original.reversedBy ? await JournalEntry.findById(original.reversedBy).session(session) : null);
   if (existing) return existing;
   const reversed = await postEntry({
-    date, type: "reversal", source: original.source, memo, session, reversalOf: original._id, allowLocked, allowInactive: true, // a reversal undoes what was posted, even on an account deactivated since
+    date, type: "reversal", source: { type: original.source.type, id: original.source.id, number: original.source.number ?? null, ...(kind ? { kind } : {}) }, memo, session, reversalOf: original._id, allowLocked, allowInactive: true, // a reversal undoes what was posted, even on an account deactivated since
     lines: original.lines.map((row) => {
       const reversed = { ...(row.toObject?.() || row), debit: row.credit, credit: row.debit };
       if (redirect && redirect.from.has(String(row.accountId))) {
@@ -396,8 +396,8 @@ const postInvoiceEdit = async ({ Model, oldSale, newSale, credit = false, custom
   let entries;
   if (isLedgerDocument(oldSale, ledgerStartAt)) {
     const memo = credit ? "Credit sale edit" : "Sale edit"; // the box-movements report reads this memo: reversal + re-post = "تعديل فاتورة"
-    const reversals = await reverseSaleAndCostSync(sourceType, newSale._id, { date, memo, session });
-    entries = [...reversals, await postSale({ sale: newSale, credit, customer, session, memo })];
+    const reversals = await reverseSaleAndCostSync(sourceType, newSale._id, { date, memo, session, kind: "edit" });
+    entries = [...reversals, await postSale({ sale: newSale, credit, customer, session, memo, kind: "edit" })];
   } else {
     entries = [await postSaleDifference({ oldSale, newSale, credit, customer, oldCustomer, date, session })];
     const netSalesDelta = roundMoney(Number(newSale.totalPrice || 0) - Number(oldSale.totalPrice || 0));

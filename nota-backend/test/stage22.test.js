@@ -1183,3 +1183,49 @@ it("ledger excludeClosing: over a range holding the year end the ledger equals t
   const next = ok(await call("GET", `${ACCOUNTS}/${expenseAccount}/ledger?from=${LAST_YEAR + 1}-01-01&excludeClosing=1`));
   assert.equal(next.openingBalance, 100);
 });
+
+// ------------------------------------------------------------ Stage 22 follow-ups
+
+it("the year-end entry posts to an account deactivated since: close the year, deactivate 52001 (balance 0), reopen (its 30 is back), close again → 200, zeroed, health 0", async () => {
+  await poorShop();
+  const leaf = await addAccount("520", { nameAr: "بند 52001" });
+  await expense(leaf.code, 30, `${LAST_YEAR}-12-15`);
+  await finalizeOpening();
+  const first = ok(await closeNext());
+  assert.equal(first.close.yearEnd, true);
+  assert.equal(await accountBalance(leaf.code), 0);
+  assert.equal(ok(await call("POST", `${ACCOUNTS}/${leaf._id}/deactivate`)).isActive, false);
+  ok(await reopen("نرجع نقفل"));
+  assert.equal(await accountBalance(leaf.code), 30);
+  const again = ok(await closeNext());
+  assert.equal(again.close.yearEnd, true); assert.equal(again.close.netProfit, -30);
+  assert.equal(await accountBalance(leaf.code), 0);
+  assert.equal((await Account.findById(leaf._id).lean()).isActive, false);
+  await assertHealthy();
+});
+
+it("box movements read source.kind 'edit' (not the memo): the reversal and the re-post carry it, a later cancel's reversal does not; old entries fall back to the memo", async () => {
+  await poorShop();
+  const p = await product({ code: "KND", stock: 100, cost: 20 });
+  const sale = await cashSale([{ productId: p._id, quantity: 2, price: 100 }]);
+  ok(await call("PUT", `/api/sellings/${sale._id}`, { items: [{ productId: p._id, quantity: 2, price: 150 }], discountAmount: 0 }));
+  const entries = await JournalEntry.find({ "source.id": sale._id, "source.type": "sale" }).sort({ createdAt: 1, _id: 1 }).lean();
+  assert.deepEqual(entries.map((entry) => [entry.type, entry.source.kind || null]), [["auto", null], ["reversal", "edit"], ["auto", "edit"]]);
+  const main = async () => ok(await call("GET", `/api/reports/box-movements?from=${TODAY}&to=${TODAY}`)).boxes.find((box) => box.isMain);
+  const kinds = async () => Object.fromEntries((await main()).byKind.map((kind) => [kind.key, [kind.in, kind.out]]));
+  assert.deepEqual(await kinds(), { opening: [10000, 0], sales: [200, 0], invoiceEdit: [300, 200] });
+  // the classification does not look at the memo
+  await JournalEntry.updateMany({ "source.id": sale._id, "source.kind": "edit" }, { $set: { memo: "نص تاني خالص" } });
+  assert.deepEqual(await kinds(), { opening: [10000, 0], sales: [200, 0], invoiceEdit: [300, 200] });
+  // an old entry (no source.kind) with the old memo text is still recognised; without either it is a plain refund / sale
+  await JournalEntry.updateMany({ "source.id": sale._id, "source.kind": "edit" }, { $unset: { "source.kind": "" }, $set: { memo: "Sale edit" } });
+  assert.deepEqual(await kinds(), { opening: [10000, 0], sales: [200, 0], invoiceEdit: [300, 200] });
+  await JournalEntry.updateMany({ "source.id": sale._id }, { $set: { memo: "x" } });
+  assert.deepEqual(await kinds(), { opening: [10000, 0], sales: [500, 0], refunds: [0, 200] });
+  // restore the marked state, then cancel: the cancel's reversal of the re-post is a refund, not an edit
+  await JournalEntry.updateMany({ _id: { $in: entries.slice(1).map((entry) => entry._id) } }, { $set: { "source.kind": "edit" } });
+  ok(await call("POST", `/api/sellings/${sale._id}/cancel`, { reason: "إلغاء بعد التعديل" }));
+  const afterCancel = await JournalEntry.find({ "source.id": sale._id, "source.type": "sale", type: "reversal" }).sort({ createdAt: 1, _id: 1 }).lean();
+  assert.equal(afterCancel.length, 2); assert.equal(afterCancel[1].source.kind, undefined);
+  assert.deepEqual(await kinds(), { opening: [10000, 0], sales: [200, 0], invoiceEdit: [300, 200], refunds: [0, 300] });
+});

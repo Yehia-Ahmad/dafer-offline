@@ -286,8 +286,9 @@ const KIND_BY_SOURCE = {
   expense: "expenses", transfer: "transfers", shift: "shiftDiff", shift_open: "shiftDiff", supplier_payment: "supplierPayments", supplier_refund: "supplierRefunds",
   vat_payment: "vatPayments", owner_drawing: "drawings", customer_payout: "payouts", opening: "opening", opening_inventory: "opening",
 };
-// An invoice edit reverses the sale entry and posts it again (both carry one of these memos, see postInvoiceEdit): together they are
-// "تعديل فاتورة" and show only the net, never as a refund plus a new sale.
+// An invoice edit reverses the sale entry and posts it again (both carry source.kind "edit", see postInvoiceEdit): together they are
+// "تعديل فاتورة" and show only the net, never as a refund plus a new sale. Entries from before source.kind existed are recognised by
+// their memo text instead (the fallback only applies when source.kind is absent).
 const EDIT_MEMOS = ["Sale edit", "Credit sale edit"];
 /** The kind of a box line from its entry: an invoice edit (its reversal and re-post) is its own kind; a cancelled sale or credit sale (a reversal / legacy reversal) is a refund paid out of the box. */
 const boxKindOf = (sourceType, entryType, isEdit = false) => {
@@ -303,7 +304,7 @@ const boxMovements = async ({ range }) => {
   const ids = boxes.map((box) => box.accountId);
   const rows = ids.length ? await JournalEntry.aggregate([
     { $match: { status: "posted", date: { $lte: range.to }, "lines.accountId": { $in: ids } } }, { $unwind: "$lines" }, { $match: { "lines.accountId": { $in: ids } } },
-    { $group: { _id: { accountId: "$lines.accountId", before: { $lt: ["$date", range.from] }, source: "$source.type", entry: "$type", edit: { $in: ["$memo", EDIT_MEMOS] } }, debit: { $sum: "$lines.debit" }, credit: { $sum: "$lines.credit" } } },
+    { $group: { _id: { accountId: "$lines.accountId", before: { $lt: ["$date", range.from] }, source: "$source.type", entry: "$type", edit: { $or: [{ $eq: ["$source.kind", "edit"] }, { $and: [{ $eq: [{ $ifNull: ["$source.kind", null] }, null] }, { $in: ["$memo", EDIT_MEMOS] }] }] } }, debit: { $sum: "$lines.debit" }, credit: { $sum: "$lines.credit" } } },
   ]).allowDiskUse(true) : [];
   const perBox = new Map(boxes.map((box) => [String(box.accountId), { opening: 0, byKind: new Map() }]));
   for (const row of rows) {
