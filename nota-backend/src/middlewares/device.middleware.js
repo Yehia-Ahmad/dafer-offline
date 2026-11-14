@@ -1,6 +1,6 @@
 const Device = require("../models/device.model");
 const { ensurePaired } = require("../license/clients");
-const { isLoopback } = require("../auth/middleware");
+const { isMainPc } = require("../auth/mainPc");
 
 // Stage 19: which PC a request comes from.
 //
@@ -51,8 +51,8 @@ const deviceContext = ({ now = Date.now, maxEntries = MAX_REMEMBERED } = {}) => 
   lastRegistered.set(deviceId, at);
   while (lastRegistered.size > maxEntries) lastRegistered.delete(lastRegistered.keys().next().value);
   try {
-    // Stage 24: the main PC is the one over loopback. An instance id from the LAN never makes a request "the main PC".
-    const set = { lastSeenAt: new Date(at), role: isLoopback(req) ? "main" : "client" };
+    // Stage 24: the main PC is a loopback request that carries the main-PC token. Loopback alone, or an instance id, never makes one "the main PC".
+    const set = { lastSeenAt: new Date(at), role: isMainPc(req) ? "main" : "client" };
     if (req.deviceName) set.name = req.deviceName;
     if (set.role === "client") await ensurePaired(deviceId, set);
     else await Device.updateOne({ deviceId }, { $set: set }, { upsert: true });

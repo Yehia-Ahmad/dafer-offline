@@ -18,7 +18,7 @@ const PASSTHROUGH_ENV = ['SystemRoot', 'windir', 'TEMP', 'TMP', 'PATH'];
 // jwtSecret (Stage 13): the main PC's session-token secret, passed as NOTA_JWT_SECRET.
 // NOTA_AUTH=1 (Stage 14): login and permissions are enforced. The backend refuses to start
 // without a usable secret; main.js never starts it without one.
-function buildBackendEnv({ port, mongoUri, secret, jwtSecret, appVersion, instanceId, sessionsValidAfter, auditInbox, licenseDir, sourceEnv = process.env }) {
+function buildBackendEnv({ port, mongoUri, secret, jwtSecret, appVersion, instanceId, sessionsValidAfter, auditInbox, licenseDir, mainToken, sourceEnv = process.env }) {
   const env = {};
   for (const key of PASSTHROUGH_ENV) {
     if (sourceEnv[key] !== undefined) env[key] = sourceEnv[key];
@@ -42,6 +42,8 @@ function buildBackendEnv({ port, mongoUri, secret, jwtSecret, appVersion, instan
     ...(auditInbox ? { NOTA_AUDIT_INBOX: auditInbox } : {}),
     // Stage 24: where nota.lic lives (the backend re-verifies it on every start; the file is the source of truth).
     ...(licenseDir ? { NOTA_LICENSE_DIR: licenseDir } : {}),
+    // Stage 24: the per-start main-PC secret. Only this process's own windows send it (lib/lan-auth.js); never logged, never written to disk.
+    ...(mainToken ? { NOTA_MAIN_TOKEN: mainToken } : {}),
   };
 }
 

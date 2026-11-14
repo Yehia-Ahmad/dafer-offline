@@ -174,6 +174,8 @@ async function startMongod() {
 let testLicenseDir = null;
 function licenseDir() {
   if (!testLicenseDir) testLicenseDir = require(path.join(BACKEND_DIR, 'test', 'helpers', 'license.js')).installTestLicense({ shopName: 'Smoke Shop', maxClients: 3 });
+  // the helper also makes this process's fetch act as a main-PC window with ITS OWN token; the smoke test sends the token of the backend it starts
+  if (globalThis.fetch.__real) globalThis.fetch = globalThis.fetch.__real;
   return testLicenseDir;
 }
 
@@ -192,6 +194,8 @@ async function startBackend({ auth = true, dbName = DB_NAME, licenseDirectory = 
     NOTA_INSTANCE_ID: 'smoke-main-instance-0001',
     // Stage 24: a test license (source tree = test build) so the backend is not locked.
     NOTA_LICENSE_DIR: licenseDirectory || licenseDir(),
+    // Stage 24: the per-start main-PC token (Electron main makes one at every start); request() adds it like the app's own window does.
+    NOTA_MAIN_TOKEN: MAIN_TOKEN,
   };
   delete env.NOTA_AUTH;
   delete env.NOTA_JWT_SECRET;
@@ -217,8 +221,13 @@ async function startBackend({ auth = true, dbName = DB_NAME, licenseDirectory = 
 // The session token sent by default (the owner's, once setup-owner ran). null: no token.
 let authToken = null;
 
-async function request(method, urlPath, { body, withKey = true, binary = false, token = authToken, headers: extraHeaders = {} } = {}) {
+// Stage 24: the main PC is a loopback request that carries this token (Electron main sends it from its own windows only).
+const MAIN_TOKEN = require('node:crypto').randomBytes(32).toString('hex');
+const MAIN_TOKEN_HEADER = 'x-nota-main-token';
+
+async function request(method, urlPath, { body, withKey = true, binary = false, token = authToken, mainToken = MAIN_TOKEN, headers: extraHeaders = {} } = {}) {
   const headers = { ...extraHeaders };
+  if (mainToken) headers[MAIN_TOKEN_HEADER] = mainToken; // the app's own window; mainToken: null = a client, or a forwarder on the main PC
   if (withKey) headers[LAN_KEY_HEADER] = LAN_SECRET;
   if (token) headers.authorization = `Bearer ${token}`;
   if (body !== undefined) headers['content-type'] = 'application/json';
@@ -2249,13 +2258,54 @@ async function runStage24Scenarios(licenseDirectory) {
     return '400 for LAN, 200 for the main PC';
   });
 
-  await step('Stage 24: bypass 3: one device id from a second address within 2 minutes → 403 DEVICE_IN_USE (Arabic + English)', async () => {
-    const copied = await requestFromAddress(lanSource(9), 'POST', '/api/auth/login', { body: { username: OWNER.username, password: OWNER.password }, headers: { 'x-nota-device-id': clientId(1) } });
+  await step('Stage 24: bypass 3: one device id from a second address within 2 minutes → 403 DEVICE_IN_USE on a signed-in request (Arabic + English); an unauthenticated request from there locks nobody', async () => {
+    const first = await lanLogin(1);
+    expectStatus(first, 200, 'client 1 login');
+    const bearer = { authorization: `Bearer ${first.json.token}` };
+    expectStatus(await lan(1, 'GET', '/api/products', undefined, bearer), 200, 'client 1 signed-in request');
+    const unauthenticated = await requestFromAddress(lanSource(9), 'GET', '/api/products', { headers: { 'x-nota-device-id': clientId(1) } });
+    expectStatus(unauthenticated, 401, 'unauthenticated request with client 1 id from another address');
+    expectStatus(await lan(1, 'GET', '/api/products', undefined, bearer), 200, 'client 1 is not locked by the unauthenticated request');
+    const copied = await requestFromAddress(lanSource(9), 'GET', '/api/products', { headers: { 'x-nota-device-id': clientId(1), ...bearer } });
     expectStatus(copied, 403, 'client 1 id used from another address');
     expect(copied.json.code === 'DEVICE_IN_USE', `expected DEVICE_IN_USE, got ${JSON.stringify(copied.json)}`);
     expect(copied.json.message.includes('بيستخدمه جهاز تاني') && /another PC/.test(copied.json.messageEn), 'expected the Arabic and English messages');
     expectStatus(await lanLogin(1), 200, 'the real client 1 is not disturbed');
     return 'the copy is refused, the original works';
+  });
+
+  await step('Stage 24: forwarder bypass: a TCP forwarder on the main PC (LAN address → 127.0.0.1) is NOT the main PC: no id → 400 DEVICE_ID_REQUIRED; a new id is counted as a client → CLIENT_LIMIT when full; a wrong token is a client', async () => {
+    const net = require('node:net');
+    const sockets = new Set();
+    const server = net.createServer((client) => {
+      const upstream = net.connect({ host: '127.0.0.1', port: BACKEND_PORT });
+      sockets.add(client); sockets.add(upstream);
+      client.pipe(upstream); upstream.pipe(client);
+      const end = () => { client.destroy(); upstream.destroy(); };
+      client.on('error', end); upstream.on('error', end); client.on('close', end); upstream.on('close', end);
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const forwarded = async (route, headers = {}, method = 'GET', body) => {
+      const response = await fetch(`http://127.0.0.1:${server.address().port}${route}`, { method, headers: { connection: 'close', [LAN_KEY_HEADER]: LAN_SECRET, ...(body ? { 'content-type': 'application/json' } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      let json = null; try { json = JSON.parse(await response.text()); } catch { /* not JSON */ }
+      return { status: response.status, json };
+    };
+    try {
+      const none = await forwarded('/api/products');
+      expectStatus(none, 400, 'forwarded request without a device id');
+      expect(none.json.code === 'DEVICE_ID_REQUIRED', `expected DEVICE_ID_REQUIRED, got ${JSON.stringify(none.json)}`);
+      const wrong = await forwarded('/api/products', { [MAIN_TOKEN_HEADER]: 'not-the-token' });
+      expectStatus(wrong, 400, 'a wrong token');
+      // slots: 2 of 2 are taken by clients 1 and 2 at this point, so a new id through the forwarder is refused
+      const full = await forwarded('/api/auth/login', { 'x-nota-device-id': 'smoke-forwarded-pc-01' }, 'POST', { username: OWNER.username, password: OWNER.password });
+      expectStatus(full, 403, 'forwarded login with a new id');
+      expect(full.json.code === 'CLIENT_LIMIT', `expected CLIENT_LIMIT, got ${JSON.stringify(full.json)}`);
+      expectStatus(await request('GET', '/api/products'), 200, 'the real main window (token) still works');
+      return 'forwarder: 400, 400, CLIENT_LIMIT; main window 200';
+    } finally {
+      for (const socket of sockets) socket.destroy();
+      await new Promise((resolve) => server.close(resolve));
+    }
   });
 
   await step('Stage 24: the owner unpairs a PC → it is REVOKED (CLIENT_REVOKED even with a free slot); the owner re-allows it; it pairs itself again', async () => {

@@ -26,7 +26,7 @@ const vatRoutes = require("./routes/vat.routes");
 const deviceRoutes = require("./routes/device.routes");
 const printRoutes = require("./routes/print.routes");
 const { requireLicense } = require("./license/middleware");
-const { deviceGate } = require("./middlewares/deviceGate.middleware");
+const { deviceGate, deviceInUse } = require("./middlewares/deviceGate.middleware");
 const { createLicenseRouter } = require("./routes/license.routes");
 const { deviceContext } =require("./middlewares/device.middleware");
 const { createLanSecretGuard, isLanMode } = require("./middlewares/lanSecret.middleware");
@@ -56,7 +56,8 @@ if (lanMode) app.use("/api", createLanSecretGuard(process.env.NOTA_LAN_SECRET));
 
 // Stage 24: no valid license, no API (402 LICENSE_REQUIRED), except the two activation routes below.
 app.use("/api", requireLicense());
-// Stage 24: every non-loopback request carries a device id; one id from two IPs at once is refused (the client limit's honesty checks).
+// Stage 24: every request that is not the main PC (loopback + the main-PC token) carries a device id (the client limit's honesty checks).
+// The "same id from two IPs at once" check (deviceInUse) runs after the auth middleware, on authenticated requests only.
 app.use("/api", deviceGate());
 app.use("/api/license", createLicenseRouter({ secret: jwtSecret, sessionsValidAfter: sessionsValidAfter() }));
 
@@ -75,6 +76,7 @@ if (authMode) {
 }
 
 // Stage 19: which PC this is (X-Nota-Device-Id), for the default cash box. Not an auth factor.
+app.use("/api", deviceInUse());
 app.use("/api", deviceContext());
 
 // Accounting endpoints remain available to the offline/legacy migration

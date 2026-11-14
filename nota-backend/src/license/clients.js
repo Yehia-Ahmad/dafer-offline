@@ -49,13 +49,13 @@ const ensurePaired = (deviceId, set) => serialize(async () => {
 
 /**
  * Login on a client PC: the PC pairs here (or must already hold a slot). Refused with 403 CLIENT_LIMIT when every slot is taken and
- * 403 CLIENT_REVOKED when the owner removed it. The main PC is the one over loopback and needs no slot; any other request must carry a
+ * 403 CLIENT_REVOKED when the owner removed it. The main PC (loopback + the main-PC token) needs no slot; any other request must carry a
  * device id (deviceGate answers 400 DEVICE_ID_REQUIRED before it gets here).
  */
 const requireClientSlotAtLogin = async (req) => {
   const { validDeviceId, decodeName } = require("../middlewares/device.middleware");
-  const { isLoopback } = require("../auth/middleware");
-  if (isLoopback(req)) return;
+  const { isMainPc } = require("../auth/mainPc");
+  if (isMainPc(req)) return;
   const deviceId = validDeviceId(req.get("x-nota-device-id"));
   if (!deviceId) {
     const error = new Error("الجهاز ده لازم يبعت رقم جهازه.");

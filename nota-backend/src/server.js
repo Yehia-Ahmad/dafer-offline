@@ -1,5 +1,6 @@
 // Stage 24: the license code loads FIRST, before dotenv, express, mongoose or any other dependency, and keeps its own references to
-// crypto and fs (license/index.js), so nothing loaded after it can change what the license check does.
+// crypto, fs and child_process functions (license/index.js), so replacing those functions after it loaded does not change what the license
+// check does. That is all it protects against: the tamper check (lib/integrity.js in the desktop app) is the real guard for the files.
 require("./license");
 
 require("dotenv").config();

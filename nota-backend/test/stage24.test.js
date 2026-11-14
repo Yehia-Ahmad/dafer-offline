@@ -358,11 +358,10 @@ it("BYPASS 3: one device id from a different IP within 2 minutes is refused for 
   assert.equal(copy.status, 403);
   assert.equal(copy.json.code, "DEVICE_IN_USE");
   assert.ok(copy.json.message.includes("بيستخدمه جهاز تاني") && /another PC/.test(copy.json.messageEn));
-  assert.equal((await callFrom("127.0.0.52", "POST", "/api/auth/login", { body: { username: "s24-owner", password: "owner-pass-123" }, headers: header, auth: null })).json.code, "DEVICE_IN_USE", "at login too");
   assert.equal((await callFrom("127.0.0.51", "GET", "/api/products", { headers: header })).status, 200, "the PC that was there first is not disturbed");
 
   // the 2-minute window, with an injected clock
-  const { deviceGate: makeGate, resetDeviceGate } = require("../src/middlewares/deviceGate.middleware");
+  const { deviceInUse: makeGate, resetDeviceGate } = require("../src/middlewares/deviceGate.middleware");
   resetDeviceGate();
   let clock = 1_000_000;
   const gate = makeGate({ now: () => clock });
@@ -375,6 +374,97 @@ it("BYPASS 3: one device id from a different IP within 2 minutes is refused for 
   assert.equal(run("10.0.0.6"), "next", "silent for 2 minutes: another address may take the id (e.g. a new DHCP address)");
   assert.equal(run("10.0.0.5"), "DEVICE_IN_USE", "and now the old address is the other one");
   resetDeviceGate();
+});
+
+// ---- Stage 24 last fixes: the main-PC token ------------------------------------------------------------------------
+// A TCP forwarder on the main PC (or any local proxy) relays LAN requests to 127.0.0.1, so loopback alone must not mean "the main PC".
+const net = require("node:net");
+const { mainPcToken, HEADER: MAIN_TOKEN_HEADER } = require("../src/auth/mainPc");
+const { NO_MAIN_TOKEN } = require("./helpers/license");
+
+function startForwarder() {
+  const target = new URL(baseUrl);
+  const sockets = new Set();
+  const server = net.createServer((client) => {
+    const upstream = net.connect({ host: "127.0.0.1", port: Number(target.port) });
+    sockets.add(client); sockets.add(upstream);
+    client.pipe(upstream); upstream.pipe(client);
+    const end = () => { client.destroy(); upstream.destroy(); sockets.delete(client); sockets.delete(upstream); };
+    client.on("error", end); upstream.on("error", end); client.on("close", end); upstream.on("close", end);
+  });
+  return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve({
+    url: `http://127.0.0.1:${server.address().port}`,
+    close: () => new Promise((done) => { for (const socket of sockets) socket.destroy(); server.close(done); }),
+  })));
+}
+// what a client PC (or the forwarder's user) sends: no main-PC token
+const viaForwarder = (forwarder, route, { method = "GET", body, headers = {}, auth = token } = {}) =>
+  fetch(`${forwarder.url}${route}`, {
+    method,
+    headers: { [NO_MAIN_TOKEN]: "1", connection: "close", ...(body ? { "Content-Type": "application/json" } : {}), ...(auth ? { Authorization: `Bearer ${auth}` } : {}), ...headers },
+    body: body ? JSON.stringify(body) : undefined,
+  }).then(async (response) => { const text = await response.text(); let json = null; try { json = JSON.parse(text); } catch { /* not JSON */ } return { status: response.status, json }; });
+
+it("FORWARDER 1: a LAN request relayed to 127.0.0.1 with no header is NOT the main PC → 400 DEVICE_ID_REQUIRED", async () => {
+  const forwarder = await startForwarder();
+  try {
+    for (const [method, route, body] of [["GET", "/api/products"], ["POST", "/api/auth/login", { username: "s24-owner", password: "owner-pass-123" }], ["GET", "/api/auth/bootstrap"]]) {
+      const response = await viaForwarder(forwarder, route, { method, body, auth: null });
+      assert.equal(response.status, 400, `${method} ${route}`);
+      assert.equal(response.json.code, "DEVICE_ID_REQUIRED");
+    }
+    assert.equal(await Device.countDocuments({ role: "main" }), 0, "nothing was registered as the main PC");
+  } finally { await forwarder.close(); }
+});
+
+it("FORWARDER 2: through the forwarder each new device id is counted as a client PC; CLIENT_LIMIT when the slots are full (login included)", async () => {
+  const forwarder = await startForwarder();
+  try {
+    const as = (id, route = "/api/products", extra = {}) => viaForwarder(forwarder, route, { headers: { "x-nota-device-id": id, "x-nota-device-name": "F" }, ...extra });
+    assert.equal((await as("forwarded-pc-0001")).status, 200);
+    assert.equal((await as("forwarded-pc-0002")).status, 200);
+    const third = await as("forwarded-pc-0003");
+    assert.equal(third.status, 403);
+    assert.equal(third.json.code, "CLIENT_LIMIT");
+    const login = await as("forwarded-pc-0004", "/api/auth/login", { method: "POST", body: { username: "s24-owner", password: "owner-pass-123" }, auth: null });
+    assert.equal(login.json.code, "CLIENT_LIMIT", "login is counted too");
+    assert.deepEqual((await Device.find({ role: "client", paired: true }).sort({ deviceId: 1 })).map((d) => d.deviceId), ["forwarded-pc-0001", "forwarded-pc-0002"]);
+    assert.equal(await Device.countDocuments({ role: "main" }), 0);
+    assert.equal(ok(await call("GET", "/api/license/info")).clientsUsed, 2);
+  } finally { await forwarder.close(); }
+});
+
+it("MAIN WINDOW: loopback + the main-PC token is the main PC (no id needed, role main, not counted); a WRONG token (or one of another length) is a client", async () => {
+  assert.equal((await call("GET", "/api/products")).status, 200, "the test's fetch sends the token, like the app's own window");
+  assert.equal((await call("GET", "/api/products", undefined, { "x-nota-device-id": "main-window-pc-01", "x-nota-device-name": "Main" })).status, 200);
+  assert.equal((await Device.findOne({ deviceId: "main-window-pc-01" })).role, "main");
+  assert.equal(ok(await call("GET", "/api/license/info")).clientsUsed, 0);
+  const real = mainPcToken();
+  for (const wrong of ["not-the-token", `${real.slice(0, -1)}x`, `${real}x`, real.slice(0, 8)]) {
+    const noId = await call("GET", "/api/products", undefined, { [NO_MAIN_TOKEN]: "1", [MAIN_TOKEN_HEADER]: wrong });
+    assert.equal(noId.status, 400, "a wrong token is not the main PC: a device id is required");
+    assert.equal(noId.json.code, "DEVICE_ID_REQUIRED");
+  }
+  const asClientOnLoopback = await call("GET", "/api/products", undefined, { [NO_MAIN_TOKEN]: "1", [MAIN_TOKEN_HEADER]: "wrong", "x-nota-device-id": "wrong-token-pc-01", "x-nota-device-name": "W" });
+  assert.equal(asClientOnLoopback.status, 200);
+  assert.equal((await Device.findOne({ deviceId: "wrong-token-pc-01" })).role, "client", "counted as a client");
+});
+
+it("the main-PC token: removed from the environment once read, compared in constant time, random when Electron sent none", async () => {
+  assert.equal(process.env.NOTA_MAIN_TOKEN, undefined, "the variable is removed once read");
+  assert.match(require("node:fs").readFileSync(require.resolve("../src/auth/mainPc"), "utf8"), /timingSafeEqual/);
+  assert.ok(mainPcToken().length >= 32, "a random token even when Electron sent none");
+});
+
+it("DEVICE_IN_USE runs on AUTHENTICATED requests only: an unauthenticated / 401 request with a client's id from another IP records nothing and locks nobody", async () => {
+  const header = { "x-nota-device-id": "client-pc-0001", "x-nota-device-name": "A" };
+  assert.equal((await callFrom("127.0.0.51", "GET", "/api/products", { headers: header })).status, 200, "the real client works");
+  assert.equal((await callFrom("127.0.0.52", "GET", "/api/products", { headers: header, auth: null })).status, 401, "not signed in");
+  assert.equal((await callFrom("127.0.0.52", "POST", "/api/auth/login", { body: { username: "s24-owner", password: "wrong-password" }, headers: header, auth: null })).status, 401, "a failed login records nothing either");
+  assert.equal((await callFrom("127.0.0.51", "GET", "/api/products", { headers: header })).status, 200, "the real client is not locked out");
+  assert.equal((await callFrom("127.0.0.53", "GET", "/api/products", { headers: header, auth: null })).status, 401);
+  assert.equal((await callFrom("127.0.0.51", "GET", "/api/products", { headers: header })).status, 200);
+  assert.equal((await callFrom("127.0.0.52", "GET", "/api/products", { headers: header })).json.code, "DEVICE_IN_USE", "the copy IS refused once it is signed in");
 });
 
 it("maxClients 0 = main PC only", async () => {

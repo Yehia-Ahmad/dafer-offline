@@ -1,16 +1,20 @@
 // Stage 24: who a request comes from, for the client limit. Mounted on /api right after the license lock and BEFORE any route
 // (login included).
 //
-//   * The main PC is the one that talks over loopback (127.0.0.1 / ::1), and only that. A device id, including the main PC's own
-//     instance id (anyone with the LAN key can read it from /api/lan/info), never makes a LAN request "the main PC".
+//   * The main PC is a request over loopback (127.0.0.1 / ::1) that ALSO carries the per-start main-PC token (auth/mainPc.js), which only
+//     Electron main knows and only its own windows send. A device id, including the main PC's own instance id (anyone with the LAN key
+//     can read it from /api/lan/info), never makes a request "the main PC"; neither does loopback alone (a TCP forwarder on the main PC
+//     relays LAN requests to 127.0.0.1): a loopback request without the token is handled as a client PC.
 //   * Every other request must carry a valid X-Nota-Device-Id, else 400 DEVICE_ID_REQUIRED: a client PC cannot dodge being counted by
 //     leaving the header out. Exception: /api/lan/* (the discovery probe a client makes before it has an identity).
 //   * One device id seen from a different IP address within the last 2 minutes is refused for the new address (403 DEVICE_IN_USE): a paired
-//     id copied to another PC does not work while the first PC is using it.
+//     id copied to another PC does not work while the first PC is using it. This part runs only on AUTHENTICATED requests (deviceInUse,
+//     mounted after the auth middleware): an unauthenticated or 401 request neither records an address nor blocks anyone, so nobody can lock
+//     a client out by sending its id from elsewhere.
 //
 // Honest limit: the id is still just a header. Copy it to a second PC while the first one is OFF (or after 2 minutes of silence) and that PC
 // takes over the same slot. This stops casual sharing; it is not a hard lock (docs/OFFLINE_PLAN.md).
-const { isLoopback } = require("../auth/middleware");
+const { isMainPc } = require("../auth/mainPc");
 const { validDeviceId } = require("./device.middleware");
 
 const SAME_ID_OTHER_IP_WINDOW_MS = 2 * 60 * 1000;
@@ -32,14 +36,23 @@ const normalizeIp = (ip) => String(ip || "").replace(/^::ffff:/i, "");
 
 const isDiscoveryPath = (path) => path === "/lan" || path.startsWith("/lan/");
 
-const deviceGate = ({ now = Date.now, windowMs = SAME_ID_OTHER_IP_WINDOW_MS } = {}) => (req, _res, next) => {
-  if (req.method === "OPTIONS" || isLoopback(req) || isDiscoveryPath(req.path)) return next();
+const deviceGate = () => (req, _res, next) => {
+  if (req.method === "OPTIONS" || isMainPc(req) || isDiscoveryPath(req.path)) return next();
   const deviceId = validDeviceId(req.get("x-nota-device-id"));
   if (!deviceId) {
     return next(httpError(400, "DEVICE_ID_REQUIRED",
       "الجهاز ده لازم يبعت رقم جهازه. حدّث البرنامج على الجهاز الفرعي.",
       "This PC must send its device id. Update the app on the client PC."));
   }
+  return next();
+};
+
+/** Mounted AFTER the auth middleware: the 2-minute same-id-other-IP check and the last-seen address, for authenticated requests only. */
+const deviceInUse = ({ now = Date.now, windowMs = SAME_ID_OTHER_IP_WINDOW_MS } = {}) => (req, _res, next) => {
+  if (req.method === "OPTIONS" || isMainPc(req) || isDiscoveryPath(req.path)) return next();
+  if (req.authEnabled && !req.user) return next(); // not signed in: records nothing, blocks nothing
+  const deviceId = validDeviceId(req.get("x-nota-device-id"));
+  if (!deviceId) return next();
   const ip = normalizeIp(req.ip);
   const at = now();
   const seen = lastSeen.get(deviceId);
@@ -54,4 +67,4 @@ const deviceGate = ({ now = Date.now, windowMs = SAME_ID_OTHER_IP_WINDOW_MS } = 
   return next();
 };
 
-module.exports = { SAME_ID_OTHER_IP_WINDOW_MS, deviceGate, resetDeviceGate, normalizeIp };
+module.exports = { SAME_ID_OTHER_IP_WINDOW_MS, deviceGate, deviceInUse, resetDeviceGate, normalizeIp };

@@ -11,6 +11,7 @@
 const LAN_KEY_HEADER = 'X-Nota-Lan-Key';
 const DEVICE_ID_HEADER = 'X-Nota-Device-Id';
 const DEVICE_NAME_HEADER = 'X-Nota-Device-Name';
+const MAIN_TOKEN_HEADER = 'X-Nota-Main-Token';
 const DEVICE_NAME_MAX = 64;
 
 // HTTP header values must stay printable ASCII: the hostname is trimmed to 64 characters and
@@ -20,7 +21,9 @@ function deviceNameHeader(name) {
   return trimmed ? encodeURIComponent(trimmed) : '';
 }
 
-function installSecretHeader(session, { origin, secret, deviceId, deviceName }) {
+// mainToken (Stage 24): the main PC's own windows add it so the backend knows the request is the main PC (loopback alone is not enough).
+// A client PC has no such token. Install this only on the app's own session, never on the print partition.
+function installSecretHeader(session, { origin, secret, deviceId, deviceName, mainToken }) {
   const filter = { urls: [`${origin}/*`] };
   const device = {};
   if (deviceId) {
@@ -28,9 +31,10 @@ function installSecretHeader(session, { origin, secret, deviceId, deviceName }) 
     const encodedName = deviceNameHeader(deviceName);
     if (encodedName) device[DEVICE_NAME_HEADER] = encodedName;
   }
+  if (mainToken) device[MAIN_TOKEN_HEADER] = String(mainToken);
   session.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
     callback({ requestHeaders: { ...details.requestHeaders, [LAN_KEY_HEADER]: secret, ...device } });
   });
 }
 
-module.exports = { LAN_KEY_HEADER, DEVICE_ID_HEADER, DEVICE_NAME_HEADER, DEVICE_NAME_MAX, deviceNameHeader, installSecretHeader };
+module.exports = { MAIN_TOKEN_HEADER, LAN_KEY_HEADER, DEVICE_ID_HEADER, DEVICE_NAME_HEADER, DEVICE_NAME_MAX, deviceNameHeader, installSecretHeader };

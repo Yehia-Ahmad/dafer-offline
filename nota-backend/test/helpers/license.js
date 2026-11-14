@@ -29,8 +29,28 @@ const issueTestLicense = (overrides = {}, privateKey = testPrivateKey()) => {
   return buildText(payloadBytes, crypto.sign(null, payloadBytes, privateKey));
 };
 
+// Stage 24: the main PC is a loopback request that carries the per-start main-PC token (src/auth/mainPc.js). A test's fetch() plays the
+// main PC's own window, so it adds the token to every request, unless the call sets the marker header "x-test-no-main-token"
+// (a request that must behave like a client PC or a TCP forwarder on the main PC). Installed once, with the first test license.
+const NO_MAIN_TOKEN = "x-test-no-main-token";
+const actAsMainWindow = () => {
+  if (globalThis.fetch.__mainWindow) return;
+  const { mainPcToken, HEADER } = require("../../src/auth/mainPc");
+  const real = globalThis.fetch;
+  const wrapped = (input, init = {}) => {
+    const headers = new Headers(init.headers || (input && input.headers) || {});
+    if (headers.has(NO_MAIN_TOKEN)) headers.delete(NO_MAIN_TOKEN);
+    else headers.set(HEADER, mainPcToken());
+    return real(input, { ...init, headers });
+  };
+  wrapped.__mainWindow = true;
+  wrapped.__real = real; // a script that is not a test (the smoke test) puts the real fetch back and sends its own token
+  globalThis.fetch = wrapped;
+};
+
 /** Points the license folder at a fresh temp dir and (unless `text === null`) writes a valid test license there. */
 const installTestLicense = (overrides = {}, text) => {
+  actAsMainWindow();
   const license = require("../../src/license");
   const dir = process.env.NOTA_LICENSE_DIR && process.env.NOTA_LICENSE_DIR.startsWith(path.join(os.tmpdir(), "nota-test-license-"))
     ? process.env.NOTA_LICENSE_DIR
@@ -50,4 +70,4 @@ const removeTestLicenseDir = () => {
   require("../../src/license").resetForTests();
 };
 
-module.exports = { issueTestLicense, installTestLicense, removeTestLicenseDir, testPrivateKey, otherPrivateKey };
+module.exports = { NO_MAIN_TOKEN, actAsMainWindow, issueTestLicense, installTestLicense, removeTestLicenseDir, testPrivateKey, otherPrivateKey };

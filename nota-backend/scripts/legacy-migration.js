@@ -17,6 +17,15 @@ const OLD_COMMIT = "d5113d6";
 // Stage 24: the current backend answers 402 without a license; run it with a test license (test builds only). The old backend has no license code.
 const licenseHelper = require("../test/helpers/license");
 licenseHelper.installTestLicense();
+// Stage 24: the current backend treats only a loopback request WITH its main-PC token as the main PC. This script starts that backend with
+// its own token and sends it on every request (the old backend ignores the header), instead of the helper's test-window fetch wrapper.
+const MAIN_TOKEN = require("node:crypto").randomBytes(32).toString("hex");
+const realFetch = globalThis.fetch.__real || globalThis.fetch;
+globalThis.fetch = (input, init = {}) => {
+  const headers = new Headers(init.headers || {});
+  headers.set("x-nota-main-token", MAIN_TOKEN);
+  return realFetch(input, { ...init, headers });
+};
 process.on("exit", () => licenseHelper.removeTestLicenseDir());
 
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -103,7 +112,7 @@ async function main() {
     }
     await bootstrap.close();
     const mongoUri = `mongodb://127.0.0.1:${mongoPort}/nota_legacy?replicaSet=rs0&directConnection=true`;
-    const childEnv = { ...process.env, MONGO_URI: mongoUri, NOTA_AUTH: "", NODE_PATH: path.join(BACKEND, "node_modules") };
+    const childEnv = { ...process.env, MONGO_URI: mongoUri, NOTA_AUTH: "", NOTA_MAIN_TOKEN: MAIN_TOKEN, NODE_PATH: path.join(BACKEND, "node_modules") };
     oldBackend = spawn(process.execPath, [path.join(temp, "nota-backend", "src", "server.js")], {
       cwd: path.join(temp, "nota-backend"), env: { ...childEnv, PORT: String(oldPort) }, windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
     });

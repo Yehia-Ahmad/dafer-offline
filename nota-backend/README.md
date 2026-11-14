@@ -118,6 +118,8 @@ With `NOTA_AUTH=1` (Stage 13), after the LAN key every `/api/*` request also nee
 
 Stage 19: the desktop app also sends `X-Nota-Device-Id` (this PC's id) and `X-Nota-Device-Name` (its hostname, percent-encoded, at most 64 characters). The backend uses them only to pick the default cash box of that PC and to list the PCs (`GET /api/devices`, `cashbox.manage`). **They are not authentication**: permissions, shifts and the audit log follow the signed-in user, and an id that is not 8-64 letters, digits, dots, dashes or underscores is ignored.
 
+Stage 24: **the license lock and the device check are always on in this repo**, in every mode (there is no switch): without a valid `nota.lic` (`NOTA_LICENSE_DIR`) every `/api/*` route except `/api/license/status` and `/api/license/activate` answers `402 LICENSE_REQUIRED`, and every request that is not the main PC must send `X-Nota-Device-Id`. The main PC is a loopback request that carries the per-start token in `X-Nota-Main-Token` (the desktop app sets `NOTA_MAIN_TOKEN` for the backend and adds the header to its own windows; with no token set, the backend makes a random one nobody knows, so no request is the main PC). Tests use `test/helpers/license.js` (`installTestLicense()` also makes the test `fetch` act as the main PC's window).
+
 ## API Endpoints
 
 ### Categories

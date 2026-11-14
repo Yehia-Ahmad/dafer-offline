@@ -94,6 +94,8 @@ const state = {
   log: null,
   config: null,
   secret: null,
+  // Stage 24: random at every app start, handed to the backend in its environment and added to this app's own windows' requests; never logged, never written to disk.
+  mainToken: require('crypto').randomBytes(32).toString('hex'),
   apiOrigin: null,
   serverInfo: null, // client: the main PC's /api/lan/info answer
   supervisor: null,
@@ -648,6 +650,8 @@ function deviceHeaderOptions() {
     secret: state.secret,
     deviceId: state.config ? state.config.instanceId : null,
     deviceName: os.hostname(),
+    // Stage 24: only the main PC's windows carry the token (a client PC's pages talk to another machine's backend).
+    mainToken: state.mode === 'main' ? state.mainToken : undefined,
   };
 }
 
@@ -1056,6 +1060,7 @@ async function startMainRole() {
       sessionsValidAfter: config.sessionsValidAfter,
       auditInbox: path.join(paths.run, AUDIT_INBOX_NAME),
       licenseDir: paths.license,
+      mainToken: state.mainToken,
     }),
     port: config.port,
     log: state.logger('backend'),

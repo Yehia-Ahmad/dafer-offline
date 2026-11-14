@@ -19,6 +19,8 @@ const TOOL = path.resolve(FRONTEND, '..', 'tools', 'license-gen', 'license-gen.j
 const { issueTestLicense } = require(path.join(BACKEND, 'test', 'helpers', 'license.js'));
 let electronPath = null;
 try { electronPath = require('electron'); } catch { electronPath = null; }
+// Stage 24: a missing stage FAILS the real-stage test (like npm test without a mongod), unless NOTA_ALLOW_SKIP=1 says to skip it.
+const stageSkip = () => (process.env.NOTA_ALLOW_SKIP === '1' && !fs.existsSync(path.join(__dirname, '..', '..', 'offline-stage', 'backend', 'node_modules', 'express', 'index.js')) ? 'no staged backend (NOTA_ALLOW_SKIP=1)' : false);
 const skipElectron = typeof electronPath === 'string' ? false : 'electron is not installed';
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-protect-'));
@@ -210,8 +212,9 @@ test('tamper check: an untouched backend passes; a changed, added or removed fil
   assert.match(integrity.verifyBackend({ backendDir: dir, seal }).problems[0], /missing/);
 });
 
-test('the REAL staged backend folder (offline-stage/backend, if staged): everything is hashed, a patched express or an added file in node_modules fails, and the hashing time is measured', { skip: fs.existsSync(path.join(FRONTEND, 'offline-stage', 'backend', 'node_modules', 'express', 'index.js')) ? false : 'no staged backend (run offline:stage first)', timeout: 180000 }, async () => {
+test('the REAL staged backend folder (offline-stage/backend, if staged): everything is hashed, a patched express or an added file in node_modules fails, and the hashing time is measured', { skip: stageSkip(), timeout: 180000 }, async () => {
   const staged = path.join(FRONTEND, 'offline-stage', 'backend');
+  assert.ok(fs.existsSync(path.join(staged, 'node_modules', 'express', 'index.js')), 'no staged backend: run offline:stage first (NOTA_ALLOW_SKIP=1 skips this test on purpose)');
   const copyDir = path.join(tmp, 'real-stage-copy');
   fs.cpSync(staged, copyDir, { recursive: true });
   let started = process.hrtime.bigint();
