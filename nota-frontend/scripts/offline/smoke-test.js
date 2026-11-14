@@ -188,6 +188,8 @@ async function startBackend({ auth = true, dbName = DB_NAME, licenseDirectory = 
     NOTA_LAN_SECRET: LAN_SECRET,
     // Keep the test server off the shop network.
     NOTA_LISTEN_HOST: '127.0.0.1',
+    // Stage 24: the main PC publishes its instance id on /api/lan/info (the client-limit bypass test sends it from a LAN address).
+    NOTA_INSTANCE_ID: 'smoke-main-instance-0001',
     // Stage 24: a test license (source tree = test build) so the backend is not locked.
     NOTA_LICENSE_DIR: licenseDirectory || licenseDir(),
   };
@@ -240,7 +242,9 @@ async function request(method, urlPath, { body, withKey = true, binary = false, 
 // the main PC's own addresses the backend accepts (127.0.0.1, ::1, ::ffff:127.0.0.1), so it stands
 // in for a client PC without the test server ever leaving this machine.
 const NON_LOCAL_SOURCE = '127.0.0.2';
-function requestFromAddress(localAddress, method, urlPath, { body } = {}) {
+// Stage 24: a LAN request always carries a device id (400 DEVICE_ID_REQUIRED without one).
+const LAN_DEVICE = { 'x-nota-device-id': 'smoke-lan-pc-0001' };
+function requestFromAddress(localAddress, method, urlPath, { body, headers: extraHeaders = {} } = {}) {
   const http = require('node:http');
   const payload = body === undefined ? null : Buffer.from(JSON.stringify(body));
   return new Promise((resolve, reject) => {
@@ -252,6 +256,7 @@ function requestFromAddress(localAddress, method, urlPath, { body } = {}) {
         timeout: REQUEST_TIMEOUT_MS,
         headers: {
           [LAN_KEY_HEADER]: LAN_SECRET,
+          ...extraHeaders,
           ...(payload ? { 'content-type': 'application/json', 'content-length': payload.length } : {}),
         },
       },
@@ -341,10 +346,10 @@ async function runAuthSetup(ctx) {
   });
 
   await step(`Auth: setup-owner from a non-loopback address (${NON_LOCAL_SOURCE}) → 403 LOCAL_ONLY, isLocal false`, async () => {
-    const boot = await requestFromAddress(NON_LOCAL_SOURCE, 'GET', '/api/auth/bootstrap');
+    const boot = await requestFromAddress(NON_LOCAL_SOURCE, 'GET', '/api/auth/bootstrap', { headers: LAN_DEVICE });
     expectStatus(boot, 200, 'GET /api/auth/bootstrap from a client address');
     expect(boot.json.isLocal === false, `isLocal expected false, got ${boot.json.isLocal}`);
-    const response = await requestFromAddress(NON_LOCAL_SOURCE, 'POST', '/api/auth/setup-owner', { body: OWNER });
+    const response = await requestFromAddress(NON_LOCAL_SOURCE, 'POST', '/api/auth/setup-owner', { body: OWNER, headers: LAN_DEVICE });
     expectStatus(response, 403, 'POST /api/auth/setup-owner from a client address');
     expect(response.json.code === 'LOCAL_ONLY', `code expected LOCAL_ONLY, got ${response.json.code}`);
     const after = await request('GET', '/api/auth/bootstrap', { token: null });
@@ -786,7 +791,8 @@ async function runStage19Scenarios() {
     const devices = await request('GET', '/api/devices');
     expectStatus(devices, 200, 'GET /api/devices');
     const pc = devices.json.data.find((row) => row.deviceId === DEVICE_HEADERS['x-nota-device-id']);
-    expect(pc && pc.name === 'Smoke-Cashier-PC' && pc.role === 'client', `device row ${JSON.stringify(pc)}`);
+    // Stage 24: this request comes over loopback, which is the main PC (a LAN client is "client": the Stage 24 steps below)
+    expect(pc && pc.name === 'Smoke-Cashier-PC' && pc.role === 'main', `device row ${JSON.stringify(pc)}`);
     return `PC "${pc.name}" (${pc.role})`;
   });
 
@@ -2204,10 +2210,17 @@ async function runStage24Scenarios(licenseDirectory) {
     return 'owner only';
   });
 
+  // A client PC reaches the backend over the LAN: its requests come from a non-loopback address (here 127.0.0.N, N != 1, which the backend
+  // does not treat as loopback) and carry its device id. One address per client PC.
+  const lanSource = (n) => `127.0.0.${20 + n}`;
+  const clientId = (n) => `11111111-aaaa-4aaa-8aaa-00000000000${n}`;
+  const lan = (n, method, route, body, extraHeaders = {}) => requestFromAddress(lanSource(n), method, route, { body, headers: { 'x-nota-device-id': clientId(n), 'x-nota-device-name': encodeURIComponent(`Smoke-PC-${n}`), ...extraHeaders } });
+  const lanLogin = (n) => lan(n, 'POST', '/api/auth/login', { username: OWNER.username, password: OWNER.password });
+
   await step('Stage 24: client limit 2: two client PCs sign in, the third is refused (403 CLIENT_LIMIT, Arabic + English message) at login', async () => {
-    expectStatus(await login('11111111-aaaa-4aaa-8aaa-000000000001'), 200, 'client 1 login');
-    expectStatus(await login('11111111-aaaa-4aaa-8aaa-000000000002'), 200, 'client 2 login');
-    const third = await login('11111111-aaaa-4aaa-8aaa-000000000003');
+    expectStatus(await lanLogin(1), 200, 'client 1 login');
+    expectStatus(await lanLogin(2), 200, 'client 2 login');
+    const third = await lanLogin(3);
     expectStatus(third, 403, 'client 3 login');
     expect(third.json.code === 'CLIENT_LIMIT', 'expected CLIENT_LIMIT');
     expect(third.json.message.includes('أقصى عدد أجهزة فرعية') && /limit of client PCs/.test(third.json.messageEn), 'expected the Arabic and English messages');
@@ -2217,13 +2230,49 @@ async function runStage24Scenarios(licenseDirectory) {
     return '2 of 2 used, the third refused';
   });
 
-  await step('Stage 24: the owner unpairs a client PC → the freed slot goes to the third; the unpaired PC is refused', async () => {
-    expectStatus(await request('DELETE', '/api/license/clients/11111111-aaaa-4aaa-8aaa-000000000001'), 200, 'unpair client 1');
-    expectStatus(await login('11111111-aaaa-4aaa-8aaa-000000000003'), 200, 'client 3 takes the slot');
-    const first = await login('11111111-aaaa-4aaa-8aaa-000000000001');
-    expectStatus(first, 403, 'the unpaired client 1 login');
-    expect(first.json.code === 'CLIENT_LIMIT', 'expected CLIENT_LIMIT');
-    return 'slot freed and reused';
+  await step('Stage 24: bypass 1: the main PC\'s instance id (readable from /api/lan/info) does not make a LAN request "the main PC" → 403 CLIENT_LIMIT', async () => {
+    const info = await request('GET', '/api/lan/info');
+    expectStatus(info, 200, 'GET /api/lan/info');
+    expect(info.json.instanceId, 'the main PC publishes its instance id');
+    const spoof = await requestFromAddress(lanSource(4), 'POST', '/api/auth/login', { body: { username: OWNER.username, password: OWNER.password }, headers: { 'x-nota-device-id': info.json.instanceId } });
+    expectStatus(spoof, 403, 'login with the main PC\'s instance id from a LAN address');
+    expect(spoof.json.code === 'CLIENT_LIMIT', `expected CLIENT_LIMIT, got ${JSON.stringify(spoof.json)}`);
+    return 'the instance id buys nothing';
+  });
+
+  await step('Stage 24: bypass 2: a LAN request without a device id → 400 DEVICE_ID_REQUIRED (login included); the main PC itself needs none', async () => {
+    const noId = await requestFromAddress(lanSource(5), 'POST', '/api/auth/login', { body: { username: OWNER.username, password: OWNER.password } });
+    expectStatus(noId, 400, 'login without a device id');
+    expect(noId.json.code === 'DEVICE_ID_REQUIRED' && /device id/.test(noId.json.messageEn), 'expected DEVICE_ID_REQUIRED with an English message');
+    expectStatus(await requestFromAddress(lanSource(5), 'GET', '/api/products'), 400, 'a plain request without a device id');
+    expectStatus(await request('GET', '/api/products'), 200, 'the main PC (loopback) with no device id');
+    return '400 for LAN, 200 for the main PC';
+  });
+
+  await step('Stage 24: bypass 3: one device id from a second address within 2 minutes → 403 DEVICE_IN_USE (Arabic + English)', async () => {
+    const copied = await requestFromAddress(lanSource(9), 'POST', '/api/auth/login', { body: { username: OWNER.username, password: OWNER.password }, headers: { 'x-nota-device-id': clientId(1) } });
+    expectStatus(copied, 403, 'client 1 id used from another address');
+    expect(copied.json.code === 'DEVICE_IN_USE', `expected DEVICE_IN_USE, got ${JSON.stringify(copied.json)}`);
+    expect(copied.json.message.includes('بيستخدمه جهاز تاني') && /another PC/.test(copied.json.messageEn), 'expected the Arabic and English messages');
+    expectStatus(await lanLogin(1), 200, 'the real client 1 is not disturbed');
+    return 'the copy is refused, the original works';
+  });
+
+  await step('Stage 24: the owner unpairs a PC → it is REVOKED (CLIENT_REVOKED even with a free slot); the owner re-allows it; it pairs itself again', async () => {
+    expectStatus(await request('DELETE', `/api/license/clients/${clientId(1)}`), 200, 'unpair client 1');
+    const revoked = await lanLogin(1);
+    expectStatus(revoked, 403, 'the revoked client 1 login');
+    expect(revoked.json.code === 'CLIENT_REVOKED', `expected CLIENT_REVOKED, got ${JSON.stringify(revoked.json)}`);
+    const info = await request('GET', '/api/license/info');
+    expect(info.json.revoked.map((r) => r.deviceId).join() === clientId(1) && info.json.clientsUsed === 1, 'the revoked PC is listed and its slot is free');
+    // the freed slot goes to another PC; re-allowing client 1 does not take it back
+    expectStatus(await lanLogin(3), 200, 'client 3 takes the freed slot');
+    expectStatus(await request('POST', `/api/license/clients/${clientId(1)}/allow`), 200, 're-allow client 1');
+    const full = await lanLogin(1);
+    expect(full.status === 403 && full.json.code === 'CLIENT_LIMIT', 're-allowed, but both slots are taken');
+    expectStatus(await request('DELETE', `/api/license/clients/${clientId(2)}`), 200, 'unpair client 2');
+    expectStatus(await lanLogin(1), 200, 'client 1 pairs itself again');
+    return 'revoke, re-allow, slot reuse';
   });
 }
 

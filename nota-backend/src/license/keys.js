@@ -13,17 +13,18 @@ const PRODUCTION_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
 ${PLACEHOLDER_MARKER}
 -----END PUBLIC KEY-----`;
 
+// Captured at load (see index.js): later code cannot replace crypto.createPublicKey under the license check.
+const { createPublicKey } = require("crypto");
 const { TEST_BUILD } = require("./build-flags");
 
 /** Public keys that may verify a license in this build. A placeholder or unparsable key is skipped (fails closed). */
 const acceptedPublicKeys = () => {
-  const crypto = require("crypto");
   const pems = [PRODUCTION_PUBLIC_KEY_PEM];
   if (TEST_BUILD === true) pems.push(require("./test-key").TEST_PUBLIC_KEY_PEM);
   const keys = [];
   for (const pem of pems) {
     if (pem.includes(PLACEHOLDER_MARKER)) continue;
-    try { keys.push(crypto.createPublicKey(pem)); } catch { /* skip */ }
+    try { keys.push(createPublicKey(pem)); } catch { /* skip */ }
   }
   return keys;
 };

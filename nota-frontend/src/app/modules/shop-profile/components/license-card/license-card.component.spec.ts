@@ -53,6 +53,24 @@ describe('LicenseCardComponent (Stage 24)', () => {
     expect(el().textContent).toContain('pc-0002-bbbb'); // no name: the id is shown
   });
 
+  it('removed (revoked) PCs are listed separately; "allow" re-allows one and the card reloads', async () => {
+    await open({ ...INFO, revoked: [{ deviceId: 'pc-0009-zzzz', name: 'كاشير قديم', revokedAt: '2026-06-02T00:00:00.000Z' }] });
+    expect(el().querySelectorAll('[data-test="license-revoked"]').length).toBe(1);
+    expect(el().querySelector('[data-test="license-revoked"]')?.textContent).toContain('كاشير قديم');
+    (el().querySelector('[data-action="allow"]') as HTMLButtonElement).click();
+    const post = http.expectOne(`${base}/clients/pc-0009-zzzz/allow`);
+    expect(post.request.method).toBe('POST');
+    post.flush({ allowed: true });
+    http.expectOne(`${base}/info`).flush({ ...INFO, revoked: [] });
+    await settle();
+    expect(el().querySelector('[data-test="license-revoked"]')).toBeNull();
+  });
+
+  it('an older backend without a "revoked" list shows no removed-PCs section', async () => {
+    await open(INFO);
+    expect(el().querySelector('[data-test="license-revoked"]')).toBeNull();
+  });
+
   it('no paired clients: says so and shows no list', async () => {
     await open({ ...INFO, clientsUsed: 0, clients: [] });
     expect(el().querySelector('[data-test="license-no-clients"]')).not.toBeNull();

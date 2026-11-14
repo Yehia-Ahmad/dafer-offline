@@ -9,7 +9,7 @@ const license = require("../license");
 const service = require("../license/service");
 const asyncHandler = require("../utils/asyncHandler");
 const { requireAuth, requirePermission, localOnly, publicRoute } = require("../auth/middleware");
-const { clientSlots, unpair } = require("../license/clients");
+const { clientSlots, unpair, allow } = require("../license/clients");
 const { resetDeviceThrottle } = require("../middlewares/device.middleware");
 
 const httpError = (statusCode, code, message, extra = {}) => {
@@ -61,7 +61,15 @@ const createLicenseRouter = ({ secret, sessionsValidAfter = 0 } = {}) => {
       res.json({ ...details, ...(await clientSlots(details.maxClients)) });
     }));
 
-  // Frees one client PC's slot. It must pair again (and needs a free slot) to work.
+  // The owner lets a revoked (unpaired) PC pair again. It still needs a free slot and pairs itself the next time it signs in.
+  router.post("/clients/:deviceId/allow", ...session(), requirePermission("shop.manage"), ownerOnly,
+    asyncHandler(async (req, res) => {
+      if (!(await allow(req.params.deviceId))) throw httpError(404, "NOT_FOUND", "الجهاز ده مش مفصول");
+      resetDeviceThrottle();
+      res.json({ allowed: true });
+    }));
+
+  // Frees one client PC's slot and revokes it: it cannot pair itself again until the owner allows it (above).
   router.delete("/clients/:deviceId", ...session(), requirePermission("shop.manage"), ownerOnly,
     asyncHandler(async (req, res) => {
       const done = await unpair(req.params.deviceId);

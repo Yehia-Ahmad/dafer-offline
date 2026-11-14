@@ -52,7 +52,7 @@ const { createPrintHandlers } = require('./lib/print-handlers');
 const { AUDIT_INBOX_NAME, appendAuditEntry } = require('./lib/audit-inbox');
 const { MainPcWatcher } = require('./lib/main-pc-watcher');
 const { createLicenseGate } = require('./lib/license-gate');
-const { verifyBackend } = require('./lib/integrity');
+const { verifyBackendAsync } = require('./lib/integrity');
 const { EULA, eulaStatus, recordAcceptance } = require('./lib/eula');
 const { devToolsAllowed, hardenContents, hasDebugSwitch } = require('./lib/hardening');
 
@@ -738,9 +738,11 @@ function readIntegritySeal() {
 }
 
 // Installed builds only: a development run has no seal and nothing to protect.
-function checkInstallation() {
+async function checkInstallation() {
   if (!app.isPackaged) return { ok: true, problems: [] };
-  const result = verifyBackend({ backendDir: state.resources.backendDir, seal: readIntegritySeal() });
+  const started = Date.now();
+  const result = await verifyBackendAsync({ backendDir: state.resources.backendDir, seal: readIntegritySeal() });
+  log.info(`installation check: ${result.ok ? 'ok' : 'FAILED'} in ${Date.now() - started} ms`);
   if (!result.ok) log.error(`installation check failed: ${result.problems.join('; ')}`);
   return result;
 }
@@ -1061,7 +1063,8 @@ async function startMainRole() {
   });
 
   state.backend = backend;
-  state.supervisor = new MainPcSupervisor({ mongod, backend, log: state.logger('supervisor') });
+  // Stage 24: the installation is re-checked before EVERY backend start, restarts after a crash, a backup or a restore included.
+  state.supervisor = new MainPcSupervisor({ mongod, backend, log: state.logger('supervisor'), verifyInstallation: () => checkInstallation() });
   state.supervisor.on('status', setStatus);
   updateTray();
   await state.supervisor.start();
@@ -1185,7 +1188,7 @@ async function start() {
   createTray();
 
   // Stage 24: the protected backend files must be exactly what the installer put there.
-  const installation = checkInstallation();
+  const installation = await checkInstallation();
   if (!installation.ok) {
     showDamaged(installation);
     return;
@@ -1279,7 +1282,7 @@ if (quitAllRequested) {
   app.exit(0);
 } else {
   // Stage 24: hardens every window (main, print) in an installed build, and refuses a debugging port.
-  if (app.isPackaged && hasDebugSwitch(process.argv)) app.exit(1);
+  if (app.isPackaged && hasDebugSwitch(process.argv, app.commandLine)) app.exit(1);
   app.on('web-contents-created', (_event, contents) => hardenContents(contents, { isPackaged: app.isPackaged }));
   app.on('second-instance', (_event, argv, _cwd, data) => {
     if ((data && data.quit) || argv.includes('--quit')) gracefulQuit('another launch asked the app to quit');

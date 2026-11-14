@@ -52,6 +52,19 @@ const REASONS = new Set(['MALFORMED', 'BAD_SIGNATURE', 'WRONG_MACHINE', 'UNKNOWN
           <p class="nota-hint">{{ 'license.unpairHint' | translate }}</p>
         }
 
+        @if (license.revoked?.length) {
+          <h3 class="lic__sub">{{ 'license.revoked' | translate }}</h3>
+          <ul class="lic__clients">
+            @for (client of license.revoked; track client.deviceId) {
+              <li data-test="license-revoked">
+                <span class="lic__client-name">{{ client.name || client.deviceId }}</span>
+                <button type="button" notaButton data-action="allow" [disabled]="busy()" (click)="allow(client.deviceId)">{{ 'license.allow' | translate }}</button>
+              </li>
+            }
+          </ul>
+          <p class="nota-hint">{{ 'license.revokedHint' | translate }}</p>
+        }
+
         @if (!replacing()) {
           <button type="button" notaButton data-action="replace-license" (click)="startReplace()">{{ 'license.replace' | translate }}</button>
         } @else {
@@ -153,6 +166,15 @@ export class LicenseCardComponent implements OnInit {
         const key = typeof reason === 'string' && REASONS.has(reason) ? `license.errors.${reason}` : 'license.errors.DEFAULT';
         this.message.set({ text: this.translate.instant(key), error: true });
       },
+    });
+  }
+
+  protected allow(deviceId: string): void {
+    this.busy.set(true);
+    this.message.set(null);
+    this.license.allow(deviceId).subscribe({
+      next: () => { this.busy.set(false); this.message.set({ text: this.translate.instant('license.allowed'), error: false }); this.load(); },
+      error: () => { this.busy.set(false); this.message.set({ text: this.translate.instant('license.errors.DEFAULT'), error: true }); },
     });
   }
 

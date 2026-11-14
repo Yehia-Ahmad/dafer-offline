@@ -2,8 +2,9 @@
 //   Windows: HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid (read with `reg query`, no native module)
 //   Linux (dev only): /etc/machine-id
 // ID = first 16 hex chars of SHA-256("nota-machine-v1:" + guid), uppercase, shown as XXXX-XXXX-XXXX-XXXX.
-const crypto = require("crypto");
-const fs = require("fs");
+// Captured at load (see index.js): later code cannot replace them under the license check.
+const { createHash } = require("crypto");
+const { readFileSync } = require("fs");
 const { execFileSync } = require("child_process");
 
 const readWindowsGuid = () => {
@@ -15,10 +16,10 @@ const readWindowsGuid = () => {
   return match[1];
 };
 
-const readLinuxGuid = () => fs.readFileSync("/etc/machine-id", "utf8").trim();
+const readLinuxGuid = () => readFileSync("/etc/machine-id", "utf8").trim();
 
 const idFromGuid = (guid) => {
-  const hex = crypto.createHash("sha256").update(`nota-machine-v1:${guid}`).digest("hex").slice(0, 16).toUpperCase();
+  const hex = createHash("sha256").update(`nota-machine-v1:${guid}`).digest("hex").slice(0, 16).toUpperCase();
   return hex.match(/.{4}/g).join("-");
 };
 

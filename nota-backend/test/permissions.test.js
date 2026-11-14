@@ -95,6 +95,7 @@ const EXPECTED_ROUTES = {
   "POST /api/license/activate": "PUBLIC", // no license installed: open from this PC; a license installed: owner + shop.manage (checked inside)
   "GET /api/license/info": "shop.manage",
   "DELETE /api/license/clients/:deviceId": "shop.manage",
+  "POST /api/license/clients/:deviceId/allow": "shop.manage",
   "GET /api/auth/bootstrap": "PUBLIC",
   "POST /api/auth/setup-owner": "PUBLIC",
   "POST /api/auth/login": "PUBLIC",

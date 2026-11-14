@@ -1,3 +1,7 @@
+// Stage 24: the license code loads FIRST, before dotenv, express, mongoose or any other dependency, and keeps its own references to
+// crypto and fs (license/index.js), so nothing loaded after it can change what the license check does.
+require("./license");
+
 require("dotenv").config();
 
 const mongoose = require("mongoose");

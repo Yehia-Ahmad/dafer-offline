@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { verifyBackend } = require('../../electron-offline/lib/integrity');
+const { releaseProblems } = require('./protect');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 
@@ -28,6 +29,10 @@ const COPIES = [
 
 exports.default = async function afterPack(context) {
   const resources = path.join(context.appOutDir, 'resources');
+
+  // Stage 24: a stage built with the placeholder key (dev verification) never becomes an installer, whatever the caller did.
+  const notReleasable = releaseProblems(path.join(ROOT, 'offline-stage'));
+  if (notReleasable.length) throw new Error(`[offline:afterPack] ${notReleasable.join('; ')}`);
 
   for (const { from, to, required } of COPIES) {
     if (!fs.existsSync(from)) {

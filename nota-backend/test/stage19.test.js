@@ -220,7 +220,8 @@ it("device header: registers the PC (name, role, throttled), picks the default b
   assert.equal(String(invalid.boxId), String(main._id), "an invalid id is ignored");
   assert.equal(await Device.countDocuments({ deviceId: "bad id with spaces!!" }), 0);
   const registered = await Device.findOne({ deviceId: DEVICE_A }).lean();
-  assert.equal(registered.name, "كاشير 1"); assert.equal(registered.role, "client");
+  // Stage 24: these requests come over loopback (127.0.0.1), which is the main PC; a LAN client is "client" (stage24.test.js)
+  assert.equal(registered.name, "كاشير 1"); assert.equal(registered.role, "main");
   const first = registered.lastSeenAt.getTime();
   await call("GET", "/api/cashbox/payment-boxes", null, asDevice(DEVICE_A, "اسم تاني"));
   const again = await Device.findOne({ deviceId: DEVICE_A }).lean();

@@ -23,9 +23,17 @@ function isBlockedShortcut(input) {
 /** webPreferences.devTools for a window: allowed only in development. */
 const devToolsAllowed = (isPackaged) => !isPackaged;
 
-/** Command-line switches that would open a debugging port. */
-const DEBUG_SWITCH = /^--(remote-debugging|inspect|debug)/i;
-const hasDebugSwitch = (argv) => argv.some((arg) => DEBUG_SWITCH.test(String(arg)));
+/**
+ * Command-line switches that would open a debugging port. Chromium on Windows accepts a switch with --, - or / in front of it and in any
+ * letter case, so the pattern does too; and app.commandLine.hasSwitch asks Chromium itself (what it parsed, whatever the spelling).
+ */
+const DEBUG_SWITCH = /^(?:--?|\/)(?:remote-debugging|inspect|debug)/i;
+const DEBUG_SWITCH_NAMES = ['remote-debugging-port', 'remote-debugging-pipe', 'inspect', 'inspect-brk'];
+function hasDebugSwitch(argv, commandLine) {
+  if ((argv || []).some((arg) => DEBUG_SWITCH.test(String(arg)))) return true;
+  if (commandLine && typeof commandLine.hasSwitch === 'function') return DEBUG_SWITCH_NAMES.some((name) => commandLine.hasSwitch(name));
+  return false;
+}
 
 /** Hardens one webContents (each window, including the print window). No-op when not packaged. */
 function hardenContents(contents, { isPackaged }) {

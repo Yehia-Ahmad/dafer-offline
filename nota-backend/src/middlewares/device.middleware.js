@@ -1,5 +1,6 @@
 const Device = require("../models/device.model");
 const { ensurePaired } = require("../license/clients");
+const { isLoopback } = require("../auth/middleware");
 
 // Stage 19: which PC a request comes from.
 //
@@ -36,7 +37,7 @@ const decodeName = (value) => {
  * an upsert of { deviceId, name, role, lastSeenAt } at most once a minute per device, outside any business transaction.
  * Mounted after requireAuth. A registry failure never fails the request.
  */
-const deviceContext = ({ instanceId = () => process.env.NOTA_INSTANCE_ID, now = Date.now, maxEntries = MAX_REMEMBERED } = {}) => async (req, _res, next) => {
+const deviceContext = ({ now = Date.now, maxEntries = MAX_REMEMBERED } = {}) => async (req, _res, next) => {
   const deviceId = validDeviceId(req.get("x-nota-device-id"));
   if (!deviceId) return next();
   req.deviceId = deviceId;
@@ -50,14 +51,15 @@ const deviceContext = ({ instanceId = () => process.env.NOTA_INSTANCE_ID, now = 
   lastRegistered.set(deviceId, at);
   while (lastRegistered.size > maxEntries) lastRegistered.delete(lastRegistered.keys().next().value);
   try {
-    const set = { lastSeenAt: new Date(at), role: deviceId === instanceId() ? "main" : "client" };
+    // Stage 24: the main PC is the one over loopback. An instance id from the LAN never makes a request "the main PC".
+    const set = { lastSeenAt: new Date(at), role: isLoopback(req) ? "main" : "client" };
     if (req.deviceName) set.name = req.deviceName;
     if (set.role === "client") await ensurePaired(deviceId, set);
     else await Device.updateOne({ deviceId }, { $set: set }, { upsert: true });
   } catch (error) {
     lastRegistered.delete(deviceId);
     // Stage 24: a client PC beyond the license's maxClients is refused (on every request, not once a minute).
-    if (error && error.responseData && error.responseData.code === "CLIENT_LIMIT") return next(error);
+    if (error && error.responseData && (error.responseData.code === "CLIENT_LIMIT" || error.responseData.code === "CLIENT_REVOKED")) return next(error);
     console.error(`device registry failed: ${error.message}`);
   }
   return next();

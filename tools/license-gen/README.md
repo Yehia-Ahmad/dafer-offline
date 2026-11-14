@@ -24,6 +24,7 @@ MCowBQYDK2VwAyEA....
 
 - The public key is compiled into the app. No setting, file or environment variable can replace it.
 - **Build guard:** `npm run offline:stage` (and so `npm run electron:build:win:offline`, which runs it) stops with an error while the placeholder is still there, so you cannot ship an app that accepts no license. It also stops if the staged backend still has the test key, the test flag or any private key.
+- `NOTA_ALLOW_PLACEHOLDER_KEY=1 npm run offline:stage` builds a stage with the placeholder for development verification only: it is marked non-releasable (`offline-stage/NON_RELEASABLE.json`) and `electron:build:win:offline` always refuses it, whatever the environment.
 - To try a build without your real key, make a throwaway pair with `keygen` in a temp folder, put its public key in `keys.js`, build, and then **put the placeholder back** (never commit a throwaway key).
 - Only the public key goes in the repo. Commit that change yourself.
 

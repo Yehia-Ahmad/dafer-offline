@@ -51,24 +51,35 @@ function prepareProductionSource(srcDir, { productionKeyPem } = {}) {
   }
 }
 
-/** Reasons the plain (not yet compiled) staged source must not ship. Empty = fine. */
-function sourceProblems(srcDir) {
+const PLACEHOLDER_PROBLEM = 'the production public key is still the placeholder (or not an Ed25519 key): put your key in nota-backend/src/license/keys.js (tools/license-gen/README.md, step 2)';
+const NON_RELEASABLE = 'NON_RELEASABLE.json';
+
+/** The production key problem of a (plain) source folder, or null when a valid Ed25519 key is compiled in. */
+function productionKeyProblem(srcDir) {
+  const keys = path.join(srcDir, 'license', 'keys.js');
+  if (!fs.existsSync(keys)) return 'src/license/keys.js is missing';
+  // The literal itself (the file also defines the marker constant, so searching the whole file would always hit).
+  const literal = /const PRODUCTION_PUBLIC_KEY_PEM = `([^`]*)`;/.exec(fs.readFileSync(keys, 'utf8'));
+  let valid = false;
+  if (literal && !literal[1].includes('PLACEHOLDER')) {
+    try { valid = crypto.createPublicKey(literal[1]).asymmetricKeyType === 'ed25519'; } catch { valid = false; }
+  }
+  return valid ? null : PLACEHOLDER_PROBLEM;
+}
+
+/**
+ * Reasons the plain (not yet compiled) staged source must not ship. Empty = fine.
+ * allowPlaceholder (dev verification only, NOTA_ALLOW_PLACEHOLDER_KEY=1 for offline:stage): the placeholder key is tolerated; every other
+ * problem still fails, and the caller marks the stage non-releasable.
+ */
+function sourceProblems(srcDir, { allowPlaceholder = false } = {}) {
   const problems = [];
   const license = path.join(srcDir, 'license');
   if (fs.existsSync(path.join(license, 'test-key.js'))) problems.push('src/license/test-key.js (the test key) is in the staged backend');
   const flags = path.join(license, 'build-flags.js');
   if (!fs.existsSync(flags) || /TEST_BUILD\s*:\s*true/.test(fs.readFileSync(flags, 'utf8'))) problems.push('src/license/build-flags.js has TEST_BUILD true (or is missing)');
-  const keys = path.join(license, 'keys.js');
-  if (!fs.existsSync(keys)) problems.push('src/license/keys.js is missing');
-  else {
-    // The literal itself (the file also defines the marker constant, so searching the whole file would always hit).
-    const literal = /const PRODUCTION_PUBLIC_KEY_PEM = `([^`]*)`;/.exec(fs.readFileSync(keys, 'utf8'));
-    let valid = false;
-    if (literal && !literal[1].includes('PLACEHOLDER')) {
-      try { valid = crypto.createPublicKey(literal[1]).asymmetricKeyType === 'ed25519'; } catch { valid = false; }
-    }
-    if (!valid) problems.push('the production public key is still the placeholder (or not an Ed25519 key): put your key in nota-backend/src/license/keys.js (tools/license-gen/README.md, step 2)');
-  }
+  const keyProblem = productionKeyProblem(srcDir);
+  if (keyProblem && !(allowPlaceholder && keyProblem === PLACEHOLDER_PROBLEM)) problems.push(keyProblem);
   walk(srcDir, (full) => {
     if (KEY_FILE.test(full)) problems.push(`key file: ${path.relative(srcDir, full)}`);
     else if (full.endsWith('.js') && PRIVATE_KEY_BLOCK.test(fs.readFileSync(full, 'utf8'))) problems.push(`private key block in ${path.relative(srcDir, full)}`);
@@ -114,4 +125,21 @@ function stagedProblems(srcDir) {
   return problems;
 }
 
-module.exports = { PLACEHOLDER_MARKER, stubFor, jsFiles, prepareProductionSource, sourceProblems, findPrivateKeys, compileToBytecode, stagedProblems };
+/** A stage built with the placeholder key (NOTA_ALLOW_PLACEHOLDER_KEY=1) is marked, and nothing may be released from it. */
+function markNonReleasable(stageDir, reason) {
+  fs.mkdirSync(stageDir, { recursive: true });
+  fs.writeFileSync(path.join(stageDir, NON_RELEASABLE), `${JSON.stringify({ releasable: false, reason, at: new Date().toISOString() }, null, 1)}\n`);
+}
+
+const clearNonReleasable = (stageDir) => fs.rmSync(path.join(stageDir, NON_RELEASABLE), { force: true });
+
+/** Reasons a stage must not become an installer (the marker is there). Empty = releasable. */
+function releaseProblems(stageDir) {
+  const marker = path.join(stageDir, NON_RELEASABLE);
+  if (!fs.existsSync(marker)) return [];
+  let reason = 'built with the placeholder production key';
+  try { reason = JSON.parse(fs.readFileSync(marker, 'utf8')).reason || reason; } catch { /* keep the default */ }
+  return [`the stage in ${path.basename(stageDir)}/ is marked NON-RELEASABLE (${reason}); run offline:stage again with a real production key`];
+}
+
+module.exports = { NON_RELEASABLE, productionKeyProblem, markNonReleasable, clearNonReleasable, releaseProblems, PLACEHOLDER_MARKER, stubFor, jsFiles, prepareProductionSource, sourceProblems, findPrivateKeys, compileToBytecode, stagedProblems };

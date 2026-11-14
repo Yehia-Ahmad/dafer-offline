@@ -129,8 +129,16 @@ function stageBackend() {
   // Stage 24: production flags, then the guards. Anything wrong here stops the build before bytecode is made.
   const stagedSrc = path.join(STAGE_BACKEND, 'src');
   protect.prepareProductionSource(stagedSrc);
-  const problems = protect.sourceProblems(stagedSrc);
+  // NOTA_ALLOW_PLACEHOLDER_KEY=1 is for development verification only: the stage is built, but marked NON-RELEASABLE, and the installer
+  // build (build-guard.js, afterPack) refuses it. The installer build itself never honours this variable.
+  const allowPlaceholder = process.env.NOTA_ALLOW_PLACEHOLDER_KEY === '1';
+  const problems = protect.sourceProblems(stagedSrc, { allowPlaceholder });
   if (problems.length) fail(`the staged backend must not ship like this:\n  ${problems.join('\n  ')}`);
+  protect.clearNonReleasable(STAGE);
+  if (allowPlaceholder && protect.productionKeyProblem(stagedSrc)) {
+    protect.markNonReleasable(STAGE, 'built with the placeholder production key (NOTA_ALLOW_PLACEHOLDER_KEY=1)');
+    log('WARNING: NOTA_ALLOW_PLACEHOLDER_KEY=1: the production key is the placeholder. This stage is marked NON-RELEASABLE (offline-stage/NON_RELEASABLE.json) and cannot become an installer.');
+  }
 
   log(`installing backend production dependencies from ${BACKEND_SOURCE}`);
   run('npm', ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: STAGE_BACKEND });
@@ -193,6 +201,7 @@ function validate() {
 }
 
 checkInputs();
+fs.mkdirSync(STAGE, { recursive: true });
 stageApp();
 stageBackend();
 writeSeal();

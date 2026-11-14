@@ -1129,8 +1129,12 @@
         "noClients": "No client PCs are paired yet.",
         "lastSeen": "Last seen",
         "unpair": "Unpair",
-        "unpairHint": "Unpairing a PC frees its slot. That PC has to pair again to work, and needs a free slot.",
+        "unpairHint": "Unpairing a PC frees its slot and stops it from pairing itself again. To bring it back, use “Allow again” below.",
         "unpaired": "The PC was unpaired and its slot is free.",
+        "revoked": "Removed PCs",
+        "revokedHint": "These PCs are blocked until you allow them. After “Allow again” the PC pairs itself the next time it signs in, if a slot is free.",
+        "allow": "Allow again",
+        "allowed": "The PC is allowed again. It will pair itself the next time it signs in, if a slot is free.",
         "replace": "Replace license",
         "replaceHint": "Paste the new license text or load a nota.lic file. If it isn't valid, the current license stays as it is.",
         "loadFile": "Load nota.lic file",
@@ -1239,7 +1243,10 @@
             "UNREACHABLE": "Can't reach the main PC. Try again.",
             "generic": "Something went wrong. Try again.",
             "DISCOUNT_LIMIT": "This discount is above your maximum allowed discount",
-            "CLIENT_LIMIT": "You reached the license's limit of client PCs. Ask the owner to remove one."
+            "CLIENT_LIMIT": "You reached the license's limit of client PCs. Ask the owner to remove one.",
+            "CLIENT_REVOKED": "The owner removed this PC. Ask them to allow it again in the license card",
+            "DEVICE_ID_REQUIRED": "This PC did not send its device id. Update the app on the client PC",
+            "DEVICE_IN_USE": "This device id is being used by another PC right now. Each PC needs its own id"
         },
         "changePassword": {
             "open": "Change password",

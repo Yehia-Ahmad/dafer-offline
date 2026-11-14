@@ -11,6 +11,13 @@ describe('authErrorText CLIENT_LIMIT (Stage 24)', () => {
     error: { code: 'CLIENT_LIMIT', message: 'وصلت لأقصى عدد أجهزة فرعية في الترخيص — اطلب من المالك يشيل جهاز', maxClients: 2 },
   });
 
+  it('the other Stage 24 refusals have their own text too: CLIENT_REVOKED, DEVICE_ID_REQUIRED, DEVICE_IN_USE', () => {
+    for (const code of ['CLIENT_REVOKED', 'DEVICE_ID_REQUIRED', 'DEVICE_IN_USE']) {
+      expect(AUTH_ERROR_CODES as readonly string[]).toContain(code);
+      expect(authErrorText(new HttpErrorResponse({ status: code === 'DEVICE_ID_REQUIRED' ? 400 : 403, error: { code, message: 'x' } }), translate)).toBe(`T:auth.errors.${code}`);
+    }
+  });
+
   it('is a known auth error code, shown with the translated text (not the generic one)', () => {
     expect(AUTH_ERROR_CODES).toContain('CLIENT_LIMIT');
     expect(authErrorText(refused, translate)).toBe('T:auth.errors.CLIENT_LIMIT');

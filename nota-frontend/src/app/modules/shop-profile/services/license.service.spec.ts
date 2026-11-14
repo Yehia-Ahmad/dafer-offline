@@ -34,6 +34,13 @@ describe('LicenseService (Stage 24)', () => {
     req.flush({});
   });
 
+  it('allow: POST license/clients/:id/allow (re-allows a removed PC), id encoded', () => {
+    service.allow('pc/with space').subscribe();
+    const req = http.expectOne(`${base}/clients/pc%2Fwith%20space/allow`);
+    expect(req.request.method).toBe('POST');
+    req.flush({ allowed: true });
+  });
+
   it('unpair: DELETE license/clients/:id with the id encoded', () => {
     service.unpair('pc/with space').subscribe();
     const req = http.expectOne(`${base}/clients/pc%2Fwith%20space`);

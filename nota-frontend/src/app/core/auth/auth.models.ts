@@ -76,4 +76,8 @@ export const AUTH_ERROR_CODES = [
   'DISCOUNT_LIMIT',
   // Stage 24: a client PC beyond the license's maxClients cannot sign in.
   'CLIENT_LIMIT',
+  // Stage 24 follow-up: the owner removed this PC / it sent no device id / its device id is in use on another PC.
+  'CLIENT_REVOKED',
+  'DEVICE_ID_REQUIRED',
+  'DEVICE_IN_USE',
 ] as const;

@@ -8,6 +8,20 @@ const { EventEmitter } = require('node:events');
 // Delays before restart attempts 1, 2, 3 ... After the last one the supervisor gives up and
 // reports "failed" until the user presses retry.
 const RESTART_DELAYS_MS = [1000, 2000, 5000, 10000, 30000];
+
+// Stage 24: the code that is about to run must be what the installer put there. A damaged installation is final: no retries.
+function damagedError(problems) {
+  const error = new Error('ملفات البرنامج اتغيّرت أو ناقصة، فالتثبيت تالف. أعد تثبيت البرنامج (بياناتك على الجهاز مش هتتأثر). / The installation is damaged. Reinstall the app; your data is not affected.');
+  error.code = 'INSTALLATION_DAMAGED';
+  error.detail = (problems || []).slice(0, 5).join('\n');
+  return error;
+}
+
+// The status for a start that failed: "damaged" (the reinstall screen) or the usual "failed".
+function failureStatus(error) {
+  if (error && error.code === 'INSTALLATION_DAMAGED') return { state: 'damaged', code: error.code, message: error.message, detail: error.detail };
+  return { state: 'failed', code: (error && error.code) || 'START_FAILED', message: error && error.message, detail: error && error.detail };
+}
 // A service that stays up this long counts as healthy again, which resets the delays.
 const STABLE_AFTER_MS = 120000;
 
@@ -20,8 +34,11 @@ class MainPcSupervisor extends EventEmitter {
     stableAfterMs = STABLE_AFTER_MS,
     timers = { setTimeout, clearTimeout },
     now = Date.now,
+    // Stage 24: () => ({ ok, problems }), run before EVERY backend start (first start, crash restarts, after a backup or restore).
+    verifyInstallation = null,
   }) {
     super();
+    this.verifyInstallation = verifyInstallation;
     this.mongod = mongod;
     this.backend = backend;
     this.log = log;
@@ -46,6 +63,16 @@ class MainPcSupervisor extends EventEmitter {
     this.emit('status', status);
   }
 
+  // The only way the backend is started: the installation is checked first, every time, so a file changed after the app started is
+  // caught at the next restart (a crash, a backup, a restore).
+  async startBackend() {
+    if (this.verifyInstallation) {
+      const check = await this.verifyInstallation(); // sync or async
+      if (!check.ok) throw damagedError(check.problems);
+    }
+    await this.backend.start();
+  }
+
   start() {
     if (!this.startPromise) {
       this.startPromise = this.run().finally(() => {
@@ -62,7 +89,7 @@ class MainPcSupervisor extends EventEmitter {
     try {
       await this.mongod.start();
       if (this.stopping) return;
-      await this.backend.start();
+      await this.startBackend();
       if (this.stopping) return;
       this.lastHealthyAt = this.now();
       this.setStatus({ state: 'running' });
@@ -70,7 +97,7 @@ class MainPcSupervisor extends EventEmitter {
       this.log.error(`start failed: ${error.code || ''} ${error.message}`);
       await this.backend.stop().catch(() => {});
       await this.mongod.stop().catch(() => {});
-      this.setStatus({ state: 'failed', code: error.code || 'START_FAILED', message: error.message, detail: error.detail });
+      this.setStatus(failureStatus(error));
     }
   }
 
@@ -97,15 +124,15 @@ class MainPcSupervisor extends EventEmitter {
       if (!this.stopping) {
         try {
           if (!this.mongod.running) await this.mongod.start();
-          await this.backend.start();
+          await this.startBackend();
           this.lastHealthyAt = this.now();
           this.setStatus({ state: 'running' });
         } catch (error) {
-          if (!failure && recoverRestart) {
+          if (!failure && recoverRestart && error.code !== 'INSTALLATION_DAMAGED') {
             try {
               failure = await recoverRestart(error, result) || error;
               if (!this.mongod.running) await this.mongod.start();
-              await this.backend.start();
+              await this.startBackend();
               this.lastHealthyAt = this.now();
               this.setStatus({ state: 'running' });
             } catch (recoveryError) {
@@ -116,7 +143,7 @@ class MainPcSupervisor extends EventEmitter {
           }
           if (this.status.state !== 'running') {
             this.log.error(`could not restart after maintenance: ${error.message}`);
-            this.setStatus({ state: 'failed', code: failure.code || 'START_FAILED', message: failure.message, detail: failure.detail });
+            this.setStatus(failureStatus(failure));
           }
         }
       }
@@ -128,7 +155,7 @@ class MainPcSupervisor extends EventEmitter {
   }
 
   onServiceExit(name) {
-    if (this.stopping || this.status.state === 'failed') return;
+    if (this.stopping || this.status.state === 'failed' || this.status.state === 'damaged') return;
     // During maintenance the task fails on its own and the server is restarted afterwards.
     if (this.maintenancePromise) {
       this.log.warn(`${name} stopped during maintenance`);
@@ -166,13 +193,18 @@ class MainPcSupervisor extends EventEmitter {
     try {
       // mongod first: the backend's driver reconnects on its own once mongod is back.
       if (!this.mongod.running) await this.mongod.start();
-      if (!this.backend.running) await this.backend.start();
+      if (!this.backend.running) await this.startBackend();
       if (this.stopping) return;
       this.lastHealthyAt = this.now();
       this.log.info(`${name} restarted`);
       this.setStatus({ state: 'running' });
     } catch (error) {
       this.log.error(`restart of ${name} failed: ${error.message}`);
+      if (error.code === 'INSTALLATION_DAMAGED') {
+        // Not retried: the files must be reinstalled. mongod keeps running only until the app is closed (no backend, so nothing reaches it).
+        this.setStatus(failureStatus(error));
+        return;
+      }
       this.onServiceExit(name);
     }
   }
@@ -202,4 +234,4 @@ class MainPcSupervisor extends EventEmitter {
   }
 }
 
-module.exports = { MainPcSupervisor, RESTART_DELAYS_MS, STABLE_AFTER_MS };
+module.exports = { MainPcSupervisor, RESTART_DELAYS_MS, STABLE_AFTER_MS, damagedError, failureStatus };

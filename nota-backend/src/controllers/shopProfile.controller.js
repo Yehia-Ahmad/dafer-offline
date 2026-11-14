@@ -53,8 +53,10 @@ const updateShopProfile = asyncHandler(async (req, res) => {
   // Stage 24: the name is the license's. A request that tries to change it is refused; one that repeats it (or leaves it out) is fine.
   const licensed = license.payload();
   if (licensed) {
-    const sameName = body.name === undefined || String(body.name).trim() === licensed.shopName;
-    const sameNameEn = body.nameEn === undefined || String(body.nameEn).trim() === (licensed.shopNameEn || "");
+    // null, undefined and "" all mean "no value" (a screen saves nameEn: null when the license has no English name).
+    const given = (value) => (value === undefined || value === null ? null : String(value).trim());
+    const sameName = given(body.name) === null || given(body.name) === licensed.shopName;
+    const sameNameEn = given(body.nameEn) === null || given(body.nameEn) === (licensed.shopNameEn || "") || (given(body.nameEn) === "" && !licensed.shopNameEn);
     if (!sameName || !sameNameEn) {
       const error = new Error("اسم المحل مرتبط بالترخيص ومينفعش يتغيّر");
       error.statusCode = 400; error.responseData = { code: "SHOP_NAME_LOCKED" };

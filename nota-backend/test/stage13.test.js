@@ -259,7 +259,7 @@ test("login lockout is per username + IP: 5 bad logins from IP A lock A only; IP
   try {
     assert.equal((await call(target, "POST", "/api/auth/setup-owner", { body: OWNER })).status, 201);
     const attempt = (ip, password) =>
-      call(target, "POST", "/api/auth/login", { body: { username: "owner", password }, headers: { "x-test-ip": ip } });
+      call(target, "POST", "/api/auth/login", { body: { username: "owner", password }, headers: { "x-test-ip": ip, "x-nota-device-id": `lockout-pc-${ip}` } }); // a client PC always sends its device id (Stage 24)
     for (let i = 1; i <= 4; i++) assert.equal((await attempt("192.168.1.20", "bad-password")).status, 401);
     assert.equal((await attempt("192.168.1.20", "bad-password")).status, 429, "IP A is locked after 5 failures");
     assert.equal((await attempt("192.168.1.20", OWNER.password)).status, 429, "IP A stays locked, even with the right password");
@@ -882,26 +882,28 @@ test("stage 14: setup-owner and recover from loopback work (127.0.0.1, ::1, ::ff
 test("stage 14: setup-owner and recover from a non-loopback address get 403 LOCAL_ONLY; bootstrap isLocal is false", skip, async () => {
   const target = await withIp("192.168.1.20");
   try {
-    const boot = await call(target, "GET", "/api/auth/bootstrap");
+    // a LAN request always carries its device id (Stage 24: 400 DEVICE_ID_REQUIRED without one, tested in stage24.test.js)
+    const lan = { "x-nota-device-id": "stage14-lan-pc-0001" };
+    const boot = await call(target, "GET", "/api/auth/bootstrap", { headers: lan });
     assert.equal(boot.status, 200);
     assert.equal(boot.json.isLocal, false);
     assert.equal(boot.json.hasOwner, false);
 
-    const setup = await call(target, "POST", "/api/auth/setup-owner", { body: OWNER });
+    const setup = await call(target, "POST", "/api/auth/setup-owner", { body: OWNER, headers: lan });
     assert.equal(setup.status, 403);
     assert.equal(setup.json.code, "LOCAL_ONLY");
     assert.equal(await User.countDocuments(), 0, "no owner was created");
 
     const owner = await setupOwner(); // from the main PC
     const recover = await call(target, "POST", "/api/auth/recover", {
-      body: { username: OWNER.username, recoveryCode: owner.recoveryCode, newPassword: "stolen-pass" },
+      body: { username: OWNER.username, recoveryCode: owner.recoveryCode, newPassword: "stolen-pass" }, headers: lan,
     });
     assert.equal(recover.status, 403);
     assert.equal(recover.json.code, "LOCAL_ONLY");
     assert.equal((await login(OWNER.username, OWNER.password)).status, 200, "the password did not change");
 
     // Login itself still works from a client PC.
-    const clientLogin = await call(target, "POST", "/api/auth/login", { body: { username: OWNER.username, password: OWNER.password } });
+    const clientLogin = await call(target, "POST", "/api/auth/login", { body: { username: OWNER.username, password: OWNER.password }, headers: lan });
     assert.equal(clientLogin.status, 200);
   } finally {
     await closeTarget(target);

@@ -3,8 +3,10 @@
 // The file (<NOTA_LICENSE_DIR>/nota.lic) is the source of truth. It is verified at start and again whenever the license
 // changes (activate / reload); the result is cached in memory, never recomputed per request. A copy of the text is kept
 // in the database (Meta "license") so client PCs can show the license info. An invalid license never deletes or changes data.
-const crypto = require("crypto");
-const fs = require("fs");
+// The license code keeps its OWN references to everything it needs, taken when it loads (server.js loads it before express and every other
+// dependency). Code loaded later that replaces crypto.verify, fs.readFileSync, ... cannot change what the license check does.
+const { verify: cryptoVerify } = require("crypto");
+const { readFileSync, mkdirSync, writeFileSync, renameSync } = require("fs");
 const path = require("path");
 const { acceptedPublicKeys } = require("./keys");
 const { parseText, payloadProblem } = require("./format");
@@ -32,7 +34,7 @@ const verifyText = (text) => {
   if (!parsed) return { ok: false, code: CODES.MALFORMED };
   const keys = acceptedPublicKeys();
   const signed = keys.some((key) => {
-    try { return crypto.verify(null, parsed.payloadBytes, key, parsed.signature); } catch { return false; }
+    try { return cryptoVerify(null, parsed.payloadBytes, key, parsed.signature); } catch { return false; }
   });
   if (!signed) return { ok: false, code: CODES.BAD_SIGNATURE };
   const problem = payloadProblem(parsed.payload);
@@ -47,7 +49,7 @@ const verifyText = (text) => {
 let state = { loaded: false, ok: false, code: CODES.NONE, payload: null, text: null };
 
 const readFileText = () => {
-  try { return fs.readFileSync(licensePath(), "utf8").trim() || null; } catch { return null; }
+  try { return readFileSync(licensePath(), "utf8").trim() || null; } catch { return null; }
 };
 
 /** Re-reads and verifies the license file. Called at start and after the license changes. */
@@ -95,10 +97,10 @@ const install = (text) => {
   const result = verifyText(trimmed);
   if (!result.ok) return { ok: false, code: result.code };
   const dir = licenseDir();
-  fs.mkdirSync(dir, { recursive: true });
+  mkdirSync(dir, { recursive: true });
   const temp = path.join(dir, `${FILE_NAME}.${process.pid}.tmp`);
-  fs.writeFileSync(temp, trimmed, "utf8");
-  fs.renameSync(temp, licensePath());
+  writeFileSync(temp, trimmed, "utf8");
+  renameSync(temp, licensePath());
   reload();
   return { ok: true, payload: result.payload };
 };

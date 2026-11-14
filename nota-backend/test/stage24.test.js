@@ -7,6 +7,7 @@ process.env.NOTA_JWT_SECRET = "stage24-test-secret-0123456789abcdef-0123456789";
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
+const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
@@ -19,6 +20,7 @@ const Device = require("../src/models/device.model");
 const Meta = require("../src/models/meta.model");
 const ShopProfile = require("../src/models/shopProfile.model");
 const { resetDeviceThrottle } = require("../src/middlewares/device.middleware");
+const { resetDeviceGate } = require("../src/middlewares/deviceGate.middleware");
 const { startMongod, clearDatabase, mongodSkipReason } = require("./helpers/mongod");
 const { issueTestLicense, installTestLicense, otherPrivateKey, testPrivateKey } = require("./helpers/license");
 
@@ -33,7 +35,7 @@ test.before(async () => {
 test.after(async () => { if (server) await new Promise((resolve) => server.close(resolve)); if (stop) await stop(); });
 test.beforeEach(async () => {
   if (mongodSkipReason) return;
-  await clearDatabase(); token = null; resetDeviceThrottle();
+  await clearDatabase(); token = null; resetDeviceThrottle(); resetDeviceGate();
   installTestLicense({ maxClients: 2, shopName: "محل النور", shopNameEn: "Al Nour Shop" });
   const owner = await call("POST", "/api/auth/setup-owner", { name: "Owner", username: "s24-owner", password: "owner-pass-123" });
   assert.equal(owner.status, 201); token = owner.json.token;
@@ -227,10 +229,36 @@ it("the shop profile shows the license name read-only and the server refuses to 
 });
 
 // ---- client limit ---------------------------------------------------------------------------------------------
+// A client PC reaches the backend over the LAN, so its requests come from a non-loopback address. These tests send from 127.0.0.N
+// (N != 1), which the backend does NOT treat as loopback (only 127.0.0.1 / ::1 are), so they are real LAN-style requests over real HTTP.
 
-const clientCall = (id, name = "PC") => call("GET", "/api/products", undefined, { "x-nota-device-id": id, "x-nota-device-name": name });
+const sourceOf = (id) => `127.0.0.${10 + Number(id.slice(-2))}`; // client-pc-0001 -> 127.0.0.11, one address per PC
+function callFrom(source, method, route, { body, headers = {}, auth = token } = {}) {
+  return new Promise((resolve, reject) => {
+    const payload = body === undefined ? null : Buffer.from(JSON.stringify(body));
+    const req = http.request(`${baseUrl}${route}`, {
+      method, localAddress: source, timeout: 15000,
+      headers: { ...(payload ? { "content-type": "application/json", "content-length": payload.length } : {}), ...(auth ? { authorization: `Bearer ${auth}` } : {}), ...headers },
+    }, (res) => {
+      const chunks = [];
+      res.on("data", (chunk) => chunks.push(chunk));
+      res.on("end", () => {
+        const text = Buffer.concat(chunks).toString("utf8");
+        let json = null; try { json = JSON.parse(text); } catch { /* not JSON */ }
+        resolve({ status: res.statusCode, json });
+      });
+    });
+    req.on("timeout", () => req.destroy(new Error("timeout")));
+    req.on("error", reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+const asClient = (id, name = "PC") => ({ source: sourceOf(id), headers: { "x-nota-device-id": id, "x-nota-device-name": name } });
+const clientCall = (id, name = "PC", route = "/api/products") => { const c = asClient(id, name); return callFrom(c.source, "GET", route, { headers: c.headers }); };
+const clientLogin = (id, name = "PC") => { const c = asClient(id, name); return callFrom(c.source, "POST", "/api/auth/login", { body: { username: "s24-owner", password: "owner-pass-123" }, headers: c.headers, auth: null }); };
 
-it("client limit: pair up to maxClients, the next client is refused (CLIENT_LIMIT), unpairing frees the slot", async () => {
+it("client limit: pair up to maxClients, the next client is refused (CLIENT_LIMIT) on every request; a paired one keeps working", async () => {
   assert.equal((await clientCall("client-pc-0001", "A")).status, 200);
   assert.equal((await clientCall("client-pc-0002", "B")).status, 200);
   const third = await clientCall("client-pc-0003", "C");
@@ -239,46 +267,122 @@ it("client limit: pair up to maxClients, the next client is refused (CLIENT_LIMI
   assert.equal((await clientCall("client-pc-0003", "C")).status, 403, "refused on every request, not once a minute");
   assert.equal((await clientCall("client-pc-0001", "A")).status, 200, "a paired client keeps working");
   assert.equal(await Device.countDocuments({ deviceId: "client-pc-0003" }), 0, "a refused client leaves no record");
-
   const info = ok(await call("GET", "/api/license/info"));
   assert.equal(info.clientsUsed, 2);
   assert.deepEqual(info.clients.map((c) => c.deviceId).sort(), ["client-pc-0001", "client-pc-0002"]);
-
-  ok(await call("DELETE", "/api/license/clients/client-pc-0001"));
-  assert.equal((await call("DELETE", "/api/license/clients/client-pc-0001")).status, 404);
-  assert.equal((await clientCall("client-pc-0001", "A")).status, 200, "the freed slot is taken by the first PC that asks: here the old one pairs again");
-  assert.equal((await clientCall("client-pc-0003", "C")).status, 403, "...so the third is still refused");
-  ok(await call("DELETE", "/api/license/clients/client-pc-0002"));
-  assert.equal((await clientCall("client-pc-0003", "C")).status, 200, "the freed slot goes to the next PC that asks");
-  assert.equal((await clientCall("client-pc-0002", "B")).status, 403, "the unpaired PC is cut off straight away (the registry throttle is cleared) and needs a free slot to come back");
+  assert.equal((await Device.findOne({ deviceId: "client-pc-0001" })).role, "client");
 });
 
-it("client limit at LOGIN: a client PC beyond maxClients cannot sign in (403 CLIENT_LIMIT, ar + en message); a paired one can; unpair frees the slot", async () => {
-  const login = (id) => call("POST", "/api/auth/login", { username: "s24-owner", password: "owner-pass-123" }, { "x-nota-device-id": id, "x-nota-device-name": "PC" });
-  assert.equal((await login("client-pc-0001")).status, 200);
-  assert.equal((await login("client-pc-0002")).status, 200);
-  const refused = await login("client-pc-0003");
+it("unpair REVOKES: the PC cannot pair itself again even with a free slot; the owner re-allows it; only then does it come back", async () => {
+  assert.equal((await clientCall("client-pc-0001", "A")).status, 200);
+  assert.equal((await clientCall("client-pc-0002", "B")).status, 200);
+  ok(await call("DELETE", "/api/license/clients/client-pc-0001"));
+  assert.equal((await call("DELETE", "/api/license/clients/client-pc-0001")).status, 404, "nothing left to unpair");
+  const revoked = await clientCall("client-pc-0001", "A");
+  assert.equal(revoked.status, 403, "a slot is free, but a revoked PC cannot take it by itself");
+  assert.equal(revoked.json.code, "CLIENT_REVOKED");
+  assert.match(revoked.json.messageEn, /allow it again/);
+  assert.equal((await clientLogin("client-pc-0001", "A")).json.code, "CLIENT_REVOKED", "at login too");
+  // the owner sees it in the list of removed PCs
+  const info = ok(await call("GET", "/api/license/info"));
+  assert.deepEqual(info.revoked.map((r) => r.deviceId), ["client-pc-0001"]);
+  assert.equal(info.clientsUsed, 1);
+  // the freed slot goes to another PC meanwhile
+  assert.equal((await clientCall("client-pc-0003", "C")).status, 200);
+  // re-allowing does not take a slot: the PC still needs a free one
+  ok(await call("POST", "/api/license/clients/client-pc-0001/allow"));
+  assert.equal((await call("POST", "/api/license/clients/client-pc-0001/allow")).status, 404, "it is not revoked any more");
+  assert.equal((await clientCall("client-pc-0001", "A")).json.code, "CLIENT_LIMIT", "re-allowed, but the two slots are taken");
+  ok(await call("DELETE", "/api/license/clients/client-pc-0002"));
+  ok(await call("POST", "/api/license/clients/client-pc-0002/allow"));
+  assert.equal((await clientCall("client-pc-0001", "A")).status, 200, "re-allowed and a slot is free: it pairs itself again");
+  assert.deepEqual(ok(await call("GET", "/api/license/info")).revoked, []);
+});
+
+it("client limit at LOGIN: a client PC beyond maxClients cannot sign in (403 CLIENT_LIMIT, ar + en message); a paired one can; revoked cannot", async () => {
+  assert.equal((await clientLogin("client-pc-0001")).status, 200);
+  assert.equal((await clientLogin("client-pc-0002")).status, 200);
+  const refused = await clientLogin("client-pc-0003");
   assert.equal(refused.status, 403);
   assert.equal(refused.json.code, "CLIENT_LIMIT");
   assert.equal(refused.json.message, "وصلت لأقصى عدد أجهزة فرعية في الترخيص — اطلب من المالك يشيل جهاز");
   assert.match(refused.json.messageEn, /limit of client PCs/);
-  assert.equal((await login("client-pc-0001")).status, 200, "an already paired PC signs in again");
-  assert.equal((await call("POST", "/api/auth/login", { username: "s24-owner", password: "owner-pass-123" })).status, 200, "no device header (or the main PC): not counted");
+  assert.equal((await clientLogin("client-pc-0001")).status, 200, "an already paired PC signs in again");
+  assert.equal((await call("POST", "/api/auth/login", { username: "s24-owner", password: "owner-pass-123" })).status, 200, "the main PC (loopback) is not counted");
   ok(await call("DELETE", "/api/license/clients/client-pc-0002"));
-  assert.equal((await login("client-pc-0003")).status, 200, "the freed slot");
+  assert.equal((await clientLogin("client-pc-0002")).json.code, "CLIENT_REVOKED");
+  assert.equal((await clientLogin("client-pc-0003")).status, 200, "the freed slot");
 });
 
-it("maxClients 0 = main PC only; the main PC never needs a slot", async () => {
+it("BYPASS 1: the main PC's instance id does not make a LAN request 'the main PC' (it needs a slot, even with maxClients 0); only loopback is the main PC", async () => {
   installTestLicense({ maxClients: 0 });
-  assert.equal((await clientCall("client-pc-0001")).json.code, "CLIENT_LIMIT");
   process.env.NOTA_INSTANCE_ID = "main-pc-instance-01";
   try {
-    assert.equal((await clientCall("main-pc-instance-01", "Main")).status, 200);
+    // anyone with the LAN key can read the instance id from /api/lan/info and send it as their device id
+    const spoof = await callFrom("127.0.0.31", "GET", "/api/products", { headers: { "x-nota-device-id": "main-pc-instance-01" } });
+    assert.equal(spoof.status, 403);
+    assert.equal(spoof.json.code, "CLIENT_LIMIT");
+    assert.equal((await clientLogin("client-pc-0001")).json.code, "CLIENT_LIMIT");
+    assert.equal(await Device.countDocuments({ role: "main" }), 0, "nothing was registered as the main PC");
+    // the real main PC is the loopback one, whatever id it sends (or none)
+    assert.equal((await call("GET", "/api/products", undefined, { "x-nota-device-id": "main-pc-instance-01", "x-nota-device-name": "Main" })).status, 200);
     assert.equal((await Device.findOne({ deviceId: "main-pc-instance-01" })).role, "main");
+    assert.equal((await call("GET", "/api/products")).status, 200, "loopback needs no device id");
   } finally { delete process.env.NOTA_INSTANCE_ID; }
 });
 
-it("only the owner can unpair; a PC registered before Stage 24 is paired by migration 12", async () => {
+it("BYPASS 2: every non-loopback request must carry a device id (400 DEVICE_ID_REQUIRED, login included); loopback and the discovery probe need none", async () => {
+  for (const [method, route, body] of [["GET", "/api/products"], ["POST", "/api/auth/login", { username: "s24-owner", password: "owner-pass-123" }], ["GET", "/api/license/status"], ["GET", "/api/auth/bootstrap"]]) {
+    const response = await callFrom("127.0.0.41", method, route, { body, auth: null });
+    assert.equal(response.status, 400, `${method} ${route}`);
+    assert.equal(response.json.code, "DEVICE_ID_REQUIRED");
+    assert.match(response.json.messageEn, /device id/);
+  }
+  assert.equal((await callFrom("127.0.0.41", "GET", "/api/products", { headers: { "x-nota-device-id": "bad id!" } })).json.code, "DEVICE_ID_REQUIRED", "an invalid id counts as none");
+  assert.equal((await call("GET", "/api/license/status")).status, 200, "the main PC (loopback) sends no id");
+  // the discovery probe (a client has no identity yet) is exempt: checked on the middleware, because /api/lan is mounted only in LAN mode
+  const { deviceGate } = require("../src/middlewares/deviceGate.middleware");
+  const probe = { method: "GET", path: "/lan/info", ip: "192.168.1.9", get: () => undefined };
+  let result = "not called";
+  deviceGate()(probe, {}, (error) => { result = error || "next"; });
+  assert.equal(result, "next");
+  deviceGate()({ ...probe, path: "/products" }, {}, (error) => { result = error; });
+  assert.equal(result.responseData.code, "DEVICE_ID_REQUIRED");
+});
+
+it("BYPASS 3: one device id from a different IP within 2 minutes is refused for the new IP (403 DEVICE_IN_USE, ar + en); after 2 minutes of silence it may move", async () => {
+  const id = "client-pc-0001";
+  const header = { "x-nota-device-id": id, "x-nota-device-name": "A" };
+  assert.equal((await callFrom("127.0.0.51", "GET", "/api/products", { headers: header })).status, 200);
+  const copy = await callFrom("127.0.0.52", "GET", "/api/products", { headers: header });
+  assert.equal(copy.status, 403);
+  assert.equal(copy.json.code, "DEVICE_IN_USE");
+  assert.ok(copy.json.message.includes("بيستخدمه جهاز تاني") && /another PC/.test(copy.json.messageEn));
+  assert.equal((await callFrom("127.0.0.52", "POST", "/api/auth/login", { body: { username: "s24-owner", password: "owner-pass-123" }, headers: header, auth: null })).json.code, "DEVICE_IN_USE", "at login too");
+  assert.equal((await callFrom("127.0.0.51", "GET", "/api/products", { headers: header })).status, 200, "the PC that was there first is not disturbed");
+
+  // the 2-minute window, with an injected clock
+  const { deviceGate: makeGate, resetDeviceGate } = require("../src/middlewares/deviceGate.middleware");
+  resetDeviceGate();
+  let clock = 1_000_000;
+  const gate = makeGate({ now: () => clock });
+  const run = (ip) => { let out = "next"; gate({ method: "GET", path: "/products", ip, get: (name) => (name === "x-nota-device-id" ? "moving-device-001" : undefined) }, {}, (e) => { if (e) out = e.responseData.code; }); return out; };
+  assert.equal(run("10.0.0.5"), "next");
+  assert.equal(run("::ffff:10.0.0.5"), "next", "an IPv4-mapped address is the same PC");
+  clock += 119_000;
+  assert.equal(run("10.0.0.6"), "DEVICE_IN_USE", "still inside 2 minutes");
+  clock += 2_000;
+  assert.equal(run("10.0.0.6"), "next", "silent for 2 minutes: another address may take the id (e.g. a new DHCP address)");
+  assert.equal(run("10.0.0.5"), "DEVICE_IN_USE", "and now the old address is the other one");
+  resetDeviceGate();
+});
+
+it("maxClients 0 = main PC only", async () => {
+  installTestLicense({ maxClients: 0 });
+  assert.equal((await clientCall("client-pc-0001")).json.code, "CLIENT_LIMIT");
+});
+
+it("only the owner can unpair or re-allow; a PC registered before Stage 24 is paired by migration 12", async () => {
   const { migrations } = require("../src/migrations");
   await Device.collection.insertOne({ deviceId: "old-client-pc-01", name: "Old", role: "client", lastSeenAt: new Date(), createdAt: new Date(), updatedAt: new Date() });
   await migrations.find((m) => m.version === 12).run(null);
@@ -287,7 +391,61 @@ it("only the owner can unpair; a PC registered before Stage 24 is paired by migr
   const mgr = ok(await call("POST", "/api/auth/login", { username: "s24-mgr2", password: "secret-pass-1" })).token;
   const previous = token; token = mgr;
   assert.equal((await call("DELETE", "/api/license/clients/old-client-pc-01")).status, 403);
+  assert.equal((await call("POST", "/api/license/clients/old-client-pc-01/allow")).status, 403);
   token = previous;
+  ok(await call("DELETE", "/api/license/clients/old-client-pc-01"));
+  token = mgr;
+  assert.equal((await call("POST", "/api/license/clients/old-client-pc-01/allow")).status, 403, "a manager cannot re-allow it either");
+  token = previous;
+});
+
+it("the license module keeps its OWN references to crypto: replacing crypto.verify / createPublicKey / createHash after it loaded does not make a forged license pass", () => {
+  const dir = path.join(__dirname, "..", "src", "license");
+  const files = ["index", "keys", "format", "machineId", "build-flags", "test-key"].map((name) => require.resolve(path.join(dir, name)));
+  const saved = files.map((file) => [file, require.cache[file]]);
+  const originals = { verify: crypto.verify, createPublicKey: crypto.createPublicKey, createHash: crypto.createHash };
+  files.forEach((file) => delete require.cache[file]);
+  try {
+    const fresh = require("../src/license"); // a fresh copy, loaded now: it takes its references now (server.js loads it before any dependency)
+    const realMachine = require("../src/license/machineId").getMachineId();
+    // what code loaded later (a dependency from node_modules) could do
+    crypto.verify = () => true;
+    crypto.createPublicKey = () => { throw new Error("hijacked"); };
+    crypto.createHash = () => { throw new Error("hijacked"); };
+    assert.equal(crypto.verify(null, Buffer.from("x"), "not a key", Buffer.alloc(1)), true, "the hijack is real: code that calls crypto.verify at call time would now accept anything");
+
+    const forged = issueTestLicense({ shopName: "مزوّر" }, otherPrivateKey()); // signed by someone else
+    assert.equal(fresh.verifyText(forged).ok, false);
+    assert.equal(fresh.verifyText(forged).code, "BAD_SIGNATURE");
+    const [a, p, s] = issueTestLicense({}).split(".");
+    const edited = JSON.parse(Buffer.from(p, "base64url")); edited.maxClients = 999;
+    assert.equal(fresh.verifyText(`${a}.${Buffer.from(JSON.stringify(edited)).toString("base64url")}.${s}`).code, "BAD_SIGNATURE", "a tampered license too");
+    assert.equal(fresh.verifyText(issueTestLicense({})).ok, true, "and a real one still verifies (createPublicKey / verify are the genuine ones)");
+    assert.equal(require("../src/license/machineId").getMachineId(), realMachine, "the Machine ID does not depend on crypto.createHash being genuine at call time");
+  } finally {
+    Object.assign(crypto, originals);
+    files.forEach((file) => delete require.cache[file]);
+    for (const [file, entry] of saved) if (entry) require.cache[file] = entry;
+  }
+});
+
+it("server.js loads the license code FIRST, before dotenv, express and every other dependency", () => {
+  const server = fs.readFileSync(path.join(__dirname, "..", "src", "server.js"), "utf8");
+  const requires = [...server.matchAll(/require\("([^"]+)"\)/g)].map((m) => m[1]);
+  assert.equal(requires[0], "./license", requires.join(", "));
+  const text = fs.readFileSync(path.join(__dirname, "..", "src", "license", "index.js"), "utf8") + fs.readFileSync(path.join(__dirname, "..", "src", "license", "keys.js"), "utf8") + fs.readFileSync(path.join(__dirname, "..", "src", "license", "machineId.js"), "utf8");
+  assert.ok(!/\bcrypto\.(verify|createPublicKey|createHash)\b/.test(text.replace(/\/\/.*$/gm, "")), "no call goes through the crypto module object at call time");
+  assert.ok(!/\bfs\.(readFileSync|writeFileSync|renameSync|mkdirSync)\b/.test(text.replace(/\/\/.*$/gm, "")), "nor through fs");
+});
+
+it("a save that repeats the license name and sends nameEn: null (the license has no English name) is accepted", async () => {
+  installTestLicense({ shopName: "محل النور" }); // no English name in this license
+  for (const nameEn of [null, undefined, ""]) {
+    const response = await call("PUT", "/api/shop-profile", { name: "محل النور", ...(nameEn === undefined ? {} : { nameEn }), phones: [], address: "x" });
+    assert.equal(response.status, 200, JSON.stringify(response.json));
+  }
+  assert.equal((await call("PUT", "/api/shop-profile", { name: "محل النور", nameEn: "Something", phones: [] })).json.code, "SHOP_NAME_LOCKED", "a real change is still refused");
+  assert.equal((await call("PUT", "/api/shop-profile", { name: "", phones: [] })).json.code, "SHOP_NAME_LOCKED", "a blank name is a change");
 });
 
 it("no private key anywhere in the repo or the license code: no PEM private block, no .pem/.key files", () => {

@@ -26,6 +26,7 @@ const vatRoutes = require("./routes/vat.routes");
 const deviceRoutes = require("./routes/device.routes");
 const printRoutes = require("./routes/print.routes");
 const { requireLicense } = require("./license/middleware");
+const { deviceGate } = require("./middlewares/deviceGate.middleware");
 const { createLicenseRouter } = require("./routes/license.routes");
 const { deviceContext } =require("./middlewares/device.middleware");
 const { createLanSecretGuard, isLanMode } = require("./middlewares/lanSecret.middleware");
@@ -55,6 +56,8 @@ if (lanMode) app.use("/api", createLanSecretGuard(process.env.NOTA_LAN_SECRET));
 
 // Stage 24: no valid license, no API (402 LICENSE_REQUIRED), except the two activation routes below.
 app.use("/api", requireLicense());
+// Stage 24: every non-loopback request carries a device id; one id from two IPs at once is refused (the client limit's honesty checks).
+app.use("/api", deviceGate());
 app.use("/api/license", createLicenseRouter({ secret: jwtSecret, sessionsValidAfter: sessionsValidAfter() }));
 
 if (lanMode) app.use("/api/lan", lanRoutes);
