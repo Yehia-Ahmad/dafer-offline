@@ -59,6 +59,8 @@ const { devToolsAllowed, hardenContents, hasDebugSwitch } = require('./lib/harde
 
 const SHUTDOWN_WATCHDOG_MS = 90000;
 const ATTACH_TIMEOUT_MS = 30000;
+// An attached session looks for the owner's main-PC token file for this long after the owner's backend answers (Stage 24).
+const MAIN_TOKEN_WAIT_MS = 5000;
 // --quit-all waits this long for the server to stop (a little more than the shutdown watchdog).
 const QUIT_ALL_TIMEOUT_MS = 100000;
 
@@ -961,9 +963,20 @@ async function backendAnswers() {
 async function attachToRunningServer() {
   log.info('the server is already running under another Windows account; attaching to it');
   state.mode = 'attached';
+  setStatus({ state: 'attached' });
+  // The owner writes the token file right after it takes the lock, so wait until its backend answers before looking for it (this is
+  // the real order of events), then retry the read for a few seconds before giving up.
+  const answered = await waitFor(backendAnswers, { timeoutMs: ATTACH_TIMEOUT_MS, intervalMs: 1000 });
   // Stage 24: this account's windows must count as the main PC too: use the token the owning process left in the security folder.
-  const ownerToken = readMainToken(state.paths.security, (text) => unprotectSecret(text, { purpose: 'main-token' }));
-  if (!ownerToken) {
+  let ownerToken = null;
+  if (answered) {
+    const readOwnerToken = () => {
+      ownerToken = readMainToken(state.paths.security, (text) => unprotectSecret(text, { purpose: 'main-token' }));
+      return Boolean(ownerToken);
+    };
+    await waitFor(readOwnerToken, { timeoutMs: MAIN_TOKEN_WAIT_MS, intervalMs: 500 });
+  }
+  if (answered && !ownerToken) {
     log.error('attached: the main-PC token file is missing or unreadable');
     setStatus({
       state: 'failed',
@@ -972,10 +985,9 @@ async function attachToRunningServer() {
     });
     return;
   }
-  state.mainToken = ownerToken;
-  installSecretHeader(session.defaultSession, deviceHeaderOptions());
-  setStatus({ state: 'attached' });
-  if (await waitFor(backendAnswers, { timeoutMs: ATTACH_TIMEOUT_MS, intervalMs: 1000 })) {
+  if (answered) {
+    state.mainToken = ownerToken;
+    installSecretHeader(session.defaultSession, deviceHeaderOptions());
     loadUi();
     return;
   }
@@ -1023,7 +1035,8 @@ async function startMainRole() {
   if (!jwtSecret) return; // the error screen is showing; never start the backend without it
   // This process owns the server: its windows send its own token, and the token goes to the security folder for attached sessions of other accounts.
   try {
-    writeMainToken(state.paths.security, state.mainToken, (text) => protectSecret(text, { purpose: 'main-token' }));
+    const written = writeMainToken(state.paths.security, state.mainToken, (text) => protectSecret(text, { purpose: 'main-token' }));
+    if (!written.restricted) log.warn(`main-PC token file: could not restrict its permissions: ${written.error}`);
   } catch (error) {
     log.error(`main-PC token file: ${error.message}`); // attached sessions will show their error; this account is not affected
   }

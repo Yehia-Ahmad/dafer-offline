@@ -1227,7 +1227,9 @@ it("review 11, can fail: an expense posted as Dr 521 / Cr CAPITAL (no box line) 
 it("review 12: with users off (no req.user) a PC still registers; with users on, an unsigned request does not; the throttle map is capped (LRU)", async () => {
   await shop();
   const { deviceContext, rememberedCount, resetDeviceThrottle: reset } = require("../src/middlewares/device.middleware");
-  const requestFor = (id, extra = {}) => ({ get: (name) => ({ "x-nota-device-id": id, "x-nota-device-name": "PC" })[name.toLowerCase()], ...extra });
+  // Stage 24: these play the main PC's own window (loopback + the main-PC token); a client is never throttled (device-limit tests in stage24)
+  const { mainPcToken } = require("../src/auth/mainPc");
+  const requestFor = (id, extra = {}) => ({ ip: "127.0.0.1", get: (name) => ({ "x-nota-device-id": id, "x-nota-device-name": "PC", "x-nota-main-token": mainPcToken() })[name.toLowerCase()], ...extra });
   reset();
   await deviceContext()(requestFor("device-authoff-0001", { authEnabled: false }), {}, () => {});
   assert.equal(await Device.countDocuments({ deviceId: "device-authoff-0001" }), 1, "NOTA_AUTH off: registered");

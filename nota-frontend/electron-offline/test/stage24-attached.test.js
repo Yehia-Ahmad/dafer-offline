@@ -8,7 +8,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { FILE_NAME, writeMainToken, readMainToken, removeMainToken } = require('../lib/main-token-file');
+const { spawnSync } = require('node:child_process');
+const { FILE_NAME, writeMainToken, readMainToken, removeMainToken, restrictMainTokenFile } = require('../lib/main-token-file');
+const { waitFor } = require('../lib/net-utils');
 const { installSecretHeader, MAIN_TOKEN_HEADER } = require('../lib/lan-auth');
 const secretStore = require('../lib/secret-store');
 
@@ -86,6 +88,64 @@ test('attached mode: the header carries the OWNER token and the backend treats t
   const result = spawnSync(process.execPath, ['-e', probe], { env, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout.trim().split('\n').pop()), { main: true, gateWithToken: 'next', gateWithout: 'DEVICE_ID_REQUIRED', wrong: 'DEVICE_ID_REQUIRED' });
+});
+
+test('the file ACL (real icacls, Windows): writable only by the owning account and SYSTEM, read-only for BUILTIN\\Users, no inherited rights; the owner can replace it at the next start', { skip: process.platform === 'win32' ? false : 'Windows only' }, () => {
+  const dir = dirOf('acl');
+  const first = writeMainToken(dir, TOKEN, protect);
+  assert.deepEqual(first, { restricted: true });
+  const file = path.join(dir, FILE_NAME);
+  const listing = spawnSync('icacls', [file], { encoding: 'utf8', windowsHide: true }).stdout;
+  const entries = listing.split(/\r?\n/).map((line) => line.replace(file, '').trim()).filter((line) => /:\(/.test(line));
+  const sid = spawnSync(path.join(process.env.SystemRoot || 'C:\Windows', 'System32', 'whoami.exe'), ['/user', '/fo', 'csv', '/nh'], { encoding: 'utf8', windowsHide: true }).stdout.match(/"(S-1-[0-9-]+)"/)[1];
+  const grants = Object.fromEntries(entries.map((line) => { const [who, rights] = [line.slice(0, line.lastIndexOf(':')), line.slice(line.lastIndexOf(':') + 1)]; return [who, rights]; }));
+  assert.equal(entries.length, 3, `exactly three entries (Users, SYSTEM, the owner), got:\n${listing}`);
+  assert.ok(entries.every((line) => !/\(I\)/.test(line)), 'nothing inherited');
+  const users = entries.find((line) => /^BUILTIN\\Users:/i.test(line));
+  const system = entries.find((line) => /^NT AUTHORITY\\SYSTEM:/i.test(line));
+  assert.ok(users && /^\(RX?\)$/.test(users.slice(users.indexOf(':') + 1)), `Users read-only: ${users}`);
+  assert.ok(system && /\(F\)/.test(system), `SYSTEM full: ${system}`);
+  const owner = entries.filter((line) => line !== users && line !== system)[0];
+  assert.ok(owner && /\(F\)/.test(owner), `the owning account has full control: ${owner} (sid ${sid})`);
+  assert.ok(!/Everyone|Authenticated Users/i.test(listing));
+  assert.equal(Object.keys(grants).length, 3);
+  // the next start replaces it (same account) and the ACL is the same again
+  assert.deepEqual(writeMainToken(dir, OTHER, protect), { restricted: true });
+  assert.equal(readMainToken(dir, unprotect), OTHER, 'replaced');
+  const again = spawnSync('icacls', [file], { encoding: 'utf8', windowsHide: true }).stdout.split(/\r?\n/).filter((line) => /:\(/.test(line));
+  assert.equal(again.length, 3);
+  assert.deepEqual(fs.readdirSync(dir).filter((name) => name.endsWith('.tmp')), []);
+});
+
+test('the ACL command: inheritance removed, Users read, SYSTEM and the owner full; a failure is reported, never thrown', () => {
+  const calls = [];
+  const ok = restrictMainTokenFile('X:\\f', { platform: 'win32', sid: () => 'S-1-5-21-1-2-3-1001', run: (...args) => { calls.push(args); return { status: 0 }; } });
+  assert.deepEqual(ok, { restricted: true });
+  assert.deepEqual(calls[0][1], ['X:\\f', '/inheritance:r', '/grant:r', '*S-1-5-32-545:(R)', '/grant:r', '*S-1-5-18:(F)', '/grant:r', '*S-1-5-21-1-2-3-1001:(F)']);
+  const failed = restrictMainTokenFile('X:\\f', { platform: 'win32', sid: () => 'S-1-5-21-1', run: () => ({ status: 5, stderr: 'Access is denied.' }) });
+  assert.equal(failed.restricted, false);
+  assert.match(failed.error, /Access is denied/);
+  assert.equal(restrictMainTokenFile('X:\\f', { platform: 'win32', sid: () => { throw new Error('no sid'); }, run: () => ({ status: 0 }) }).restricted, false);
+});
+
+test('attached: the token file is read only AFTER the owner backend answers, and the read is retried for a few seconds before MAIN_TOKEN_UNAVAILABLE', async () => {
+  const start = MAIN.indexOf('async function attachToRunningServer()');
+  const attach = MAIN.slice(start, MAIN.indexOf('function readJwtSecret', start));
+  const answers = attach.indexOf('waitFor(backendAnswers');
+  const read = attach.indexOf('readMainToken(');
+  const retry = attach.indexOf('waitFor(readOwnerToken, { timeoutMs: MAIN_TOKEN_WAIT_MS');
+  const fail = attach.indexOf("code: 'MAIN_TOKEN_UNAVAILABLE'");
+  assert.ok(answers > 0 && read > answers && retry > read && fail > retry, 'backend answers, then read with a retry, then the error');
+  assert.match(MAIN, /const MAIN_TOKEN_WAIT_MS = \d{4,5};/, 'a few seconds');
+  assert.match(attach, /if \(answered && !ownerToken\)/, 'the error shows only when the server answered but the file never became readable');
+
+  // behaviour of the retry: a file that appears on the third look is picked up; one that never appears gives up
+  let looks = 0;
+  assert.equal(await waitFor(() => { looks += 1; return looks >= 3; }, { timeoutMs: 2000, intervalMs: 10 }), true);
+  assert.equal(looks, 3);
+  looks = 0;
+  assert.equal(await waitFor(() => { looks += 1; return false; }, { timeoutMs: 60, intervalMs: 10 }), false);
+  assert.ok(looks >= 2, 'looked more than once before giving up');
 });
 
 test('main.js: the owner writes the file after making its token; an attached session reads it BEFORE installing its header and shows MAIN_TOKEN_UNAVAILABLE when it cannot; the file goes on a clean exit; the token is never logged; the print partition never gets it', () => {

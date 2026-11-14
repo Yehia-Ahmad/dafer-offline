@@ -45,19 +45,26 @@ const deviceContext = ({ now = Date.now, maxEntries = MAX_REMEMBERED } = {}) => 
   // With users on, only a signed-in request registers a PC; with users off (NOTA_AUTH unset) there is no user to wait for.
   if (req.authEnabled && !req.user) return next();
   const at = now();
-  const last = lastRegistered.get(deviceId);
-  if (last !== undefined && at - last < THROTTLE_MS) return next();
-  lastRegistered.delete(deviceId);
-  lastRegistered.set(deviceId, at);
-  while (lastRegistered.size > maxEntries) lastRegistered.delete(lastRegistered.keys().next().value);
+  // Stage 24: the main PC is a loopback request that carries the main-PC token. The 60 s throttle is keyed by role + id and only ever
+  // spares the MAIN PC's write: a request that is not the main PC always goes through the client check (slot, revoked), whatever another
+  // role cached for the same id (the main window registering its instanceId must not let a LAN request with that id skip it).
+  const role = isMainPc(req) ? "main" : "client";
+  const key = `${role}:${deviceId}`;
+  if (role === "main") {
+    const last = lastRegistered.get(key);
+    if (last !== undefined && at - last < THROTTLE_MS) return next();
+    lastRegistered.delete(key);
+    lastRegistered.set(key, at);
+    while (lastRegistered.size > maxEntries) lastRegistered.delete(lastRegistered.keys().next().value);
+  }
   try {
     // Stage 24: the main PC is a loopback request that carries the main-PC token. Loopback alone, or an instance id, never makes one "the main PC".
-    const set = { lastSeenAt: new Date(at), role: isMainPc(req) ? "main" : "client" };
+    const set = { lastSeenAt: new Date(at), role };
     if (req.deviceName) set.name = req.deviceName;
     if (set.role === "client") await ensurePaired(deviceId, set);
     else await Device.updateOne({ deviceId }, { $set: set }, { upsert: true });
   } catch (error) {
-    lastRegistered.delete(deviceId);
+    lastRegistered.delete(key);
     // Stage 24: a client PC beyond the license's maxClients is refused (on every request, not once a minute).
     if (error && error.responseData && (error.responseData.code === "CLIENT_LIMIT" || error.responseData.code === "CLIENT_REVOKED")) return next(error);
     console.error(`device registry failed: ${error.message}`);

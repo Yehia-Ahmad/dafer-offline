@@ -483,6 +483,21 @@ it("DEVICE_IN_USE at LOGIN, after the credentials are verified: a copied id is r
   assert.equal(await Device.countDocuments({ deviceId: "client-pc-0001" }), 1);
 });
 
+it("THROTTLE: the main window registering its instanceId must not let a signed-in LAN request with that same id skip the client check (maxClients 0 → CLIENT_LIMIT on every request); the main window still works", async () => {
+  installTestLicense({ maxClients: 0 });
+  const id = "main-window-instance-01";
+  const named = { "x-nota-device-id": id, "x-nota-device-name": "Main" };
+  assert.equal((await call("GET", "/api/products", undefined, named)).status, 200, "the main window registers its instanceId");
+  assert.equal((await Device.findOne({ deviceId: id })).role, "main");
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const lan = await callFrom("127.0.0.61", "GET", "/api/products", { headers: named });
+    assert.equal(lan.status, 403, `LAN request ${attempt} with the main PC's id is checked, not spared by the cache`);
+    assert.equal(lan.json.code, "CLIENT_LIMIT");
+  }
+  assert.equal((await call("GET", "/api/products", undefined, named)).status, 200, "the main window still works (inside its own throttle window too)");
+  assert.equal(await Device.countDocuments({ role: "client", paired: true }), 0, "no slot was taken");
+});
+
 it("maxClients 0 = main PC only", async () => {
   installTestLicense({ maxClients: 0 });
   assert.equal((await clientCall("client-pc-0001")).json.code, "CLIENT_LIMIT");
