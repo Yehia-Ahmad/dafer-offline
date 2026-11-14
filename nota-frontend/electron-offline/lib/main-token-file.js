@@ -31,14 +31,14 @@ function currentUserSid() {
 }
 
 /**
- * Windows: writable only by the owning account and SYSTEM, read-only for BUILTIN\Users, no inherited rights (the same approach as the
- * keyFile in lib/db-auth.js, but Users get read only and the owner gets full control so it can replace the file at its next start).
+ * Windows: writable only by the owning account and SYSTEM; BUILTIN\Users get read and DELETE (so another account can replace a file left
+ * by a crashed owner); no inherited rights (the same approach as the keyFile in lib/db-auth.js). The owner and SYSTEM keep full control.
  * Elsewhere (development): owner only. Returns { restricted: boolean, error? }; a failure is reported by the caller, never thrown.
  */
 function restrictMainTokenFile(file, { platform = process.platform, run = spawnSync, sid = currentUserSid } = {}) {
   try {
     if (platform === 'win32') {
-      const result = run('icacls', [file, '/inheritance:r', '/grant:r', '*S-1-5-32-545:(R)', '/grant:r', '*S-1-5-18:(F)', '/grant:r', `*${sid()}:(F)`], { windowsHide: true, encoding: 'utf8' });
+      const result = run('icacls', [file, '/inheritance:r', '/grant:r', '*S-1-5-32-545:(R,D)', '/grant:r', '*S-1-5-18:(F)', '/grant:r', `*${sid()}:(F)`], { windowsHide: true, encoding: 'utf8' });
       if (result.status !== 0) throw new Error((result.stderr || result.stdout || '').trim() || 'icacls failed');
     } else {
       fs.chmodSync(file, 0o600);
@@ -62,7 +62,12 @@ function writeMainToken(securityDir, token, protect, options) {
   fs.writeFileSync(temp, protect(token), 'utf8');
   const outcome = restrictMainTokenFile(temp, options);
   try { fs.rmSync(target, { force: true }); } catch { /* replaced by the rename below, or reported by it */ }
-  fs.renameSync(temp, target);
+  try {
+    fs.renameSync(temp, target);
+  } catch (error) {
+    try { fs.rmSync(temp, { force: true }); } catch { /* nothing more to do */ }
+    throw error;
+  }
   return outcome;
 }
 
@@ -76,8 +81,26 @@ function readMainToken(securityDir, unprotect) {
   }
 }
 
+/**
+ * What an attached session does: keep re-reading the file and asking the server to confirm the token (`verify(token)` resolves true only when
+ * the server says this token makes a request the main PC) until it works or the window ends. A stale or tampered file therefore never
+ * yields a token: the caller gets null and shows the loud error, never silently becoming a client.
+ */
+async function acquireOwnerToken({ read, verify, waitFor, timeoutMs, intervalMs = 500 }) {
+  let accepted = null;
+  await waitFor(async () => {
+    const token = read();
+    if (!token) return false;
+    let confirmed = false;
+    try { confirmed = (await verify(token)) === true; } catch { confirmed = false; }
+    if (confirmed) accepted = token;
+    return confirmed;
+  }, { timeoutMs, intervalMs });
+  return accepted;
+}
+
 function removeMainToken(securityDir) {
   try { fs.rmSync(fileOf(securityDir), { force: true }); } catch { /* best effort */ }
 }
 
-module.exports = { restrictMainTokenFile, FILE_NAME, writeMainToken, readMainToken, removeMainToken };
+module.exports = { acquireOwnerToken, restrictMainTokenFile, FILE_NAME, writeMainToken, readMainToken, removeMainToken };

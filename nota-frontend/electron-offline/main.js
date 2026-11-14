@@ -34,11 +34,11 @@ const { protectSecret, unprotectSecret } = require('./lib/secret-store');
 const { loadJwtSecret } = require('./lib/jwt-secret');
 const { holdPortLock, isPortFree, requestQuit, waitFor } = require('./lib/net-utils');
 const { MongodManager, ServiceError } = require('./lib/mongod-manager');
-const { writeMainToken, readMainToken, removeMainToken } = require('./lib/main-token-file');
+const { acquireOwnerToken, writeMainToken, readMainToken, removeMainToken } = require('./lib/main-token-file');
 const { DbAuth, createMachineScopeVault, createSafeStorageVault } = require('./lib/db-auth');
 const { BackendManager, buildBackendEnv } = require('./lib/backend-manager');
 const { MainPcSupervisor } = require('./lib/supervisor');
-const { LAN_KEY_HEADER, installSecretHeader } = require('./lib/lan-auth');
+const { LAN_KEY_HEADER, MAIN_TOKEN_HEADER, installSecretHeader } = require('./lib/lan-auth');
 const { statusLabel } = require('./lib/status-text');
 const { DiscoveryResponder, discoverServers, localIPv4Addresses } = require('./lib/discovery');
 const { ConnectionMonitor, probeServer } = require('./lib/client-link');
@@ -958,6 +958,20 @@ async function backendAnswers() {
   }
 }
 
+// Does the running server treat a request that carries this token as the main PC? (/api/lan/info answers mainPc: true)
+async function serverAcceptsMainToken(token) {
+  try {
+    const response = await fetch(`${state.apiOrigin}/api/lan/info`, {
+      headers: { [LAN_KEY_HEADER]: state.secret, [MAIN_TOKEN_HEADER]: token },
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!response.ok) return false;
+    return (await response.json()).mainPc === true;
+  } catch {
+    return false;
+  }
+}
+
 // Another Windows account on this PC already runs the server: use it instead of starting a
 // second database on the same data folder.
 async function attachToRunningServer() {
@@ -970,11 +984,14 @@ async function attachToRunningServer() {
   // Stage 24: this account's windows must count as the main PC too: use the token the owning process left in the security folder.
   let ownerToken = null;
   if (answered) {
-    const readOwnerToken = () => {
-      ownerToken = readMainToken(state.paths.security, (text) => unprotectSecret(text, { purpose: 'main-token' }));
-      return Boolean(ownerToken);
-    };
-    await waitFor(readOwnerToken, { timeoutMs: MAIN_TOKEN_WAIT_MS, intervalMs: 500 });
+    // The token is used only when the server itself confirms it (a stale file of a crashed run, or a tampered one, never passes).
+    ownerToken = await acquireOwnerToken({
+      read: () => readMainToken(state.paths.security, (text) => unprotectSecret(text, { purpose: 'main-token' })),
+      verify: serverAcceptsMainToken,
+      waitFor,
+      timeoutMs: MAIN_TOKEN_WAIT_MS,
+      intervalMs: 500,
+    });
   }
   if (answered && !ownerToken) {
     log.error('attached: the main-PC token file is missing or unreadable');

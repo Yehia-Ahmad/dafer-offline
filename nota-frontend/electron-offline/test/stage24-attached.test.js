@@ -11,6 +11,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { FILE_NAME, writeMainToken, readMainToken, removeMainToken, restrictMainTokenFile } = require('../lib/main-token-file');
 const { waitFor } = require('../lib/net-utils');
+const { acquireOwnerToken } = require('../lib/main-token-file');
 const { installSecretHeader, MAIN_TOKEN_HEADER } = require('../lib/lan-auth');
 const secretStore = require('../lib/secret-store');
 
@@ -103,7 +104,7 @@ test('the file ACL (real icacls, Windows): writable only by the owning account a
   assert.ok(entries.every((line) => !/\(I\)/.test(line)), 'nothing inherited');
   const users = entries.find((line) => /^BUILTIN\\Users:/i.test(line));
   const system = entries.find((line) => /^NT AUTHORITY\\SYSTEM:/i.test(line));
-  assert.ok(users && /^\(RX?\)$/.test(users.slice(users.indexOf(':') + 1)), `Users read-only: ${users}`);
+  assert.ok(users && /^\(R,D\)$/.test(users.slice(users.indexOf(':') + 1)), `Users read and delete only: ${users}`);
   assert.ok(system && /\(F\)/.test(system), `SYSTEM full: ${system}`);
   const owner = entries.filter((line) => line !== users && line !== system)[0];
   assert.ok(owner && /\(F\)/.test(owner), `the owning account has full control: ${owner} (sid ${sid})`);
@@ -117,11 +118,103 @@ test('the file ACL (real icacls, Windows): writable only by the owning account a
   assert.deepEqual(fs.readdirSync(dir).filter((name) => name.endsWith('.tmp')), []);
 });
 
+const WHOAMI = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'whoami.exe');
+const ICACLS = (args) => spawnSync(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'icacls.exe'), args, { encoding: 'utf8', windowsHide: true });
+
+test('CRASH CASE (real icacls): account A\'s locked file is replaced by account B at its next start (Users have read + delete; the folder lets B create files but not delete A\'s)', { skip: process.platform === 'win32' ? false : 'Windows only' }, () => {
+  const dir = dirOf('crash');
+  const sid = spawnSync(WHOAMI, ['/user', '/fo', 'csv', '/nh'], { encoding: 'utf8', windowsHide: true }).stdout.match(/"(S-1-[0-9-]+)"/)[1];
+  const file = path.join(dir, FILE_NAME);
+  try {
+    // A (the crashed owner) wrote the file; A's own entry is then taken away, so THIS process stands in for another account B that
+    // can only act through BUILTIN\Users. The folder gives Users read, create and write but not delete-child, like a locked-down folder.
+    writeMainToken(dir, TOKEN, protect);
+    assert.equal(ICACLS([file, '/remove:g', `*${sid}`]).status, 0);
+    assert.equal(ICACLS([dir, '/inheritance:r', '/grant:r', '*S-1-5-32-545:(OI)(CI)(RX,WD,AD)', '/grant:r', '*S-1-5-18:(OI)(CI)(F)']).status, 0);
+    assert.equal(readMainToken(dir, unprotect), TOKEN, 'B can read A\'s file');
+    assert.throws(() => fs.writeFileSync(file, 'tamper'), /EPERM|EACCES/, 'B cannot write into A\'s file');
+    // B starts: its write replaces the file
+    const written = writeMainToken(dir, OTHER, protect);
+    assert.equal(written.restricted, true);
+    assert.equal(readMainToken(dir, unprotect), OTHER, 'replaced by B');
+    assert.deepEqual(fs.readdirSync(dir).filter((name) => name.endsWith('.tmp')), []);
+  } finally {
+    ICACLS([dir, '/inheritance:r', '/grant:r', `*${sid}:(OI)(CI)(F)`, '/grant:r', '*S-1-5-18:(OI)(CI)(F)']);
+  }
+});
+
+test('a failed rename leaves no .tmp file behind and the error reaches the caller (main.js logs it as an error)', () => {
+  const dir = dirOf('failed-rename');
+  fs.mkdirSync(path.join(dir, FILE_NAME)); // a folder where the file belongs: the rename cannot replace it
+  assert.throws(() => writeMainToken(dir, TOKEN, protect), /EISDIR|EPERM|EEXIST|ENOTEMPTY|EACCES/);
+  assert.deepEqual(fs.readdirSync(dir).filter((name) => name.endsWith('.tmp')), [], 'no leftover temp file');
+  assert.match(MAIN, /log\.error\(`main-PC token file: \$\{error\.message\}`\)/, 'the owner logs the write failure as an error');
+});
+
+// A real backend answering /api/lan/info, started like the owner does (the token in its environment).
+function startBackendProbe(token) {
+  const backendRoot = path.resolve(__dirname, '..', '..', '..', 'nota-backend');
+  const script = `
+    const express = require('express');
+    const { getLanInfo } = require(${JSON.stringify(path.join(backendRoot, 'src', 'controllers', 'lan.controller.js'))});
+    const app = express(); app.get('/api/lan/info', getLanInfo);
+    const server = app.listen(0, '127.0.0.1', () => console.log('PORT ' + server.address().port));
+  `;
+  const env = { ...process.env, NOTA_MAIN_TOKEN: token, NODE_PATH: path.join(backendRoot, 'node_modules') };
+  delete env.ELECTRON_RUN_AS_NODE;
+  const child = require('node:child_process').spawn(process.execPath, ['-e', script], { env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  return new Promise((resolve, reject) => {
+    child.stdout.on('data', (chunk) => { const m = /PORT (\d+)/.exec(String(chunk)); if (m) resolve({ port: Number(m[1]), stop: () => child.kill() }); });
+    child.once('error', reject);
+    child.once('exit', (code) => reject(new Error(`probe backend exited ${code}`)));
+  });
+}
+const confirms = (port) => async (token) => {
+  const response = await fetch(`http://127.0.0.1:${port}/api/lan/info`, { headers: { [MAIN_TOKEN_HEADER]: token } });
+  return (await response.json()).mainPc === true;
+};
+
+test('attached: a VALID token in the file is confirmed by the server and used; a STALE or TAMPERED one is never used (null → MAIN_TOKEN_UNAVAILABLE, not a silent client); a file replaced during the window is picked up', async () => {
+  const backend = await startBackendProbe(TOKEN);
+  try {
+    const dir = dirOf('verify');
+    const read = () => readMainToken(dir, unprotect);
+    const run = (timeoutMs) => acquireOwnerToken({ read, verify: confirms(backend.port), waitFor, timeoutMs, intervalMs: 20 });
+
+    writeMainToken(dir, TOKEN, protect);
+    assert.equal(await run(1000), TOKEN, 'valid token: main');
+
+    writeMainToken(dir, OTHER, protect); // left by a crashed run: the running server has another token
+    assert.equal(await run(300), null, 'stale token: refused, so the attached session shows the error');
+    removeMainToken(dir);
+    assert.equal(await run(200), null, 'no file: refused');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, FILE_NAME), 'tampered', 'utf8');
+    assert.equal(await run(200), null, 'tampered file: refused');
+
+    // the owner overwrites the stale file a moment later: the re-read picks the good one up
+    writeMainToken(dir, OTHER, protect);
+    setTimeout(() => writeMainToken(dir, TOKEN, protect), 150);
+    assert.equal(await run(2000), TOKEN, 'replaced while waiting');
+
+    // a verify that fails or throws counts as "not confirmed"
+    assert.equal(await acquireOwnerToken({ read, verify: async () => { throw new Error('refused'); }, waitFor, timeoutMs: 100, intervalMs: 20 }), null);
+  } finally { backend.stop(); }
+
+  // main.js wires it: the token is used only when acquireOwnerToken returned one, otherwise MAIN_TOKEN_UNAVAILABLE
+  const start = MAIN.indexOf('async function attachToRunningServer()');
+  const attach = MAIN.slice(start, MAIN.indexOf('function readJwtSecret', start));
+  assert.match(attach, /ownerToken = await acquireOwnerToken\(/);
+  assert.match(attach, /verify: serverAcceptsMainToken/);
+  assert.match(MAIN, /\/api\/lan\/info[^]*?mainPc === true/);
+  assert.match(attach, /if \(answered && !ownerToken\)[^]*?MAIN_TOKEN_UNAVAILABLE[^]*?return;/);
+});
+
 test('the ACL command: inheritance removed, Users read, SYSTEM and the owner full; a failure is reported, never thrown', () => {
   const calls = [];
   const ok = restrictMainTokenFile('X:\\f', { platform: 'win32', sid: () => 'S-1-5-21-1-2-3-1001', run: (...args) => { calls.push(args); return { status: 0 }; } });
   assert.deepEqual(ok, { restricted: true });
-  assert.deepEqual(calls[0][1], ['X:\\f', '/inheritance:r', '/grant:r', '*S-1-5-32-545:(R)', '/grant:r', '*S-1-5-18:(F)', '/grant:r', '*S-1-5-21-1-2-3-1001:(F)']);
+  assert.deepEqual(calls[0][1], ['X:\\f', '/inheritance:r', '/grant:r', '*S-1-5-32-545:(R,D)', '/grant:r', '*S-1-5-18:(F)', '/grant:r', '*S-1-5-21-1-2-3-1001:(F)']);
   const failed = restrictMainTokenFile('X:\\f', { platform: 'win32', sid: () => 'S-1-5-21-1', run: () => ({ status: 5, stderr: 'Access is denied.' }) });
   assert.equal(failed.restricted, false);
   assert.match(failed.error, /Access is denied/);
@@ -133,7 +226,7 @@ test('attached: the token file is read only AFTER the owner backend answers, and
   const attach = MAIN.slice(start, MAIN.indexOf('function readJwtSecret', start));
   const answers = attach.indexOf('waitFor(backendAnswers');
   const read = attach.indexOf('readMainToken(');
-  const retry = attach.indexOf('waitFor(readOwnerToken, { timeoutMs: MAIN_TOKEN_WAIT_MS');
+  const retry = attach.indexOf('timeoutMs: MAIN_TOKEN_WAIT_MS');
   const fail = attach.indexOf("code: 'MAIN_TOKEN_UNAVAILABLE'");
   assert.ok(answers > 0 && read > answers && retry > read && fail > retry, 'backend answers, then read with a retry, then the error');
   assert.match(MAIN, /const MAIN_TOKEN_WAIT_MS = \d{4,5};/, 'a few seconds');
