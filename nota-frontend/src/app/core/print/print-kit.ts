@@ -185,20 +185,25 @@ const PAGE_RULES: Record<PrintPaper, string> = {
   '80mm': '@page { size: 80mm var(--roll-height, 297mm); margin: 0; }',
 };
 
+const MARGIN_SIDE_WIDTH = '36%';
+const MARGIN_CENTER_WIDTH = '28%';
+
 /** The page-number and "printed by" boxes in the bottom margin of every page (Chromium honors @page margin boxes). */
 function marginBoxes(ctx: PrintContext, doc: PrintDocument): string {
   const rtl = ctx.lang === 'ar';
   const startBox = rtl ? 'right' : 'left';
   const endBox = rtl ? 'left' : 'right';
-  const style = `font-family: ${FONT_STACK}; font-size: 10.5px; color: #4A5856; vertical-align: top; padding-top: 3mm;`;
+  // The centre box is centred on the page, so the side boxes may be at most (100% - centre) / 2 wide or they overlap it:
+  // 36% + 28% + 36%. A long "printed by" name wraps inside its own box (never into the centre one).
+  const style = `font-family: ${FONT_STACK}; font-size: 10.5px; line-height: 1.35; color: #4A5856; vertical-align: top; padding-top: 3mm; box-sizing: border-box;`;
   const rules: string[] = [];
   if (doc.marginFooter !== false) {
-    rules.push(`@bottom-${startBox} { content: "${cssString(printedByText(ctx))}"; ${style} width: 40%; text-align: ${rtl ? 'right' : 'left'}; }`);
-    rules.push(`@bottom-center { content: "${cssString(generatedText(ctx))}"; ${style} width: 40%; text-align: center; }`);
+    rules.push(`@bottom-${startBox} { content: "${cssString(printedByText(ctx))}"; ${style} width: ${MARGIN_SIDE_WIDTH}; text-align: ${rtl ? 'right' : 'left'}; }`);
+    rules.push(`@bottom-center { content: "${cssString(generatedText(ctx))}"; ${style} width: ${MARGIN_CENTER_WIDTH}; text-align: center; }`);
   }
   if (doc.pageNumbers) {
     const counter = rtl ? 'arabic-indic' : 'decimal';
-    rules.push(`@bottom-${endBox} { content: "${cssString(pick(ctx, 'صفحة', 'Page'))} " counter(page, ${counter}) " ${cssString(pick(ctx, 'من', 'of'))} " counter(pages, ${counter}); ${style} width: 20%; text-align: ${rtl ? 'left' : 'right'}; }`);
+    rules.push(`@bottom-${endBox} { content: "${cssString(pick(ctx, 'صفحة', 'Page'))} " counter(page, ${counter}) " ${cssString(pick(ctx, 'من', 'of'))} " counter(pages, ${counter}); ${style} width: ${MARGIN_SIDE_WIDTH}; text-align: ${rtl ? 'left' : 'right'}; }`);
   }
   return rules.length ? `@page { ${rules.join(' ')} }` : '';
 }

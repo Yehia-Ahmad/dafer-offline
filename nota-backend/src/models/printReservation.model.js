@@ -13,8 +13,10 @@ const printReservationSchema = new mongoose.Schema({
   status: { type: String, enum: ["reserved", "printed", "released"], default: "reserved" },
   gaveBack: { type: Boolean, default: false },
   resolvedAt: Date,
-}, { timestamps: { createdAt: true, updatedAt: false }, versionKey: false });
+// autoIndex is off for this model on purpose: its indexes are built by ensureIndexes() on startup, AFTER the migrations
+// (migration 11 drops the old non-unique key_1_copyNo_1 index that an earlier build created, which would otherwise clash).
+}, { timestamps: { createdAt: true, updatedAt: false }, versionKey: false, autoIndex: false });
 // Safety net: two LIVE (reserved or printed) reservations can never hold the same copy number of a counter.
-printReservationSchema.index({ key: 1, copyNo: 1 }, { unique: true, partialFilterExpression: { status: { $in: ["reserved", "printed"] } } });
+printReservationSchema.index({ key: 1, copyNo: 1 }, { name: "print_reservation_live_unique", unique: true, partialFilterExpression: { status: { $in: ["reserved", "printed"] } } });
 
 module.exports = mongoose.model("PrintReservation", printReservationSchema);

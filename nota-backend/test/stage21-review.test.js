@@ -442,7 +442,7 @@ it("9. migration 9 stops with a clear error when account 115 already exists and 
   await assert.rejects(() => runMigrations(), /account code 115 already exists/);
   assert.equal((await Meta.findById("schema").lean()).version, 8, "the schema version did not move");
   await Account.deleteMany({});
-  assert.equal(await runMigrations(), 10);
+  assert.equal(await runMigrations(), 11);
   assert.equal((await Account.findOne({ code: "115" }).lean()).systemKey, "VAT_INPUT");
 });
 
@@ -465,7 +465,7 @@ it("N1. migration 10 rounds 3-decimal product prices to 2 decimals, revalues the
   assert.equal((await assertHealthy()).inventory.difference, 0, "the books were exact before the migration");
 
   await Meta.updateOne({ _id: "schema" }, { $set: { version: 9 } });
-  assert.equal(await runMigrations(), 10);
+  assert.equal(await runMigrations(), 11);
   const after = await Product.findById(s.a._id).lean();
   assert.equal(after.purchasePrice, 20.13); assert.equal(after.wholesalePrice, 25.13); assert.equal(after.retailPrice, 120.13);
   const other = await Product.findById(s.b._id).lean();
@@ -482,7 +482,7 @@ it("N1. migration 10 rounds 3-decimal product prices to 2 decimals, revalues the
   // Idempotent: running it again changes and posts nothing.
   const entries = await JournalEntry.countDocuments({});
   await Meta.updateOne({ _id: "schema" }, { $set: { version: 9 } });
-  assert.equal(await runMigrations(), 10);
+  assert.equal(await runMigrations(), 11);
   assert.equal(await JournalEntry.countDocuments({}), entries);
   const again = await AuditLog.find({ action: "system.migration", "details.version": 10 }).sort({ at: -1 }).lean();
   assert.equal(again[0].details.productsChanged, 0);

@@ -18,6 +18,7 @@ const { PREFIXES, formatDocumentNumber, nextDocumentNumber } = require("../utils
 const { withTransaction } = require("../utils/transaction");
 const { isLanMode } = require("../middlewares/lanSecret.middleware");
 const CashBox = require("../models/cashBox.model");
+const PrintReservation = require("../models/printReservation.model");
 const { syncAccountBoxes } = require("../cashbox/boxes");
 
 const BATCH_SIZE = 500;
@@ -610,6 +611,30 @@ async function stage21ProductPricesMigration(session) {
   return { productsChanged: changed, revalued, revaluationTotal: posted };
 }
 
+// Stage 23 review: an earlier build created a NON-unique index key_1_copyNo_1 on printreservations. The unique partial index that
+// replaces it is named print_reservation_live_unique (same key, different options), so the old one must go first or the
+// index build at startup fails with an options conflict. Index changes cannot run inside a transaction. Safe to run twice:
+// a missing index or a missing collection is ignored, and only a NON-unique index of that name is dropped.
+async function stage23PrintReservationIndexMigration() {
+  const collection = PrintReservation.collection;
+  let indexes = [];
+  try {
+    indexes = await collection.indexes();
+  } catch (error) {
+    if (error.codeName === "NamespaceNotFound" || error.code === 26 || /ns not found|ns does not exist/i.test(error.message)) return { dropped: false };
+    throw error;
+  }
+  const old = indexes.find((index) => index.name === "key_1_copyNo_1" && !index.unique);
+  if (!old) return { dropped: false };
+  try {
+    await collection.dropIndex("key_1_copyNo_1");
+  } catch (error) {
+    if (error.codeName === "IndexNotFound" || error.codeName === "NamespaceNotFound" || error.code === 27 || error.code === 26 || /index not found|ns not found/i.test(error.message)) return { dropped: false };
+    throw error;
+  }
+  return { dropped: true };
+}
+
 const migrations = [
   { version: 1, name: "document numbers and receipts", run: numbersMigration },
   { version: 2, name: "original invoice totals and returned status", chunked: true, runChunk: originalTotalsMigrationChunk },
@@ -621,6 +646,7 @@ const migrations = [
   { version: 8, name: "stage 19 review: custom expense categories get 5-digit codes under 520", run: stage19CategoryCodesMigration },
   { version: 9, name: "stage 21 VAT: input VAT account 115", run: stage21VatInputAccountMigration },
   { version: 10, name: "stage 21 review: product prices rounded to 2 decimals (cost revaluation posted)", run: stage21ProductPricesMigration },
+  { version: 11, name: "stage 23 review: drop the old non-unique printreservations index key_1_copyNo_1", outsideTransaction: true, run: stage23PrintReservationIndexMigration },
 ];
 
 async function recordMigration(migration, details, session) {

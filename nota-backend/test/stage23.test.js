@@ -189,7 +189,7 @@ it("print release, scenario B: a number that was issued again and printed is nev
 });
 
 it("print reservations: a unique partial index (key, copyNo) for reserved / printed rows stops two live reservations from holding one number, and allows a released one next to it", async () => {
-  await PrintReservation.init();
+  await PrintReservation.createIndexes(); // autoIndex is off for this model: ensureIndexes() builds it on startup
   const base = { key: "INV-000138|page", number: "INV-000138", paperClass: "page", copyNo: 1 };
   await PrintReservation.create({ ...base, status: "released" });
   await PrintReservation.create({ ...base, status: "reserved" });
@@ -454,4 +454,66 @@ it("supplier refunds list carries the box name, for the SR voucher; the statemen
   assert.equal((await as(cashier, () => call("POST", "/api/print/reserve", { number: refund.number, paperClass: "page" }))).status, 403, "SR needs suppliers.view / suppliers.pay");
   const accountant = await makeUser("acc23sr", "accountant");
   assert.equal((await as(accountant, () => call("POST", "/api/print/reserve", { number: refund.number, paperClass: "page" }))).json.copyNo, 1);
+});
+
+// ---- the printreservations index upgrade (migration 11)
+const { ensureIndexes } = require("../src/config/db");
+const { migrations } = require("../src/migrations");
+const resetCollection = async () => { try { await PrintReservation.collection.drop(); } catch (error) { if (error.codeName !== "NamespaceNotFound") throw error; } };
+const indexesOf = async () => (await PrintReservation.collection.indexes()).map((index) => index.name).sort();
+const atVersion10 = () => Meta.updateOne({ _id: "schema" }, { $set: { version: 10 } }, { upsert: true });
+const LIVE_INDEX = "print_reservation_live_unique";
+
+it("migration 11 is the next number after 10 and runs outside a transaction (index changes cannot)", () => {
+  const last = migrations[migrations.length - 1];
+  assert.equal(last.version, 11);
+  assert.equal(last.outsideTransaction, true);
+  assert.equal(migrations[migrations.length - 2].version, 10);
+});
+
+it("a database that still has the OLD non-unique key_1_copyNo_1 index: startup (migrations, then ensureIndexes) works, the old index is gone, print_reservation_live_unique has unique + the partial filter", async () => {
+  await resetCollection();
+  await PrintReservation.collection.createIndex({ key: 1, copyNo: 1 }); // what the earlier build created: name key_1_copyNo_1, not unique
+  assert.ok((await indexesOf()).includes("key_1_copyNo_1"));
+  await atVersion10();
+  // why the new index needs its own name: under the default name (key_1_copyNo_1) the unique partial index clashes with the old one
+  await assert.rejects(() => PrintReservation.collection.createIndex({ key: 1, copyNo: 1 }, { unique: true, partialFilterExpression: { status: { $in: ["reserved", "printed"] } } }), (error) => error.codeName === "IndexOptionsConflict" || /already exists|conflict/i.test(error.message));
+  assert.ok((await indexesOf()).includes("key_1_copyNo_1"), "still only the old index before the migration");
+  assert.equal(await runMigrations(), 11);
+  await ensureIndexes();
+  const indexes = await PrintReservation.collection.indexes();
+  assert.ok(!indexes.some((index) => index.name === "key_1_copyNo_1"), "the old index is gone");
+  const live = indexes.find((index) => index.name === LIVE_INDEX);
+  assert.ok(live, "the new index exists");
+  assert.equal(live.unique, true);
+  assert.deepEqual(live.key, { key: 1, copyNo: 1 });
+  assert.deepEqual(live.partialFilterExpression, { status: { $in: ["reserved", "printed"] } });
+  assert.equal((await Meta.findById("schema").lean()).version, 11);
+});
+
+it("a fresh database (no collection yet): the migration is a no-op and only the new index is built", async () => {
+  await resetCollection();
+  await atVersion10();
+  assert.equal(await runMigrations(), 11);
+  await ensureIndexes();
+  const names = await indexesOf();
+  assert.ok(names.includes(LIVE_INDEX));
+  assert.ok(!names.includes("key_1_copyNo_1"));
+  assert.deepEqual(names, ["_id_", LIVE_INDEX, "key_1"].sort());
+});
+
+it("running migration 11 twice is a no-op (it never drops the new unique index)", async () => {
+  await resetCollection();
+  await PrintReservation.collection.createIndex({ key: 1, copyNo: 1 });
+  await atVersion10();
+  await runMigrations();
+  await ensureIndexes();
+  const before = await PrintReservation.collection.indexes();
+  const migration = migrations.find((entry) => entry.version === 11);
+  assert.deepEqual(await migration.run(), { dropped: false }, "called directly again: nothing to drop");
+  await atVersion10();
+  assert.equal(await runMigrations(), 11, "and through the runner");
+  await ensureIndexes();
+  assert.deepEqual(await PrintReservation.collection.indexes(), before);
+  assert.ok((await indexesOf()).includes(LIVE_INDEX));
 });

@@ -123,7 +123,7 @@ it("the migration creates the main box (account 1111) and a box per 112xx leaf, 
   // Make it look like an install from before Stage 19, then upgrade.
   await forgetBoxes(); await Meta.updateOne({ _id: "schema" }, { $set: { version: 6 } });
   assert.equal(await CashBox.countDocuments({}), 0); assert.equal(await Selling.countDocuments({ boxId: { $exists: true } }), 0);
-  assert.equal(await runMigrations(), 10);
+  assert.equal(await runMigrations(), 11);
   const boxes = await CashBox.find({}).sort({ sortOrder: 1 }).lean();
   assert.deepEqual(boxes.map((box) => [box.name, box.type, box.isMain, box.shiftsEnabled]), [["الخزنة الرئيسية", "cash", true, false], ["Vodafone Cash", "wallet", false, false]]);
   const main = boxes[0];
@@ -135,7 +135,7 @@ it("the migration creates the main box (account 1111) and a box per 112xx leaf, 
     assert.ok(docs.length > 0); assert.ok(docs.every((doc) => String(doc.boxId) === String(main._id)), Model.modelName);
   }
   assert.equal(String((await CreditSale.findById(credit._id).lean()).cancelRefundBoxId), String(main._id));
-  assert.equal(await runMigrations(), 10, "idempotent");
+  assert.equal(await runMigrations(), 11, "idempotent");
   assert.equal(await CashBox.countDocuments({}), 2);
   await assertHealthy();
 });
@@ -1082,7 +1082,7 @@ it("review 5: 12 new categories are 52001 to 52012 and none collides with 530; m
     await postEntry({ date: new Date(), source: { type: "expense", id: ObjectId(), number: "EX-OLD" }, session, lines: [line(old[0].toObject(), 10, "debit"), line(accounts.get("CASH_MAIN"), 10, "credit")] });
   });
   await Meta.updateOne({ _id: "schema" }, { $set: { version: 7 } });
-  assert.equal(await runMigrations(), 10);
+  assert.equal(await runMigrations(), 11);
   assert.deepEqual((await Account.find({ _id: { $in: old.map((row) => row._id) } }).sort({ nameAr: 1 }).lean()).map((row) => row.code), ["52013", "52014"]);
   assert.equal(await Account.countDocuments({ code: { $in: ["526", "527"] } }), 0);
   const entry = await JournalEntry.findOne({ "lines.accountId": oldId }).lean();

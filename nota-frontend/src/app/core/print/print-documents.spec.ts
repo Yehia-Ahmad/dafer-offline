@@ -821,4 +821,24 @@ describe('Stage 23 last review fixes', () => {
     const hostile = ctxOf('en', { printedBy: '<img src=x>' });
     expect(html(cashReceipt(hostile, sale), hostile)).toContain('<bdi>&lt;img src=x&gt;</bdi>');
   });
+  it('the A4 footer boxes never overlap: the side boxes fit beside the centred middle box, and a long name stays in its own box (ar and en)', () => {
+    const LONG = 'محمود عبد الرحمن السيد';
+    for (const lang of ['ar', 'en'] as const) {
+      for (const numbered of [true, false]) {
+        const long = ctxOf(lang, { printedBy: LONG });
+        const doc = { ...cashInvoice(long, sale), pageNumbers: numbered };
+        const out = html(doc, long);
+        const boxes = [...out.matchAll(/@bottom-(left|center|right) \{([^}]*)\}/g)].map((match) => ({ place: match[1], css: match[2], width: Number(/width: (\d+)%/.exec(match[2])?.[1]) }));
+        expect(boxes.length).toBe(numbered ? 3 : 2, `${lang} numbered=${numbered}`);
+        const center = boxes.find((box) => box.place === 'center') as { width: number };
+        for (const box of boxes.filter((entry) => entry.place !== 'center')) {
+          // the middle box is centred: its half plus a side box's width must not pass the half of the page
+          expect(box.width + center.width / 2).toBeLessThanOrEqual(50, `${lang} numbered=${numbered}: the ${box.place} box overlaps the middle one`);
+        }
+        expect(boxes.reduce((sum, box) => sum + box.width, 0)).toBeLessThanOrEqual(100);
+        expect(out).toContain(LONG);
+        for (const box of boxes) expect(box.css).not.toContain('nowrap');
+      }
+    }
+  });
 });
