@@ -201,7 +201,7 @@ function marginBoxes(ctx: PrintContext, doc: PrintDocument): string {
 export function copyMark(ctx: PrintContext): string {
   if (!ctx.copy) return '';
   const when = `${formatDate(ctx.copy.at, ctx.lang)} ${formatTime(ctx.copy.at, ctx.lang)}`;
-  const copyNo = ctx.copy.n > 1 ? ` ${localizeDigits(String(ctx.copy.n), ctx.lang)}` : '';
+  const copyNo = ctx.copy.n >= 1 ? ` ${localizeDigits(String(ctx.copy.n), ctx.lang)}` : '';
   return `<div class="copy-mark" data-copy-mark>${pick(ctx, 'نسخة', 'COPY')}${copyNo}<small>${pick(ctx, 'أُعيدت الطباعة', 'Reprinted')} ${escapeHtml(when)}</small></div>`;
 }
 

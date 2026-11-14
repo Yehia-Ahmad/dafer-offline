@@ -167,16 +167,16 @@ describe('PrCashReceipt / PrCashInvoice', () => {
   });
 
   it('a reprint carries "نسخة" with the reprint time, on the 80mm receipt and the A4 invoice; the first print does not', () => {
-    const copy = { n: 1, at: new Date(2026, 10, 6, 9, 5) };
+    const copy = { n: 2, at: new Date(2026, 10, 6, 9, 5) };
     const receipt = html(cashReceipt(ctxOf('ar', { copy }), sale), ctxOf('ar', { copy }));
     expect(receipt).toContain('data-copy-mark');
-    expect(receipt).toContain('نسخة');
+    expect(receipt).toContain('نسخة ٢');
     expect(receipt).toContain('٦ / ١١ / ٢٠٢٦ ٩:٠٥ ص');
     const a4 = html(cashInvoice(ctxOf('ar', { copy: { n: 3, at: copy.at } }), sale), ctxOf('ar', { copy: { n: 3, at: copy.at } }));
     expect(a4).toContain('data-copy-mark');
     expect(a4).toContain('نسخة ٣');
     expect(html(cashInvoice(ctxOf(), sale))).not.toContain('data-copy-mark');
-    expect(html(cashReceipt(ctxOf('en', { copy }), sale), ctxOf('en', { copy }))).toContain('COPY');
+    expect(html(cashReceipt(ctxOf('en', { copy }), sale), ctxOf('en', { copy }))).toContain('COPY 2');
   });
 
   it('a cancelled invoice prints with the "ملغي" watermark and the cancel reason (80mm and A4)', () => {
@@ -530,7 +530,7 @@ describe('escaping: every value inserted into print HTML is HTML-escaped', () =>
 describe('Stage 23 review fixes', () => {
   const NAME = "O'Brien & Co";
   const SHIFT = { number: 'SH-000058', boxName: 'درج', cashier: 'ك', openedAt: null, closedAt: null, summary: [], movement: [], expected: 7550, counted: 7500, difference: -50 };
-  const copyCtx = (extra: Partial<PrintContext> = {}) => ctxOf('ar', { copy: { n: 1, at: new Date(2026, 10, 6, 9, 5) }, ...extra });
+  const copyCtx = (extra: Partial<PrintContext> = {}) => ctxOf('ar', { copy: { n: 2, at: new Date(2026, 10, 6, 9, 5) }, ...extra });
   const STOCK_ROWS = [{ code: 'A1', name: 'لمبة', categoryName: 'إضاءة', inventoryCount: 2, lowStock: true, purchasePrice: 30 }];
   const STATEMENT = { customer: { name: 'م. سامي' }, lines: [], totals: { openingBalance: 0, debit: 0, credit: 0, balance: 0 }, aging: { current: 0, days1to30: 0, days31to60: 0, over60: 0, total: 0 } };
   const JOURNAL = { number: 'JE-000415', date: '2026-11-05', typeLabel: 'يدوي', lines: [{ code: '110', name: 'الخزنة', debit: 5, credit: 0 }], totalDebit: 5, totalCredit: 5, related: [] as string[] };

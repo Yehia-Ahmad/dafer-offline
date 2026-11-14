@@ -129,9 +129,9 @@ export class PrintService {
       let doc = request.build(ctx);
       if (request.number) {
         reservation = await this.reserve(request.number, doc.paper);
-        // copyNo 1 is the original; 2 and up are reprints ("نسخة", numbered from the second reprint).
+        // copyNo 1 is the original; 2 and up are reprints ("نسخة n", n = the copy number, the same as the audit).
         if (reservation.copyNo > 1) {
-          ctx = await this.context({ n: reservation.copyNo - 1, at: new Date() }, request.noShop);
+          ctx = await this.context({ n: reservation.copyNo, at: new Date() }, request.noShop);
           doc = request.build(ctx);
         }
       }

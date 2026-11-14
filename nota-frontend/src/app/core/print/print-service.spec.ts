@@ -178,7 +178,7 @@ describe('PrintService (Stage 23)', () => {
     document.querySelectorAll('iframe[aria-hidden="true"]').forEach((frame) => frame.remove()); // the dev print frame removes itself only after afterprint / 2 minutes
   });
 
-  it('a reprint (the server reserves copy 2+) is rendered with the "نسخة" mark and the reprint time; the original has no mark', async () => {
+  it('a reprint (the server reserves copy 2+) is rendered with the "نسخة n" mark (n = the copy number, the same as the audit) and the reprint time; the original has no mark', async () => {
     setup();
     let builds = 0;
     const outcome = await run(service.print({ number: 'INV-000125', build: (ctx) => { builds += 1; return cashInvoice(ctx, SALE); } }), { copyNo: 3 });
@@ -187,12 +187,12 @@ describe('PrintService (Stage 23)', () => {
     const job = bridge['print'].calls.mostRecent().args[1];
     expect(job.paper).toBe('A4');
     expect(job.html).toContain('data-copy-mark');
-    expect(job.html).toContain('نسخة ٢');
+    expect(job.html).toContain('نسخة ٣');
+    expect(job.html).not.toContain('نسخة ٢');
     expect(job.html).toContain('أُعيدت الطباعة');
     bridge['print'].calls.reset();
     await run(service.print({ number: 'INV-000125', build: (ctx) => cashInvoice(ctx, SALE) }), { copyNo: 2 });
-    expect(bridge['print'].calls.mostRecent().args[1].html).toContain('data-copy-mark');
-    expect(bridge['print'].calls.mostRecent().args[1].html).not.toContain('نسخة ٢');
+    expect(bridge['print'].calls.mostRecent().args[1].html).toContain('نسخة ٢');
     bridge['print'].calls.reset();
     await run(service.print({ number: 'INV-000125', build: (ctx) => cashInvoice(ctx, SALE) }), { copyNo: 1 });
     expect(bridge['print'].calls.mostRecent().args[1].html).not.toContain('data-copy-mark');
