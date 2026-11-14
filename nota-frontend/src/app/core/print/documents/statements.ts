@@ -1,9 +1,9 @@
 // Stage 23: the A4 statements and lists: PrCustomerStatement, PrSupplierStatement, PrStockList.
 
 import { escapeHtml, formatDate, formatDayMonth, formatMoney, formatQty } from '../print-format';
-import { Cell, PrintContext, PrintDocument, a4Header, a4Page, pick, row, closing, signatures, table } from '../print-kit';
+import { Cell, PrintContext, PrintDocument, a4Header, a4Page, pick, row, closing, signatures, table, moneyHtml } from '../print-kit';
 
-const money = (ctx: PrintContext, value: number | null | undefined): string => formatMoney(value ?? 0, ctx.lang);
+const money = moneyHtml;
 const currency = (ctx: PrintContext): string => pick(ctx, 'ج.م', 'EGP');
 const ltr = (value: string): string => `<span class="ltr n">${escapeHtml(value)}</span>`;
 

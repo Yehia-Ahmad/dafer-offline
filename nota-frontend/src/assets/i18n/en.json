@@ -4,6 +4,7 @@
     "savePdf": "Save PDF",
     "saved": "File saved",
     "sent": "Receipt sent to the printer",
+    "notRecorded": "Printed, but the print was not recorded. Tell the manager.",
     "failed": "Printing failed",
     "desktopOnly": "This feature is available in the desktop app only",
     "preparing": "Preparing…",

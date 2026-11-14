@@ -2,7 +2,7 @@ process.env.NODE_ENV = "test";
 process.env.NOTA_AUTH = "1";
 process.env.NOTA_JWT_SECRET = "stage23-test-secret-0123456789abcdef-0123456789";
 
-// Stage 23: the print backend. POST /api/print/log (copy numbers + the document.printed audit) and the
+// Stage 23: the print backend. POST /api/print/reserve|confirm|release (copy numbers + the document.printed audit) and the
 // three print-data endpoints (receipt, purchase, stock list): permissions, stored numbers, cost hidden.
 
 const assert = require("node:assert/strict");
@@ -73,98 +73,179 @@ async function product({ code, stock = 100, cost = 20, category } = {}) {
   return ok(await call("POST", "/api/products", { name: `منتج ${code}`, code, categoryId: String(cat._id), inventoryCount: stock, purchasePrice: cost, wholesalePrice: cost + 5, retailPrice: cost + 100 }), 201);
 }
 
-// Minimal real documents (only the number matters to the print log): one per prefix.
+// Minimal real documents (only the number matters to the print endpoints): one per prefix.
 const { PREFIX_MODELS } = require("../src/controllers/print.controller");
+const PrintReservation = require("../src/models/printReservation.model");
 const seedDocument = async (number) => { await PREFIX_MODELS[number.split("-")[0]].collection.insertOne({ number }); return number; };
-const nextCopy = async (number, paper) => ok(await call("GET", `/api/print/next-copy?number=${number}${paper ? `&paper=${paper}` : ""}`)).copy;
-const commit = async (number, paper) => ok(await call("POST", "/api/print/log", { number, paper })).copy;
+const reserve = (number, paperClass = "page") => call("POST", "/api/print/reserve", { number, paperClass });
+const reserved = async (number, paperClass = "page") => ok(await reserve(number, paperClass), 201);
+const confirm = (reservationId) => call("POST", "/api/print/confirm", { reservationId });
+const release = (reservationId) => call("POST", "/api/print/release", { reservationId });
+const counterOf = async (number, paperClass = "page") => (await PrintCount.findById(`${number}|${paperClass}`).lean())?.count ?? 0;
+const auditOf = (action, number) => AuditLog.find({ action, entityId: number }).sort({ at: 1 }).lean();
 
-it("print log: next-copy counts nothing; copy 0 is the first print, 1+ are reprints; each commit writes a document.printed audit entry with the real number", async () => {
+it("print reserve: copy 1 is the original, 2+ are reprints; confirm writes ONE document.printed audit entry with the copy number, user, type and paper class", async () => {
   await seedDocument("INV-000125"); await seedDocument("INV-000126");
-  assert.equal(await nextCopy("INV-000125", "80mm"), 0);
-  assert.equal(await nextCopy("INV-000125", "80mm"), 0, "asking does not count");
-  assert.equal(await PrintCount.countDocuments({}), 0);
-  const first = ok(await call("POST", "/api/print/log", { number: "INV-000125", paper: "80mm" }));
-  assert.equal(first.copy, 0);
+  const first = await reserved("INV-000125", "receipt");
+  assert.equal(first.copyNo, 1);
   assert.equal(first.number, "INV-000125");
-  assert.ok(!Number.isNaN(Date.parse(first.printedAt)));
-  assert.equal(await nextCopy("INV-000125", "80mm"), 1);
-  assert.equal(await commit("inv-000125", "80mm"), 1);
-  assert.equal(await commit("INV-000125", "80mm"), 2);
-  assert.equal(await commit("INV-000126", "80mm"), 0);
-  const entries = await AuditLog.find({ action: "document.printed", entityId: "INV-000125" }).sort({ at: 1 }).lean();
-  assert.deepEqual(entries.map((entry) => entry.details.copy), [0, 1, 2]);
+  assert.equal(first.paperClass, "receipt");
+  assert.equal((await auditOf("document.printed", "INV-000125")).length, 0, "a reserve alone writes no printed audit");
+  const confirmed = ok(await confirm(first.reservationId));
+  assert.equal(confirmed.copyNo, 1);
+  const second = await reserved("inv-000125".toUpperCase(), "receipt");
+  assert.equal(second.copyNo, 2);
+  ok(await confirm(second.reservationId));
+  assert.equal((await reserved("INV-000126", "receipt")).copyNo, 1, "another document starts at 1");
+  const entries = await auditOf("document.printed", "INV-000125");
+  assert.deepEqual(entries.map((entry) => entry.details.copy), [1, 2]);
   assert.equal(entries[0].userName, "Owner");
-  assert.deepEqual({ number: entries[0].details.number, type: entries[0].details.type, paper: entries[0].details.paper, paperClass: entries[0].details.paperClass }, { number: "INV-000125", type: "INV", paper: "80mm", paperClass: "receipt" });
-  assert.equal((await PrintCount.findById("INV-000125|receipt").lean()).count, 3);
+  assert.deepEqual({ number: entries[0].details.number, type: entries[0].details.type, paperClass: entries[0].details.paperClass }, { number: "INV-000125", type: "INV", paperClass: "receipt" });
+  assert.equal(await counterOf("INV-000125", "receipt"), 2);
+  const stored = await PrintReservation.findById(first.reservationId).lean();
+  assert.equal(stored.status, "printed");
+  assert.equal(stored.key, "INV-000125|receipt");
 });
 
-it("print log: a receipt and a page are separate counters (an A4 print does not make the next 80mm receipt a copy); a PDF counts in its paper's class", async () => {
-  await seedDocument("INV-000130");
-  assert.equal(await commit("INV-000130", "A4"), 0);
-  assert.equal(await commit("INV-000130", "A5"), 1, "A4 and A5 share the page counter (a PDF of an A4 document is a page print)");
-  assert.equal(await nextCopy("INV-000130", "80mm"), 0, "the receipt was never printed");
-  assert.equal(await commit("INV-000130", "80mm"), 0);
-  assert.equal(await nextCopy("INV-000130", "A4"), 2);
-  assert.equal(await nextCopy("INV-000130", "80mm"), 1);
-  assert.equal(await commit("INV-000130"), 2, "no paper given: counted as a page");
-  const audit = await AuditLog.find({ action: "document.printed", entityId: "INV-000130" }).lean();
-  assert.equal(audit.filter((entry) => entry.details.paperClass === "page").length, 3);
-});
-
-it("print log: a cancelled dialog logs nothing (the page never commits): counters and audit stay empty however often the next number is asked", async () => {
-  await seedDocument("RC-000020");
-  for (let i = 0; i < 3; i += 1) assert.equal(await nextCopy("RC-000020", "80mm"), 0);
-  assert.equal(await PrintCount.countDocuments({}), 0);
-  assert.equal(await AuditLog.countDocuments({ action: "document.printed" }), 0);
-});
-
-it("print log: parallel commits each get a distinct real copy number, the audit records those numbers and the counter ends at the number of commits", async () => {
+it("print reserve: two parallel reserves get copy numbers 1 and 2: exactly one original", async () => {
   await seedDocument("RC-000007");
-  const answers = await Promise.all(Array.from({ length: 8 }, () => call("POST", "/api/print/log", { number: "RC-000007", paper: "80mm" })));
-  const copies = answers.map((answer) => ok(answer).copy).sort((a, b) => a - b);
-  assert.deepEqual(copies, [0, 1, 2, 3, 4, 5, 6, 7]);
-  const audited = (await AuditLog.find({ action: "document.printed", entityId: "RC-000007" }).lean()).map((entry) => entry.details.copy).sort((a, b) => a - b);
-  assert.deepEqual(audited, copies);
-  assert.equal(await nextCopy("RC-000007", "80mm"), 8);
+  const answers = await Promise.all([reserve("RC-000007", "receipt"), reserve("RC-000007", "receipt")]);
+  const copies = answers.map((answer) => ok(answer, 201).copyNo).sort();
+  assert.deepEqual(copies, [1, 2]);
+  const many = await Promise.all(Array.from({ length: 8 }, () => reserve("RC-000007", "page")));
+  assert.deepEqual(many.map((answer) => ok(answer, 201).copyNo).sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7, 8]);
 });
 
-it("print log: a document that does not exist is 404 DOCUMENT_NOT_FOUND on both endpoints and is never counted", async () => {
-  const missing = await call("POST", "/api/print/log", { number: "INV-000999", paper: "80mm" });
+it("print release: reserve + release with nobody after it gives the number back (the next reserve is 1 again)", async () => {
+  await seedDocument("INV-000130");
+  const a = await reserved("INV-000130");
+  assert.equal(a.copyNo, 1);
+  const released = ok(await release(a.reservationId));
+  assert.equal(released.gaveBack, true);
+  assert.equal(await counterOf("INV-000130"), 0);
+  assert.equal((await reserved("INV-000130")).copyNo, 1, "still the original");
+  assert.equal((await auditOf("document.print_cancelled", "INV-000130")).length, 0, "nothing to explain");
+  assert.equal((await PrintReservation.findById(a.reservationId).lean()).status, "released");
+});
+
+it("print release: reserve A, reserve B, release A: the counter stays 2 (a gap) and a document.print_cancelled audit explains it", async () => {
+  await seedDocument("INV-000131");
+  const a = await reserved("INV-000131");
+  const b = await reserved("INV-000131");
+  assert.deepEqual([a.copyNo, b.copyNo], [1, 2]);
+  const released = ok(await release(a.reservationId));
+  assert.equal(released.gaveBack, false);
+  assert.equal(await counterOf("INV-000131"), 2);
+  const cancelled = await auditOf("document.print_cancelled", "INV-000131");
+  assert.equal(cancelled.length, 1);
+  assert.deepEqual({ copy: cancelled[0].details.copy, paperClass: cancelled[0].details.paperClass, number: cancelled[0].details.number }, { copy: 1, paperClass: "page", number: "INV-000131" });
+  ok(await confirm(b.reservationId));
+  assert.equal((await reserved("INV-000131")).copyNo, 3);
+  // released numbers right below a released top number go back with it
+  await seedDocument("INV-000132");
+  const x = await reserved("INV-000132"); const y = await reserved("INV-000132");
+  ok(await release(x.reservationId));
+  assert.equal(ok(await release(y.reservationId)).gaveBack, true);
+  assert.equal(await counterOf("INV-000132"), 0, "the gap below went back as well: nothing was ever printed");
+});
+
+it("print confirm is idempotent: a retry answers the same and writes no second audit entry; release is idempotent too", async () => {
+  await seedDocument("INV-000133");
+  const a = await reserved("INV-000133");
+  const first = ok(await confirm(a.reservationId));
+  const retry = ok(await confirm(a.reservationId));
+  assert.equal(first.alreadyConfirmed, false);
+  assert.equal(retry.alreadyConfirmed, true);
+  assert.equal(retry.copyNo, 1);
+  assert.equal((await auditOf("document.printed", "INV-000133")).length, 1);
+  await seedDocument("INV-000134");
+  const b = await reserved("INV-000134");
+  ok(await release(b.reservationId));
+  assert.equal(ok(await release(b.reservationId)).alreadyReleased, true);
+  assert.equal(await counterOf("INV-000134"), 0, "the second release does not decrement again");
+  const parallel = await reserved("INV-000133");
+  await Promise.all([confirm(parallel.reservationId), confirm(parallel.reservationId)]);
+  assert.equal((await auditOf("document.printed", "INV-000133")).length, 2, "two simultaneous confirms of one reservation write one entry");
+});
+
+it("print reservations belong to their user: another user cannot confirm or release them; release after confirm is 409; confirm after release is 409", async () => {
+  await seedDocument("INV-000140");
+  const a = await reserved("INV-000140");
+  const cashier = await makeUser("cashier23r", "cashier");
+  assert.equal((await as(cashier, () => confirm(a.reservationId))).status, 403);
+  assert.equal((await as(cashier, () => release(a.reservationId))).status, 403);
+  assert.equal((await PrintReservation.findById(a.reservationId).lean()).status, "reserved", "untouched by the other user");
+  assert.equal(await counterOf("INV-000140"), 1);
+  ok(await confirm(a.reservationId));
+  const afterConfirm = await release(a.reservationId);
+  assert.equal(afterConfirm.status, 409);
+  assert.equal(afterConfirm.json.code, "RESERVATION_PRINTED");
+  assert.equal(await counterOf("INV-000140"), 1, "a printed number is never given back");
+  const b = await reserved("INV-000140");
+  ok(await release(b.reservationId));
+  const afterRelease = await confirm(b.reservationId);
+  assert.equal(afterRelease.status, 409);
+  assert.equal(afterRelease.json.code, "RESERVATION_RELEASED");
+  assert.equal((await call("POST", "/api/print/confirm", { reservationId: "nope" })).status, 400);
+  assert.equal((await call("POST", "/api/print/release", { reservationId: String(new mongoose.Types.ObjectId()) })).status, 404);
+});
+
+it("print reserve: a receipt and a page are separate counters (an A4 print does not make the next 80mm receipt a copy)", async () => {
+  await seedDocument("INV-000150");
+  assert.equal((await reserved("INV-000150", "page")).copyNo, 1);
+  assert.equal((await reserved("INV-000150", "page")).copyNo, 2);
+  assert.equal((await reserved("INV-000150", "receipt")).copyNo, 1, "the receipt was never printed");
+  assert.equal(await counterOf("INV-000150", "page"), 2);
+  assert.equal(await counterOf("INV-000150", "receipt"), 1);
+  assert.equal((await call("POST", "/api/print/reserve", { number: "INV-000150", paperClass: "A4" })).status, 400, "the class is receipt or page");
+});
+
+it("print reserve: a reservation that is never confirmed nor released (a crash) stays counted: the next print is a copy (over-counts, never under-counts)", async () => {
+  await seedDocument("INV-000160");
+  await reserved("INV-000160");
+  assert.equal((await reserved("INV-000160")).copyNo, 2);
+  assert.equal(await counterOf("INV-000160"), 2);
+});
+
+it("print reserve: a document that does not exist is 404 DOCUMENT_NOT_FOUND and is never counted", async () => {
+  const missing = await reserve("INV-000999", "receipt");
   assert.equal(missing.status, 404);
   assert.equal(missing.json.code, "DOCUMENT_NOT_FOUND");
-  const next = await call("GET", "/api/print/next-copy?number=CR-000999&paper=A4");
-  assert.equal(next.status, 404);
-  assert.equal(next.json.code, "DOCUMENT_NOT_FOUND");
   assert.equal(await PrintCount.countDocuments({}), 0);
-  assert.equal(await AuditLog.countDocuments({ action: "document.printed" }), 0);
+  assert.equal(await PrintReservation.countDocuments({}), 0);
   // the prefix decides the collection: an INV number that exists only as a CR is still not found
   await seedDocument("CR-000010");
-  assert.equal((await call("POST", "/api/print/log", { number: "INV-000010" })).status, 404);
-  assert.equal((await call("POST", "/api/print/log", { number: "CR-000010" })).status, 200);
+  assert.equal((await reserve("INV-000010")).status, 404);
+  assert.equal((await reserve("CR-000010")).status, 201);
+  assert.equal((await call("POST", "/api/print/reserve", { number: "CR-000010", prefix: "INV", paperClass: "page" })).status, 400, "a prefix that does not match the number");
 });
 
-it("print log refuses bad numbers and needs the document's permission (cashier: sales and receipts yes, journal/purchase/drawing no)", async () => {
+it("print reserve refuses bad numbers and needs the document's permission (cashier: sales and receipts yes, journal/purchase/drawing no)", async () => {
   for (const number of ["", "INV", "INV-1", "XX-000001", "INV-000001; DROP", 5, null]) {
-    assert.equal((await call("POST", "/api/print/log", { number })).status, 400, String(number));
-    assert.equal((await call("GET", `/api/print/next-copy?number=${encodeURIComponent(String(number))}`)).status, 400, String(number));
+    assert.equal((await reserve(number)).status, 400, String(number));
   }
-  assert.equal((await call("POST", "/api/print/log", {})).status, 400);
+  assert.equal((await call("POST", "/api/print/reserve", {})).status, 400);
   for (const prefix of ["INV", "CR", "RC", "RT", "SH", "CP", "PO", "PV", "JE", "DR", "VP", "EX"]) await seedDocument(`${prefix}-000001`);
   const cashier = await makeUser("cashier23", "cashier");
-  const status = async (number) => (await as(cashier, () => call("POST", "/api/print/log", { number }))).status;
-  for (const number of ["INV-000001", "CR-000001", "RC-000001", "RT-000001", "SH-000001", "CP-000001"]) assert.equal(await status(number), 200, number);
+  const status = async (number) => (await as(cashier, () => reserve(number))).status;
+  for (const number of ["INV-000001", "CR-000001", "RC-000001", "RT-000001", "SH-000001", "CP-000001"]) assert.equal(await status(number), 201, number);
   for (const number of ["PO-000001", "PV-000001", "JE-000001", "DR-000001", "VP-000001", "EX-000001"]) {
     if (ROLE_TEMPLATES.cashier.some((key) => PREFIX_PERMISSIONS[number.split("-")[0]].includes(key))) continue;
     assert.equal(await status(number), 403, number);
-    assert.equal((await as(cashier, () => call("GET", `/api/print/next-copy?number=${number}`))).status, 403, number);
   }
-  assert.equal(await PrintCount.countDocuments({ number: { $in: ["PO-000001", "JE-000001", "DR-000001"] } }), 0, "a refused print is not counted");
+  assert.equal(await PrintCount.countDocuments({ number: { $in: ["PO-000001", "JE-000001", "DR-000001"] } }), 0, "a refused reserve is not counted");
   const accountant = await makeUser("accountant23", "accountant");
-  assert.equal((await as(accountant, () => call("POST", "/api/print/log", { number: "JE-000001" }))).status, 200);
+  assert.equal((await as(accountant, () => reserve("JE-000001"))).status, 201);
   token = null;
-  assert.equal((await call("POST", "/api/print/log", { number: "INV-000001" })).status, 401);
-  assert.equal((await call("GET", "/api/print/next-copy?number=INV-000001")).status, 401);
+  assert.equal((await reserve("INV-000001")).status, 401);
+  assert.equal((await confirm("x")).status, 401);
+  assert.equal((await release("x")).status, 401);
+});
+
+it("the old print endpoints are gone: GET /api/print/next-copy and POST /api/print/log", async () => {
+  await seedDocument("INV-000170");
+  assert.equal((await call("GET", "/api/print/next-copy?number=INV-000170&paper=A4")).status, 404);
+  assert.equal((await call("POST", "/api/print/log", { number: "INV-000170", paper: "A4" })).status, 404);
 });
 
 it("receipt print-data: the receipt, its invoices and the customer balance before and after are the statement's stored numbers", async () => {
@@ -322,7 +403,7 @@ it("supplier refunds list carries the box name, for the SR voucher; the statemen
   assert.equal(line.credit, 300);
   assert.equal(line.balance, -700, "advance 1,000 - 300 refunded = we are owed 700");
   const cashier = await makeUser("cashier23sr", "cashier");
-  assert.equal((await as(cashier, () => call("POST", "/api/print/log", { number: refund.number }))).status, 403, "SR needs suppliers.view / suppliers.pay");
+  assert.equal((await as(cashier, () => call("POST", "/api/print/reserve", { number: refund.number, paperClass: "page" }))).status, 403, "SR needs suppliers.view / suppliers.pay");
   const accountant = await makeUser("acc23sr", "accountant");
-  assert.equal((await as(accountant, () => call("POST", "/api/print/log", { number: refund.number }))).json.copy, 0);
+  assert.equal((await as(accountant, () => call("POST", "/api/print/reserve", { number: refund.number, paperClass: "page" }))).json.copyNo, 1);
 });

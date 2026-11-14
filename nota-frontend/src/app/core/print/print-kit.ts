@@ -3,13 +3,19 @@
 // small building blocks (tables, signature blocks). Pure functions: a template gets a PrintContext and
 // returns HTML text, which the print service renders in a hidden window (Electron) or an iframe (dev browser).
 //
+// Copies: a numbered document RESERVES its copy number on the server before it renders (copyNo 1 = the original, one
+// across all PCs; 2+ = reprints, marked "نسخة" by copyMark below), then CONFIRMS it when the print / PDF save went out
+// or RELEASES it on cancel / failure (see PrintService and print.controller.js). There are two counters per document:
+// receipt (80mm) and page (A4/A5, a PDF counts in its paper's class). A missing document is a 404 and a reservation
+// that is never settled (a crash) stays counted: the counters over-count, never under-count.
+//
 // The designs are docs/design/prints/Pr*.dc.html; the colors are the Nota light tokens (the same hex
 // values as --brand, --text, --text-muted), because prints are always light whatever the UI theme.
 
 import { ShopProfile } from '../../modules/shop-profile/models/shop-profile.model';
 import { toImageSrc } from '../../modules/shop-profile/utils/invoice-branding.util';
 import { BRAND } from '../brand';
-import { PrintLanguage, cssString, escapeHtml, formatDate, formatDateTime, formatTime, localizeDigits } from './print-format';
+import { PrintLanguage, cssString, escapeHtml, formatDate, formatDateTime, formatMoney, formatTime, localizeDigits } from './print-format';
 
 export type PrintPaper = '80mm' | 'A4' | 'A5';
 
@@ -63,6 +69,20 @@ export function toShopInfo(profile: ShopProfile | null | undefined): ShopPrintIn
     commercialRegister: (profile.commercialRegister || '').trim(),
     invoiceFooter: (profile.invoiceFooter || '').trim(),
   };
+}
+
+/**
+ * Money for HTML. A negative amount keeps its minus next to the digits in Arabic (RTL) and English: the signed number
+ * is an isolated LTR run (<bdi dir="ltr">), so the bidi algorithm cannot move the sign to the other end.
+ */
+export function moneyHtml(ctx: Pick<PrintContext, 'lang'>, value: number | null | undefined): string {
+  const text = formatMoney(value ?? 0, ctx.lang);
+  return /^[-−]/.test(text) ? `<bdi dir="ltr" class="neg">${text}</bdi>` : text;
+}
+
+/** An amount that is subtracted (a return, a discount, a shortage): the magnitude with a minus, isolated LTR like moneyHtml. */
+export function minusMoney(ctx: Pick<PrintContext, 'lang'>, magnitude: number | null | undefined): string {
+  return `<bdi dir="ltr" class="neg">${ctx.lang === 'ar' ? '−' : '-'}${formatMoney(Math.abs(magnitude ?? 0), ctx.lang)}</bdi>`;
 }
 
 export const pick = (ctx: Pick<PrintContext, 'lang'>, ar: string, en: string): string => (ctx.lang === 'ar' ? ar : en);

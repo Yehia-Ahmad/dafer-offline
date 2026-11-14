@@ -124,7 +124,7 @@ describe('PrCashReceipt / PrCashInvoice', () => {
     expect(out).toContain('INV-000125');
     expect(out).toContain('لمبة LED ٩ وات');
     expect(out).toContain('٢٧٠٫٠٠'); // subtotal
-    expect(out).toContain('− ٢٠٫٠٠'); // discount
+    expect(out).toContain('<bdi dir="ltr" class="neg">−٢٠٫٠٠</bdi>'); // discount
     expect(out).toContain('٢٥٠٫٠٠ ج.م'); // total
     expect(out).toContain('data-barcode="INV-000125"');
     expect(out).toContain('البضاعة المباعة لا ترد');
@@ -575,6 +575,40 @@ describe('Stage 23 review fixes', () => {
     });
   });
 
+  describe('negative amounts keep the minus next to the digits (isolated LTR run)', () => {
+    const returnedRow: InvoiceHistoryRow = {
+      id: 'i1', invoiceId: 'i1', invoiceNumber: 'INV-000012', createdByName: 'م', customerName: 'س', customerPhone: '010', sellingDate: '2026-11-05T10:00:00Z', itemCount: 1, totalQuantity: 1,
+      subtotal: 270, discountAmount: 20, discountPercentage: null, shippingFees: null, totalPrice: 250, netTotal: 180, refundedAmount: 70, refundStatus: 'partial',
+      items: [{ id: 'a', invoiceId: 'i1', productId: 'p1', productCode: 'A', productName: 'لمبة', customerName: '', customerPhone: '', categoryName: '', sellingDate: null, quantity: 1, unitPrice: 270, totalPrice: 270 }],
+    };
+    const isolated = (sign: string, digits: string) => `<bdi dir="ltr" class="neg">${sign}${digits}</bdi>`;
+
+    it('the return and discount rows of the cash invoice and receipt, in Arabic and English', () => {
+      for (const lang of ['ar', 'en'] as const) {
+        const data = toCashSaleData(returnedRow);
+        const sign = lang === 'ar' ? '−' : '-';
+        const seventy = lang === 'ar' ? '٧٠٫٠٠' : '70.00';
+        const twenty = lang === 'ar' ? '٢٠٫٠٠' : '20.00';
+        for (const out of [html(cashInvoice(ctxOf(lang), data), ctxOf(lang)), html(cashReceipt(ctxOf(lang), data), ctxOf(lang))]) {
+          expect(out).toContain(isolated(sign, seventy));
+          if (out.includes('data-paper="80mm"')) expect(out).toContain(isolated(sign, twenty)); // the receipt's discount row
+          expect(out).toMatch(/data-returned[^>]*>[\s\S]*?<bdi dir="ltr" class="neg">[−-]/);
+        }
+      }
+    });
+
+    it('the shift shortage, a negative statement balance and a negative VAT net', () => {
+      const shortage = html(shiftClose(ctxOf(), SHIFT));
+      expect(shortage).toContain(isolated('−', '٥٠٫٠٠'));
+      expect(html(shiftClose(ctxOf('en'), SHIFT), ctxOf('en'))).toContain(isolated('-', '50.00'));
+      expect(html(shiftClose(ctxOf(), { ...SHIFT, counted: 7600, difference: 50 }))).not.toContain('class="neg"');
+      const statement = html(customerStatement(ctxOf(), { ...STATEMENT, lines: [{ date: '2026-11-05', description: 'x', debit: 0, credit: 50, balance: -50 }], totals: { openingBalance: 0, debit: 0, credit: 50, balance: -50 } }));
+      expect(statement).toContain(isolated('−', '٥٠٫٠٠'));
+      const vat = html(vatReturn(ctxOf(), { ...VAT_RETURN, net: -732.3, offset: -30.7, payable: 0, credit: 732.3 } as never));
+      expect(vat).toContain(isolated('−', '٧٣٢٫٣٠'));
+    });
+  });
+
   describe('shift close report', () => {
     it('shows the "نسخة" mark under its title on a reprint, and not on the first print', () => {
       const out = html(shiftClose(copyCtx(), SHIFT), copyCtx());
@@ -625,14 +659,18 @@ describe('Stage 23 review fixes', () => {
         };
         style.textContent = 'body{width:700px;height:auto}';
         const natural = body.getBoundingClientRect().height;
-        const block = doc.querySelector('[data-debt-block]') as HTMLElement;
-        const blockHeight = block.getBoundingClientRect().height;
+        // The region that must stay together: from the top of the acknowledgment to the bottom of the signatures (found by their own markers, not by the wrapper).
+        const top = (doc.querySelector('[data-acknowledgment]') as Element).getBoundingClientRect().top;
+        const bottom = (doc.querySelector('[data-signatures]') as Element).getBoundingClientRect().bottom;
+        const blockHeight = bottom - top;
+        expect(doc.querySelectorAll('[data-signatures] > div').length).toBe(2);
         const checked: number[] = [];
         for (let page = Math.floor(natural - blockHeight - 40); page <= Math.ceil(natural); page += 6) {
           // The body is a multi-column box of fixed height: every column is a page, break-inside: avoid decides what moves.
           style.textContent = `html{direction:rtl} body{width:700px;height:${page}px;columns:700px;column-gap:0;column-fill:auto}`;
           const ack = doc.querySelector('[data-acknowledgment]') as Element;
-          const sigs = Array.from(doc.querySelectorAll('[data-debt-block] [data-signatures] > div'));
+          const sigs = Array.from(doc.querySelectorAll('[data-signatures] > div'));
+          expect(sigs.length).toBe(2);
           const pages = [pageOf(ack, 700), ...sigs.map((sig) => pageOf(sig, 700))];
           expect(new Set(pages).size).toBe(1, `page height ${page}px: acknowledgment and signatures on pages ${pages}`);
           checked.push(pages[0]);

@@ -3,10 +3,10 @@
 
 import { InvoiceVatInfo, vatPrintLabels } from '../../../modules/shared/vat/vat-print';
 import { amountInWords, escapeHtml, formatDate, formatMoney, formatPercent, formatQty, localizeDigits } from '../print-format';
-import { Cell, PrintContext, PrintDocument, a4Header, a4Page, cancelBox, copyMark, generatedText, pick, printedByText, row, closing, signatures, table } from '../print-kit';
+import { Cell, PrintContext, PrintDocument, a4Header, a4Page, cancelBox, copyMark, generatedText, pick, printedByText, row, closing, signatures, table, moneyHtml, minusMoney } from '../print-kit';
 import { CashSaleData, PaymentReceiptData, SaleLine } from './receipts';
 
-const money = (ctx: PrintContext, value: number | null | undefined): string => formatMoney(value ?? 0, ctx.lang);
+const money = moneyHtml;
 const currency = (ctx: PrintContext): string => pick(ctx, 'ج.م', 'EGP');
 const ltr = (value: string): string => `<span class="ltr n">${escapeHtml(value)}</span>`;
 
@@ -81,7 +81,7 @@ export function cashInvoice(ctx: PrintContext, data: CashSaleData): PrintDocumen
       ${data.shipping ? totalsRow(pick(ctx, 'التوصيل', 'Delivery'), money(ctx, data.shipping)) : ''}
       ${vatTotals(ctx, data.vat)}
       ${grandRow(data.vat ? pick(ctx, 'الإجمالي شامل الضريبة', 'Total incl. VAT') : pick(ctx, 'الصافي', 'Net total'), `${money(ctx, data.total)} ${currency(ctx)}`, 'data-total')}
-      ${data.returned ? `${totalsRow(pick(ctx, 'مرتجع', 'Returned'), money(ctx, data.returned), 'data-returned')}${totalsRow(pick(ctx, 'الصافي بعد المرتجع', 'Net after returns'), `<b>${money(ctx, data.netAfterReturn ?? data.total - data.returned)}</b>`, 'data-net-after-return')}` : ''}
+      ${data.returned ? `${totalsRow(pick(ctx, 'مرتجع', 'Returned'), minusMoney(ctx, data.returned), 'data-returned')}${totalsRow(pick(ctx, 'الصافي بعد المرتجع', 'Net after returns'), `<b>${money(ctx, data.netAfterReturn ?? data.total - data.returned)}</b>`, 'data-net-after-return')}` : ''}
       ${data.paid !== null && data.paid !== undefined ? totalsRow(pick(ctx, 'المدفوع', 'Paid'), money(ctx, data.paid), 'data-paid') : ''}
       ${data.change !== null && data.change !== undefined && data.change > 0 ? totalsRow(pick(ctx, 'الباقي للزبون', 'Change'), money(ctx, data.change), 'data-change') : ''}
     </tbody></table>
@@ -252,7 +252,7 @@ export function purchaseInvoice(ctx: PrintContext, data: PurchaseInvoiceData): P
     <table class="t" style="width:300px"><tbody>
       ${totalsRow(pick(ctx, 'عدد القطع', 'Pieces'), formatQty(pieces, ctx.lang))}
       ${totalsRow(pick(ctx, 'إجمالي الأصناف', 'Items subtotal'), money(ctx, data.subtotal))}
-      ${data.discount ? totalsRow(pick(ctx, 'الخصم', 'Discount'), `− ${money(ctx, data.discount)}`) : ''}
+      ${data.discount ? totalsRow(pick(ctx, 'الخصم', 'Discount'), minusMoney(ctx, data.discount)) : ''}
       ${data.otherCosts ? totalsRow(pick(ctx, 'مصاريف أخرى', 'Other costs'), money(ctx, data.otherCosts)) : ''}
       ${data.vat ? `${totalsRow(pick(ctx, 'الصافي قبل الضريبة', 'Net before VAT'), money(ctx, data.vat.netAmount), 'data-vat-net')}${totalsRow(`${labels.vat} ${formatPercent(data.vat.rate, ctx.lang)}`, money(ctx, data.vat.amount), 'data-vat-amount')}` : ''}
       ${grandRow(pick(ctx, 'الإجمالي', 'Total'), `${money(ctx, data.total)} ${currency(ctx)}`, 'data-total')}

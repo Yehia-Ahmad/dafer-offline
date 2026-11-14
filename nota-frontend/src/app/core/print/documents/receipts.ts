@@ -3,9 +3,9 @@
 import { InvoiceVatInfo, vatPrintLabels } from '../../../modules/shared/vat/vat-print';
 import { barcodeSvg } from '../barcode';
 import { amountInWords, escapeHtml, formatDateTime, formatMoney, formatPercent, formatQty } from '../print-format';
-import { PrintContext, PrintDocument, cancelBox, copyMark, pick, receiptFooter, receiptHeader, receiptPage, receiptRow } from '../print-kit';
+import { PrintContext, PrintDocument, cancelBox, copyMark, pick, receiptFooter, receiptHeader, receiptPage, receiptRow, moneyHtml, minusMoney } from '../print-kit';
 
-const money = (ctx: PrintContext, value: number | null | undefined): string => formatMoney(value ?? 0, ctx.lang);
+const money = moneyHtml;
 const currency = (ctx: PrintContext): string => pick(ctx, 'ج.م', 'EGP');
 const ltrText = (value: string): string => `<span class="ltr n">${escapeHtml(value)}</span>`;
 const dash = '<div class="dash"></div>';
@@ -83,13 +83,13 @@ export function cashReceipt(ctx: PrintContext, data: CashSaleData): PrintDocumen
   ${dash}
   ${receiptRow(pick(ctx, 'عدد الأصناف', 'Items'), `${formatQty(data.items.length, ctx.lang)} (${formatQty(pieces, ctx.lang)} ${pick(ctx, 'قطع', 'pcs')})`)}
   ${receiptRow(pick(ctx, 'الإجمالي', 'Subtotal'), money(ctx, data.subtotal))}
-  ${data.discount ? receiptRow(discountLabel, `− ${money(ctx, data.discount)}`) : ''}
+  ${data.discount ? receiptRow(discountLabel, minusMoney(ctx, data.discount)) : ''}
   ${data.shipping ? receiptRow(pick(ctx, 'التوصيل', 'Delivery'), money(ctx, data.shipping)) : ''}
   ${vatRows}
   <div class="solid2"></div>
   <div class="r n big" data-total><span>${pick(ctx, 'المطلوب', 'Total')}</span><span>${money(ctx, data.total)} ${currency(ctx)}</span></div>
   <div class="solid2"></div>
-  ${data.returned ? `${receiptRow(pick(ctx, 'مرتجع', 'Returned'), money(ctx, data.returned), 'data-returned')}
+  ${data.returned ? `${receiptRow(pick(ctx, 'مرتجع', 'Returned'), minusMoney(ctx, data.returned), 'data-returned')}
   ${receiptRow(pick(ctx, 'الصافي بعد المرتجع', 'Net after returns'), `<b>${money(ctx, data.netAfterReturn ?? data.total - data.returned)}</b>`, 'data-net-after-return style="font-size:15px"')}
   <div class="solid2"></div>` : ''}
   ${data.paymentMethod ? receiptRow(pick(ctx, 'طريقة الدفع', 'Payment'), escapeHtml(data.paymentMethod)) : ''}
@@ -248,7 +248,7 @@ export function shiftClose(ctx: PrintContext, data: ShiftCloseData): PrintDocume
   ${receiptRow(pick(ctx, 'المعدود فعلًا', 'Counted'), `<b>${money(ctx, data.counted)}</b>`, 'data-counted')}
   ${data.difference === 0
     ? receiptRow(diffLabel, `<b>${money(ctx, 0)}</b>`, 'data-difference')
-    : `<div class="r n" data-difference data-difference-box style="font-size:18px;font-weight:800;border:2px solid var(--p-text);padding:4px 8px;margin-top:6px"><span>${diffLabel}</span><span>${money(ctx, Math.abs(data.difference))}</span></div>`}
+    : `<div class="r n" data-difference data-difference-box style="font-size:18px;font-weight:800;border:2px solid var(--p-text);padding:4px 8px;margin-top:6px"><span>${diffLabel}</span><span>${data.difference < 0 ? minusMoney(ctx, data.difference) : money(ctx, data.difference)}</span></div>`}
   ${data.differenceNote ? receiptRow(pick(ctx, 'ملاحظة', 'Note'), escapeHtml(data.differenceNote), 'style="font-size:12px;margin-top:4px"') : ''}
   ${data.deposit ? `${dash}<div style="font-weight:800;font-size:13px;margin-bottom:2px">${pick(ctx, 'التسليم', 'Handover')}</div>
     ${receiptRow(`${pick(ctx, 'توريد ل', 'Deposit to')} ${escapeHtml(data.deposit.boxName)}`, money(ctx, data.deposit.amount), 'data-deposit')}

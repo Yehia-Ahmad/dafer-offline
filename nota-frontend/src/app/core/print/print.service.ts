@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -16,10 +16,11 @@ import { PrintSettingsService } from './print-settings.service';
 /**
  * What a screen asks for. `build` makes the document from the print context (the service calls it again with
  * the "نسخة" mark when the server says this is a reprint). `number` is the document number of a numbered
- * 80mm receipt or A4/A5 invoice/voucher. Copies: the page first asks the server for the NEXT copy number of that
- * document and paper class (receipt = 80mm, page = A4/A5; nothing is counted), renders with that mark, and logs
- * (document.printed) only AFTER the print or the PDF save succeeded: a cancelled dialog logs nothing. The server's
- * commit returns the real number; if two PCs race, the audit keeps the real one and a printed mark can be one lower.
+ * 80mm receipt or A4/A5 invoice/voucher. Copies are RESERVED, then confirmed or released:
+ *   reserve (the server takes the next number of that document and class: 1 = the original, 2+ = reprints, marked "نسخة")
+ *   -> render -> print / save the PDF -> confirm on success (3 retries with backoff, then a warning toast: the counter is
+ *   already advanced, so the next print is correctly a copy), release on cancel or failure (the number goes back).
+ * The dev browser reserves before window.print() and confirms when the dialog opens.
  */
 export interface PrintRequest {
   build: (ctx: PrintContext) => PrintDocument;
@@ -114,64 +115,92 @@ export class PrintService {
   private async run(request: PrintRequest, mode: PrintMode, options: { quiet?: boolean }): Promise<PrintOutcome> {
     if (this.busy()) return { ok: false, message: '' };
     this.busy.set(true);
+    let reservation: { id: string; copyNo: number } | null = null;
+    let settled = false;
+    /** Confirms (the print / PDF save went out) or releases (cancelled, failed) the reserved copy number, once. */
+    const settle = async (printed: boolean): Promise<void> => {
+      if (!reservation || settled) return;
+      settled = true;
+      if (printed) await this.confirmWithRetry(reservation.id);
+      else await this.releaseQuietly(reservation.id);
+    };
     try {
-      let copy = 0;
       let ctx = await this.context(undefined, request.noShop);
       let doc = request.build(ctx);
       if (request.number) {
-        copy = await this.nextCopy(request.number, doc.paper);
-        if (copy > 0) {
-          ctx = await this.context({ n: copy, at: new Date() }, request.noShop);
+        reservation = await this.reserve(request.number, doc.paper);
+        // copyNo 1 is the original; 2 and up are reprints ("نسخة", numbered from the second reprint).
+        if (reservation.copyNo > 1) {
+          ctx = await this.context({ n: reservation.copyNo - 1, at: new Date() }, request.noShop);
           doc = request.build(ctx);
         }
       }
+      const copy = (): number => (reservation ? reservation.copyNo : 0);
       let heightMm: number | undefined;
       if (doc.paper === '80mm') heightMm = await measureRollHeightMm(buildPrintHtml(ctx, doc));
       const html = buildPrintHtml(ctx, doc, heightMm);
       const job: DesktopPrintJob = { html, paper: doc.paper, heightMm, title: doc.title };
       const bridge = getDesktopBridge()?.print;
       if (!bridge) {
-        await printInFrame(html); // dev browser: the browser's own print dialog (it cannot tell us if the user printed)
-        if (request.number) copy = await this.commitCopy(request.number, doc.paper, copy);
-        return { ok: true, copy };
+        // Dev browser: the browser's own print dialog (it cannot tell us whether the user printed): confirmed when the dialog opens.
+        await printInFrame(html);
+        await settle(true);
+        return { ok: true, copy: copy() };
       }
       const token = this.auth.token();
       const result = mode === 'print' ? await bridge.print(token, job) : await bridge.savePdf(token, job, { suggestedName: doc.title });
-      if (result.ok === false) return this.fail(result.error.message);
+      if (result.ok === false) {
+        await settle(false);
+        return this.fail(result.error.message);
+      }
       const value = (result.value || {}) as { printed?: boolean; saved?: boolean; cancelled?: boolean; silent?: boolean; path?: string };
       if (mode === 'pdf') {
-        // Logged only when the file was really saved (the save dialog was not cancelled).
-        if (value.saved) {
-          if (request.number) copy = await this.commitCopy(request.number, doc.paper, copy);
-          this.toast.show(this.translate.instant('print.saved'), 'success');
-        }
-        return { ok: true, cancelled: !value.saved, copy };
+        // Confirmed only when the file was really saved; a cancelled save dialog releases the number.
+        await settle(Boolean(value.saved));
+        if (value.saved) this.toast.show(this.translate.instant('print.saved'), 'success');
+        return { ok: true, cancelled: !value.saved, copy: copy() };
       }
-      // Logged only when the print went out (Electron's print callback said success); a cancelled dialog logs nothing.
-      if (value.printed && request.number) copy = await this.commitCopy(request.number, doc.paper, copy);
+      // Confirmed only when Electron's print callback said success; a cancelled dialog releases the number.
+      await settle(Boolean(value.printed));
       if (value.printed && !options.quiet && value.silent) this.toast.show(this.translate.instant('print.sent'), 'success', 2500);
-      return { ok: true, cancelled: Boolean(value.cancelled), silent: Boolean(value.silent), copy };
+      return { ok: true, cancelled: Boolean(value.cancelled), silent: Boolean(value.silent), copy: copy() };
     } catch (error) {
+      await settle(false); // no-op when it was already confirmed
       return this.fail(this.errorMessage(error));
     } finally {
       this.busy.set(false);
     }
   }
 
-  /** The copy number the next print of this document (and paper class) will carry. Counts nothing. */
-  private async nextCopy(number: string, paper: string): Promise<number> {
-    const params = new HttpParams().set('number', number).set('paper', paper);
-    const response = await firstValueFrom(this.http.get<{ copy: number }>(`${environment.api_base_url}print/next-copy`, { params }));
-    return Math.max(0, Number(response.copy) || 0);
+  /** Takes the next copy number of this document and paper class (1 = the original). Written down on the server as a reservation. */
+  private async reserve(number: string, paper: string): Promise<{ id: string; copyNo: number }> {
+    const paperClass = paper === '80mm' ? 'receipt' : 'page';
+    const response = await firstValueFrom(this.http.post<{ reservationId: string; copyNo: number }>(`${environment.api_base_url}print/reserve`, { number, paperClass }));
+    return { id: response.reservationId, copyNo: Math.max(1, Number(response.copyNo) || 1) };
   }
 
-  /** Records ONE successful print / PDF save; returns the real copy number (the audit's). A failed log never fails a print that already happened. */
-  private async commitCopy(number: string, paper: string, fallback: number): Promise<number> {
+  /** Delays (ms) between the retries of a failed confirm: 3 retries with a growing wait. */
+  confirmRetryDelaysMs: number[] = [300, 900, 2000];
+
+  /** The print really went out: record it. 3 retries with backoff; if it still fails the user is told (the counter is already advanced, so the next print is correctly a copy). */
+  private async confirmWithRetry(reservationId: string): Promise<void> {
+    for (let attempt = 0; attempt <= this.confirmRetryDelaysMs.length; attempt += 1) {
+      try {
+        await firstValueFrom(this.http.post(`${environment.api_base_url}print/confirm`, { reservationId }));
+        return;
+      } catch {
+        if (attempt < this.confirmRetryDelaysMs.length) await new Promise((resolve) => setTimeout(resolve, this.confirmRetryDelaysMs[attempt]));
+      }
+    }
+    this.toast.show(this.translate.instant('print.notRecorded'), 'error', 10000);
+  }
+
+  /** Cancelled or failed: give the number back. A failed release is harmless (the number stays counted: it over-counts, never under-counts). */
+  private async releaseQuietly(reservationId: string): Promise<void> {
     try {
-      const response = await firstValueFrom(this.http.post<{ copy: number }>(`${environment.api_base_url}print/log`, { number, paper }));
-      return Math.max(0, Number(response.copy));
+      await firstValueFrom(this.http.post(`${environment.api_base_url}print/release`, { reservationId }));
     } catch {
-      return fallback;
+      /* stays reserved */
     }
   }
 

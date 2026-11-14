@@ -5,10 +5,11 @@
 import { BalanceSheet, BoxMovements, IncomeRow, IncomeStatement, PartyBalances, PartyRow, PartyTotals, SheetRow, TrialBalance, TrialRow } from '../../../modules/accounting/reports/reports.models';
 import { VatLineGroup, VatReturnDetail } from '../../../modules/accounting/vat.models';
 import { escapeHtml, formatDate, formatMoney, formatPercent, formatQty, localizeDigits } from '../print-format';
-import { Cell, PrintContext, PrintDocument, a4Header, a4Page, pick, row, closing, signatures, table } from '../print-kit';
+import { Cell, PrintContext, PrintDocument, a4Header, a4Page, pick, row, closing, signatures, table, moneyHtml } from '../print-kit';
 import { kpiRow } from './statements';
 
-const money = (ctx: PrintContext, value: number | null | undefined): string => formatMoney(value ?? 0, ctx.lang);
+const money = moneyHtml;
+const plainMoney = (ctx: PrintContext, value: number | null | undefined): string => formatMoney(value ?? 0, ctx.lang);
 const name = (ctx: PrintContext, item: { nameAr?: string; nameEn?: string }): string => escapeHtml((ctx.lang === 'en' ? item.nameEn || item.nameAr : item.nameAr || item.nameEn) || '');
 const checkLine = (text: string, ok: boolean): string =>
   `<div class="keep" style="font-size:13px;font-weight:700;color:${ok ? 'var(--p-brand)' : 'var(--p-danger)'}" data-check>${ok ? '✓' : '✗'} ${escapeHtml(text)}</div>`;
@@ -153,8 +154,8 @@ export function financials(ctx: PrintContext, data: FinancialsData): PrintDocume
   const verdict = balance
     ? checkLine(
         balanced
-          ? `${pick(ctx, 'الميزانية متوازنة: الأصول', 'The balance sheet balances: assets')} (${money(ctx, balance.totals.assets)}) = ${pick(ctx, 'الخصوم وحقوق الملكية', 'liabilities and equity')} (${money(ctx, balance.totals.liabilitiesAndEquity)})${data.trialBalanced ? ` · ${pick(ctx, 'ميزان المراجعة متوازن', 'the trial balance balances')}` : ''}`
-          : `${pick(ctx, 'الميزانية غير متوازنة، الفرق', 'The balance sheet does not balance, difference')} ${money(ctx, balance.check.difference)}`,
+          ? `${pick(ctx, 'الميزانية متوازنة: الأصول', 'The balance sheet balances: assets')} (${plainMoney(ctx,  balance.totals.assets)}) = ${pick(ctx, 'الخصوم وحقوق الملكية', 'liabilities and equity')} (${plainMoney(ctx,  balance.totals.liabilitiesAndEquity)})${data.trialBalanced ? ` · ${pick(ctx, 'ميزان المراجعة متوازن', 'the trial balance balances')}` : ''}`
+          : `${pick(ctx, 'الميزانية غير متوازنة، الفرق', 'The balance sheet does not balance, difference')} ${plainMoney(ctx,  balance.check.difference)}`,
         balanced
       )
     : '';
@@ -200,7 +201,7 @@ export function trialBalance(ctx: PrintContext, report: TrialBalance): PrintDocu
   const body = a4Page(`
   ${a4Header(ctx, { title: pick(ctx, 'ميزان المراجعة', 'Trial balance'), no: `${formatDate(report.period.from, ctx.lang)} — ${formatDate(report.period.to, ctx.lang)}`, date: formatDate(ctx.printedAt, ctx.lang), extraLabel: pick(ctx, 'بالأرصدة في', 'Balances as of'), extra: formatDate(report.period.to, ctx.lang) })}
   ${table([{ label: pick(ctx, 'الكود', 'Code'), width: 70 }, { label: pick(ctx, 'الحساب', 'Account') }, { label: pick(ctx, 'مدين', 'Debit'), numeric: true, width: 130 }, { label: pick(ctx, 'دائن', 'Credit'), numeric: true, width: 130 }], rows.join(''), { foot })}
-  ${checkLine(report.balanced ? `${pick(ctx, 'الميزان متوازن: إجمالي المدين = إجمالي الدائن · الفرق', 'The trial balance balances: total debit = total credit · difference')} ${money(ctx, diff)}` : `${pick(ctx, 'الميزان غير متوازن، الفرق', 'The trial balance does not balance, difference')} ${money(ctx, diff)}`, report.balanced)}
+  ${checkLine(report.balanced ? `${pick(ctx, 'الميزان متوازن: إجمالي المدين = إجمالي الدائن · الفرق', 'The trial balance balances: total debit = total credit · difference')} ${plainMoney(ctx,  diff)}` : `${pick(ctx, 'الميزان غير متوازن، الفرق', 'The trial balance does not balance, difference')} ${plainMoney(ctx,  diff)}`, report.balanced)}
   <div class="grow"></div>
   ${closing(ctx, [
     { who: pick(ctx, 'المحاسب', 'Accountant'), line: pick(ctx, 'الاسم والتوقيع', 'Name and signature') },
@@ -282,7 +283,7 @@ export function journalEntry(ctx: PrintContext, data: JournalEntryData): PrintDo
   <div class="row keep" style="gap:30px;flex-wrap:wrap;font-size:13px" data-meta>${meta.map(([label, value]) => `<span><span class="muted">${label}</span> <b>${value}</b></span>`).join('')}</div>
   ${data.memo ? `<div class="box keep" style="font-size:13px" data-memo><span class="muted">${pick(ctx, 'البيان', 'Memo')}:</span> ${escapeHtml(data.memo)}</div>` : ''}
   ${table([{ label: '#', width: 36 }, { label: pick(ctx, 'الكود', 'Code'), width: 64 }, { label: pick(ctx, 'الحساب', 'Account') }, { label: pick(ctx, 'البيان', 'Memo') }, { label: pick(ctx, 'مدين', 'Debit'), numeric: true, width: 100 }, { label: pick(ctx, 'دائن', 'Credit'), numeric: true, width: 100 }], rows, { foot })}
-  ${checkLine(balanced ? `${pick(ctx, 'القيد متوازن · الفرق', 'The entry balances · difference')} ${money(ctx, data.totalDebit - data.totalCredit)}` : pick(ctx, 'القيد غير متوازن', 'The entry does not balance'), balanced)}
+  ${checkLine(balanced ? `${pick(ctx, 'القيد متوازن · الفرق', 'The entry balances · difference')} ${plainMoney(ctx,  data.totalDebit - data.totalCredit)}` : pick(ctx, 'القيد غير متوازن', 'The entry does not balance'), balanced)}
   ${data.related.length ? `<div class="box keep muted" style="font-size:13px" data-related><b>${pick(ctx, 'قيود مرتبطة', 'Related entries')}:</b> ${data.related.map(escapeHtml).join(' · ')}</div>` : ''}
   <div class="muted keep" style="font-size:12px">${pick(ctx, 'القيد المرحَّل مايتعدلش ولا يتمسح. لو فيه غلط بيتعمل قيد عكسي بنفس القيمة ويتربط بالقيد ده.', 'A posted entry cannot be edited or deleted. A mistake is corrected by a reversing entry of the same amount, linked to this one.')}</div>
   <div class="grow"></div>

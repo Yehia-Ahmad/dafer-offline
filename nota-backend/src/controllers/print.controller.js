@@ -1,4 +1,6 @@
+const mongoose = require("mongoose");
 const PrintCount = require("../models/printCount.model");
+const PrintReservation = require("../models/printReservation.model");
 const JournalEntry = require("../models/journalEntry.model");
 const Selling = require("../models/selling.model");
 const CreditSale = require("../models/creditSale.model");
@@ -16,21 +18,25 @@ const VatPayment = require("../models/vatPayment.model");
 const { audit } = require("../auth/audit");
 const { hasPermission, forbidden } = require("../auth/middleware");
 
-// Stage 23: print copy numbers.
+// Stage 23: print copy numbers by RESERVE / CONFIRM / RELEASE.
 //
-//   GET  /api/print/next-copy?number=INV-000125&paper=A4   the copy number the NEXT print will carry (nothing is counted)
-//   POST /api/print/log { number, paper }                  records ONE successful print / PDF save, returns its real copy number
+//   POST /api/print/reserve  { number, paperClass, prefix? }  takes the next copy number of that document and class
+//   POST /api/print/confirm  { reservationId }               the print / PDF save went out: writes the document.printed audit
+//   POST /api/print/release  { reservationId }               the dialog was cancelled or the print failed: gives the number back
 //
-// The page asks for the next number first (to render the "نسخة" mark), prints, and logs only AFTER the print or
-// the PDF save succeeded: a cancelled dialog logs nothing. Copy 0 = the first print (no mark); 1 and up = "نسخة n".
-// There are two counters per document: "receipt" (80mm) and "page" (A4/A5, a PDF counts in the class of its paper),
-// so an A4 print of an invoice does not turn the next 80mm receipt into a "copy".
-// The commit is an atomic $inc that returns the real number and the `document.printed` audit entry records THAT
-// number. If two PCs print the same document at the same moment they both read the same "next" number, so the mark
-// printed on one of them may be one lower than the audited number; the audit entry is the truth.
-//
-// The document type is the number's prefix; the caller needs the permission of that document's screen, and the
-// document must exist (404 DOCUMENT_NOT_FOUND), so nobody can fill the counters with invented numbers.
+// copyNo 1 is THE original (exactly one across all PCs: the reserve is an atomic $inc, two PCs can never both get 1);
+// 2 and up are reprints ("نسخة"). There are two counters per document: "receipt" (80mm) and "page" (A4/A5, a PDF counts
+// in the class of its paper), so an A4 print of an invoice does not turn its next 80mm receipt into a copy.
+// Counter key: "<number>|receipt" or "<number>|page"; every reserve also stores a PrintReservation.
+//   * confirm: only the user who reserved. Status reserved -> printed and ONE document.printed audit entry (number, type,
+//     paper class, user, copy number). A retry is idempotent (no second audit). Confirming a released reservation is 409.
+//   * release: only the same user and only while the status is "reserved" (a printed one is 409). It decrements the counter
+//     with a conditional update ({ count: copyNo }): if nobody reserved after it, the number is given back (and any
+//     released numbers right below it with it). Otherwise the gap stays and a document.print_cancelled audit entry explains it.
+//   * A reservation that is never confirmed nor released (the app crashed mid-print) stays counted: the counter
+//     over-counts and never under-counts, so the next print of that document is at worst marked as a copy.
+// The document type is the number's prefix; the caller needs the permission of that document's screen and the document must
+// exist (404 DOCUMENT_NOT_FOUND), so nobody can fill the counters with invented numbers.
 const PREFIX_PERMISSIONS = Object.freeze({
   INV: ["sales.view", "sales.create"],
   CR: ["credit.view", "credit.create"],
@@ -55,47 +61,92 @@ const PREFIX_MODELS = Object.freeze({
 });
 
 const NUMBER_PATTERN = /^([A-Z]{2,3})-\d{6,9}$/;
-const PAPERS = new Set(["80mm", "A4", "A5"]);
-const paperClassOf = (paper) => (paper === "80mm" ? "receipt" : "page");
+const PAPER_CLASSES = new Set(["receipt", "page"]);
 const counterId = (number, paperClass) => `${number}|${paperClass}`;
+const httpError = (statusCode, code, message) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  error.responseData = { code };
+  return error;
+};
+const actorId = (req) => (req.authEnabled && req.user ? String(req.user._id) : null);
+const sameActor = (req, reservation) => (reservation.userId ? String(reservation.userId) : null) === actorId(req);
 
 /** Validates the request, checks the permission, then that the document exists. */
 async function resolveDocument(req, res, source) {
   const number = typeof source?.number === "string" ? source.number.trim().toUpperCase() : "";
   const match = NUMBER_PATTERN.exec(number);
   const permissions = match ? PREFIX_PERMISSIONS[match[1]] : null;
-  if (!permissions) {
+  if (!permissions || (source.prefix !== undefined && String(source.prefix).toUpperCase() !== match[1])) {
     res.status(400);
     throw new Error("رقم المستند غير صحيح");
   }
-  if (req.authEnabled && !permissions.some((key) => hasPermission(req.user, key))) throw forbidden();
-  if (!(await PREFIX_MODELS[match[1]].exists({ number }))) {
-    const error = new Error("المستند غير موجود");
-    error.statusCode = 404;
-    error.responseData = { code: "DOCUMENT_NOT_FOUND" };
-    throw error;
+  if (!PAPER_CLASSES.has(source.paperClass)) {
+    res.status(400);
+    throw new Error("نوع الورق غير صحيح");
   }
-  const paper = PAPERS.has(source?.paper) ? source.paper : undefined;
-  return { number, prefix: match[1], paper, paperClass: paperClassOf(paper) };
+  if (req.authEnabled && !permissions.some((key) => hasPermission(req.user, key))) throw forbidden();
+  if (!(await PREFIX_MODELS[match[1]].exists({ number }))) throw httpError(404, "DOCUMENT_NOT_FOUND", "المستند غير موجود");
+  return { number, prefix: match[1], paperClass: source.paperClass };
 }
 
-const getNextCopy = async (req, res) => {
-  res.set("Cache-Control", "no-store");
-  const { number, paperClass } = await resolveDocument(req, res, req.query);
-  const counter = await PrintCount.findById(counterId(number, paperClass)).select("count").lean();
-  res.json({ number, paperClass, copy: counter ? counter.count : 0 });
+const loadReservation = async (req) => {
+  const id = req.body?.reservationId;
+  if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) throw httpError(400, "INVALID_RESERVATION", "رقم الحجز غير صحيح");
+  const reservation = await PrintReservation.findById(id).lean();
+  if (!reservation) throw httpError(404, "RESERVATION_NOT_FOUND", "الحجز غير موجود");
+  if (!sameActor(req, reservation)) throw forbidden();
+  return reservation;
 };
 
-const logPrint = async (req, res) => {
-  const { number, prefix, paper, paperClass } = await resolveDocument(req, res, req.body);
+const reservePrint = async (req, res) => {
+  const { number, paperClass } = await resolveDocument(req, res, req.body);
+  const key = counterId(number, paperClass);
   const counter = await PrintCount.findOneAndUpdate(
-    { _id: counterId(number, paperClass) },
+    { _id: key },
     { $inc: { count: 1 }, $setOnInsert: { number, paperClass } },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
-  const copy = counter.count - 1;
-  await audit(req, { action: "document.printed", entity: "document", entityId: number, details: { number, type: prefix, paper, paperClass, copy } });
-  res.json({ number, copy, paperClass, printedAt: new Date().toISOString() });
+  const copyNo = counter.count;
+  const reservation = await PrintReservation.create({ key, number, paperClass, copyNo, userId: actorId(req), deviceId: req.deviceId || null, status: "reserved" });
+  res.status(201).json({ reservationId: String(reservation._id), number, paperClass, copyNo });
+};
+
+const confirmPrint = async (req, res) => {
+  const reservation = await loadReservation(req);
+  if (reservation.status === "released") throw httpError(409, "RESERVATION_RELEASED", "تم إلغاء هذا الحجز");
+  const won = await PrintReservation.findOneAndUpdate({ _id: reservation._id, status: "reserved" }, { $set: { status: "printed", resolvedAt: new Date() } }, { new: true });
+  if (won) {
+    const [prefix] = reservation.number.split("-");
+    await audit(req, { action: "document.printed", entity: "document", entityId: reservation.number, details: { number: reservation.number, type: prefix, paperClass: reservation.paperClass, copy: reservation.copyNo, reservationId: String(reservation._id) } });
+  }
+  // already printed (a retry): the same answer, no second audit entry
+  res.json({ number: reservation.number, paperClass: reservation.paperClass, copyNo: reservation.copyNo, printedAt: new Date().toISOString(), alreadyConfirmed: !won });
+};
+
+const releasePrint = async (req, res) => {
+  const reservation = await loadReservation(req);
+  if (reservation.status === "printed") throw httpError(409, "RESERVATION_PRINTED", "تمت الطباعة بالفعل، لا يمكن إلغاء الحجز");
+  if (reservation.status === "released") return res.json({ number: reservation.number, copyNo: reservation.copyNo, status: "released", gaveBack: Boolean(reservation.gaveBack), alreadyReleased: true });
+  const flipped = await PrintReservation.findOneAndUpdate({ _id: reservation._id, status: "reserved" }, { $set: { status: "released", resolvedAt: new Date() } }, { new: true });
+  if (!flipped) throw httpError(409, "RESERVATION_PRINTED", "تمت الطباعة بالفعل، لا يمكن إلغاء الحجز");
+  // Give the number back only if nobody reserved after it; released numbers right below it go back with it.
+  let gaveBack = false;
+  let count = reservation.copyNo;
+  for (;;) {
+    const updated = await PrintCount.findOneAndUpdate({ _id: reservation.key, count }, { $inc: { count: -1 } }, { new: true });
+    if (!updated) break;
+    if (count === reservation.copyNo) gaveBack = true;
+    count -= 1;
+    if (count < 1 || !(await PrintReservation.exists({ key: reservation.key, copyNo: count, status: "released" }))) break;
+  }
+  if (gaveBack) {
+    await PrintReservation.updateOne({ _id: reservation._id }, { $set: { gaveBack: true } });
+  } else {
+    const [prefix] = reservation.number.split("-");
+    await audit(req, { action: "document.print_cancelled", entity: "document", entityId: reservation.number, details: { number: reservation.number, type: prefix, paperClass: reservation.paperClass, copy: reservation.copyNo, reservationId: String(reservation._id) } });
+  }
+  res.json({ number: reservation.number, copyNo: reservation.copyNo, status: "released", gaveBack });
 };
 
 // GET /api/print/journal-ref/:number: the journal entry number a voucher prints in its footer ("قيد رقم JE-000415").
@@ -114,4 +165,4 @@ const getJournalRef = async (req, res) => {
   res.json({ number, journalNumber: entry ? entry.number : null });
 };
 
-module.exports = { PREFIX_MODELS, PREFIX_PERMISSIONS, getJournalRef, getNextCopy, logPrint };
+module.exports = { PREFIX_MODELS, PREFIX_PERMISSIONS, confirmPrint, getJournalRef, releasePrint, reservePrint };

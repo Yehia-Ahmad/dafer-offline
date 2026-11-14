@@ -2178,20 +2178,26 @@ async function runStage23Scenarios() {
     return `${ctx.cash.number}, ${ctx.receiptNumber}, ${ctx.purchase.number}`;
   });
 
-  await step('Stage 23: POST /api/print/log → copy 0 for the first print, 1 and 2 for reprints (from the server, so two PCs never both print the original)', async () => {
+  await step('Stage 23: reserve → confirm: copy 1 is the original, 2 and 3 reprints (from the server, so two PCs never both print the original); a released number goes back', async () => {
+    const reserve = (number, paperClass) => request('POST', '/api/print/reserve', { body: { number, paperClass } });
     const copies = [];
     for (let i = 0; i < 3; i += 1) {
-      const response = await request('POST', '/api/print/log', { body: { number: ctx.cash.number, paper: '80mm' } });
-      expectStatus(response, 200, 'POST /api/print/log');
-      copies.push(response.json.copy);
+      const response = await reserve(ctx.cash.number, 'receipt');
+      expectStatus(response, 201, 'POST /api/print/reserve');
+      copies.push(response.json.copyNo);
+      expectStatus(await request('POST', '/api/print/confirm', { body: { reservationId: response.json.reservationId } }), 200, 'POST /api/print/confirm');
     }
-    expect(copies.join(',') === '0,1,2', `copies ${copies}`);
-    const nextA4 = await request('GET', `/api/print/next-copy?number=${ctx.cash.number}&paper=A4`);
-    expect(nextA4.json.copy === 0, 'an A4 print is counted apart from the 80mm receipt: next A4 copy is 0');
-    expectStatus(await request('POST', '/api/print/log', { body: { number: 'INV-000999', paper: 'A4' } }), 404, 'unknown document');
-    const parallel = await Promise.all([1, 2, 3, 4].map(() => request('POST', '/api/print/log', { body: { number: ctx.receiptNumber } })));
-    const sorted = parallel.map((r) => r.json.copy).sort().join(',');
-    expect(sorted === '0,1,2,3', `four parallel prints: ${sorted}`);
+    expect(copies.join(',') === '1,2,3', `copies ${copies}`);
+    const a4 = await reserve(ctx.cash.number, 'page');
+    expect(a4.json.copyNo === 1, 'an A4 print is counted apart from the 80mm receipt: the first A4 is copy 1');
+    expectStatus(await request('POST', '/api/print/release', { body: { reservationId: a4.json.reservationId } }), 200, 'release');
+    const again = await reserve(ctx.cash.number, 'page');
+    expect(again.json.copyNo === 1, 'a released number is given back');
+    expectStatus(await request('POST', '/api/print/release', { body: { reservationId: again.json.reservationId } }), 200, 'release again');
+    expectStatus(await reserve('INV-000999', 'page'), 404, 'unknown document');
+    const parallel = await Promise.all([1, 2, 3, 4].map(() => reserve(ctx.receiptNumber, 'page')));
+    const sorted = parallel.map((r) => r.json.copyNo).sort().join(',');
+    expect(sorted === '1,2,3,4', `four parallel reserves: ${sorted}`);
     return `copies ${copies.join(',')}, parallel ${sorted}`;
   });
 
@@ -2202,19 +2208,19 @@ async function runStage23Scenarios() {
     const rows = list.filter((row) => row.action === 'document.printed' && row.entityId === ctx.cash.number);
     expect(rows.length === 3, `${rows.length} audit rows for ${ctx.cash.number}`);
     const copiesLogged = rows.map((row) => row.details && row.details.copy).sort().join(',');
-    expect(copiesLogged === '0,1,2', `copies ${copiesLogged}`);
+    expect(copiesLogged === '1,2,3', `copies ${copiesLogged}`);
     expect(rows.every((row) => row.userName && row.details.type === 'INV'), 'user and type are in every row');
     return `3 rows, copies ${copiesLogged}`;
   });
 
-  await step('Stage 23: print log permissions: a cashier prints INV and RC, not a journal entry or a purchase; a bad number is 400; no token is 401', async () => {
-    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: ctx.cash.number }), 200, 'cashier INV');
-    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: ctx.receiptNumber }), 200, 'cashier RC');
-    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: 'JE-000001' }), 403, 'cashier JE');
-    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/log', { number: 'PO-000001' }), 403, 'cashier PO');
-    expectStatus(await as(ctx.accountantToken, 'POST', '/api/print/log', { number: 'JE-000001' }), 200, 'accountant JE');
-    expectStatus(await request('POST', '/api/print/log', { body: { number: 'nope' } }), 400, 'bad number');
-    expectStatus(await request('POST', '/api/print/log', { body: { number: ctx.cash.number }, token: null }), 401, 'no token');
+  await step('Stage 23: reserve permissions: a cashier prints INV and RC, not a journal entry or a purchase; a bad number is 400; no token is 401', async () => {
+    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/reserve', { number: ctx.cash.number, paperClass: 'page' }), 201, 'cashier INV');
+    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/reserve', { number: ctx.receiptNumber, paperClass: 'page' }), 201, 'cashier RC');
+    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/reserve', { number: 'JE-000001', paperClass: 'page' }), 403, 'cashier JE');
+    expectStatus(await as(ctx.cashierToken, 'POST', '/api/print/reserve', { number: 'PO-000001', paperClass: 'page' }), 403, 'cashier PO');
+    expectStatus(await as(ctx.accountantToken, 'POST', '/api/print/reserve', { number: 'JE-000001', paperClass: 'page' }), 201, 'accountant JE');
+    expectStatus(await request('POST', '/api/print/reserve', { body: { number: 'nope', paperClass: 'page' } }), 400, 'bad number');
+    expectStatus(await request('POST', '/api/print/reserve', { body: { number: ctx.cash.number, paperClass: 'page' }, token: null }), 401, 'no token');
     return 'cashier 200/200/403/403, accountant 200, 400, 401';
   });
 
@@ -2296,7 +2302,7 @@ async function runStage23Scenarios() {
     expect(list.json.data.length === 1 && list.json.data[0].number === refund.json.number && Boolean(list.json.data[0].boxName), 'refund row with boxName');
     const statement = await request('GET', `/api/suppliers/${ctx.supplierId}/statement`);
     expect(statement.json.lines.some((row) => row.type === 'supplier_refund' && row.number === refund.json.number), 'statement line');
-    expectStatus(await request('POST', '/api/print/log', { body: { number: refund.json.number, paper: 'A5' } }), 200, 'print log SR');
+    expectStatus(await request('POST', '/api/print/reserve', { body: { number: refund.json.number, paperClass: 'page' } }), 201, 'print reserve SR');
     return `${refund.json.number} in ${list.json.data[0].boxName}`;
   });
 }
