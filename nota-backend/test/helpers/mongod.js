@@ -103,8 +103,8 @@ async function boot({ port, child, dir }) {
     await bootstrap.close();
   }
   await mongoose.connect(`mongodb://127.0.0.1:${port}/${DB_NAME}?replicaSet=${REPLICA_SET}&directConnection=true`);
-  // Build the indexes the models declare (the dashboard relies on them being valid).
-  await Promise.all(Object.values(mongoose.models).map((model) => model.init()));
+  // Build the indexes the models declare, the same way startup does (ensureIndexes, so models with autoIndex off get theirs too).
+  await require("../../src/config/db").ensureIndexes();
 
   return async function stop() {
     await mongoose.disconnect();

@@ -624,7 +624,7 @@ async function stage23PrintReservationIndexMigration() {
     if (error.codeName === "NamespaceNotFound" || error.code === 26 || /ns not found|ns does not exist/i.test(error.message)) return { dropped: false };
     throw error;
   }
-  const old = indexes.find((index) => index.name === "key_1_copyNo_1" && !index.unique);
+  const old = indexes.find((index) => index.name === "key_1_copyNo_1"); // whatever its options: unique or not, partial or not
   if (!old) return { dropped: false };
   try {
     await collection.dropIndex("key_1_copyNo_1");

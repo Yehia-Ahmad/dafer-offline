@@ -491,6 +491,19 @@ it("a database that still has the OLD non-unique key_1_copyNo_1 index: startup (
   assert.equal((await Meta.findById("schema").lean()).version, 11);
 });
 
+it("(d) a database with the UNIQUE partial index under the default name key_1_copyNo_1 (as 7534eba6 built it): migrations then ensureIndexes start fine, only _id_, key_1 and print_reservation_live_unique remain", async () => {
+  await resetCollection();
+  await PrintReservation.collection.createIndex({ key: 1, copyNo: 1 }, { unique: true, partialFilterExpression: { status: { $in: ["reserved", "printed"] } } });
+  assert.ok((await indexesOf()).includes("key_1_copyNo_1"));
+  await atVersion10();
+  assert.equal(await runMigrations(), 11);
+  await ensureIndexes();
+  assert.deepEqual(await indexesOf(), ["_id_", LIVE_INDEX, "key_1"].sort());
+  const live = (await PrintReservation.collection.indexes()).find((index) => index.name === LIVE_INDEX);
+  assert.equal(live.unique, true);
+  assert.deepEqual(live.partialFilterExpression, { status: { $in: ["reserved", "printed"] } });
+});
+
 it("a fresh database (no collection yet): the migration is a no-op and only the new index is built", async () => {
   await resetCollection();
   await atVersion10();
