@@ -7,7 +7,7 @@
 // across all PCs; 2+ = reprints, marked "نسخة" by copyMark below), then CONFIRMS it when the print / PDF save went out
 // or RELEASES it on cancel / failure (see PrintService and print.controller.js). There are two counters per document:
 // receipt (80mm) and page (A4/A5, a PDF counts in its paper's class). A missing document is a 404 and a reservation
-// that is never settled (a crash) stays counted: the counters over-count, never under-count.
+// that is never settled (a crash) stays counted: a gap that stays is an over-count (the safe side).
 //
 // The designs are docs/design/prints/Pr*.dc.html; the colors are the Nota light tokens (the same hex
 // values as --brand, --text, --text-muted), because prints are always light whatever the UI theme.
@@ -92,8 +92,16 @@ export const generatedText = (ctx: Pick<PrintContext, 'lang'>, noun: 'document' 
   const en = { document: 'This document was', voucher: 'This voucher was', receipt: 'This receipt was' }[noun];
   return ctx.lang === 'ar' ? `${ar} إلكترونيًا بواسطة ${BRAND.nameAr}` : `${en} generated electronically by ${BRAND.nameEn}`;
 };
+const printedAtText = (ctx: PrintContext): string => formatDateTime(ctx.printedAt, ctx.lang).replace(' · ', ' ');
+/**
+ * "Printed by <name> · <date time>" as PLAIN text (the page-margin CSS box). The name and the date/time are wrapped in
+ * Unicode isolates (FSI ... PDI) so an Arabic name inside an English line (or the other way round) cannot scramble it.
+ */
 export const printedByText = (ctx: PrintContext): string =>
-  `${pick(ctx, 'طُبع بواسطة', 'Printed by')} ${ctx.printedBy || '—'} · ${formatDateTime(ctx.printedAt, ctx.lang).replace(' · ', ' ')}`;
+  `${pick(ctx, 'طُبع بواسطة', 'Printed by')} \u2068${ctx.printedBy || '—'}\u2069 · \u2068${printedAtText(ctx)}\u2069`;
+/** The same line as HTML (escaped), with the name and the date/time in <bdi> for the same reason. */
+export const printedByHtml = (ctx: PrintContext): string =>
+  `${escapeHtml(pick(ctx, 'طُبع بواسطة', 'Printed by'))} <bdi>${escapeHtml(ctx.printedBy || '—')}</bdi> · <bdi>${escapeHtml(printedAtText(ctx))}</bdi>`;
 
 // ---------------------------------------------------------------- CSS
 
@@ -320,7 +328,7 @@ export function receiptFooter(ctx: PrintContext, noun: 'document' | 'voucher' | 
   // The shop's footer ("لا ترد ولا تستبدل") belongs to sales documents only.
   const note = salesFooter && ctx.shop && ctx.shop.invoiceFooter ? `<div class="note" data-footer-note>${escapeHtml(ctx.shop.invoiceFooter)}</div>` : '';
   return `<div class="dash"></div>${note}
-  <div class="fine" data-printed-by>${escapeHtml(printedByText(ctx))}</div>
+  <div class="fine" data-printed-by>${printedByHtml(ctx)}</div>
   <div class="fine">${escapeHtml(generatedText(ctx, noun))}</div>`;
 }
 

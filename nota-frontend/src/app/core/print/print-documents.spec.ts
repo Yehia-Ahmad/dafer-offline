@@ -105,7 +105,7 @@ describe('the page', () => {
     expect(ar).toMatch(/@bottom-left \{ content: "صفحة " counter\(page, arabic-indic\) " من " counter\(pages, arabic-indic\)/);
     expect(ar).toContain('.t thead { display: table-header-group; }');
     expect(ar).toContain('.t tr { break-inside: avoid;');
-    expect(ar).toContain('طُبع بواسطة محمود');
+    expect(ar).toContain('طُبع بواسطة \u2068محمود\u2069');
     const en = html(customerStatement(ctxOf('en'), { customer: { name: 'S' }, lines: [], totals: { openingBalance: 0, debit: 0, credit: 0, balance: 0 }, aging: { current: 0, days1to30: 0, days31to60: 0, over60: 0, total: 0 } }), ctxOf('en'));
     expect(en).toMatch(/@bottom-right \{ content: "Page " counter\(page, decimal\) " of " counter\(pages, decimal\)/);
   });
@@ -128,7 +128,7 @@ describe('PrCashReceipt / PrCashInvoice', () => {
     expect(out).toContain('٢٥٠٫٠٠ ج.م'); // total
     expect(out).toContain('data-barcode="INV-000125"');
     expect(out).toContain('البضاعة المباعة لا ترد');
-    expect(out).toContain('طُبع بواسطة محمود');
+    expect(out).toContain('طُبع بواسطة <bdi>محمود</bdi>');
     expect(out).not.toContain('data-paid');
     expect(out).not.toContain('data-change');
     expect(out).not.toContain('data-vat-net');
@@ -760,5 +760,65 @@ describe('Stage 23 review fixes', () => {
       expect(ar).toContain('مقدم مع الفاتورة');
       expect(ar).toContain('دفعة تانية');
     });
+  });
+});
+
+describe('Stage 23 last review fixes', () => {
+  const AT = new Date(2026, 10, 6, 9, 5);
+  const SHIFT_DATA = { number: 'SH-000058', boxName: 'درج', cashier: 'ك', openedAt: null, closedAt: null, summary: [], movement: [], expected: 10, counted: 10, difference: 0 };
+  const PURCHASE = { number: 'PO-000001', date: null, supplier: { name: 'م' }, items: [], subtotal: 0, discount: 0, otherCosts: 0, total: 0, paid: 0, remaining: 0 };
+  const RECEIPT = { number: 'RC-000041', date: null, customerName: 'س', invoiceNumbers: [], amount: 1 };
+  /** Every numbered document that can be reprinted: 80mm receipts, A4 invoices and A5 vouchers. */
+  const builders: Array<[string, (ctx: PrintContext) => PrintDocument]> = [
+    ['cash receipt (80mm)', (ctx) => cashReceipt(ctx, sale)],
+    ['payment receipt (80mm)', (ctx) => paymentReceipt(ctx, RECEIPT)],
+    ['return receipt (80mm)', (ctx) => returnReceipt(ctx, { number: 'RT-000009', date: null, invoiceKind: 'cash', items: [], total: 0 })],
+    ['shift close (80mm)', (ctx) => shiftClose(ctx, SHIFT_DATA)],
+    ['cash invoice (A4)', (ctx) => cashInvoice(ctx, sale)],
+    ['credit invoice (A4)', (ctx) => creditInvoice(ctx, { ...sale, paid: 0, remaining: 250 })],
+    ['purchase invoice (A4)', (ctx) => purchaseInvoice(ctx, PURCHASE)],
+    ['receipt voucher (A5)', (ctx) => receiptVoucher(ctx, RECEIPT)],
+    ['payment voucher (A5)', (ctx) => voucher(ctx, { type: 'PV', number: 'PV-000007', date: null, amount: 5, party: 'م' })],
+    ['customer statement (A4)', (ctx) => customerStatement(ctx, { customer: { name: 'س' }, lines: [], totals: { openingBalance: 0, debit: 0, credit: 0, balance: 0 }, aging: { current: 0, days1to30: 0, days31to60: 0, over60: 0, total: 0 } })],
+    ['journal entry (A4)', (ctx) => journalEntry(ctx, { number: 'JE-000415', date: '2026-11-05', typeLabel: 'x', lines: [], totalDebit: 0, totalCredit: 0, related: [] })],
+  ];
+
+  it('the original has no mark and every reprint has one with its own number, for every document type that has copies, in Arabic and English', () => {
+    for (const lang of ['ar', 'en'] as const) {
+      for (const [label, build] of builders) {
+        const original = ctxOf(lang);
+        expect(html(build(original), original)).not.toContain('data-copy-mark', `${label} ${lang}: the original`);
+        for (const n of [2, 3]) {
+          const reprint = ctxOf(lang, { copy: { n, at: AT } });
+          const out = html(build(reprint), reprint);
+          expect(out).toContain('data-copy-mark', `${label} ${lang}: copy ${n}`);
+          expect(out).toContain(`${lang === 'ar' ? 'نسخة' : 'COPY'} ${localizeDigits(String(n), lang)}`, `${label} ${lang}: the number ${n}`);
+        }
+      }
+    }
+  });
+
+  it('the A4 cash and credit invoice discount rows print the isolated minus like the receipt and the purchase invoice', () => {
+    for (const lang of ['ar', 'en'] as const) {
+      const minus = lang === 'ar' ? '−٢٠٫٠٠' : '-20.00';
+      const cash = html(cashInvoice(ctxOf(lang), sale), ctxOf(lang));
+      const credit = html(creditInvoice(ctxOf(lang), { ...sale, paid: 0, remaining: 250 }), ctxOf(lang));
+      const purchase = html(purchaseInvoice(ctxOf(lang), { ...PURCHASE, discount: 20 }), ctxOf(lang));
+      for (const out of [cash, credit, purchase]) expect(out).toContain(`<bdi dir="ltr" class="neg">${minus}</bdi>`);
+      expect(html(cashInvoice(ctxOf(lang), { ...sale, discount: 0 }), ctxOf(lang))).not.toContain('class="neg"');
+    }
+  });
+
+  it('"Printed by": the user name and the date/time are isolated (<bdi> in the page, FSI/PDI in the margin box), so an Arabic name on an English print does not scramble', () => {
+    const en = ctxOf('en', { printedBy: 'محمود أحمد' });
+    const receipt = html(cashReceipt(en, sale), en);
+    expect(receipt).toContain('Printed by <bdi>محمود أحمد</bdi> · <bdi>5 / 11 / 2026 12:40 PM</bdi>');
+    const a4 = html(cashInvoice(en, sale), en);
+    expect(a4).toContain('content: "Printed by \u2068محمود أحمد\u2069 · \u2068');
+    const voucherOut = html(receiptVoucher(en, RECEIPT), en);
+    expect(voucherOut).toContain('Printed by <bdi>محمود أحمد</bdi>');
+    // the name is still escaped
+    const hostile = ctxOf('en', { printedBy: '<img src=x>' });
+    expect(html(cashReceipt(hostile, sale), hostile)).toContain('<bdi>&lt;img src=x&gt;</bdi>');
   });
 });

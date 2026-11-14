@@ -182,20 +182,23 @@ export class PrintService {
   /** Delays (ms) between the retries of a failed confirm: 3 retries with a growing wait. */
   confirmRetryDelaysMs: number[] = [300, 900, 2000];
 
-  /** The print really went out: record it. 3 retries with backoff; if it still fails the user is told (the counter is already advanced, so the next print is correctly a copy). */
+  /** The print really went out: record it. 3 retries with backoff (none for 403 / 404 / 409); if it still fails the user is told (the counter is already advanced, so the next print is correctly a copy). */
   private async confirmWithRetry(reservationId: string): Promise<void> {
     for (let attempt = 0; attempt <= this.confirmRetryDelaysMs.length; attempt += 1) {
       try {
         await firstValueFrom(this.http.post(`${environment.api_base_url}print/confirm`, { reservationId }));
         return;
-      } catch {
+      } catch (error) {
+        // 403 / 404 / 409 can never succeed on a retry (not allowed, unknown reservation, already released): warn at once.
+        const status = (error as { status?: number })?.status;
+        if (status === 403 || status === 404 || status === 409) break;
         if (attempt < this.confirmRetryDelaysMs.length) await new Promise((resolve) => setTimeout(resolve, this.confirmRetryDelaysMs[attempt]));
       }
     }
     this.toast.show(this.translate.instant('print.notRecorded'), 'error', 10000);
   }
 
-  /** Cancelled or failed: give the number back. A failed release is harmless (the number stays counted: it over-counts, never under-counts). */
+  /** Cancelled or failed: give the number back. A failed release is harmless (the number stays counted: a gap is an over-count, the safe side). */
   private async releaseQuietly(reservationId: string): Promise<void> {
     try {
       await firstValueFrom(this.http.post(`${environment.api_base_url}print/release`, { reservationId }));

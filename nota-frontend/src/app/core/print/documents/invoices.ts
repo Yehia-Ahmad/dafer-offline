@@ -3,7 +3,7 @@
 
 import { InvoiceVatInfo, vatPrintLabels } from '../../../modules/shared/vat/vat-print';
 import { amountInWords, escapeHtml, formatDate, formatMoney, formatPercent, formatQty, localizeDigits } from '../print-format';
-import { Cell, PrintContext, PrintDocument, a4Header, a4Page, cancelBox, copyMark, generatedText, pick, printedByText, row, closing, signatures, table, moneyHtml, minusMoney } from '../print-kit';
+import { Cell, PrintContext, PrintDocument, a4Header, a4Page, cancelBox, copyMark, generatedText, pick, printedByHtml, row, closing, signatures, table, moneyHtml, minusMoney } from '../print-kit';
 import { CashSaleData, PaymentReceiptData, SaleLine } from './receipts';
 
 const money = moneyHtml;
@@ -77,7 +77,7 @@ export function cashInvoice(ctx: PrintContext, data: CashSaleData): PrintDocumen
     <div class="box col grow" style="gap:4px"><span class="lbl">${pick(ctx, 'المبلغ بالحروف', 'Amount in words')}</span><span style="font-size:14px;font-weight:700" data-words>${escapeHtml(amountInWords(data.total, ctx.lang))}</span></div>
     <table class="t" style="width:300px"><tbody>
       ${totalsRow(pick(ctx, 'الإجمالي', 'Subtotal'), money(ctx, data.subtotal))}
-      ${totalsRow(`${pick(ctx, 'الخصم', 'Discount')}${data.discountPercent ? ` (${formatPercent(data.discountPercent, ctx.lang)})` : ''}`, money(ctx, data.discount))}
+      ${totalsRow(`${pick(ctx, 'الخصم', 'Discount')}${data.discountPercent ? ` (${formatPercent(data.discountPercent, ctx.lang)})` : ''}`, data.discount ? minusMoney(ctx, data.discount) : money(ctx, 0))}
       ${data.shipping ? totalsRow(pick(ctx, 'التوصيل', 'Delivery'), money(ctx, data.shipping)) : ''}
       ${vatTotals(ctx, data.vat)}
       ${grandRow(data.vat ? pick(ctx, 'الإجمالي شامل الضريبة', 'Total incl. VAT') : pick(ctx, 'الصافي', 'Net total'), `${money(ctx, data.total)} ${currency(ctx)}`, 'data-total')}
@@ -147,7 +147,7 @@ export function creditInvoice(ctx: PrintContext, data: CreditInvoiceData): Print
     </div>
     <table class="t" style="width:300px"><tbody>
       ${totalsRow(pick(ctx, 'الإجمالي', 'Subtotal'), money(ctx, data.subtotal))}
-      ${totalsRow(`${pick(ctx, 'الخصم', 'Discount')}${data.discountPercent ? ` (${formatPercent(data.discountPercent, ctx.lang)})` : ''}`, money(ctx, data.discount))}
+      ${totalsRow(`${pick(ctx, 'الخصم', 'Discount')}${data.discountPercent ? ` (${formatPercent(data.discountPercent, ctx.lang)})` : ''}`, data.discount ? minusMoney(ctx, data.discount) : money(ctx, 0))}
       ${data.shipping ? totalsRow(pick(ctx, 'التوصيل', 'Delivery'), money(ctx, data.shipping)) : ''}
       ${vatTotals(ctx, data.vat)}
       <tr><td style="font-weight:700">${pick(ctx, 'صافي الفاتورة', 'Invoice total')}</td><td class="n" style="font-weight:700" data-total>${money(ctx, data.total)}</td></tr>
@@ -358,7 +358,7 @@ export function voucher(ctx: PrintContext, data: VoucherData): PrintDocument {
     .join('')}</div>
   <div class="col keep muted" style="gap:3px;font-size:11px;border-top:1px solid var(--p-border);padding-top:8px">
     <div class="row" style="justify-content:space-between;gap:8px"><span>${data.journalNumber ? `${pick(ctx, 'قيد رقم', 'Entry no.')} <span class="code n" data-journal-number>${escapeHtml(data.journalNumber)}</span>` : ''}</span><span>${escapeHtml(generatedText(ctx, 'voucher'))}</span></div>
-    <div data-printed-by>${escapeHtml(printedByText(ctx))}</div>
+    <div data-printed-by>${printedByHtml(ctx)}</div>
   </div>
 </main>`;
   return { paper: 'A5', title: data.number, body, cancelled: data.cancelled || null };

@@ -141,12 +141,60 @@ it("print release: reserve A, reserve B, release A: the counter stays 2 (a gap) 
   assert.deepEqual({ copy: cancelled[0].details.copy, paperClass: cancelled[0].details.paperClass, number: cancelled[0].details.number }, { copy: 1, paperClass: "page", number: "INV-000131" });
   ok(await confirm(b.reservationId));
   assert.equal((await reserved("INV-000131")).copyNo, 3);
-  // released numbers right below a released top number go back with it
+});
+
+it("print release, accepted over-count: reserve A, reserve B, release A, release B: the counter stays at 1 and the next print is copy 2 (nothing was printed; there is no cascade over the older released row)", async () => {
   await seedDocument("INV-000132");
-  const x = await reserved("INV-000132"); const y = await reserved("INV-000132");
-  ok(await release(x.reservationId));
-  assert.equal(ok(await release(y.reservationId)).gaveBack, true);
-  assert.equal(await counterOf("INV-000132"), 0, "the gap below went back as well: nothing was ever printed");
+  const a = await reserved("INV-000132"); const b = await reserved("INV-000132");
+  assert.equal(ok(await release(a.reservationId)).gaveBack, false);
+  assert.equal(ok(await release(b.reservationId)).gaveBack, true, "B was the top number: it goes back by one");
+  assert.equal(await counterOf("INV-000132"), 1, "A's gap stays");
+  assert.equal((await reserved("INV-000132")).copyNo, 2, "the next print is marked as a copy: an over-count, the safe side");
+  assert.equal((await auditOf("document.print_cancelled", "INV-000132")).length, 1, "the gap of A is explained");
+});
+
+it("print release, scenario A: A reserves 1 and releases; B reserves 1 and confirms; C reserves 2 and releases: the next reserve is 2, never 1", async () => {
+  await seedDocument("INV-000136");
+  const a = await reserved("INV-000136");
+  assert.equal(a.copyNo, 1);
+  ok(await release(a.reservationId));
+  const b = await reserved("INV-000136");
+  assert.equal(b.copyNo, 1, "A gave the original back");
+  ok(await confirm(b.reservationId));
+  const c = await reserved("INV-000136");
+  assert.equal(c.copyNo, 2);
+  assert.equal(ok(await release(c.reservationId)).gaveBack, true);
+  assert.equal(await counterOf("INV-000136"), 1);
+  const next = await reserved("INV-000136");
+  assert.equal(next.copyNo, 2, "never 1: the original was printed by B");
+});
+
+it("print release, scenario B: a number that was issued again and printed is never given back by a stale release of the older reservation", async () => {
+  await seedDocument("INV-000137");
+  const a = await reserved("INV-000137");
+  const b = await reserved("INV-000137");
+  assert.deepEqual([a.copyNo, b.copyNo], [1, 2]);
+  assert.equal(ok(await release(b.reservationId)).gaveBack, true);
+  const c = await reserved("INV-000137");
+  assert.equal(c.copyNo, 2, "number 2 is issued again");
+  ok(await confirm(c.reservationId));
+  const again = ok(await release(b.reservationId));
+  assert.equal(again.alreadyReleased, true);
+  assert.equal(await counterOf("INV-000137"), 2, "the stale release changed nothing");
+  assert.equal(ok(await release(a.reservationId)).gaveBack, false, "A is below the top: the gap stays");
+  assert.equal(await counterOf("INV-000137"), 2);
+  assert.equal((await reserved("INV-000137")).copyNo, 3);
+  assert.equal((await PrintReservation.findById(c.reservationId).lean()).status, "printed");
+  assert.equal((await release(c.reservationId)).status, 409, "a printed number cannot be released");
+});
+
+it("print reservations: a unique partial index (key, copyNo) for reserved / printed rows stops two live reservations from holding one number, and allows a released one next to it", async () => {
+  await PrintReservation.init();
+  const base = { key: "INV-000138|page", number: "INV-000138", paperClass: "page", copyNo: 1 };
+  await PrintReservation.create({ ...base, status: "released" });
+  await PrintReservation.create({ ...base, status: "reserved" });
+  await assert.rejects(() => PrintReservation.create({ ...base, status: "printed" }), (error) => error.code === 11000);
+  await PrintReservation.create({ ...base, status: "released" });
 });
 
 it("print confirm is idempotent: a retry answers the same and writes no second audit entry; release is idempotent too", async () => {
@@ -200,7 +248,7 @@ it("print reserve: a receipt and a page are separate counters (an A4 print does 
   assert.equal((await call("POST", "/api/print/reserve", { number: "INV-000150", paperClass: "A4" })).status, 400, "the class is receipt or page");
 });
 
-it("print reserve: a reservation that is never confirmed nor released (a crash) stays counted: the next print is a copy (over-counts, never under-counts)", async () => {
+it("print reserve: a reservation that is never confirmed nor released (a crash) stays counted: the next print is a copy (an over-count, the safe side)", async () => {
   await seedDocument("INV-000160");
   await reserved("INV-000160");
   assert.equal((await reserved("INV-000160")).copyNo, 2);

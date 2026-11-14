@@ -30,11 +30,14 @@ const { hasPermission, forbidden } = require("../auth/middleware");
 // Counter key: "<number>|receipt" or "<number>|page"; every reserve also stores a PrintReservation.
 //   * confirm: only the user who reserved. Status reserved -> printed and ONE document.printed audit entry (number, type,
 //     paper class, user, copy number). A retry is idempotent (no second audit). Confirming a released reservation is 409.
-//   * release: only the same user and only while the status is "reserved" (a printed one is 409). It decrements the counter
-//     with a conditional update ({ count: copyNo }): if nobody reserved after it, the number is given back (and any
-//     released numbers right below it with it). Otherwise the gap stays and a document.print_cancelled audit entry explains it.
-//   * A reservation that is never confirmed nor released (the app crashed mid-print) stays counted: the counter
-//     over-counts and never under-counts, so the next print of that document is at worst marked as a copy.
+//   * release: only the same user and only while the status is "reserved" (a printed one is 409). It does ONE conditional
+//     decrement, findOneAndUpdate({ _id: counterKey, count: copyNo }, { $inc: { count: -1 } }): if nobody reserved after
+//     it, the number is given back. Otherwise the gap stays and a document.print_cancelled audit entry explains it. There is
+//     no cascade over older released rows. Example (accepted over-count): reserve A (1), reserve B (2), release A (gap),
+//     release B (back to 1): the next print is copy 2 although nothing was printed.
+//   * A reservation that is never confirmed nor released (the app crashed mid-print) stays counted too: a gap that stays is
+//     an over-count (the next print may be marked as a copy), which is the safe side. A unique partial index on
+//     (key, copyNo) for status reserved / printed is a safety net: two live reservations can never hold the same number.
 // The document type is the number's prefix; the caller needs the permission of that document's screen and the document must
 // exist (404 DOCUMENT_NOT_FOUND), so nobody can fill the counters with invented numbers.
 const PREFIX_PERMISSIONS = Object.freeze({
@@ -130,16 +133,11 @@ const releasePrint = async (req, res) => {
   if (reservation.status === "released") return res.json({ number: reservation.number, copyNo: reservation.copyNo, status: "released", gaveBack: Boolean(reservation.gaveBack), alreadyReleased: true });
   const flipped = await PrintReservation.findOneAndUpdate({ _id: reservation._id, status: "reserved" }, { $set: { status: "released", resolvedAt: new Date() } }, { new: true });
   if (!flipped) throw httpError(409, "RESERVATION_PRINTED", "تمت الطباعة بالفعل، لا يمكن إلغاء الحجز");
-  // Give the number back only if nobody reserved after it; released numbers right below it go back with it.
-  let gaveBack = false;
-  let count = reservation.copyNo;
-  for (;;) {
-    const updated = await PrintCount.findOneAndUpdate({ _id: reservation.key, count }, { $inc: { count: -1 } }, { new: true });
-    if (!updated) break;
-    if (count === reservation.copyNo) gaveBack = true;
-    count -= 1;
-    if (count < 1 || !(await PrintReservation.exists({ key: reservation.key, copyNo: count, status: "released" }))) break;
-  }
+  // Give the number back only if nobody reserved after it: ONE conditional decrement, nothing more. If it does not match
+  // the gap stays (an over-count, safe) and the print_cancelled audit entry below explains it. Older released rows are
+  // never stepped over: their numbers may have been issued again since.
+  const updated = await PrintCount.findOneAndUpdate({ _id: reservation.key, count: reservation.copyNo }, { $inc: { count: -1 } }, { new: true });
+  const gaveBack = Boolean(updated);
   if (gaveBack) {
     await PrintReservation.updateOne({ _id: reservation._id }, { $set: { gaveBack: true } });
   } else {

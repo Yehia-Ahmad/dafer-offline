@@ -70,7 +70,7 @@ describe('PrintService (Stage 23)', () => {
     http.match(`${base}shop-profile`).forEach((request) => request.flush(PROFILE));
   };
   /** Runs the request while answering the POSTs it makes (reserve / confirm / release) and the shop profile read. */
-  const run = async (promise: Promise<unknown>, answers: { copyNo?: number; fail?: number; failConfirm?: boolean; failRelease?: boolean } = {}) => {
+  const run = async (promise: Promise<unknown>, answers: { copyNo?: number; fail?: number; failConfirm?: number | boolean; failRelease?: boolean } = {}) => {
     for (let i = 0; i < 30; i += 1) {
       await new Promise((resolve) => setTimeout(resolve, 5));
       http.match(`${base}shop-profile`).forEach((request) => request.flush(PROFILE));
@@ -81,7 +81,7 @@ describe('PrintService (Stage 23)', () => {
       });
       http.match(`${base}print/confirm`).forEach((request) => {
         events.push(`confirm:${request.request.body.reservationId}`);
-        if (answers.failConfirm) request.flush({ message: 'x' }, { status: 500, statusText: 'Error' });
+        if (answers.failConfirm) request.flush({ message: 'x' }, { status: typeof answers.failConfirm === 'number' ? answers.failConfirm : 500, statusText: 'Error' });
         else request.flush({ copyNo: answers.copyNo ?? 1 });
       });
       http.match(`${base}print/release`).forEach((request) => {
@@ -110,7 +110,7 @@ describe('PrintService (Stage 23)', () => {
     expect(job.html).toContain('INV-000125');
     expect(job.html).toContain('النور');
     expect(job.html).not.toContain('data-copy-mark');
-    expect(job.html).toContain('طُبع بواسطة محمود');
+    expect(job.html).toContain('طُبع بواسطة <bdi>محمود</bdi>');
     expect(events).toEqual(['reserve:INV-000125:receipt', 'bridge:print', 'confirm:r1']);
   });
 
@@ -154,6 +154,18 @@ describe('PrintService (Stage 23)', () => {
     expect(events.filter((event) => event === 'confirm:r1').length).toBe(4);
     expect(events.filter((event) => event.startsWith('release')).length).toBe(0, 'a printed number is never released');
     expect(toast.toasts().some((entry) => entry.text === 'print.notRecorded' || entry.text === 'تمت الطباعة لكن لم تُسجل، بلّغ المدير')).toBeTrue();
+  });
+
+  it('a confirm refused with 403 / 404 / 409 is NOT retried (it cannot succeed): one attempt, the warning at once, and no release', async () => {
+    for (const status of [403, 404, 409]) {
+      TestBed.resetTestingModule();
+      setup();
+      const outcome = await run(service.print({ number: 'INV-000125', build: (ctx) => cashInvoice(ctx, SALE) }), { failConfirm: status });
+      expect(outcome).toEqual(jasmine.objectContaining({ ok: true }));
+      expect(events.filter((event) => event === 'confirm:r1').length).toBe(1, `status ${status}`);
+      expect(events.filter((event) => event.startsWith('release')).length).toBe(0);
+      expect(toast.toasts().some((entry) => entry.text === 'print.notRecorded' || entry.text === 'تمت الطباعة لكن لم تُسجل، بلّغ المدير')).toBeTrue();
+    }
   });
 
   it('the retry backoff grows (300, 900, 2000 ms by default)', () => {
