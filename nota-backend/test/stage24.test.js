@@ -467,6 +467,22 @@ it("DEVICE_IN_USE runs on AUTHENTICATED requests only: an unauthenticated / 401 
   assert.equal((await callFrom("127.0.0.52", "GET", "/api/products", { headers: header })).json.code, "DEVICE_IN_USE", "the copy IS refused once it is signed in");
 });
 
+it("DEVICE_IN_USE at LOGIN, after the credentials are verified: a copied id is refused at sign-in (ar + en); a wrong password from there is a plain 401 and records nothing", async () => {
+  const header = { "x-nota-device-id": "client-pc-0001", "x-nota-device-name": "A" };
+  const login = (source, password = "owner-pass-123") => callFrom(source, "POST", "/api/auth/login", { body: { username: "s24-owner", password }, headers: header, auth: null });
+  const first = await login("127.0.0.51");
+  assert.equal(first.status, 200);
+  assert.equal((await login("127.0.0.52", "wrong-password")).status, 401, "a wrong password never gets as far as the device check");
+  assert.equal((await login("127.0.0.52", "wrong-password")).json.code === "DEVICE_IN_USE", false);
+  const copied = await login("127.0.0.52");
+  assert.equal(copied.status, 403, "right credentials, but the id is in use at another address");
+  assert.equal(copied.json.code, "DEVICE_IN_USE");
+  assert.ok(copied.json.message.includes("بيستخدمه جهاز تاني") && /another PC/.test(copied.json.messageEn));
+  assert.equal(copied.json.token, undefined, "no token is issued");
+  assert.equal((await login("127.0.0.51")).status, 200, "the PC that was there first signs in again");
+  assert.equal(await Device.countDocuments({ deviceId: "client-pc-0001" }), 1);
+});
+
 it("maxClients 0 = main PC only", async () => {
   installTestLicense({ maxClients: 0 });
   assert.equal((await clientCall("client-pc-0001")).json.code, "CLIENT_LIMIT");

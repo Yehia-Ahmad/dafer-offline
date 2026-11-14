@@ -2266,6 +2266,9 @@ async function runStage24Scenarios(licenseDirectory) {
     const unauthenticated = await requestFromAddress(lanSource(9), 'GET', '/api/products', { headers: { 'x-nota-device-id': clientId(1) } });
     expectStatus(unauthenticated, 401, 'unauthenticated request with client 1 id from another address');
     expectStatus(await lan(1, 'GET', '/api/products', undefined, bearer), 200, 'client 1 is not locked by the unauthenticated request');
+    const copiedLogin = await requestFromAddress(lanSource(9), 'POST', '/api/auth/login', { body: { username: OWNER.username, password: OWNER.password }, headers: { 'x-nota-device-id': clientId(1) } });
+    expectStatus(copiedLogin, 403, 'login with client 1 id from another address');
+    expect(copiedLogin.json.code === 'DEVICE_IN_USE', `login: expected DEVICE_IN_USE, got ${JSON.stringify(copiedLogin.json)}`);
     const copied = await requestFromAddress(lanSource(9), 'GET', '/api/products', { headers: { 'x-nota-device-id': clientId(1), ...bearer } });
     expectStatus(copied, 403, 'client 1 id used from another address');
     expect(copied.json.code === 'DEVICE_IN_USE', `expected DEVICE_IN_USE, got ${JSON.stringify(copied.json)}`);

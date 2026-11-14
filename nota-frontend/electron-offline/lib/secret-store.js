@@ -20,6 +20,8 @@ const ENTROPY_BY_PURPOSE = {
   jwt: 'nota-offline-jwt-secret-v1',
   // Stage 24: the mongod admin and app-user credentials (lib/db-auth.js).
   db: 'nota-offline-db-credentials-v1',
+  // Stage 24: the main-PC token an attached session reads (lib/main-token-file.js).
+  'main-token': 'nota-offline-main-token-v1',
 };
 
 // -EncodedCommand accepts no further arguments, so each mode and purpose gets its own script.

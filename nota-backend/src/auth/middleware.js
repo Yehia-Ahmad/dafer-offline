@@ -101,7 +101,17 @@ const requireLogin = () =>
 const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 const isLoopback = (req) => LOOPBACK_ADDRESSES.has(String(req.ip || ""));
 
-/** Stage 14: 403 LOCAL_ONLY unless the request came over loopback (setup-owner, recover). */
+/**
+ * Stage 14: 403 LOCAL_ONLY unless the request came over loopback (setup-owner, recover; the license activation routes use it too).
+ *
+ * Stage 24: why these stay loopback-only and do NOT ask for the main-PC token (auth/mainPc.js):
+ *   - a TCP forwarder / proxy that relays a LAN request to 127.0.0.1 has to RUN ON THE MAIN PC, where these screens are already reachable
+ *     by anyone sitting at it, so the forwarder gives a LAN user nothing more than the local screen does;
+ *   - recover needs the recovery code and is rate-limited (login limiter);
+ *   - setup-owner answers 409 once an owner exists;
+ *   - activation only accepts a license signed by the vendor for THIS PC (machine id) and shop.
+ * The token decides the client limit ("is this the main PC or a client"); these routes are guarded by their own secrets instead.
+ */
 const localOnly = () => (req, _res, next) =>
   isLoopback(req)
     ? next()

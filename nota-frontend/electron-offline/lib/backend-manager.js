@@ -42,7 +42,7 @@ function buildBackendEnv({ port, mongoUri, secret, jwtSecret, appVersion, instan
     ...(auditInbox ? { NOTA_AUDIT_INBOX: auditInbox } : {}),
     // Stage 24: where nota.lic lives (the backend re-verifies it on every start; the file is the source of truth).
     ...(licenseDir ? { NOTA_LICENSE_DIR: licenseDir } : {}),
-    // Stage 24: the per-start main-PC secret. Only this process's own windows send it (lib/lan-auth.js); never logged, never written to disk.
+    // Stage 24: the per-start main-PC secret. Only this process's own windows send it (lib/lan-auth.js); never logged; its only copy on disk is the DPAPI file for attached sessions (lib/main-token-file.js).
     ...(mainToken ? { NOTA_MAIN_TOKEN: mainToken } : {}),
   };
 }

@@ -8,6 +8,7 @@ const { signToken } = require("../auth/jwt");
 const { createLoginLimiter } = require("../auth/loginLimiter");
 const { audit } = require("../auth/audit");
 const { requireClientSlotAtLogin } = require("../license/clients");
+const { assertDeviceNotInUse } = require("../middlewares/deviceGate.middleware");
 const { httpError, isLoopback } = require("../auth/middleware");
 const { getLockedThrough, isoDay } = require("../accounting/period");
 
@@ -147,7 +148,9 @@ function createAuthController({ secret, now = () => Date.now() } = {}) {
     }
 
     loginLimiter.succeed(username, req.ip);
-    // Stage 24: a client PC beyond the license's maxClients cannot sign in (403 CLIENT_LIMIT).
+    // Stage 24: the credentials are right. A device id that another PC is using right now is refused here (403 DEVICE_IN_USE; a wrong
+    // password never records or blocks anything), then a client PC beyond the license's maxClients cannot sign in (403 CLIENT_LIMIT).
+    assertDeviceNotInUse(req);
     await requireClientSlotAtLogin(req);
     user.lastLoginAt = new Date(now());
     await user.save();

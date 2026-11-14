@@ -3,7 +3,7 @@
 // Loopback alone is not enough: any program on the main PC (or a TCP forwarder, a proxy) can relay a LAN request to 127.0.0.1.
 // So the main PC is a request that comes over loopback AND carries the per-start secret that Electron main generates at every start,
 // hands to the backend in its environment (NOTA_MAIN_TOKEN) and adds ONLY to its own windows' requests. The token is never logged and
-// never written to disk. A loopback request without it is handled as a client PC (device id required, counts toward the limit).
+// never written to disk by the backend (Electron main keeps a machine-scope DPAPI copy for attached sessions, lib/main-token-file.js). A loopback request without it is handled as a client PC (device id required, counts toward the limit).
 //
 // Without NOTA_MAIN_TOKEN (a plain `node src/server.js`) the backend makes a random token nobody knows: no request is "the main PC", so the
 // license lock and the device check stay on. Tests read the token with mainPcToken().

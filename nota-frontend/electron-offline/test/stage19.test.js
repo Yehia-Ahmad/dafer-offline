@@ -68,7 +68,7 @@ test('the id sent is the config instanceId of this PC: main.js builds it from st
   assert.match(main, /deviceId: state\.config \? state\.config\.instanceId : null/);
   assert.match(main, /deviceName: os\.hostname\(\)/);
   assert.match(main, /deviceId: state\.config\.instanceId,\s*\n\s*deviceName: os\.hostname\(\)/, 'the runtime config hands the id to Angular');
-  assert.equal((main.match(/installSecretHeader\(session\.defaultSession, deviceHeaderOptions\(\)\)/g) || []).length, 3, 'main PC, client start and address change all send it');
+  assert.equal((main.match(/installSecretHeader\(session\.defaultSession, deviceHeaderOptions\(\)\)/g) || []).length, 4, 'main PC (owner), attached session, client start and address change all send it');
   assert.equal(/installSecretHeader\(session\.defaultSession, \{ origin: state\.apiOrigin, secret: state\.secret \}\)/.test(main), false, 'no call site is left without the device');
 });
 

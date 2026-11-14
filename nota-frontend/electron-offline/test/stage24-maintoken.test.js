@@ -37,11 +37,11 @@ test('the main PC window adds X-Nota-Main-Token; a client PC window (no token) d
   assert.equal(MAIN_TOKEN_HEADER in (await sendThrough(client)), false);
 });
 
-test('main.js: a random 32-byte token at every start, passed to the backend, sent only in the main role, never logged or written to disk, not on the print partition', () => {
+test('main.js: a random 32-byte token at every start, passed to the backend, sent only in the main role, never logged, not on the print partition', () => {
   assert.match(MAIN, /mainToken: require\('crypto'\)\.randomBytes\(32\)\.toString\('hex'\)/, 'random, made when the app starts');
   assert.match(MAIN, /mainToken: state\.mainToken,\s*\n\s*\}\),/, 'handed to the backend through its environment');
-  assert.match(MAIN, /mainToken: state\.mode === 'main' \? state\.mainToken : undefined/, 'only the main role sends it');
-  assert.equal((MAIN.match(/installSecretHeader\(session\.defaultSession, deviceHeaderOptions\(\)\)/g) || []).length, 3, 'only the app\'s own session');
+  assert.match(MAIN, /mainToken: state\.mode === 'main' \|\| state\.mode === 'attached' \? state\.mainToken : undefined/, 'only the main role (owner or attached) sends it');
+  assert.equal((MAIN.match(/installSecretHeader\(session\.defaultSession, deviceHeaderOptions\(\)\)/g) || []).length, 4, 'only the app\'s own session');
   const lines = MAIN.split('\n').filter((line) => /mainToken/.test(line));
   for (const line of lines) {
     assert.ok(!/log\.|logger|console\.|writeFile|writeConfig/.test(line), `the token reaches no log or file: ${line.trim()}`);

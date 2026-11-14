@@ -34,6 +34,7 @@ const { protectSecret, unprotectSecret } = require('./lib/secret-store');
 const { loadJwtSecret } = require('./lib/jwt-secret');
 const { holdPortLock, isPortFree, requestQuit, waitFor } = require('./lib/net-utils');
 const { MongodManager, ServiceError } = require('./lib/mongod-manager');
+const { writeMainToken, readMainToken, removeMainToken } = require('./lib/main-token-file');
 const { DbAuth, createMachineScopeVault, createSafeStorageVault } = require('./lib/db-auth');
 const { BackendManager, buildBackendEnv } = require('./lib/backend-manager');
 const { MainPcSupervisor } = require('./lib/supervisor');
@@ -94,7 +95,7 @@ const state = {
   log: null,
   config: null,
   secret: null,
-  // Stage 24: random at every app start, handed to the backend in its environment and added to this app's own windows' requests; never logged, never written to disk.
+  // Stage 24: random at every app start, handed to the backend in its environment and added to this app's own windows' requests; never logged; its only copy on disk is the DPAPI file for attached sessions (lib/main-token-file.js).
   mainToken: require('crypto').randomBytes(32).toString('hex'),
   apiOrigin: null,
   serverInfo: null, // client: the main PC's /api/lan/info answer
@@ -651,7 +652,7 @@ function deviceHeaderOptions() {
     deviceId: state.config ? state.config.instanceId : null,
     deviceName: os.hostname(),
     // Stage 24: only the main PC's windows carry the token (a client PC's pages talk to another machine's backend).
-    mainToken: state.mode === 'main' ? state.mainToken : undefined,
+    mainToken: state.mode === 'main' || state.mode === 'attached' ? state.mainToken : undefined,
   };
 }
 
@@ -935,7 +936,7 @@ async function beginRole(config, secret, serverInfo) {
   if (config.role === 'main') {
     state.mode = 'main';
     state.apiOrigin = `http://127.0.0.1:${config.port}`;
-    installSecretHeader(session.defaultSession, deviceHeaderOptions());
+    // the header is installed in startMainRole, once it is known whether this process owns the server (its own token) or attaches (the owner's)
     await startMainRole();
   } else {
     state.mode = 'client';
@@ -960,6 +961,19 @@ async function backendAnswers() {
 async function attachToRunningServer() {
   log.info('the server is already running under another Windows account; attaching to it');
   state.mode = 'attached';
+  // Stage 24: this account's windows must count as the main PC too: use the token the owning process left in the security folder.
+  const ownerToken = readMainToken(state.paths.security, (text) => unprotectSecret(text, { purpose: 'main-token' }));
+  if (!ownerToken) {
+    log.error('attached: the main-PC token file is missing or unreadable');
+    setStatus({
+      state: 'failed',
+      code: 'MAIN_TOKEN_UNAVAILABLE',
+      message: 'الخادم على هذا الجهاز اتشغّل من حساب تاني. اقفل «نوتة» وافتحها تاني. / The server on this PC was started by another account: restart Nota.',
+    });
+    return;
+  }
+  state.mainToken = ownerToken;
+  installSecretHeader(session.defaultSession, deviceHeaderOptions());
   setStatus({ state: 'attached' });
   if (await waitFor(backendAnswers, { timeoutMs: ATTACH_TIMEOUT_MS, intervalMs: 1000 })) {
     loadUi();
@@ -1007,6 +1021,13 @@ async function startMainRole() {
   }
   const jwtSecret = readJwtSecret();
   if (!jwtSecret) return; // the error screen is showing; never start the backend without it
+  // This process owns the server: its windows send its own token, and the token goes to the security folder for attached sessions of other accounts.
+  try {
+    writeMainToken(state.paths.security, state.mainToken, (text) => protectSecret(text, { purpose: 'main-token' }));
+  } catch (error) {
+    log.error(`main-PC token file: ${error.message}`); // attached sessions will show their error; this account is not affected
+  }
+  installSecretHeader(session.defaultSession, deviceHeaderOptions());
   const { paths, resources, config } = state;
   checkFirewall();
 
@@ -1247,7 +1268,10 @@ function gracefulQuit(reason) {
       log.error(`stopping the server failed: ${error.message}`);
     }
     stopPowerBlocker();
-    if (state.serverLock) await new Promise((resolve) => state.serverLock.close(() => resolve()));
+    if (state.serverLock) {
+      removeMainToken(state.paths.security); // only the owner of the server wrote it
+      await new Promise((resolve) => state.serverLock.close(() => resolve()));
+    }
     clearTimeout(watchdog);
     log.info('stopped cleanly');
     if (state.tray && !state.tray.isDestroyed()) state.tray.destroy();

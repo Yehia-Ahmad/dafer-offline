@@ -48,23 +48,33 @@ const deviceGate = () => (req, _res, next) => {
 };
 
 /** Mounted AFTER the auth middleware: the 2-minute same-id-other-IP check and the last-seen address, for authenticated requests only. */
-const deviceInUse = ({ now = Date.now, windowMs = SAME_ID_OTHER_IP_WINDOW_MS } = {}) => (req, _res, next) => {
-  if (req.method === "OPTIONS" || isMainPc(req) || isDiscoveryPath(req.path)) return next();
-  if (req.authEnabled && !req.user) return next(); // not signed in: records nothing, blocks nothing
+const inUseCheck = (req, { now = Date.now, windowMs = SAME_ID_OTHER_IP_WINDOW_MS } = {}) => {
+  if (req.method === "OPTIONS" || isMainPc(req) || isDiscoveryPath(req.path)) return null;
   const deviceId = validDeviceId(req.get("x-nota-device-id"));
-  if (!deviceId) return next();
+  if (!deviceId) return null;
   const ip = normalizeIp(req.ip);
   const at = now();
   const seen = lastSeen.get(deviceId);
   if (seen && seen.ip !== ip && at - seen.at < windowMs) {
-    return next(httpError(403, "DEVICE_IN_USE",
+    return httpError(403, "DEVICE_IN_USE",
       "رقم الجهاز ده بيستخدمه جهاز تاني دلوقتي. كل جهاز لازم يكون له رقمه الخاص.",
-      "This device id is being used by another PC right now. Each PC needs its own id."));
+      "This device id is being used by another PC right now. Each PC needs its own id.");
   }
   lastSeen.delete(deviceId);
   lastSeen.set(deviceId, { ip, at });
   while (lastSeen.size > MAX_REMEMBERED) lastSeen.delete(lastSeen.keys().next().value);
-  return next();
+  return null;
 };
 
-module.exports = { SAME_ID_OTHER_IP_WINDOW_MS, deviceGate, deviceInUse, resetDeviceGate, normalizeIp };
+const deviceInUse = (options) => (req, _res, next) => {
+  if (req.authEnabled && !req.user) return next(); // not signed in: records nothing, blocks nothing
+  return next(inUseCheck(req, options) || undefined);
+};
+
+/** Login calls this AFTER the credentials were verified: a copied id is refused at sign-in (403 DEVICE_IN_USE), not one screen later. */
+const assertDeviceNotInUse = (req, options) => {
+  const error = inUseCheck(req, options);
+  if (error) throw error;
+};
+
+module.exports = { SAME_ID_OTHER_IP_WINDOW_MS, deviceGate, deviceInUse, assertDeviceNotInUse, resetDeviceGate, normalizeIp };
