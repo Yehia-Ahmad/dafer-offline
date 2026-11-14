@@ -30,7 +30,7 @@ const removeOwnFolders = () => {
 };
 
 test("a hard-killed test process leaves no mongod running", { skip: mongodSkipReason, timeout: 120000 }, async () => {
-  const script = `require(${JSON.stringify(path.join(__dirname, "helpers", "mongod.js"))}).startMongod({ port: ${KILL_PORT}, tag: ${JSON.stringify(TAG)} }).then(() => console.log("READY"), (error) => { console.error(error); process.exit(1); });`;
+  const script = `require(${JSON.stringify(path.join(__dirname, "helpers", "mongod.js"))}).startMongod({ port: ${KILL_PORT}, tag: ${JSON.stringify(TAG)}, license: false }).then(() => console.log("READY"), (error) => { console.error(error); process.exit(1); });`;
   const child = spawn(process.execPath, ["-e", script], { stdio: ["ignore", "pipe", "inherit"], windowsHide: true });
   try {
     let output = "";
@@ -66,7 +66,7 @@ test("a busy port is refused up front and nothing is left behind", async () => {
   await new Promise((resolve) => holder.listen(BUSY_PORT, "127.0.0.1", resolve));
   const before = tempDirs();
   try {
-    await assert.rejects(startMongod({ port: BUSY_PORT, tag: TAG }), /already in use/);
+    await assert.rejects(startMongod({ port: BUSY_PORT, tag: TAG, license: false }), /already in use/);
     assert.deepEqual([...tempDirs()].filter((name) => !before.has(name) && name.startsWith(`nota-test-mongo-${TAG}`)), []);
   } finally {
     await new Promise((resolve) => holder.close(resolve));

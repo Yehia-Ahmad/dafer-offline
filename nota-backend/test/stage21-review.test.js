@@ -75,7 +75,7 @@ async function shop() {
   const main = ok(await call("GET", "/api/cashbox/boxes")).data.find((box) => box.isMain);
   return { a, b, main };
 }
-const enableVat = async ({ includes = true, rate = 14 } = {}) => ok(await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "123-456-789", vat: { enabled: true, rate, pricesIncludeVat: includes } }));
+const enableVat = async ({ includes = true, rate = 14 } = {}) => ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber: "123-456-789", vat: { enabled: true, rate, pricesIncludeVat: includes } }));
 const dayOf = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const TODAY = dayOf();
 const cashSale = async (items, extra = {}, status = 201) => ok(await call("POST", "/api/sellings", { customerName: "c", customerPhone: "010", sellingDate: TODAY, items, ...extra }), status);
@@ -320,7 +320,7 @@ it("4. expectedTotal: a stale screen gets 409 TOTAL_CHANGED with the current vat
   assert.equal(await CreditSale.countDocuments({}), 0);
   assert.equal((await creditSale(customer, lines, { discountAmount: 20, expectedTotal: 285 })).totalPrice, 285);
   // VAT off on the server, a screen that still adds VAT: the other direction
-  await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "123-456-789", vat: { enabled: false } });
+  await call("PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber: "123-456-789", vat: { enabled: false } });
   const staleOff = await call("POST", "/api/sellings", { customerName: "c", customerPhone: "010", sellingDate: TODAY, items: lines, discountAmount: 20, expectedTotal: 285 });
   assert.equal(staleOff.status, 409); assert.equal(staleOff.json.current, 250); assert.equal(staleOff.json.vat.enabled, false);
   // prices including VAT: the total is the same either way, so a stale screen is not interrupted
@@ -341,7 +341,7 @@ it("4b. expectedVat on a purchase: a stale form gets 409 VAT_CHANGED with the va
   assert.equal((await Product.findById(s.a._id).lean()).inventoryCount, stockBefore);
   assert.equal(ok(await call("POST", "/api/purchases", body({ expectedVat: 140 })), 201).vatAmount, 140);
   assert.equal(ok(await call("POST", "/api/purchases", body()), 201).vatAmount, 140, "no expectedVat: unchanged");
-  await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "123-456-789", vat: { enabled: false } });
+  await call("PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber: "123-456-789", vat: { enabled: false } });
   const staleOn = await call("POST", "/api/purchases", body({ expectedVat: 140, vatRegistered: true, vatAmount: 140 }));
   assert.equal(staleOn.status, 409); assert.equal(staleOn.json.code, "VAT_CHANGED"); assert.equal(staleOn.json.current, 0);
 });
@@ -442,7 +442,7 @@ it("9. migration 9 stops with a clear error when account 115 already exists and 
   await assert.rejects(() => runMigrations(), /account code 115 already exists/);
   assert.equal((await Meta.findById("schema").lean()).version, 8, "the schema version did not move");
   await Account.deleteMany({});
-  assert.equal(await runMigrations(), 11);
+  assert.equal(await runMigrations(), 12);
   assert.equal((await Account.findOne({ code: "115" }).lean()).systemKey, "VAT_INPUT");
 });
 
@@ -465,7 +465,7 @@ it("N1. migration 10 rounds 3-decimal product prices to 2 decimals, revalues the
   assert.equal((await assertHealthy()).inventory.difference, 0, "the books were exact before the migration");
 
   await Meta.updateOne({ _id: "schema" }, { $set: { version: 9 } });
-  assert.equal(await runMigrations(), 11);
+  assert.equal(await runMigrations(), 12);
   const after = await Product.findById(s.a._id).lean();
   assert.equal(after.purchasePrice, 20.13); assert.equal(after.wholesalePrice, 25.13); assert.equal(after.retailPrice, 120.13);
   const other = await Product.findById(s.b._id).lean();
@@ -482,7 +482,7 @@ it("N1. migration 10 rounds 3-decimal product prices to 2 decimals, revalues the
   // Idempotent: running it again changes and posts nothing.
   const entries = await JournalEntry.countDocuments({});
   await Meta.updateOne({ _id: "schema" }, { $set: { version: 9 } });
-  assert.equal(await runMigrations(), 11);
+  assert.equal(await runMigrations(), 12);
   assert.equal(await JournalEntry.countDocuments({}), entries);
   const again = await AuditLog.find({ action: "system.migration", "details.version": 10 }).sort({ at: -1 }).lean();
   assert.equal(again[0].details.productsChanged, 0);

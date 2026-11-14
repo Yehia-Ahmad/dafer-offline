@@ -25,7 +25,9 @@ const expenseRoutes = require("./routes/expense.routes");
 const vatRoutes = require("./routes/vat.routes");
 const deviceRoutes = require("./routes/device.routes");
 const printRoutes = require("./routes/print.routes");
-const { deviceContext } = require("./middlewares/device.middleware");
+const { requireLicense } = require("./license/middleware");
+const { createLicenseRouter } = require("./routes/license.routes");
+const { deviceContext } =require("./middlewares/device.middleware");
 const { createLanSecretGuard, isLanMode } = require("./middlewares/lanSecret.middleware");
 const notFound = require("./middlewares/notFound.middleware");
 const errorHandler = require("./middlewares/error.middleware");
@@ -49,10 +51,13 @@ app.get("/", (req, res) => {
   res.json({ message: "Warehouse API is running" });
 });
 
-if (lanMode) {
-  app.use("/api", createLanSecretGuard(process.env.NOTA_LAN_SECRET));
-  app.use("/api/lan", lanRoutes);
-}
+if (lanMode) app.use("/api", createLanSecretGuard(process.env.NOTA_LAN_SECRET));
+
+// Stage 24: no valid license, no API (402 LICENSE_REQUIRED), except the two activation routes below.
+app.use("/api", requireLicense());
+app.use("/api/license", createLicenseRouter({ secret: jwtSecret, sessionsValidAfter: sessionsValidAfter() }));
+
+if (lanMode) app.use("/api/lan", lanRoutes);
 
 if (authMode) {
   // LAN key first (above), then the session token. /api/lan/* and the login screen's own

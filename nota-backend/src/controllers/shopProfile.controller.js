@@ -5,6 +5,8 @@ const { readVatUpdate, DEFAULT_VAT } = require("../utils/vatSettings");
 const { DEFAULT_CLOSING } = require("../accounting/closing");
 const { getLockedThrough } = require("../accounting/period");
 
+const license = require("../license");
+
 const SHOP_PROFILE_KEY = "default";
 
 // What GET returns before anything is saved, and the base every response is merged onto.
@@ -21,11 +23,20 @@ const EMPTY_PROFILE = Object.freeze({
 
 const OPTIONAL_STRING_FIELDS = ["address", "logo", "taxNumber", "commercialRegister", "invoiceFooter"];
 
-const toShopProfileResponse = (profile) =>
+// Stage 24: the shop name (and English name) come from the license. It wins over whatever is stored.
+const withLicenseName = (response) => {
+  const p = license.payload();
+  if (!p) return response;
+  const out = { ...response, name: p.shopName, nameLocked: true };
+  if (p.shopNameEn) out.nameEn = p.shopNameEn; else delete out.nameEn;
+  return out;
+};
+
+const toShopProfileResponse = (profile) => withLicenseName(
   // `vat` is only present once VAT settings were ever saved (absent = off, rate 14, prices include VAT).
   profile
     ? { ...EMPTY_PROFILE, ...profile, ...(profile.vat ? { vat: { ...DEFAULT_VAT, ...profile.vat } } : {}), ...(profile.closing ? { closing: { ...DEFAULT_CLOSING, ...profile.closing } } : {}) }
-    : { ...EMPTY_PROFILE, phones: [] };
+    : { ...EMPTY_PROFILE, phones: [] });
 
 const isBlank = (value) =>
   value === undefined || value === null || (typeof value === "string" && !value.trim());
@@ -39,8 +50,19 @@ const getShopProfile = asyncHandler(async (req, res) => {
 // optional field is cleared. `name` is always set so the required validator runs on updates.
 const updateShopProfile = asyncHandler(async (req, res) => {
   const body = req.body && typeof req.body === "object" ? req.body : {};
+  // Stage 24: the name is the license's. A request that tries to change it is refused; one that repeats it (or leaves it out) is fine.
+  const licensed = license.payload();
+  if (licensed) {
+    const sameName = body.name === undefined || String(body.name).trim() === licensed.shopName;
+    const sameNameEn = body.nameEn === undefined || String(body.nameEn).trim() === (licensed.shopNameEn || "");
+    if (!sameName || !sameNameEn) {
+      const error = new Error("اسم المحل مرتبط بالترخيص ومينفعش يتغيّر");
+      error.statusCode = 400; error.responseData = { code: "SHOP_NAME_LOCKED" };
+      throw error;
+    }
+  }
   const $set = {
-    name: body.name ?? "",
+    name: licensed ? licensed.shopName : (body.name ?? ""),
     phones: body.phones ?? [],
   };
   const $unset = {};

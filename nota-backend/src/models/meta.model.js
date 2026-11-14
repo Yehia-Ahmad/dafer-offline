@@ -4,6 +4,8 @@ const metaSchema = new mongoose.Schema({
   _id: { type: String, required: true },
   version: { type: Number, required: true, min: 0, default: 0 },
   migrationProgress: { type: mongoose.Schema.Types.Mixed, default: undefined },
+  // Stage 24: a copy of the license text (the file in the license folder is the source of truth).
+  licenseText: { type: String, default: undefined },
   ledgerStartAt: { type: Date, default: undefined },
   // Stage 22: period closing. lockedThrough = the last closed business day (a UTC-midnight date); nothing may post on or before it.
   // touchedAt is written by back-dated postings so a concurrent close conflicts with them and one retries.

@@ -131,7 +131,7 @@ test("shop profile: autoLockMinutes defaults to 10, accepts 0/5/10/15/30/60, rej
   assert.equal(response.status, 200, response.text);
   assert.equal(response.json.autoLockMinutes, 10, "default before anything is saved");
 
-  const base = { name: "محل", phones: [] };
+  const base = { name: "محل الاختبار", phones: [] };
   response = await call(on, "PUT", "/api/shop-profile", { token: owner.token, body: base });
   assert.equal(response.status, 200, response.text);
   assert.equal(response.json.autoLockMinutes, 10, "default on the first save");

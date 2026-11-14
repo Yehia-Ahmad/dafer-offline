@@ -63,6 +63,23 @@ contextBridge.exposeInMainWorld('notaDesktop', {
   openLogs: () => ipcRenderer.invoke('nota:open-logs'),
   quit: () => ipcRenderer.invoke('nota:quit'),
 
+  // Stage 24: the first-run license agreement (answers only while it is showing).
+  eula: {
+    text: () => ipcRenderer.invoke('eula:text'),
+    accept: () => ipcRenderer.invoke('eula:accept'),
+    decline: () => ipcRenderer.invoke('eula:decline'),
+  },
+
+  // Stage 24: the activation screen (answers only while it is showing).
+  activation: {
+    info: () => ipcRenderer.invoke('activation:info'),
+    activate: (text) => ipcRenderer.invoke('activation:activate', text),
+    loadFile: () => ipcRenderer.invoke('activation:load-file'),
+    copyMachineId: () => ipcRenderer.invoke('activation:copy-machine-id'),
+    skipClient: () => ipcRenderer.invoke('activation:skip-client'),
+    finish: () => ipcRenderer.invoke('activation:finish'),
+  },
+
   // Setup page. Every call resolves to { ok: true, value } or { ok: false, error: { message, field } }.
   setup: {
     info: () => ipcRenderer.invoke('setup:info'),

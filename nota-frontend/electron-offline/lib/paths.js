@@ -33,6 +33,11 @@ function layout(home) {
     dbPath: path.join(home, 'data', 'db'),
     logs: path.join(home, 'logs'),
     run: path.join(home, 'run'),
+    // Stage 24: <home>/license/nota.lic (installed: C:\ProgramData\Nota\license\nota.lic) and the accepted EULA record.
+    license: path.join(home, 'license'),
+    // Stage 24: database credentials (encrypted with safeStorage), the mongod keyFile and the upgrade state.
+    security: path.join(home, 'security'),
+    eula: path.join(home, 'eula.json'),
     backups: path.join(home, 'backups'),
     autoBackups: path.join(home, 'backups', 'auto'),
     backupState: path.join(home, 'backups', 'backup-state.json'),
@@ -59,7 +64,7 @@ function resolveResources({ isPackaged, resourcesPath, env = process.env }) {
 // Windows account on the PC modify it; the installer does the same for installed copies.
 function ensureLayout(paths, { platform = process.platform, log } = {}) {
   const created = !fs.existsSync(paths.home);
-  for (const dir of [paths.home, paths.dbPath, paths.logs, paths.run, paths.backups, paths.autoBackups]) {
+  for (const dir of [paths.home, paths.dbPath, paths.logs, paths.run, paths.license, paths.security, paths.backups, paths.autoBackups]) {
     fs.mkdirSync(dir, { recursive: true });
   }
 

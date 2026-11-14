@@ -74,4 +74,6 @@ export const AUTH_ERROR_CODES = [
   'OWNER_PROTECTED',
   'CANNOT_CHANGE_SELF',
   'DISCOUNT_LIMIT',
+  // Stage 24: a client PC beyond the license's maxClients cannot sign in.
+  'CLIENT_LIMIT',
 ] as const;

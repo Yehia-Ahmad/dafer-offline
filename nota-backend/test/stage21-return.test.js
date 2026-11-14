@@ -92,7 +92,7 @@ async function shop() {
   ok(await call("POST", "/api/accounting/opening", { cash: 50000 }));
   const a = await product("A35", 20); const b = await product("B65", 40);
   const main = ok(await call("GET", "/api/cashbox/boxes")).data.find((box) => box.isMain);
-  ok(await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "123-456-789", vat: { enabled: true, rate: 14, pricesIncludeVat: true } }));
+  ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber: "123-456-789", vat: { enabled: true, rate: 14, pricesIncludeVat: true } }));
   return { a, b, main };
 }
 const sale = (s, date, lines, extra = {}) => call("POST", "/api/sellings", { customerName: "c", customerPhone: "010", sellingDate: date, items: lines, ...extra });

@@ -23,6 +23,11 @@ const LAN_ENV_KEYS = [
 
 const savedEnv = Object.fromEntries(LAN_ENV_KEYS.map((key) => [key, process.env[key]]));
 
+// Stage 24: the app answers 402 without a license; these tests are about the LAN key, so install a test license.
+const { installTestLicense, removeTestLicenseDir } = require("./helpers/license");
+test.before(() => installTestLicense());
+test.after(() => removeTestLicenseDir());
+
 // Each test sets its own LAN variables; put the original values back afterwards.
 test.afterEach(() => {
   LAN_ENV_KEYS.forEach((key) => {

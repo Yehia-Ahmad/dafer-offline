@@ -465,10 +465,10 @@ const atVersion10 = () => Meta.updateOne({ _id: "schema" }, { $set: { version: 1
 const LIVE_INDEX = "print_reservation_live_unique";
 
 it("migration 11 is the next number after 10 and runs outside a transaction (index changes cannot)", () => {
-  const last = migrations[migrations.length - 1];
-  assert.equal(last.version, 11);
-  assert.equal(last.outsideTransaction, true);
-  assert.equal(migrations[migrations.length - 2].version, 10);
+  const eleven = migrations.find((entry) => entry.version === 11);
+  assert.equal(eleven.outsideTransaction, true);
+  assert.equal(migrations[migrations.indexOf(eleven) - 1].version, 10);
+  assert.match(eleven.name, /key_1_copyNo_1 index \(unique or not\)/, "Stage 24: reworded, version unchanged");
 });
 
 it("a database that still has the OLD non-unique key_1_copyNo_1 index: startup (migrations, then ensureIndexes) works, the old index is gone, print_reservation_live_unique has unique + the partial filter", async () => {
@@ -479,7 +479,7 @@ it("a database that still has the OLD non-unique key_1_copyNo_1 index: startup (
   // why the new index needs its own name: under the default name (key_1_copyNo_1) the unique partial index clashes with the old one
   await assert.rejects(() => PrintReservation.collection.createIndex({ key: 1, copyNo: 1 }, { unique: true, partialFilterExpression: { status: { $in: ["reserved", "printed"] } } }), (error) => error.codeName === "IndexOptionsConflict" || /already exists|conflict/i.test(error.message));
   assert.ok((await indexesOf()).includes("key_1_copyNo_1"), "still only the old index before the migration");
-  assert.equal(await runMigrations(), 11);
+  assert.equal(await runMigrations(), 12);
   await ensureIndexes();
   const indexes = await PrintReservation.collection.indexes();
   assert.ok(!indexes.some((index) => index.name === "key_1_copyNo_1"), "the old index is gone");
@@ -488,7 +488,7 @@ it("a database that still has the OLD non-unique key_1_copyNo_1 index: startup (
   assert.equal(live.unique, true);
   assert.deepEqual(live.key, { key: 1, copyNo: 1 });
   assert.deepEqual(live.partialFilterExpression, { status: { $in: ["reserved", "printed"] } });
-  assert.equal((await Meta.findById("schema").lean()).version, 11);
+  assert.equal((await Meta.findById("schema").lean()).version, 12);
 });
 
 it("(d) a database with the UNIQUE partial index under the default name key_1_copyNo_1 (as 7534eba6 built it): migrations then ensureIndexes start fine, only _id_, key_1 and print_reservation_live_unique remain", async () => {
@@ -496,7 +496,7 @@ it("(d) a database with the UNIQUE partial index under the default name key_1_co
   await PrintReservation.collection.createIndex({ key: 1, copyNo: 1 }, { unique: true, partialFilterExpression: { status: { $in: ["reserved", "printed"] } } });
   assert.ok((await indexesOf()).includes("key_1_copyNo_1"));
   await atVersion10();
-  assert.equal(await runMigrations(), 11);
+  assert.equal(await runMigrations(), 12);
   await ensureIndexes();
   assert.deepEqual(await indexesOf(), ["_id_", LIVE_INDEX, "key_1"].sort());
   const live = (await PrintReservation.collection.indexes()).find((index) => index.name === LIVE_INDEX);
@@ -507,7 +507,7 @@ it("(d) a database with the UNIQUE partial index under the default name key_1_co
 it("a fresh database (no collection yet): the migration is a no-op and only the new index is built", async () => {
   await resetCollection();
   await atVersion10();
-  assert.equal(await runMigrations(), 11);
+  assert.equal(await runMigrations(), 12);
   await ensureIndexes();
   const names = await indexesOf();
   assert.ok(names.includes(LIVE_INDEX));
@@ -525,7 +525,7 @@ it("running migration 11 twice is a no-op (it never drops the new unique index)"
   const migration = migrations.find((entry) => entry.version === 11);
   assert.deepEqual(await migration.run(), { dropped: false }, "called directly again: nothing to drop");
   await atVersion10();
-  assert.equal(await runMigrations(), 11, "and through the runner");
+  assert.equal(await runMigrations(), 12, "and through the runner");
   await ensureIndexes();
   assert.deepEqual(await PrintReservation.collection.indexes(), before);
   assert.ok((await indexesOf()).includes(LIVE_INDEX));

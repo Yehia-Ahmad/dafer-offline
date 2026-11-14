@@ -1,4 +1,5 @@
 import { PrintSettingsCardComponent } from '../print-settings-card/print-settings-card.component';
+import { LicenseCardComponent } from '../license-card/license-card.component';
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -18,7 +19,7 @@ type Outcome = { kind: 'saved' } | { kind: 'error'; message: string };
 /** The shop's own details (name, address, phones, logo, tax number, ...), printed on invoices. Stage 11: ShopProfile.dc.html + live preview. */
 @Component({
   selector: 'app-shop-profile',
-  imports: [PrintSettingsCardComponent, DatePipe, TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent],
+  imports: [PrintSettingsCardComponent, LicenseCardComponent, DatePipe, TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './shop-profile.component.html',
   styleUrl: './shop-profile.component.scss',
@@ -45,6 +46,9 @@ export class ShopProfileComponent implements OnInit {
   protected readonly outcome = signal<Outcome | null>(null);
   protected readonly logo = signal<string | null>(null);
   protected readonly logoError = signal<string | null>(null);
+  /** Stage 24: the name (and English name) come from the license: the field is read-only and the same values go back on save. */
+  protected readonly nameLocked = signal(false);
+  private licensedNameEn: string | undefined;
 
   protected readonly form = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(SHOP_PROFILE_LIMITS.name)]],
@@ -199,6 +203,7 @@ export class ShopProfileComponent implements OnInit {
     this.shopProfileService
       .saveProfile({
         name: raw.name.trim(),
+        ...(this.nameLocked() && this.licensedNameEn ? { nameEn: this.licensedNameEn } : {}),
         address: raw.address.trim(),
         phones: raw.phones.map((phone) => phone.trim()).filter(Boolean),
         logo: this.logo(),
@@ -241,6 +246,10 @@ export class ShopProfileComponent implements OnInit {
       closingFrequency: profile.closing?.frequency ?? DEFAULT_CLOSING.frequency,
       closingStartMonth: profile.closing?.fiscalYearStartMonth ?? DEFAULT_CLOSING.fiscalYearStartMonth,
     });
+    this.nameLocked.set(profile.nameLocked === true);
+    this.licensedNameEn = profile.nameEn || undefined;
+    if (profile.nameLocked) this.form.controls.name.disable({ emitEvent: false });
+    else this.form.controls.name.enable({ emitEvent: false });
     this.vatStartDate.set(profile.vat?.enabled ? profile.vat.startDate ?? null : null);
     this.form.markAsPristine();
     this.logo.set(profile.logo || null);

@@ -7,6 +7,7 @@ const { ALL_PERMISSIONS, PERMISSIONS, PERMISSION_GROUPS, ROLES, ROLE_LABELS, eff
 const { signToken } = require("../auth/jwt");
 const { createLoginLimiter } = require("../auth/loginLimiter");
 const { audit } = require("../auth/audit");
+const { requireClientSlotAtLogin } = require("../license/clients");
 const { httpError, isLoopback } = require("../auth/middleware");
 const { getLockedThrough, isoDay } = require("../accounting/period");
 
@@ -146,6 +147,8 @@ function createAuthController({ secret, now = () => Date.now() } = {}) {
     }
 
     loginLimiter.succeed(username, req.ip);
+    // Stage 24: a client PC beyond the license's maxClients cannot sign in (403 CLIENT_LIMIT).
+    await requireClientSlotAtLogin(req);
     user.lastLoginAt = new Date(now());
     await user.save();
     await audit(req, { action: "auth.login", entity: "User", entityId: user._id, user });

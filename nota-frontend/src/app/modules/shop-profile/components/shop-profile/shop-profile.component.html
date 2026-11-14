@@ -37,6 +37,7 @@
         </div>
 
         <nota-form-field [label]="'shopProfilePage.fields.name' | translate" forId="sp-name" [required]="true"
+          [hint]="nameLocked() ? ('license.nameLocked' | translate) : ''"
           [error]="showError('name') ? ('shopProfilePage.validation.nameRequired' | translate) : null">
           <input id="sp-name" type="text" class="nota-input" formControlName="name" [maxLength]="limits.name" />
         </nota-form-field>
@@ -145,6 +146,9 @@
             </nota-form-field>
           </section>
         }
+
+        <!-- Stage 24: الترخيص — the owner sees the license; everyone else sees only the (locked) shop name above. -->
+        @if (isOwner()) { <app-license-card /> }
 
         <app-print-settings-card />
 

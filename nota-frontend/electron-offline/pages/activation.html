@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
+  <title>نوتة</title>
+  <link rel="stylesheet" href="status.css">
+  <link rel="stylesheet" href="activation.css">
+</head>
+<body>
+  <main class="card wide">
+    <button id="lang" type="button" class="lang secondary" aria-label="Language">English</button>
+    <h1 class="brand"><img class="logo" src="nota-icon.svg" alt=""><span data-t="brand">نوتة</span></h1>
+
+    <!-- 1. Ask for a license -->
+    <section id="step-ask">
+      <h2 data-t="title">تفعيل الترخيص</h2>
+      <p class="lead" data-t="lead">النسخة دي محتاجة ترخيص للجهاز الرئيسي. ابعت رقم الجهاز ده للمسؤول عن الترخيص وهو يبعتلك الترخيص.</p>
+
+      <p class="field-label" data-t="machineLabel">رقم هذا الجهاز (Machine ID)</p>
+      <div class="machine">
+        <code id="machine-id" dir="ltr">----</code>
+        <button id="copy" type="button" class="secondary" data-t="copy">نسخ</button>
+      </div>
+      <p class="hint" data-t="machineHint">ابعت الرقم ده للمورّد عشان يصدر لك الترخيص.</p>
+
+      <label class="field-label" for="license-text" data-t="pasteLabel">الصق نص الترخيص هنا</label>
+      <textarea id="license-text" dir="ltr" rows="4" spellcheck="false" autocomplete="off" placeholder="NOTA1...."></textarea>
+
+      <section id="error" class="error" role="alert" hidden>
+        <p id="error-message"></p>
+        <p class="code"><span data-t="errorCode">رمز الخطأ:</span> <span id="error-code" dir="ltr"></span></p>
+      </section>
+
+      <div class="actions">
+        <button id="activate" type="button" data-t="activate">تفعيل</button>
+        <button id="load-file" type="button" class="secondary" data-t="loadFile">تحميل ملف nota.lic</button>
+      </div>
+      <div class="actions">
+        <button id="skip-client" type="button" class="link" hidden data-t="skipClient">ده جهاز فرعي (مش محتاج ترخيص)</button>
+        <button id="quit" type="button" class="link" data-t="quit">خروج</button>
+      </div>
+    </section>
+
+    <!-- 2. Done -->
+    <section id="step-done" hidden>
+      <h2 data-t="doneTitle">تم تفعيل الترخيص</h2>
+      <p class="success" role="status"><span data-t="doneShop">اسم المحل:</span> <strong id="shop-name"></strong></p>
+      <div class="actions">
+        <button id="continue" type="button" data-t="continue">متابعة</button>
+      </div>
+    </section>
+  </main>
+  <script src="activation.js"></script>
+</body>
+</html>

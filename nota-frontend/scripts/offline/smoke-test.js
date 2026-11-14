@@ -60,6 +60,7 @@ const STAGE21_DB_NAME = 'dafer_smoke_stage21';
 const STAGE22_DB_NAME = 'dafer_smoke_stage22';
 // Stage 23: an eighth fresh database (auth on) for the prints.
 const STAGE23_DB_NAME = 'dafer_smoke_stage23';
+const STAGE24_DB_NAME = 'dafer_smoke_stage24';
 const JWT_SECRET = 'smoke-jwt-secret-0123456789abcdef-0123456789';
 const OWNER = { name: 'Smoke Owner', username: 'smoke-owner', password: 'owner-pass-123' };
 const LAN_SECRET = 'smoke-secret-123';
@@ -170,7 +171,13 @@ async function startMongod() {
   log(`mongod ready on 127.0.0.1:${MONGO_PORT} (dbpath ${dbPath})`);
 }
 
-async function startBackend({ auth = true, dbName = DB_NAME } = {}) {
+let testLicenseDir = null;
+function licenseDir() {
+  if (!testLicenseDir) testLicenseDir = require(path.join(BACKEND_DIR, 'test', 'helpers', 'license.js')).installTestLicense({ shopName: 'Smoke Shop', maxClients: 3 });
+  return testLicenseDir;
+}
+
+async function startBackend({ auth = true, dbName = DB_NAME, licenseDirectory = null } = {}) {
   const logFile = path.join(tempDir, `backend-${auth ? 'auth' : 'noauth'}-${dbName}.log`);
   const mongoUri = `mongodb://127.0.0.1:${MONGO_PORT}/${dbName}?replicaSet=${REPLICA_SET}&directConnection=true`;
   const env = {
@@ -181,6 +188,8 @@ async function startBackend({ auth = true, dbName = DB_NAME } = {}) {
     NOTA_LAN_SECRET: LAN_SECRET,
     // Keep the test server off the shop network.
     NOTA_LISTEN_HOST: '127.0.0.1',
+    // Stage 24: a test license (source tree = test build) so the backend is not locked.
+    NOTA_LICENSE_DIR: licenseDirectory || licenseDir(),
   };
   delete env.NOTA_AUTH;
   delete env.NOTA_JWT_SECRET;
@@ -1472,10 +1481,10 @@ async function runScenarios() {
     }
   };
 
-  await step('Shop profile before saving → 200, empty name', async () => {
+  await step('Shop profile before saving → 200, the name is the license\x27s (locked)', async () => {
     const response = await request('GET', '/api/shop-profile');
     expectStatus(response, 200, 'GET /api/shop-profile');
-    expectShopProfile(response.json, { name: '', phones: [], logo: null }, 'GET /api/shop-profile');
+    expectShopProfile(response.json, { name: 'Smoke Shop', nameLocked: true, phones: [], logo: null }, 'GET /api/shop-profile');
     return describe(response);
   });
 
@@ -1493,9 +1502,10 @@ async function runScenarios() {
     return `name "${response.json.name}", ${response.json.phones.length} phones`;
   });
 
-  await step('Save shop profile without name → 400', async () => {
-    const response = await request('PUT', '/api/shop-profile', { body: { address: 'No name street' } });
-    expectStatus(response, 400, 'PUT /api/shop-profile without name');
+  await step('Rename the shop (locked to the license) → 400 SHOP_NAME_LOCKED', async () => {
+    const response = await request('PUT', '/api/shop-profile', { body: { name: 'Another Shop', address: 'No name street' } });
+    expectStatus(response, 400, 'PUT /api/shop-profile with another name');
+    expect(response.json && response.json.code === 'SHOP_NAME_LOCKED', 'expected code SHOP_NAME_LOCKED');
     return describe(response);
   });
 
@@ -1536,6 +1546,7 @@ async function cleanup() {
   if (tempDir) {
     try {
       fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+      if (testLicenseDir) fs.rmSync(testLicenseDir, { recursive: true, force: true });
       log(`stopped backend and mongod, removed ${tempDir}`);
     } catch (error) {
       log(`stopped backend and mongod, but could not remove ${tempDir}: ${error.message}`);
@@ -1790,10 +1801,10 @@ async function runStage21Scenarios() {
   });
 
   await step('Stage 21: turning VAT on needs the shop tax number (400 TAX_NUMBER_REQUIRED); with it VAT is on from today', async () => {
-    const refused = await request('PUT', '/api/shop-profile', { body: { name: 'S21 Shop', vat: { enabled: true, rate: 14, pricesIncludeVat: true } } });
+    const refused = await request('PUT', '/api/shop-profile', { body: { name: 'Smoke Shop', vat: { enabled: true, rate: 14, pricesIncludeVat: true } } });
     expectStatus(refused, 400, 'VAT on without a tax number');
     expect(refused.json.code === 'TAX_NUMBER_REQUIRED', describe(refused));
-    const on = await request('PUT', '/api/shop-profile', { body: { name: 'S21 Shop', taxNumber: '123-456-789', vat: { enabled: true, rate: 14, pricesIncludeVat: true } } });
+    const on = await request('PUT', '/api/shop-profile', { body: { name: 'Smoke Shop', taxNumber: '123-456-789', vat: { enabled: true, rate: 14, pricesIncludeVat: true } } });
     expectStatus(on, 200, 'PUT /api/shop-profile');
     expect(on.json.vat.enabled === true && on.json.vat.rate === 14 && String(on.json.vat.startDate).length > 0, JSON.stringify(on.json.vat));
     return `${describe(refused)}; VAT on from ${String(on.json.vat.startDate).slice(0, 10)}`;
@@ -1907,7 +1918,7 @@ async function runStage21Scenarios() {
   });
 
   await step('Stage 21: turn VAT off -> the next sale has no VAT; the posted invoice keeps its VAT', async () => {
-    expectStatus(await request('PUT', '/api/shop-profile', { body: { name: 'S21 Shop', taxNumber: '123-456-789', vat: { enabled: false } } }), 200, 'VAT off');
+    expectStatus(await request('PUT', '/api/shop-profile', { body: { name: 'Smoke Shop', taxNumber: '123-456-789', vat: { enabled: false } } }), 200, 'VAT off');
     const plain = await sell([{ productId: ctx.productId, quantity: 1, price: 100 }]);
     expectStatus(plain, 201, 'sale with VAT off');
     expect(plain.json.vatAmount === undefined && plain.json.totalPrice === 100, JSON.stringify({ vat: plain.json.vatAmount, total: plain.json.totalPrice }));
@@ -2125,6 +2136,97 @@ async function runStage22Scenarios() {
 
 // Stage 23: prints. The print log (copy numbers, the audit), the print-data of each kind of document, and the cost-bearing
 // prints refusing a cashier (403), on a fresh database with auth on.
+// Stage 24: the license. A backend that starts with NO license answers 402 everywhere except status and activation; activation is open
+// then, replacing a license is the owner's, and the client limit refuses a client PC beyond maxClients (at login too).
+async function runStage24Scenarios(licenseDirectory) {
+  const { issueTestLicense } = require(path.join(BACKEND_DIR, 'test', 'helpers', 'license.js'));
+  const ctx = {};
+  authToken = null;
+  const device = (id) => ({ 'x-nota-device-id': id, 'x-nota-device-name': encodeURIComponent(`Smoke-${id}`) });
+  const login = (id) => request('POST', '/api/auth/login', { body: { username: OWNER.username, password: OWNER.password }, token: null, headers: device(id) });
+
+  await step('Stage 24: unlicensed status → 200 licensed false, with this PC\'s Machine ID', async () => {
+    const response = await request('GET', '/api/license/status', { token: null });
+    expectStatus(response, 200, 'GET /api/license/status');
+    expect(response.json.licensed === false && response.json.code === 'NO_LICENSE', 'expected licensed false');
+    expect(/^[0-9A-F]{4}(-[0-9A-F]{4}){3}$/.test(response.json.machineId), `bad machine id ${response.json.machineId}`);
+    ctx.machineId = response.json.machineId;
+    return ctx.machineId;
+  });
+
+  await step('Stage 24: unlicensed → every other route answers 402 LICENSE_REQUIRED', async () => {
+    for (const [method, route] of [['GET', '/api/products'], ['GET', '/api/shop-profile'], ['GET', '/api/auth/bootstrap'], ['POST', '/api/auth/setup-owner'], ['GET', '/api/lan/info'], ['GET', '/api/devices']]) {
+      const response = await request(method, route, { token: null, body: method === 'POST' ? {} : undefined });
+      expectStatus(response, 402, `${method} ${route} without a license`);
+      expect(response.json.code === 'LICENSE_REQUIRED', `${route}: expected LICENSE_REQUIRED, got ${JSON.stringify(response.json)}`);
+    }
+    return '6 routes → 402';
+  });
+
+  await step('Stage 24: a license for another PC → 400 LICENSE_INVALID (WRONG_MACHINE), still locked', async () => {
+    const response = await request('POST', '/api/license/activate', { token: null, body: { license: issueTestLicense({ machineId: 'AAAA-BBBB-CCCC-DDDD' }) } });
+    expectStatus(response, 400, 'POST /api/license/activate (wrong machine)');
+    expect(response.json.reason === 'WRONG_MACHINE', `reason ${response.json.reason}`);
+    expectStatus(await request('GET', '/api/products', { token: null }), 402, 'still locked');
+    return 'refused';
+  });
+
+  await step('Stage 24: activation with no license installed is open → 200 licensed, the file is written, the shop name is the license\'s', async () => {
+    const response = await request('POST', '/api/license/activate', { token: null, body: { license: issueTestLicense({ machineId: ctx.machineId, shopName: 'Smoke Shop', maxClients: 2 }) } });
+    expectStatus(response, 200, 'POST /api/license/activate');
+    expect(response.json.licensed === true && response.json.shopName === 'Smoke Shop', 'expected licensed with the shop name');
+    expect(fs.existsSync(path.join(licenseDirectory, 'nota.lic')), 'nota.lic was not written');
+    const bootstrap = await request('GET', '/api/auth/bootstrap', { token: null });
+    expectStatus(bootstrap, 200, 'bootstrap after activation');
+    expect(bootstrap.json.shop.name === 'Smoke Shop', 'the login screen shows the license name');
+    return 'Smoke Shop, 2 client PCs';
+  });
+
+  await step('Stage 24: after activation the owner is set up and signs in; the shop name is locked (a rename → 400 SHOP_NAME_LOCKED)', async () => {
+    const owner = await request('POST', '/api/auth/setup-owner', { body: OWNER, token: null });
+    expectStatus(owner, 201, 'POST /api/auth/setup-owner');
+    authToken = owner.json.token;
+    const rename = await request('PUT', '/api/shop-profile', { body: { name: 'Another Name' } });
+    expectStatus(rename, 400, 'rename');
+    expect(rename.json.code === 'SHOP_NAME_LOCKED', 'expected SHOP_NAME_LOCKED');
+    return 'owner ready';
+  });
+
+  await step('Stage 24: replacing a valid license needs the owner (no login 401, cashier 403, owner 200)', async () => {
+    const cashier = { name: 'S24 Cashier', username: 's24-cashier', password: 'clerk-pass-1', role: 'cashier' };
+    expectStatus(await request('POST', '/api/users', { body: cashier }), 201, 'POST cashier');
+    const cashierToken = (await request('POST', '/api/auth/login', { body: { username: cashier.username, password: cashier.password }, token: null })).json.token;
+    const replacement = issueTestLicense({ machineId: ctx.machineId, shopName: 'Smoke Shop', maxClients: 2 });
+    expectStatus(await request('POST', '/api/license/activate', { token: null, body: { license: replacement } }), 401, 'replace without a login');
+    expectStatus(await request('POST', '/api/license/activate', { token: cashierToken, body: { license: replacement } }), 403, 'replace as a cashier');
+    expectStatus(await request('GET', '/api/license/info', { token: cashierToken }), 403, 'license info as a cashier');
+    expectStatus(await request('POST', '/api/license/activate', { body: { license: replacement } }), 200, 'replace as the owner');
+    return 'owner only';
+  });
+
+  await step('Stage 24: client limit 2: two client PCs sign in, the third is refused (403 CLIENT_LIMIT, Arabic + English message) at login', async () => {
+    expectStatus(await login('11111111-aaaa-4aaa-8aaa-000000000001'), 200, 'client 1 login');
+    expectStatus(await login('11111111-aaaa-4aaa-8aaa-000000000002'), 200, 'client 2 login');
+    const third = await login('11111111-aaaa-4aaa-8aaa-000000000003');
+    expectStatus(third, 403, 'client 3 login');
+    expect(third.json.code === 'CLIENT_LIMIT', 'expected CLIENT_LIMIT');
+    expect(third.json.message.includes('أقصى عدد أجهزة فرعية') && /limit of client PCs/.test(third.json.messageEn), 'expected the Arabic and English messages');
+    const owned = await request('GET', '/api/license/info');
+    expectStatus(owned, 200, 'GET /api/license/info');
+    expect(owned.json.clientsUsed === 2 && owned.json.maxClients === 2, `used ${owned.json.clientsUsed} of ${owned.json.maxClients}`);
+    return '2 of 2 used, the third refused';
+  });
+
+  await step('Stage 24: the owner unpairs a client PC → the freed slot goes to the third; the unpaired PC is refused', async () => {
+    expectStatus(await request('DELETE', '/api/license/clients/11111111-aaaa-4aaa-8aaa-000000000001'), 200, 'unpair client 1');
+    expectStatus(await login('11111111-aaaa-4aaa-8aaa-000000000003'), 200, 'client 3 takes the slot');
+    const first = await login('11111111-aaaa-4aaa-8aaa-000000000001');
+    expectStatus(first, 403, 'the unpaired client 1 login');
+    expect(first.json.code === 'CLIENT_LIMIT', 'expected CLIENT_LIMIT');
+    return 'slot freed and reused';
+  });
+}
+
 async function runStage23Scenarios() {
   const ctx = {};
   authToken = null;
@@ -2360,8 +2462,18 @@ async function main() {
     // Stage 23: prints (the print log, print-data, the cost-bearing prints), on its own fresh database.
     await stopChild(stage22Backend);
     children.splice(children.indexOf(stage22Backend), 1);
-    await startBackend({ auth: true, dbName: STAGE23_DB_NAME });
+    const stage23Backend = await startBackend({ auth: true, dbName: STAGE23_DB_NAME });
     await runStage23Scenarios();
+    await stopChild(stage23Backend);
+    children.splice(children.indexOf(stage23Backend), 1);
+    // Stage 24: a backend with NO license (an empty license folder), activated through the API.
+    const emptyLicenseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-smoke-lic-'));
+    try {
+      await startBackend({ auth: true, dbName: STAGE24_DB_NAME, licenseDirectory: emptyLicenseDir });
+      await runStage24Scenarios(emptyLicenseDir);
+    } finally {
+      fs.rmSync(emptyLicenseDir, { recursive: true, force: true });
+    }
   } catch (error) {
     record(false, 'Smoke test setup', error.message);
   } finally {

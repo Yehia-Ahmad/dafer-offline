@@ -1,0 +1,4 @@
+/* Stage 24: the first-run license agreement page. Builds on status.css + activation.css. */
+.eula-text { max-height: 46vh; overflow-y: auto; padding: 0.75rem 1rem; border: 1px solid var(--muted); border-radius: 0.5rem; line-height: 1.8; }
+.eula-text p { margin: 0 0 0.75rem; }
+.draft { margin: 0 0 1rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; background: var(--error-bg); color: var(--error-text); font-weight: 600; text-align: center; }

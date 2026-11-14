@@ -1,2 +1,8 @@
 nota-review/
 
+# Stage 24: nothing secret ever goes in this repo. The vendor's private key and the issued-license log stay on the vendor's PC.
+*.pem
+*.key
+issued-licenses.csv
+tools/license-gen/keys/
+*.lic

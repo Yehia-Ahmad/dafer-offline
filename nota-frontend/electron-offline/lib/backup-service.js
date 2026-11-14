@@ -12,7 +12,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { chooseSourceDatabase, readArchiveSummary } = require('./backup-archive');
-const { DATABASE_NAME, REPLICA_SET_NAME, ServiceError } = require('./mongod-manager');
+const { DATABASE_NAME, ServiceError } = require('./mongod-manager');
+const { mongoUri } = require('./mongo-uri');
 const { runRestore } = require('./restore');
 
 const SAFETY_PREFIX = 'before-restore-';
@@ -52,7 +53,9 @@ function describeArchive(summary) {
 }
 
 class BackupService {
-  constructor({ mongodbBin, port, backupsDir, mongodb, bson, log, dbName = DATABASE_NAME, keepSafety = KEEP_SAFETY_BACKUPS }) {
+  // auth (Stage 24): the app user { user, password } of the authenticated mongod; null = a password-less mongod.
+  constructor({ mongodbBin, port, backupsDir, mongodb, bson, log, auth = null, dbName = DATABASE_NAME, keepSafety = KEEP_SAFETY_BACKUPS }) {
+    this.auth = auth;
     this.mongodbBin = mongodbBin;
     this.port = port;
     this.backupsDir = backupsDir;
@@ -64,7 +67,7 @@ class BackupService {
   }
 
   async withClient(callback) {
-    const client = new this.mongodb.MongoClient(`mongodb://127.0.0.1:${this.port}/?replicaSet=${REPLICA_SET_NAME}&directConnection=true`, {
+    const client = new this.mongodb.MongoClient(mongoUri({ port: this.port, auth: this.auth }), {
       directConnection: true,
       serverSelectionTimeoutMS: 5000,
     });
@@ -97,7 +100,7 @@ class BackupService {
     const dumped = await new Promise((resolve, reject) => {
       const child = spawn(
         path.join(this.mongodbBin, 'mongodump.exe'),
-        [`--uri=mongodb://127.0.0.1:${this.port}/${this.dbName}?replicaSet=${REPLICA_SET_NAME}&directConnection=true`, `--archive=${partial}`, '--gzip'],
+        [`--uri=${mongoUri({ port: this.port, db: this.dbName, auth: this.auth })}`, `--archive=${partial}`, '--gzip'],
         { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }
       );
       let output = '';
@@ -171,9 +174,15 @@ class BackupService {
     }
   }
 
-  // Drops the whole database, then restores the archive into it.
+  // Empties the database, then restores the archive into it. Collection by collection: the app user is readWrite on this database
+  // (Stage 24), which allows dropCollection but not dropDatabase.
   async replaceWith(archive, onProgress = () => {}) {
-    await this.withClient((db) => db.dropDatabase());
+    await this.withClient(async (db) => {
+      const collections = await db.listCollections({}, { nameOnly: true }).toArray();
+      for (const { name } of collections) {
+        if (!name.startsWith('system.')) await db.dropCollection(name);
+      }
+    });
     onProgress({ phase: 'restoring', done: 0, total: archive.collections });
     return runRestore({
       mongorestorePath: path.join(this.mongodbBin, 'mongorestore.exe'),
@@ -184,6 +193,7 @@ class BackupService {
       targetDb: this.dbName,
       totalCollections: archive.collections,
       log: this.log,
+      auth: this.auth,
       onProgress: ({ done, total }) => onProgress({ phase: 'restoring', done, total }),
     });
   }

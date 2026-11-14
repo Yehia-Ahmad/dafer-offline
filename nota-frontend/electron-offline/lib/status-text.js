@@ -16,6 +16,10 @@ const LABELS = {
   unreachable: 'لا يوجد اتصال بالجهاز الرئيسي',
   unauthorized: 'كلمة سر الشبكة غير صحيحة',
   'not-nota': 'العنوان لا يخص جهازاً رئيسياً',
+  'not-activated': 'الجهاز الرئيسي غير مفعّل',
+  activation: 'تفعيل الترخيص',
+  damaged: 'التثبيت تالف',
+  eula: 'اتفاقية الترخيص',
 };
 
 // The server pauses briefly for each of these (supervisor.runMaintenance).

@@ -1,4 +1,5 @@
 const Device = require("../models/device.model");
+const { ensurePaired } = require("../license/clients");
 
 // Stage 19: which PC a request comes from.
 //
@@ -51,9 +52,12 @@ const deviceContext = ({ instanceId = () => process.env.NOTA_INSTANCE_ID, now = 
   try {
     const set = { lastSeenAt: new Date(at), role: deviceId === instanceId() ? "main" : "client" };
     if (req.deviceName) set.name = req.deviceName;
-    await Device.updateOne({ deviceId }, { $set: set }, { upsert: true });
+    if (set.role === "client") await ensurePaired(deviceId, set);
+    else await Device.updateOne({ deviceId }, { $set: set }, { upsert: true });
   } catch (error) {
     lastRegistered.delete(deviceId);
+    // Stage 24: a client PC beyond the license's maxClients is refused (on every request, not once a minute).
+    if (error && error.responseData && error.responseData.code === "CLIENT_LIMIT") return next(error);
     console.error(`device registry failed: ${error.message}`);
   }
   return next();

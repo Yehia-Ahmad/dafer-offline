@@ -1111,6 +1111,43 @@
             "noInvoices": "No invoices yet"
         }
     },
+    "license": {
+        "title": "License",
+        "loading": "Loading the license...",
+        "loadFailed": "Could not load the license details. Try again.",
+        "shopName": "Shop name",
+        "licenseId": "License ID",
+        "type": "Type",
+        "lifetime": "Lifetime",
+        "otherType": "Other",
+        "maxClients": "Client PCs (used of allowed)",
+        "clientsOf": "{{used}} of {{max}}",
+        "machineId": "This PC's ID (Machine ID)",
+        "issuedAt": "Issued on",
+        "nameLocked": "The shop name comes from the license and can't be changed here.",
+        "clients": "Paired client PCs",
+        "noClients": "No client PCs are paired yet.",
+        "lastSeen": "Last seen",
+        "unpair": "Unpair",
+        "unpairHint": "Unpairing a PC frees its slot. That PC has to pair again to work, and needs a free slot.",
+        "unpaired": "The PC was unpaired and its slot is free.",
+        "replace": "Replace license",
+        "replaceHint": "Paste the new license text or load a nota.lic file. If it isn't valid, the current license stays as it is.",
+        "loadFile": "Load nota.lic file",
+        "activate": "Activate",
+        "cancel": "Cancel",
+        "replaced": "The license was replaced.",
+        "errors": {
+            "MALFORMED": "This is not a Nota license. Make sure you copied all of it.",
+            "BAD_SIGNATURE": "This license is not valid or was changed. Ask for a new one.",
+            "WRONG_MACHINE": "This license was issued for another PC. Send this PC's ID and ask for a license for it.",
+            "UNKNOWN_TYPE": "This license type is not supported by this version.",
+            "UNKNOWN_VERSION": "This license format is newer than this version. Update the app.",
+            "NO_MACHINE_ID": "This PC's ID could not be read. Contact support.",
+            "UNREADABLE": "The file could not be read.",
+            "DEFAULT": "The action failed. Try again."
+        }
+    },
     "auth": {
         "close": "Close",
         "cancel": "Cancel",
@@ -1201,7 +1238,8 @@
             "INVALID_RECOVERY": "Wrong username or recovery code",
             "UNREACHABLE": "Can't reach the main PC. Try again.",
             "generic": "Something went wrong. Try again.",
-            "DISCOUNT_LIMIT": "This discount is above your maximum allowed discount"
+            "DISCOUNT_LIMIT": "This discount is above your maximum allowed discount",
+            "CLIENT_LIMIT": "You reached the license's limit of client PCs. Ask the owner to remove one."
         },
         "changePassword": {
             "open": "Change password",

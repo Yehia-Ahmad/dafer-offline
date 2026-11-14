@@ -51,7 +51,7 @@ function sweepStaleTempDirs({ maxAgeMs = 60 * 60 * 1000, root = os.tmpdir() } = 
 }
 
 // Test files run in parallel processes: each file that needs a database passes its own port.
-async function startMongod({ port = PORT, tag = "" } = {}) {
+async function startMongod({ port = PORT, tag = "", license } = {}) {
   sweepStaleTempDirs();
   // A leftover server on this port (an interrupted earlier run) must never be mistaken for ours: its data would leak in.
   if (await isPortOpen(port)) throw new Error(`port ${port} is already in use (a leftover test mongod?); stop it and re-run`);
@@ -69,7 +69,7 @@ async function startMongod({ port = PORT, tag = "" } = {}) {
     try { child.stdin.end(); } catch { /* already closed */ }
   });
   try {
-    return await boot({ port, child, dir });
+    return await boot({ port, child, dir, license });
   } catch (error) {
     await release();
     fs.rmSync(dir, { recursive: true, force: true });
@@ -77,7 +77,7 @@ async function startMongod({ port = PORT, tag = "" } = {}) {
   }
 }
 
-async function boot({ port, child, dir }) {
+async function boot({ port, child, dir, license }) {
   const deadline = Date.now() + 60000;
   while (!(await isPortOpen(port))) {
     if (child.exitCode !== null) throw new Error(`mongod exited with ${child.exitCode}`);
@@ -106,8 +106,13 @@ async function boot({ port, child, dir }) {
   // Build the indexes the models declare, the same way startup does (ensureIndexes, so models with autoIndex off get theirs too).
   await require("../../src/config/db").ensureIndexes();
 
+  // Stage 24: every DB test runs with a valid test license, so the old tests do not change behaviour.
+  // A license test passes { license: false } and installs what it needs itself.
+  if (license !== false) require("./license").installTestLicense();
+
   return async function stop() {
     await mongoose.disconnect();
+    require("./license").removeTestLicenseDir();
     await new Promise((resolve) => {
       if (child.exitCode !== null) return resolve();
       child.once("exit", resolve);

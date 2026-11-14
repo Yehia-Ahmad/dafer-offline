@@ -22,7 +22,7 @@ function isValidHost(host) {
   return /^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$/.test(value);
 }
 
-// result.status: ok | unauthorized | unreachable | not-nota
+// result.status: ok | unauthorized | unreachable | not-nota | not-activated (Stage 24: the main PC has no valid license, 402)
 async function probeServer({ host, port, secret, fetchImpl = fetch, timeoutMs = PROBE_TIMEOUT_MS }) {
   let response;
   try {
@@ -41,6 +41,7 @@ async function probeServer({ host, port, secret, fetchImpl = fetch, timeoutMs = 
     // not JSON: not our server
   }
   if (response.status === 401 && body && body.code === 'LAN_KEY_INVALID') return { status: 'unauthorized' };
+  if (response.status === 402 && body && body.code === 'LICENSE_REQUIRED') return { status: 'not-activated' };
   if (response.ok && body && body.app === 'nota-backend' && body.lanMode === true) {
     return { status: 'ok', info: body };
   }

@@ -172,7 +172,7 @@ function createPrintService(deps) {
       show: false,
       width: 900,
       height: 1200,
-      webPreferences: { partition: PRINT_PARTITION, sandbox: true, javascript: false, contextIsolation: true, nodeIntegration: false, webSecurity: true, spellcheck: false },
+      webPreferences: { partition: PRINT_PARTITION, devTools: false, sandbox: true, javascript: false, contextIsolation: true, nodeIntegration: false, webSecurity: true, spellcheck: false },
     });
     const contents = win.webContents;
     contents.on('will-navigate', (event) => event.preventDefault());

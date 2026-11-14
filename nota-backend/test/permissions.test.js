@@ -91,6 +91,10 @@ test("effective permissions: owner always all, custom its list, template unless 
 // PUBLIC = no login (LAN key only); AUTHENTICATED = any signed-in user; otherwise every listed key.
 const EXPECTED_ROUTES = {
   "GET /api/lan/info": "PUBLIC",
+  "GET /api/license/status": "PUBLIC",
+  "POST /api/license/activate": "PUBLIC", // no license installed: open from this PC; a license installed: owner + shop.manage (checked inside)
+  "GET /api/license/info": "shop.manage",
+  "DELETE /api/license/clients/:deviceId": "shop.manage",
   "GET /api/auth/bootstrap": "PUBLIC",
   "POST /api/auth/setup-owner": "PUBLIC",
   "POST /api/auth/login": "PUBLIC",

@@ -8,6 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { rotateIfLarge } = require('./logger');
 const { isPortFree, sleep, waitFor } = require('./net-utils');
+const { mongoUri } = require('./mongo-uri');
 
 const DATABASE_NAME = 'nota';
 const REPLICA_SET_NAME = 'rs0';
@@ -133,6 +134,9 @@ class MongodManager extends EventEmitter {
     mongodb,
     log,
     cacheSizeGB = 1,
+    // Stage 24: { keyFile, admin: { user, password } } runs mongod with --auth + keyFile and signs this manager's own clients in as admin.
+    // null = the old, password-less start (only the one-time upgrade and the restore-at-setup helper use it).
+    auth = null,
     isPortFree: portCheck = isPortFree, // replaceable in tests only
     processImagePath: imagePathOf = processImagePath, // replaceable in tests only
     platform = process.platform, // replaceable in tests only (path comparison rules)
@@ -149,12 +153,18 @@ class MongodManager extends EventEmitter {
     this.mongodb = mongodb; // the MongoDB driver module bundled with the backend
     this.log = log;
     this.cacheSizeGB = cacheSizeGB;
+    this.auth = auth;
     this.child = null;
     this.stopping = false;
   }
 
   get uri() {
     return `mongodb://127.0.0.1:${this.port}/${DATABASE_NAME}?replicaSet=${REPLICA_SET_NAME}&directConnection=true`;
+  }
+
+  /** The backend's connection string (Stage 24: with the app user, readWrite on the Nota database only). Contains a password: never log it. */
+  appUri(app) {
+    return mongoUri({ port: this.port, db: DATABASE_NAME, auth: app });
   }
 
   get bootstrapUri() {
@@ -172,6 +182,7 @@ class MongodManager extends EventEmitter {
       serverSelectionTimeoutMS: timeoutMs,
       directConnection: true,
       maxPoolSize: 1,
+      ...(this.auth ? { auth: { username: this.auth.admin.user, password: this.auth.admin.password }, authSource: 'admin' } : {}),
     });
   }
 
@@ -350,8 +361,9 @@ class MongodManager extends EventEmitter {
       '--logappend',
       '--replSet', REPLICA_SET_NAME,
       '--wiredTigerCacheSizeGB', String(this.cacheSizeGB),
+      ...(this.auth ? ['--auth', '--keyFile', this.auth.keyFile] : []),
     ];
-    this.log.info(`starting ${this.mongodPath} on 127.0.0.1:${this.port}`);
+    this.log.info(`starting ${this.mongodPath} on 127.0.0.1:${this.port}${this.auth ? ' (authentication on)' : ''}`);
     const child = spawn(this.mongodPath, args, { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
     this.child = child;
     let stderr = '';

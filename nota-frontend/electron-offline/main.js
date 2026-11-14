@@ -14,11 +14,13 @@ const {
   app,
   BrowserWindow,
   Menu,
+  clipboard,
   Tray,
   dialog,
   ipcMain,
   nativeImage,
   powerSaveBlocker,
+  safeStorage,
   session,
   shell,
   utilityProcess,
@@ -32,6 +34,7 @@ const { protectSecret, unprotectSecret } = require('./lib/secret-store');
 const { loadJwtSecret } = require('./lib/jwt-secret');
 const { holdPortLock, isPortFree, requestQuit, waitFor } = require('./lib/net-utils');
 const { MongodManager, ServiceError } = require('./lib/mongod-manager');
+const { DbAuth, createMachineScopeVault, createSafeStorageVault } = require('./lib/db-auth');
 const { BackendManager, buildBackendEnv } = require('./lib/backend-manager');
 const { MainPcSupervisor } = require('./lib/supervisor');
 const { LAN_KEY_HEADER, installSecretHeader } = require('./lib/lan-auth');
@@ -48,6 +51,10 @@ const { createPrintService } = require('./lib/print-service');
 const { createPrintHandlers } = require('./lib/print-handlers');
 const { AUDIT_INBOX_NAME, appendAuditEntry } = require('./lib/audit-inbox');
 const { MainPcWatcher } = require('./lib/main-pc-watcher');
+const { createLicenseGate } = require('./lib/license-gate');
+const { verifyBackend } = require('./lib/integrity');
+const { EULA, eulaStatus, recordAcceptance } = require('./lib/eula');
+const { devToolsAllowed, hardenContents, hasDebugSwitch } = require('./lib/hardening');
 
 const SHUTDOWN_WATCHDOG_MS = 90000;
 const ATTACH_TIMEOUT_MS = 30000;
@@ -77,7 +84,10 @@ const quitRequested = process.argv.includes('--quit'); // a script asks this acc
 const quitAllRequested = process.argv.includes('--quit-all');
 
 const state = {
-  mode: 'starting', // setup | main | attached | client
+  mode: 'starting', // damaged | eula | activation | setup | main | attached | client
+  licenseGate: null, // Stage 24: the UI-side license check (the backend is the real lock)
+  afterActivation: null,
+  afterEula: null,
   paths: null,
   resources: null,
   logger: null,
@@ -94,6 +104,7 @@ const state = {
   setup: null,
   setupStartStep: null,
   backups: null,
+  dbApp: null, // Stage 24: the app user { user, password } of the authenticated mongod (main PC)
   backupBusy: false,
   autoBackup: null,
   mainPcWatcher: null, // Stage 15: another main PC on the LAN
@@ -149,7 +160,7 @@ function setStatus(status) {
 
   // A lost connection while the app is open shows Angular's overlay instead (status.overlay),
   // so a half-finished invoice is not thrown away.
-  if (['failed', 'not-configured', 'unreachable', 'unauthorized', 'not-nota'].includes(status.state) && !status.overlay) {
+  if (['failed', 'not-configured', 'unreachable', 'unauthorized', 'not-nota', 'not-activated', 'damaged'].includes(status.state) && !status.overlay) {
     if (state.uiLoaded) showStatusPage();
     showWindow();
   }
@@ -218,6 +229,8 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Stage 24: no DevTools in an installed build (also blocked: shortcuts, context menu; see lib/hardening.js).
+      devTools: devToolsAllowed(app.isPackaged),
     },
   });
   state.window = win;
@@ -451,6 +464,7 @@ function backupService() {
       backupsDir: state.paths.backups,
       mongodb: loadDriver(),
       bson: loadBson(),
+      auth: state.dbApp,
       log: state.logger('backup'),
     });
   }
@@ -675,6 +689,9 @@ function registerIpc() {
   // Stage 15: other main PCs answering on the LAN (main PC only; read-only).
   handle('nota:other-main', () => (state.mode === 'main' ? state.otherMainPcs : []));
 
+  registerActivationIpc();
+  registerEulaIpc();
+
   handleSetup('setup:info', () => ({
     ...state.setup.info(),
     startStep: state.setupStartStep,
@@ -708,6 +725,124 @@ function retry() {
     if (state.supervisor) state.supervisor.start();
     else if (state.config && state.secret) startMainRole();
   }
+}
+
+// ---------------------------------------------------------------- installation check (Stage 24)
+
+function readIntegritySeal() {
+  try {
+    return require('./lib/integrity-seal.json'); // written into app.asar by offline:stage
+  } catch {
+    return null;
+  }
+}
+
+// Installed builds only: a development run has no seal and nothing to protect.
+function checkInstallation() {
+  if (!app.isPackaged) return { ok: true, problems: [] };
+  const result = verifyBackend({ backendDir: state.resources.backendDir, seal: readIntegritySeal() });
+  if (!result.ok) log.error(`installation check failed: ${result.problems.join('; ')}`);
+  return result;
+}
+
+function showDamaged(check) {
+  state.mode = 'damaged';
+  setStatus({
+    state: 'damaged',
+    code: 'INSTALLATION_DAMAGED',
+    message: 'ملفات البرنامج اتغيّرت أو ناقصة، فالتثبيت تالف. أعد تثبيت البرنامج (بياناتك على الجهاز مش هتتأثر). / The installation is damaged. Reinstall the app; your data is not affected.',
+    detail: check.problems.slice(0, 5).join('\n'),
+  });
+  showWindow();
+}
+
+// ---------------------------------------------------------------- license agreement (Stage 24)
+
+function showEula({ resume }) {
+  state.mode = 'eula';
+  state.afterEula = { resume };
+  setStatus({ state: 'eula' });
+  loadPage('eula.html');
+  showWindow();
+}
+
+// Served only while the agreement page is showing.
+function registerEulaIpc() {
+  const NOT_AVAILABLE = { ok: false, error: { code: 'NOT_AVAILABLE' } };
+  handle('eula:text', () => (state.mode === 'eula' ? { ok: true, value: EULA } : NOT_AVAILABLE));
+  handle('eula:accept', () => {
+    if (state.mode !== 'eula') return NOT_AVAILABLE;
+    recordAcceptance(state.paths.eula);
+    log.info(`license agreement v${EULA.version} accepted`);
+    const { resume } = state.afterEula || {};
+    state.afterEula = null;
+    setImmediate(() => (resume ? resume() : continueStart()));
+    return { ok: true, value: true };
+  });
+  handle('eula:decline', () => {
+    if (state.mode !== 'eula') return NOT_AVAILABLE;
+    log.info('license agreement declined: exiting');
+    gracefulQuit('license agreement declined');
+    return { ok: true, value: true };
+  });
+}
+
+// ---------------------------------------------------------------- activation (Stage 24)
+
+function licenseGate() {
+  if (!state.licenseGate) {
+    state.licenseGate = createLicenseGate({
+      licenseDir: state.paths.license,
+      loadModule: () => require(path.join(state.resources.backendDir, 'src', 'license')),
+      log: state.logger('license'),
+    });
+  }
+  return state.licenseGate;
+}
+
+function showActivation({ canSkip, resume }) {
+  state.mode = 'activation';
+  state.afterActivation = { canSkip, resume };
+  setStatus({ state: 'activation' });
+  loadPage('activation.html');
+  showWindow();
+}
+
+// The activation screen is served only while it is showing (like setup). Answers { ok, value } or { ok: false, error: { code } }.
+function registerActivationIpc() {
+  const NOT_AVAILABLE = { ok: false, error: { code: 'NOT_AVAILABLE' } };
+  const answer = (result) => (result.ok ? { ok: true, value: result } : { ok: false, error: { code: result.code } });
+  const active = () => state.mode === 'activation';
+  handle('activation:info', () => {
+    if (!active()) return NOT_AVAILABLE;
+    return { ok: true, value: { machineId: licenseGate().status().machineId, canSkip: Boolean(state.afterActivation && state.afterActivation.canSkip) } };
+  });
+  handle('activation:activate', (text) => (active() ? answer(licenseGate().activate(text)) : NOT_AVAILABLE));
+  handle('activation:load-file', async () => {
+    if (!active()) return NOT_AVAILABLE;
+    const file = await chooseOpenPath('اختيار ملف الترخيص (nota.lic)');
+    if (!file) return { ok: true, value: { cancelled: true } };
+    return answer(licenseGate().activateFile(file));
+  });
+  handle('activation:copy-machine-id', () => {
+    if (!active()) return false;
+    const id = licenseGate().status().machineId;
+    if (id) clipboard.writeText(id);
+    return Boolean(id);
+  });
+  handle('activation:skip-client', () => {
+    // First run only: a client PC needs no license. (If this PC later becomes a main PC, beginRole asks for one.)
+    if (!active() || !state.afterActivation || !state.afterActivation.canSkip) return false;
+    setImmediate(() => showSetup());
+    return true;
+  });
+  handle('activation:finish', () => {
+    if (!active() || !licenseGate().status().licensed) return false;
+    const { resume } = state.afterActivation || {};
+    state.afterActivation = null;
+    setImmediate(() => (resume ? resume() : showSetup()));
+    return true;
+  });
 }
 
 // ---------------------------------------------------------------- setup
@@ -771,6 +906,12 @@ function checkFirewall() {
 
 async function beginRole(config, secret, serverInfo) {
   state.config = config;
+  // Stage 24: a main PC without a valid license shows the activation screen instead of starting anything.
+  // (Client PCs need no license: they work through the main PC, which enforces the limit.)
+  if (config.role === 'main' && !licenseGate().status().licensed) {
+    showActivation({ canSkip: false, resume: () => beginRole(config, secret, serverInfo) });
+    return;
+  }
   try {
     state.secret = secret || unprotectSecret(config.lanSecretProtected);
   } catch (error) {
@@ -863,7 +1004,7 @@ async function startMainRole() {
   const { paths, resources, config } = state;
   checkFirewall();
 
-  const mongod = new MongodManager({
+  const mongodOptions = {
     mongodPath: path.join(resources.mongodbBin, 'mongod.exe'),
     dbPath: paths.dbPath,
     logFile: path.join(paths.logs, 'mongod.log'),
@@ -871,7 +1012,32 @@ async function startMainRole() {
     port: MONGOD_PORT,
     mongodb: loadDriver(),
     log: state.logger('mongod'),
-  });
+  };
+
+  // Stage 24: mongod runs with --auth and a keyFile. The first start of this version (an existing database, a restore, a new
+  // install) creates the users; every later start only reads them. Safe to re-run after a crash (lib/db-auth.js).
+  let dbAuth;
+  try {
+    dbAuth = await new DbAuth({
+      securityDir: paths.security,
+      mongodPath: mongodOptions.mongodPath,
+      dbPath: paths.dbPath,
+      logDir: paths.logs,
+      port: MONGOD_PORT,
+      mongodb: mongodOptions.mongodb,
+      // Machine-scope DPAPI, like the LAN and session secrets, so every Windows account can run Nota; safeStorage only reads an old per-account file to migrate it.
+      vault: createMachineScopeVault({ protect: (text) => protectSecret(text, { purpose: 'db' }), unprotect: (text) => unprotectSecret(text, { purpose: 'db' }) }),
+      legacyVault: createSafeStorageVault(safeStorage),
+      log: state.logger('db-auth'),
+    }).ensure({ stopOrphan: () => new MongodManager(mongodOptions).stopOrphan() }); // a leftover password-less mongod of the old version
+  } catch (error) {
+    log.error(`database authentication: ${error.code || ''} ${error.message}`);
+    setStatus({ state: 'failed', code: error.code || 'DB_AUTH_FAILED', message: error.code ? error.message : 'تعذر تجهيز حماية قاعدة البيانات، فلم يتم تشغيل الخادم.', detail: error.detail || error.message });
+    return; // never start the backend without the database credentials
+  }
+  state.dbApp = dbAuth.app;
+  state.backups = null; // a backup service made earlier has no credentials
+  const mongod = new MongodManager({ ...mongodOptions, auth: { keyFile: dbAuth.keyFile, admin: dbAuth.admin } });
 
   const backendLog = createLogger(path.join(paths.logs, 'backend.log'));
   const backend = new BackendManager({
@@ -880,13 +1046,14 @@ async function startMainRole() {
     cwd: paths.run, // never the backend folder: a developer's .env there must not load
     env: buildBackendEnv({
       port: config.port,
-      mongoUri: mongod.uri,
+      mongoUri: mongod.appUri(dbAuth.app), // the app user: readWrite on the Nota database only (contains a password: never logged)
       secret: state.secret,
       jwtSecret,
       appVersion: EDITION.version,
       instanceId: config.instanceId,
       sessionsValidAfter: config.sessionsValidAfter,
       auditInbox: path.join(paths.run, AUDIT_INBOX_NAME),
+      licenseDir: paths.license,
     }),
     port: config.port,
     log: state.logger('backend'),
@@ -948,6 +1115,8 @@ const CLIENT_ERRORS = {
     `تعذر الاتصال بالجهاز الرئيسي (${state.config.mainHost}:${state.config.port}). تأكد أن الجهاز الرئيسي يعمل وأن البرنامج مفتوح عليه، وأن الجهازين على نفس الشبكة.`,
   unauthorized: () => 'كلمة سر الشبكة على هذا الجهاز لا تطابق الجهاز الرئيسي. أدخل كلمة السر الصحيحة.',
   'not-nota': () => `العنوان ${state.config.mainHost}:${state.config.port} لا يخص جهاز ${EDITION.nameAr} رئيسي.`,
+  'not-activated': () =>
+    'الجهاز الرئيسي لسه متفعّلش. فعّل الترخيص على الجهاز الرئيسي الأول وبعدين جرّب تاني. / The main PC is not activated yet: activate the license on the main PC first.',
 };
 
 async function startClientRole(knownInfo) {
@@ -984,7 +1153,7 @@ async function startClientRole(knownInfo) {
   state.monitor = new ConnectionMonitor({ getTarget: clientTarget, log: state.logger('connection') });
   state.monitor.on('change', ({ connected, reason }) => {
     setConnection(connected ? { connected: true } : { connected: false, reason, address: `${state.config.mainHost}:${state.config.port}` });
-    setStatus({ state: connected ? 'connected' : reason === 'unauthorized' ? 'unauthorized' : 'unreachable', overlay: true });
+    setStatus({ state: connected ? 'connected' : reason === 'unauthorized' ? 'unauthorized' : reason === 'not-activated' ? 'not-activated' : 'unreachable', overlay: true });
   });
   state.monitor.on('moved', async ({ host, port }) => {
     setClientAddress(host, port);
@@ -1015,6 +1184,23 @@ async function start() {
   createWindow();
   createTray();
 
+  // Stage 24: the protected backend files must be exactly what the installer put there.
+  const installation = checkInstallation();
+  if (!installation.ok) {
+    showDamaged(installation);
+    return;
+  }
+
+  // Stage 24: the license agreement is accepted once, on first run (stored with the date).
+  if (!eulaStatus(state.paths.eula).accepted) {
+    showEula({ resume: continueStart });
+    return;
+  }
+  await continueStart();
+}
+
+// After the EULA: the first-run flow (activation, main/client choice, owner setup) or the saved role.
+async function continueStart() {
   let config;
   try {
     config = readConfig(state.paths.config);
@@ -1024,7 +1210,9 @@ async function start() {
     return;
   }
   if (!config) {
-    showSetup();
+    // First run: install, activation, main/client choice, owner setup. A client PC skips the license.
+    if (licenseGate().status().licensed) showSetup();
+    else showActivation({ canSkip: true, resume: () => showSetup() });
     return;
   }
   await beginRole(config);
@@ -1090,6 +1278,9 @@ if (quitAllRequested) {
   // Asked to stop a copy that is not running: nothing to do.
   app.exit(0);
 } else {
+  // Stage 24: hardens every window (main, print) in an installed build, and refuses a debugging port.
+  if (app.isPackaged && hasDebugSwitch(process.argv)) app.exit(1);
+  app.on('web-contents-created', (_event, contents) => hardenContents(contents, { isPackaged: app.isPackaged }));
   app.on('second-instance', (_event, argv, _cwd, data) => {
     if ((data && data.quit) || argv.includes('--quit')) gracefulQuit('another launch asked the app to quit');
     else showWindow();

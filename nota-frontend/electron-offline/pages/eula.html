@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
+  <title>نوتة</title>
+  <link rel="stylesheet" href="status.css">
+  <link rel="stylesheet" href="activation.css">
+  <link rel="stylesheet" href="eula.css">
+</head>
+<body>
+  <main class="card wide">
+    <button id="lang" type="button" class="lang secondary" aria-label="Language">English</button>
+    <h1 class="brand"><img class="logo" src="nota-icon.svg" alt=""><span id="brand">نوتة</span></h1>
+    <p id="draft" class="draft" hidden></p>
+    <h2 id="title"></h2>
+    <div id="text" class="eula-text" tabindex="0"></div>
+    <p id="contact" class="hint"></p>
+    <div class="actions">
+      <button id="accept" type="button"></button>
+      <button id="decline" type="button" class="secondary"></button>
+    </div>
+  </main>
+  <script src="eula.js"></script>
+</body>
+</html>

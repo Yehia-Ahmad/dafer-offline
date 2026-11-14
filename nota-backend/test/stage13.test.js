@@ -782,7 +782,7 @@ test("audit: entries for auth, users and business actions; filters, newest first
   await call(on, "POST", `/api/credit-sales/${credit.json._id}/payments`, { token, body: { amount: 10 } });
   await call(on, "POST", "/api/returns", { token, body: { returnType: "credit", invoiceId: credit.json._id, items: [{ productId, quantity: 1, returnReason: "x" }] } });
   await call(on, "POST", `/api/products/${productId}/sync-purchase-price`, { token, body: {} });
-  await call(on, "PUT", "/api/shop-profile", { token, body: { name: "متجر" } });
+  await call(on, "PUT", "/api/shop-profile", { token, body: { name: "محل الاختبار" } });
   await call(on, "POST", `/api/sellings/${cash.json._id}/cancel`, { token, body: { reason: "اختبار الإلغاء" } });
   await call(on, "POST", `/api/credit-sales/${cancellableCredit.json._id}/cancel`, { token, body: { reason: "اختبار الإلغاء" } });
   await call(on, "DELETE", `/api/products/${productId}`, { token });
@@ -844,7 +844,7 @@ test("auth off: existing requests behave as before (no token, nothing stripped, 
   assert.ok("totalProfit" in details.json);
   assert.equal((await call(off, "GET", "/api/products/profit-report")).status, 200);
   assert.equal((await call(off, "GET", "/api/dashboard/summary")).status, 200);
-  assert.equal((await call(off, "PUT", "/api/shop-profile", { body: { name: "متجر" } })).status, 200);
+  assert.equal((await call(off, "PUT", "/api/shop-profile", { body: { name: "محل الاختبار" } })).status, 200);
   assert.equal(await AuditLog.countDocuments(), 0, "nothing is audited with auth off");
 });
 

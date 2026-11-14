@@ -23,6 +23,10 @@ export const DEFAULT_CLOSING: ClosingSettings = { frequency: 'monthly', fiscalYe
 
 export interface ShopProfile {
   name: string;
+  /** Stage 24: the English name from the license (absent when the license has none). */
+  nameEn?: string;
+  /** Stage 24: the shop name comes from the license and cannot be edited (the server refuses a different one). */
+  nameLocked?: boolean;
   address: string;
   phones: string[];
   logo: string | null;
@@ -38,7 +42,7 @@ export interface ShopProfile {
 }
 
 /** The PUT body: the `vat` block is only sent once VAT is in use or the card was touched, so a shop without VAT sends what it always sent. */
-export type ShopProfilePayload = Omit<ShopProfile, 'vat'> & { vat?: Pick<VatSettings, 'enabled' | 'rate' | 'pricesIncludeVat'> };
+export type ShopProfilePayload = Omit<ShopProfile, 'vat' | 'nameLocked'> & { vat?: Pick<VatSettings, 'enabled' | 'rate' | 'pricesIncludeVat'> };
 
 export const SHOP_PROFILE_LIMITS = {
   name: 150,

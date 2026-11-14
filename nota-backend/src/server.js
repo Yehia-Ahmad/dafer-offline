@@ -31,6 +31,15 @@ const startServer = async () => {
   await assertTransactionsSupported();
   await runMigrations();
 
+  // Stage 24: re-verify the license file now (cached from here on) and mirror it into the database.
+  // No valid license is not a startup failure: the backend runs and answers 402 until one is activated.
+  try {
+    const state = await require("./license/service").applyAtStart();
+    console.log(state.ok ? "license: valid" : `license: ${state.code}`);
+  } catch (error) {
+    console.error(`license: ${error.message}`);
+  }
+
   // Every start: build all model indexes (autoIndex is off in LAN mode). This also guarantees the
   // Stage 13 user indexes (one owner, unique usernames) exist before the first setup-owner request.
   await ensureIndexes();

@@ -20,6 +20,13 @@
     "!**/node_modules/**/*"
   ],
   "asar": true,
+  "electronFuses": {
+    "runAsNode": false,
+    "enableNodeOptionsEnvironmentVariable": false,
+    "enableNodeCliInspectArguments": false,
+    "enableEmbeddedAsarIntegrityValidation": true,
+    "onlyLoadAppFromAsar": true
+  },
   "icon": "build/icon.ico",
   "win": {
     "signAndEditExecutable": false,
@@ -42,6 +49,7 @@
     "createStartMenuShortcut": true,
     "shortcutName": "Nota",
     "deleteAppDataOnUninstall": false,
-    "include": "installer-offline/installer.nsh"
+    "include": "installer-offline/installer.nsh",
+    "license": "installer-offline/eula.rtf"
   }
 }

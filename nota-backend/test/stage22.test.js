@@ -252,13 +252,13 @@ it("party balances: customers and suppliers equal each party's statement, aging 
 
 it("every report exports to .xlsx with the same rows: numbers as numbers, right-to-left sheet, shop header", async () => {
   await october();
-  ok(await call("PUT", "/api/shop-profile", { name: "النور للأدوات الكهربائية" }));
+  ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار" }));
   const income = await download(`/api/reports/income-statement?from=${FROM}&to=${TO}&format=xlsx`);
   assert.equal(income.status, 200); assert.match(income.type, /spreadsheetml/);
   const workbook = new ExcelJS.Workbook(); await workbook.xlsx.load(income.buffer);
   const sheet = workbook.worksheets[0];
   assert.equal(sheet.views[0].rightToLeft, true);
-  assert.equal(sheet.getCell("A1").value, "النور للأدوات الكهربائية");
+  assert.equal(sheet.getCell("A1").value, "محل الاختبار"); // Stage 24: the license name
   assert.match(String(sheet.getCell("A3").value), /بالجنيه/);
   const cells = new Map(); sheet.eachRow((row) => cells.set(row.getCell(1).value, row.getCell(2).value));
   assert.equal(cells.get("المبيعات"), 37450); assert.equal(cells.get("صافي المبيعات"), 36800); assert.equal(cells.get("صافي الربح"), 2100);
@@ -312,7 +312,7 @@ it("reports and manual/closing endpoints are permission-gated: a cashier gets 40
     assert.equal((await as(who, () => call("POST", "/api/accounting/accounts", { parentId: expensesRoot, nameAr: "x" }))).status, 403);
   }
   // closing settings are the owner's
-  assert.equal((await as(manager, () => call("PUT", "/api/shop-profile", { name: "x", closing: { frequency: "yearly" } }))).status, 403);
+  assert.equal((await as(manager, () => call("PUT", "/api/shop-profile", { name: "محل الاختبار", closing: { frequency: "yearly" } }))).status, 403);
   // everyone signed in reads the lock date (the posting forms disable locked dates)
   assert.equal((await as(cashier, () => call("GET", "/api/accounting/lock-date"))).status, 200);
   // templates: accounting.close owner only, reports.financial owner/manager/accountant
@@ -389,7 +389,7 @@ it("manual entry forbidden accounts: boxes, inventory, VAT (always), invoice acc
   await refused(vatInput, "استخدم شاشة الضريبة", "VAT_ACCOUNT"); await refused(vatPayable, "استخدم شاشة الضريبة", "VAT_ACCOUNT");
   assert.equal((await postManual([{ accountId: capital, debit: 10 }, { accountId: vatPayable, credit: 10 }])).response.status, 400);
   assert.equal(((await call("GET", `${MANUAL}/accounts`)).json.data.find((row) => row.code === "22")).blocked.code, "VAT_ACCOUNT"); // VAT off: still blocked in the picker
-  ok(await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "123-456-789", vat: { enabled: true, rate: 14, pricesIncludeVat: true } }));
+  ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber: "123-456-789", vat: { enabled: true, rate: 14, pricesIncludeVat: true } }));
   await refused(vatInput, "استخدم شاشة الضريبة", "VAT_ACCOUNT"); await refused(vatPayable, "استخدم شاشة الضريبة", "VAT_ACCOUNT");
   // a customer DEBIT is forbidden (make a credit invoice instead); party rules
   const customers = await accountId("CUSTOMERS");
@@ -835,7 +835,7 @@ it("the pre-close checklist blocks: an open shift, an unposted draft dated in th
   assert.equal((await closingState()).checklist.blocking.find((item) => item.key === "health").items[0].name, "inventory");
   await Product.updateOne({ _id: shop.a._id }, { $inc: { inventoryCount: -1 } });
   // VAT on: the months of the period must be filed first
-  ok(await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "123-456-789", vat: { enabled: true, rate: 14, pricesIncludeVat: true } }));
+  ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber: "123-456-789", vat: { enabled: true, rate: 14, pricesIncludeVat: true } }));
   const ShopProfile = require("../src/models/shopProfile.model");
   await ShopProfile.updateOne({ key: "default" }, { $set: { "vat.startDate": new Date(`${FROM}T00:00:00Z`) } });
   assert.deepEqual(await blockedKeys(), ["vatUnfiled"]);
@@ -959,13 +959,13 @@ it("yearly frequency: only a whole fiscal year closes, after it ended, with the 
   await lastYearShop();
   // settings
   assert.equal(ok(await call("GET", "/api/shop-profile")).closing, undefined);
-  assert.equal((await call("PUT", "/api/shop-profile", { name: "x", closing: { frequency: "weekly" } })).status, 400);
-  assert.equal((await call("PUT", "/api/shop-profile", { name: "x", closing: { fiscalYearStartMonth: 13 } })).status, 400);
-  assert.equal((await call("PUT", "/api/shop-profile", { name: "x", closing: { fiscalYearStartMonth: 1.5 } })).status, 400);
-  const saved = ok(await call("PUT", "/api/shop-profile", { name: "x", closing: { frequency: "yearly" } }));
+  assert.equal((await call("PUT", "/api/shop-profile", { name: "محل الاختبار", closing: { frequency: "weekly" } })).status, 400);
+  assert.equal((await call("PUT", "/api/shop-profile", { name: "محل الاختبار", closing: { fiscalYearStartMonth: 13 } })).status, 400);
+  assert.equal((await call("PUT", "/api/shop-profile", { name: "محل الاختبار", closing: { fiscalYearStartMonth: 1.5 } })).status, 400);
+  const saved = ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار", closing: { frequency: "yearly" } }));
   assert.deepEqual(saved.closing, { frequency: "yearly", fiscalYearStartMonth: 1 });
   assert.deepEqual(ok(await call("GET", "/api/shop-profile")).closing, { frequency: "yearly", fiscalYearStartMonth: 1 });
-  assert.equal((await call("PUT", "/api/shop-profile", { name: "x" })).status, 200); // a PUT without it keeps it
+  assert.equal((await call("PUT", "/api/shop-profile", { name: "محل الاختبار" })).status, 200); // a PUT without it keeps it
   assert.equal(ok(await call("GET", "/api/shop-profile")).closing.frequency, "yearly");
   const state = await closingState();
   assert.equal(state.next.label, `FY${LAST_YEAR}`); assert.equal(state.next.start, `${LAST_YEAR}-01-01`); assert.equal(state.next.end, `${LAST_YEAR}-12-31`); assert.equal(state.next.yearEnd, true);
@@ -976,8 +976,8 @@ it("yearly frequency: only a whole fiscal year closes, after it ended, with the 
   assert.equal(next.next.label, `FY${LAST_YEAR + 1}`); assert.equal(next.next.ended, false);
   assert.equal((await closeNext()).json.code, "PERIOD_NOT_ENDED");
   // the fiscal year start cannot move once a period was closed; the frequency can
-  const move = await call("PUT", "/api/shop-profile", { name: "x", closing: { fiscalYearStartMonth: 7 } }); assert.equal(move.status, 409); assert.equal(move.json.code, "CLOSING_SETTINGS_LOCKED");
-  assert.equal(ok(await call("PUT", "/api/shop-profile", { name: "x", closing: { frequency: "monthly" } })).closing.frequency, "monthly");
+  const move = await call("PUT", "/api/shop-profile", { name: "محل الاختبار", closing: { fiscalYearStartMonth: 7 } }); assert.equal(move.status, 409); assert.equal(move.json.code, "CLOSING_SETTINGS_LOCKED");
+  assert.equal(ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار", closing: { frequency: "monthly" } })).closing.frequency, "monthly");
   await assertHealthy();
 });
 
@@ -986,7 +986,7 @@ it("a fiscal year that starts in July: the period ending June 30 is the year end
   const p = await product({ code: "JUL", stock: 50, cost: 10 });
   await cashSale([{ productId: p._id, quantity: 4, price: 25 }], { sellingDate: `${LAST_YEAR - 1}-09-10` });
   await finalizeOpening();
-  ok(await call("PUT", "/api/shop-profile", { name: "x", closing: { frequency: "yearly", fiscalYearStartMonth: 7 } }));
+  ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار", closing: { frequency: "yearly", fiscalYearStartMonth: 7 } }));
   const state = await closingState();
   assert.equal(state.next.start, `${LAST_YEAR - 1}-07-01`); assert.equal(state.next.end, `${LAST_YEAR}-06-30`); assert.equal(state.next.yearEnd, true); assert.equal(state.next.label, `FY${LAST_YEAR}`);
   const done = ok(await closeNext());

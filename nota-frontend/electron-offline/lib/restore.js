@@ -6,11 +6,12 @@
 
 const { spawn } = require('node:child_process');
 const { ServiceError } = require('./mongod-manager');
-const { REPLICA_SET_NAME } = require('./mongod-manager');
+const { mongoUri } = require('./mongo-uri');
 
-function buildRestoreArgs({ port, archivePath, gzip, sourceDb, targetDb }) {
+// auth (Stage 24): the app user { user, password }. It is readWrite on the Nota database, which is all a restore of that database needs.
+function buildRestoreArgs({ port, archivePath, gzip, sourceDb, targetDb, auth = null }) {
   const args = [
-    `--uri=mongodb://127.0.0.1:${port}/?replicaSet=${REPLICA_SET_NAME}&directConnection=true`,
+    `--uri=${mongoUri({ port, auth })}`,
     `--archive=${archivePath}`,
     '--drop',
     '--stopOnError',
@@ -38,9 +39,9 @@ function parseRestoreOutput(text) {
   };
 }
 
-function runRestore({ mongorestorePath, port, archivePath, gzip, sourceDb, targetDb, totalCollections, log, onProgress = () => {} }) {
+function runRestore({ mongorestorePath, port, archivePath, gzip, sourceDb, targetDb, totalCollections, log, auth = null, onProgress = () => {} }) {
   return new Promise((resolve, reject) => {
-    const args = buildRestoreArgs({ port, archivePath, gzip, sourceDb, targetDb });
+    const args = buildRestoreArgs({ port, archivePath, gzip, sourceDb, targetDb, auth });
     log.info(`restoring ${archivePath} (${sourceDb} -> ${targetDb})`);
     const child = spawn(mongorestorePath, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
 

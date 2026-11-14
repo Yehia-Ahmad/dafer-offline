@@ -1,0 +1,39 @@
+/* Stage 24: the activation page. Builds on status.css (same card, colours, dark mode). */
+.card.wide { width: min(38rem, calc(100vw - 2rem)); position: relative; text-align: start; }
+.card.wide h1.brand { justify-content: center; }
+h2 { margin: 0 0 0.75rem; font-size: 1.25rem; }
+.lead { margin: 0 0 1.25rem; line-height: 1.7; }
+.field-label { display: block; margin: 1rem 0 0.4rem; font-weight: 600; }
+.hint { margin: 0.4rem 0 0; color: var(--muted); font-size: 0.9rem; }
+
+.lang { position: absolute; inset-block-start: 1rem; inset-inline-end: 1rem; padding: 0.25rem 0.75rem; font-size: 0.85rem; }
+
+.machine { display: flex; align-items: center; gap: 0.75rem; }
+.machine code {
+  flex: 1;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.5rem;
+  border: 1px dashed var(--muted);
+  font-size: 1.2rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  user-select: all;
+}
+
+textarea {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--muted);
+  background: transparent;
+  color: var(--text);
+  font: 0.85rem/1.4 Consolas, 'Courier New', monospace;
+  resize: vertical;
+}
+
+.error { margin-top: 1rem; padding: 0.75rem 1rem; border-radius: 0.5rem; background: var(--error-bg); color: var(--error-text); }
+.error p { margin: 0.2rem 0; }
+.success { margin: 1rem 0; padding: 0.9rem 1rem; border-radius: 0.5rem; background: var(--bg); font-size: 1.1rem; }
+
+.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; margin-top: 1.25rem; }
+button.link { background: none; border: none; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 0.25rem 0.5rem; font: inherit; }

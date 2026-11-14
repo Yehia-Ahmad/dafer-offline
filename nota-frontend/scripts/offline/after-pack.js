@@ -8,13 +8,16 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { verifyBackend } = require('../../electron-offline/lib/integrity');
+
 const ROOT = path.resolve(__dirname, '..', '..');
 
 const COPIES = [
   {
     from: path.join(ROOT, 'offline-stage', 'backend'),
     to: 'backend',
-    required: ['src/server.js', 'node_modules/express/package.json', 'node_modules/mongoose/package.json'],
+    // Stage 24: the backend is bytecode (server.js is a loader stub) with its loader and its integrity manifest.
+    required: ['src/server.js', 'src/server.jsc', 'src/license/index.jsc', 'integrity.json', 'node_modules/bytenode/package.json', 'node_modules/express/package.json', 'node_modules/mongoose/package.json'],
   },
   {
     from: path.join(ROOT, 'vendor', 'mongodb'),
@@ -38,4 +41,11 @@ exports.default = async function afterPack(context) {
     if (missing.length) throw new Error(`[offline:afterPack] ${to} is incomplete: ${missing.join(', ')}`);
     console.log(`  • offline afterPack  copied ${path.relative(ROOT, from)} to resources/${to}`);
   }
+
+  // Stage 24: the installed backend must pass the same check the app runs at start, against the seal inside the app.
+  const sealFile = path.join(ROOT, 'offline-stage', 'app', 'electron-offline', 'lib', 'integrity-seal.json');
+  if (!fs.existsSync(sealFile)) throw new Error('[offline:afterPack] no integrity seal in the staged app; run offline:stage again');
+  const check = verifyBackend({ backendDir: path.join(resources, 'backend'), seal: JSON.parse(fs.readFileSync(sealFile, 'utf8')) });
+  if (!check.ok) throw new Error(`[offline:afterPack] the installed backend does not match its integrity manifest:\n  ${check.problems.join('\n  ')}`);
+  console.log('  • offline afterPack  backend integrity manifest verified against the seal');
 };

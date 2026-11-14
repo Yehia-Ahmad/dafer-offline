@@ -18,6 +18,8 @@ const { spawnSync } = require('node:child_process');
 const ENTROPY_BY_PURPOSE = {
   lan: 'nota-offline-lan-secret-v1',
   jwt: 'nota-offline-jwt-secret-v1',
+  // Stage 24: the mongod admin and app-user credentials (lib/db-auth.js).
+  db: 'nota-offline-db-credentials-v1',
 };
 
 // -EncodedCommand accepts no further arguments, so each mode and purpose gets its own script.
@@ -51,7 +53,7 @@ class SecretStoreError extends Error {
   }
 }
 
-// options.purpose: 'lan' (default) or 'jwt'.
+// options.purpose: 'lan' (default), 'jwt' or 'db'.
 function runDpapi(mode, inputBase64, { platform = process.platform, purpose = 'lan' } = {}) {
   if (platform !== 'win32') throw new SecretStoreError('the LAN secret store needs Windows');
   if (!ENCODED_SCRIPTS[purpose]) throw new SecretStoreError(`unknown secret purpose ${purpose}`);

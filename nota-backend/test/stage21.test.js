@@ -83,7 +83,7 @@ const accountBalance = async (key) => { const accounts = await Account.find({ sy
 const login = async (username, password) => ok(await call("POST", "/api/auth/login", { username, password })).token;
 const makeUser = async (username, role) => { ok(await call("POST", "/api/users", { name: username, username, password: "secret-pass-1", role }), 201); return login(username, "secret-pass-1"); };
 
-const enableVat = async ({ rate = 14, includes = true, taxNumber = "123-456-789" } = {}) => ok(await call("PUT", "/api/shop-profile", { name: "متجر الاختبار", taxNumber, vat: { enabled: true, rate, pricesIncludeVat: includes } }));
+const enableVat = async ({ rate = 14, includes = true, taxNumber = "123-456-789" } = {}) => ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber, vat: { enabled: true, rate, pricesIncludeVat: includes } }));
 const cashSale = async (items, extra = {}, expected = 201) => ok(await call("POST", "/api/sellings", { customerName: "Cash customer", customerPhone: "01017171718", sellingDate: TODAY, items, ...extra }), expected);
 const creditSale = async (customer, items, extra = {}) => ok(await call("POST", "/api/credit-sales", { customerId: String(customer._id), sellingDate: TODAY, items, ...extra }), 201);
 const ret = async (returnType, invoice, lines, extra = {}) => ok(await call("POST", "/api/returns", { returnType, invoiceId: invoice._id, items: lines.map(([p, q]) => ({ productId: p._id, quantity: q, returnReason: "x" })), ...extra }), 201);
@@ -125,25 +125,25 @@ it("pure math: inclusive 250 -> VAT 30.70, net 219.30; exclusive 250 -> VAT 35.0
 it("settings: tax number required to turn VAT on; rate 0-100 with 2 decimals; startDate set on turning on; additive PUT", async () => {
   const before = ok(await call("GET", "/api/shop-profile"));
   assert.equal(before.vat, undefined, "absent until saved: a shop without VAT sees what it always saw");
-  const noNumber = await call("PUT", "/api/shop-profile", { name: "متجر", vat: { enabled: true } });
+  const noNumber = await call("PUT", "/api/shop-profile", { name: "محل الاختبار", vat: { enabled: true } });
   assert.equal(noNumber.status, 400); assert.equal(noNumber.json.code, "TAX_NUMBER_REQUIRED");
   for (const rate of [-1, 100.01, 14.123, "x"]) {
-    const bad = await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "1", vat: { enabled: true, rate } });
+    const bad = await call("PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber: "1", vat: { enabled: true, rate } });
     assert.equal(bad.status, 400, String(rate)); assert.equal(bad.json.code, "INVALID_VAT_RATE");
   }
   const on = await enableVat({ rate: 14.5 });
   assert.equal(on.vat.enabled, true); assert.equal(on.vat.rate, 14.5); assert.equal(on.vat.pricesIncludeVat, true);
   assert.equal(new Date(on.vat.startDate).toISOString().slice(0, 10), TODAY);
   // An older screen (no vat block) keeps the settings.
-  const older = ok(await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "123-456-789" }));
+  const older = ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber: "123-456-789" }));
   assert.equal(older.vat.enabled, true); assert.equal(older.vat.rate, 14.5);
   // Everyone signed in reads, only shop.manage writes.
   const cashier = await makeUser("s21-cashier", "cashier");
   token = cashier;
   assert.equal((await call("GET", "/api/shop-profile")).status, 200);
-  assert.equal((await call("PUT", "/api/shop-profile", { name: "x", vat: { enabled: false } })).status, 403);
+  assert.equal((await call("PUT", "/api/shop-profile", { name: "محل الاختبار", vat: { enabled: false } })).status, 403);
   token = ownerToken;
-  const off = ok(await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "123-456-789", vat: { enabled: false } }));
+  const off = ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber: "123-456-789", vat: { enabled: false } }));
   assert.equal(off.vat.enabled, false); assert.equal(off.vat.rate, 14.5, "rate kept when turned off");
 });
 
@@ -275,7 +275,7 @@ it("a rate change applies to new documents only: old documents keep their rate a
   const returned = await ret("cash", old, [[s.a, 1]]);
   assert.equal(returned.data.returnLog.vatAmount, 14);
   // turning VAT off: the next sale has no VAT, a posted invoice keeps its VAT
-  ok(await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "123-456-789", vat: { enabled: false } }));
+  ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber: "123-456-789", vat: { enabled: false } }));
   const plain = await cashSale([{ productId: s.a._id, quantity: 1, price: 100 }]);
   assert.equal(plain.vatAmount, undefined); assert.equal(plain.totalPrice, 100);
   assert.equal(ok(await call("GET", `/api/sellings/${fresh._id}`)).vatAmount, 5);
@@ -311,7 +311,7 @@ it("a purchase from a VAT-registered supplier: 5,450 net + 763 VAT = 6,213; inve
   const printed = ok(await call("POST", "/api/purchases", purchaseBody(s, registered, { vatAmount: 760 })), 201);
   assert.equal(printed.vatAmount, 760); assert.equal(printed.total, 6210);
   // VAT amount with VAT off is refused
-  ok(await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "123-456-789", vat: { enabled: false } }));
+  ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber: "123-456-789", vat: { enabled: false } }));
   assert.equal((await call("POST", "/api/purchases", purchaseBody(s, registered, { vatAmount: 5 }))).status, 400);
   await assertHealthy();
 });
@@ -347,7 +347,7 @@ it("an expense with VAT: Dr category (net) + Dr VAT_INPUT / Cr box (total); the 
   ok(await call("POST", `/api/expenses/${expense._id}/cancel`, { reason: "اختبار" }));
   assert.equal(await accountBalance("VAT_INPUT"), 0);
   await assertHealthy();
-  ok(await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "123-456-789", vat: { enabled: false } }));
+  ok(await call("PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber: "123-456-789", vat: { enabled: false } }));
   assert.equal((await call("POST", "/api/expenses", { accountId: category, amount: 114, vatAmount: 14, boxId: s.main._id })).status, 400);
 });
 

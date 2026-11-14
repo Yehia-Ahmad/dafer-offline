@@ -232,6 +232,7 @@ describe('Stage 15: shop profile security card', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
+    http.match((r) => r.url.endsWith('license/info')).forEach((r) => r.flush({}, { status: 404, statusText: 'x' })); // Stage 24: the owner's license card asks for its details
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-test="security-card"]')!.textContent).toContain('session.security.title');
     const select = el.querySelector('#sp-autolock') as HTMLSelectElement;

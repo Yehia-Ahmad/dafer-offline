@@ -14,6 +14,11 @@ const REPO = path.resolve(BACKEND, "..");
 const MONGOD = process.env.NOTA_TEST_MONGOD || path.join(REPO, "nota-frontend", "vendor", "mongodb", "bin", process.platform === "win32" ? "mongod.exe" : "mongod");
 const OLD_COMMIT = "d5113d6";
 
+// Stage 24: the current backend answers 402 without a license; run it with a test license (test builds only). The old backend has no license code.
+const licenseHelper = require("../test/helpers/license");
+licenseHelper.installTestLicense();
+process.on("exit", () => licenseHelper.removeTestLicenseDir());
+
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const freePort = () => new Promise((resolve, reject) => {
   const server = net.createServer();
@@ -363,7 +368,7 @@ async function main() {
     const today21 = `${lastMonth21.getFullYear()}-${pad21(lastMonth21.getMonth() + 1)}-15`;
     const currentPeriod21 = `${now21.getFullYear()}-${pad21(now21.getMonth() + 1)}`;
     const round21 = (value) => Math.round(value * 100) / 100;
-    await request(currentBase, "PUT", "/api/shop-profile", { name: "Legacy shop", taxNumber: "LEG-TAX-1", vat: { enabled: true, rate: 14, pricesIncludeVat: true } });
+    await request(currentBase, "PUT", "/api/shop-profile", { name: "محل الاختبار", taxNumber: "LEG-TAX-1", vat: { enabled: true, rate: 14, pricesIncludeVat: true } });
     const vatClient = new mongoose.mongo.MongoClient(mongoUri);
     await vatClient.connect();
     try {

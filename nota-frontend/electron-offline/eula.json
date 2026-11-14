@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "draft": true,
+  "contact": {
+    "ar": "للتواصل مع المورّد: [اكتب هنا رقم الهاتف أو البريد قبل الإصدار]",
+    "en": "Vendor contact: [add the phone number or email here before release]"
+  },
+  "ar": {
+    "title": "اتفاقية ترخيص استخدام «نوتة» (مسودة للمراجعة)",
+    "paragraphs": [
+      "١. الترخيص: «نوتة» مرخّصة ولا تُباع. الترخيص لمحل واحد ولجهازه الرئيسي الذي صدر له الترخيص، مع عدد الأجهزة الفرعية المكتوب في الترخيص. الترخيص مدى الحياة ولا ينتهي بتاريخ.",
+      "٢. ممنوع النسخ والبيع والمشاركة: ما تقدرش تنسخ البرنامج أو الترخيص لجهاز تاني، ولا تبيعه أو تأجّره أو تشاركه مع محل أو شخص تاني.",
+      "٣. ممنوع الهندسة العكسية: ما تقدرش تفك البرنامج أو تعدّل ملفاته أو تتخطى الترخيص أو الحماية، ولا تفتح قاعدة البيانات بأدوات تانية.",
+      "٤. بياناتك ملكك: بيانات المحل (الفواتير والعملاء والحسابات) ملك المحل وبتتحفظ على جهازه. المورّد مش بيشوفها ولا بياخد نسخة منها إلا لو طلبت منه دعم فني.",
+      "٥. النسخ الاحتياطي مسؤوليتك: البرنامج بيعمل نسخة احتياطية يومية، لكن لازم تحتفظ بنسخة خارج الجهاز.",
+      "٦. الترخيص مرتبط بالجهاز: لو اتغيّر ويندوز على الجهاز الرئيسي بيتغيّر رقم الجهاز، فابعت الرقم الجديد للمورّد عشان يصدر لك ترخيص جديد. بياناتك على الجهاز مش بتتأثر.",
+      "٧. بدون ضمان زيادة عن القانون: البرنامج بيتقدّم «كما هو». المورّد غير مسؤول عن خسائر ناتجة عن استخدامه، إلا في الحدود اللي يفرضها القانون.",
+      "٨. الإنهاء: لو اتخالفت شروط الاتفاقية يحق للمورّد إيقاف إصدار تراخيص جديدة أو تحديثات لك.",
+      "٩. بالضغط على «أوافق» إنت بتوافق على الشروط دي."
+    ]
+  },
+  "en": {
+    "title": "Nota license agreement (DRAFT for review)",
+    "paragraphs": [
+      "1. License. Nota is licensed, not sold. The license is for one shop and for the main PC it was issued for, with the number of client PCs written in the license. It is a lifetime license and has no expiry date.",
+      "2. No copying, resale or sharing. You may not copy the software or the license to another PC, or sell, rent or share it with another shop or person.",
+      "3. No reverse engineering. You may not decompile the software, modify its files, bypass the license or the protection, or open the database with other tools.",
+      "4. Your data is yours. The shop's data (invoices, customers, accounts) belongs to the shop and stays on its PC. The vendor does not see it or take a copy unless you ask for support.",
+      "5. Backups are your responsibility. The app makes a daily backup, but you must keep a copy outside the PC.",
+      "6. The license is tied to the PC. Reinstalling Windows on the main PC changes its ID: send the new ID to the vendor to get a new license. Your data on the PC is not affected.",
+      "7. No warranty beyond what the law requires. The software is provided \"as is\". The vendor is not liable for losses from using it, except where the law says otherwise.",
+      "8. Ending. If these terms are broken, the vendor may stop issuing new licenses or updates to you.",
+      "9. By choosing \"I agree\" you accept these terms."
+    ]
+  }
+}

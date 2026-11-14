@@ -18,6 +18,7 @@ const { PREFIXES, formatDocumentNumber, nextDocumentNumber } = require("../utils
 const { withTransaction } = require("../utils/transaction");
 const { isLanMode } = require("../middlewares/lanSecret.middleware");
 const CashBox = require("../models/cashBox.model");
+const Device = require("../models/device.model");
 const PrintReservation = require("../models/printReservation.model");
 const { syncAccountBoxes } = require("../cashbox/boxes");
 
@@ -614,7 +615,7 @@ async function stage21ProductPricesMigration(session) {
 // Stage 23 review: an earlier build created a NON-unique index key_1_copyNo_1 on printreservations. The unique partial index that
 // replaces it is named print_reservation_live_unique (same key, different options), so the old one must go first or the
 // index build at startup fails with an options conflict. Index changes cannot run inside a transaction. Safe to run twice:
-// a missing index or a missing collection is ignored, and only a NON-unique index of that name is dropped.
+// a missing index or a missing collection is ignored, and the index of that name is dropped whatever its options (unique or not).
 async function stage23PrintReservationIndexMigration() {
   const collection = PrintReservation.collection;
   let indexes = [];
@@ -635,6 +636,17 @@ async function stage23PrintReservationIndexMigration() {
   return { dropped: true };
 }
 
+// Stage 24: client PCs registered before the license existed keep working: they are marked paired, so an upgrade never
+// locks a PC out. (If the shop has more than the license's maxClients, they all stay; only NEW clients are refused.)
+async function stage24PairExistingClientsMigration(session) {
+  const result = await Device.collection.updateMany(
+    { role: "client", paired: { $ne: true } },
+    [{ $set: { paired: true, pairedAt: { $ifNull: ["$createdAt", "$$NOW"] } } }],
+    { session }
+  );
+  return { paired: result.modifiedCount };
+}
+
 const migrations = [
   { version: 1, name: "document numbers and receipts", run: numbersMigration },
   { version: 2, name: "original invoice totals and returned status", chunked: true, runChunk: originalTotalsMigrationChunk },
@@ -646,7 +658,8 @@ const migrations = [
   { version: 8, name: "stage 19 review: custom expense categories get 5-digit codes under 520", run: stage19CategoryCodesMigration },
   { version: 9, name: "stage 21 VAT: input VAT account 115", run: stage21VatInputAccountMigration },
   { version: 10, name: "stage 21 review: product prices rounded to 2 decimals (cost revaluation posted)", run: stage21ProductPricesMigration },
-  { version: 11, name: "stage 23 review: drop the old non-unique printreservations index key_1_copyNo_1", outsideTransaction: true, run: stage23PrintReservationIndexMigration },
+  { version: 11, name: "stage 23 review: drop the old key_1_copyNo_1 index (unique or not)", outsideTransaction: true, run: stage23PrintReservationIndexMigration },
+  { version: 12, name: "stage 24 license: existing client PCs are paired", run: stage24PairExistingClientsMigration },
 ];
 
 async function recordMigration(migration, details, session) {

@@ -5,6 +5,11 @@ const test = require("node:test");
 
 const ShopProfile = require("../src/models/shopProfile.model");
 const app = require("../src/app");
+const { installTestLicense, removeTestLicenseDir } = require("./helpers/license");
+
+// Stage 24: the shop name comes from the license ("Shop" here) and cannot be changed through the profile.
+test.before(() => installTestLicense({ shopName: "Shop" }));
+test.after(() => removeTestLicenseDir());
 
 // There is no database in these tests. Successful reads and writes go through an in-memory
 // stand-in for findOne / findOneAndUpdate. Validation failures use the real model methods:
@@ -57,7 +62,8 @@ const put = (baseUrl, body) =>
   });
 
 const EMPTY_PROFILE = {
-  name: "",
+  name: "Shop",
+  nameLocked: true,
   address: "",
   phones: [],
   logo: null,
@@ -83,7 +89,7 @@ test("GET before anything is saved returns empty defaults and writes nothing", a
 test("PUT saves only the profile fields, upserts with validators, and GET returns them", async () => {
   const store = useMemoryStore();
   const profile = {
-    name: "Smoke Shop",
+    name: "Shop",
     address: "10 Main Street",
     phones: ["01000000001", "01000000002"],
     logo: PNG_DATA_URI,
@@ -139,9 +145,6 @@ test("PUT rejects invalid profiles with 400", async () => {
   // Valid base64 (length is a multiple of 4) that decodes to just over 500 KB.
   const oversizedLogo = `data:image/png;base64,${"AAAA".repeat(Math.ceil((500 * 1024) / 3) + 1)}`;
   const cases = [
-    ["missing name", { address: "No name" }, "اسم المتجر مطلوب"],
-    ["blank name", { name: "   " }, "اسم المتجر مطلوب"],
-    ["name over 150", { name: "n".repeat(151) }, "150"],
     ["more than 3 phones", { name: "Shop", phones: ["1", "2", "3", "4"] }, "3"],
     ["phone over 30", { name: "Shop", phones: ["1".repeat(31)] }, "30"],
     ["logo that is not a base64 image", { name: "Shop", logo: "not-an-image" }, "base64"],
@@ -159,5 +162,22 @@ test("PUT rejects invalid profiles with 400", async () => {
       const { message } = await response.json();
       assert.ok(message.includes(messagePart), `${label}: unexpected message "${message}"`);
     }
+  });
+});
+
+test("Stage 24: the shop name is locked to the license: a PUT that changes it is refused, one that repeats it (or omits it) is fine", async () => {
+  const store = useMemoryStore();
+  await withServer(async (baseUrl) => {
+    for (const body of [{ name: "Another Shop" }, { name: "Shop", nameEn: "Other" }, { name: "" }]) {
+      const response = await put(baseUrl, body);
+      assert.equal(response.status, 400, JSON.stringify(body));
+      assert.equal((await response.json()).code, "SHOP_NAME_LOCKED");
+    }
+    assert.equal(store.writes.length, 0, "nothing was written");
+    assert.equal((await put(baseUrl, { name: "Shop", address: "A" })).status, 200);
+    const omitted = await put(baseUrl, { address: "B" });
+    assert.equal(omitted.status, 200);
+    assert.equal((await omitted.json()).name, "Shop");
+    assert.equal(store.writes.at(-1).update.$set.name, "Shop", "the stored name is always the license name");
   });
 });

@@ -187,6 +187,10 @@ class SetupController {
     if (result.status === 'unreachable') {
       throw new SetupError('تعذر الوصول إلى الجهاز الرئيسي. تأكد أنه يعمل ومتصل بنفس الشبكة، وأن العنوان صحيح.', 'host');
     }
+    // Stage 24: the main PC answers 402 until its license is activated.
+    if (result.status === 'not-activated') {
+      throw new SetupError('الجهاز الرئيسي لسه متفعّلش. فعّل الترخيص على الجهاز الرئيسي الأول. / The main PC is not activated yet.', 'host');
+    }
     if (result.status !== 'ok') throw new SetupError(`هذا العنوان لا يخص جهاز ${EDITION.nameAr} رئيسي.`, 'host');
 
     const config = writeConfig(this.paths.config, {

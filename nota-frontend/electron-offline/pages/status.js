@@ -4,8 +4,8 @@
   const desktop = window.notaDesktop;
   const $ = (id) => document.getElementById(id);
   const busyStates = new Set(['starting', 'restarting', 'stopping', 'connecting']);
-  const errorStates = new Set(['failed', 'not-configured', 'unreachable', 'unauthorized', 'not-nota']);
-  const retryStates = new Set(['failed', 'unreachable', 'unauthorized', 'not-nota']);
+  const errorStates = new Set(['failed', 'not-configured', 'unreachable', 'unauthorized', 'not-nota', 'not-activated', 'damaged']);
+  const retryStates = new Set(['failed', 'unreachable', 'unauthorized', 'not-nota', 'not-activated']);
   const addressStates = new Set(['unreachable', 'unauthorized', 'not-nota']);
 
   function render(status) {

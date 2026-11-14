@@ -29,6 +29,7 @@ describe('ShopProfileComponent closing card (Stage 22)', () => {
     fixture.detectChanges();
     http.expectOne((r) => r.url === url && r.method === 'GET').flush(profile);
     await settle();
+    http.match((r) => r.url.endsWith('license/info')).forEach((r) => r.flush({}, { status: 404, statusText: 'x' })); // Stage 24: the owner's license card asks for its details
   };
   afterEach(() => http.verify());
 

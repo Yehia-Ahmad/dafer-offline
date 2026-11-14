@@ -36,6 +36,12 @@ const shopProfileSchema = new mongoose.Schema(
       trim: true,
       maxlength: [150, "يجب ألا يزيد اسم المتجر عن 150 حرف"],
     },
+    // Stage 24: from the license (read-only in the app); absent when the license has no English name.
+    nameEn: {
+      type: String,
+      trim: true,
+      maxlength: [150, "يجب ألا يزيد الاسم الإنجليزي عن 150 حرف"],
+    },
     address: {
       type: String,
       trim: true,
