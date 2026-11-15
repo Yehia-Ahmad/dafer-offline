@@ -65,6 +65,7 @@
     "@electron/fuses": "1.8.0",
     "@types/jasmine": "~5.1.0",
     "@types/node": "^20.17.19",
+    "@zxing/library": "0.23.0",
     "bytenode": "1.5.7",
     "electron": "^35.7.5",
     "electron-builder": "^26.8.1",

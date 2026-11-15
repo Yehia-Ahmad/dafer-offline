@@ -13,6 +13,9 @@ import { CateoryService } from '../../services/cateory.service';
 import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { BarcodeListComponent } from '../../../../core/scan/barcode-list.component';
+import { barcodeProblem, normalizeCode } from '../../../../core/scan/scan-normalize';
+import { LabelDialogProduct, LabelPrintDialogComponent } from '../../../../core/print/label-print-dialog.component';
 import {
   NotaButtonDirective,
   NotaDialogShellComponent,
@@ -33,7 +36,7 @@ export type ProductFormMode = 'new' | 'edit';
   selector: 'app-product-form',
   standalone: true,
   imports: [CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DialogModule, DatePickerModule, NotaCanDirective,
-    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
+    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, BarcodeListComponent, LabelPrintDialogComponent],
   templateUrl: './product-form.component.html',
   styleUrl: './product-form.component.scss',
 })
@@ -78,6 +81,24 @@ export class ProductFormComponent implements OnInit {
   newLowStockThreshold: number | string | null = '';
   /** Stage 21: "معفى من الضريبة". Sent only when it is true (add) or when it changed (edit), so a shop without VAT sends what it always sent. */
   newVatExempt = false;
+  /** Stage 26: the product's barcodes (add and edit), kept outside the reactive form like the other optional fields. */
+  barcodeList: string[] = [];
+  labelDialogVisible = false;
+
+  get canManageProducts(): boolean {
+    return this._auth.has('products.manage');
+  }
+
+  /** The product in the edit form, as the label dialog needs it (name, code, prices from the form, barcodes as listed). */
+  labelProducts: LabelDialogProduct[] = [];
+  /** The barcodes the product had when it was loaded: the edit body carries the list only when it changed. */
+  private loadedBarcodes: string[] = [];
+
+  /** Opens the label dialog with a STABLE array (a getter would hand the dialog a new array on every change detection). */
+  openLabelDialog(): void {
+    this.labelProducts = this.mode === 'edit' && this.product ? [{ ...this.product, barcodes: [...this.barcodeList], copies: 1 }] : [];
+    this.labelDialogVisible = this.labelProducts.length > 0;
+  }
   editVatExempt = false;
 
   // ---------- edit (from the old /products/edit/:id) ----------
@@ -125,6 +146,9 @@ export class ProductFormComponent implements OnInit {
       return;
     }
 
+    // Stage 26: "أضف منتج بالباركود ده" (from a scan that found nothing) opens this form with the barcode filled in.
+    const scanned = normalizeCode(this._activatedRoute.snapshot.queryParamMap.get('barcode') ?? '');
+    if (scanned && !barcodeProblem(scanned)) this.barcodeList = [scanned];
     const categoryId = this._activatedRoute.snapshot.queryParamMap.get('category') ?? '';
     const passedCodes = (typeof history !== 'undefined' ? history.state?.productCodes : null) as unknown[] | null;
     this.setNewCategory(categoryId, Array.isArray(passedCodes) ? passedCodes : null);
@@ -134,11 +158,11 @@ export class ProductFormComponent implements OnInit {
   hasUnsavedChanges(): boolean {
     if (this.leaving) return false;
     if (this.mode === 'edit') return this.editSnapshot !== null && this.editSnapshot !== this.editState();
-    return this.addProductForm.dirty || Boolean(this.imagePreview) || isFilled(this.newDiscountPercentage) || isFilled(this.newLowStockThreshold);
+    return this.addProductForm.dirty || Boolean(this.imagePreview) || isFilled(this.newDiscountPercentage) || isFilled(this.newLowStockThreshold) || this.barcodeList.length > 0;
   }
 
   private editState(): string {
-    return JSON.stringify({ product: this.product, details: this.productDetails, newInventory: this.newInventory, threshold: this.editLowStockThreshold });
+    return JSON.stringify({ product: this.product, details: this.productDetails, newInventory: this.newInventory, threshold: this.editLowStockThreshold, barcodes: this.barcodeList });
   }
 
   /** Back link / cancel target: the product's category on /products. */
@@ -272,6 +296,8 @@ export class ProductFormComponent implements OnInit {
       payload.lowStockThreshold = Number(this.newLowStockThreshold);
     }
     if (this.newVatExempt) payload.vatExempt = true;
+    // Stage 26: sent only when there are barcodes (no barcode → the same body as before).
+    if (this.barcodeList.length) payload.barcodes = [...this.barcodeList];
 
     this._cateoryService.addNewProduct(payload).pipe(
       takeUntilDestroyed(this.destroyRef)
@@ -318,6 +344,7 @@ export class ProductFormComponent implements OnInit {
     this.imagePreview = null;
     this.newDiscountPercentage = '';
     this.newLowStockThreshold = '';
+    this.barcodeList = [];
   }
 
   onNewImageSelected(event: any) {
@@ -398,6 +425,8 @@ export class ProductFormComponent implements OnInit {
         this.newInventory = null;
         this.editLowStockThreshold = isFilled(this.product?.lowStockThreshold) ? this.product.lowStockThreshold : '';
         this.editVatExempt = Boolean(this.product?.vatExempt);
+        this.barcodeList = Array.isArray(this.product?.barcodes) ? [...this.product.barcodes] : [];
+        this.loadedBarcodes = [...this.barcodeList];
         this.editSnapshot = this.editState();
         this.cdr.detectChanges();
       }, error: (err: any) => {
@@ -449,6 +478,8 @@ export class ProductFormComponent implements OnInit {
       image: this.product.image,
       editProduct: newInventoryCount === 0,
       specifications: this.normalizeProductDetails(this.productDetails),
+      // Stage 26: only when the list changed (an untouched list keeps the body exactly as before).
+      ...(JSON.stringify(this.barcodeList) !== JSON.stringify(this.loadedBarcodes) ? { barcodes: [...this.barcodeList] } : {}),
       // Stage 12: only when filled, or null to clear a threshold the product had; otherwise not sent.
       ...this.lowStockThresholdUpdate(),
       ...(this.editVatExempt !== Boolean(this.product?.vatExempt) ? { vatExempt: this.editVatExempt } : {}),

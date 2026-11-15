@@ -31,6 +31,47 @@ export class PrintSettingsService {
     return result.ok && result.value ? result.value : [];
   }
 
+  private static readonly PREFS_KEY = 'nota.devicePrefs';
+
+  private localPrefs(): { scanSoundMuted?: boolean; labelOptions?: unknown } {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(PrintSettingsService.PREFS_KEY) || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  /** Stage 26: the scan sounds are muted on this device. */
+  get scanSoundMuted(): boolean {
+    const saved = this.settings();
+    return saved ? saved.scanSoundMuted === true : this.localPrefs().scanSoundMuted === true;
+  }
+
+  /** The remembered label content options of this device (normalised by the caller), or undefined. */
+  get savedLabelOptions(): unknown {
+    return this.settings()?.labelOptions ?? this.localPrefs().labelOptions;
+  }
+
+  /**
+   * Stage 26: per-device preferences any signed-in user may keep (scan sound mute, label content options). In the desktop
+   * app they live in print-settings.json (print:prefs-set, whitelisted keys); in the dev browser in localStorage.
+   * Never throws: a failed save only means the choice is not remembered.
+   */
+  async savePrefs(patch: Pick<Partial<DesktopPrintSettings>, 'scanSoundMuted' | 'labelOptions'>): Promise<void> {
+    const bridge = getDesktopBridge()?.print;
+    try {
+      if (bridge) {
+        const result = await bridge.setPrefs(this.auth.token(), patch);
+        if (result.ok !== false && result.value) this.settings.set(result.value as DesktopPrintSettings);
+        return;
+      }
+      localStorage.setItem(PrintSettingsService.PREFS_KEY, JSON.stringify({ ...this.localPrefs(), ...patch }));
+    } catch {
+      /* not remembered */
+    }
+  }
+
   /** Saves part of the settings; resolves the saved settings or an Arabic error message. */
   async save(patch: Partial<DesktopPrintSettings>): Promise<{ ok: true; settings: DesktopPrintSettings } | { ok: false; message: string }> {
     const bridge = getDesktopBridge()?.print;

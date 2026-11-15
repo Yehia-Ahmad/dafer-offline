@@ -9,7 +9,10 @@ import { ToastService } from '../auth/toast.service';
 import { DesktopPrintJob, getDesktopBridge } from '../runtime/runtime-config';
 import { documentTestPage, receiptCalibrationPage, receiptTestPage } from './documents/test-page';
 import { PrintFontService } from './print-fonts.service';
-import { PrintContext, PrintDocument, buildPrintHtml, toShopInfo } from './print-kit';
+import { VatSettingsService } from '../../modules/shop-profile/services/vat-settings.service';
+import { LabelEntry, LabelLimitError, LabelVat, planLabelJob, productLabelRoll, productLabelSheet } from './documents/product-label';
+import { LabelOptions, LabelRollSettings, LabelSheetSettings, DEFAULT_LABEL_OPTIONS, normalizeLabelOptions, normalizeRoll, normalizeSheet } from './label-layout';
+import { PrintContext, PrintDocument, buildPrintHtml, labelPageSize, toShopInfo } from './print-kit';
 import { measureRollHeightMm, printInFrame } from './print-render';
 import { PrintSettingsService } from './print-settings.service';
 
@@ -42,6 +45,7 @@ export class PrintService {
   private readonly fonts = inject(PrintFontService);
   private readonly toast = inject(ToastService);
   private readonly settings = inject(PrintSettingsService);
+  private readonly vatSettings = inject(VatSettingsService);
 
   /** True while a print is being prepared (buttons disable themselves). */
   readonly busy = signal(false);
@@ -131,6 +135,83 @@ export class PrintService {
     }
   }
 
+  // ---------------------------------------------------------------- Stage 26: product labels
+
+  /** Today's VAT display rule for a label price (null: VAT off, or not started yet). */
+  private labelVat(): LabelVat | null {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const vat = this.vatSettings.contextFor(today);
+    return vat ? { enabled: true, rate: vat.rate, pricesIncludeVat: vat.included } : null;
+  }
+
+  /** This PC's label settings (roll, sheet, remembered options), normalised; the defaults outside the desktop app. */
+  async labelSettings(): Promise<{ roll: LabelRollSettings; sheet: LabelSheetSettings; options: LabelOptions; printer: string }> {
+    const saved = this.settings.settings() ?? (await this.settings.load());
+    return {
+      roll: normalizeRoll(saved?.labelRoll),
+      sheet: normalizeSheet(saved?.labelSheet),
+      options: normalizeLabelOptions(this.settings.savedLabelOptions ?? DEFAULT_LABEL_OPTIONS),
+      printer: saved?.labelPrinter || '',
+    };
+  }
+
+  /**
+   * "اطبع ملصقات": the labels of `entries` on the label roll or on A4 sticker sheets (options.target). Not a numbered
+   * document: no copy counter, no audit entry. Over 2,000 labels is refused with a clear message.
+   */
+  async printLabels(entries: LabelEntry[], options: LabelOptions, extra: { startAt?: number } = {}): Promise<PrintOutcome> {
+    const job = planLabelJob(entries);
+    if (job.tooMany) return this.fail(this.translate.instant('labels.tooMany', { max: 2000, total: job.total }));
+    if (!job.total) return this.fail(this.translate.instant('labels.nothing'));
+    const vat = this.labelVat();
+    const saved = await this.labelSettings();
+    const build = (ctx: PrintContext): PrintDocument => {
+      try {
+        return options.target === 'sheet'
+          ? productLabelSheet(ctx, job.entries, { sheet: saved.sheet, options, startAt: extra.startAt, vat })
+          : productLabelRoll(ctx, job.entries, { roll: saved.roll, options, vat });
+      } catch (error) {
+        if (error instanceof LabelLimitError) throw new Error(this.translate.instant('labels.tooMany', { max: 2000, total: error.total }));
+        throw error;
+      }
+    };
+    return this.print({ build }, { quiet: false });
+  }
+
+  /** "اطبع ملصق تجربة" on the label printer (the printer picked now, or the saved one). */
+  async labelTestPage(printer?: string): Promise<PrintOutcome> {
+    const bridge = getDesktopBridge()?.print;
+    if (!bridge) return this.fail(this.translate.instant('print.desktopOnly'));
+    try {
+      const ctx = await this.context();
+      const saved = await this.labelSettings();
+      const sample = { name: this.translate.instant('labels.sampleName'), code: 'TEST-1', barcode: '2000000000015', retailPrice: 123.5, wholesalePrice: 100, priceAfterDiscount: 111.15, vatExempt: false };
+      const doc = productLabelRoll(ctx, [{ item: sample, copies: 1 }], { roll: saved.roll, options: { ...saved.options, target: 'roll', internalCode: true }, vat: this.labelVat() });
+      const result = await bridge.testPage(this.auth.token(), { kind: 'label', html: buildPrintHtml(ctx, doc), labelPage: labelPageSize(doc), printer });
+      if (result.ok === false) return this.fail(result.error.message);
+      return { ok: true, cancelled: Boolean(result.value?.cancelled) };
+    } catch (error) {
+      return this.fail(this.errorMessage(error));
+    }
+  }
+
+  /** "اطبع ورقة اختبار الحدود": label borders only, on plain A4, to check the sticker sheet alignment. */
+  async outlineSheet(printer?: string): Promise<PrintOutcome> {
+    const bridge = getDesktopBridge()?.print;
+    if (!bridge) return this.fail(this.translate.instant('print.desktopOnly'));
+    try {
+      const ctx = await this.context();
+      const saved = await this.labelSettings();
+      const doc = productLabelSheet(ctx, [], { sheet: saved.sheet, options: saved.options, outline: true });
+      const result = await bridge.testPage(this.auth.token(), { kind: 'sheet', html: buildPrintHtml(ctx, doc), printer });
+      if (result.ok === false) return this.fail(result.error.message);
+      return { ok: true, cancelled: Boolean(result.value?.cancelled) };
+    } catch (error) {
+      return this.fail(this.errorMessage(error));
+    }
+  }
+
   private async run(request: PrintRequest, mode: PrintMode, options: { quiet?: boolean }): Promise<PrintOutcome> {
     if (this.busy()) return { ok: false, message: '' };
     this.busy.set(true);
@@ -159,6 +240,8 @@ export class PrintService {
       if (doc.paper === '80mm') heightMm = await measureRollHeightMm(buildPrintHtml(ctx, doc));
       const html = buildPrintHtml(ctx, doc, heightMm);
       const job: DesktopPrintJob = { html, paper: doc.paper, heightMm, title: doc.title };
+      if (doc.paper === 'label') job.labelPage = labelPageSize(doc);
+      if (doc.paper === 'A4' && doc.fullBleed) job.noMargins = true;
       const bridge = getDesktopBridge()?.print;
       if (!bridge) {
         // Dev browser: the browser's own print dialog (it cannot tell us whether the user printed): confirmed when the dialog opens.

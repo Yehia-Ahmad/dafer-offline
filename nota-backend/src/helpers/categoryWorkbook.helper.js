@@ -20,6 +20,14 @@ const PRODUCT_EXPORT_HEADERS = [
   "CreatedAt",
   "UpdatedAt",
 ];
+// Stage 26: optional on import (workbooks exported before it have no such column), written after "Code"
+// on export. Barcodes are separated by spaces.
+const PRODUCT_OPTIONAL_HEADERS = ["Barcodes"];
+const productExportHeaders = () => {
+  const headers = [...PRODUCT_EXPORT_HEADERS];
+  headers.splice(headers.indexOf("Code") + 1, 0, ...PRODUCT_OPTIONAL_HEADERS);
+  return headers;
+};
 const MAX_IMPORT_ROWS = 10_000;
 // Excel limits text cells to 32,767 characters. A lower chunk size leaves
 // headroom while preserving large Base64 images and specification JSON.
@@ -129,7 +137,7 @@ const createProductsWorksheet = (products) => {
     return { product, imageChunks, specificationChunks };
   });
 
-  const headers = [...PRODUCT_EXPORT_HEADERS];
+  const headers = productExportHeaders();
   for (let index = 1; index < maxImageChunks; index += 1) {
     headers.push(continuationHeader("ImageBase64", index));
   }
@@ -144,6 +152,7 @@ const createProductsWorksheet = (products) => {
       CategoryName: product.categoryName,
       Name: product.name,
       Code: product.code,
+      Barcodes: Array.isArray(product.barcodes) ? product.barcodes.join(" ") : "",
       InventoryCount: product.inventoryCount,
       ImageBase64: imageChunks[0],
       WholesalePrice: product.wholesalePrice,

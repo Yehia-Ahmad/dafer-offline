@@ -12,6 +12,10 @@ const {
   updateProduct,
   deleteProduct,
   restoreProduct,
+  getProductByBarcode,
+  generateProductBarcode,
+  countProductsWithoutBarcode,
+  generateMissingBarcodes,
 } = require("../controllers/product.controller");
 const { requirePermission } = require("../auth/middleware");
 const asyncHandler = require("../utils/asyncHandler");
@@ -28,6 +32,12 @@ router
   .post(requirePermission("products.manage", "products.viewCost"), createProduct); // Stage 14: creating a product needs its cost
 router.get("/print-data", requirePermission("products.view"), asyncHandler(getStockPrintData)); // Stage 23: the stock count sheet
 router.get("/search", requirePermission("products.view"), searchProducts);
+// Stage 26: barcodes. The scan lookup has the same permission (and the same fields) as the POS search;
+// generating barcodes is editing products.
+router.get("/by-barcode/:code", requirePermission("products.view"), getProductByBarcode);
+router.post("/barcodes/generate", requirePermission("products.manage"), generateProductBarcode);
+router.get("/barcodes/missing-count", requirePermission("products.manage"), countProductsWithoutBarcode);
+router.post("/barcodes/generate-missing", requirePermission("products.manage"), generateMissingBarcodes);
 router.get("/export/excel", requirePermission("products.importExport", "products.viewCost"), exportProductsExcel);
 router.get("/profit-report", profit, getProductsProfitReport);
 router.get("/profit-bar", profit, getYearProfitBarChart);

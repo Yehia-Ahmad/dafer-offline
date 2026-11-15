@@ -16,6 +16,9 @@ const { getLockedThrough } = require("../accounting/period");
 const { businessDay } = require("../utils/clock");
 const { audit } = require("../auth/audit");
 const { hasPermission } = require("../auth/middleware");
+const { barcodeType, normalizeBarcode, parseBarcodeList, sameBarcodeList } = require("../utils/barcode");
+const { assertBarcodesFree, mapBarcodeConflict } = require("../services/productBarcodes");
+const { generateBarcodes } = require("../services/barcodeGenerator");
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -470,7 +473,8 @@ const getProducts = asyncHandler(async (req, res) => {
 
   if (search) {
     const searchRegex = new RegExp(escapeRegex(search), "i");
-    filter.$or = [{ name: searchRegex }, { code: searchRegex }];
+    // Stage 26: a barcode matches exactly (never a partial match).
+    filter.$or = [{ name: searchRegex }, { code: searchRegex }, { barcodes: normalizeBarcode(search) }];
   }
 
   // Count and fetch use the exact same filter. skip/limit are applied by
@@ -511,7 +515,8 @@ const searchProducts = asyncHandler(async (req, res) => {
 
   if (q) {
     const searchRegex = new RegExp(escapeRegex(q), "i");
-    searchFilters.push({ code: searchRegex }, { name: searchRegex });
+    // Stage 26: plus an exact barcode match.
+    searchFilters.push({ code: searchRegex }, { name: searchRegex }, { barcodes: normalizeBarcode(q) });
   }
 
   if (name) {
@@ -519,7 +524,7 @@ const searchProducts = asyncHandler(async (req, res) => {
   }
 
   if (code) {
-    searchFilters.push({ code: new RegExp(escapeRegex(code), "i") });
+    searchFilters.push({ code: new RegExp(escapeRegex(code), "i") }, { barcodes: normalizeBarcode(code) });
   }
 
   if (searchFilters.length === 0) {
@@ -625,12 +630,15 @@ const createProductInTransaction = async (req, res, session) => {
   const discountPercentageInput =
     req.body.discountPercentage ?? req.body.discount_percentage;
   const lowStockThreshold = normalizeLowStockThreshold(req.body.lowStockThreshold, res);
+  // Stage 26: 0-5 barcodes, validated (400 INVALID_BARCODE) and free (409 BARCODE_TAKEN).
+  const barcodes = parseBarcodeList(req.body.barcodes) ?? [];
 
   const category = await Category.findById(categoryId).session(session);
   if (!category) {
     res.status(404);
     throw new Error("لم يتم العثور على فئة للمعرّف المقدم");
   }
+  await assertBarcodesFree(barcodes, { session });
 
   assertPricePrecision(wholesalePrice, "سعر الجملة");
   assertPricePrecision(purchasePrice, "سعر الشراء");
@@ -693,6 +701,7 @@ const createProductInTransaction = async (req, res, session) => {
   const payload = {
     name,
     code,
+    barcodes,
     inventoryCount: normalizedInventoryCount,
     category: categoryId,
     wholesalePrice,
@@ -733,12 +742,21 @@ const createProductInTransaction = async (req, res, session) => {
   const product = await Product.create([payload], { session }).then((rows) => rows[0]);
   const openingStock = Number(product.inventoryCount || 0);
   if (openingStock > 0) await postStockAdjustment({ date: new Date(), source: { type: "product_create", id: product._id, number: product.code }, amount: roundMoney(openingStock * Number(product.purchasePrice || 0)), increase: true, session });
+  if (barcodes.length) await auditBarcodes(req, product._id, [], barcodes, session);
   await product.populate("category", CATEGORY_PRODUCT_FIELDS);
   return product;
 };
 
+/** Stage 26: barcode changes go to the product's audit log (before → after). */
+const auditBarcodes = (req, productId, before, after, session, extra = {}) =>
+  audit(req, { action: "product.barcodes_changed", entity: "Product", entityId: productId, details: { before: [...(before || [])], after: [...(after || [])], ...extra }, session, strict: true });
+
 const createProduct = asyncHandler(async (req, res) => {
-  const product = await withTransaction((session) => createProductInTransaction(req, res, session));
+  const barcodes = Array.isArray(req.body?.barcodes) ? req.body.barcodes.map(normalizeBarcode) : [];
+  const product = await mapBarcodeConflict(
+    () => withTransaction((session) => createProductInTransaction(req, res, session)),
+    { barcodes }
+  );
   res.status(201).json(product);
 });
 
@@ -798,6 +816,15 @@ const updateProductInTransaction = async (req, res, session) => {
   if (req.body.name !== undefined) product.name = req.body.name;
 
   if (req.body.code !== undefined) product.code = req.body.code;
+  // Stage 26: barcodes (absent → unchanged). An archived product holds none in the unique index, so
+  // its list is only checked again when it is unarchived.
+  const nextBarcodes = parseBarcodeList(req.body.barcodes);
+  const previousBarcodes = [...(product.barcodes || [])];
+  const barcodesChanged = nextBarcodes !== undefined && !sameBarcodeList(previousBarcodes, nextBarcodes);
+  if (barcodesChanged) {
+    if (product.isArchived !== true) await assertBarcodesFree(nextBarcodes, { excludeId: product._id, session });
+    product.barcodes = nextBarcodes;
+  }
   const currentInventoryCount = Number(product.inventoryCount || 0);
   const currentSoldItemCount = Number(product.soldItemCount || 0);
   const payloadInventoryCount = req.body.inventoryCount;
@@ -918,12 +945,17 @@ const updateProductInTransaction = async (req, res, session) => {
   if (inventoryDelta !== 0) await postStockAdjustment({ date: new Date(), source: { type: "inventory_adjustment", id: updatedProduct._id, number: updatedProduct.code }, amount: roundMoney(Math.abs(inventoryDelta) * Number(updatedProduct.purchasePrice || 0)), increase: inventoryDelta > 0, session });
   const purchaseDelta = Number(updatedProduct.purchasePrice || 0) - oldPurchase;
   if (purchaseDelta !== 0 && oldInventory > 0) await postStockAdjustment({ date: new Date(), source: { type: "cost_revaluation", id: updatedProduct._id, number: updatedProduct.code }, amount: roundMoney(oldInventory * Math.abs(purchaseDelta)), increase: purchaseDelta > 0, session });
+  if (barcodesChanged) await auditBarcodes(req, updatedProduct._id, previousBarcodes, nextBarcodes, session);
   await updatedProduct.populate("category", CATEGORY_PRODUCT_FIELDS);
   return updatedProduct;
 };
 
 const updateProduct = asyncHandler(async (req, res) => {
-  const updatedProduct = await withTransaction((session) => updateProductInTransaction(req, res, session));
+  const barcodes = Array.isArray(req.body?.barcodes) ? req.body.barcodes.map(normalizeBarcode) : [];
+  const updatedProduct = await mapBarcodeConflict(
+    () => withTransaction((session) => updateProductInTransaction(req, res, session)),
+    { barcodes, excludeId: mongoose.isValidObjectId(req.params.id) ? req.params.id : undefined }
+  );
   res.json(updatedProduct);
 });
 
@@ -1139,15 +1171,99 @@ const deleteProduct = asyncHandler(async (req, res) => {
 });
 
 const restoreProduct = asyncHandler(async (req, res) => {
-  const product = await withTransaction(async (session) => {
+  const excludeId = mongoose.isValidObjectId(req.params.id) ? req.params.id : undefined;
+  const product = await mapBarcodeConflict(() => withTransaction(async (session) => {
     const found = await Product.findById(req.params.id).session(session);
     if (!found) { const error = new Error("المنتج غير موجود"); error.statusCode = 404; throw error; }
+    // Stage 26: its barcodes were freed when it was archived; another product may hold one now.
+    await assertBarcodesFree([...(found.barcodes || [])], { excludeId: found._id, session, restoring: true });
     found.isArchived = false; found.archivedAt = undefined; found.archivedBy = undefined;
     await found.save({ session });
     await audit(req, { action: "product.restored", entity: "Product", entityId: found._id, session, strict: true });
     return found;
-  });
+  }), { excludeId, restoring: true });
   res.json(product);
+});
+
+// ---------- Stage 26: barcodes ----------
+
+const BARCODE_PRODUCT_FIELDS = CATEGORY_PRODUCT_FIELDS;
+
+/**
+ * GET /products/by-barcode/:code: the non-archived product with this exact barcode, with the same
+ * fields (and the same cost stripping) as the POS search. 404 BARCODE_NOT_FOUND otherwise;
+ * `archived: true` when only an archived product has it (the POS says "المنتج ده متأرشف").
+ */
+const getProductByBarcode = asyncHandler(async (req, res) => {
+  const code = normalizeBarcode(req.params.code);
+  const notFound = (archived) => {
+    const error = new Error(archived ? "المنتج ده متأرشف" : `باركود مش متسجل: ${code}`);
+    error.statusCode = 404;
+    error.responseData = { code: "BARCODE_NOT_FOUND", barcode: code, archived };
+    return error;
+  };
+  if (!code) throw notFound(false);
+  const product = await Product.findOne({ barcodes: code, isArchived: { $ne: true } }).populate("category", BARCODE_PRODUCT_FIELDS);
+  if (product) return res.json(product);
+  const archived = await Product.exists({ barcodes: code, isArchived: true });
+  throw notFound(Boolean(archived));
+});
+
+/** POST /products/barcodes/generate: one new in-store EAN-13 (the form adds it to the list; saved with the product). */
+const generateProductBarcode = asyncHandler(async (_req, res) => {
+  const [barcode] = await generateBarcodes(1);
+  res.status(201).json({ barcode, type: barcodeType(barcode) });
+});
+
+const missingBarcodeFilter = async (req, res) => {
+  const categoryId = req.query?.categoryId || req.body?.categoryId;
+  const filter = { isArchived: { $ne: true }, $or: [{ barcodes: { $exists: false } }, { barcodes: { $size: 0 } }, { barcodes: null }] };
+  if (categoryId) {
+    if (!mongoose.isValidObjectId(categoryId)) { res.status(400); throw new Error("معرّف الفئة غير صالح"); }
+    if (!(await Category.exists({ _id: categoryId }))) { res.status(404); throw new Error("لم يتم العثور على فئة للمعرّف المقدم"); }
+    filter.category = categoryId;
+  }
+  return filter;
+};
+
+/** GET /products/barcodes/missing-count?categoryId=: how many non-archived products have no barcode. */
+const countProductsWithoutBarcode = asyncHandler(async (req, res) => {
+  const filter = await missingBarcodeFilter(req, res);
+  res.json({ count: await Product.countDocuments(filter) });
+});
+
+const GENERATE_BATCH = 200;
+
+/**
+ * POST /products/barcodes/generate-missing { categoryId? }: one generated barcode for each non-archived
+ * product (of the category, or all) that has none, in batches (one transaction each). → { done }.
+ */
+const generateMissingBarcodes = asyncHandler(async (req, res) => {
+  const filter = await missingBarcodeFilter(req, res);
+  let done = 0;
+  for (let round = 0; round < 10000; round += 1) {
+    const batchDone = await withTransaction(async (session) => {
+      const products = await Product.find(filter).select("_id barcodes").sort({ _id: 1 }).limit(GENERATE_BATCH).session(session).lean();
+      if (!products.length) return 0;
+      const codes = await generateBarcodes(products.length, { session });
+      let updated = 0;
+      for (let index = 0; index < products.length; index += 1) {
+        // Still without a barcode (inside the transaction a concurrent save conflicts and retries).
+        const result = await Product.updateOne(
+          { _id: products[index]._id, $or: [{ barcodes: { $exists: false } }, { barcodes: { $size: 0 } }, { barcodes: null }] },
+          { $set: { barcodes: [codes[index]] } },
+          { session }
+        );
+        if (!result.modifiedCount) continue;
+        updated += 1;
+        await auditBarcodes(req, products[index]._id, [], [codes[index]], session, { generated: true });
+      }
+      return { found: products.length, updated };
+    });
+    if (!batchDone) break;
+    done += batchDone.updated;
+  }
+  res.json({ done });
 });
 
 const getYearProfitBarChart = asyncHandler(async (req, res) => {
@@ -1321,4 +1437,8 @@ module.exports = {
   updateProduct,
   deleteProduct,
   restoreProduct,
+  getProductByBarcode,
+  generateProductBarcode,
+  countProductsWithoutBarcode,
+  generateMissingBarcodes,
 };

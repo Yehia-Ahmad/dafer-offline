@@ -31,6 +31,7 @@ function fakeBridge(settings: DesktopPrintSettings = SETTINGS): Fake {
     printers: jasmine.createSpy('printers').and.resolveTo({ ok: true, value: [{ name: 'EPSON', displayName: 'Epson TM', isDefault: false }, { name: 'HP', displayName: 'HP LaserJet', isDefault: true }] }),
     getSettings: jasmine.createSpy('getSettings').and.callFake(async () => ({ ok: true, value: settings })),
     setSettings: jasmine.createSpy('setSettings').and.callFake(async (_token: string, patch: Partial<DesktopPrintSettings>) => ({ ok: true, value: { ...settings, ...patch } })),
+    setPrefs: jasmine.createSpy('setPrefs').and.callFake(async (_token: string, patch: Partial<DesktopPrintSettings>) => ({ ok: true, value: { ...settings, ...patch } })),
     testPage: jasmine.createSpy('testPage').and.resolveTo({ ok: true, value: { printed: true, printer: 'EPSON' } }),
     print: jasmine.createSpy('print').and.resolveTo({ ok: true, value: { printed: true, silent: true, printer: 'EPSON' } }),
     savePdf: jasmine.createSpy('savePdf').and.resolveTo({ ok: true, value: { saved: true, path: 'C:\\x.pdf' } }),

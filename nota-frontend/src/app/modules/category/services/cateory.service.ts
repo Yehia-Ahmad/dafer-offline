@@ -14,6 +14,8 @@ export interface Product {
   /** Stage 12 (optional): low stock when inventoryCount <= this; missing → 5. */
   lowStockThreshold?: number;
   isArchived?: boolean;
+  /** Stage 26: 0-5 barcodes (the first one is shown in lists and printed on labels). */
+  barcodes?: string[];
   [key: string]: unknown;
 }
 
@@ -26,6 +28,8 @@ export interface CategoryPayload {
 export interface ProductPayload {
   name?: string;
   code?: string;
+  /** Stage 26: the whole list (sent on create when non-empty, and on every edit). */
+  barcodes?: string[];
   inventoryCount?: number | string;
   newInventory?: number | string;
   imageBase64?: string;

@@ -21,6 +21,8 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { CartRescueService } from '../../../../core/auth/cart-rescue.service';
 import { isOverDiscountLimit } from '../../../../core/auth/discount-limit';
 import { ToastService } from '../../../../core/auth/toast.service';
+import { ScanFeedbackService } from '../../../../core/scan/scan-feedback.service';
+import { ScanService } from '../../../../core/scan/scan.service';
 import { PrintActionItem, PrintActionsComponent } from '../../../../core/print/print-actions.component';
 import { PrintDataService } from '../../../../core/print/print-data.service';
 import { PrintService } from '../../../../core/print/print.service';
@@ -457,6 +459,59 @@ export class SellingComponent implements OnInit, OnDestroy {
 
   isLowStock(product: ProductSearchResult): boolean {
     return product.inventoryCount !== null && product.inventoryCount <= POS_LOW_STOCK;
+  }
+
+  private readonly _scan = inject(ScanService);
+  private readonly _scanFeedback = inject(ScanFeedbackService);
+
+  /**
+   * Stage 26: Enter in the product box (a barcode scanner's last key).
+   *   - an exact barcode or product code adds the product with quantity 1 (+1 on a line of the same product and price type);
+   *     the usual stock, price and VAT rules apply, a scan is just a faster add. The box is cleared and keeps the focus;
+   *   - nothing exact → the error sound + the toast "باركود مش متسجل" (with "أضف منتج بالباركود ده" for users who can),
+   *     and the text stays, selected, so the next scan replaces it. When the typed text still has partial matches in
+   *     the grid (a name being searched) Enter does nothing and the grid keeps filtering as before;
+   *   - an archived product's barcode → "المنتج ده متأرشف".
+   */
+  async onGridSearchEnter(event: Event): Promise<void> {
+    event.preventDefault();
+    const input = event.target as HTMLInputElement;
+    const typed = String(input?.value || '').trim();
+    if (!typed) return;
+    const result = await this._scan.lookup(typed);
+    if (result.kind === 'product') {
+      const product = this.extractProducts([result.product])[0];
+      if (!product) return;
+      this.addScannedProduct(product);
+      this._scanFeedback.found();
+      this.gridQuery = '';
+      if (input) input.value = '';
+      this.loadGrid();
+      this._cdr.detectChanges();
+      this.focusSearch();
+      return;
+    }
+    if (result.kind === 'notFound' && !this.isGridLoading && this.gridProducts.length > 0) return;
+    this._scanFeedback.miss(result);
+    input?.focus();
+    input?.select();
+  }
+
+  /** A scanned product: +1 on the line with the same product AND the same price type (a new line starts as wholesale), else a new line. */
+  addScannedProduct(product: ProductSearchResult): void {
+    const existing = this.invoiceItemStates.findIndex(
+      (state, index) => state.selectedProduct?.id === product.id && this.getInvoiceItem(index).get('priceType')?.value === 'wholesalePrice'
+    );
+    if (existing > -1) {
+      this.stepQuantity(existing, 1);
+      return;
+    }
+    let index = this.invoiceItemStates.findIndex((state) => !state.selectedProduct);
+    if (index === -1) {
+      this.addInvoiceItem(false);
+      index = this.invoiceItems.length - 1;
+    }
+    this.onNativeOptionSelect(index, product);
   }
 
   /** Tile click: +1 on the line that already has this product, else fill the first empty line (or a new one). */

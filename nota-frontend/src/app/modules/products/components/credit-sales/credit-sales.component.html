@@ -81,7 +81,7 @@
                         <input #lineSearch type="text" class="nota-input" autocomplete="off" [value]="state.searchInputValue"
                           [attr.aria-label]="('creditSalePage.fields.searchProduct' | translate) + ' ' + (index + 1)"
                           [placeholder]="'creditSalePage.form.addItemPlaceholder' | translate"
-                          (input)="onSearchInputChange(index, $event)" (focus)="onSearchInputFocus(index)" (blur)="onSearchInputBlur(index)" />
+                          (input)="onSearchInputChange(index, $event)" (keydown.enter)="onLineScanEnter(index, $event)" data-test="line-search" (focus)="onSearchInputFocus(index)" (blur)="onSearchInputBlur(index)" />
                         @if (state.isSearching) {
                           <div class="nota-ac__loading" role="status">{{ 'creditSalePage.actions.searching' | translate }}</div>
                         }

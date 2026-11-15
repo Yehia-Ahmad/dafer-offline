@@ -35,6 +35,9 @@ const PERMISSIONS = {
   "products.viewCost": { group: "products", ar: "عرض سعر الشراء والربح", en: "View purchase price and profit" },
   "products.syncPrice": { group: "products", ar: "مزامنة سعر الشراء مع الفواتير", en: "Sync purchase price to invoices" },
   "products.importExport": { group: "products", ar: "استيراد وتصدير Excel", en: "Excel import and export" },
+  // Stage 26: barcode stickers. Labels are built on the PC from data the user can already read; this
+  // gates the print buttons (and the desktop app's label options channel).
+  "products.printLabels": { group: "products", ar: "طباعة ملصقات الباركود", en: "Print barcode labels" },
   "categories.manage": { group: "products", ar: "إدارة الفئات", en: "Manage categories" },
 
   "reports.profit": { group: "reports", ar: "تقارير الأرباح", en: "Profit reports" },
@@ -122,7 +125,7 @@ const ROLE_TEMPLATES = Object.freeze({
     "shift.operate",
     "expenses.create",
   ]),
-  storekeeper: Object.freeze(["products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view", "purchases.view", "purchases.create"]),
+  storekeeper: Object.freeze(["products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "products.printLabels", "suppliers.view", "purchases.view", "purchases.create"]),
   accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view", "purchases.view", "suppliers.pay", "cashbox.view", "expenses.create", "expenses.manage", "vat.file", "reports.financial"]),
 });
 

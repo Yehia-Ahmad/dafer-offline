@@ -33,6 +33,14 @@ import {
 import { CategoryToolsComponent } from '../category-tools/category-tools.component';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { ToastService } from '../../../../core/auth/toast.service';
+import { TranslateService } from '@ngx-translate/core';
+import { firstValueFrom } from 'rxjs';
+import { BarcodeApiService } from '../../../../core/scan/barcode-api.service';
+import { ScanService } from '../../../../core/scan/scan.service';
+import { ScanSoundService } from '../../../../core/scan/scan-sound.service';
+import { normalizeCode } from '../../../../core/scan/scan-normalize';
+import { LabelDialogProduct, LabelPrintDialogComponent } from '../../../../core/print/label-print-dialog.component';
 
 /** Low stock when inventoryCount <= the product's lowStockThreshold, or this default (same as the backend). */
 export const LOW_STOCK_THRESHOLD = 5;
@@ -54,7 +62,7 @@ export function stockThreshold(product: { lowStockThreshold?: unknown } | null |
   selector: 'app-products-page',
   standalone: true,
   imports: [PrintActionsComponent, CommonModule, FormsModule, RouterLink, TranslatePipe, DialogModule, NotaButtonDirective, NotaDialogShellComponent,
-    NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, CategoryToolsComponent, NotaCanDirective],
+    NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, CategoryToolsComponent, NotaCanDirective, LabelPrintDialogComponent],
   templateUrl: './products-page.component.html',
   styleUrl: './products-page.component.scss',
 })
@@ -68,7 +76,7 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   }
   private readonly _auth = inject(AuthService);
   /** Table columns: the purchase-price column is there only with products.viewCost. */
-  readonly columnCount = computed(() => (this._auth.has('products.viewCost') ? 8 : 7));
+  readonly columnCount = computed(() => 8 + (this._auth.has('products.viewCost') ? 1 : 0) + (this._auth.has('products.printLabels') ? 1 : 0));
   private readonly _catalog = inject(CatalogStateService);
   private readonly _cateoryService = inject(CateoryService);
   private readonly _activatedRoute = inject(ActivatedRoute);
@@ -107,6 +115,135 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   currentPage = 0;
   totalPages = 1;
 
+  // ---------- Stage 26: barcodes (scan to find, bulk generate, print labels) ----------
+  private readonly scan = inject(ScanService);
+  private readonly sounds = inject(ScanSoundService);
+  private readonly toast = inject(ToastService);
+  private readonly translate = inject(TranslateService);
+  private readonly barcodeApi = inject(BarcodeApiService);
+  @ViewChild('productSearch') private productSearch?: ElementRef<HTMLInputElement>;
+
+  /** Ids ticked for "اطبع ملصقات للمحدد". */
+  selectedIds = new Set<string>();
+  labelDialogVisible = false;
+  labelProducts: LabelDialogProduct[] = [];
+  bulkVisible = false;
+  bulkCount = 0;
+  bulkBusy = false;
+
+  /** Reloads the list from the first page (after barcodes were generated from the label dialog). */
+  reloadProducts(): void {
+    this.resetProductsPagination();
+    this.loadNextPage();
+  }
+
+  firstBarcode(product: Product | null | undefined): string {
+    return Array.isArray(product?.barcodes) && product.barcodes.length ? product.barcodes[0] : '';
+  }
+
+  toggleSelected(product: Product, checked: boolean): void {
+    if (checked) this.selectedIds.add(product._id);
+    else this.selectedIds.delete(product._id);
+  }
+
+  allVisibleSelected(): boolean {
+    const visible = this.filteredProducts.filter((product) => !product.isArchived);
+    return visible.length > 0 && visible.every((product) => this.selectedIds.has(product._id));
+  }
+
+  toggleAllVisible(checked: boolean): void {
+    for (const product of this.filteredProducts.filter((entry) => !entry.isArchived)) this.toggleSelected(product, checked);
+  }
+
+  /** "اطبع ملصقات للمحدد": a quantity per product (default 1) is set in the dialog. */
+  printSelectedLabels(): void {
+    this.labelProducts = this.products.filter((product) => this.selectedIds.has(product._id)).map((product) => ({ ...product, copies: 1 }));
+    this.labelDialogVisible = this.labelProducts.length > 0;
+  }
+
+  /** "اطبع ملصقات كل منتجات الفئة": every non-archived product of the open category (read page by page, 100 at a time). */
+  async printCategoryLabels(): Promise<void> {
+    if (!this.categoryId) return;
+    const all: Product[] = [];
+    try {
+      for (let page = 1; page <= 200; page += 1) {
+        const result = await firstValueFrom(this._cateoryService.getProductsPage(this.categoryId, { page, limit: 100 }));
+        all.push(...result.products);
+        if (!result.pagination.hasNextPage) break;
+      }
+    } catch (error) {
+      this.toast.error((error as { error?: { message?: string } })?.error?.message || this.translate.instant('barcodes.lookupFailed'));
+      return;
+    }
+    this.labelProducts = all.map((product) => ({ ...product, copies: 1 }));
+    this.labelDialogVisible = this.labelProducts.length > 0;
+    this.cdr.detectChanges();
+  }
+
+  /** Enter in the search box (a scanner's last key): an exact barcode, then an exact code. Anything else keeps the typed filter. */
+  async onSearchEnter(event: Event): Promise<void> {
+    event.preventDefault();
+    const typed = this.searchTerm.trim();
+    if (!typed) return;
+    const result = await this.scan.lookup(typed);
+    if (result.kind === 'product') {
+      const product = result.product as unknown as Product;
+      if (!this.products.some((entry) => entry._id === product._id)) this.products = [product, ...this.products];
+      this.searchTerm = result.matchedBy === 'barcode' ? this.firstBarcodeMatch(product, result.code) : String(product.code ?? typed);
+      this.sounds.ok();
+    } else if (result.kind === 'archived') {
+      this.sounds.error();
+      this.toast.error(this.translate.instant('barcodes.archived'));
+      this.productSearch?.nativeElement.select();
+    } else if (result.kind === 'notFound') {
+      // Nothing exact: the typed text stays as a normal (partial) filter, no error (the user may be typing a name).
+      this.searchTerm = typed;
+    } else {
+      this.toast.error(result.message || this.translate.instant('barcodes.lookupFailed'));
+    }
+    this.cdr.detectChanges();
+  }
+
+  private firstBarcodeMatch(product: Product, code: string): string {
+    return (product.barcodes ?? []).find((barcode) => barcode === code) ?? code;
+  }
+
+  /** "ولّد باركود للمنتجات اللي ملهاش": shows how many products it will touch (the open category, or all) and asks to confirm. */
+  async openBulkGenerate(): Promise<void> {
+    try {
+      const { count } = await firstValueFrom(this.barcodeApi.missingCount(this.categoryId || undefined));
+      if (!count) {
+        this.toast.show(this.translate.instant('barcodes.bulk.none', { scope: this.bulkScope() }), 'info');
+        return;
+      }
+      this.bulkCount = count;
+      this.bulkVisible = true;
+    } catch (error) {
+      this.toast.error((error as { error?: { message?: string } })?.error?.message || this.translate.instant('barcodes.bulk.failed'));
+    }
+    this.cdr.detectChanges();
+  }
+
+  bulkScope(): string {
+    return this.categoryId ? (this.selectedCategory?.label ?? '') : this.translate.instant('barcodes.bulk.scopeAll');
+  }
+
+  async confirmBulkGenerate(): Promise<void> {
+    this.bulkBusy = true;
+    try {
+      const { done } = await firstValueFrom(this.barcodeApi.generateMissing(this.categoryId || undefined));
+      this.toast.show(this.translate.instant('barcodes.bulk.done', { count: done }), 'success');
+      this.bulkVisible = false;
+      this.resetProductsPagination();
+      this.loadNextPage();
+    } catch (error) {
+      this.toast.error((error as { error?: { message?: string } })?.error?.message || this.translate.instant('barcodes.bulk.failed'));
+    } finally {
+      this.bulkBusy = false;
+      this.cdr.detectChanges();
+    }
+  }
+
   ngOnInit(): void {
     this._activatedRoute.queryParamMap.pipe(
       map((params) => params.get('category') ?? ''),
@@ -139,7 +276,10 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
       : this.products.filter((product) => {
         const productName = String(product?.name || '').toLowerCase();
         const productCode = String(product?.code || '').toLowerCase();
-        return productName.includes(normalizedSearchTerm) || productCode.includes(normalizedSearchTerm);
+        // Stage 26: barcodes are searched too (a typed or Arabic-layout scanned code is normalised first).
+        const scanned = normalizeCode(normalizedSearchTerm).toLowerCase();
+        const barcodeHit = (product?.barcodes ?? []).some((barcode) => barcode.toLowerCase().includes(scanned));
+        return productName.includes(normalizedSearchTerm) || productCode.includes(normalizedSearchTerm) || barcodeHit;
       });
     return this.lowStockOnly ? searched.filter((product) => this.isLowStock(product)) : searched;
   }

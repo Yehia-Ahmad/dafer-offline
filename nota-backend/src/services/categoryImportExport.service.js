@@ -4,6 +4,8 @@ const Product = require("../models/product.model");
 const { postStockAdjustment, isSetupMode } = require("../accounting/opening");
 const isBase64Image = require("../utils/isBase64Image");
 const { hasMoneyPrecision } = require("../utils/pricePrecision");
+const { parseBarcodeList } = require("../utils/barcode");
+const { isBarcodeDuplicateKey } = require("./productBarcodes");
 const {
   createCategoryWorkbook,
   readCategoryAndProductWorkbook,
@@ -197,6 +199,9 @@ const validateProductImportRow = ({ rowNumber, values }) => {
   if (image && !isBase64Image(image)) {
     throw new Error("ImageBase64 must contain a valid base64 image");
   }
+  // Stage 26: optional "Barcodes" column, space (or comma) separated; the product rules apply.
+  const barcodeCell = normalizeStringCell(values.Barcodes);
+  const barcodes = barcodeCell ? parseBarcodeList(barcodeCell.split(/[\s,;]+/).filter(Boolean)) : [];
 
   return {
     rowNumber,
@@ -206,6 +211,7 @@ const validateProductImportRow = ({ rowNumber, values }) => {
       ...(productId ? { _id: productId } : {}),
       name,
       code,
+      barcodes,
       inventoryCount,
       ...(image ? { image } : {}),
       wholesalePrice,
@@ -247,6 +253,7 @@ const exportCategories = async () => {
       categoryName: categoryNamesById.get(categoryId) || "Uncategorized",
       name: product.name,
       code: product.code,
+      barcodes: Array.isArray(product.barcodes) ? product.barcodes : [],
       inventoryCount: product.inventoryCount,
       imageBase64: product.image || "",
       wholesalePrice: product.wholesalePrice,
@@ -354,6 +361,13 @@ const importCategories = async (buffer, session) => {
     existingProducts.map((product) => product._id.toString())
   );
   const productRowsToInsert = [];
+  const fileBarcodes = [...new Set(validatedProductRows.flatMap((row) => row.product.barcodes || []))];
+  const holders = fileBarcodes.length
+    ? await Product.find({ barcodes: { $in: fileBarcodes }, isArchived: { $ne: true } }).select("name code barcodes").session(session || null).lean()
+    : [];
+  const heldBarcodes = new Map();
+  for (const holder of holders) for (const code of holder.barcodes || []) heldBarcodes.set(code, holder);
+  const usedBarcodes = new Set();
 
   for (const row of validatedProductRows) {
     const categoryId = categoriesByName.get(row.categoryName);
@@ -372,6 +386,19 @@ const importCategories = async (buffer, session) => {
       });
       continue;
     }
+
+    // Stage 26: a barcode used twice in the file, or already held by a non-archived product.
+    const repeated = row.product.barcodes.find((code) => usedBarcodes.has(code));
+    if (repeated) {
+      productErrors.push({ row: row.rowNumber, message: `Barcode ${repeated} is used by another row of this file` });
+      continue;
+    }
+    const heldBy = row.product.barcodes.map((code) => [code, heldBarcodes.get(code)]).find(([, holder]) => holder);
+    if (heldBy) {
+      productErrors.push({ row: row.rowNumber, message: `الباركود ${heldBy[0]} مستخدم بالفعل في المنتج «${heldBy[1].name}» (كود ${heldBy[1].code})` });
+      continue;
+    }
+    row.product.barcodes.forEach((code) => usedBarcodes.add(code));
 
     if (row.productId) usedProductIds.add(row.productId);
     row.product.category = categoryId;
@@ -392,9 +419,11 @@ const importCategories = async (buffer, session) => {
       const failedIndex = error.writeErrors?.[0]?.index ?? error.index ?? 0;
       const row = productRowsToInsert[failedIndex] || productRowsToInsert[0];
       throw importWriteFailure({
-        productErrors: [{ row: row?.rowNumber || 0, message: error.code === 11000
-          ? `Duplicate product ID: ${row?.product?._id || ""}`
-          : error.message || "Database insert failed" }],
+        productErrors: [{ row: row?.rowNumber || 0, message: isBarcodeDuplicateKey(error) || isBarcodeDuplicateKey(error.writeErrors?.[0]?.err)
+          ? `الباركود ${error?.keyValue?.barcodes || ""} مستخدم بالفعل في منتج تاني`
+          : error.code === 11000
+            ? `Duplicate product ID: ${row?.product?._id || ""}`
+            : error.message || "Database insert failed" }],
       });
     }
   }

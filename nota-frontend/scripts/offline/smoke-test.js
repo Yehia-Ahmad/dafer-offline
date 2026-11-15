@@ -507,6 +507,60 @@ async function runAuthScenarios(ctx) {
     return `cashier: no purchasePrice; owner: ${asOwner.json.purchasePrice}`;
   });
 
+  // Stage 26: product barcodes (the owner's token is the default; the cashier is the signed-in user without edit rights).
+  await step('Barcodes: a product with a barcode → by-barcode finds exactly it (no match for a prefix)', async () => {
+    requireCtx(ctx, 'categoryId');
+    const created = await request('POST', '/api/products', { body: { name: 'Barcode Product', code: 'BC-1', categoryId: ctx.categoryId, inventoryCount: 5, purchasePrice: 20, wholesalePrice: 30, retailPrice: 40, barcodes: ['4006381333931'] } });
+    expectStatus(created, 201, 'POST /api/products with a barcode');
+    ctx.barcodeProductId = created.json._id;
+    expect(JSON.stringify(created.json.barcodes) === '["4006381333931"]', `barcodes expected the one code, got ${JSON.stringify(created.json.barcodes)}`);
+    const found = await request('GET', '/api/products/by-barcode/4006381333931');
+    expectStatus(found, 200, 'GET /api/products/by-barcode/:code');
+    expect(found.json._id === ctx.barcodeProductId, `by-barcode found ${found.json._id}`);
+    const partial = await request('GET', '/api/products/by-barcode/400638133393');
+    expectStatus(partial, 404, 'GET /api/products/by-barcode/<prefix>');
+    expect(partial.json.code === 'BARCODE_NOT_FOUND', `code expected BARCODE_NOT_FOUND, got ${partial.json.code}`);
+    return `product ${ctx.barcodeProductId}; exact match only`;
+  });
+
+  await step('Barcodes: the same barcode on another product → 409 BARCODE_TAKEN naming the first; a wrong check digit → 400', async () => {
+    requireCtx(ctx, 'categoryId', 'barcodeProductId');
+    const taken = await request('POST', '/api/products', { body: { name: 'Barcode Twin', code: 'BC-2', categoryId: ctx.categoryId, inventoryCount: 1, purchasePrice: 20, wholesalePrice: 30, retailPrice: 40, barcodes: ['4006381333931'] } });
+    expectStatus(taken, 409, 'POST /api/products with a taken barcode');
+    expect(taken.json.code === 'BARCODE_TAKEN' && taken.json.product && taken.json.product.name === 'Barcode Product', `unexpected answer ${describe(taken)}`);
+    const wrong = await request('POST', '/api/products', { body: { name: 'Bad Digit', code: 'BC-3', categoryId: ctx.categoryId, inventoryCount: 1, purchasePrice: 20, wholesalePrice: 30, retailPrice: 40, barcodes: ['4006381333932'] } });
+    expectStatus(wrong, 400, 'POST /api/products with a wrong check digit');
+    expect(wrong.json.code === 'INVALID_BARCODE', `code expected INVALID_BARCODE, got ${wrong.json.code}`);
+    return `${describe(taken)}; ${describe(wrong)}`;
+  });
+
+  await step('Barcodes: generate → an in-store EAN-13 (prefix 2, valid check digit)', async () => {
+    const response = await request('POST', '/api/products/barcodes/generate', { body: {} });
+    expectStatus(response, 201, 'POST /api/products/barcodes/generate');
+    const code = response.json.barcode;
+    expect(/^2\d{12}$/.test(code), `generated barcode ${code} is not 2 + 12 digits`);
+    let sum = 0; for (let index = 0; index < 12; index += 1) sum += Number(code[index]) * (index % 2 === 0 ? 1 : 3);
+    expect((10 - (sum % 10)) % 10 === Number(code[12]), `generated barcode ${code} has a wrong check digit`);
+    expect(response.json.type === 'EAN-13', `type expected EAN-13, got ${response.json.type}`);
+    return code;
+  });
+
+  await step('Barcodes: the cashier scans (sees the product, no cost), cannot generate, and has no products.printLabels', async () => {
+    requireCtx(ctx, 'cashierToken', 'barcodeProductId');
+    const scan = await request('GET', '/api/products/by-barcode/4006381333931', { token: ctx.cashierToken });
+    expectStatus(scan, 200, 'GET /api/products/by-barcode/:code as cashier');
+    expect(scan.json._id === ctx.barcodeProductId && !('purchasePrice' in scan.json), 'the cashier must get the product without its cost');
+    const generate = await request('POST', '/api/products/barcodes/generate', { token: ctx.cashierToken, body: {} });
+    expectStatus(generate, 403, 'POST /api/products/barcodes/generate as cashier');
+    const me = await request('GET', '/api/auth/me', { token: ctx.cashierToken });
+    expectStatus(me, 200, 'GET /api/auth/me as cashier');
+    const permissions = me.json.permissions || (me.json.user && me.json.user.permissions) || [];
+    expect(!permissions.includes('products.printLabels'), 'the cashier must not have products.printLabels');
+    const owner = await request('GET', '/api/auth/me');
+    expect((owner.json.permissions || (owner.json.user && owner.json.user.permissions) || []).includes('products.printLabels'), 'the owner must have products.printLabels');
+    return 'scan 200 without cost, generate 403, no printLabels (the owner has it)';
+  });
+
   await step('Auth: disable the cashier → their token gets 401', async () => {
     requireCtx(ctx, 'cashierId', 'cashierToken');
     const response = await request('PATCH', `/api/users/${ctx.cashierId}/status`, { body: { isActive: false } });

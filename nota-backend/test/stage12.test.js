@@ -234,8 +234,10 @@ it("POST /api/products without the new fields: same response as before (no lowSt
   assert.equal("lowStockThreshold" in json, false);
   assert.equal(json.discountPercentage, 0);
   assert.equal(json.priceAfterDiscount, 50);
-  assert.deepEqual(Object.keys(json).sort(), ["__v", "_id", "category", "code", "createdAt", "discountPercentage", "inventoryCount", "name",
+  // Stage 26 added `barcodes` (every product carries the list, empty unless set).
+  assert.deepEqual(Object.keys(json).sort(), ["__v", "_id", "barcodes", "category", "code", "createdAt", "discountPercentage", "inventoryCount", "name",
     "priceAfterDiscount", "purchasePrice", "retailPrice", "soldItemCount", "specifications", "updatedAt", "wholesalePrice"]);
+  assert.deepEqual(json.barcodes, []);
 });
 
 it("POST /api/products accepts discountPercentage (0–100) and lowStockThreshold (≥ 0); invalid values → 400", async () => {

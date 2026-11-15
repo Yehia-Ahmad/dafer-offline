@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const auditFieldsPlugin = require("../auth/auditFields.plugin");
 const isBase64Image = require("../utils/isBase64Image");
 const { calculatePriceAfterDiscount } = require("../utils/productPricing");
+const { validateBarcodeArray } = require("../utils/barcode");
 
 const productSchema = new mongoose.Schema(
   {
@@ -21,6 +22,16 @@ const productSchema = new mongoose.Schema(
       required: [true, "كود المنتج مطلوب"],
       trim: true,
       maxlength: [100, "يجب ألا يزيد كود المنتج عن 100 حرف"],
+    },
+    // Stage 26: 0-5 barcodes (a factory EAN/UPC or Code 128, or a generated in-store EAN-13 "2…").
+    // Separate from `code` (the shop's internal code). Unique across non-archived products (index below).
+    barcodes: {
+      type: [String],
+      default: undefined,
+      validate: {
+        validator: validateBarcodeArray,
+        message: "الباركود غير صالح أو متكرر (أقصى عدد 5)",
+      },
     },
     inventoryCount: {
       type: Number,
@@ -110,6 +121,21 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.index({ category: 1, createdAt: -1 });
+// Stage 26: no two non-archived products share a barcode. Multikey + partial:
+//   * isArchived: { $in: [false, null] } → "not archived" whether the flag is false or missing (null matches
+//     a missing field; a partial filter cannot use $ne / $not). Archiving (true) takes the product out of the
+//     index, which frees its barcodes; unarchiving puts it back, and a clash raises E11000;
+//   * barcodes: { $type: "string" } → only arrays holding at least one barcode are indexed (a unique
+//     multikey index would otherwise store every empty array as the same `undefined` key).
+// Repeats inside ONE product are not caught by a multikey index: the validator above refuses them.
+productSchema.index(
+  { barcodes: 1 },
+  {
+    name: "barcodes_unique_active",
+    unique: true,
+    partialFilterExpression: { isArchived: { $in: [false, null] }, barcodes: { $type: "string" } },
+  }
+);
 
 productSchema.virtual("priceAfterDiscount").get(function getPriceAfterDiscount() {
   return calculatePriceAfterDiscount(this.retailPrice, this.discountPercentage);

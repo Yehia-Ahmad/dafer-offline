@@ -58,7 +58,7 @@
     <section class="nota-card pp__main">
       <div class="pp__toolbar">
         <h2 class="pp__cat-name">{{ isAllProducts ? ('productsPage.allProducts' | translate) : (selectedCategory?.label || ('productsPage.categories' | translate)) }}</h2>
-        <input type="text" class="nota-input pp__search" [(ngModel)]="searchTerm" [ngModelOptions]="{ standalone: true }"
+        <input #productSearch type="text" class="nota-input pp__search" data-test="product-search" (keydown.enter)="onSearchEnter($event)" [(ngModel)]="searchTerm" [ngModelOptions]="{ standalone: true }"
           [placeholder]="'productsPage.searchPlaceholder' | translate" [attr.aria-label]="'productsPage.searchPlaceholder' | translate" />
         <label class="pp__toggle">
           <input type="checkbox" [(ngModel)]="lowStockOnly" [ngModelOptions]="{ standalone: true }" />
@@ -67,12 +67,22 @@
         <button *notaCan="'products.manage'" type="button" notaButton (click)="toggleArchived()">
           {{ (includeArchived ? 'productsPage.hideArchived' : 'productsPage.showArchived') | translate }}
         </button>
+        <!-- Stage 26: bulk-generate barcodes (same permission as editing products); label printing (products.printLabels). -->
+        <button *notaCan="'products.manage'" type="button" notaButton data-action="bulk-barcodes" (click)="openBulkGenerate()">{{ 'barcodes.bulk.button' | translate }}</button>
+        <button *notaCan="'products.printLabels'" type="button" notaButton data-action="print-selected-labels" [disabled]="!selectedIds.size" (click)="printSelectedLabels()">
+          {{ 'labels.printSelected' | translate }} @if (selectedIds.size) { ({{ selectedIds.size }}) }
+        </button>
+        @if (categoryId) {
+          <button *notaCan="'products.printLabels'" type="button" notaButton data-action="print-category-labels" (click)="printCategoryLabels()">{{ 'labels.printCategory' | translate }}</button>
+        }
       </div>
 
       <div class="nota-table-wrap">
         <table class="nota-table pp__table">
           <thead><tr>
+            <th *notaCan="'products.printLabels'" class="pp__sel"><input type="checkbox" data-test="select-all" [checked]="allVisibleSelected()" (change)="toggleAllVisible($any($event.target).checked)" [attr.aria-label]="'labels.selectAll' | translate" /></th>
             <th>{{ 'productsPage.columns.code' | translate }}</th>
+            <th>{{ 'barcodes.column' | translate }}</th>
             <th>{{ 'productsPage.columns.name' | translate }}</th>
             <th>{{ 'productsPage.columns.stock' | translate }}</th>
             <!-- Stage 14: purchase price only with products.viewCost (the server strips it otherwise). -->
@@ -85,7 +95,9 @@
           <tbody>
             @for (product of filteredProducts; track product?._id) {
               <tr>
+                <td *notaCan="'products.printLabels'" class="pp__sel"><input type="checkbox" data-test="select-row" [disabled]="product.isArchived" [checked]="selectedIds.has(product._id)" (change)="toggleSelected(product, $any($event.target).checked)" [attr.aria-label]="'labels.select' | translate" /></td>
                 <td class="nota-num pp__code" dir="ltr">{{ product?.code || '—' }}</td>
+                <td class="nota-num pp__code" dir="ltr" data-test="barcode-cell">{{ firstBarcode(product) || '—' }}</td>
                 <td class="pp__name" [class.is-out]="isOutOfStock(product?.inventoryCount)">{{ product?.name }}</td>
                 <td><span [class]="'nota-pill nota-num nota-pill--' + stockVariant(product)"
                   [title]="'productsPage.thresholdTitle' | translate: { count: (threshold(product) | notaNumber) }">{{ product?.inventoryCount | notaNumber }}</span></td>
@@ -131,6 +143,20 @@
       } @else {
         <button type="button" notaButton="primary" (click)="errorVisible = false">{{ 'nav.categories.ok' | translate }}</button>
       }
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Stage 26: print barcode labels (selection or the whole category). -->
+<nota-label-print-dialog [(visible)]="labelDialogVisible" [products]="labelProducts" (barcodesChanged)="reloadProducts()" />
+
+<!-- Stage 26: bulk-generate barcodes: the count first, then confirm. -->
+<p-dialog [(visible)]="bulkVisible" [modal]="true" [showHeader]="false" [dismissableMask]="!bulkBusy" styleClass="nota-p-dialog nota-p-dialog--sm" appendTo="body">
+  <nota-dialog-shell [title]="'barcodes.bulk.button' | translate" [closeLabel]="'nav.categories.close' | translate" (closed)="bulkVisible = false">
+    <p data-test="bulk-confirm">{{ 'barcodes.bulk.confirm' | translate: { count: bulkCount, scope: bulkScope() } }}</p>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton [disabled]="bulkBusy" (click)="bulkVisible = false">{{ 'category.deleteProduct.actions.cancelButton' | translate }}</button>
+      <button type="button" notaButton="primary" data-test="bulk-run" [disabled]="bulkBusy" (click)="confirmBulkGenerate()">{{ 'nav.categories.ok' | translate }}</button>
     </ng-container>
   </nota-dialog-shell>
 </p-dialog>

@@ -5,9 +5,11 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import { firstValueFrom } from 'rxjs';
 import { NotaCanDirective } from '../../core/auth/nota-can.directive';
 import { LockedActionComponent } from '../../core/auth/locked-action.component';
 import { NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent } from '../shared/ui';
+import { LabelDialogProduct, LabelPrintDialogComponent } from '../../core/print/label-print-dialog.component';
 import { PurchaseReturnDialogComponent } from './purchase-return-dialog.component';
 import { PurchaseDetail } from './purchases.models';
 import { PurchasesService } from './purchases.service';
@@ -20,7 +22,7 @@ import { PurchasesService } from './purchases.service';
 @Component({
   selector: 'app-purchase-detail',
   standalone: true,
-  imports: [PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, LockedActionComponent, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, PurchaseReturnDialogComponent],
+  imports: [LabelPrintDialogComponent, PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, LockedActionComponent, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, PurchaseReturnDialogComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="pd">
@@ -29,6 +31,9 @@ import { PurchasesService } from './purchases.service';
           <div notaPageActions>
             <a notaButton routerLink="/purchases" data-action="back">{{ 'purchases.title' | translate }}</a>
             <nota-print-actions [items]="printItems(p._id)" data-test="purchase-print" />
+            @if (p.status === 'posted') {
+              <button *notaCan="'products.printLabels'" type="button" notaButton data-action="print-received-labels" [disabled]="labelBusy()" (click)="printReceivedLabels(p)">{{ 'labels.printReceived' | translate }}</button>
+            }
             <a *notaCan="'accounting.view'" notaButton [routerLink]="['/accounting/journal']" [queryParams]="{ sourceType: 'purchase', sourceId: p._id, sourceNumber: p.number }" data-action="journal">{{ 'purchases.detail.journal' | translate }}</a>
           </div>
         </nota-page-header>
@@ -112,6 +117,7 @@ import { PurchasesService } from './purchases.service';
         }
         @if (error()) { <p class="nota-error" role="alert" data-test="detail-error">{{ error() | translate }}</p> }
         <app-purchase-return-dialog [(visible)]="returnOpen" [purchase]="purchase()" (done)="load()" />
+        <nota-label-print-dialog [(visible)]="labelOpen" [products]="labelProducts()" />
       } @else if (loadError()) {
         <p class="nota-error" role="alert">{{ 'purchases.loadFailed' | translate }}</p>
         <button type="button" notaButton (click)="load()">{{ 'purchases.retry' | translate }}</button>
@@ -142,6 +148,31 @@ export class PurchaseDetailComponent implements OnInit {
     return [{ key: 'purchase', load: () => this.printData.purchaseInvoice(id) }];
   }
   private readonly route = inject(ActivatedRoute);
+
+  readonly labelOpen = signal(false);
+  readonly labelBusy = signal(false);
+  readonly labelProducts = signal<LabelDialogProduct[]>([]);
+
+  /**
+   * Stage 26: "اطبع ملصقات للكميات المستلمة": one label per received unit of each line by default (editable per line in
+   * the dialog). The barcode and selling prices are read from the products themselves (the purchase keeps only the line).
+   */
+  async printReceivedLabels(p: PurchaseDetail): Promise<void> {
+    this.labelBusy.set(true);
+    try {
+      const rows: LabelDialogProduct[] = [];
+      for (const item of p.items) {
+        const product = await firstValueFrom(this.service.product(item.productId));
+        rows.push({ ...product, _id: item.productId, copies: Math.max(0, Math.floor(Number(item.qty)) || 0) } as LabelDialogProduct);
+      }
+      this.labelProducts.set(rows);
+      this.labelOpen.set(rows.length > 0);
+    } catch {
+      this.error.set('labels.nothing');
+    } finally {
+      this.labelBusy.set(false);
+    }
+  }
 
   readonly purchase = signal<PurchaseDetail | null>(null);
   readonly loadError = signal(false);

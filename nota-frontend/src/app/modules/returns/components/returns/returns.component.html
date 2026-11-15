@@ -113,7 +113,7 @@
           <button type="button" class="rt__chip" [class.is-on]="wizardType === 'credit'" [attr.aria-pressed]="wizardType === 'credit'" (click)="setWizardType('credit')">{{ 'returnsPage.types.credit' | translate }}</button>
         </div>
         <div class="rt__search">
-          <input type="text" class="nota-input" [(ngModel)]="wizardQuery" (keyup.enter)="searchWizardInvoices()" [placeholder]="'returnsPage.s10.wizard.searchPlaceholder' | translate"
+          <input type="text" class="nota-input" data-test="wizard-invoice-scan" autofocus autocomplete="off" [(ngModel)]="wizardQuery" (keyup.enter)="searchWizardInvoices()" [placeholder]="'returnsPage.s10.wizard.searchPlaceholder' | translate"
             [attr.aria-label]="'returnsPage.s10.wizard.searchPlaceholder' | translate" />
           <button type="button" notaButton="primary" (click)="searchWizardInvoices()" [disabled]="wizardSearching || !wizardQuery.trim()">{{ 'returnsPage.actions.search' | translate }}</button>
         </div>
@@ -145,6 +145,11 @@
           </div>
 
           @if (wizardStep === 2) {
+            <!-- Stage 26: scan a product's barcode: its line gets +1 return quantity, up to what is returnable. -->
+            <div class="rt__scan">
+              <input type="text" class="nota-input" dir="ltr" autocomplete="off" name="wizardScan" data-test="wizard-line-scan" [(ngModel)]="wizardScan"
+                (keydown.enter)="onWizardLineScan($event)" [placeholder]="'scan.returnsLine' | translate" [attr.aria-label]="'scan.returnsLine' | translate" />
+            </div>
             <div class="rt__items-tools">
               <button type="button" notaButton (click)="wizardReturnAll()">{{ 'invoiceHistoryPage.returnDialog.returnAll' | translate }}</button>
               <button type="button" notaButton (click)="wizardClear()">{{ 'invoiceHistoryPage.returnDialog.clear' | translate }}</button>

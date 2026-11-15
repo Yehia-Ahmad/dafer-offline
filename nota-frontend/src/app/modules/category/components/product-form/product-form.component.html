@@ -16,6 +16,7 @@
           {{ (isAddingProduct ? 'category.addProduct.actions.creating' : 'category.addProduct.actions.save') | translate }}
         </button>
       } @else {
+        <button *notaCan="'products.printLabels'" type="button" notaButton data-action="print-labels" (click)="openLabelDialog()">{{ 'labels.print' | translate }}</button>
         <button type="button" notaButton="danger" data-action="delete-product" (click)="showDeleteDialog()">{{ 'category.deleteProduct.title' | translate }}</button>
         <button *notaCan="['products.syncPrice', 'products.viewCost']" type="button" notaButton data-action="sync-purchase-price" (click)="showSyncDialog()">{{ 'category.editProduct.actions.syncPurchasePrice' | translate }}</button>
         <button type="button" notaButton="primary" data-action="save-product" [disabled]="loading" (click)="updateProduct()">
@@ -60,6 +61,8 @@
             </nota-form-field>
           </div>
         }
+        <!-- Stage 26: 0-5 barcodes. Enter in the field adds to the list and never submits the form. -->
+        <nota-barcode-list [(barcodes)]="barcodeList" [canGenerate]="canManageProducts" />
       </section>
 
       <!-- Prices -->
@@ -249,3 +252,6 @@
     </ng-container>
   </nota-dialog-shell>
 </p-dialog>
+
+<!-- Stage 26: print barcode labels for this product (needs products.printLabels). -->
+<nota-label-print-dialog [(visible)]="labelDialogVisible" [products]="labelProducts" />

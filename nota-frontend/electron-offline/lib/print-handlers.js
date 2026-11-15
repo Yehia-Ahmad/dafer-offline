@@ -39,6 +39,7 @@ function createPrintHandlers(deps) {
     'print:printers': guarded('print:printers', () => deps.service.listPrinters()),
     'print:settings-get': guarded('print:settings-get', () => deps.service.getSettings()),
     'print:settings-set': guarded('print:settings-set', (_context, patch) => deps.service.setSettings(patch)),
+    'print:prefs-set': guarded('print:prefs-set', (_context, patch) => deps.service.setPrefs(patch)),
     'print:test-page': guarded('print:test-page', (_context, request) => deps.service.printTestPage(request || {})),
     'print:print': guarded('print:print', (_context, job) => deps.service.print(job)),
     'print:pdf': guarded('print:pdf', (_context, job, options) => deps.service.savePdf(job, options || {})),

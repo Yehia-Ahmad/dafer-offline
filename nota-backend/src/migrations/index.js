@@ -647,6 +647,15 @@ async function stage24PairExistingClientsMigration(session) {
   return { paired: result.modifiedCount };
 }
 
+// Stage 26: barcodes. Every product gets an empty `barcodes` list; nothing is generated. The unique partial
+// index (isArchived false or missing, at least one barcode) is built by ensureIndexes on start; it cannot fail
+// here because no product has a barcode yet. Raw collection writes: no updatedBy, no timestamp change (this is
+// not an edit). Safe to run twice.
+async function stage26BarcodesMigration(session) {
+  const barcodes = await Product.collection.updateMany({ $or: [{ barcodes: { $exists: false } }, { barcodes: null }] }, { $set: { barcodes: [] } }, { session });
+  return { barcodesAdded: barcodes.modifiedCount };
+}
+
 const migrations = [
   { version: 1, name: "document numbers and receipts", run: numbersMigration },
   { version: 2, name: "original invoice totals and returned status", chunked: true, runChunk: originalTotalsMigrationChunk },
@@ -660,6 +669,7 @@ const migrations = [
   { version: 10, name: "stage 21 review: product prices rounded to 2 decimals (cost revaluation posted)", run: stage21ProductPricesMigration },
   { version: 11, name: "stage 23 review: drop the old key_1_copyNo_1 index (unique or not)", outsideTransaction: true, run: stage23PrintReservationIndexMigration },
   { version: 12, name: "stage 24 license: existing client PCs are paired", run: stage24PairExistingClientsMigration },
+  { version: 13, name: "stage 26 barcodes: an empty barcode list on every product", run: stage26BarcodesMigration },
 ];
 
 async function recordMigration(migration, details, session) {

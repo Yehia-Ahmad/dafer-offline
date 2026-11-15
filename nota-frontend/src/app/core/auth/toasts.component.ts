@@ -11,6 +11,9 @@ import { ToastService } from './toast.service';
     @for (toast of service.toasts(); track toast.id) {
       <div class="nota-toast" [class.is-error]="toast.kind === 'error'" [class.is-success]="toast.kind === 'success'">
         <span class="nota-toast__text">{{ toast.text }}</span>
+        @if (toast.action) {
+          <button type="button" class="nota-toast__action" data-test="toast-action" (click)="service.runAction(toast)">{{ toast.action.label }}</button>
+        }
         <button type="button" class="nota-toast__close" [attr.aria-label]="'auth.close' | translate" (click)="service.dismiss(toast.id)">×</button>
       </div>
     }

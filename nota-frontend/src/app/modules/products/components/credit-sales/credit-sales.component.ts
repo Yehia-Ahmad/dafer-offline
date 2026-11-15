@@ -35,6 +35,8 @@ import { ProductsService } from '../../services/products.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
 import { PaymentBoxService } from '../../../cashbox/payment-box.service';
+import { ScanFeedbackService } from '../../../../core/scan/scan-feedback.service';
+import { ScanService } from '../../../../core/scan/scan.service';
 import { VatSettingsService } from '../../../shop-profile/services/vat-settings.service';
 import { SaleVat, computeSaleVat } from '../../../shared/vat/vat-math';
 import { hasMoneyPrecision, twoDecimalsValidator } from '../../../shared/price-precision';
@@ -234,6 +236,52 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
     this.addLineItem();
     this.cdr.detectChanges();
     this.lineSearchInputs?.last?.nativeElement.focus();
+  }
+
+  private readonly scanService = inject(ScanService);
+  private readonly scanFeedback = inject(ScanFeedbackService);
+
+  /**
+   * Stage 26: Enter in a line's product box (a barcode scanner's last key). An exact barcode or product code adds the
+   * product with quantity 1, or +1 on the line that already has it; the usual stock, price and VAT rules apply. The focus
+   * stays on a search box (a new empty line is added after a new product). Nothing exact → the error sound + the toast
+   * "باركود مش متسجل" (with "أضف منتج بالباركود ده" for users who can) and the text stays, selected. A typed name that
+   * still has suggestions is left to the suggestion list (Enter does nothing), as before.
+   */
+  async onLineScanEnter(index: number, event: Event): Promise<void> {
+    event.preventDefault();
+    const input = event.target as HTMLInputElement;
+    const typed = String(input?.value || '').trim();
+    if (!typed) return;
+    const state = this.getLineItemState(index);
+    const result = await this.scanService.lookup(typed);
+    if (result.kind === 'product') {
+      const product = this.extractProducts([result.product])[0];
+      if (!product) return;
+      this.addScannedProduct(index, product);
+      this.scanFeedback.found();
+      return;
+    }
+    if (result.kind === 'notFound' && (state.isSearching || state.productOptions.length > 0)) return;
+    this.scanFeedback.miss(result);
+    input?.focus();
+    input?.select();
+  }
+
+  /** +1 on another line of the same product (this box is cleared), else this line takes the product and a fresh empty line is focused. */
+  addScannedProduct(index: number, product: ProductSearchResult): void {
+    const existing = this.lineItemStates.findIndex((line, position) => position !== index && line.selectedProduct?.id === product.id);
+    if (existing > -1) {
+      const quantity = this.lineItemControls[existing].get('quantity');
+      quantity?.setValue(Math.max(0, Number(quantity.value) || 0) + 1);
+      quantity?.markAsDirty();
+      this.onSearchInputChange(index, { target: { value: '' } } as unknown as Event);
+      this.cdr.detectChanges();
+      this.lineSearchInputs?.first?.nativeElement.focus();
+      return;
+    }
+    this.onNativeOptionSelect(index, product);
+    this.addItemAndFocus();
   }
 
   focusItemSearch(): void {

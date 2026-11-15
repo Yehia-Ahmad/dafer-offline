@@ -37,6 +37,7 @@ const IPC_RULES = Object.freeze({
   'print:printers': SESSION,
   'print:settings-get': SESSION,
   'print:settings-set': SHOP_MANAGE,
+  'print:prefs-set': SESSION, // Stage 26: label content options + scan sound mute (whitelisted keys, see print-service setPrefs)
   'print:test-page': SHOP_MANAGE,
   'print:print': SESSION,
   'print:pdf': SESSION,

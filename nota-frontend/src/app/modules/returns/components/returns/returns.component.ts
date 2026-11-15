@@ -35,6 +35,10 @@ import {
   ReturnType
 } from '../../models/returns.model';
 import { ReturnsService } from '../../services/returns.service';
+import { ToastService } from '../../../../core/auth/toast.service';
+import { ScanFeedbackService } from '../../../../core/scan/scan-feedback.service';
+import { cleanCode, normalizeCode } from '../../../../core/scan/scan-normalize';
+import { ScanService } from '../../../../core/scan/scan.service';
 import { PrintActionItem, PrintActionsComponent } from '../../../../core/print/print-actions.component';
 import { PrintDataService } from '../../../../core/print/print-data.service';
 import { ReturnPrintBannerComponent } from '../../../../core/print/return-print-banner.component';
@@ -422,10 +426,19 @@ export class ReturnsComponent implements OnInit {
 
   /** Same list endpoints the other screens use: GET sellings (cash) / GET credit-sales (credit). Digits → phone. */
   searchWizardInvoices(): void {
-    const rawQuery = this.wizardQuery.trim();
+    // Stage 26: a receipt's Code 128 scanned on the Arabic keyboard layout ("INV-000125" arrives as "÷آ{-000125") is
+    // normalised to the invoice number. Other text (a customer name, a phone) only loses invisible characters and
+    // Arabic-Indic digits, never the layout mapping, so Arabic names are not touched.
+    const scanned = normalizeCode(this.wizardQuery);
+    const rawQuery = /^(INV|CR)-\d+$/i.test(scanned) ? scanned : cleanCode(this.wizardQuery);
     const query = /^(INV|CR)-\d+$/i.test(rawQuery) ? rawQuery.toUpperCase() : rawQuery;
     if (!query || this.wizardSearching) return;
     const byNumber = /^(INV|CR)-\d+$/i.test(query);
+    // INV- is a cash invoice and CR- a credit one: the type follows the number.
+    if (byNumber) {
+      const typeOfNumber: ReturnType = query.startsWith('CR-') ? 'credit' : 'cash';
+      if (this.wizardType !== typeOfNumber) this.setWizardType(typeOfNumber);
+    }
     const byPhone = !byNumber && /^[\d\s+()-]+$/.test(query);
     const filter = byNumber ? { number: query } : byPhone ? { customerPhone: query } : { customerName: query };
     this.wizardSearching = true;
@@ -449,6 +462,11 @@ export class ReturnsComponent implements OnInit {
         this.wizardResults = list
           .map((item) => (type === 'cash' ? this.toCashWizardInvoice(item) : this.toCreditWizardInvoice(item)))
           .filter((item): item is WizardInvoice => !!item && item.items.length > 0);
+        // Stage 26: a scanned (or typed) invoice number opens that invoice for return at once.
+        if (byNumber && this.wizardResults.length === 1) {
+          this.scanFeedback.found();
+          this.pickWizardInvoice(this.wizardResults[0]);
+        }
       },
       error: (error) => {
         this.wizardResults = [];
@@ -473,6 +491,45 @@ export class ReturnsComponent implements OnInit {
       }));
     this.wizardSaveError = '';
     this.wizardStep = 2;
+  }
+
+  private readonly scanService = inject(ScanService);
+  private readonly scanFeedback = inject(ScanFeedbackService);
+  private readonly scanToast = inject(ToastService);
+  wizardScan = '';
+
+  /** What can still be returned of a line: sold minus what earlier returns already took. */
+  returnableOf(line: WizardLine): number {
+    return Math.max(0, line.sold - line.returnedBefore);
+  }
+
+  /**
+   * Stage 26: inside an open invoice, scanning a product's barcode selects that line and adds 1 to its return quantity, up to
+   * what is returnable. A product that is not on the invoice, or a line already at its limit, gets the error sound and a message.
+   */
+  async onWizardLineScan(event: Event): Promise<void> {
+    event.preventDefault();
+    const typed = this.wizardScan.trim();
+    if (!typed) return;
+    const result = await this.scanService.lookup(typed);
+    if (result.kind !== 'product') {
+      this.scanFeedback.miss(result, { add: undefined });
+      return;
+    }
+    const productId = String((result.product as { _id?: string })._id ?? '');
+    const line = this.wizardLines.find((entry) => entry.productId === productId);
+    if (!line) {
+      this.scanFeedback.miss({ kind: 'error', code: result.code, message: this.translate.instant('scan.returnsNotInInvoice') });
+      return;
+    }
+    if (line.quantity >= this.returnableOf(line)) {
+      this.scanFeedback.miss({ kind: 'error', code: result.code, message: this.translate.instant('scan.returnsLimit', { name: line.productName }) });
+      return;
+    }
+    line.quantity = Math.min(this.returnableOf(line), Math.max(0, Math.floor(Number(line.quantity) || 0)) + 1);
+    this.wizardScan = '';
+    this.scanFeedback.found();
+    this.cdr.markForCheck();
   }
 
   stepWizardQuantity(line: WizardLine, delta: number): void {

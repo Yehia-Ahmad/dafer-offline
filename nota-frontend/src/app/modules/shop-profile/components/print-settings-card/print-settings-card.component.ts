@@ -5,6 +5,7 @@ import { PrintService } from '../../../../core/print/print.service';
 import { PrintSettingsService } from '../../../../core/print/print-settings.service';
 import { DesktopPrinter } from '../../../../core/runtime/runtime-config';
 import { NotaButtonDirective, NotaFormFieldComponent } from '../../../shared/ui';
+import { LabelSettingsCardComponent } from './label-settings-card.component';
 
 /**
  * Stage 23: the "الطباعة" card of the shop profile (shop.manage). The settings belong to THIS PC (the desktop app keeps
@@ -15,7 +16,7 @@ import { NotaButtonDirective, NotaFormFieldComponent } from '../../../shared/ui'
   selector: 'app-print-settings-card',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, TranslatePipe, NotaButtonDirective, NotaFormFieldComponent],
+  imports: [FormsModule, TranslatePipe, NotaButtonDirective, NotaFormFieldComponent, LabelSettingsCardComponent],
   template: `
     <section class="psc" data-test="print-card" aria-labelledby="psc-title">
       <h2 id="psc-title" class="nota-section-title">{{ 'print.settings.title' | translate }}</h2>
@@ -56,6 +57,8 @@ import { NotaButtonDirective, NotaFormFieldComponent } from '../../../shared/ui'
             <input id="psc-copies" class="nota-input nota-num" type="number" min="1" max="5" step="1" name="copies" data-field="copies" [ngModel]="copies()" (ngModelChange)="copies.set($event)" />
           </nota-form-field>
           <p class="nota-hint">{{ 'print.settings.footerNote' | translate }}</p>
+          <!-- Stage 26: barcode label printer, label sizes, A4 sticker sheets, scan sounds -->
+          <app-label-settings-card />
           @if (message()) { <p role="status" data-test="print-status" [class.nota-error]="isError()">{{ message() }}</p> }
           <button type="button" notaButton="primary" data-action="save-print-settings" [disabled]="busy()" (click)="save()">{{ 'print.settings.save' | translate }}</button>
         }

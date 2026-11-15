@@ -24,6 +24,11 @@ export class PurchasesService {
     return this.http.get<PurchasePage>(`${this.api}purchases`, { params });
   }
 
+  /** One product as the label dialog needs it (barcodes and selling prices; the server strips the cost for users without viewCost). */
+  product(id: string): Observable<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`${this.api}products/${encodeURIComponent(id)}`);
+  }
+
   get(id: string): Observable<PurchaseDetail> {
     return this.http.get<PurchaseDetail>(`${this.api}purchases/${encodeURIComponent(id)}`);
   }
@@ -56,7 +61,7 @@ export class PurchasesService {
   }
 
   /** "صنف جديد" on the purchase screen: a normal product with stock 0 (products.manage + products.viewCost). */
-  createProduct(payload: { name: string; code: string; categoryId: string; inventoryCount: number; purchasePrice: number; wholesalePrice: number; retailPrice: number }): Observable<PurchaseProduct> {
+  createProduct(payload: { name: string; code: string; categoryId: string; inventoryCount: number; purchasePrice: number; wholesalePrice: number; retailPrice: number; barcodes?: string[] }): Observable<PurchaseProduct> {
     return this.http.post<PurchaseProduct>(`${this.api}products`, payload);
   }
 

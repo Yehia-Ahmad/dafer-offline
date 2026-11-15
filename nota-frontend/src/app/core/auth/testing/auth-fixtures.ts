@@ -16,6 +16,8 @@ export const ALL_PERMISSIONS = [
   'cashbox.view', 'cashbox.manage', 'shift.operate', 'shift.manage', 'expenses.create', 'expenses.manage', 'owner.drawings',
   // Stage 21
   'vat.file',
+  // Stage 26
+  'products.printLabels',
 ] as const;
 
 const VIEW = ['sales.view', 'credit.view', 'returns.view', 'customers.view', 'products.view', 'dashboard.view'];
@@ -24,7 +26,7 @@ export const ROLE_PERMISSIONS: Record<Exclude<RoleKey, 'custom'>, string[]> = {
   owner: [...ALL_PERMISSIONS],
   manager: ALL_PERMISSIONS.filter((key) => key !== 'users.manage' && key !== 'backup.manage' && key !== 'owner.drawings'),
   cashier: ['sales.create', 'sales.view', 'credit.create', 'credit.view', 'credit.collect', 'returns.create', 'customers.view', 'products.view', 'dashboard.view', 'shift.operate', 'expenses.create'],
-  storekeeper: ['products.view', 'products.manage', 'categories.manage', 'products.importExport', 'products.viewCost', 'suppliers.view', 'purchases.view', 'purchases.create'],
+  storekeeper: ['products.view', 'products.manage', 'categories.manage', 'products.importExport', 'products.viewCost', 'products.printLabels', 'suppliers.view', 'purchases.view', 'purchases.create'],
   accountant: [...VIEW, 'reports.profit', 'products.viewCost', 'credit.collect', 'audit.view', 'suppliers.view', 'purchases.view', 'suppliers.pay', 'cashbox.view', 'expenses.create', 'expenses.manage', 'vat.file'],
 };
 
@@ -58,6 +60,7 @@ const LABELS: Record<string, string> = {
   'backup.manage': 'النسخ الاحتياطي والاستعادة', 'vat.file': 'تقديم الإقرار الضريبي وسداد الضريبة',
   'cashbox.view': 'عرض الخزائن وأرصدتها', 'cashbox.manage': 'إدارة الخزائن والتحويلات', 'shift.operate': 'فتح وإغلاق ورديتك',
   'shift.manage': 'عرض كل الورديات وإغلاق وردية غيرك', 'expenses.create': 'تسجيل مصروف', 'expenses.manage': 'إلغاء المصروفات وإدارة البنود', 'owner.drawings': 'سحب المالك',
+  'products.printLabels': 'طباعة ملصقات الباركود',
 };
 
 /** GET /api/auth/permissions, as the backend returns it. */

@@ -230,7 +230,15 @@ test('a job is validated: paper, html, a roll height, size', () => {
 
 test('print settings: stored per PC in print-settings.json; an unknown printer is refused; copies are 1..5; a damaged file means the defaults', async () => {
   const h = harness();
-  assert.deepEqual(h.service.getSettings(), { schemaVersion: 1, receiptPrinter: '', documentPrinter: '', autoPrintReceipt: false, receiptCopies: 1, receiptWidthMm: 80, receiptOffsetMm: 0 });
+  assert.deepEqual(h.service.getSettings(), {
+    schemaVersion: 1, receiptPrinter: '', documentPrinter: '', autoPrintReceipt: false, receiptCopies: 1, receiptWidthMm: 80, receiptOffsetMm: 0,
+    // Stage 26: the label printer, roll size, A4 sticker sheet, remembered label options and the scan sounds.
+    labelPrinter: '',
+    labelRoll: { preset: '38x25', widthMm: 38, heightMm: 25, offsetXmm: 0, offsetYmm: 0, gapMm: 0 },
+    labelSheet: { preset: '3x8', columns: 3, rows: 8, labelWidthMm: 70, labelHeightMm: 37, marginTopMm: 0.5, marginSideMm: 0, gapXmm: 0, gapYmm: 0 },
+    labelOptions: { target: 'roll', shopName: true, price: 'retail', internalCode: false },
+    scanSoundMuted: false,
+  });
   const saved = await h.service.setSettings({ receiptPrinter: 'EPSON TM-T20', autoPrintReceipt: true, receiptCopies: 9 });
   assert.equal(saved.receiptCopies, 5);
   assert.deepEqual(readSettings(path.join(h.dir, 'print-settings.json')), saved);

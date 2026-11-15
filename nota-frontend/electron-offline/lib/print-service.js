@@ -21,6 +21,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const { pathToFileURL } = require('node:url');
+const labels = require('./label-settings');
 
 const SETTINGS_VERSION = 1;
 const DEFAULT_SETTINGS = Object.freeze({
@@ -32,12 +33,20 @@ const DEFAULT_SETTINGS = Object.freeze({
   // Stage 25: how much of the 80mm roll this printer really prints (72 / 76 / 80 mm) and a sideways shift of the receipt (-10..10 mm, + = to the right).
   receiptWidthMm: 80,
   receiptOffsetMm: 0,
+  // Stage 26: the label printer ('' = none: the system dialog), its roll size / calibration / gap, the A4 sticker sheet grid,
+  // the remembered label content options and the scan sounds mute. All per PC.
+  labelPrinter: '',
+  labelRoll: labels.normalizeRoll({}),
+  labelSheet: labels.normalizeSheet({}),
+  labelOptions: labels.normalizeLabelOptions({}),
+  scanSoundMuted: false,
 });
+const PREF_KEYS = Object.freeze(['scanSoundMuted', 'labelOptions']); // what a plain signed-in user may change (print:prefs-set)
 const RECEIPT_WIDTHS_MM = Object.freeze([72, 76, 80]);
 const MAX_OFFSET_MM = 10;
 const MAX_COPIES = 5;
 const MAX_HTML_BYTES = 25 * 1024 * 1024;
-const PAPERS = Object.freeze({ '80mm': { widthMm: 80 }, A4: { name: 'A4' }, A5: { name: 'A5' } });
+const PAPERS = Object.freeze({ '80mm': { widthMm: 80 }, A4: { name: 'A4' }, A5: { name: 'A5' }, label: { custom: true } });
 const PRINT_PARTITION = 'nota-print';
 const LOAD_TIMEOUT_MS = 30000;
 const MIN_ROLL_MM = 40;
@@ -73,6 +82,11 @@ function normalizeSettings(raw) {
     receiptCopies: clampCopies(source.receiptCopies),
     receiptWidthMm: normalizeWidthMm(source.receiptWidthMm),
     receiptOffsetMm: normalizeOffsetMm(source.receiptOffsetMm),
+    labelPrinter: text(source.labelPrinter),
+    labelRoll: labels.normalizeRoll(source.labelRoll),
+    labelSheet: labels.normalizeSheet(source.labelSheet),
+    labelOptions: labels.normalizeLabelOptions(source.labelOptions),
+    scanSoundMuted: source.scanSoundMuted === true,
   };
 }
 
@@ -103,6 +117,12 @@ function validateJob(job) {
     if (!Number.isFinite(height)) throw badInput('ارتفاع الإيصال غير محدد.');
     out.heightMm = Math.min(MAX_ROLL_MM, Math.max(MIN_ROLL_MM, Math.ceil(height)));
   }
+  // Stage 26: a label roll page (its size is the label + gap, clamped) and A4 sticker sheets (no page margin).
+  if (job.paper === 'label') {
+    if (!job.labelPage || typeof job.labelPage !== 'object') throw badInput('مقاس الملصق غير محدد.');
+    out.labelPage = labels.normalizeLabelPage(job.labelPage);
+  }
+  if (job.paper === 'A4' && job.noMargins === true) out.noMargins = true;
   if (job.copies !== undefined) out.copies = clampCopies(Number(job.copies));
   return out;
 }
@@ -142,11 +162,21 @@ function createPrintService(deps) {
   async function setSettings(patch) {
     if (!patch || typeof patch !== 'object') throw badInput('الإعدادات غير صحيحة.');
     const next = normalizeSettings({ ...getSettings(), ...patch });
-    for (const key of ['receiptPrinter', 'documentPrinter']) {
+    for (const key of ['receiptPrinter', 'documentPrinter', 'labelPrinter']) {
       if (!next[key]) continue;
       const known = (await listPrinters()).some((printer) => printer.name === next[key]);
       if (!known) throw new PrintError('PRINTER_NOT_FOUND', 'الطابعة المختارة غير موجودة على هذا الجهاز.');
     }
+    writeSettings(settingsPath, next);
+    return next;
+  }
+
+  /** Stage 26: the preferences any signed-in user may keep on this PC (label content options, scan sound mute). Whitelisted keys only: a printer or the label geometry needs setSettings (shop.manage). */
+  function setPrefs(patch) {
+    if (!patch || typeof patch !== 'object') throw badInput('الإعدادات غير صحيحة.');
+    const picked = {};
+    for (const key of PREF_KEYS) if (Object.prototype.hasOwnProperty.call(patch, key)) picked[key] = patch[key];
+    const next = normalizeSettings({ ...getSettings(), ...picked });
     writeSettings(settingsPath, next);
     return next;
   }
@@ -240,28 +270,33 @@ function createPrintService(deps) {
   }
 
   const pageOptions = (job) =>
-    job.paper === '80mm' ? { width: mmToInches(80), height: mmToInches(job.heightMm) } : job.paper;
+    job.paper === '80mm' ? { width: mmToInches(80), height: mmToInches(job.heightMm) }
+      : job.paper === 'label' ? { width: mmToInches(job.labelPage.widthMm), height: mmToInches(job.labelPage.heightMm) }
+        : job.paper;
 
-  /** "طباعة": silent only for an 80mm receipt with a configured printer. Resolves { printed, silent, printer }. */
+  /** Page size + margins for webContents.print(): rolls and labels are exact sizes with no margin; A4 sticker sheets have no margin either. */
+  function printPageOptions(job) {
+    if (job.paper === '80mm') return { pageSize: { width: mmToMicrons(80), height: mmToMicrons(job.heightMm) }, margins: { marginType: 'none' } };
+    if (job.paper === 'label') return { pageSize: { width: mmToMicrons(job.labelPage.widthMm), height: mmToMicrons(job.labelPage.heightMm) }, margins: { marginType: 'none' } };
+    return { pageSize: job.paper, margins: { marginType: job.paper === 'A4' && job.noMargins ? 'none' : 'default' } };
+  }
+
+  /** "طباعة": silent for an 80mm receipt with a configured receipt printer and for a label with a configured label printer. Resolves { printed, silent, printer }. */
   async function print(rawJob) {
     const job = validateJob(rawJob);
     const settings = getSettings();
-    const silent = job.paper === '80mm' && Boolean(settings.receiptPrinter);
+    const silentPrinter = job.paper === '80mm' ? settings.receiptPrinter : job.paper === 'label' ? settings.labelPrinter : '';
+    const silent = Boolean(silentPrinter);
     const options = { silent, printBackground: true, copies: job.paper === '80mm' ? clampCopies(job.copies ?? settings.receiptCopies) : 1 };
-    if (silent) options.deviceName = settings.receiptPrinter;
+    if (silent) options.deviceName = silentPrinter;
     // A4/A5 is never silent: the chosen A4/A5 printer is only PRESELECTED in the system dialog (silent: false + deviceName).
-    const preselected = job.paper !== '80mm' && settings.documentPrinter ? settings.documentPrinter : '';
+    // A label with no label printer configured also shows the dialog (no preselection).
+    const preselected = job.paper === 'A4' || job.paper === 'A5' ? settings.documentPrinter : '';
     if (preselected) options.deviceName = preselected;
-    if (job.paper === '80mm') {
-      options.pageSize = { width: mmToMicrons(80), height: mmToMicrons(job.heightMm) };
-      options.margins = { marginType: 'none' };
-    } else {
-      options.pageSize = job.paper;
-      options.margins = { marginType: 'default' };
-    }
+    Object.assign(options, printPageOptions(job));
     return withRenderedWindow(job.html, (win) => new Promise((resolve, reject) => {
       win.webContents.print(options, (success, reason) => {
-        if (success) return resolve({ printed: true, silent, printer: silent ? settings.receiptPrinter : preselected || null });
+        if (success) return resolve({ printed: true, silent, printer: silent ? silentPrinter : preselected || null });
         // The user closing the system dialog is not an error.
         if (/cancel/i.test(String(reason))) return resolve({ printed: false, silent, printer: null, cancelled: true });
         log.warn(`print failed: ${reason}`);
@@ -288,26 +323,26 @@ function createPrintService(deps) {
   }
 
   /** A test page to the chosen printer ("receipt" = 80mm, "document" = A4), always silent: that is the point of the button. */
-  async function printTestPage({ kind, html, heightMm, printer: chosen }) {
-    if (kind !== 'receipt' && kind !== 'document') throw badInput('نوع صفحة التجربة غير صحيح.');
+  async function printTestPage({ kind, html, heightMm, labelPage, printer: chosen }) {
+    // Stage 26: 'label' = a test label on the label printer, 'sheet' = the A4 outline test sheet (no page margin) on the A4/A5 printer.
+    if (!['receipt', 'document', 'label', 'sheet'].includes(kind)) throw badInput('نوع صفحة التجربة غير صحيح.');
     const settings = getSettings();
     // The printer picked in the dropdown right now (sent with the request); the saved one only when none is sent.
-    let printer = kind === 'receipt' ? settings.receiptPrinter : settings.documentPrinter;
+    let printer = kind === 'receipt' ? settings.receiptPrinter : kind === 'label' ? settings.labelPrinter : settings.documentPrinter;
     if (typeof chosen === 'string') {
       printer = chosen.trim().slice(0, 256);
       if (printer && !(await listPrinters()).some((entry) => entry.name === printer)) throw new PrintError('PRINTER_NOT_FOUND', 'الطابعة المختارة غير موجودة على هذا الجهاز.');
     }
-    const paper = kind === 'receipt' ? '80mm' : 'A4';
-    const job = validateJob({ html, paper, heightMm: kind === 'receipt' ? heightMm : undefined, title: 'Nota test page' });
+    const paper = kind === 'receipt' ? '80mm' : kind === 'label' ? 'label' : 'A4';
+    const job = validateJob({
+      html, paper, title: 'Nota test page',
+      heightMm: kind === 'receipt' ? heightMm : undefined,
+      labelPage: kind === 'label' ? labelPage : undefined,
+      noMargins: kind === 'sheet',
+    });
     const options = { silent: Boolean(printer), printBackground: true, copies: 1 };
     if (printer) options.deviceName = printer;
-    if (paper === '80mm') {
-      options.pageSize = { width: mmToMicrons(80), height: mmToMicrons(job.heightMm) };
-      options.margins = { marginType: 'none' };
-    } else {
-      options.pageSize = 'A4';
-      options.margins = { marginType: 'default' };
-    }
+    Object.assign(options, printPageOptions(job));
     return withRenderedWindow(job.html, (win) => new Promise((resolve, reject) => {
       win.webContents.print(options, (success, reason) => {
         if (success) return resolve({ printed: true, printer: printer || null });
@@ -317,11 +352,12 @@ function createPrintService(deps) {
     }));
   }
 
-  return { getSettings, listPrinters, print, printTestPage, savePdf, setSettings };
+  return { getSettings, listPrinters, print, printTestPage, savePdf, setPrefs, setSettings };
 }
 
 module.exports = {
   DEFAULT_SETTINGS,
+  PREF_KEYS,
   MAX_COPIES,
   PAPERS,
   PrintError,

@@ -44,6 +44,8 @@ const EXPECTED_CATALOG = [
   "vat.file",
   // Stage 22
   "reports.financial", "accounting.close",
+  // Stage 26
+  "products.printLabels",
 ];
 
 test("catalog: exactly the Stage 13 keys, each with an Arabic and English label and a group", () => {
@@ -65,7 +67,7 @@ test("role templates match the spec", () => {
   ]));
   assert.deepEqual(sorted(ROLE_TEMPLATES.storekeeper), sorted([
     "products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view",
-    "purchases.view", "purchases.create",
+    "purchases.view", "purchases.create", "products.printLabels",
   ]));
   assert.deepEqual(sorted(ROLE_TEMPLATES.accountant), sorted([
     "sales.view", "credit.view", "returns.view", "customers.view", "products.view", "dashboard.view",
@@ -173,6 +175,11 @@ const EXPECTED_ROUTES = {
   "GET /api/products": "products.view",
   "POST /api/products": "products.manage + products.viewCost",
   "GET /api/products/search": "products.view",
+  // Stage 26: the scan lookup = the POS search permission; generating barcodes = editing products.
+  "GET /api/products/by-barcode/:code": "products.view",
+  "POST /api/products/barcodes/generate": "products.manage",
+  "GET /api/products/barcodes/missing-count": "products.manage",
+  "POST /api/products/barcodes/generate-missing": "products.manage",
   "GET /api/products/export/excel": "products.importExport + products.viewCost",
   "GET /api/products/profit-report": "reports.profit + products.viewCost",
   "GET /api/products/profit-bar": "reports.profit + products.viewCost",

@@ -1,5 +1,6 @@
 import { environment } from '../../../environments/environment';
 import { BRAND } from '../brand';
+import type { LabelOptions, LabelRollSettings, LabelSheetSettings } from '../print/label-layout';
 
 /** What the offline desktop app hands to Angular before it starts. */
 export interface DesktopRuntimeConfig {
@@ -131,6 +132,12 @@ export interface DesktopPrintSettings {
   /** Stage 25: the printable width of the 80mm roll (72, 76 or 80) and the sideways shift of the receipt in mm (-10..10). */
   receiptWidthMm?: number;
   receiptOffsetMm?: number;
+  /** Stage 26: the label printer ('' = the system dialog), the roll / A4 sheet settings, the remembered label options, the scan sound mute. */
+  labelPrinter?: string;
+  labelRoll?: LabelRollSettings;
+  labelSheet?: LabelSheetSettings;
+  labelOptions?: LabelOptions;
+  scanSoundMuted?: boolean;
 }
 
 export interface DesktopPrinter {
@@ -142,8 +149,11 @@ export interface DesktopPrinter {
 /** What the page sends to print: the document's complete HTML, its paper, and (80mm only) the measured receipt height. */
 export interface DesktopPrintJob {
   html: string;
-  paper: '80mm' | 'A4' | 'A5';
+  paper: '80mm' | 'A4' | 'A5' | 'label';
   heightMm?: number;
+  /** Stage 26: the label page (mm) of a 'label' job; noMargins = an A4 sticker sheet (no page margin). */
+  labelPage?: { widthMm: number; heightMm: number };
+  noMargins?: boolean;
   title?: string;
   copies?: number;
 }
@@ -156,7 +166,9 @@ export interface DesktopPrintBridge {
   printers(token: string | null): Promise<DesktopResult<DesktopPrinter[]>>;
   getSettings(token: string | null): Promise<DesktopResult<DesktopPrintSettings>>;
   setSettings(token: string | null, patch: Partial<DesktopPrintSettings>): Promise<DesktopResult<DesktopPrintSettings>>;
-  testPage(token: string | null, request: { kind: 'receipt' | 'document'; html: string; heightMm?: number; /** The printer picked in the settings dropdown ('' = the system dialog); absent = the saved one. */ printer?: string }): Promise<DesktopResult<{ printed: boolean; printer: string | null; cancelled?: boolean }>>;
+  /** Stage 26: any signed-in user: only `scanSoundMuted` and `labelOptions` are taken, everything else is ignored. */
+  setPrefs(token: string | null, patch: Pick<Partial<DesktopPrintSettings>, 'scanSoundMuted' | 'labelOptions'>): Promise<DesktopResult<DesktopPrintSettings>>;
+  testPage(token: string | null, request: { kind: 'receipt' | 'document' | 'label' | 'sheet'; html: string; heightMm?: number; labelPage?: { widthMm: number; heightMm: number }; /** The printer picked in the settings dropdown ('' = the system dialog); absent = the saved one. */ printer?: string }): Promise<DesktopResult<{ printed: boolean; printer: string | null; cancelled?: boolean }>>;
   print(token: string | null, job: DesktopPrintJob): Promise<DesktopResult<{ printed: boolean; silent: boolean; printer: string | null; cancelled?: boolean }>>;
   savePdf(token: string | null, job: DesktopPrintJob, options?: { suggestedName?: string }): Promise<DesktopResult<{ saved: boolean; path?: string; bytes?: number }>>;
 }

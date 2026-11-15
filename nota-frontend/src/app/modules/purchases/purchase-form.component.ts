@@ -17,6 +17,8 @@ import { hasMoneyPrecision } from '../shared/price-precision';
 import { PurchaseProduct } from './purchases.models';
 import { PurchasesService } from './purchases.service';
 import { localDateKey } from '../../core/utilities/local-date';
+import { ScanFeedbackService } from '../../core/scan/scan-feedback.service';
+import { ScanService } from '../../core/scan/scan.service';
 
 interface Line {
   key: number;
@@ -71,7 +73,7 @@ interface Line {
         <div class="pf__search">
           <input class="nota-input" type="search" name="productSearch" autocomplete="off" data-test="product-search"
             [placeholder]="'purchases.new.searchProduct' | translate" [attr.aria-label]="'purchases.new.searchProduct' | translate"
-            [ngModel]="query()" (ngModelChange)="onQuery($event)" />
+            [ngModel]="query()" (ngModelChange)="onQuery($event)" (keydown.enter)="onScanEnter($event)" />
           <button *notaCan="['products.manage', 'products.viewCost']" type="button" notaButton data-action="new-product" (click)="toggleNewProduct()">+ {{ 'purchases.new.newProduct' | translate }}</button>
         </div>
         @if (results().length) {
@@ -92,6 +94,9 @@ interface Line {
             <nota-form-field [label]="'purchases.new.productCode' | translate" forId="npCode" [required]="true">
               <input id="npCode" class="nota-input" name="npCode" data-test="np-code" [ngModel]="np().code" (ngModelChange)="setNp('code', $event)" />
             </nota-form-field>
+            @if (np().barcode) {
+              <p class="pf__np-barcode" data-test="np-barcode" dir="ltr">{{ 'barcodes.title' | translate }}: <b>{{ np().barcode }}</b></p>
+            }
             <nota-form-field [label]="'purchases.new.productCategory' | translate" forId="npCategory" [required]="true">
               <select id="npCategory" class="nota-select" name="npCategory" data-test="np-category" [ngModel]="np().categoryId" (ngModelChange)="setNp('categoryId', $event)">
                 <option value="">—</option>
@@ -289,7 +294,7 @@ export class PurchaseFormComponent implements OnInit {
 
   readonly newProductOpen = signal(false);
   readonly categories = signal<{ _id: string; name: string }[]>([]);
-  readonly np = signal({ name: '', code: '', categoryId: '', wholesalePrice: null as number | null, retailPrice: null as number | null });
+  readonly np = signal({ name: '', code: '', categoryId: '', wholesalePrice: null as number | null, retailPrice: null as number | null, barcode: '' });
 
   // ---- Stage 21: VAT. Only while the shop has VAT on and the purchase date is on/after its start date; otherwise nothing below shows.
   private readonly vatSettings = inject(VatSettingsService);
@@ -399,6 +404,39 @@ export class PurchaseFormComponent implements OnInit {
     this.query$.next(value);
   }
 
+  private readonly scanService = inject(ScanService);
+  private readonly scanFeedback = inject(ScanFeedbackService);
+
+  /**
+   * Stage 26: Enter in the product box (a barcode scanner's last key). An exact barcode or product code adds the product
+   * with quantity 1, or +1 on its existing line. Nothing exact → the error sound and "باركود مش متسجل" with "أضف منتج بالباركود
+   * ده" for users who can (it opens this form's "صنف جديد" with the barcode filled in, so the lines are not lost); the text
+   * stays, selected. A typed name that still has results is left to the result list.
+   */
+  async onScanEnter(event: Event): Promise<void> {
+    event.preventDefault();
+    const input = event.target as HTMLInputElement;
+    const typed = this.query().trim();
+    if (!typed) return;
+    const result = await this.scanService.lookup(typed);
+    if (result.kind === 'product') {
+      this.addProduct(result.product as unknown as PurchaseProduct);
+      this.scanFeedback.found();
+      return;
+    }
+    if (result.kind === 'notFound' && this.results().length > 0) return;
+    this.scanFeedback.miss(result, { add: (code) => this.openNewProductForBarcode(code) });
+    input?.focus();
+    input?.select();
+  }
+
+  /** "أضف منتج بالباركود ده": the inline new-product form with this barcode (saved on the product when it is created). */
+  openNewProductForBarcode(code: string): void {
+    this.np.update((current) => ({ ...current, barcode: code }));
+    this.newProductOpen.set(true);
+    if (!this.categories().length) this.loadCategories();
+  }
+
   addProduct(product: PurchaseProduct): void {
     const existing = this.lines().find((row) => row.product._id === product._id);
     if (existing) this.setLine(existing.key, 'qty', (existing.qty ?? 0) + 1);
@@ -443,12 +481,12 @@ export class PurchaseFormComponent implements OnInit {
     this.newProductError.set('');
     this.service.createProduct({
       name: value.name.trim(), code: value.code.trim(), categoryId: value.categoryId, inventoryCount: 0, purchasePrice: 0,
-      wholesalePrice: Number(value.wholesalePrice), retailPrice: Number(value.retailPrice),
+      wholesalePrice: Number(value.wholesalePrice), retailPrice: Number(value.retailPrice), ...(value.barcode ? { barcodes: [value.barcode] } : {}),
     }).subscribe({
       next: (created) => {
         this.busy.set(false);
         this.newProductOpen.set(false);
-        this.np.set({ name: '', code: '', categoryId: '', wholesalePrice: null, retailPrice: null });
+        this.np.set({ name: '', code: '', categoryId: '', wholesalePrice: null, retailPrice: null, barcode: '' });
         this.addProduct({ _id: created._id, name: created.name, code: created.code, inventoryCount: 0, purchasePrice: 0, retailPrice: Number(value.retailPrice) });
       },
       error: () => { this.busy.set(false); this.newProductError.set('purchases.errors.productFailed'); },
@@ -458,6 +496,7 @@ export class PurchaseFormComponent implements OnInit {
 
   toggleNewProduct(): void {
     this.newProductOpen.update((open) => !open);
+    if (!this.newProductOpen()) this.np.update((current) => ({ ...current, barcode: '' }));
     if (this.newProductOpen() && !this.categories().length) this.loadCategories();
   }
 

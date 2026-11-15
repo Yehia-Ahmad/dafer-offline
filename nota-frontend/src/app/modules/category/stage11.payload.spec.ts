@@ -208,6 +208,19 @@ describe('Stage 11 payloads — edit product (AFTER: ProductFormComponent, edit)
     expect(component.errorVisible).toBeTrue();
   });
 
+  it('Stage 26: barcodes are in the body only when the list changed (untouched → the body is exactly as before)', () => {
+    component.updateProduct();
+    const untouched = http.expectOne((r) => r.url === `${base}products/p1` && r.method === 'PUT');
+    expect('barcodes' in untouched.request.body).toBeFalse();
+    untouched.flush({});
+
+    component.barcodeList = ['4006381333931'];
+    component.updateProduct();
+    const changed = http.expectOne((r) => r.url === `${base}products/p1` && r.method === 'PUT');
+    expect(changed.request.body.barcodes).toEqual(['4006381333931']);
+    changed.flush({});
+  });
+
   it('delete: DELETE products/p1, then the catalog refresh', () => {
     component.deleteProduct();
     http.expectOne((r) => r.url === `${base}products/p1` && r.method === 'DELETE').flush({});
