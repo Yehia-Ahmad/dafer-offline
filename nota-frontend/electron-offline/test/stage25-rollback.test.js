@@ -1,7 +1,7 @@
 'use strict';
 
 // Stage 25, step B/F: the rollback of an upgrade, on a THROWAWAY copy (a temp folder with its own mongod on its own port; never C:\ProgramData\Nota).
-// It is what docs/release/FIRST_SHOP_UPGRADE_AR.md tells the person doing the upgrade:
+// It is what docs/release/UPGRADE_AR.md tells the person doing the upgrade:
 //   1. close Nota, copy the data folder (the "safety copy");  2. install the new version, which migrates the data;
 //   3. if something is wrong: close Nota, put the safety copy back (or restore the before-upgrade backup the new version took by itself).
 

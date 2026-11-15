@@ -15,4 +15,4 @@ const deviceSchema = new mongoose.Schema({
   revokedAt: { type: Date, default: undefined },
 }, { timestamps: true });
 
-module.exports = mongoose.model("Device", deviceSchema);
+module.exports = mongoose.model("Device", deviceSchema, require("./collections").DEVICE);

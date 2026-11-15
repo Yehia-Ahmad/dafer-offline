@@ -22,7 +22,7 @@ const EXTERNALS = [
   '@mongodb-js/zstd', 'gcp-metadata', 'kerberos', 'mongodb-client-encryption', 'snappy', 'socks', 'aws4', '@aws-sdk/*',
   'supports-color', './test-key',
 ];
-const LICENSE_FILE = /^(licen[cs]e|copying|notice)(\.[a-z]+)?$/i;
+const { isLicenseFile } = require('./strip');
 
 const packageOf = (inputPath) => {
   const match = /(?:^|\/)node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(inputPath.replace(/\\/g, '/'));
@@ -35,10 +35,17 @@ function collectLicenses(backendDir, packages) {
   for (const name of [...packages].sort()) {
     const dir = path.join(backendDir, 'node_modules', ...name.split('/'));
     let version = '';
-    try { version = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).version; } catch { /* no manifest */ }
-    const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((file) => LICENSE_FILE.test(file)) : [];
+    let declared = '';
+    let repository = '';
+    try {
+      const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+      version = manifest.version;
+      declared = typeof manifest.license === 'string' ? manifest.license : (manifest.license && manifest.license.type) || '';
+      repository = (manifest.repository && (manifest.repository.url || manifest.repository)) || '';
+    } catch { /* no manifest */ }
+    const files = fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }).filter((entry) => entry.isFile() && isLicenseFile(entry.name)).map((entry) => entry.name) : [];
     const text = files.map((file) => fs.readFileSync(path.join(dir, file), 'utf8').trim()).join('\n\n');
-    parts.push(`==== ${name}${version ? ` ${version}` : ''} ====\n${text || '(no license file in the package)'}\n`);
+    parts.push(`==== ${name}${version ? ` ${version}` : ''} ====\n${text || `(the package ships no license file; its package.json declares: ${declared || 'nothing'}${repository ? `; repository: ${repository}` : ''})`}\n`);
   }
   return parts.join('\n');
 }
@@ -101,7 +108,9 @@ async function bundleBackend({ backendDir, sourceMapDir }) {
 
   const driverEntry = path.join(tempDir, 'driver-entry.js');
   fs.mkdirSync(tempDir, { recursive: true });
-  fs.writeFileSync(driverEntry, "module.exports = { mongodb: require('mongodb'), bson: require('bson') };\n");
+  // `collections`: the collection names of the models the main process reads without mongoose (nota-backend/src/models/collections.js).
+  const collectionsFile = path.join(srcDir, 'models', 'collections.js').split(path.sep).join('/');
+  fs.writeFileSync(driverEntry, `module.exports = { mongodb: require('mongodb'), bson: require('bson'), collections: require(${JSON.stringify(collectionsFile)}) };\n`);
   const driver = await esbuild.build({
     ...common,
     entryPoints: { driver: driverEntry },

@@ -158,3 +158,22 @@ test('what is new: a brand-new install records the version silently and shows no
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('first run records the version before anyone signs in (so a cashier opening a brand-new install first cannot leave it unrecorded); an existing record is never overwritten', () => {
+  const { ensureWhatsNewRecord } = require('../lib/whats-new');
+  const dir = tempDir('whatsnew-first');
+  try {
+    const stateFile = path.join(dir, 'home', 'whats-new.json');
+    assert.equal(ensureWhatsNewRecord({ stateFile, version: '1.0.0' }), true);
+    assert.equal(JSON.parse(fs.readFileSync(stateFile, 'utf8')).lastSeenVersion, '1.0.0');
+    assert.equal(ensureWhatsNewRecord({ stateFile, version: '1.1.0' }), false, 'the upgrade from 1.0.0 keeps the old record, so the dialog can show');
+    assert.equal(JSON.parse(fs.readFileSync(stateFile, 'utf8')).lastSeenVersion, '1.0.0');
+    const changelogFile = path.join(dir, 'CHANGELOG.md');
+    fs.writeFileSync(changelogFile, '## 1.1.0 - 2026-12-01\n\n### ar\n- جديد\n\n### en\n- new\n');
+    assert.equal(pendingWhatsNew({ changelogFile, stateFile, version: '1.1.0' }).en[0], 'new', 'still pending until a manager closes it');
+    const main = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+    assert.match(main, /ensureWhatsNewRecord\(\{ stateFile: state\.paths\.whatsNew/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

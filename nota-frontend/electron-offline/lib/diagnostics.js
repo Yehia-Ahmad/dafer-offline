@@ -8,9 +8,11 @@
 //   README.txt       what is inside and what is not
 //   info.json        app version + build, Electron/Node/Chrome versions, Windows version, CPU/RAM, uptime
 //   config.json      role, port, instanceId, startWithWindows, main PC address (allowlisted keys only; no secrets)
-//   license.json     license id, type, max client PCs, issue date (no license text, no Machine ID)
+//   license.json     license id, type, max client PCs, issue date and the shop name (no license text, no Machine ID)
 //   status.json      what the status page shows (state, label, error code and message)
-//   database.json    the data version and the app version/build that last ran on it
+//   database.json    the data version, the app version/build that last ran on it, the paired and known client PCs
+//   migrations.json  the migration log (version, name, when)
+//   health.json      the accounting health checks: pass/fail and the numbers (no names), when the server runs and the caller may read them
 //   backups.json     backup file NAMES, sizes and dates (not contents), and the daily-backup status
 //   printing.json    this PC's print settings (printer names, copies, paper width, offset)
 //   logs/*.log       the last ~400 KB of app.log, backend.log, mongod.log, mongod-upgrade.log (and their rotations)
@@ -70,6 +72,16 @@ function listBackupFiles(dir) {
   });
 }
 
+/** Free and total space of the drive that holds `dir` (null when the platform cannot say). */
+function diskFree(dir) {
+  try {
+    const stat = fs.statfsSync(dir);
+    return { drive: path.parse(path.resolve(dir)).root.replace(/[\\/]$/, ''), freeMb: Math.round((stat.bavail * stat.bsize) / 1048576), totalMb: Math.round((stat.blocks * stat.bsize) / 1048576) };
+  } catch {
+    return null;
+  }
+}
+
 const README = `Nota diagnostics file / ملف تشخيص نوتة
 
 This file helps support understand a problem. It was made on the shop's PC by an owner or manager and saved where they chose.
@@ -100,36 +112,40 @@ Nothing was sent anywhere: the owner chooses whether to send this file.
  * @param {object} [o.printSettings]
  * @param {string} [o.logsDir]
  */
-function buildDiagnosticsEntries({ now = new Date(), edition, runtime = {}, config, status, license, database, backups, printSettings, logsDir }) {
+function buildDiagnosticsEntries({ now = new Date(), edition, runtime = {}, config, status, license, database, migrations, health, diskFree, backups, printSettings, logsDir }) {
   const entries = [];
-  const add = (name, value) => entries.push({ name, data: Buffer.from(redactText(typeof value === 'string' ? value : `${JSON.stringify(value, null, 2)}\n`), 'utf8') });
+  // names: true only for log text; the JSON files are built from an allowlist (their `name` keys are file names and the like)
+  const add = (name, value, { names = false } = {}) => entries.push({ name, data: Buffer.from(redactText(typeof value === 'string' ? value : `${JSON.stringify(value, null, 2)}\n`, { names }), 'utf8') });
 
   add('README.txt', README);
   add('info.json', {
     createdAt: now.toISOString(),
-    app: { name: edition.productName, version: edition.version, build: edition.build, builtAt: edition.builtAt || null, packaged: Boolean(runtime.packaged) },
+    app: { product: edition.productName, version: edition.version, build: edition.build, builtAt: edition.builtAt || null, packaged: Boolean(runtime.packaged) },
     runtime: { electron: runtime.electron || null, node: runtime.node || null, chrome: runtime.chrome || null },
     system: {
       platform: os.platform(), release: os.release(), arch: os.arch(), cpus: os.cpus().length, cpuModel: (os.cpus()[0] || {}).model || null,
       totalMemoryMb: Math.round(os.totalmem() / 1048576), freeMemoryMb: Math.round(os.freemem() / 1048576), uptimeHours: Math.round(os.uptime() / 360) / 10,
     },
+    disk: diskFree || null,
   });
   add('config.json', pick(config, CONFIG_KEYS));
-  add('license.json', pick(license, ['licenseId', 'type', 'maxClients', 'issuedAt']));
+  add('license.json', pick(license, ['licenseId', 'type', 'maxClients', 'issuedAt', 'shopName']));
   add('status.json', pick(status, ['state', 'label', 'code', 'message']));
-  add('database.json', pick(database, ['schemaVersion', 'appVersion', 'appBuild', 'error']));
+  add('database.json', pick(database, ['schemaVersion', 'appVersion', 'appBuild', 'pairedClients', 'knownClients', 'error', 'unavailable']));
   add('backups.json', {
     backups: backups ? listBackupFiles(backups.backupsDir) : [],
     daily: backups ? listBackupFiles(backups.autoDir) : [],
     status: backups && backups.summary ? pick(backups.summary, ['lastBackup', 'lastAuto', 'autoCount', 'keep', 'autoError', 'dataDrive', 'copyFolderSameDrive', 'lastCopy', 'lastExternal', 'externalOverdue', 'schedule', 'lastGood', 'daysSinceGood']) : null,
   });
   add('printing.json', pick(printSettings, PRINT_KEYS));
+  add('migrations.json', Array.isArray(migrations) ? migrations : { unavailable: 'the database was not readable' });
+  add('health.json', health || { available: false, reason: 'not read' });
 
   if (logsDir) {
     let names = [];
     try { names = fs.readdirSync(logsDir); } catch { names = []; }
     for (const name of names.filter((entry) => LOG_ALLOWLIST.test(entry)).sort()) {
-      try { add(`logs/${name}`, readTail(path.join(logsDir, name))); } catch { /* an unreadable log is left out */ }
+      try { add(`logs/${name}`, readTail(path.join(logsDir, name)), { names: true }); } catch { /* an unreadable log is left out */ }
     }
   }
   return entries;
@@ -140,4 +156,4 @@ function buildDiagnosticsZip(input) {
   return createZip(buildDiagnosticsEntries({ ...input, now }), { date: now });
 }
 
-module.exports = { LOG_ALLOWLIST, buildDiagnosticsEntries, buildDiagnosticsZip, diagnosticsFileName, readTail };
+module.exports = { diskFree, LOG_ALLOWLIST, buildDiagnosticsEntries, buildDiagnosticsZip, diagnosticsFileName, readTail };

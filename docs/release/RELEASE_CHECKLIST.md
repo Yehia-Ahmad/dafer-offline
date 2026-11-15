@@ -1,7 +1,7 @@
 # Nota release checklist
 
 For the person who builds and ships a version (the "release manager"). One command builds the installer; this list is what to do around it.
-Shop-facing steps are in Arabic: `FIRST_SHOP_UPGRADE_AR.md`, `SMARTSCREEN_AR.md`, `PRINTER_CHECK_AR.md`.
+Shop-facing steps are in Arabic: `NEW_SHOP_SETUP_AR.md` (every new shop, the first one included), `UPGRADE_AR.md` (a newer version for a shop already on Nota, with the rollback), `SMARTSCREEN_AR.md`, `PRINTER_CHECK_AR.md`.
 
 ## Before the build
 
@@ -28,11 +28,39 @@ It stops at the first failure and runs, in order: key file check, changelog chec
 
 ## Check the installer on a clean PC (once per release, 20 minutes)
 
-Use a PC (or a Windows VM) that never had Nota. Follow `MANUAL_TESTS_STAGE24_25.md`, at least the **High** cases: install, EULA, activation with a license made for that PC, first run setup, a sale and a receipt print, backup and restore, uninstall keeping the data, install again over the kept data, and the installer in Arabic and in English.
+Use a PC (or a Windows VM) that never had Nota, or **Windows Sandbox**: a throwaway clean Windows built into Windows 10/11 **Pro or Enterprise**, discarded when you close it.
+
+**Windows Sandbox, step by step**
+
+1. Once: Start → "Turn Windows features on or off" → tick **Windows Sandbox** → OK → restart. (Needs virtualization enabled in the BIOS and 4 GB RAM or more.)
+2. Copy the release folder (`release-offline\<version>\`) to `C:\SandboxShare`.
+3. Save this as `C:\SandboxShare\nota-clean-pc.wsb` and double-click it:
+
+```
+<Configuration>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\SandboxShare</HostFolder>
+      <SandboxFolder>C:\Users\WDAGUtilityAccount\Desktop\share</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+</Configuration>
+```
+
+4. In the Sandbox window: open `Desktop\share`, check the SHA-256 (`certutil -hashfile Nota-Setup-<version>.exe SHA256`), run the installer (More info → Run anyway), and follow `NEW_SHOP_SETUP_AR.md` from step 3.
+5. **Activation:** the Sandbox has a **new Machine ID every time it starts**. Copy the ID it shows (paste it into a text file in the shared folder is not possible: it is read-only, so type it or use the clipboard, which the Sandbox shares), issue a license for that ID **on your own PC** with your private key (the private key never goes into the Sandbox) and paste the text into the Sandbox.
+6. Closing the Sandbox window deletes everything, so a second run starts clean again. To test an **upgrade**, install the previous installer first, make some data (a few sales), then run the new installer over it in the same Sandbox session, and follow `UPGRADE_AR.md` including a rollback.
+
+**What to check** (`MANUAL_TESTS_STAGE24_25.md`, at least the **High** cases): install, EULA, activation with a license made for that PC, first-run setup, a sale and a receipt print, backup and restore, uninstall keeping the data, install again over the kept data, and the installer in Arabic and in English.
 
 - [ ] SHA-256 on that PC matches the `.sha256` file: `certutil -hashfile Nota-Setup-<version>.exe SHA256`.
-- [ ] If the version has a migration: install it **over the previous version with some data** (the first shop's copy, on a throwaway PC or VM), confirm the `before-upgrade-*` file appears in `C:\ProgramData\Nota\backups`, and run the rollback from `FIRST_SHOP_UPGRADE_AR.md` once.
+- [ ] If the version has a migration: install it **over the previous version with some data** (a throwaway PC, a VM or the Sandbox), confirm the `before-upgrade-*` file appears in `C:\ProgramData\Nota\backups`, and run **both** rollbacks of `UPGRADE_AR.md` once (this needs the previous installer: see the next section).
 - [ ] Printer: `PRINTER_CHECK_AR.md` on the shop's real receipt printer the first time, or when the printer model changes.
+
+## Keep every released installer
+
+- [ ] **Keep every released installer and its SHA-256** (the whole `release-offline\<version>\` folder, with its `sourcemaps\`) in a safe place, for as long as any shop may be on that version. Rollback B of `UPGRADE_AR.md` installs the **previous** installer, so without it a shop cannot go back. Never delete or rebuild an old version: a new fix is a new version number.
 
 ## Ship
 

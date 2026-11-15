@@ -19,6 +19,12 @@
 //   6. start a mongod exactly as in production (--auth --keyFile --replSet) and VERIFY: admin and app can sign in, a connection with
 //      no credentials is refused; stop it; only then mark the state "complete"
 // An existing database is never changed apart from the two users in the admin database.
+//
+// Stage 25: "complete" in db-auth.json only says the users were created in SOME data folder. The users live INSIDE the data folder (admin database), so
+// putting an older data folder back (rollback method A of docs/release/UPGRADE_AR.md) leaves the state saying complete while the users are gone. The state
+// therefore carries an authId that is also written to <dbPath>/nota-auth.id after the users are verified. A data folder without that file, or with another
+// id, is treated as "users not created here": ensure() re-runs the user-creation steps with the SAME stored credentials (never new passwords), so the
+// credentials the rest of the app holds stay valid and no misleading "port in use" error follows.
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -140,6 +146,7 @@ class DbAuth {
     this.legacyCredentialsFile = path.join(securityDir, 'mongo-credentials.bin');
     this.keyFile = path.join(securityDir, 'mongo-keyfile');
     this.stateFile = path.join(securityDir, 'db-auth.json');
+    this.markerFile = path.join(dbPath, 'nota-auth.id');
   }
 
   // ---- state ----------------------------------------------------------------------------------------------------------
@@ -150,6 +157,18 @@ class DbAuth {
       if (state && state.v === STATE_VERSION && (state.phase === 'prepared' || state.phase === 'complete')) return { running: [], ...state };
     } catch { /* none or unreadable: the upgrade starts over, which is always safe */ }
     return { v: STATE_VERSION, phase: 'none', running: [] };
+  }
+
+  /** True when this data folder carries the marker of the recorded upgrade (so its users were created here). */
+  markerMatches(state) {
+    if (!state.authId) return false;
+    try { return fs.readFileSync(this.markerFile, 'utf8').trim() === state.authId; } catch { return false; }
+  }
+
+  writeMarker(authId) {
+    fs.mkdirSync(path.dirname(this.markerFile), { recursive: true });
+    writeFileAtomic(this.markerFile, `${authId}
+`);
   }
 
   writeState(state) {
@@ -236,7 +255,10 @@ class DbAuth {
       const loaded = this.loadCredentials();
       if (loaded.status === 'ok') {
         this.ensureKeyFile();
-        return this.result(loaded.credentials);
+        if (this.markerMatches(state)) return this.result(loaded.credentials);
+        // The users may not exist in THIS data folder (an older data folder was put back, or the state comes from before the marker existed).
+        this.log.warn('this data folder has no record of the database users: creating them again with the stored credentials (the data is not touched)');
+        return this.upgrade({ stopOrphan, hook });
       }
       if (loaded.status === 'unreadable') {
         // The file exists but this account cannot decrypt it (another Windows account, or the data folder was copied to another PC).
@@ -293,7 +315,9 @@ class DbAuth {
 
     // 6. the verification start: the production configuration
     await this.verifyFinal(credentials, step);
-    this.writeState({ ...this.readState(), phase: 'complete', running: [] });
+    const authId = crypto.randomBytes(16).toString('hex');
+    this.writeMarker(authId);
+    this.writeState({ ...this.readState(), phase: 'complete', running: [], authId });
     this.log.info('database authentication is on (users created, keyFile ready, connection verified)');
     return this.result(credentials);
   }

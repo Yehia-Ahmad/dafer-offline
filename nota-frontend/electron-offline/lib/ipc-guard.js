@@ -92,6 +92,20 @@ function createBackendClient({ apiOrigin, secret, fetchImpl = fetch, timeoutMs =
       return { user: body.user, permissions: Array.isArray(body.permissions) ? body.permissions : body.user.permissions || [] };
     },
 
+    /** The accounting health report for this token (diagnostics). Throws when the server does not answer or the user may not read it. */
+    async health(token) {
+      let response;
+      try {
+        response = await fetchImpl(`${apiOrigin}/api/accounting/health`, { headers: headers(token), signal: AbortSignal.timeout(Math.max(timeoutMs, 15000)) });
+      } catch {
+        throw serverBusy();
+      }
+      if (response.status === 401) throw sessionExpired();
+      if (response.status === 403) throw forbidden();
+      if (!response.ok) throw serverBusy();
+      return readJson(response);
+    },
+
     /** Resolves when the password is right; throws WRONG_PASSWORD, LOGIN_LOCKED, SESSION_EXPIRED or SERVER_BUSY. */
     async verifyPassword(token, password) {
       let response;

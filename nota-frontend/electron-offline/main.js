@@ -28,8 +28,9 @@ const {
 
 const EDITION = require('./lib/edition');
 const { createDiagnosticsHandlers } = require('./lib/diagnostics-handlers');
-const { buildDiagnosticsZip, diagnosticsFileName } = require('./lib/diagnostics');
-const { pendingWhatsNew, currentWhatsNew, markWhatsNewSeen } = require('./lib/whats-new');
+const { buildDiagnosticsZip, diagnosticsFileName, diskFree } = require('./lib/diagnostics');
+const { readDatabaseFacts, summarizeHealth } = require('./lib/diagnostics-db');
+const { ensureWhatsNewRecord, pendingWhatsNew, currentWhatsNew, markWhatsNewSeen } = require('./lib/whats-new');
 const { ensureLayout, layout, resolveHome, resolveResources } = require('./lib/paths');
 const { createLogger } = require('./lib/logger');
 const { MONGOD_PORT, SERVER_LOCK_PORT, readConfig, writeConfig } = require('./lib/config-store');
@@ -671,40 +672,71 @@ function registerBackupIpc() {
 }
 
 // Stage 25: the diagnostics file (lib/diagnostics.js: an allowlist, then redaction). Nothing is read from the security folder or the database files.
-async function collectDiagnostics() {
+async function collectDiagnostics({ token = null } = {}) {
   const now = new Date();
   let license = null;
   try { license = licenseGate().details(); } catch { license = null; }
-  let database = null;
-  if (state.mode === 'main' && state.supervisor && state.status.state === 'running') {
+  const running = state.mode === 'main' && state.supervisor && state.status.state === 'running';
+
+  // The database facts go through the real query with the collection names the backend ships (src/models/collections.js).
+  let database = { unavailable: 'the database is not running on this PC' };
+  let migrations = null;
+  if (running) {
     try {
-      database = await backupService().withClient((db) => db.collection('meta').findOne({ _id: 'schema' }, { projection: { version: 1, appVersion: 1, appBuild: 1 } }));
-      if (database) database = { schemaVersion: database.version, appVersion: database.appVersion, appBuild: database.appBuild };
+      const facts = await readDatabaseFacts({ withClient: (callback) => backupService().withClient(callback), collections: backendCollections() });
+      database = { schemaVersion: facts.schemaVersion, appVersion: facts.appVersion, appBuild: facts.appBuild, pairedClients: facts.pairedClients, knownClients: facts.knownClients };
+      migrations = facts.migrations;
     } catch (error) {
       database = { error: error.message };
     }
   }
+
+  // The accounting health checks need the server and a signed-in user who may read them; the failure screens have neither.
+  let health = { available: false, reason: token ? 'the server did not answer' : 'no signed-in user (exported from a failure screen)' };
+  if (running && token) {
+    try {
+      health = summarizeHealth(await backendClient().health(token));
+    } catch (error) {
+      health = { available: false, reason: error.code || error.message };
+    }
+  }
+
   let printSettings = null;
   try { printSettings = JSON.parse(fs.readFileSync(path.join(state.paths.home, 'print-settings.json'), 'utf8')); } catch { printSettings = null; }
+  let backupSummary = null;
+  try { backupSummary = state.autoBackup ? await state.autoBackup.summary() : null; } catch { backupSummary = null; }
   const zip = buildDiagnosticsZip({
     now,
     edition: EDITION,
     runtime: { electron: process.versions.electron, node: process.versions.node, chrome: process.versions.chrome, packaged: app.isPackaged },
     config: state.config,
     status: state.status,
-    license,
+    license: license ? { ...license, shopName: license.shopName } : null,
     database,
-    backups: { backupsDir: state.paths.backups, autoDir: state.paths.autoBackups, summary: state.autoBackup ? state.autoBackup.summary() : null },
+    migrations,
+    health,
+    diskFree: diskFree(state.paths.home),
+    backups: { backupsDir: state.paths.backups, autoDir: state.paths.autoBackups, summary: backupSummary },
     printSettings,
     logsDir: state.paths.logs,
   });
   return { zip, fileName: diagnosticsFileName(license && license.licenseId, now) };
 }
 
+// The collection names of the backend's models (nota-backend/src/models/collections.js): shipped inside the driver bundle, or read from the checkout in development.
+function backendCollections() {
+  const bundled = bundledDriver();
+  return (bundled && bundled.collections) || require(path.join(state.resources.backendDir, 'src', 'models', 'collections.js'));
+}
+
+// The screens that say "the program did not start": the only time the no-login export is allowed (the app is not running, so there is no session to check).
+const FAILURE_STATES = new Set(['failed', 'damaged', 'not-configured', 'unreachable', 'unauthorized', 'not-nota', 'not-activated']);
+
 function registerDiagnosticsIpc() {
   const handlers = createDiagnosticsHandlers({
     backend: backendClient,
     collect: collectDiagnostics,
+    canExportLocal: () => FAILURE_STATES.has(state.status.state),
     chooseSavePath: async (defaultName) => {
       const answers = testAnswers();
       if (answers) return answers.save || null;
@@ -747,6 +779,7 @@ function registerIpc() {
   registerDiagnosticsIpc();
   handle('nota:runtime-config', () => {
     if (!state.apiOrigin || !state.config) throw new Error('the app is not configured');
+    ensureWhatsNewRecord({ stateFile: state.paths.whatsNew, version: EDITION.version }); // a brand-new install records its version now, whoever signs in first
     return {
       apiBaseUrl: `${state.apiOrigin}/api/`,
       role: state.config.role,
@@ -1374,6 +1407,8 @@ function gracefulQuit(reason) {
 
   state.quitPromise = (async () => {
     if (state.monitor) state.monitor.stop();
+    // Stage 25: today's daily backup was not taken (the PC was off at the set time): take it now, while the server still runs (45 s at most).
+    if (state.autoBackup && state.status.state === 'running') await state.autoBackup.backUpOnClose({ timeoutMs: 45000 });
     if (state.autoBackup) state.autoBackup.stop();
     if (state.mainPcWatcher) state.mainPcWatcher.stop();
     if (state.responder) await state.responder.stop();

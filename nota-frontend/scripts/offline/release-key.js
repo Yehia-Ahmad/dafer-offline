@@ -12,6 +12,7 @@ const path = require('node:path');
 
 const PLACEHOLDER_MARKER = 'NOTA_PLACEHOLDER_REPLACE_WITH_PRODUCTION_PUBLIC_KEY';
 const RECORD = 'release-key.json';
+const { verificationFingerprint } = require('./verification-key');
 
 const fingerprintOf = (keyObject) => crypto.createHash('sha256').update(keyObject.export({ type: 'spki', format: 'der' })).digest('hex');
 
@@ -49,6 +50,7 @@ function readReleaseKey(file, { backendDir }) {
   if (key.asymmetricKeyType !== 'ed25519') throw new Error(`${file} is a ${key.asymmetricKeyType} key; licenses use an Ed25519 key`);
   const fingerprint = fingerprintOf(key);
   if (fingerprint === testKeyFingerprint(backendDir)) throw new Error(`${file} is the TEST key (the one development builds accept). A release needs your own production key`);
+  if (fingerprint === verificationFingerprint()) throw new Error(`${file} is the VERIFICATION key (its private half is derived from a public seed, it is not a secret). A release needs your own production key`);
   return { pem: key.export({ type: 'spki', format: 'pem' }).toString().trim(), fingerprint };
 }
 
@@ -77,6 +79,7 @@ function recordProblems(stageDir, { backendDir } = {}) {
   } catch {
     return [`${path.basename(stageDir)}/${RECORD} is missing: run offline:stage first (a release needs NOTA_RELEASE_PUBLIC_KEY_FILE)`];
   }
+  if (record.verification === true || record.fingerprint === verificationFingerprint()) return ['the production public key of this stage is the VERIFICATION key (a non-releasable verification stage); a release needs your own production key'];
   if (record.placeholder === true) return ['the production public key of this stage is still the placeholder: run offline:stage with NOTA_RELEASE_PUBLIC_KEY_FILE pointing to your public key (tools/license-gen/README.md, step 2)'];
   if (typeof record.fingerprint !== 'string' || !/^[0-9a-f]{64}$/.test(record.fingerprint)) return [`${RECORD} has no valid key fingerprint`];
   if (backendDir && record.fingerprint === testKeyFingerprint(backendDir)) return ['the production public key of this stage is the TEST key; a release needs your own production key'];

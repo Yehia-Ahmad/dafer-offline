@@ -111,14 +111,14 @@ test('strip: docs, types, maps, tests and examples go; LICENSE files and runtime
 });
 
 test('the Electron main process still gets the MongoDB driver and bson from the bundled backend (src/driver.js), and main.js falls back to node_modules in a dev checkout', { skip: skip || (typeof electronPath === 'string' ? false : 'electron is not installed') }, () => {
-  const result = spawnSync(electronPath, ['-e', "const d = require('./src/driver.js'); console.log(JSON.stringify([typeof d.mongodb.MongoClient, typeof d.bson.ObjectId, typeof d.bson.Binary]))"], {
+  const result = spawnSync(electronPath, ['-e', "const d = require('./src/driver.js'); console.log(JSON.stringify([typeof d.mongodb.MongoClient, typeof d.bson.ObjectId, typeof d.bson.Binary, d.collections.META, d.collections.AUDIT_LOG, d.collections.DEVICE]))"], {
     cwd: STAGED,
     encoding: 'utf8',
     timeout: 60000,
     env: { SystemRoot: process.env.SystemRoot, PATH: process.env.PATH, ELECTRON_RUN_AS_NODE: '1' },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout.trim()), ['function', 'function', 'function']);
+  assert.deepEqual(JSON.parse(result.stdout.trim()), ['function', 'function', 'function', 'metas', 'auditlogs', 'devices']);
   const main = fs.readFileSync(path.join(FRONTEND, 'electron-offline', 'main.js'), 'utf8');
   assert.match(main, /'src', 'driver\.js'/);
   assert.match(main, /'node_modules', 'mongodb'/, 'dev checkout fallback');
@@ -138,6 +138,14 @@ test('a stack trace from the bytecode bundle decodes back to the original source
   const decoded = decodeStack(result.stdout, maps);
   assert.match(decoded, /at new ObjectId \(.*node_modules\/bson\/src\/objectid\.ts:\d+:\d+\)/, decoded);
   assert.ok(!/driver\.jsc:1:/.test(decoded), 'the bundle frame is replaced');
+
+  // an installed program lives under "C:\Program Files\Nota": the same frames with a path that holds spaces decode the same way, with or without parentheses
+  const spaced = result.stdout.split(STAGED).join('C:\\Program Files\\Nota\\resources\\backend');
+  assert.match(spaced, /\(C:\\Program Files\\Nota\\resources\\backend\\src\\driver\.jsc:1:\d+\)/);
+  assert.match(decodeStack(spaced, maps), /at new ObjectId \(.*node_modules\/bson\/src\/objectid\.ts:\d+:\d+\)/, 'a path with spaces, in parentheses');
+  const bare = spaced.replace(/\((C:\\Program Files[^)]*)\)/, '$1');
+  assert.match(decodeStack(bare, maps), /at new ObjectId .*node_modules\/bson\/src\/objectid\.ts:\d+:\d+/, 'a path with spaces, without parentheses');
+  assert.ok(!/driver\.jsc:1:/.test(decodeStack(bare, maps)));
 });
 
 test('decode-stack: the source map decoder and the offset-to-line conversion (hand-made map)', () => {
@@ -167,4 +175,22 @@ test('strip: a doc/test/example folder deeper than the package root is code and 
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('THIRD_PARTY_LICENSES.txt: every bundled package has its license text (LICENSE, LICENSE-MIT.txt, MIT-LICENSE.txt ... any license-like file) or says what its package.json declares', { skip }, () => {
+  const text = fs.readFileSync(path.join(STAGED, 'THIRD_PARTY_LICENSES.txt'), 'utf8');
+  const sections = text.split(/^==== /m).slice(1).map((part) => ({ name: part.slice(0, part.indexOf(' ')), body: part.slice(part.indexOf('====\n') + 5).trim() }));
+  assert.ok(sections.length > 100, `${sections.length} packages`);
+  const bare = sections.filter((section) => section.body.startsWith('(the package ships no license file'));
+  // a package with no license file at all (a few tiny old ones) is still listed, with what its manifest says: a declared license, or where it comes from
+  for (const section of bare) assert.match(section.body, /declares: (?!nothing)\S+|repository: \S+/, `${section.name} has no license file and its manifest gives neither a license nor a repository`);
+  for (const name of ['punycode', 'sift', 'express', 'mongodb', 'bson']) {
+    const section = sections.find((entry) => entry.name === name);
+    assert.ok(section, name);
+    assert.ok(!section.body.startsWith('(the package ships no license file'), `${name} has its license text (a LICENSE-MIT.txt / MIT-LICENSE.txt style file)`);
+    assert.match(section.body, /Permission|Apache License/i, name);
+  }
+  const { isLicenseFile } = require('../../scripts/offline/strip');
+  for (const name of ['LICENSE', 'LICENSE.md', 'LICENSE-MIT.txt', 'MIT-LICENSE.txt', 'license', 'LICENCE', 'COPYING', 'COPYING.LESSER', 'NOTICE', 'NOTICE.txt', 'LICENSE.BSD']) assert.ok(isLicenseFile(name), name);
+  for (const name of ['license-checker.js', 'index.js', 'package.json', 'licenses.json', 'README.md']) assert.ok(!isLicenseFile(name), name);
 });

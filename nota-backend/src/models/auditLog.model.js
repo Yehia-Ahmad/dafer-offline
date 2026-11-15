@@ -18,4 +18,4 @@ const auditLogSchema = new mongoose.Schema(
 
 auditLogSchema.index({ at: -1 });
 
-module.exports = mongoose.model("AuditLog", auditLogSchema);
+module.exports = mongoose.model("AuditLog", auditLogSchema, require("./collections").AUDIT_LOG);

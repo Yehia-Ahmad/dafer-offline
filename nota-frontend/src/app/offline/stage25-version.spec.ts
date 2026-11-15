@@ -68,7 +68,7 @@ describe('Stage 25 version screens', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-test="about-notes"]')?.textContent).toContain('A new feature');
   });
 
-  it('the what\'s-new window waits for sign-in, shows the list, and marks it seen when closed (once)', async () => {
+  it('the what\'s-new window waits for sign-in AND shop.manage (it stays pending for a cashier), shows the list, and marks it seen when closed (once)', async () => {
     fakeBridge(ENTRY);
     await setup('ar');
     const fixture = TestBed.createComponent(WhatsNewDialogComponent);
@@ -77,6 +77,14 @@ describe('Stage 25 version screens', () => {
     expect(asked).toBe(0);
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-test="whats-new"]')).toBeNull();
 
+    signedIn.set(true); // a cashier signs in: the desktop app is not even asked, so nothing is marked seen
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(asked).toBe(0);
+    expect(seen).toBe(0);
+    signedIn.set(false);
+    fixture.detectChanges();
+    permissions = new Set(['shop.manage']); // an owner or manager signs in on the same PC
     signedIn.set(true);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -94,6 +102,7 @@ describe('Stage 25 version screens', () => {
   it('nothing shows when the desktop app has nothing new for this version', async () => {
     fakeBridge(null);
     await setup('ar');
+    permissions = new Set(['shop.manage']);
     signedIn.set(true);
     const fixture = TestBed.createComponent(WhatsNewDialogComponent);
     fixture.detectChanges();

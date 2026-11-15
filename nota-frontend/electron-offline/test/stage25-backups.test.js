@@ -50,34 +50,78 @@ function setup({ time = '00:00', primary = '' } = {}) {
 }
 const cleanup = (ctx) => fs.rmSync(ctx.home, { recursive: true, force: true });
 
-test('the daily backup waits for the chosen time, runs once after it, and catches up if the PC was off at that time', async () => {
+test('the daily backup: one a day, at the set time; a set time that passed while the app was closed (or before the shop opened) is made up at the next start', async () => {
   const ctx = setup({ time: '22:30' });
   try {
+    // a shop with no backup at all gets one at the first start (the last 22:30 slot has no backup)
     ctx.at(9, 0);
     await ctx.auto.check();
-    assert.equal(ctx.backups.length, 0, '09:00 is before 22:30');
-    ctx.at(22, 29);
+    assert.equal(ctx.backups.length, 1, 'first start, nothing backed up yet');
+    ctx.at(9, 30);
     await ctx.auto.check();
-    assert.equal(ctx.backups.length, 0, 'one minute early');
-    ctx.at(22, 30);
+    assert.equal(ctx.backups.length, 1, 'only one a day');
+    ctx.at(22, 31);
     await ctx.auto.check();
-    assert.equal(ctx.backups.length, 1, 'at the time');
-    ctx.at(23, 45);
+    assert.equal(ctx.backups.length, 1, 'today already has one: 22:30 does not make a second');
+
+    // next morning: the app was closed at 22:30, so that evening's backup was missed (only the morning one exists): made up at the start
+    ctx.at(8, 0, 1);
     await ctx.auto.check();
-    assert.equal(ctx.backups.length, 1, 'only once a day');
-    // off all next day, switched on at 08:00 the day after: before today's time, so yesterday's is not made up; 22:30 it is
+    assert.equal(ctx.backups.length, 2, 'the 22:30 that passed while the app was closed is made up at the next start');
+    ctx.at(8, 30, 1);
+    await ctx.auto.check();
+    assert.equal(ctx.backups.length, 2, 'and only once that day');
+
+    // the app stays on until 22:30 of day 2, a backup exists from the evening of day 1: the next one is due only when 22:30 comes
+    fs.writeFileSync(path.join(ctx.dir, backupFileName(AUTO_PREFIX, new Date(2026, 10, 3, 22, 30, 5))), 'evening');
     ctx.at(8, 0, 2);
     await ctx.auto.check();
-    assert.equal(ctx.backups.length, 1);
-    ctx.at(22, 31, 2);
+    assert.equal(ctx.backups.length, 2, 'yesterday 22:30 was taken: nothing is due at 08:00');
+    ctx.at(22, 30, 2);
     await ctx.auto.check();
-    assert.equal(ctx.backups.length, 2);
-    // changing the time to an earlier one makes today's backup due at once if that time has passed and there is none today
+    assert.equal(ctx.backups.length, 3, 'at 22:30 it is due');
+
+    // changing the time to an earlier one makes today's backup due at once, if that time has passed and there is none today
     ctx.at(12, 0, 3);
     ctx.time = '11:00';
     await ctx.auto.check();
-    assert.equal(ctx.backups.length, 3);
+    assert.equal(ctx.backups.length, 4);
+
+    // the PC was off for days and is switched on at 20:00, before the set time: the missed slot is made up at once
+    ctx.at(20, 0, 7);
+    ctx.time = '22:30';
+    await ctx.auto.check();
+    assert.equal(ctx.backups.length, 5);
     assert.ok(validTime('00:00') && validTime('23:59') && !validTime('24:00') && !validTime('9:30') && !validTime('22:60') && !validTime(null));
+  } finally {
+    cleanup(ctx);
+  }
+});
+
+test('closing the app: today\'s backup is taken on close when it was not taken; not twice, not after a recent failure, and never longer than the limit', async () => {
+  const ctx = setup({ time: '22:30' });
+  try {
+    ctx.at(9, 0);
+    fs.writeFileSync(path.join(ctx.dir, backupFileName(AUTO_PREFIX, new Date(2026, 10, 1, 22, 30, 0))), 'older'); // some history: closing is about today
+    const first = await ctx.auto.backUpOnClose();
+    assert.ok(first, 'taken on close');
+    assert.equal(ctx.backups.length, 1);
+    assert.equal(await ctx.auto.backUpOnClose(), null);
+    assert.equal(ctx.backups.length, 1, 'not twice');
+
+    // a failing backup is not retried on close within the retry delay, and never throws
+    ctx.at(9, 0, 1);
+    ctx.auto.runBackup = async () => { throw Object.assign(new Error('disk full'), { code: 'BACKUP_FAILED' }); };
+    assert.equal(await ctx.auto.backUpOnClose(), null);
+    assert.equal(await ctx.auto.backUpOnClose(), null, 'the retry delay applies');
+
+    // a backup that hangs cannot hold the close up
+    ctx.at(9, 0, 3);
+    ctx.auto.retryAt = 0;
+    ctx.auto.runBackup = () => new Promise(() => {});
+    const started = Date.now();
+    assert.equal(await ctx.auto.backUpOnClose({ timeoutMs: 100 }), null);
+    assert.ok(Date.now() - started < 3000);
   } finally {
     cleanup(ctx);
   }
@@ -141,7 +185,7 @@ test('the primary folder receives the daily backups, pruning there touches only 
   }
 });
 
-test('the reminder: nothing on day 0, then true when the last good backup (daily or manual) is older than 3 days', async () => {
+test('the reminder: nothing on day 0, then true when the last good backup (daily or manual) is 3 days old or more', async () => {
   assert.equal(REMINDER_AFTER_DAYS, 3);
   const ctx = setup();
   try {
@@ -151,7 +195,10 @@ test('the reminder: nothing on day 0, then true when the last good backup (daily
     assert.equal(summary.reminder, false, 'a new install is not nagged on day 0');
     assert.equal(summary.lastGood, null);
     ctx.at(9, 0, 3);
-    assert.equal((await ctx.auto.summary()).reminder, false, 'exactly 3 days: not yet');
+    assert.equal((await ctx.auto.summary()).reminder, true, 'exactly 3 days: yes (3 days or more)');
+    ctx.at(9, 0, 2);
+    assert.equal((await ctx.auto.summary()).reminder, false, '2 days: not yet');
+    ctx.at(9, 0, 3);
     ctx.at(9, 0, 4);
     summary = await ctx.auto.summary();
     assert.equal(summary.reminder, true, 'more than 3 days and no good backup');

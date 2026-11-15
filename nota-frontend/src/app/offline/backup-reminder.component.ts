@@ -5,7 +5,7 @@ import { AuthService } from '../core/auth/auth.service';
 import { BackupStatus, getDesktopBridge } from '../core/runtime/runtime-config';
 
 /**
- * Stage 25 (main PC): the home page tells whoever can back up when the last good backup (daily or manual) is more than 3 days old,
+ * Stage 25 (main PC): the home page tells whoever can back up when the last good backup (daily or manual) is 3 days old or more,
  * with a "back up now" button and the reminder to keep a copy on a USB drive or another disk. The desktop app works the number out
  * (lib/auto-backup.js summary: reminder, daysSinceGood); this only shows it. Nobody else sees it.
  */

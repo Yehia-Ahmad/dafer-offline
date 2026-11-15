@@ -202,14 +202,41 @@ class AutoBackup extends EventEmitter {
       .map((name) => path.join(folder, name));
   }
 
+  async hasBackupToday() {
+    const today = `${AUTO_PREFIX}${localDateStamp(this.now())}_`;
+    return (await this.listAuto()).some((file) => path.basename(file).startsWith(today));
+  }
+
+  // Due when there is no daily backup today AND the newest one is older than the last scheduled time (today's if it has passed, else yesterday's).
+  // So a time that passed while the app was closed (or before the shop opened) is made up at the next start, and there is still at most one a day.
   async isDue() {
     if (this.now().getTime() < this.retryAt) return false;
+    if (await this.hasBackupToday()) return false;
     const time = validTime(this.getBackupTime()) ? this.getBackupTime() : DEFAULT_BACKUP_TIME;
     const [hours, minutes] = time.split(':').map(Number);
     const now = this.now();
-    if (now.getHours() * 60 + now.getMinutes() < hours * 60 + minutes) return false; // today's backup time has not come yet
-    const today = `${AUTO_PREFIX}${localDateStamp(this.now())}_`;
-    return !(await this.listAuto()).some((file) => path.basename(file).startsWith(today));
+    const slot = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+    if (slot.getTime() > now.getTime()) slot.setDate(slot.getDate() - 1); // today's time has not come yet: yesterday's slot is the one that counts
+    const times = (await this.listAuto()).map(backupTime).filter(Boolean).map((date) => date.getTime());
+    const newest = times.length ? Math.max(...times) : 0;
+    return newest < slot.getTime();
+  }
+
+  // The app is closing: if today's daily backup was not taken (the PC was switched on after the time, or the time never came), take it now.
+  // Never throws and never waits longer than timeoutMs, so closing the program is not held up; a busy or failing backup is simply skipped.
+  backUpOnClose({ timeoutMs = 60000 } = {}) {
+    const job = this.serial(async () => {
+      try {
+        if (this.now().getTime() < this.retryAt || await this.hasBackupToday()) return null;
+        return await this.backUp();
+      } catch (error) {
+        this.log.error(`backup on close: ${error.message}`);
+        return null;
+      }
+    });
+    let timer = null;
+    const limit = new Promise((resolve) => { timer = this.timers.setTimeout(() => resolve(null), timeoutMs); });
+    return Promise.race([job, limit]).finally(() => this.timers.clearTimeout(timer));
   }
 
   async backUp() {
@@ -324,7 +351,7 @@ class AutoBackup extends EventEmitter {
       primaryFallback: this.usingFallback,
       lastGood: lastGoodAt ? { at: lastGoodAt, kind: lastBackup.kind } : null,
       daysSinceGood: Math.max(0, daysSinceGood),
-      reminder: daysSinceGood > REMINDER_AFTER_DAYS,
+      reminder: daysSinceGood >= REMINDER_AFTER_DAYS,
       reminderAfterDays: REMINDER_AFTER_DAYS,
       lastBackup,
       lastAuto,

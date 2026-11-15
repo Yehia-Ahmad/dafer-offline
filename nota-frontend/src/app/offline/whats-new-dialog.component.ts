@@ -5,7 +5,7 @@ import { WhatsNewEntry, getDesktopBridge } from '../core/runtime/runtime-config'
 
 /**
  * Stage 25: "what's new" after an upgrade. The desktop app answers once per version per PC (it remembers the last version it showed);
- * the window opens after sign-in, in the language the user chose, and the button marks it seen. The list comes from CHANGELOG.md.
+ * the window opens after an owner or manager (shop.manage) signs in, in the language the user chose, and the button marks it seen. The list comes from CHANGELOG.md.
  */
 @Component({
   selector: 'app-whats-new-dialog',
@@ -42,7 +42,8 @@ export class WhatsNewDialogComponent {
   constructor() {
     const bridge = getDesktopBridge();
     effect(() => {
-      if (!this.auth.signedIn() || this.asked || !bridge?.whatsNew) return;
+      // Only a user who can manage the shop sees it; for anyone else it stays pending (the desktop app marks it seen only when this window is closed).
+      if (!this.auth.signedIn() || !this.auth.has('shop.manage') || this.asked || !bridge?.whatsNew) return;
       this.asked = true;
       bridge.whatsNew.get().then((entry) => this.entry.set(entry ?? null)).catch(() => undefined);
     });

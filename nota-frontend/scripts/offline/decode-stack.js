@@ -75,7 +75,11 @@ const MAP_FOR = [
   [/[\\/]src[\\/]server\.jsc?$/, 'backend-server.js.map'],
 ];
 
-/** Replaces every "(file:line:col)" / "file:line:col" of the bundle in the stack with the original source position. */
+/**
+ * Replaces every "(file:line:col)" / "file:line:col" of the bundle in the stack with the original source position.
+ * The file path may hold spaces (C:\Program Files\Nota\resources\backend\src\server.jsc): a frame is matched from after an opening parenthesis (or the
+ * start of the line) up to :line:col, and whatever precedes the drive letter ("at new ObjectId (", "at ") is kept as it was.
+ */
 function decodeStack(stackText, mapsDir) {
   const cache = new Map();
   const load = (name) => {
@@ -85,7 +89,8 @@ function decodeStack(stackText, mapsDir) {
     }
     return cache.get(name);
   };
-  return String(stackText).replace(/((?:[A-Za-z]:)?[^\s()]*?[\\/]src[\\/](?:license[\\/]index|server|driver)\.jsc?):(\d+):(\d+)/g, (whole, file, line, column) => {
+
+  const decodeOne = (file, line, column) => {
     const entry = MAP_FOR.find(([pattern]) => pattern.test(file));
     const parsed = entry && load(entry[1]);
     let bundleLine = Number(line);
@@ -93,14 +98,23 @@ function decodeStack(stackText, mapsDir) {
     const bundleFile = entry && path.join(mapsDir, entry[1].replace(/\.map$/, ''));
     if (parsed && bundleLine === 1 && file.endsWith('.jsc') && fs.existsSync(bundleFile)) {
       const located = offsetToLineColumn(fs.readFileSync(bundleFile, 'utf8'), bundleColumn - 1 - WRAP_LENGTH);
-      if (!located) return whole;
+      if (!located) return null;
       bundleLine = located.line;
       bundleColumn = located.column;
     }
     const position = parsed && originalPosition(parsed, bundleLine, bundleColumn);
-    if (!position) return whole;
+    if (!position) return null;
     const source = position.source.replace(/^(\.\.\/)+/, '').replace(/\\/g, '/');
     return `${source}:${position.line}:${position.column}`;
+  };
+
+  const FRAME = /((?:[A-Za-z]:)?[^()\r\n]*?[\\/]src[\\/](?:license[\\/]index|server|driver)\.jsc?):(\d+):(\d+)/g;
+  return String(stackText).replace(FRAME, (whole, matched, line, column) => {
+    const drive = /[A-Za-z]:[\\/]/.exec(matched);
+    const afterAt = matched.lastIndexOf(' at ');
+    const split = drive ? drive.index : (afterAt >= 0 ? afterAt + 4 : 0);
+    const decoded = decodeOne(matched.slice(split), line, column);
+    return decoded === null ? whole : `${matched.slice(0, split)}${decoded}`;
   });
 }
 

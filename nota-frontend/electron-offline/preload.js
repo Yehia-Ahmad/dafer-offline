@@ -54,6 +54,8 @@ contextBridge.exposeInMainWorld('notaDesktop', {
   // Stage 25: the diagnostics file for support (owner or manager). Takes the session token; resolves to { ok, value: { path, bytes } | null }.
   diagnostics: {
     export: (token) => ipcRenderer.invoke('diagnostics:export', token),
+    // From the failure screens (the program did not start): no session exists then; main allows it only while the app is in a failed state.
+    exportLocal: () => ipcRenderer.invoke('diagnostics:export-local'),
   },
 
   // Stage 23: printing. Every call takes the session token first (checked in the main process) and

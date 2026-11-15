@@ -50,4 +50,4 @@ const metaSchema = new mongoose.Schema({
   },
 }, { versionKey: false });
 
-module.exports = mongoose.model("Meta", metaSchema);
+module.exports = mongoose.model("Meta", metaSchema, require("./collections").META);

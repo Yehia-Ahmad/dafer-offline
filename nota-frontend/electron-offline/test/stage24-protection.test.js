@@ -493,6 +493,13 @@ test('PLACEHOLDER guard (Stage 25: checks the STAGE): the installer build refuse
   const testKey = runGuard(stageWith('guard-testkey', { placeholder: false, fingerprint: testFingerprint, source: 'NOTA_RELEASE_PUBLIC_KEY_FILE' }));
   assert.equal(testKey.status, 1);
   assert.match(testKey.stderr, /TEST key/);
+  // the verification key (its private half comes from a public seed): refused by the guard, with or without the flag in the record
+  const verification = require(path.join(FRONTEND, 'scripts', 'offline', 'verification-key.js'));
+  for (const flag of [true, false]) {
+    const verif = runGuard(stageWith(`guard-verif-${flag}`, { placeholder: false, verification: flag, fingerprint: verification.verificationFingerprint(), source: 'NOTA_RELEASE_PUBLIC_KEY_FILE' }));
+    assert.equal(verif.status, 1);
+    assert.match(verif.stderr, /VERIFICATION key/);
+  }
   // a real key passes, and the dev variable changes nothing either way
   const keys = keygen('ph-keys');
   const real = releaseKey.readReleaseKey(path.join(keys, 'public.pem'), { backendDir: BACKEND });

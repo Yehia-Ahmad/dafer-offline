@@ -98,3 +98,10 @@ it("an up-to-date database starts with no hook and records which app version ran
   assert.equal(meta.appBuild, "20261114.1200");
   assert.equal(meta.version, highestVersion());
 });
+
+test("the collection names the desktop app reads without mongoose are the real ones of the models", () => {
+  const collections = require("../src/models/collections");
+  assert.equal(Meta.collection.name, collections.META);
+  assert.equal(AuditLog.collection.name, collections.AUDIT_LOG);
+  assert.equal(require("../src/models/device.model").collection.name, collections.DEVICE);
+});

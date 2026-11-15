@@ -49,6 +49,7 @@ test('the release key file: a public Ed25519 key passes; the placeholder, the te
   refuse(path.join(tmp, 'nope.pem'), /cannot read/);
   refuse(write('placeholder.pem', `-----BEGIN PUBLIC KEY-----\n${releaseKey.PLACEHOLDER_MARKER}\n-----END PUBLIC KEY-----\n`), /placeholder/);
   refuse(write('test-key.pem', TEST_PEM), /TEST key/);
+  refuse(write('verification-key.pem', require(path.join(FRONTEND, 'scripts', 'offline', 'verification-key.js')).verificationPublicPem()), /VERIFICATION key/);
   refuse(path.join(keys, 'private.pem'), /PRIVATE key/);
   refuse(write('junk.pem', 'hello'), /not a PEM public key/);
   const rsa = require('node:crypto').generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -74,6 +75,7 @@ test('preflight: stops before any build for a missing/placeholder/test/private k
   assert.throws(() => pre({}), /NOTA_RELEASE_PUBLIC_KEY_FILE is not set/);
   assert.throws(() => pre({ NOTA_RELEASE_PUBLIC_KEY_FILE: write('p2.pem', `-----BEGIN PUBLIC KEY-----\n${releaseKey.PLACEHOLDER_MARKER}\n-----END PUBLIC KEY-----`) }), /placeholder/);
   assert.throws(() => pre({ NOTA_RELEASE_PUBLIC_KEY_FILE: write('t2.pem', TEST_PEM) }), /TEST key/);
+  assert.throws(() => pre({ NOTA_RELEASE_PUBLIC_KEY_FILE: write('v2.pem', require(path.join(FRONTEND, 'scripts', 'offline', 'verification-key.js')).verificationPublicPem()) }), /VERIFICATION key/);
   assert.throws(() => pre({ NOTA_RELEASE_PUBLIC_KEY_FILE: path.join(keys, 'private.pem') }), /PRIVATE key/);
   for (const name of release.FORBIDDEN_ENV) assert.throws(() => pre({ NOTA_RELEASE_PUBLIC_KEY_FILE: pub, [name]: '1' }), new RegExp(`${name} is set`));
 
@@ -158,6 +160,9 @@ test('release:win from the command line: fails at once with the placeholder file
   assert.equal(forbidden.status, 1);
   assert.match(forbidden.stderr, /NOTA_ALLOW_PLACEHOLDER_KEY is set/);
   for (const result of [noKey, placeholder, testKey, forbidden]) assert.ok(!/\[release\] (backend|frontend)/.test(result.stdout), 'no step ran');
+  const verifKey = run({ NOTA_RELEASE_PUBLIC_KEY_FILE: write('cli-verif.pem', require(path.join(FRONTEND, 'scripts', 'offline', 'verification-key.js')).verificationPublicPem()) });
+  assert.equal(verifKey.status, 1);
+  assert.match(verifKey.stderr, /VERIFICATION key/);
   assert.equal(run({}, ['--bogus']).status, 1);
 });
 
@@ -189,6 +194,10 @@ test('a REAL stage with a temp release key: the bundle carries that key (a licen
     const refusedPrivate = stage(path.join(keys, 'private.pem'));
     assert.equal(refusedPrivate.status, 1);
     assert.match(`${refusedPrivate.stdout}${refusedPrivate.stderr}`, /PRIVATE key/);
+    // the same key passed as a release key is refused by the stage itself
+    const refusedVerification = stage(write('stage-verification.pem', require(path.join(FRONTEND, 'scripts', 'offline', 'verification-key.js')).verificationPublicPem()));
+    assert.equal(refusedVerification.status, 1);
+    assert.match(`${refusedVerification.stdout}${refusedVerification.stderr}`, /VERIFICATION key/);
     // no key and no placeholder permission: refused
     const none = stage(null);
     assert.equal(none.status, 1);
@@ -207,6 +216,18 @@ test('a REAL stage with a temp release key: the bundle carries that key (a licen
     const guard = spawnSync(process.execPath, [path.join(FRONTEND, 'scripts', 'offline', 'build-guard.js')], { encoding: 'utf8', env: baseEnv({ NOTA_STAGE_DIR: stageDir }) });
     assert.equal(guard.status, 0, guard.stderr);
 
+    // a verification stage (NOTA_ALLOW_PLACEHOLDER_KEY=1 carries the seed-derived verification key): non-releasable, and build-guard refuses it
+    const verifyDir = path.join(tmp, 'verify-stage');
+    const verifyRun = spawnSync(process.execPath, [path.join(FRONTEND, 'scripts', 'offline', 'stage.js')], { cwd: FRONTEND, encoding: 'utf8', timeout: 600000, env: baseEnv({ NOTA_STAGE_DIR: verifyDir, NOTA_ALLOW_PLACEHOLDER_KEY: '1' }) });
+    assert.equal(verifyRun.status, 0, `${verifyRun.stdout}\n${verifyRun.stderr}`);
+    assert.ok(fs.existsSync(path.join(verifyDir, 'NON_RELEASABLE.json')), 'marked non-releasable');
+    const verifyRecord = JSON.parse(fs.readFileSync(path.join(verifyDir, 'release-key.json'), 'utf8'));
+    assert.equal(verifyRecord.verification, true);
+    assert.equal(verifyRecord.fingerprint, require(path.join(FRONTEND, 'scripts', 'offline', 'verification-key.js')).verificationFingerprint());
+    const verifyGuard = spawnSync(process.execPath, [path.join(FRONTEND, 'scripts', 'offline', 'build-guard.js')], { encoding: 'utf8', env: baseEnv({ NOTA_STAGE_DIR: verifyDir }) });
+    assert.equal(verifyGuard.status, 1);
+    assert.match(verifyGuard.stderr, /NON-RELEASABLE/);
+    assert.match(verifyGuard.stderr, /VERIFICATION key/);
     // the bundle itself, on the real Electron
     const backend = path.join(stageDir, 'backend');
     const probe = (licenseText) => {

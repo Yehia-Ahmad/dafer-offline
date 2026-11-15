@@ -63,6 +63,12 @@ function pendingWhatsNew({ changelogFile, stateFile, version }) {
   return entry && (entry.ar.length || entry.en.length) ? entry : null;
 }
 
+/** First run on this PC: records the version silently (so a brand-new install never shows the window for the version it was installed with). */
+function ensureWhatsNewRecord({ stateFile, version }) {
+  if (readJson(stateFile)) return false;
+  try { markWhatsNewSeen({ stateFile, version }); return true; } catch { return false; }
+}
+
 /** This version's entry whether or not it was shown before (the About page). */
 function currentWhatsNew({ changelogFile, version }) {
   try {
@@ -75,4 +81,4 @@ function markWhatsNewSeen({ stateFile, version }) {
   fs.writeFileSync(stateFile, `${JSON.stringify({ lastSeenVersion: version, at: new Date().toISOString() }, null, 2)}\n`);
 }
 
-module.exports = { parseChangelog, pendingWhatsNew, currentWhatsNew, markWhatsNewSeen };
+module.exports = { ensureWhatsNewRecord, parseChangelog, pendingWhatsNew, currentWhatsNew, markWhatsNewSeen };

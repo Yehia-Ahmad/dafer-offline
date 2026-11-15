@@ -8,7 +8,11 @@ const path = require('node:path');
 
 const STRIP_FILE = /^(readme|changelog|history|authors|contributors)(\..*)?$|\.(md|markdown)$|\.d\.(ts|mts|cts)$|\.(map|tsbuildinfo)$/i;
 const STRIP_FOLDERS = new Set(['test', 'tests', '__tests__', 'docs', 'doc', 'example', 'examples']);
-const KEEP_FILE = /^(licen[cs]e|copying|notice)(\..*)?$/i;
+// Every license-like file name: LICENSE, LICENSE.md, LICENSE-MIT.txt, MIT-LICENSE.txt, LICENCE, COPYING, COPYING.LESSER, NOTICE (code files excluded).
+const LICENSE_NAME = /(^|[-_.])(licen[cs]e|copying|notice)([-_.].*)?$/i;
+const CODE_FILE = /\.(js|cjs|mjs|json|ts|map)$/i;
+const isLicenseFile = (name) => LICENSE_NAME.test(name) && !CODE_FILE.test(name);
+const KEEP_FILE = { test: isLicenseFile };
 
 function walkFiles(dir, visit) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -47,4 +51,4 @@ function stripNodeModules(modules) {
   return result;
 }
 
-module.exports = { stripNodeModules };
+module.exports = { stripNodeModules, isLicenseFile };

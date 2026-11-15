@@ -31,4 +31,7 @@ function issueVerificationLicense(overrides = {}, { backendDir }) {
   return buildText(bytes, crypto.sign(null, bytes, verificationPrivateKey()));
 }
 
-module.exports = { issueVerificationLicense, verificationPrivateKey, verificationPublicPem };
+/** SHA-256 of the verification public key's DER (the same fingerprint release-key.js records). */
+const verificationFingerprint = () => crypto.createHash('sha256').update(crypto.createPublicKey(verificationPrivateKey()).export({ type: 'spki', format: 'der' })).digest('hex');
+
+module.exports = { verificationFingerprint, issueVerificationLicense, verificationPrivateKey, verificationPublicPem };

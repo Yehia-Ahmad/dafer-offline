@@ -68,6 +68,15 @@ const PLANTED = {
   email: 'owner.private@example.com',
   phone: '01012345678',
   phoneIntl: '+20 100 123 4567',
+  recoveryCode: 'K7M2-9QWX-PL4R-TZ3N',
+  phoneColon: '01112345678',
+  phoneEq: '01212345678',
+  phoneIntl2: '+201012345679',
+  customer: 'محمود عبد الرحمن السيد',
+  supplier: 'شركة الأمل للتوريدات',
+  nameAr: 'سامي فؤاد',
+  nameEn: 'Sami Fouad Private',
+  clientName: 'عميل سري الاسم',
   blob: 'QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVowMTIzNDU2Nzg5YWJjZGVm',
   // built at run time: the repo itself must never contain a key block, not even a fake one (a backend test scans for it)
   pem: `-----${'BEGIN'} PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIPLANTEDSECRETKEYMATERIAL\n-----${'END'} PRIVATE KEY-----`,
@@ -114,7 +123,10 @@ function plantHome() {
   fs.writeFileSync(path.join(security, 'keyfile'), 'KEYFILE-SECRET-CONTENT-0000');
   fs.writeFileSync(path.join(license, 'nota.lic'), PLANTED.license);
   fs.writeFileSync(path.join(home, 'eula.json'), '{"acceptedBy":"private-owner-name"}');
-  fs.writeFileSync(path.join(logs, 'app.log'), [`2026-11-14T10:00:00.000Z [info] [main] starting`, `login password=${PLANTED.password}`, `jwt ${PLANTED.jwt}`, `owner ${PLANTED.email} ${PLANTED.phone}`, `lan ${PLANTED.hex}`].join('\n'));
+  fs.writeFileSync(path.join(logs, 'app.log'), [`2026-11-14T10:00:00.000Z [info] [main] starting`, `login password=${PLANTED.password}`, `jwt ${PLANTED.jwt}`, `owner ${PLANTED.email} ${PLANTED.phone}`, `lan ${PLANTED.hex}`,
+    `recovered with ${PLANTED.recoveryCode}`, `contact phone:${PLANTED.phoneColon} and tel=${PLANTED.phoneEq} also ${PLANTED.phoneIntl2}`,
+    `{"customerName":"${PLANTED.customer}","supplierName": "${PLANTED.supplier}","nameAr":"${PLANTED.nameAr}","nameEn":"${PLANTED.nameEn}"}`,
+    `client: ${PLANTED.clientName}, total 50`, 'shop ok 2026-11-14 build 20261114.2346 ip 192.168.1.10'].join('\n'));
   fs.writeFileSync(path.join(logs, 'backend.log'), `[backend] ${PLANTED.mongo}\n[backend] license ${PLANTED.license}\n`);
   fs.writeFileSync(path.join(logs, 'secrets.log'), 'NOT-ON-THE-ALLOWLIST-SECRET');
   fs.writeFileSync(path.join(logs, 'backend.log.9'), 'NOT-A-ROTATION-ON-THE-ALLOWLIST');
@@ -133,7 +145,10 @@ const input = (home) => ({
   },
   status: { state: 'running', label: 'يعمل', code: null, message: null, token: PLANTED.jwt },
   license: { licenseId: 'NOTA-ABC123', type: 'lifetime', maxClients: 3, issuedAt: '2026-05-01', machineId: 'AAAA-BBBB', shopName: 'محل خاص', licenseText: PLANTED.license },
-  database: { schemaVersion: 12, appVersion: '1.0.0', appBuild: '20261114.2346', licenseText: PLANTED.license },
+  database: { schemaVersion: 12, appVersion: '1.0.0', appBuild: '20261114.2346', pairedClients: 2, knownClients: 3, licenseText: PLANTED.license },
+  migrations: [{ version: 11, name: 'drop old index', at: '2026-11-01T10:00:00.000Z' }, { version: 12, name: 'pair clients', at: '2026-11-01T10:00:01.000Z' }],
+  health: { available: true, allPass: false, failed: 1, checks: { trialBalance: { pass: true, difference: 0 }, inventory: { pass: false, difference: 12.5 } } },
+  diskFree: { drive: 'C:', freeMb: 51200, totalMb: 238000 },
   backups: { backupsDir: path.join(home, 'backups'), autoDir: path.join(home, 'backups', 'auto'), summary: { autoCount: 1, keep: 14, passwordHint: PLANTED.password } },
   printSettings: { receiptPrinter: 'XP-80', receiptCopies: 1, apiKey: PLANTED.hex },
   logsDir: path.join(home, 'logs'),
@@ -145,11 +160,11 @@ test('the diagnostics zip holds only allowlisted files and not one planted secre
     const zip = buildDiagnosticsZip(input(home));
     const files = readZip(zip);
     const names = files.map((file) => file.name);
-    assert.deepEqual(names, ['README.txt', 'info.json', 'config.json', 'license.json', 'status.json', 'database.json', 'backups.json', 'printing.json', 'logs/app.log', 'logs/backend.log']);
+    assert.deepEqual(names, ['README.txt', 'info.json', 'config.json', 'license.json', 'status.json', 'database.json', 'backups.json', 'printing.json', 'migrations.json', 'health.json', 'logs/app.log', 'logs/backend.log']);
     const everything = files.map((file) => file.data.toString('utf8')).join('\n');
     for (const secret of [
       PLANTED.password, PLANTED.jwt, PLANTED.hex, PLANTED.license, 'Mongo-Pa55w0rd', PLANTED.email, PLANTED.phone, PLANTED.blob,
-      'DPAPI-BLOB', 'KEYFILE-SECRET', 'PROTECTED-LAN-SECRET', 'private-owner-name', 'NOT-ON-THE-ALLOWLIST', 'NOT-A-ROTATION', 'ARCHIVE-BYTES', 'محل خاص', 'AAAA-BBBB',
+      'DPAPI-BLOB', 'KEYFILE-SECRET', 'PROTECTED-LAN-SECRET', 'private-owner-name', 'NOT-ON-THE-ALLOWLIST', 'NOT-A-ROTATION', 'ARCHIVE-BYTES', 'AAAA-BBBB', PLANTED.recoveryCode, PLANTED.phoneColon, PLANTED.phoneEq, PLANTED.phoneIntl2, PLANTED.customer, PLANTED.supplier, PLANTED.nameAr, PLANTED.nameEn, PLANTED.clientName,
     ]) assert.ok(!everything.includes(secret), `${secret} must not be in the diagnostics file`);
     assert.ok(!zip.includes(Buffer.from(PLANTED.password)), 'not even inside the compressed bytes');
 
@@ -157,8 +172,14 @@ test('the diagnostics zip holds only allowlisted files and not one planted secre
     assert.equal(JSON.parse(byName['info.json']).app.version, '1.0.0');
     assert.equal(JSON.parse(byName['info.json']).app.build, '20261114.2346');
     assert.deepEqual(JSON.parse(byName['config.json']), { schemaVersion: 1, role: 'main', port: 5055, instanceId: 'inst-1234', startWithWindows: true });
-    assert.deepEqual(JSON.parse(byName['license.json']), { licenseId: 'NOTA-ABC123', type: 'lifetime', maxClients: 3, issuedAt: '2026-05-01' });
-    assert.deepEqual(JSON.parse(byName['database.json']), { schemaVersion: 12, appVersion: '1.0.0', appBuild: '20261114.2346' });
+    assert.deepEqual(JSON.parse(byName['license.json']), { licenseId: 'NOTA-ABC123', type: 'lifetime', maxClients: 3, issuedAt: '2026-05-01', shopName: 'محل خاص' }, 'the shop name is there (license.json) and only there');
+    assert.ok(!byName['logs/app.log'].includes('محل خاص') && !byName['config.json'].includes('محل خاص'));
+    assert.match(byName['logs/app.log'], /build 20261114.2346 ip 192.168.1.10/, 'support-useful numbers survive');
+    assert.deepEqual(JSON.parse(byName['database.json']), { schemaVersion: 12, appVersion: '1.0.0', appBuild: '20261114.2346', pairedClients: 2, knownClients: 3 });
+    assert.deepEqual(JSON.parse(byName['migrations.json']).map((m) => m.version), [11, 12], 'the migration log');
+    assert.equal(JSON.parse(byName['health.json']).checks.inventory.difference, 12.5, 'the health checks, pass/fail and numbers');
+    assert.equal(JSON.parse(byName['health.json']).checks.inventory.pass, false);
+    assert.deepEqual(JSON.parse(byName['info.json']).disk, { drive: 'C:', freeMb: 51200, totalMb: 238000 }, 'disk free space');
     const backups = JSON.parse(byName['backups.json']);
     assert.deepEqual(backups.backups.map((entry) => entry.name), ['before-upgrade-1.0.0-1.1.0-2026-11-14_090507.archive.gz']);
     assert.deepEqual(backups.daily.map((entry) => entry.name), ['nota-auto-backup-2026-11-14_020000.archive.gz']);

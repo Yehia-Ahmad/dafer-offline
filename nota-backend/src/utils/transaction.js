@@ -51,7 +51,7 @@ async function assertTransactionsSupported() {
   if (hello.setName !== "rs0" || !hello.isWritablePrimary) {
     throw new Error("MongoDB must be writable PRIMARY in replica set rs0; transactions are required");
   }
-  await withTransaction((session) => mongoose.connection.db.collection("meta").findOne({ _id: "schema" }, { session }));
+  await withTransaction((session) => mongoose.connection.db.collection(require("../models/collections").META).findOne({ _id: "schema" }, { session }));
 }
 
 module.exports = { assertTransactionsSupported, withTransaction, isTransient };
