@@ -24,9 +24,15 @@ const IPC_RULES = Object.freeze({
   'backup:restore': BACKUP_MANAGE, // + the user's password again (verifyPassword)
   'backup:choose-copy-folder': BACKUP_MANAGE,
   'backup:clear-copy-folder': BACKUP_MANAGE,
+  // Stage 25: the daily backup time and the primary backup folder.
+  'backup:set-time': BACKUP_MANAGE,
+  'backup:choose-primary-folder': BACKUP_MANAGE,
+  'backup:clear-primary-folder': BACKUP_MANAGE,
   'backup:show-file': BACKUP_MANAGE,
   'backup:open-folder': BACKUP_MANAGE,
   'backup:status': SESSION,
+  // Stage 25: the diagnostics file for support (owner or manager).
+  'diagnostics:export': SHOP_MANAGE,
   // Stage 23: printing. The print settings and test pages need shop.manage; the rest any signed-in user.
   'print:printers': SESSION,
   'print:settings-get': SESSION,

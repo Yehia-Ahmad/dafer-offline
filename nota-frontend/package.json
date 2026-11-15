@@ -1,6 +1,6 @@
 {
   "name": "nota-frontend",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Nota",
   "author": "Nota",
   "scripts": {
@@ -13,8 +13,9 @@
     "test:offline": "node scripts/offline/run-tests.js",
     "smoke:offline": "node scripts/offline/smoke-test.js",
     "electron:start:offline": "npm run build:offline && npm run offline:vendor && electron electron-offline/main.js",
-    "electron:build:win:offline:dir": "npm run build:offline && npm run offline:vendor && node scripts/offline/build-guard.js && npm run offline:stage && electron-builder --win --dir --config electron-builder.offline.json",
-    "electron:build:win:offline": "npm run build:offline && npm run offline:vendor && node scripts/offline/build-guard.js && npm run offline:stage && electron-builder --win nsis --config electron-builder.offline.json",
+    "electron:build:win:offline:dir": "npm run build:offline && npm run offline:vendor && npm run offline:stage && node scripts/offline/build-guard.js && electron-builder --win --dir --config electron-builder.offline.json",
+    "electron:build:win:offline": "npm run build:offline && npm run offline:vendor && npm run offline:stage && node scripts/offline/build-guard.js && electron-builder --win nsis --config electron-builder.offline.json",
+    "release:win": "node scripts/offline/release-win.js",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "clean": "node scripts/clean.js",
@@ -67,6 +68,7 @@
     "bytenode": "1.5.7",
     "electron": "^35.7.5",
     "electron-builder": "^26.8.1",
+    "esbuild": "0.25.9",
     "jasmine-core": "~5.9.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",

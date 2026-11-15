@@ -1,4 +1,5 @@
 import { PrintSettingsCardComponent } from '../print-settings-card/print-settings-card.component';
+import { AboutCardComponent } from '../about-card/about-card.component';
 import { LicenseCardComponent } from '../license-card/license-card.component';
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
@@ -19,7 +20,7 @@ type Outcome = { kind: 'saved' } | { kind: 'error'; message: string };
 /** The shop's own details (name, address, phones, logo, tax number, ...), printed on invoices. Stage 11: ShopProfile.dc.html + live preview. */
 @Component({
   selector: 'app-shop-profile',
-  imports: [PrintSettingsCardComponent, LicenseCardComponent, DatePipe, TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent],
+  imports: [AboutCardComponent, PrintSettingsCardComponent, LicenseCardComponent, DatePipe, TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './shop-profile.component.html',
   styleUrl: './shop-profile.component.scss',

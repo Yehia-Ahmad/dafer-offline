@@ -96,6 +96,31 @@ function createBackupHandlers(deps) {
       return deps.summary();
     }),
 
+    // Stage 25: the daily backup time ("HH:MM", this PC's local time).
+    'backup:set-time': guarded('backup:set-time', async (_ctx, time) => {
+      if (typeof time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+        throw Object.assign(new Error('وقت غير صحيح. اكتب الساعة والدقيقة مثل 22:30.'), { code: 'INVALID_TIME' });
+      }
+      deps.setBackupTime(time);
+      return deps.summary();
+    }),
+
+    // Stage 25: the folder the daily backup goes to (a USB drive or another disk is better than the program's own drive).
+    'backup:choose-primary-folder': guarded('backup:choose-primary-folder', async () => {
+      const folder = await deps.chooseFolder();
+      if (!folder) return null;
+      if (deps.copyFolderInvalid(folder)) {
+        throw Object.assign(new Error('اختر مجلداً خارج مجلد بيانات البرنامج.'), { code: 'COPY_FOLDER_INVALID' });
+      }
+      deps.setBackupFolder(folder);
+      return deps.summary();
+    }),
+
+    'backup:clear-primary-folder': guarded('backup:clear-primary-folder', async () => {
+      deps.setBackupFolder('');
+      return deps.summary();
+    }),
+
     // Only an existing backup file (never an arbitrary path from the page).
     'backup:show-file': guarded('backup:show-file', (_ctx, file) => {
       if (typeof file === 'string' && path.isAbsolute(file) && file.endsWith(BACKUP_SUFFIX) && fs.existsSync(file)) {

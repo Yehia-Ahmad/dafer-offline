@@ -17,6 +17,7 @@
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     $('brand').textContent = UI[lang].brand;
     $('title').textContent = eula[lang].title;
+    $('version').textContent = `v${eula.version}`;
     $('contact').textContent = eula.contact[lang];
     $('accept').textContent = UI[lang].accept;
     $('decline').textContent = UI[lang].decline;

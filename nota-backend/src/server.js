@@ -16,7 +16,7 @@ const { createGracefulShutdown } = require("./utils/gracefulShutdown");
 const { isAuthMode } = require("./auth/config");
 const { drainAuditInbox } = require("./auth/auditInbox");
 const { assertTransactionsSupported } = require("./utils/transaction");
-const { runMigrations } = require("./migrations");
+const { runMigrations, recordAppVersion } = require("./migrations");
 
 const PORT = process.env.PORT || 5000;
 // Optional bind address. Unset in the online deployment, which keeps listening on all
@@ -31,10 +31,28 @@ const onListening = () => {
   if (parentPort) parentPort.postMessage({ type: "ready", port: Number(PORT) });
 };
 
+// Stage 25: before the first migration touches an existing database, the desktop app takes a "before-upgrade" backup. The server asks over
+// the utility-process channel and waits; no backup, no migration (the error carries an Arabic + English message and the data stays untouched).
+const requestUpgradeBackup = (info) => new Promise((resolve, reject) => {
+  const onMessage = (event) => {
+    const message = event && event.data;
+    if (!message || message.type !== "upgrade-backup-result") return;
+    parentPort.removeListener("message", onMessage);
+    if (message.ok) return resolve(message);
+    const error = new Error(message.message || "تعذر أخذ نسخة احتياطية قبل التحديث، لذلك لم يتم تحديث البيانات. / The backup before the upgrade failed, so the data was not upgraded.");
+    error.code = "UPGRADE_BACKUP_FAILED";
+    error.detail = message.detail;
+    return reject(error);
+  };
+  parentPort.on("message", onMessage);
+  parentPort.postMessage({ type: "upgrade-backup", ...info });
+});
+
 const startServer = async () => {
   await connectDB();
   await assertTransactionsSupported();
-  await runMigrations();
+  await runMigrations({ beforeMigrate: parentPort ? requestUpgradeBackup : undefined });
+  await recordAppVersion(process.env.NOTA_APP_VERSION, process.env.NOTA_APP_BUILD);
 
   // Stage 24: re-verify the license file now (cached from here on) and mirror it into the database.
   // No valid license is not a startup failure: the backend runs and answers 402 until one is activated.
@@ -81,7 +99,10 @@ const startServer = async () => {
   }
 };
 
-startServer().catch((error) => {
+// Stage 25: the staged-build check (offline:stage) loads the bundled server to prove every module resolves, without starting it.
+const loadCheckOnly = process.env.NOTA_STAGE_LOAD_CHECK === "1";
+
+if (!loadCheckOnly) startServer().catch((error) => {
   console.error("فشل بدء الخادم:", error.stack || error.message);
   if (parentPort) parentPort.postMessage({
     type: "error",

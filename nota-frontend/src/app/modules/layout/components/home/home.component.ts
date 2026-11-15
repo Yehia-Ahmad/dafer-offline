@@ -17,6 +17,7 @@ import {
 import { DashboardService, DashboardSummary } from '../../services/dashboard.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { OpeningBannerComponent } from '../../../accounting/opening-banner.component';
+import { BackupReminderComponent } from '../../../../offline/backup-reminder.component';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { CashboxService } from '../../../cashbox/cashbox.service';
 
@@ -52,7 +53,7 @@ export interface DashboardBar {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [OpeningBannerComponent, NotaCanDirective, NgTemplateOutlet, RouterLink, TranslatePipe, NotaButtonDirective, NotaEmptyStateComponent, NotaMoneyPipe, NotaNumberPipe],
+  imports: [BackupReminderComponent, OpeningBannerComponent, NotaCanDirective, NgTemplateOutlet, RouterLink, TranslatePipe, NotaButtonDirective, NotaEmptyStateComponent, NotaMoneyPipe, NotaNumberPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss'],

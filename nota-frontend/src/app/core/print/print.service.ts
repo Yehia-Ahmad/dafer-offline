@@ -7,7 +7,7 @@ import { ShopProfileService } from '../../modules/shop-profile/services/shop-pro
 import { AuthService } from '../auth/auth.service';
 import { ToastService } from '../auth/toast.service';
 import { DesktopPrintJob, getDesktopBridge } from '../runtime/runtime-config';
-import { documentTestPage, receiptTestPage } from './documents/test-page';
+import { documentTestPage, receiptCalibrationPage, receiptTestPage } from './documents/test-page';
 import { PrintFontService } from './print-fonts.service';
 import { PrintContext, PrintDocument, buildPrintHtml, toShopInfo } from './print-kit';
 import { measureRollHeightMm, printInFrame } from './print-render';
@@ -60,6 +60,7 @@ export class PrintService {
         profile = null; // a neutral header without shop data
       }
     }
+    const saved = this.settings.settings() ?? (await this.settings.load());
     return {
       lang: this.language(),
       shop: toShopInfo(profile),
@@ -67,6 +68,7 @@ export class PrintService {
       printedAt: new Date(),
       fontCss: await this.fonts.css(),
       copy: copy || null,
+      receipt: { widthMm: saved?.receiptWidthMm ?? 80, offsetMm: saved?.receiptOffsetMm ?? 0 },
     };
   }
 
@@ -105,6 +107,23 @@ export class PrintService {
       const doc = kind === 'receipt' ? receiptTestPage(ctx, printer) : documentTestPage(ctx, printer);
       const heightMm = doc.paper === '80mm' ? await measureRollHeightMm(buildPrintHtml(ctx, doc)) : undefined;
       const result = await bridge.testPage(this.auth.token(), { kind, html: buildPrintHtml(ctx, doc, heightMm), heightMm, printer });
+      if (result.ok === false) return this.fail(result.error.message);
+      return { ok: true, cancelled: Boolean(result.value?.cancelled) };
+    } catch (error) {
+      return this.fail(this.errorMessage(error));
+    }
+  }
+
+  /** Stage 25: the receipt printer calibration sheet (ruler in mm, shop header, Arabic and English text, Code 128, a long item line, a cut line). */
+  async calibrationPage(printer?: string): Promise<PrintOutcome> {
+    const bridge = getDesktopBridge()?.print;
+    if (!bridge) return this.fail(this.translate.instant('print.desktopOnly'));
+    try {
+      const ctx = await this.context();
+      if (printer === undefined) printer = (await this.settings.load())?.receiptPrinter || '';
+      const doc = receiptCalibrationPage(ctx, printer);
+      const heightMm = await measureRollHeightMm(buildPrintHtml(ctx, doc));
+      const result = await bridge.testPage(this.auth.token(), { kind: 'receipt', html: buildPrintHtml(ctx, doc, heightMm), heightMm, printer });
       if (result.ok === false) return this.fail(result.error.message);
       return { ok: true, cancelled: Boolean(result.value?.cancelled) };
     } catch (error) {

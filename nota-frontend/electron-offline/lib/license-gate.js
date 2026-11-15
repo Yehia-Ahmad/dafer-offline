@@ -32,6 +32,11 @@ function createLicenseGate({ licenseDir, loadModule, log }) {
   };
 
   return {
+    /** licenseId, type, maxClients, issuedAt... of the installed license (null when none). */
+    details() {
+      return module_().details();
+    },
+
     /** Re-reads and verifies the license file. { licensed, code, machineId, shopName, shopNameEn } */
     status() {
       module_().reload();

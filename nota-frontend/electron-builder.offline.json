@@ -49,6 +49,12 @@
     "createStartMenuShortcut": true,
     "shortcutName": "Nota",
     "deleteAppDataOnUninstall": false,
+    "installerLanguages": [
+      "ar_SA",
+      "en_US"
+    ],
+    "multiLanguageInstaller": true,
+    "displayLanguageSelector": true,
     "include": "installer-offline/installer.nsh",
     "license": "installer-offline/eula.rtf"
   }

@@ -35,15 +35,36 @@ test('a damaged record, an older EULA version or a record without a date asks ag
 });
 
 test('the text: Arabic and English, same number of clauses, DRAFT flag, a vendor contact line, and every point the brief lists', () => {
-  assert.equal(EULA.draft, true, 'marked as a draft until the vendor reviews the wording');
+  assert.equal(EULA.draft, false, 'the wording is final (Stage 25)');
+  assert.equal(EULA.version, 2);
+  assert.ok(!/مسودة|draft/i.test(`${EULA.ar.title} ${EULA.en.title}`), 'no draft mark in the titles');
+  assert.equal(EULA.ar.title, 'اتفاقية ترخيص استخدام برنامج «نوتة»');
+  assert.equal(EULA.en.title, 'Nota License Agreement');
+  assert.equal(EULA.ar.paragraphs.length, 11);
   assert.equal(EULA.ar.paragraphs.length, EULA.en.paragraphs.length);
+  assert.match(EULA.ar.paragraphs[9], /جمهورية مصر العربية/);
+  assert.match(EULA.en.paragraphs[9], /Arab Republic of Egypt/);
   assert.ok(EULA.contact.ar && EULA.contact.en);
   const en = EULA.en.paragraphs.join(' ').toLowerCase();
-  for (const phrase of ['one shop', 'main pc', 'copy', 'sell', 'reverse', 'data', 'warranty', 'license']) assert.ok(en.includes(phrase), phrase);
+  for (const phrase of ['one shop', 'main pc', 'copy', 'sell', 'reverse', 'data', 'liability', 'license', 'updates']) assert.ok(en.includes(phrase), phrase);
   assert.ok(/belongs to the shop/.test(en), 'the data belongs to the shop');
   assert.ok(/as is/.test(en) && /law/.test(en), 'no warranty beyond what the law requires');
   const ar = EULA.ar.paragraphs.join(' ');
-  for (const phrase of ['محل واحد', 'الجهاز الرئيسي', 'ممنوع', 'الهندسة العكسية', 'ملك المحل', 'ضمان']) assert.ok(ar.includes(phrase), phrase);
+  for (const phrase of ['محل واحد', 'الجهاز الرئيسي', 'حظر', 'الهندسة العكسية', 'ملك للمحل', 'حدود المسؤولية', 'التحديثات']) assert.ok(ar.includes(phrase), phrase);
+});
+
+test('EULA v2: a PC that accepted v1 is asked again, one that accepted v2 is not; the installer page and the first-run page show v2', () => {
+  const file = path.join(tmp, 'v1', 'eula.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ version: 1, acceptedAt: '2026-11-01T10:00:00.000Z' }));
+  assert.equal(eulaStatus(file).accepted, false, 'v1 acceptance does not count');
+  recordAcceptance(file, new Date('2026-11-15T10:00:00.000Z'));
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).version, 2);
+  assert.equal(eulaStatus(file).accepted, true);
+  assert.match(fs.readFileSync(OUTPUT, 'ascii'), /\\i v2\\i0/, 'the installer license page shows v2');
+  const pages = path.join(__dirname, '..', 'pages');
+  assert.match(fs.readFileSync(path.join(pages, 'eula.html'), 'utf8'), /id="version"/);
+  assert.match(fs.readFileSync(path.join(pages, 'eula.js'), 'utf8'), /`v\$\{eula\.version\}`/, 'the first-run page shows the version');
 });
 
 test('the installer license page (installer-offline/eula.rtf) is built from the same text and is configured in the NSIS options', () => {

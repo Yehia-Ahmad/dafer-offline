@@ -13,6 +13,14 @@ contextBridge.exposeInMainWorld('notaDesktop', {
   // Read by Angular before it starts (src/app/core/runtime/runtime-config.ts).
   getRuntimeConfig: () => ipcRenderer.invoke('nota:runtime-config'),
 
+  // Stage 25: the About page and the once-per-version "what's new" window.
+  about: () => ipcRenderer.invoke('nota:about'),
+  whatsNew: {
+    get: () => ipcRenderer.invoke('nota:whats-new'),
+    current: () => ipcRenderer.invoke('nota:whats-new-current'),
+    seen: () => ipcRenderer.invoke('nota:whats-new-seen'),
+  },
+
   // Connection to the server, shown by Angular's connection overlay.
   getConnection: () => ipcRenderer.invoke('nota:connection'),
   onConnection: (callback) => subscribe('nota:connection', callback),
@@ -37,6 +45,15 @@ contextBridge.exposeInMainWorld('notaDesktop', {
     onStatus: (callback) => subscribe('backup:status', callback),
     chooseCopyFolder: (token) => ipcRenderer.invoke('backup:choose-copy-folder', token),
     clearCopyFolder: (token) => ipcRenderer.invoke('backup:clear-copy-folder', token),
+    // Stage 25: the daily backup time ('HH:MM') and the primary backup folder.
+    setTime: (token, time) => ipcRenderer.invoke('backup:set-time', token, time),
+    choosePrimaryFolder: (token) => ipcRenderer.invoke('backup:choose-primary-folder', token),
+    clearPrimaryFolder: (token) => ipcRenderer.invoke('backup:clear-primary-folder', token),
+  },
+
+  // Stage 25: the diagnostics file for support (owner or manager). Takes the session token; resolves to { ok, value: { path, bytes } | null }.
+  diagnostics: {
+    export: (token) => ipcRenderer.invoke('diagnostics:export', token),
   },
 
   // Stage 23: printing. Every call takes the session token first (checked in the main process) and

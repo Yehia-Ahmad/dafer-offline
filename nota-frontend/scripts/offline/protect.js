@@ -51,7 +51,7 @@ function prepareProductionSource(srcDir, { productionKeyPem } = {}) {
   }
 }
 
-const PLACEHOLDER_PROBLEM = 'the production public key is still the placeholder (or not an Ed25519 key): put your key in nota-backend/src/license/keys.js (tools/license-gen/README.md, step 2)';
+const PLACEHOLDER_PROBLEM = 'the production public key is still the placeholder (or not an Ed25519 key): set NOTA_RELEASE_PUBLIC_KEY_FILE to your public key file, public.pem (tools/license-gen/README.md, step 2)';
 const NON_RELEASABLE = 'NON_RELEASABLE.json';
 
 /** The production key problem of a (plain) source folder, or null when a valid Ed25519 key is compiled in. */

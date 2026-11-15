@@ -719,12 +719,50 @@ async function runChunkedMigration(migration, afterChunk) {
   }
 }
 
-async function runMigrations({ afterChunk } = {}) {
+const highestVersion = () => migrations[migrations.length - 1].version;
+
+// Stage 25: data written by a NEWER Nota than this one (an older installer put back over a newer database). Nothing is read as
+// "pending" and nothing is written: the app refuses to start and says so (ar + en), because the old code would corrupt or misread the data.
+function schemaTooNewError(version, latest, appVersion) {
+  const error = new Error(
+    `قاعدة البيانات هذه كُتبت بنسخة أحدث من نوتة (إصدار البيانات ${version}، وهذه النسخة تفهم حتى ${latest}). ثبّت أحدث نسخة من نوتة ثم افتح البرنامج، ولم يتم تغيير أي بيانات.
+` +
+    `This data was written by a newer Nota (data version ${version}; this Nota understands up to ${latest}${appVersion ? `, last used by ${appVersion}` : ""}). Install the newest Nota and open it again. No data was changed.`
+  );
+  error.code = "SCHEMA_TOO_NEW";
+  error.schemaVersion = version;
+  error.supportedVersion = latest;
+  return error;
+}
+
+// A brand new database has nothing worth backing up before the first migrations.
+async function hasExistingData(schema) {
+  if (schema) return true;
+  const collections = await mongoose.connection.db.listCollections({}, { nameOnly: true }).toArray();
+  for (const { name } of collections) {
+    if (name.startsWith("system.")) continue;
+    if (await mongoose.connection.db.collection(name).estimatedDocumentCount() > 0) return true;
+  }
+  return false;
+}
+
+/**
+ * beforeMigrate({ fromSchema, toSchema, fromApp, pending }): called once, before the first pending migration touches an existing
+ * database, and awaited. If it throws, nothing is migrated (the desktop app uses it to take the "before-upgrade" backup).
+ */
+async function runMigrations({ afterChunk, beforeMigrate } = {}) {
   const schema = await Meta.findById("schema").lean();
   let version = Number(schema?.version || 0);
+  const latest = highestVersion();
+  if (version > latest) throw schemaTooNewError(version, latest, schema?.appVersion);
   const pending = migrations.filter((migration) => migration.version > version);
   if (!pending.length) return version;
   await killDesktopSessions();
+
+  // A chunked migration that was interrupted (migrationProgress) resumes without a second backup: the first start already took one.
+  if (beforeMigrate && !schema?.migrationProgress && await hasExistingData(schema)) {
+    await beforeMigrate({ fromSchema: version, toSchema: latest, fromApp: schema?.appVersion || null, pending: pending.map((migration) => migration.version) });
+  }
 
   for (const migration of pending) {
     if (migration.chunked) {
@@ -743,4 +781,10 @@ async function runMigrations({ afterChunk } = {}) {
   return version;
 }
 
-module.exports = { migrations, runMigrations, isDesktopMongo, killDesktopSessions };
+// Stage 25: remembers which app version last started on this data (used to name the next before-upgrade backup).
+async function recordAppVersion(appVersion, appBuild) {
+  if (!appVersion) return;
+  await Meta.updateOne({ _id: "schema" }, { $set: { appVersion, ...(appBuild ? { appBuild } : {}) } }, { upsert: true });
+}
+
+module.exports = { migrations, runMigrations, recordAppVersion, highestVersion, schemaTooNewError, isDesktopMongo, killDesktopSessions };

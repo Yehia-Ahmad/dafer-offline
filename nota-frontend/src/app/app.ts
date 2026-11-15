@@ -8,6 +8,7 @@ import { LanguageService } from './modules/shared/services/translation.service';
 import { ThemeService } from './modules/shared/services/theme.service';
 import { ConnectionOverlayComponent } from './offline/connection-overlay.component';
 import { VersionNoticeComponent } from './offline/version-notice.component';
+import { WhatsNewDialogComponent } from './offline/whats-new-dialog.component';
 import { SideNavComponent } from './modules/layout/components/side-nav/side-nav.component';
 import { ToastsComponent } from './core/auth/toasts.component';
 import { LockOverlayComponent } from './core/auth/lock-overlay.component';
@@ -24,6 +25,7 @@ import { OtherMainBannerComponent } from './offline/other-main-banner.component'
     SideNavComponent,
     ConnectionOverlayComponent,
     VersionNoticeComponent,
+    WhatsNewDialogComponent,
     ToastsComponent,
     LockOverlayComponent,
     UnsavedWorkDialogComponent,

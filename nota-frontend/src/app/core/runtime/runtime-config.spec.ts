@@ -46,6 +46,7 @@ describe('runtime-config', () => {
           apiBaseUrl: 'http://192.168.1.10:5055/api',
           role: 'client',
           appVersion: '1.0.0',
+          appBuild: '20261114.0900',
           serverVersion: '1.0.1',
         })
       );
@@ -55,6 +56,7 @@ describe('runtime-config', () => {
         apiBaseUrl: 'http://192.168.1.10:5055/api/',
         role: 'client',
         appVersion: '1.0.0',
+        appBuild: '20261114.0900',
         serverVersion: '1.0.1',
       });
       expect(getDesktopRuntimeConfig()).toBe(config);
@@ -67,6 +69,7 @@ describe('runtime-config', () => {
       );
 
       expect(config.appVersion).toBe('');
+      expect(config.appBuild).toBe('');
       expect(config.serverVersion).toBeNull();
     });
 

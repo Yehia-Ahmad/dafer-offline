@@ -11,7 +11,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const EDITION = require('../edition.json');
+const EDITION = require('./edition');
 
 // Keep in sync with installer-offline/installer.nsh (data folder).
 const PRODUCT_FOLDER = EDITION.productName;
@@ -38,6 +38,8 @@ function layout(home) {
     // Stage 24: database credentials (encrypted with safeStorage), the mongod keyFile and the upgrade state.
     security: path.join(home, 'security'),
     eula: path.join(home, 'eula.json'),
+    // Stage 25: the last version this PC showed the "what's new" window for.
+    whatsNew: path.join(home, 'whats-new.json'),
     backups: path.join(home, 'backups'),
     autoBackups: path.join(home, 'backups', 'auto'),
     backupState: path.join(home, 'backups', 'backup-state.json'),

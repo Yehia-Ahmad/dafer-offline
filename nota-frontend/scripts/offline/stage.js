@@ -16,16 +16,31 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const protect = require('./protect');
+const { bundleBackend } = require('./bundle-backend');
+const { stripNodeModules } = require('./strip');
+const { npmCommand } = require('./npm-cli');
+const releaseKey = require('./release-key');
+const verificationKey = require('./verification-key');
 const integrity = require('../../electron-offline/lib/integrity');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const BACKEND_SOURCE = path.resolve(process.env.NOTA_BACKEND_DIR || path.join(ROOT, '..', 'nota-backend'));
 const ANGULAR_OUTPUT = path.join(ROOT, 'dist-offline', 'browser');
 const ELECTRON_SOURCE = path.join(ROOT, 'electron-offline');
-const STAGE = path.join(ROOT, 'offline-stage');
+// NOTA_STAGE_DIR moves the stage (tests stage into a temp folder so they never touch the real offline-stage/).
+const STAGE = path.resolve(process.env.NOTA_STAGE_DIR || path.join(ROOT, 'offline-stage'));
 const STAGE_APP = path.join(STAGE, 'app');
 const STAGE_BACKEND = path.join(STAGE, 'backend');
-const EDITION = require(path.join(ELECTRON_SOURCE, 'edition.json'));
+// Stage 25: source maps of the bundled backend. Outside the backend folder, so they never ship; the release script keeps them.
+const STAGE_SOURCEMAPS = path.join(STAGE, 'sourcemaps');
+// Stage 25: the version is nota-frontend/package.json "version" (the single source); a build number is stamped at stage time.
+const EDITION = { ...require(path.join(ELECTRON_SOURCE, 'edition.json')), version: require(path.join(ROOT, 'package.json')).version };
+const buildStamp = () => {
+  if (process.env.NOTA_BUILD_NUMBER) return process.env.NOTA_BUILD_NUMBER;
+  const d = new Date();
+  const p = (n, w = 2) => String(n).padStart(w, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}.${p(d.getHours())}${p(d.getMinutes())}`;
+};
 const FRONTEND_PACKAGE = require(path.join(ROOT, 'package.json'));
 const FRONTEND_NODE_MODULES = path.join(ROOT, 'node_modules');
 
@@ -52,9 +67,10 @@ function requireFile(file, hint) {
   if (!fs.existsSync(file)) fail(`missing ${path.relative(ROOT, file)}. ${hint}`);
 }
 
+// Stage 25: no shell (DEP0190): npm runs through the npm-cli.js that ships next to node (scripts/offline/npm-cli.js). Other commands run directly.
 function run(command, args, options) {
-  // shell: true lets Windows resolve npm.cmd.
-  const result = spawnSync(command, args, { stdio: 'inherit', shell: process.platform === 'win32', ...options });
+  const [file, fileArgs] = command === 'npm' ? npmCommand(args) : [command, args];
+  const result = spawnSync(file, fileArgs, { stdio: 'inherit', ...options });
   if (result.error) fail(`${command} ${args.join(' ')}: ${result.error.message}`);
   if (result.status !== 0) fail(`${command} ${args.join(' ')} exited with ${result.status}`);
 }
@@ -76,6 +92,34 @@ function folderSize(dir) {
 }
 
 const mb = (bytes) => `${(bytes / 1048576).toFixed(1)} MB`;
+
+function countFiles(dir) {
+  let count = 0;
+  walk(dir, (full, entry) => { if (entry.isFile()) count += 1; });
+  return count;
+}
+
+// After bundling, node_modules only needs bytenode (the bytecode loader) and any package the bundle still requires at run time.
+function pruneNodeModulesToBundleNeeds(externalRequires) {
+  const keep = new Set(['bytenode', ...externalRequires.map((name) => (name.startsWith('@') ? name.split('/').slice(0, 2).join('/') : name.split('/')[0]))]);
+  const modules = path.join(STAGE_BACKEND, 'node_modules');
+  for (const entry of fs.readdirSync(modules, { withFileTypes: true })) {
+    const full = path.join(modules, entry.name);
+    if (entry.name === '.bin' || entry.name === '.package-lock.json') fs.rmSync(full, { recursive: true, force: true });
+    else if (entry.name.startsWith('@')) {
+      for (const child of fs.readdirSync(full)) {
+        if (!keep.has(`${entry.name}/${child}`)) fs.rmSync(path.join(full, child), { recursive: true, force: true });
+      }
+      if (!fs.readdirSync(full).length) fs.rmSync(full, { recursive: true, force: true });
+    } else if (!keep.has(entry.name)) fs.rmSync(full, { recursive: true, force: true });
+  }
+  // The staged package.json lists only what still loads from node_modules.
+  const manifestFile = path.join(STAGE_BACKEND, 'package.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+  manifest.dependencies = Object.fromEntries(Object.entries(manifest.dependencies).filter(([name]) => keep.has(name)));
+  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+  fs.rmSync(path.join(STAGE_BACKEND, 'package-lock.json'), { force: true });
+}
 
 function checkInputs() {
   requireFile(path.join(ANGULAR_OUTPUT, 'index.html'), 'Run "npm run build:offline" first.');
@@ -108,10 +152,27 @@ function stageApp() {
     private: true,
   };
   fs.writeFileSync(path.join(STAGE_APP, 'package.json'), `${JSON.stringify(appPackage, null, 2)}\n`);
-  log(`app staged: ${EDITION.productName} ${EDITION.version} (${mb(folderSize(STAGE_APP))})`);
+  // Stage 25: the changelog the "what's new" window reads (every released version must have a section).
+  fs.copyFileSync(path.join(ROOT, 'CHANGELOG.md'), path.join(STAGE_APP, 'CHANGELOG.md'));
+  const build = { version: EDITION.version, build: buildStamp(), builtAt: new Date().toISOString() };
+  fs.writeFileSync(path.join(STAGE_APP, 'electron-offline', 'build.json'), `${JSON.stringify(build, null, 2)}\n`);
+  fs.writeFileSync(path.join(STAGE, 'build.json'), `${JSON.stringify(build, null, 2)}\n`);
+  log(`app staged: ${EDITION.productName} ${EDITION.version} build ${build.build} (${mb(folderSize(STAGE_APP))})`);
 }
 
-function stageBackend() {
+// The key that is compiled into the license bundle must be the one chosen above (and never the placeholder or the test key).
+let stagedKeyBody = '';
+function verifyBundledKey() {
+  const text = fs.readFileSync(path.join(STAGE_BACKEND, 'src', 'license', 'index.js'), 'utf8');
+  const testBody = (() => {
+    try { return require(path.join(BACKEND_SOURCE, 'src', 'license', 'test-key.js')).TEST_PUBLIC_KEY_PEM.split('\n').filter((line) => !line.startsWith('-----')).join(''); } catch { return ''; }
+  })();
+  if (testBody && text.includes(testBody)) fail('the license bundle contains the TEST public key');
+  if (stagedKeyBody && !stagedKeyBody.includes('PLACEHOLDER') && !text.includes(stagedKeyBody)) fail('the license bundle does not contain the production public key that was chosen');
+  log('the license bundle carries the chosen production public key and no test key');
+}
+
+async function stageBackend() {
   fs.rmSync(STAGE_BACKEND, { recursive: true, force: true });
   fs.mkdirSync(STAGE_BACKEND, { recursive: true });
 
@@ -128,20 +189,59 @@ function stageBackend() {
 
   // Stage 24: production flags, then the guards. Anything wrong here stops the build before bytecode is made.
   const stagedSrc = path.join(STAGE_BACKEND, 'src');
-  protect.prepareProductionSource(stagedSrc);
+  // Stage 25: the production public key of a release comes from NOTA_RELEASE_PUBLIC_KEY_FILE (checked: public, Ed25519, not the placeholder,
+  // not the test key) and is swapped into the STAGED copy only; the repo's keys.js keeps its placeholder. Without the variable the key committed in
+  // keys.js is used (the placeholder is refused, or tolerated with NOTA_ALLOW_PLACEHOLDER_KEY=1 for a non-releasable verification stage).
+  let chosenKey = null;
+  if (process.env.NOTA_RELEASE_PUBLIC_KEY_FILE) {
+    try {
+      chosenKey = releaseKey.readReleaseKey(process.env.NOTA_RELEASE_PUBLIC_KEY_FILE, { backendDir: BACKEND_SOURCE });
+    } catch (error) {
+      fail(error.message);
+    }
+  }
+  // A verification stage (NOTA_ALLOW_PLACEHOLDER_KEY=1, no release key): carries the verification key (scripts/offline/verification-key.js), so the smoke test can license the
+  // real bundle. It is marked NON-RELEASABLE below.
+  const verification = process.env.NOTA_ALLOW_PLACEHOLDER_KEY === '1' && !chosenKey;
+  protect.prepareProductionSource(stagedSrc, chosenKey ? { productionKeyPem: chosenKey.pem } : verification ? { productionKeyPem: verificationKey.verificationPublicPem() } : {});
   // NOTA_ALLOW_PLACEHOLDER_KEY=1 is for development verification only: the stage is built, but marked NON-RELEASABLE, and the installer
   // build (build-guard.js, afterPack) refuses it. The installer build itself never honours this variable.
-  const allowPlaceholder = process.env.NOTA_ALLOW_PLACEHOLDER_KEY === '1';
+  const allowPlaceholder = process.env.NOTA_ALLOW_PLACEHOLDER_KEY === '1' && !chosenKey;
   const problems = protect.sourceProblems(stagedSrc, { allowPlaceholder });
   if (problems.length) fail(`the staged backend must not ship like this:\n  ${problems.join('\n  ')}`);
   protect.clearNonReleasable(STAGE);
-  if (allowPlaceholder && protect.productionKeyProblem(stagedSrc)) {
-    protect.markNonReleasable(STAGE, 'built with the placeholder production key (NOTA_ALLOW_PLACEHOLDER_KEY=1)');
-    log('WARNING: NOTA_ALLOW_PLACEHOLDER_KEY=1: the production key is the placeholder. This stage is marked NON-RELEASABLE (offline-stage/NON_RELEASABLE.json) and cannot become an installer.');
+  // What build-guard and the release note read: which key this stage carries (the plain keys.js is still readable here, before bundling).
+  const stagedKeyLiteral = /const PRODUCTION_PUBLIC_KEY_PEM = `([^`]*)`;/.exec(fs.readFileSync(path.join(stagedSrc, 'license', 'keys.js'), 'utf8'));
+  const stagedFingerprint = releaseKey.fingerprintOfLiteral(stagedKeyLiteral && stagedKeyLiteral[1]);
+  if (stagedFingerprint && stagedFingerprint === releaseKey.testKeyFingerprint(BACKEND_SOURCE)) fail('the production public key in the staged backend is the TEST key; a build needs your own production key');
+  releaseKey.writeRecord(STAGE, {
+    source: chosenKey ? 'NOTA_RELEASE_PUBLIC_KEY_FILE' : 'nota-backend/src/license/keys.js',
+    placeholder: !stagedFingerprint || verification,
+    verification,
+    fingerprint: stagedFingerprint,
+  });
+  if (stagedFingerprint) log(`production public key: ${stagedFingerprint.slice(0, 16)}... (${chosenKey ? 'from NOTA_RELEASE_PUBLIC_KEY_FILE' : 'from nota-backend/src/license/keys.js'})`);
+  stagedKeyBody = stagedKeyLiteral ? stagedKeyLiteral[1].split('\n').filter((line) => line && !line.startsWith('-----')).join('') : '';
+  if (verification) {
+    protect.markNonReleasable(STAGE, 'built with the verification key, not a production key (NOTA_ALLOW_PLACEHOLDER_KEY=1)');
+    log('WARNING: NOTA_ALLOW_PLACEHOLDER_KEY=1: this is a VERIFICATION stage (it carries the verification key, so the smoke test can license it). It is marked NON-RELEASABLE (offline-stage/NON_RELEASABLE.json) and cannot become an installer.');
   }
 
   log(`installing backend production dependencies from ${BACKEND_SOURCE}`);
   run('npm', ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: STAGE_BACKEND });
+
+  // Stage 25: bundle (NOTA_NO_BUNDLE=1 keeps the per-file layout), strip, then bytecode.
+  const filesBefore = countFiles(STAGE_BACKEND);
+  if (process.env.NOTA_NO_BUNDLE === '1') {
+    log('NOTA_NO_BUNDLE=1: keeping the per-file layout (no bundle)');
+  } else {
+    const bundled = await bundleBackend({ backendDir: STAGE_BACKEND, sourceMapDir: STAGE_SOURCEMAPS });
+    log(`bundle: ${bundled.inputs} inputs from ${bundled.packages.length} packages -> 3 files (${mb(bundled.bundleBytes)}); still external at run time: ${bundled.externalRequires.join(', ') || 'nothing'}`);
+    pruneNodeModulesToBundleNeeds(bundled.externalRequires);
+    verifyBundledKey();
+  }
+  const stripped = stripNodeModules(path.join(STAGE_BACKEND, 'node_modules'));
+  log(`node_modules stripped: ${stripped.files} files (${mb(stripped.bytes)}) of docs, types, maps, tests and examples removed (LICENSE files kept)`);
 
   const before = folderSize(stagedSrc);
   const started = Date.now();
@@ -152,7 +252,7 @@ function stageBackend() {
 
   // The tamper check's manifest. Its seal goes into the app (writeSeal, after both are staged).
   state.seal = integrity.writeManifest(STAGE_BACKEND);
-  log(`backend staged (${mb(folderSize(STAGE_BACKEND))})`);
+  log(`backend staged: ${countFiles(STAGE_BACKEND)} files (${filesBefore} before bundling/stripping), ${mb(folderSize(STAGE_BACKEND))}`);
 }
 
 // The seal (SHA-256 of integrity.json) lives inside app.asar, which Electron's ASAR integrity fuse protects.
@@ -182,10 +282,10 @@ function validate() {
   // The staged backend must load without the excluded packages, in both modes. It is bytecode now, so it loads on Electron
   // (ELECTRON_RUN_AS_NODE, build time only), the same V8 that compiled it.
   const smoke = (env, label) => {
-    const result = spawnSync(require('electron'), ['-e', "require('./src/app.js')"], {
+    const result = spawnSync(require('electron'), ['-e', "require('./src/server.js')"], {
       cwd: STAGE_BACKEND,
       encoding: 'utf8',
-      env: { SystemRoot: process.env.SystemRoot, PATH: process.env.PATH, ELECTRON_RUN_AS_NODE: '1', ...env },
+      env: { SystemRoot: process.env.SystemRoot, PATH: process.env.PATH, ELECTRON_RUN_AS_NODE: '1', NOTA_STAGE_LOAD_CHECK: '1', ...env },
       timeout: 60000,
     });
     if (result.status !== 0) fail(`staged backend failed to load (${label}):\n${result.stderr}`);
@@ -203,6 +303,7 @@ function validate() {
 checkInputs();
 fs.mkdirSync(STAGE, { recursive: true });
 stageApp();
-stageBackend();
-writeSeal();
-validate();
+stageBackend().then(() => {
+  writeSeal();
+  validate();
+}).catch((error) => fail(error && error.stack ? error.stack : String(error)));

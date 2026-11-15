@@ -18,6 +18,9 @@
   <!-- Stage 18: only users who can run the wizard see this, and only while the opening is still in setup. -->
   <app-opening-banner *notaCan="['accounting.manage', 'accounting.view']" />
 
+  <!-- Stage 25: no good backup for more than 3 days (the desktop app decides; only users who can back up see it). -->
+  <app-backup-reminder />
+
   @if (loading()) {
     <p class="db__muted" role="status">{{ 'dashboard.loading' | translate }}</p>
   } @else if (failed()) {

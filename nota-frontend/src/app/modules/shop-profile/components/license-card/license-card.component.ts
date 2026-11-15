@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { getDesktopRuntimeConfig } from '../../../../core/runtime/runtime-config';
 import { NotaButtonDirective } from '../../../shared/ui';
 import { LicenseInfo, LicenseService } from '../../services/license.service';
 import { ShopProfileService } from '../../services/shop-profile.service';
@@ -31,6 +32,7 @@ const REASONS = new Set(['MALFORMED', 'BAD_SIGNATURE', 'WRONG_MACHINE', 'UNKNOWN
           <div><dt>{{ 'license.maxClients' | translate }}</dt>
             <dd class="nota-num" data-field="license-clients">{{ 'license.clientsOf' | translate: { used: license.clientsUsed, max: license.maxClients } }}</dd></div>
           <div><dt>{{ 'license.machineId' | translate }}</dt><dd dir="ltr" class="nota-num" data-field="license-machine">{{ license.machineId }}</dd></div>
+          @if (appVersion) { <div><dt>{{ 'about.version' | translate }}</dt><dd dir="ltr" class="nota-num" data-field="license-app-version">{{ appVersion }}</dd></div> }
           <div><dt>{{ 'license.issuedAt' | translate }}</dt><dd class="nota-num" data-field="license-issued">{{ license.issuedAt | date: 'yyyy-MM-dd' }}</dd></div>
         </dl>
 
@@ -107,6 +109,7 @@ const REASONS = new Set(['MALFORMED', 'BAD_SIGNATURE', 'WRONG_MACHINE', 'UNKNOWN
   ],
 })
 export class LicenseCardComponent implements OnInit {
+  protected readonly appVersion = getDesktopRuntimeConfig()?.appVersion ?? '';
   private readonly license = inject(LicenseService);
   private readonly shopProfile = inject(ShopProfileService);
   private readonly translate = inject(TranslateService);

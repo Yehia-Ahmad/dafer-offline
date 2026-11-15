@@ -230,7 +230,7 @@ test('a job is validated: paper, html, a roll height, size', () => {
 
 test('print settings: stored per PC in print-settings.json; an unknown printer is refused; copies are 1..5; a damaged file means the defaults', async () => {
   const h = harness();
-  assert.deepEqual(h.service.getSettings(), { schemaVersion: 1, receiptPrinter: '', documentPrinter: '', autoPrintReceipt: false, receiptCopies: 1 });
+  assert.deepEqual(h.service.getSettings(), { schemaVersion: 1, receiptPrinter: '', documentPrinter: '', autoPrintReceipt: false, receiptCopies: 1, receiptWidthMm: 80, receiptOffsetMm: 0 });
   const saved = await h.service.setSettings({ receiptPrinter: 'EPSON TM-T20', autoPrintReceipt: true, receiptCopies: 9 });
   assert.equal(saved.receiptCopies, 5);
   assert.deepEqual(readSettings(path.join(h.dir, 'print-settings.json')), saved);

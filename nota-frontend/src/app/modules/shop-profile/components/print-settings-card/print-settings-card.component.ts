@@ -34,6 +34,16 @@ import { NotaButtonDirective, NotaFormFieldComponent } from '../../../shared/ui'
             </select>
           </nota-form-field>
           <button type="button" notaButton data-action="test-receipt" [disabled]="busy()" (click)="test('receipt')">{{ 'print.settings.testPage' | translate }} · 80mm</button>
+          <!-- Stage 25: calibration of this receipt printer (the width it really prints and a sideways shift) -->
+          <nota-form-field [label]="'printCalibration.width' | translate" forId="psc-width" [hint]="'printCalibration.widthHint' | translate">
+            <select id="psc-width" class="nota-select" name="receiptWidth" data-field="receipt-width" [ngModel]="receiptWidth()" (ngModelChange)="receiptWidth.set(+$event)">
+              @for (mm of widths; track mm) { <option [value]="mm">{{ mm }} mm</option> }
+            </select>
+          </nota-form-field>
+          <nota-form-field [label]="'printCalibration.offset' | translate" forId="psc-offset" [hint]="'printCalibration.offsetHint' | translate">
+            <input id="psc-offset" class="nota-input nota-num" type="number" min="-10" max="10" step="0.5" name="receiptOffset" data-field="receipt-offset" [ngModel]="receiptOffset()" (ngModelChange)="receiptOffset.set($event)" />
+          </nota-form-field>
+          <button type="button" notaButton data-action="calibrate-receipt" [disabled]="busy()" (click)="calibrate()">{{ 'printCalibration.print' | translate }}</button>
           <nota-form-field [label]="'print.settings.documentPrinter' | translate" forId="psc-document">
             <select id="psc-document" class="nota-select" name="documentPrinter" data-field="document-printer" [ngModel]="documentPrinter()" (ngModelChange)="documentPrinter.set($event)">
               <option value="">{{ 'print.settings.systemDefault' | translate }}</option>
@@ -72,6 +82,14 @@ export class PrintSettingsCardComponent implements OnInit {
   readonly documentPrinter = signal('');
   readonly autoPrint = signal(false);
   readonly copies = signal(1);
+  readonly widths = [72, 76, 80];
+  readonly receiptWidth = signal(80);
+  readonly receiptOffset = signal<number | string>(0);
+  /** Half-millimetre steps inside -10..10, like the desktop app stores them. */
+  readonly offsetValue = computed(() => {
+    const value = Number(this.receiptOffset());
+    return Number.isFinite(value) ? Math.round(Math.min(10, Math.max(-10, value)) * 2) / 2 : 0;
+  });
   readonly message = signal('');
   readonly isError = signal(false);
   readonly copiesValue = computed(() => Math.min(5, Math.max(1, Math.floor(Number(this.copies()) || 1))));
@@ -84,7 +102,9 @@ export class PrintSettingsCardComponent implements OnInit {
     this.loading.set(false);
   }
 
-  private apply(value: { receiptPrinter: string; documentPrinter: string; autoPrintReceipt: boolean; receiptCopies: number }): void {
+  private apply(value: { receiptPrinter: string; documentPrinter: string; autoPrintReceipt: boolean; receiptCopies: number; receiptWidthMm?: number; receiptOffsetMm?: number }): void {
+    this.receiptWidth.set(value.receiptWidthMm ?? 80);
+    this.receiptOffset.set(value.receiptOffsetMm ?? 0);
     this.receiptPrinter.set(value.receiptPrinter);
     this.documentPrinter.set(value.documentPrinter);
     this.autoPrint.set(value.autoPrintReceipt);
@@ -99,6 +119,8 @@ export class PrintSettingsCardComponent implements OnInit {
       documentPrinter: this.documentPrinter(),
       autoPrintReceipt: this.autoPrint(),
       receiptCopies: this.copiesValue(),
+      receiptWidthMm: this.receiptWidth(),
+      receiptOffsetMm: this.offsetValue(),
     });
     this.busy.set(false);
     if (result.ok === true) {
@@ -110,6 +132,14 @@ export class PrintSettingsCardComponent implements OnInit {
     this.isError.set(true);
     this.message.set(result.message);
     return false;
+  }
+
+  /** Stage 25: prints the calibration sheet with the width and offset typed NOW (saved first, so the sheet shows what will be used). */
+  async calibrate(): Promise<void> {
+    if (!(await this.save())) return;
+    this.busy.set(true);
+    await this.printer.calibrationPage(this.receiptPrinter());
+    this.busy.set(false);
   }
 
   /** The test page goes to the printer that is selected in the dropdown now (sent with the request; nothing is saved by testing). */

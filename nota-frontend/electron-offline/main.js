@@ -26,7 +26,10 @@ const {
   utilityProcess,
 } = require('electron');
 
-const EDITION = require('./edition.json');
+const EDITION = require('./lib/edition');
+const { createDiagnosticsHandlers } = require('./lib/diagnostics-handlers');
+const { buildDiagnosticsZip, diagnosticsFileName } = require('./lib/diagnostics');
+const { pendingWhatsNew, currentWhatsNew, markWhatsNewSeen } = require('./lib/whats-new');
 const { ensureLayout, layout, resolveHome, resolveResources } = require('./lib/paths');
 const { createLogger } = require('./lib/logger');
 const { MONGOD_PORT, SERVER_LOCK_PORT, readConfig, writeConfig } = require('./lib/config-store');
@@ -132,8 +135,13 @@ const log = {
   error: (message) => (state.log ? state.log.error(message) : console.error(message)),
 };
 
-const loadDriver = () => require(path.join(state.resources.backendDir, 'node_modules', 'mongodb'));
-const loadBson = () => require(path.join(state.resources.backendDir, 'node_modules', 'bson'));
+// Stage 25: the installed (bundled) backend has no node_modules/mongodb; src/driver.js carries the driver for this process.
+const bundledDriver = () => {
+  const file = path.join(state.resources.backendDir, 'src', 'driver.js');
+  return fs.existsSync(file) ? require(file) : null;
+};
+const loadDriver = () => (bundledDriver() || { mongodb: require(path.join(state.resources.backendDir, 'node_modules', 'mongodb')) }).mongodb;
+const loadBson = () => (bundledDriver() || { bson: require(path.join(state.resources.backendDir, 'node_modules', 'bson')) }).bson;
 
 // ---------------------------------------------------------------- status, connection and UI
 
@@ -586,6 +594,8 @@ function startAutoBackup() {
     sameDrive: otherDrive ? async (a, b) => !inside(a, otherDrive) && onSameDrive(a, b) : onSameDrive,
     runBackup: (file) => consistentBackup(file, { reason: 'auto-backup' }),
     getCopyFolder: () => state.config.backupCopyFolder,
+    getBackupTime: () => state.config.backupTime,
+    getPrimaryFolder: () => state.config.backupFolder,
     log: state.logger('auto-backup'),
     ...testTiming,
   });
@@ -599,6 +609,18 @@ function sendBackupStatus() {
     .summary()
     .then((summary) => send('backup:status', summary))
     .catch((error) => log.error(`backup status: ${error.message}`));
+}
+
+function setBackupTime(time) {
+  state.config = writeConfig(state.paths.config, { ...state.config, backupTime: time });
+  log.info(`daily backup time: ${time}`);
+  if (state.autoBackup) state.autoBackup.check().catch(() => {}); // a time already passed today may be due now
+}
+
+function setBackupFolder(folder) {
+  state.config = writeConfig(state.paths.config, { ...state.config, backupFolder: folder });
+  log.info(folder ? `primary backup folder: ${folder}` : 'primary backup folder cleared (the program folder is used)');
+  if (state.autoBackup) state.autoBackup.emit('change');
 }
 
 function setBackupCopyFolder(folder) {
@@ -634,6 +656,8 @@ function registerBackupIpc() {
     restoreArchive,
     copyFolderInvalid,
     setCopyFolder: setBackupCopyFolder,
+    setBackupTime,
+    setBackupFolder,
     copyNow: () => (state.autoBackup ? state.autoBackup.copyNow() : Promise.resolve()),
     summary: () => (state.autoBackup ? state.autoBackup.summary() : null),
     showItemInFolder: (file) => shell.showItemInFolder(file),
@@ -642,6 +666,52 @@ function registerBackupIpc() {
     // Every window of this PC goes to the sign-in screen with the restore message.
     onRestored: () => setImmediate(() => send('nota:session-reset', { reason: 'restored' })),
     log: state.logger('backup'),
+  });
+  for (const [channel, handler] of Object.entries(handlers)) handle(channel, handler);
+}
+
+// Stage 25: the diagnostics file (lib/diagnostics.js: an allowlist, then redaction). Nothing is read from the security folder or the database files.
+async function collectDiagnostics() {
+  const now = new Date();
+  let license = null;
+  try { license = licenseGate().details(); } catch { license = null; }
+  let database = null;
+  if (state.mode === 'main' && state.supervisor && state.status.state === 'running') {
+    try {
+      database = await backupService().withClient((db) => db.collection('meta').findOne({ _id: 'schema' }, { projection: { version: 1, appVersion: 1, appBuild: 1 } }));
+      if (database) database = { schemaVersion: database.version, appVersion: database.appVersion, appBuild: database.appBuild };
+    } catch (error) {
+      database = { error: error.message };
+    }
+  }
+  let printSettings = null;
+  try { printSettings = JSON.parse(fs.readFileSync(path.join(state.paths.home, 'print-settings.json'), 'utf8')); } catch { printSettings = null; }
+  const zip = buildDiagnosticsZip({
+    now,
+    edition: EDITION,
+    runtime: { electron: process.versions.electron, node: process.versions.node, chrome: process.versions.chrome, packaged: app.isPackaged },
+    config: state.config,
+    status: state.status,
+    license,
+    database,
+    backups: { backupsDir: state.paths.backups, autoDir: state.paths.autoBackups, summary: state.autoBackup ? state.autoBackup.summary() : null },
+    printSettings,
+    logsDir: state.paths.logs,
+  });
+  return { zip, fileName: diagnosticsFileName(license && license.licenseId, now) };
+}
+
+function registerDiagnosticsIpc() {
+  const handlers = createDiagnosticsHandlers({
+    backend: backendClient,
+    collect: collectDiagnostics,
+    chooseSavePath: async (defaultName) => {
+      const answers = testAnswers();
+      if (answers) return answers.save || null;
+      const result = await dialog.showSaveDialog(state.window, { title: 'حفظ ملف التشخيص', defaultPath: path.join(app.getPath('documents'), defaultName), filters: [{ name: 'ZIP', extensions: ['zip'] }] });
+      return result.canceled || !result.filePath ? null : result.filePath;
+    },
+    log: state.logger('diagnostics'),
   });
   for (const [channel, handler] of Object.entries(handlers)) handle(channel, handler);
 }
@@ -674,18 +744,25 @@ function registerPrintIpc() {
 function registerIpc() {
   registerBackupIpc();
   registerPrintIpc();
+  registerDiagnosticsIpc();
   handle('nota:runtime-config', () => {
     if (!state.apiOrigin || !state.config) throw new Error('the app is not configured');
     return {
       apiBaseUrl: `${state.apiOrigin}/api/`,
       role: state.config.role,
       appVersion: EDITION.version,
+      appBuild: EDITION.build,
       deviceId: state.config.instanceId,
       deviceName: os.hostname(),
       serverVersion:
         state.config.role === 'client' ? (state.serverInfo && state.serverInfo.appVersion) || null : EDITION.version,
     };
   });
+  // Stage 25: the "About" page and the once-per-version "what's new" window.
+  handle('nota:about', () => ({ productName: EDITION.productName, version: EDITION.version, build: EDITION.build, builtAt: EDITION.builtAt, packaged: app.isPackaged }));
+  handle('nota:whats-new', () => pendingWhatsNew({ changelogFile: path.join(__dirname, '..', 'CHANGELOG.md'), stateFile: state.paths.whatsNew, version: EDITION.version }));
+  handle('nota:whats-new-current', () => currentWhatsNew({ changelogFile: path.join(__dirname, '..', 'CHANGELOG.md'), version: EDITION.version }));
+  handle('nota:whats-new-seen', () => { markWhatsNewSeen({ stateFile: state.paths.whatsNew, version: EDITION.version }); return true; });
   handle('nota:status', () => state.status);
   handle('nota:connection', () => state.connection);
   handle('nota:retry', () => retry());
@@ -1107,6 +1184,7 @@ async function startMainRole() {
       secret: state.secret,
       jwtSecret,
       appVersion: EDITION.version,
+      appBuild: EDITION.build,
       instanceId: config.instanceId,
       sessionsValidAfter: config.sessionsValidAfter,
       auditInbox: path.join(paths.run, AUDIT_INBOX_NAME),
@@ -1116,6 +1194,13 @@ async function startMainRole() {
     port: config.port,
     log: state.logger('backend'),
     output: backendLog.raw('[backend]'),
+    // Stage 25: a newer Nota is about to migrate existing data: back it up first. A failure here stops the upgrade (BackendManager tells the server).
+    upgradeBackup: async (info) => {
+      const from = info.fromApp || `schema${info.fromSchema}`;
+      log.info(`backup before the upgrade ${from} -> ${EDITION.version} (data version ${info.fromSchema} -> ${info.toSchema})`);
+      const result = await backupService().createUpgradeBackup({ from, to: EDITION.version });
+      log.info(`backup before the upgrade saved: ${result.path}`);
+    },
   });
 
   state.backend = backend;

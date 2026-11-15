@@ -9,6 +9,8 @@ export interface DesktopRuntimeConfig {
   role: 'main' | 'client';
   /** Version of this desktop app. */
   appVersion: string;
+  /** Stage 25: the build number stamped by offline:stage ("dev" in a checkout). */
+  appBuild: string;
   /** Stage 19: this PC's id (its config instanceId), sent to the backend as X-Nota-Device-Id. */
   deviceId?: string;
   /** Stage 19: this PC's hostname. */
@@ -59,6 +61,15 @@ export interface BackupProgress {
 
 /** Backups as the backup page shows them. Dates are ISO strings. */
 export interface BackupStatus {
+  /** Stage 25: the daily backup time (local HH:MM) and the folder it goes to ('primaryFallback': that folder is not available, the program folder is used). */
+  schedule?: { time: string };
+  primaryFolder?: string | null;
+  primaryFallback?: boolean;
+  /** Stage 25: the last good backup (daily or manual), and the reminder (more than reminderAfterDays without one). */
+  lastGood?: { at: string; kind: 'auto' | 'manual' } | null;
+  daysSinceGood?: number;
+  reminder?: boolean;
+  reminderAfterDays?: number;
   /** The newest backup, daily or manual. */
   lastBackup: { at: string; path: string; kind: 'auto' | 'manual' } | null;
   lastAuto: { at: string; path: string } | null;
@@ -100,6 +111,15 @@ export interface DesktopBackupBridge {
   onStatus(callback: (status: BackupStatus) => void): () => void;
   chooseCopyFolder(token: string | null): Promise<DesktopResult<BackupStatus>>;
   clearCopyFolder(token: string | null): Promise<DesktopResult<BackupStatus>>;
+  /** Stage 25. */
+  setTime?(token: string | null, time: string): Promise<DesktopResult<BackupStatus>>;
+  choosePrimaryFolder?(token: string | null): Promise<DesktopResult<BackupStatus>>;
+  clearPrimaryFolder?(token: string | null): Promise<DesktopResult<BackupStatus>>;
+}
+
+/** Stage 25: the diagnostics file for support (owner or manager). value is null when the save dialog was cancelled. */
+export interface DesktopDiagnosticsBridge {
+  export(token: string | null): Promise<DesktopResult<{ path: string; bytes: number } | null>>;
 }
 
 /** Stage 23: this PC's print settings (print-settings.json in the Nota home folder). */
@@ -108,6 +128,9 @@ export interface DesktopPrintSettings {
   documentPrinter: string;
   autoPrintReceipt: boolean;
   receiptCopies: number;
+  /** Stage 25: the printable width of the 80mm roll (72, 76 or 80) and the sideways shift of the receipt in mm (-10..10). */
+  receiptWidthMm?: number;
+  receiptOffsetMm?: number;
 }
 
 export interface DesktopPrinter {
@@ -146,6 +169,23 @@ export interface OtherMainPc {
   port: number;
 }
 
+/** Stage 25: the About page. */
+export interface DesktopAbout {
+  productName: string;
+  version: string;
+  build: string;
+  builtAt: string | null;
+  packaged: boolean;
+}
+
+/** Stage 25: one version's "what's new" list (CHANGELOG.md), in both languages. */
+export interface WhatsNewEntry {
+  version: string;
+  date: string | null;
+  ar: string[];
+  en: string[];
+}
+
 /** Exposed by the offline edition's Electron preload script. */
 export interface NotaDesktopBridge {
   getRuntimeConfig(): Promise<DesktopRuntimeConfig>;
@@ -155,8 +195,13 @@ export interface NotaDesktopBridge {
   changeServerAddress?(): Promise<void>;
   onNavigate?(callback: (url: string) => void): () => void;
   backup?: DesktopBackupBridge;
+  /** Stage 25: version and build, and the once-per-version "what's new" window. */
+  about?(): Promise<DesktopAbout>;
+  whatsNew?: { get(): Promise<WhatsNewEntry | null>; current(): Promise<WhatsNewEntry | null>; seen(): Promise<boolean> };
   /** Stage 23: printing and PDF export. */
   print?: DesktopPrintBridge;
+  /** Stage 25: the diagnostics file. */
+  diagnostics?: DesktopDiagnosticsBridge;
   /** Stage 15: after a restore every window goes to the sign-in screen. */
   onSessionReset?(callback: (event: { reason: 'restored' }) => void): () => void;
   /** Stage 15 (main PC): other main PCs answering on the LAN. */
@@ -220,6 +265,7 @@ export async function loadDesktopRuntimeConfig(
     apiBaseUrl,
     role,
     appVersion: typeof config.appVersion === 'string' ? config.appVersion : '',
+    appBuild: typeof config.appBuild === 'string' ? config.appBuild : '',
     serverVersion: typeof config.serverVersion === 'string' ? config.serverVersion : null,
   });
   return runtimeConfig;

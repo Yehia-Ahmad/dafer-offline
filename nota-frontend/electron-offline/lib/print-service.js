@@ -29,7 +29,12 @@ const DEFAULT_SETTINGS = Object.freeze({
   documentPrinter: '', // A4/A5 printer; '' = the system default
   autoPrintReceipt: false,
   receiptCopies: 1,
+  // Stage 25: how much of the 80mm roll this printer really prints (72 / 76 / 80 mm) and a sideways shift of the receipt (-10..10 mm, + = to the right).
+  receiptWidthMm: 80,
+  receiptOffsetMm: 0,
 });
+const RECEIPT_WIDTHS_MM = Object.freeze([72, 76, 80]);
+const MAX_OFFSET_MM = 10;
 const MAX_COPIES = 5;
 const MAX_HTML_BYTES = 25 * 1024 * 1024;
 const PAPERS = Object.freeze({ '80mm': { widthMm: 80 }, A4: { name: 'A4' }, A5: { name: 'A5' } });
@@ -48,6 +53,13 @@ class PrintError extends Error {
 const badInput = (message) => new PrintError('INVALID_INPUT', message);
 const mmToInches = (mm) => mm / 25.4;
 const mmToMicrons = (mm) => Math.round(mm * 1000);
+const normalizeWidthMm = (value) => (RECEIPT_WIDTHS_MM.includes(Number(value)) ? Number(value) : 80);
+// Half-millimetre steps, never NaN: a damaged file or a hostile value becomes 0.
+const normalizeOffsetMm = (value) => {
+  const number = typeof value === 'number' ? value : Number.NaN;
+  if (!Number.isFinite(number)) return 0;
+  return Math.round(Math.min(MAX_OFFSET_MM, Math.max(-MAX_OFFSET_MM, number)) * 2) / 2;
+};
 const clampCopies = (value) => Math.min(MAX_COPIES, Math.max(1, Number.isInteger(value) ? value : 1));
 
 function normalizeSettings(raw) {
@@ -59,6 +71,8 @@ function normalizeSettings(raw) {
     documentPrinter: text(source.documentPrinter),
     autoPrintReceipt: source.autoPrintReceipt === true,
     receiptCopies: clampCopies(source.receiptCopies),
+    receiptWidthMm: normalizeWidthMm(source.receiptWidthMm),
+    receiptOffsetMm: normalizeOffsetMm(source.receiptOffsetMm),
   };
 }
 
@@ -313,6 +327,8 @@ module.exports = {
   PrintError,
   createPrintService,
   normalizeSettings,
+  RECEIPT_WIDTHS_MM,
+  MAX_OFFSET_MM,
   readSettings,
   safeFileName,
   validateJob,

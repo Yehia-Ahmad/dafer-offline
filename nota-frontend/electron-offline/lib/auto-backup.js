@@ -6,7 +6,10 @@
 // When: once per calendar day. A few minutes after the server starts, if today has no
 // automatic backup yet (this also catches up after days the PC was off); when the PC stays on
 // overnight, at the first check after midnight. Both are quiet times in a shop.
-// Where: backups\auto in the home folder, keeping the newest 14.
+// Stage 25: "when" is at or after the backup time chosen in Settings (default 00:00): a check before that time on a given day does nothing.
+// Where: backups\auto in the home folder, or the primary backup folder chosen in Settings. If that folder is not available (a USB drive
+// that is not plugged in) the home folder is used, so a backup is never skipped. The newest 14 are kept in each. Only nota-auto-backup-
+// files are ever pruned: before-restore- and before-upgrade- backups are never touched.
 // How: runBackup(file), which main.js runs with the backend paused, so the backup is consistent.
 //
 // backup-state.json remembers the last manual backup, the last copy outside this PC and the last
@@ -32,6 +35,10 @@ const RETRY_AFTER_FAILURE_MS = 60 * 60 * 1000;
 // The backup page warns when nothing was copied outside this PC for longer than this.
 const EXTERNAL_COPY_MAX_AGE_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
+// Stage 25: the home page reminds the owner when the last good backup is older than this.
+const REMINDER_AFTER_DAYS = 3;
+const DEFAULT_BACKUP_TIME = '00:00';
+const validTime = (value) => typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 // Someone else is busy (a manual backup or restore, the server restarting): try again next check.
 const BUSY_CODES = new Set(['SERVER_BUSY', 'BACKUP_BUSY']);
 
@@ -78,6 +85,8 @@ class AutoBackup extends EventEmitter {
     sameDrive = onSameDrive,
     runBackup,
     getCopyFolder,
+    getBackupTime = () => DEFAULT_BACKUP_TIME,
+    getPrimaryFolder = () => '',
     log,
     keep = KEEP_AUTO_BACKUPS,
     firstCheckDelayMs = FIRST_CHECK_DELAY_MS,
@@ -93,6 +102,9 @@ class AutoBackup extends EventEmitter {
     this.sameDrive = sameDrive;
     this.runBackup = runBackup;
     this.getCopyFolder = getCopyFolder;
+    this.getBackupTime = getBackupTime;
+    this.getPrimaryFolder = getPrimaryFolder;
+    this.usingFallback = false;
     this.log = log;
     this.keep = keep;
     this.firstCheckDelayMs = firstCheckDelayMs;
@@ -165,7 +177,24 @@ class AutoBackup extends EventEmitter {
     });
   }
 
-  async listAuto(folder = this.dir) {
+  // The folder the daily backup goes to now: the primary folder when it is usable, else the home folder (and the page says so).
+  async activeDir() {
+    const custom = this.getPrimaryFolder();
+    if (!custom) { this.usingFallback = false; return this.dir; }
+    try {
+      await fsp.mkdir(custom, { recursive: true });
+      await fsp.access(custom, require('node:fs').constants.W_OK);
+      this.usingFallback = false;
+      return custom;
+    } catch {
+      if (!this.usingFallback) this.log.warn(`primary backup folder ${custom} is not available; the daily backup goes to ${this.dir} until it is`);
+      this.usingFallback = true;
+      return this.dir;
+    }
+  }
+
+  async listAuto(folder = null) {
+    folder = folder || (await this.activeDir());
     const names = await fsp.readdir(folder).catch(() => []);
     return names
       .filter((name) => name.startsWith(AUTO_PREFIX) && name.endsWith(BACKUP_SUFFIX))
@@ -175,17 +204,22 @@ class AutoBackup extends EventEmitter {
 
   async isDue() {
     if (this.now().getTime() < this.retryAt) return false;
+    const time = validTime(this.getBackupTime()) ? this.getBackupTime() : DEFAULT_BACKUP_TIME;
+    const [hours, minutes] = time.split(':').map(Number);
+    const now = this.now();
+    if (now.getHours() * 60 + now.getMinutes() < hours * 60 + minutes) return false; // today's backup time has not come yet
     const today = `${AUTO_PREFIX}${localDateStamp(this.now())}_`;
     return !(await this.listAuto()).some((file) => path.basename(file).startsWith(today));
   }
 
   async backUp() {
-    const file = path.join(this.dir, backupFileName(AUTO_PREFIX, this.now()));
+    const dir = await this.activeDir();
+    const file = path.join(dir, backupFileName(AUTO_PREFIX, this.now()));
     try {
       const result = await this.runBackup(file);
       this.retryAt = 0;
       await this.updateState({ autoError: null });
-      await this.prune(this.dir);
+      await this.prune(dir);
       this.log.info(`automatic backup saved: ${path.basename(file)}`);
       this.emit('change');
       return result;
@@ -278,12 +312,25 @@ class AutoBackup extends EventEmitter {
         .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0] || null;
     const folder = this.getCopyFolder() || null;
     const external = state.external || null;
+    const activeDir = await this.activeDir();
+    // The last GOOD backup: the newest automatic file on disk or the last manual backup. Before the first one, the clock starts the first time
+    // the status is read (a new install is not nagged on day 0).
+    const firstSeenAt = state.firstSeenAt || (await this.updateState({ firstSeenAt: this.now().toISOString() })).firstSeenAt;
+    const lastGoodAt = lastBackup ? lastBackup.at : null;
+    const daysSinceGood = Math.floor((this.now().getTime() - Date.parse(lastGoodAt || firstSeenAt)) / DAY_MS);
     return {
+      schedule: { time: validTime(this.getBackupTime()) ? this.getBackupTime() : DEFAULT_BACKUP_TIME },
+      primaryFolder: this.getPrimaryFolder() || null,
+      primaryFallback: this.usingFallback,
+      lastGood: lastGoodAt ? { at: lastGoodAt, kind: lastBackup.kind } : null,
+      daysSinceGood: Math.max(0, daysSinceGood),
+      reminder: daysSinceGood > REMINDER_AFTER_DAYS,
+      reminderAfterDays: REMINDER_AFTER_DAYS,
       lastBackup,
       lastAuto,
       autoCount: (await this.listAuto()).length,
       keep: this.keep,
-      autoDir: this.dir,
+      autoDir: activeDir,
       autoError: state.autoError || null,
       // The data folder's drive, e.g. "C:", for the page's messages.
       dataDrive: path.parse(path.resolve(this.dataDir)).root.replace(/\\$/, ''),
@@ -315,4 +362,4 @@ class AutoBackup extends EventEmitter {
   }
 }
 
-module.exports = { AUTO_PREFIX, AutoBackup, EXTERNAL_COPY_MAX_AGE_DAYS, KEEP_AUTO_BACKUPS, onSameDrive };
+module.exports = { AUTO_PREFIX, AutoBackup, DEFAULT_BACKUP_TIME, EXTERNAL_COPY_MAX_AGE_DAYS, KEEP_AUTO_BACKUPS, REMINDER_AFTER_DAYS, onSameDrive, validTime };

@@ -2507,5 +2507,55 @@
   "lock": {
     "banner": "This period is closed through {{date}}",
     "selectedLocked": "This date is in a closed period. Pick a date after {{date}}"
+  },
+  "about": {
+    "title": "About",
+    "version": "Version",
+    "build": "Build number",
+    "builtAt": "Built on",
+    "serverVersion": "Main PC version",
+    "versionLine": "Version {{version}}",
+    "whatsNew": "What's new in this version?",
+    "noWhatsNew": "No notes for this version.",
+    "desktopOnly": "This information is only available in the desktop app."
+  },
+  "whatsNew": {
+    "title": "What's new in Nota {{version}}",
+    "close": "Got it",
+    "note": "This window shows once after each update."
+  },
+  "backupDaily": {
+    "title": "Daily backup",
+    "description": "Runs once a day at the time you choose; if the PC is off at that time it runs at the first start after it.",
+    "time": "Daily backup time",
+    "folder": "Daily backup folder",
+    "folderDefault": "The program folder (default)",
+    "choose": "Choose the daily backup folder",
+    "change": "Change the daily backup folder",
+    "clear": "Back to the program folder",
+    "fallback": "The chosen folder is not available now (a USB drive that is not plugged in, for example), so the daily backup is saved in the program folder until it is back.",
+    "restoreHint": "Existing backups stay where they are when you change the folder. To restore, press \"Restore a backup\" and pick the file from any folder."
+  },
+  "backupReminder": {
+    "old": "The last successful backup was {{days}} days ago. Back up your data now.",
+    "never": "There has been no successful backup for {{days}} days. Back up your data now.",
+    "usb": "Keep a copy on a USB drive or another disk outside this PC; a disk can fail.",
+    "failed": "The backup could not be made. Open the backup page to see why.",
+    "now": "Back up now",
+    "open": "Backup page"
+  },
+  "diagnostics": {
+    "title": "Diagnostics file for support",
+    "hint": "Creates one file with the program version, its status and the latest logs, with passwords, tokens and phone numbers removed. It holds no shop data. The owner chooses where to save it and sends it to support.",
+    "export": "Export diagnostics file",
+    "saved": "File saved to: {{path}}",
+    "failed": "The diagnostics file could not be created."
+  },
+  "printCalibration": {
+    "width": "Real printable width of the receipt",
+    "widthHint": "Print the calibration sheet and pick the widest width (72, 76 or 80 mm) whose edges print in full, without clipping.",
+    "offset": "Print offset (mm)",
+    "offsetHint": "From -10 to 10: positive moves the receipt to the right, negative to the left. Adjust until the left and right margins are equal.",
+    "print": "Print the calibration sheet"
   }
 }

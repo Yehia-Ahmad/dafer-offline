@@ -31,7 +31,7 @@ function buildRtf(eula) {
   const draft = eula.draft ? '\\b DRAFT - FOR REVIEW / \\u1605?\\u1587?\\u1608?\\u1583?\\u1577?\\b0\\par\\par' : '';
   const section = (block, rtl) => {
     const dir = rtl ? '\\rtlpar\\qr' : '\\ltrpar\\ql';
-    const lines = [`{\\pard${dir}\\b\\fs28 ${escapeRtf(block.title)}\\b0\\fs22\\par}`];
+    const lines = [`{\\pard${dir}\\b\\fs28 ${escapeRtf(block.title)}\\b0\\fs22\\par}`, `{\\pard\\ltrpar\\ql\\i v${Number(eula.version)}\\i0\\par}`];
     for (const paragraph of block.paragraphs) lines.push(`{\\pard${dir}\\sa120 ${escapeRtf(paragraph)}\\par}`);
     return lines.join('\r\n');
   };

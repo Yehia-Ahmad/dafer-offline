@@ -4,11 +4,13 @@
 // node.exe is bundled) and stops it through the backend's graceful shutdown message.
 
 const { EventEmitter } = require('node:events');
-const EDITION = require('../edition.json');
+const EDITION = require('./edition');
 const { ServiceError } = require('./mongod-manager');
 const { sleep } = require('./net-utils');
 
 const START_TIMEOUT_MS = 60000;
+// A before-upgrade backup of a big database may take a while; the start timer is extended while it runs (Stage 25).
+const UPGRADE_BACKUP_TIMEOUT_MS = 15 * 60000;
 const STOP_TIMEOUT_MS = 15000;
 
 // Only what the backend needs. Nothing else from this process's environment is passed on,
@@ -18,7 +20,7 @@ const PASSTHROUGH_ENV = ['SystemRoot', 'windir', 'TEMP', 'TMP', 'PATH'];
 // jwtSecret (Stage 13): the main PC's session-token secret, passed as NOTA_JWT_SECRET.
 // NOTA_AUTH=1 (Stage 14): login and permissions are enforced. The backend refuses to start
 // without a usable secret; main.js never starts it without one.
-function buildBackendEnv({ port, mongoUri, secret, jwtSecret, appVersion, instanceId, sessionsValidAfter, auditInbox, licenseDir, mainToken, sourceEnv = process.env }) {
+function buildBackendEnv({ port, mongoUri, secret, jwtSecret, appVersion, appBuild, instanceId, sessionsValidAfter, auditInbox, licenseDir, mainToken, sourceEnv = process.env }) {
   const env = {};
   for (const key of PASSTHROUGH_ENV) {
     if (sourceEnv[key] !== undefined) env[key] = sourceEnv[key];
@@ -35,6 +37,7 @@ function buildBackendEnv({ port, mongoUri, secret, jwtSecret, appVersion, instan
     NOTA_AUTH: '1',
     ...(jwtSecret ? { NOTA_JWT_SECRET: jwtSecret } : {}),
     NOTA_APP_VERSION: appVersion,
+    ...(appBuild ? { NOTA_APP_BUILD: appBuild } : {}),
     NOTA_INSTANCE_ID: instanceId,
     // Stage 15: tokens issued before the last restore are refused; backup audit entries written
     // while the backend was stopped are read from this file at startup.
@@ -48,8 +51,9 @@ function buildBackendEnv({ port, mongoUri, secret, jwtSecret, appVersion, instan
 }
 
 class BackendManager extends EventEmitter {
-  constructor({ utilityProcess, serverPath, cwd, env, port, log, output }) {
+  constructor({ utilityProcess, serverPath, cwd, env, port, log, output, upgradeBackup }) {
     super();
+    this.upgradeBackup = upgradeBackup; // async ({ fromSchema, toSchema, fromApp, pending }) => void; throws = the upgrade must not start
     this.utilityProcess = utilityProcess;
     this.serverPath = serverPath;
     this.cwd = cwd;
@@ -88,13 +92,19 @@ class BackendManager extends EventEmitter {
 
       let settled = false;
       let reportedError = null;
-      const timer = setTimeout(() => {
+      let timer = null;
+      const arm = (ms) => {
+        clearTimeout(timer);
+        timer = setTimeout(onTimeout, ms);
+      };
+      const onTimeout = () => {
         if (settled) return;
         settled = true;
         this.log.error('backend did not report ready in time');
         child.kill();
         reject(new ServiceError('BACKEND_TIMEOUT', 'استغرق تشغيل الخادم وقتاً أطول من المتوقع.'));
-      }, START_TIMEOUT_MS);
+      };
+      arm(START_TIMEOUT_MS);
 
       child.on('message', (message) => {
         if (!message || typeof message !== 'object') return;
@@ -105,6 +115,21 @@ class BackendManager extends EventEmitter {
           resolve();
         } else if (message.type === 'error') {
           reportedError = message;
+        } else if (message.type === 'upgrade-backup' && !settled) {
+          // Stage 25: the server found pending migrations on existing data and waits for the before-upgrade backup.
+          arm(UPGRADE_BACKUP_TIMEOUT_MS);
+          Promise.resolve()
+            .then(() => (this.upgradeBackup ? this.upgradeBackup(message) : null))
+            .then(() => { child.postMessage({ type: 'upgrade-backup-result', ok: true }); }, (error) => {
+              this.log.error(`backup before the upgrade failed: ${error.message}`);
+              child.postMessage({
+                type: 'upgrade-backup-result',
+                ok: false,
+                message: 'تعذر أخذ نسخة احتياطية قبل التحديث، لذلك لم يتم تحديث البيانات ولم يتغير شيء. تأكد من وجود مساحة فارغة على القرص ثم افتح نوتة مرة أخرى.\nThe backup before the upgrade failed, so the data was not upgraded and nothing changed. Make sure the disk has free space and open Nota again.',
+                detail: error.detail || error.message,
+              });
+            })
+            .finally(() => { if (!settled) arm(START_TIMEOUT_MS); });
         }
       });
 

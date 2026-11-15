@@ -30,6 +30,11 @@
           }
         </span>
       </div>
+      @if (runtime.appVersion) {
+        <div class="nota-auth__version" data-test="login-version" style="opacity: 0.75; font-size: 0.85rem">
+          {{ 'about.versionLine' | translate: { version: versionLabel } }}
+        </div>
+      }
     }
   </section>
 

@@ -145,6 +145,22 @@ export class BackupPageComponent {
     return this.run('folder', () => this.bridge!.clearCopyFolder(this.token()), (status) => this.status.set(status));
   }
 
+  /** Stage 25: the daily backup time (a time input gives HH:MM). */
+  protected setTime(time: string): Promise<void> {
+    if (!this.bridge?.setTime || !/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(time)) return Promise.resolve();
+    return this.run('folder', () => this.bridge!.setTime!(this.token(), time), (status) => this.status.set(status));
+  }
+
+  protected choosePrimaryFolder(): Promise<void> {
+    if (!this.bridge?.choosePrimaryFolder) return Promise.resolve();
+    return this.run('folder', () => this.bridge!.choosePrimaryFolder!(this.token()), (status) => this.status.set(status));
+  }
+
+  protected clearPrimaryFolder(): Promise<void> {
+    if (!this.bridge?.clearPrimaryFolder) return Promise.resolve();
+    return this.run('folder', () => this.bridge!.clearPrimaryFolder!(this.token()), (status) => this.status.set(status));
+  }
+
   protected showFile(path: string): void {
     this.bridge?.showFile(this.token(), path);
   }

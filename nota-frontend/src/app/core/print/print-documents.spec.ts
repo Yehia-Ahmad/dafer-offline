@@ -7,7 +7,7 @@ import { cashInvoice, creditInvoice, purchaseInvoice, receiptVoucher, voucher } 
 import { cashReceipt, paymentReceipt, returnReceipt, shiftClose } from './documents/receipts';
 import { boxMovements, financials, journalEntry, partyBalances, profitReport, recoveryCodeSheet, trialBalance, vatReturn } from './documents/reports';
 import { customerStatement, stockList, supplierStatement } from './documents/statements';
-import { documentTestPage, receiptTestPage } from './documents/test-page';
+import { documentTestPage, receiptCalibrationPage, receiptTestPage } from './documents/test-page';
 import { InvoiceHistoryRow, sellingResponseToCashSaleData, toCashSaleData, toCreditInvoiceData } from './print-adapters';
 import { measureRollHeightMm } from './print-render';
 import { amountInWords, cssString, formatDate, formatDateTime, formatMoney, formatPercent, formatQty, formatTime, localizeDigits } from './print-format';
@@ -840,5 +840,93 @@ describe('Stage 23 last review fixes', () => {
         for (const box of boxes) expect(box.css).not.toContain('nowrap');
       }
     }
+  });
+});
+
+// Stage 25: the receipt printer calibration (width 72 / 76 / 80 mm and a sideways offset) reaches EVERY 80mm document, and the calibration sheet.
+describe('Stage 25 receipt calibration', () => {
+  const PAYMENT = { number: 'RC-000041', date: new Date(2026, 10, 5, 13, 15), cashier: 'محمود', customerName: 'م. سامي', invoiceNumbers: ['CR-000032'], amount: 300 };
+  const RETURN = { number: 'RT-000009', date: new Date(2026, 10, 5, 14, 5), invoiceNumber: 'CR-000032', invoiceKind: 'credit' as const, customerName: 'س', items: [{ name: 'مشترك', quantity: 1, unitPrice: 150, total: 150 }], total: 150 };
+  const SHIFT = { number: 'SH-000058', boxName: 'درج الكاشير ١', cashier: 'محمود', openedAt: new Date(2026, 10, 5, 9, 0), closedAt: new Date(2026, 10, 5, 17, 0), summary: [{ label: 'فواتير كاش', count: 31, amount: 6820 }], movement: [{ label: 'رصيد أول الوردية', amount: 500, sign: '' as const }], expected: 7550, counted: 7550, difference: 0 };
+  // one entry per 80mm document in the app, each built from its own spec data
+  const documents80 = (ctx: PrintContext): Array<[string, PrintDocument]> => [
+    ['cash receipt', cashReceipt(ctx, sale)],
+    ['payment receipt', paymentReceipt(ctx, PAYMENT)],
+    ['return receipt', returnReceipt(ctx, RETURN)],
+    ['shift close', shiftClose(ctx, SHIFT)],
+    ['printer test page', receiptTestPage(ctx, 'EPSON')],
+    ['calibration sheet', receiptCalibrationPage(ctx, 'EPSON')],
+  ];
+
+  it('every 80mm document carries the width and the offset, and its page rule uses them', () => {
+    const ctx = ctxOf('ar', { receipt: { widthMm: 76, offsetMm: 1.5 } });
+    for (const [name, doc] of documents80(ctx)) {
+      expect(doc.paper).toBe('80mm', name);
+      const out = html(doc, ctx);
+      expect(out).toContain('--receipt-w: 76mm', name);
+      expect(out).toContain('--receipt-offset: 1.5mm', name);
+      expect(out).toContain('width: var(--receipt-w, 80mm)', name);
+      expect(out).toContain('left: var(--receipt-offset, 0mm)', name);
+    }
+  });
+
+  it('without a calibration the page is 80mm with no shift (the old look), in English too', () => {
+    for (const lang of ['ar', 'en'] as const) {
+      const ctx = ctxOf(lang);
+      for (const [name, doc] of documents80(ctx)) {
+        const out = html(doc, ctx);
+        expect(out).toContain('--receipt-w: 80mm', `${lang} ${name}`);
+        expect(out).toContain('--receipt-offset: 0mm', `${lang} ${name}`);
+      }
+    }
+  });
+
+  it('only 72 / 76 / 80 and offsets of -10..10 in half-millimetre steps are ever written into the CSS (anything else is made safe)', () => {
+    const cases: Array<[unknown, unknown, string, string]> = [
+      [50, 99, '80mm', '10mm'], [72, -99, '72mm', '-10mm'], ['76', '2.26', '76mm', '2.5mm'], [NaN, NaN, '80mm', '0mm'],
+      ['5mm;}body{display:none', 'x;}', '80mm', '0mm'], [undefined, undefined, '80mm', '0mm'], [null, 0.74, '80mm', '0.5mm'],
+    ];
+    for (const [width, offset, expectedWidth, expectedOffset] of cases) {
+      const ctx = ctxOf('ar', { receipt: { widthMm: width as number, offsetMm: offset as number } });
+      const out = html(receiptTestPage(ctx, 'X'), ctx);
+      expect(out).toContain(`--receipt-w: ${expectedWidth}; --receipt-offset: ${expectedOffset};`);
+      expect(out).not.toContain('display:none');
+    }
+  });
+
+  it('A4 and A5 documents are not affected by the receipt calibration', () => {
+    const ctx = ctxOf('ar', { receipt: { widthMm: 72, offsetMm: 3 } });
+    for (const doc of [cashInvoice(ctx, sale), documentTestPage(ctx, 'HP')]) {
+      expect(html(doc, ctx)).not.toContain('--receipt-w:');
+    }
+  });
+
+  it('the calibration sheet: a ruler of 81 ticks labelled 0 to 80, the 72/76/80 boxes, the current width and offset, Arabic and English text, Code 128, a long item line and a cut line', () => {
+    for (const lang of ['ar', 'en'] as const) {
+      const ctx = ctxOf(lang, { receipt: { widthMm: 76, offsetMm: -2 } });
+      const out = html(receiptCalibrationPage(ctx, 'EPSON TM'), ctx);
+      const ruler = /<svg[^>]*data-ruler[\s\S]*?<\/svg>/.exec(out)?.[0] ?? '';
+      expect(ruler).toContain('viewBox="0 0 80 24"');
+      expect(ruler).toContain('width="80mm"');
+      expect((ruler.match(/<line /g) || []).length).toBe(81);
+      for (const mm of [0, 10, 20, 30, 40, 50, 60, 70, 80]) expect(ruler).toMatch(new RegExp(`>${mm}</text>`));
+      for (const width of [72, 76, 80]) expect(ruler).toMatch(new RegExp(`>${width}</text>`));
+      expect(out).toContain('data-current-width');
+      expect(out).toMatch(/76<\/span> mm/);
+      expect(out).toMatch(/-2<\/span> mm/);
+      expect(out).toContain('data-sample-ar');
+      expect(out).toContain('data-sample-en');
+      expect(out).toContain('data-barcode');
+      expect(out).toContain('CAL-000001');
+      expect(out).toContain('data-long-item');
+      expect(out).toContain('data-cut-line');
+      expect(out).toContain('EPSON TM');
+      expect(out).toContain(lang === 'ar' ? 'ورقة معايرة طابعة الإيصالات' : 'Receipt printer calibration');
+    }
+  });
+
+  it('an unfamiliar offset sign is shown as +N for a positive shift', () => {
+    const ctx = ctxOf('en', { receipt: { widthMm: 80, offsetMm: 3 } });
+    expect(html(receiptCalibrationPage(ctx, ''), ctx)).toMatch(/\+3<\/span> mm/);
   });
 });

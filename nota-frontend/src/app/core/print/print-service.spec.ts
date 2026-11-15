@@ -23,7 +23,7 @@ import { PrintRequest, PrintService } from './print.service';
 const base = environment.api_base_url;
 const PROFILE: ShopProfile = { name: 'النور', address: 'المنصورة', phones: ['010'], logo: null, taxNumber: '123', commercialRegister: '', invoiceFooter: 'شكرًا' };
 const SALE = { number: 'INV-000125', date: new Date(2026, 10, 5, 12, 40), items: [{ name: 'لمبة', quantity: 1, unitPrice: 10, total: 10 }], subtotal: 10, discount: 0, shipping: 0, total: 10 };
-const SETTINGS: DesktopPrintSettings = { receiptPrinter: 'EPSON', documentPrinter: '', autoPrintReceipt: false, receiptCopies: 1 };
+const SETTINGS: DesktopPrintSettings = { receiptPrinter: 'EPSON', documentPrinter: '', autoPrintReceipt: false, receiptCopies: 1, receiptWidthMm: 76, receiptOffsetMm: 1.5 };
 
 type Fake = { [K in keyof DesktopPrintBridge]: jasmine.Spy };
 function fakeBridge(settings: DesktopPrintSettings = SETTINGS): Fake {
@@ -281,6 +281,25 @@ describe('PrintService (Stage 23)', () => {
     expect(bridge['testPage'].calls.mostRecent().args[1].printer).toBe('EPSON');
   });
 
+  it('Stage 25: a real receipt and the calibration sheet are printed with the saved width and offset of this PC; the A4 documents are not touched', async () => {
+    setup();
+    await run(service.print({ number: 'INV-000125', build: (ctx) => cashReceipt(ctx, SALE) }));
+    const receipt = bridge['print'].calls.mostRecent().args[1].html as string;
+    expect(receipt).toContain('--receipt-w: 76mm');
+    expect(receipt).toContain('--receipt-offset: 1.5mm');
+    await run(service.print({ build: (ctx) => cashInvoice(ctx, SALE) }));
+    expect(bridge['print'].calls.mostRecent().args[1].html).not.toContain('--receipt-w:');
+
+    const outcome = await run(service.calibrationPage());
+    expect(outcome).toEqual(jasmine.objectContaining({ ok: true }));
+    const [, request] = bridge['testPage'].calls.mostRecent().args;
+    expect(request.kind).toBe('receipt');
+    expect(request.printer).toBe('EPSON');
+    expect(request.html).toContain('data-ruler');
+    expect(request.html).toContain('--receipt-w: 76mm');
+    expect(request.heightMm).toBeGreaterThan(60);
+  });
+
   it('test pages go to the desktop app with the page kind and the HTML', async () => {
     setup();
     const outcome = await run(service.testPage('receipt'));
@@ -365,7 +384,7 @@ describe('print buttons and the print settings card (Stage 23)', () => {
     fixture.detectChanges();
     (el.querySelector('[data-action="save-print-settings"]') as HTMLButtonElement).click();
     await fixture.whenStable();
-    expect(bridge['setSettings']).toHaveBeenCalledWith('test-token-owner', { receiptPrinter: 'HP', documentPrinter: '', autoPrintReceipt: true, receiptCopies: 3 });
+    expect(bridge['setSettings']).toHaveBeenCalledWith('test-token-owner', { receiptPrinter: 'HP', documentPrinter: '', autoPrintReceipt: true, receiptCopies: 3, receiptWidthMm: 76, receiptOffsetMm: 1.5 });
     bridge['setSettings'].calls.reset();
     // the test page goes to the printer selected NOW in the dropdown, saved or not, and saves nothing
     component.documentPrinter.set('HP');
@@ -381,6 +400,37 @@ describe('print buttons and the print settings card (Stage 23)', () => {
     await component.test('receipt');
     expect(testPage).toHaveBeenCalledOnceWith('receipt', '');
     http.verify();
+  });
+
+  it('Stage 25: the card has the receipt width (72 / 76 / 80) and offset, saves them as the desktop app expects, and the calibration button saves first and then prints the sheet', async () => {
+    const bridge = fakeBridge();
+    (window as unknown as { notaDesktop?: Partial<NotaDesktopBridge> }).notaDesktop = { print: bridge as unknown as DesktopPrintBridge };
+    const calibrationPage = jasmine.createSpy('calibrationPage').and.resolveTo({ ok: true });
+    TestBed.configureTestingModule({ imports: [PrintSettingsCardComponent, TranslateModule.forRoot()], providers: [provideHttpClient(), provideHttpClientTesting(), { provide: PrintService, useValue: { testPage: jasmine.createSpy('testPage'), calibrationPage } }] });
+    signInAs('owner');
+    const fixture = TestBed.createComponent(PrintSettingsCardComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const component = fixture.componentInstance;
+    const width = el.querySelector('[data-field="receipt-width"]') as HTMLSelectElement;
+    expect(Array.from(width.options).map((option) => option.value)).toEqual(['72', '76', '80']);
+    expect(component.receiptWidth()).toBe(76);
+    expect(component.receiptOffset()).toBe(1.5);
+    component.receiptWidth.set(72);
+    component.receiptOffset.set('2.26');
+    component.receiptPrinter.set('HP');
+    fixture.detectChanges();
+    (el.querySelector('[data-action="calibrate-receipt"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(bridge['setSettings']).toHaveBeenCalledWith('test-token-owner', jasmine.objectContaining({ receiptWidthMm: 72, receiptOffsetMm: 2.5, receiptPrinter: 'HP' }));
+    expect(calibrationPage).toHaveBeenCalledOnceWith('HP');
+    // an absurd offset is clamped before it is sent
+    bridge['setSettings'].calls.reset();
+    component.receiptOffset.set(99);
+    await component.save();
+    expect(bridge['setSettings']).toHaveBeenCalledWith('test-token-owner', jasmine.objectContaining({ receiptOffsetMm: 10 }));
   });
 
   it('outside the desktop app the card explains that print settings need the desktop app', async () => {

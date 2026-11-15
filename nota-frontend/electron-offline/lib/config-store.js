@@ -63,6 +63,9 @@ function normalizeConfig(raw) {
   if (raw.role === 'main') {
     // Optional second folder (USB drive, another disk) for a copy of each daily backup.
     config.backupCopyFolder = typeof raw.backupCopyFolder === 'string' ? raw.backupCopyFolder : '';
+    // Stage 25: the daily backup time (HH:MM, local) and the primary backup folder ('' = the home folder's backupsauto).
+    config.backupTime = typeof raw.backupTime === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(raw.backupTime) ? raw.backupTime : '00:00';
+    config.backupFolder = typeof raw.backupFolder === 'string' ? raw.backupFolder : '';
     // Stage 13: the backend's session-token secret (NOTA_JWT_SECRET), DPAPI-protected like the
     // LAN secret. Created on the first start in main-PC mode; absent on configs from before Stage 13.
     if (typeof raw.jwtSecretProtected === 'string' && raw.jwtSecretProtected) {

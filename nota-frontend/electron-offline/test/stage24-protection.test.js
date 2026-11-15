@@ -20,7 +20,7 @@ const { issueTestLicense } = require(path.join(BACKEND, 'test', 'helpers', 'lice
 let electronPath = null;
 try { electronPath = require('electron'); } catch { electronPath = null; }
 // Stage 24: a missing stage FAILS the real-stage test (like npm test without a mongod), unless NOTA_ALLOW_SKIP=1 says to skip it.
-const stageSkip = () => (process.env.NOTA_ALLOW_SKIP === '1' && !fs.existsSync(path.join(__dirname, '..', '..', 'offline-stage', 'backend', 'node_modules', 'express', 'index.js')) ? 'no staged backend (NOTA_ALLOW_SKIP=1)' : false);
+const stageSkip = () => (process.env.NOTA_ALLOW_SKIP === '1' && !fs.existsSync(path.join(__dirname, '..', '..', 'offline-stage', 'backend', 'src', 'server.jsc')) ? 'no staged backend (NOTA_ALLOW_SKIP=1)' : false);
 const skipElectron = typeof electronPath === 'string' ? false : 'electron is not installed';
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-protect-'));
@@ -212,9 +212,9 @@ test('tamper check: an untouched backend passes; a changed, added or removed fil
   assert.match(integrity.verifyBackend({ backendDir: dir, seal }).problems[0], /missing/);
 });
 
-test('the REAL staged backend folder (offline-stage/backend, if staged): everything is hashed, a patched express or an added file in node_modules fails, and the hashing time is measured', { skip: stageSkip(), timeout: 180000 }, async () => {
+test('the REAL staged backend folder (offline-stage/backend, if staged): everything is hashed, a changed bundle, a changed license module or an added file fails, and the hashing time is measured', { skip: stageSkip(), timeout: 180000 }, async () => {
   const staged = path.join(FRONTEND, 'offline-stage', 'backend');
-  assert.ok(fs.existsSync(path.join(staged, 'node_modules', 'express', 'index.js')), 'no staged backend: run offline:stage first (NOTA_ALLOW_SKIP=1 skips this test on purpose)');
+  assert.ok(fs.existsSync(path.join(staged, 'src', 'server.jsc')), 'no staged backend: run offline:stage first (NOTA_ALLOW_SKIP=1 skips this test on purpose)');
   const copyDir = path.join(tmp, 'real-stage-copy');
   fs.cpSync(staged, copyDir, { recursive: true });
   let started = process.hrtime.bigint();
@@ -222,8 +222,10 @@ test('the REAL staged backend folder (offline-stage/backend, if staged): everyth
   const buildMs = Number(process.hrtime.bigint() - started) / 1e6;
   const manifest = JSON.parse(fs.readFileSync(path.join(copyDir, integrity.MANIFEST_NAME), 'utf8')).files;
   const count = Object.keys(manifest).length;
-  assert.ok(count > 1000, `the whole folder: ${count} files`);
-  assert.ok(Object.keys(manifest).some((key) => key.startsWith('node_modules/express/')) && Object.keys(manifest).some((key) => key.startsWith('node_modules/mongodb/')) && 'package.json' in manifest && 'src/server.jsc' in manifest);
+  assert.ok(count >= 5 && count < 100, `the bundled folder is a handful of files, not thousands: ${count}`);
+  for (const key of ['package.json', 'src/server.js', 'src/server.jsc', 'src/license/index.js', 'src/license/index.jsc', 'node_modules/bytenode/package.json']) assert.ok(key in manifest, `${key} is covered by the tamper check`);
+  assert.ok(!Object.keys(manifest).some((key) => key.startsWith('node_modules/express/') || key.startsWith('node_modules/mongoose/')), 'bundled packages are no longer files in node_modules');
+  assert.ok(!fs.existsSync(path.join(staged, 'src', 'app.js')) && !fs.readdirSync(path.join(staged, 'src')).some((name) => name.endsWith('.map')), 'no per-file sources and no source map in the staged backend');
 
   started = process.hrtime.bigint();
   const clean = integrity.verifyBackend({ backendDir: copyDir, seal });
@@ -235,11 +237,11 @@ test('the REAL staged backend folder (offline-stage/backend, if staged): everyth
   assert.deepEqual(await integrity.verifyBackendAsync({ backendDir: copyDir, seal }), { ok: true, problems: [] });
   console.log(`[integrity] the concurrent check the app really runs: ${(Number(process.hrtime.bigint() - started) / 1e6).toFixed(0)} ms (warm cache)`);
 
-  const express = path.join(copyDir, 'node_modules', 'express', 'index.js');
-  fs.appendFileSync(express, "\nrequire('crypto').verify = () => true;\n");
-  assert.deepEqual(integrity.verifyBackend({ backendDir: copyDir, seal }).problems, ['changed: node_modules/express/index.js']);
-  fs.writeFileSync(path.join(copyDir, 'node_modules', 'express', 'planted.js'), 'x');
-  assert.deepEqual(integrity.verifyBackend({ backendDir: copyDir, seal }).problems.sort(), ['added: node_modules/express/planted.js', 'changed: node_modules/express/index.js']);
+  const bundle = path.join(copyDir, 'src', 'server.jsc');
+  fs.appendFileSync(bundle, 'x');
+  assert.deepEqual(integrity.verifyBackend({ backendDir: copyDir, seal }).problems, ['changed: src/server.jsc']);
+  fs.writeFileSync(path.join(copyDir, 'src', 'planted.js'), 'x');
+  assert.deepEqual(integrity.verifyBackend({ backendDir: copyDir, seal }).problems.sort(), ['added: src/planted.js', 'changed: src/server.jsc']);
   fs.rmSync(copyDir, { recursive: true, force: true });
 });
 
@@ -401,12 +403,14 @@ test('guards: the plain source (test flag on, test key present, placeholder prod
 
 test('the staged stage script fails on those problems and the real stage code wires everything (static check of stage.js)', () => {
   const stage = fs.readFileSync(path.join(FRONTEND, 'scripts', 'offline', 'stage.js'), 'utf8');
-  assert.match(stage, /protect\.prepareProductionSource\(stagedSrc\)/);
+  assert.match(stage, /protect\.prepareProductionSource\(stagedSrc, chosenKey \? \{ productionKeyPem: chosenKey\.pem \} : verification \? \{ productionKeyPem: verificationKey\.verificationPublicPem\(\) \} : \{\}\)/);
   assert.match(stage, /sourceProblems\(stagedSrc, \{ allowPlaceholder \}\)[\s\S]*?fail\(/);
   assert.match(stage, /protect\.compileToBytecode/);
   assert.match(stage, /protect\.stagedProblems\(stagedSrc\)[\s\S]*?fail\(/);
   assert.match(stage, /integrity\.writeManifest\(STAGE_BACKEND\)/);
-  assert.match(stage, /writeSeal\(\);\r?\nvalidate\(\)/);
+  assert.match(stage, /bundleBackend\(/);
+  assert.match(stage, /stripNodeModules\(/);
+  assert.match(stage, /writeSeal\(\);\r?\n\s*validate\(\);/);
   assert.match(stage, /findPrivateKeys/);
   assert.match(stage, /ELECTRON_RUN_AS_NODE: '1'/, 'the staged backend loads on Electron: bytecode');
   const flags = fs.readFileSync(path.join(BACKEND, 'src', 'license', 'build-flags.js'), 'utf8');
@@ -461,66 +465,55 @@ test('the STAGED backend (bytecode, on the real Electron): no readable source, a
   assert.deepEqual(run(`${issued.stdout.trim()}x`), { valid: false, code: 'BAD_SIGNATURE' });
 });
 
-test('PLACEHOLDER guard: offline:stage tolerates the placeholder key ONLY with NOTA_ALLOW_PLACEHOLDER_KEY=1 and then marks the stage non-releasable; other problems still fail', () => {
-  const src = copy(path.join(BACKEND, 'src'), 'ph-src');
-  protect.prepareProductionSource(src);
-  assert.equal(protect.sourceProblems(src).length, 1, 'the placeholder alone is a problem by default');
-  assert.match(protect.sourceProblems(src)[0], /placeholder/);
-  assert.match(protect.productionKeyProblem(src), /placeholder/);
-  assert.deepEqual(protect.sourceProblems(src, { allowPlaceholder: true }), [], 'tolerated with the dev-verification flag');
-  fs.writeFileSync(path.join(src, 'license', 'test-key.js'), 'module.exports = {};');
-  assert.equal(protect.sourceProblems(src, { allowPlaceholder: true }).length, 1, 'the test key still fails, flag or not');
-  fs.writeFileSync(path.join(src, 'license', 'build-flags.js'), 'module.exports = { TEST_BUILD: true };');
-  assert.equal(protect.sourceProblems(src, { allowPlaceholder: true }).length, 2, 'and so does TEST_BUILD true');
-
-  const stage = path.join(tmp, 'ph-stage');
-  assert.deepEqual(protect.releaseProblems(stage), []);
-  protect.markNonReleasable(stage, 'built with the placeholder production key (NOTA_ALLOW_PLACEHOLDER_KEY=1)');
-  assert.ok(fs.existsSync(path.join(stage, protect.NON_RELEASABLE)));
-  assert.match(protect.releaseProblems(stage)[0], /NON-RELEASABLE/);
-  protect.clearNonReleasable(stage);
-  assert.deepEqual(protect.releaseProblems(stage), [], 'a normal stage run clears the marker');
-
-  const stageScript = fs.readFileSync(path.join(FRONTEND, 'scripts', 'offline', 'stage.js'), 'utf8');
-  assert.match(stageScript, /NOTA_ALLOW_PLACEHOLDER_KEY === '1'/);
-  assert.match(stageScript, /sourceProblems\(stagedSrc, \{ allowPlaceholder \}\)/);
-  assert.match(stageScript, /markNonReleasable\(STAGE,/);
-  assert.match(stageScript, /clearNonReleasable\(STAGE\)/);
-});
-
-test('PLACEHOLDER guard: electron:build:win:offline (and the :dir build) ALWAYS fail with the placeholder, whatever the environment; afterPack refuses a non-releasable stage', () => {
+test('PLACEHOLDER guard (Stage 25: checks the STAGE): the installer build refuses a stage with the placeholder, the test key, no key record or a non-releasable marker, whatever the environment', () => {
+  const releaseKey = require(path.join(FRONTEND, 'scripts', 'offline', 'release-key.js'));
   const guard = path.join(FRONTEND, 'scripts', 'offline', 'build-guard.js');
-  const backend = path.join(tmp, 'ph-backend');
-  fs.mkdirSync(backend, { recursive: true });
-  fs.cpSync(path.join(BACKEND, 'src'), path.join(backend, 'src'), { recursive: true });
-  const emptyStage = path.join(tmp, 'ph-empty-stage');
-  fs.mkdirSync(emptyStage, { recursive: true });
-  const runGuard = (env) => spawnSync(process.execPath, [guard], { encoding: 'utf8', env: { ...process.env, NOTA_BACKEND_DIR: backend, NOTA_STAGE_DIR: emptyStage, ...env } });
+  const stageWith = (name, record) => {
+    const dir = path.join(tmp, name);
+    fs.mkdirSync(dir, { recursive: true });
+    if (record) releaseKey.writeRecord(dir, record);
+    return dir;
+  };
+  const runGuard = (stage, env = {}) => spawnSync(process.execPath, [guard], { encoding: 'utf8', env: { ...process.env, NOTA_BACKEND_DIR: BACKEND, NOTA_STAGE_DIR: stage, ...env } });
 
+  // nothing staged yet
+  const empty = runGuard(stageWith('guard-empty'));
+  assert.equal(empty.status, 1);
+  assert.match(empty.stderr, /release-key\.json is missing/);
+  // the placeholder, with and without the dev-verification variable
+  const placeholder = stageWith('guard-placeholder', { placeholder: true, fingerprint: null, source: 'nota-backend/src/license/keys.js' });
   for (const env of [{}, { NOTA_ALLOW_PLACEHOLDER_KEY: '1' }, { NOTA_ALLOW_PLACEHOLDER_KEY: 'true', NODE_ENV: 'test', CI: '1' }, { NOTA_ALLOW_PLACEHOLDER_KEY: '1', NOTA_TEST_BUILD: '1' }]) {
-    const result = runGuard(env);
+    const result = runGuard(placeholder, env);
     assert.equal(result.status, 1, JSON.stringify(env));
     assert.match(result.stderr, /placeholder/, JSON.stringify(env));
   }
-  // with a real key it passes, and the dev flag changes nothing either way
+  // the test key
+  const testFingerprint = releaseKey.testKeyFingerprint(BACKEND);
+  assert.match(testFingerprint, /^[0-9a-f]{64}$/);
+  const testKey = runGuard(stageWith('guard-testkey', { placeholder: false, fingerprint: testFingerprint, source: 'NOTA_RELEASE_PUBLIC_KEY_FILE' }));
+  assert.equal(testKey.status, 1);
+  assert.match(testKey.stderr, /TEST key/);
+  // a real key passes, and the dev variable changes nothing either way
   const keys = keygen('ph-keys');
-  protect.prepareProductionSource(path.join(backend, 'src'), { productionKeyPem: fs.readFileSync(path.join(keys, 'public.pem'), 'utf8') });
-  assert.equal(runGuard({}).status, 0);
-  assert.equal(runGuard({ NOTA_ALLOW_PLACEHOLDER_KEY: '1' }).status, 0);
+  const real = releaseKey.readReleaseKey(path.join(keys, 'public.pem'), { backendDir: BACKEND });
+  const good = stageWith('guard-good', { placeholder: false, fingerprint: real.fingerprint, source: 'NOTA_RELEASE_PUBLIC_KEY_FILE' });
+  assert.equal(runGuard(good).status, 0);
+  assert.equal(runGuard(good, { NOTA_ALLOW_PLACEHOLDER_KEY: '1' }).status, 0);
   // ... but not from a stage that was marked non-releasable
-  const marked = path.join(tmp, 'ph-marked-stage');
+  const marked = stageWith('guard-marked', { placeholder: false, fingerprint: real.fingerprint, source: 'x' });
   protect.markNonReleasable(marked, 'built with the placeholder production key (NOTA_ALLOW_PLACEHOLDER_KEY=1)');
-  const refused = spawnSync(process.execPath, [guard], { encoding: 'utf8', env: { ...process.env, NOTA_BACKEND_DIR: backend, NOTA_STAGE_DIR: marked } });
+  const refused = runGuard(marked);
   assert.equal(refused.status, 1);
   assert.match(refused.stderr, /NON-RELEASABLE/);
 
-  // the installer build scripts run the guard BEFORE offline:stage, and afterPack re-checks the marker
+  // the installer build scripts run the guard AFTER offline:stage (it reads the stage), and afterPack re-checks the marker
   const scripts = JSON.parse(fs.readFileSync(path.join(FRONTEND, 'package.json'), 'utf8')).scripts;
   for (const name of ['electron:build:win:offline', 'electron:build:win:offline:dir']) {
-    assert.ok(scripts[name].indexOf('node scripts/offline/build-guard.js') > -1 && scripts[name].indexOf('build-guard.js') < scripts[name].indexOf('npm run offline:stage'), name);
+    assert.ok(scripts[name].indexOf('npm run offline:stage') > -1 && scripts[name].indexOf('npm run offline:stage') < scripts[name].indexOf('node scripts/offline/build-guard.js'), name);
   }
   const code = fs.readFileSync(guard, 'utf8').split('\n').filter((line) => !line.trim().startsWith('//')).join('\n');
   assert.ok(!/process\.env\.NOTA_ALLOW_PLACEHOLDER_KEY/.test(code), 'the installer guard never reads the dev-verification variable');
+  assert.ok(!/keys\.js/.test(code), 'the guard checks the stage, not the source tree keys.js');
   const afterPack = fs.readFileSync(path.join(FRONTEND, 'scripts', 'offline', 'after-pack.js'), 'utf8');
   assert.match(afterPack, /releaseProblems\(path\.join\(ROOT, 'offline-stage'\)\)[\s\S]*?throw new Error/);
 });

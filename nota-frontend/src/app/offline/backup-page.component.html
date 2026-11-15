@@ -103,6 +103,41 @@
       </div>
     }
 
+    <!-- Stage 25: when the daily backup runs and where it goes -->
+    <section class="nota-card bk__card" data-test="daily-settings">
+      <h2 class="nota-section-title bk__h2">{{ 'backupDaily.title' | translate }}</h2>
+      <p class="bk__muted">{{ 'backupDaily.description' | translate }}</p>
+      <div class="bk__dest">
+        <label class="bk__path-box">
+          <span class="nota-label">{{ 'backupDaily.time' | translate }}</span>
+          <input type="time" class="nota-input" dir="ltr" data-field="backup-time" [value]="s.schedule?.time ?? '00:00'" [disabled]="busy()"
+            (change)="setTime($any($event.target).value)" />
+        </label>
+      </div>
+      <div class="bk__dest">
+        <div class="bk__path-box bk__grow">
+          <span class="nota-label">{{ 'backupDaily.folder' | translate }}</span>
+          @if (s.primaryFolder) {
+            <span class="bk__path" dir="ltr" data-field="backup-primary-folder">{{ s.primaryFolder }}</span>
+          } @else {
+            <span class="bk__muted">{{ 'backupDaily.folderDefault' | translate }}</span>
+          }
+        </div>
+        <button type="button" notaButton data-action="choose-primary-folder" [disabled]="busy()" (click)="choosePrimaryFolder()">
+          {{ (s.primaryFolder ? 'backupDaily.change' : 'backupDaily.choose') | translate }}
+        </button>
+        @if (s.primaryFolder) {
+          <button type="button" notaButton="danger" data-action="clear-primary-folder" [disabled]="busy()" (click)="clearPrimaryFolder()">
+            {{ 'backupDaily.clear' | translate }}
+          </button>
+        }
+      </div>
+      @if (s.primaryFallback) {
+        <p class="bk__alert bk__alert--warn" role="note" data-test="primary-fallback">{{ 'backupDaily.fallback' | translate }}</p>
+      }
+      <p class="bk__muted">{{ 'backupDaily.restoreHint' | translate }}</p>
+    </section>
+
     <!-- Destination: extra copy folder -->
     <section class="nota-card bk__card" data-test="copy-folder">
       <h2 class="nota-section-title bk__h2">{{ 'backupPage.copy.title' | translate }}</h2>

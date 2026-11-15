@@ -18,7 +18,7 @@ const COPIES = [
     from: path.join(ROOT, 'offline-stage', 'backend'),
     to: 'backend',
     // Stage 24: the backend is bytecode (server.js is a loader stub) with its loader and its integrity manifest.
-    required: ['src/server.js', 'src/server.jsc', 'src/license/index.jsc', 'integrity.json', 'node_modules/bytenode/package.json', 'node_modules/express/package.json', 'node_modules/mongoose/package.json'],
+    required: ['src/server.js', 'src/server.jsc', 'src/license/index.jsc', 'src/driver.jsc', 'integrity.json', 'node_modules/bytenode/package.json', 'THIRD_PARTY_LICENSES.txt'],
   },
   {
     from: path.join(ROOT, 'vendor', 'mongodb'),

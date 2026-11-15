@@ -17,6 +17,9 @@ const { mongoUri } = require('./mongo-uri');
 const { runRestore } = require('./restore');
 
 const SAFETY_PREFIX = 'before-restore-';
+// Stage 25: taken before the first migration of a newer Nota touches the data. Never pruned (only before-restore- files are, and the
+// daily backup prunes only its own nota-auto-backup- files).
+const UPGRADE_PREFIX = 'before-upgrade-';
 const BACKUP_SUFFIX = '.archive.gz';
 const KEEP_SAFETY_BACKUPS = 5;
 
@@ -51,6 +54,10 @@ function describeArchive(summary) {
     serverVersion: summary.serverVersion,
   };
 }
+
+// before-upgrade-<from>-<to>-<stamp>.archive.gz (from/to: app versions, "schema12" when the old data never recorded one)
+const versionPart = (value) => String(value || 'unknown').replace(/[^0-9A-Za-z.]+/g, '_').slice(0, 24) || 'unknown';
+const upgradeBackupName = (from, to, date = new Date()) => backupFileName(`${UPGRADE_PREFIX}${versionPart(from)}-${versionPart(to)}-`, date);
 
 class BackupService {
   // auth (Stage 24): the app user { user, password } of the authenticated mongod; null = a password-less mongod.
@@ -146,6 +153,11 @@ class BackupService {
     return result;
   }
 
+  // Before-upgrade backup. from: the app version recorded in the data (or "schemaN"); to: this app's version.
+  async createUpgradeBackup({ from, to, onProgress }) {
+    return this.createBackup(path.join(this.backupsDir, upgradeBackupName(from, to)), onProgress);
+  }
+
   async createSafetyBackup(onProgress) {
     const file = path.join(this.backupsDir, backupFileName(SAFETY_PREFIX));
     const result = await this.createBackup(file, onProgress);
@@ -231,4 +243,4 @@ class BackupService {
   }
 }
 
-module.exports = { BACKUP_SUFFIX, BackupService, SAFETY_PREFIX, backupFileName, describeArchive, localDateStamp, parseDumpOutput };
+module.exports = { BACKUP_SUFFIX, BackupService, SAFETY_PREFIX, UPGRADE_PREFIX, upgradeBackupName, backupFileName, describeArchive, localDateStamp, parseDumpOutput };

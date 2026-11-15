@@ -42,6 +42,8 @@ export interface PrintContext {
   fontCss: string;
   /** Set on a reprint (copy 1+): the document shows "نسخة" with this time. */
   copy?: { n: number; at: Date } | null;
+  /** Stage 25: this PC's receipt printer calibration (Settings): the printable width of the roll and a sideways shift, both in mm. Applied to EVERY 80mm document. */
+  receipt?: { widthMm: number; offsetMm: number } | null;
 }
 
 /** A document ready to be wrapped: the paper and the body HTML. */
@@ -159,7 +161,7 @@ html[dir=ltr] .code { text-align: left; }
 `;
 
 const RECEIPT_CSS = `
-.page80 { width: 80mm; padding: 16px 15px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.5; }
+.page80 { width: var(--receipt-w, 80mm); margin-inline: auto; position: relative; left: var(--receipt-offset, 0mm); padding: 16px 15px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.5; }
 .page80 .r { display: flex; flex-direction: row; justify-content: space-between; gap: 8px; }
 .page80 .dash { border-top: 1px dashed var(--p-text); margin: 8px 0; }
 .page80 .solid { border-top: 1px solid var(--p-text); margin: 4px 0; }
@@ -236,6 +238,13 @@ export function cancelBox(ctx: PrintContext, cancelled: { reason?: string | null
 
 // ---------------------------------------------------------------- the document
 
+/** The calibrated width and shift of this PC's receipt printer (Stage 25); 80 mm and no shift when nothing was set. Numbers only (they go into CSS). */
+export const receiptWidth = (ctx: Pick<PrintContext, 'receipt'>): number => ([72, 76, 80].includes(Number(ctx.receipt?.widthMm)) ? Number(ctx.receipt?.widthMm) : 80);
+export const receiptOffset = (ctx: Pick<PrintContext, 'receipt'>): number => {
+  const value = Number(ctx.receipt?.offsetMm);
+  return Number.isFinite(value) ? Math.round(Math.min(10, Math.max(-10, value)) * 2) / 2 : 0;
+};
+
 /**
  * The complete HTML document. `heightMm` only matters for 80mm rolls: the page is as tall as the receipt
  * (the renderer measures it first, see PrintService). Everything is inline: no network, no external CSS.
@@ -244,6 +253,7 @@ export function buildPrintHtml(ctx: PrintContext, doc: PrintDocument, heightMm =
   const dir = ctx.lang === 'ar' ? 'rtl' : 'ltr';
   const pageRule = doc.paper === '80mm' ? `@page { size: 80mm ${Math.max(40, Math.ceil(heightMm))}mm; margin: 0; }` : PAGE_RULES[doc.paper];
   const boxes = doc.paper === 'A4' ? marginBoxes(ctx, doc) : '';
+  const calibration = doc.paper === '80mm' ? `:root { --receipt-w: ${receiptWidth(ctx)}mm; --receipt-offset: ${receiptOffset(ctx)}mm; }` : '';
   return `<!doctype html>
 <html lang="${ctx.lang}" dir="${dir}">
 <head>
@@ -257,6 +267,7 @@ ${RECEIPT_CSS}
 ${A5_CSS}
 ${pageRule}
 ${boxes}
+${calibration}
 </style>
 </head>
 <body data-paper="${doc.paper}">

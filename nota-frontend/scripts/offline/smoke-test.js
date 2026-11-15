@@ -40,6 +40,33 @@ const BACKEND_DIR = path.resolve(process.env.NOTA_BACKEND_DIR || path.join(ROOT,
 const MONGOD_OVERRIDE = process.env.NOTA_MONGOD_PATH ? path.resolve(process.env.NOTA_MONGOD_PATH) : null;
 const MONGOD_PATH = MONGOD_OVERRIDE || path.join(ROOT, 'vendor', 'mongodb', 'bin', process.platform === 'win32' ? 'mongod.exe' : 'mongod');
 
+// Stage 25: the smoke test runs against the STAGED bytecode bundle (the code that ships), run by Electron as Node like the desktop app does.
+// Stage first: NOTA_ALLOW_PLACEHOLDER_KEY=1 npm run offline:stage (a verification stage: it carries scripts/offline/verification-key.js, so the test can
+// license it). NOTA_SMOKE_SOURCE=1 runs against the source tree (development only; the test key is accepted there). NOTA_STAGE_DIR moves the stage.
+const SMOKE_SOURCE = process.env.NOTA_SMOKE_SOURCE === '1';
+const STAGE_DIR = path.resolve(process.env.NOTA_STAGE_DIR || path.join(ROOT, 'offline-stage'));
+const STAGED_BACKEND = path.join(STAGE_DIR, 'backend');
+const verificationKey = require('./verification-key');
+const issueLicense = (overrides) => (SMOKE_SOURCE
+  ? require(path.join(BACKEND_DIR, 'test', 'helpers', 'license.js')).issueTestLicense(overrides)
+  : verificationKey.issueVerificationLicense(overrides, { backendDir: BACKEND_DIR }));
+const electronBinary = () => { try { const bin = require('electron'); return typeof bin === 'string' ? bin : null; } catch { return null; } };
+
+/** null when the smoke test can run against the chosen target, else the reason (a clear message). */
+function smokeTargetProblem() {
+  if (SMOKE_SOURCE) return null;
+  if (!fs.existsSync(path.join(STAGED_BACKEND, 'src', 'server.jsc'))) {
+    return `there is no staged backend in ${STAGE_DIR}. The smoke test runs against the staged bundle: run  NOTA_ALLOW_PLACEHOLDER_KEY=1 npm run offline:stage  first (or NOTA_SMOKE_SOURCE=1 to test the source tree).`;
+  }
+  let record = null;
+  try { record = JSON.parse(fs.readFileSync(path.join(STAGE_DIR, 'release-key.json'), 'utf8')); } catch { record = null; }
+  if (!record || record.verification !== true) {
+    return `the stage in ${STAGE_DIR} carries a real or unknown production key, so the smoke test cannot license it. Stage a verification stage:  NOTA_ALLOW_PLACEHOLDER_KEY=1 npm run offline:stage  (it is marked non-releasable), or use NOTA_SMOKE_SOURCE=1.`;
+  }
+  if (!electronBinary()) return 'electron is not installed (npm ci), so the staged bytecode cannot run';
+  return null;
+}
+
 const MONGO_PORT = 27099;
 const BACKEND_PORT = 5099;
 const DB_NAME = 'dafer_smoke';
@@ -126,7 +153,8 @@ function ensureMongod() {
   if (fs.existsSync(MONGOD_PATH)) return;
   if (MONGOD_OVERRIDE) throw new Error(`NOTA_MONGOD_PATH does not exist: ${MONGOD_OVERRIDE}`);
   log('vendor/mongodb is missing; running npm run offline:vendor');
-  const result = spawnSync('npm', ['run', 'offline:vendor'], { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' });
+  const [npmFile, npmArgs] = require('./npm-cli').npmCommand(['run', 'offline:vendor']); // no shell (DEP0190)
+  const result = spawnSync(npmFile, npmArgs, { cwd: ROOT, stdio: 'inherit' });
   if (result.status !== 0 || !fs.existsSync(MONGOD_PATH)) {
     throw new Error(`npm run offline:vendor failed; ${path.relative(ROOT, MONGOD_PATH)} still missing`);
   }
@@ -173,7 +201,11 @@ async function startMongod() {
 
 let testLicenseDir = null;
 function licenseDir() {
-  if (!testLicenseDir) testLicenseDir = require(path.join(BACKEND_DIR, 'test', 'helpers', 'license.js')).installTestLicense({ shopName: 'Smoke Shop', maxClients: 3 });
+  if (!testLicenseDir && SMOKE_SOURCE) testLicenseDir = require(path.join(BACKEND_DIR, 'test', 'helpers', 'license.js')).installTestLicense({ shopName: 'Smoke Shop', maxClients: 3 });
+  if (!testLicenseDir) {
+    testLicenseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-smoke-license-'));
+    fs.writeFileSync(path.join(testLicenseDir, 'nota.lic'), issueLicense({ shopName: 'Smoke Shop', maxClients: 3 }), 'utf8');
+  }
   // the helper also makes this process's fetch act as a main-PC window with ITS OWN token; the smoke test sends the token of the backend it starts
   if (globalThis.fetch.__real) globalThis.fetch = globalThis.fetch.__real;
   return testLicenseDir;
@@ -200,7 +232,10 @@ async function startBackend({ auth = true, dbName = DB_NAME, licenseDirectory = 
   delete env.NOTA_AUTH;
   delete env.NOTA_JWT_SECRET;
   if (auth) Object.assign(env, { NOTA_AUTH: '1', NOTA_JWT_SECRET: JWT_SECRET });
-  const child = startChild(process.execPath, ['src/server.js'], { cwd: BACKEND_DIR, env }, logFile);
+  if (!SMOKE_SOURCE) env.ELECTRON_RUN_AS_NODE = '1'; // the staged bundle is bytecode of this Electron's V8; it runs like the desktop app runs it
+  const child = SMOKE_SOURCE
+    ? startChild(process.execPath, ['src/server.js'], { cwd: BACKEND_DIR, env }, logFile)
+    : startChild(electronBinary(), ['src/server.js'], { cwd: STAGED_BACKEND, env }, logFile);
   const responds = async () => {
     try {
       const response = await fetch(`${BASE_URL}/`, { signal: AbortSignal.timeout(2000) });
@@ -2154,7 +2189,7 @@ async function runStage22Scenarios() {
 // Stage 24: the license. A backend that starts with NO license answers 402 everywhere except status and activation; activation is open
 // then, replacing a license is the owner's, and the client limit refuses a client PC beyond maxClients (at login too).
 async function runStage24Scenarios(licenseDirectory) {
-  const { issueTestLicense } = require(path.join(BACKEND_DIR, 'test', 'helpers', 'license.js'));
+  const issueTestLicense = issueLicense; // signed with the key the target accepts (the verification key for the staged bundle)
   const ctx = {};
   authToken = null;
   const device = (id) => ({ 'x-nota-device-id': id, 'x-nota-device-name': encodeURIComponent(`Smoke-${id}`) });
@@ -2511,6 +2546,84 @@ async function runStage23Scenarios() {
   });
 }
 
+// Stage 25: the REAL staged backend (the esbuild bundle compiled to bytecode, run by Electron as Node, like the desktop app runs it) against the
+// same mongod. The scenarios above run the source tree; this proves the shipped bundle starts, migrates, locks without a license and refuses
+// data written by a newer Nota. Skipped (and said so) when there is no stage: run npm run offline:stage first.
+async function runStagedBundleChecks() {
+  const staged = STAGED_BACKEND;
+  let electronBin = null;
+  try { electronBin = require('electron'); } catch { electronBin = null; }
+  if (!fs.existsSync(path.join(staged, 'src', 'server.jsc')) || typeof electronBin !== 'string') {
+    log('staged bundle checks skipped: no staged backend (run npm run offline:stage)');
+    return;
+  }
+  const dbName = 'dafer_smoke_bundle';
+  const licenseFolder = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-smoke-bundle-lic-'));
+  const migrationsSource = fs.readFileSync(path.join(BACKEND_DIR, 'src', 'migrations', 'index.js'), 'utf8');
+  const latest = Math.max(...[...migrationsSource.matchAll(/\{ version: (\d+), name:/g)].map((match) => Number(match[1])));
+  const { MongoClient } = require(path.join(BACKEND_DIR, 'node_modules', 'mongodb'));
+  const withDb = async (work) => {
+    const client = new MongoClient(`mongodb://127.0.0.1:${MONGO_PORT}`, { directConnection: true });
+    await client.connect();
+    try { return await work(client.db(dbName)); } finally { await client.close(); }
+  };
+  const bundleEnv = () => ({
+    SystemRoot: process.env.SystemRoot, PATH: process.env.PATH, ELECTRON_RUN_AS_NODE: '1', NODE_ENV: 'production',
+    PORT: String(BACKEND_PORT), MONGO_URI: `mongodb://127.0.0.1:${MONGO_PORT}/${dbName}?replicaSet=${REPLICA_SET}&directConnection=true`,
+    NOTA_LAN_MODE: '1', NOTA_LAN_SECRET: LAN_SECRET, NOTA_LISTEN_HOST: '127.0.0.1', NOTA_INSTANCE_ID: 'smoke-bundle-instance-0001',
+    NOTA_LICENSE_DIR: licenseFolder, NOTA_MAIN_TOKEN: MAIN_TOKEN, NOTA_AUTH: '1', NOTA_JWT_SECRET: JWT_SECRET,
+    NOTA_STAGE_LOAD_CHECK: '', NOTA_APP_VERSION: '1.0.0-smoke',
+  });
+  const spawnBundle = (logName) => startChild(electronBin, ['src/server.js'], { cwd: staged, env: bundleEnv() }, path.join(tempDir, logName));
+  const responds = async () => {
+    try { return (await fetch(`${BASE_URL}/`, { signal: AbortSignal.timeout(2000) })).ok; } catch { return false; }
+  };
+  let backend = null;
+  try {
+    backend = spawnBundle('bundle-1.log');
+    await step('Bundle: the bytecode backend starts and runs every migration on a fresh database', async () => {
+      await waitFor('bundled backend', responds, backend);
+      const meta = await withDb((db) => db.collection('metas').findOne({ _id: 'schema' }));
+      expect(meta && meta.version === latest, `schema version ${meta && meta.version}, expected ${latest}`);
+      expect(meta.appVersion === '1.0.0-smoke', `appVersion ${meta.appVersion}`);
+      return `schema ${latest}, app ${meta.appVersion}`;
+    });
+    await step('Bundle: with no license folder content, a protected route answers 402 (the license module works inside the bundle)', async () => {
+      expectStatus(await request('GET', '/api/products', { token: null }), 402, 'bundled backend without a license');
+      return '402';
+    });
+    await stopChild(backend);
+    children.splice(children.indexOf(backend), 1);
+
+    await step('Bundle: data written by a NEWER Nota is refused (SCHEMA_TOO_NEW, Arabic + English), nothing is written', async () => {
+      const before = await withDb(async (db) => ({
+        meta: await db.collection('metas').findOne({ _id: 'schema' }),
+        collections: (await db.listCollections({}, { nameOnly: true }).toArray()).map((entry) => entry.name).sort(),
+        audit: await db.collection('auditlogs').countDocuments({}),
+      }));
+      await withDb((db) => db.collection('metas').updateOne({ _id: 'schema' }, { $set: { version: latest + 3 } }));
+      const logFile = path.join(tempDir, 'bundle-2.log');
+      backend = spawnBundle('bundle-2.log');
+      const code = await new Promise((resolve) => { backend.once('exit', resolve); setTimeout(() => resolve('still running'), 30000); });
+      children.splice(children.indexOf(backend), 1);
+      expect(code !== 'still running' && code !== 0, `the backend should exit with an error, got ${code}`);
+      const text = fs.readFileSync(logFile, 'utf8');
+      expect(/أحدث من نوتة/.test(text) && /newer Nota/.test(text), `the log has no Arabic + English refusal: ${text.slice(-300)}`);
+      const after = await withDb(async (db) => ({
+        meta: await db.collection('metas').findOne({ _id: 'schema' }),
+        collections: (await db.listCollections({}, { nameOnly: true }).toArray()).map((entry) => entry.name).sort(),
+        audit: await db.collection('auditlogs').countDocuments({}),
+      }));
+      expect(after.meta.version === latest + 3, 'the schema version was changed');
+      expect(JSON.stringify(after.collections) === JSON.stringify(before.collections) && after.audit === before.audit, 'the refusal wrote something');
+      return `exit ${code}, schema stays ${latest + 3}`;
+    });
+  } finally {
+    if (backend && backend.exitCode === null) { await stopChild(backend); children.splice(children.indexOf(backend), 1); }
+    fs.rmSync(licenseFolder, { recursive: true, force: true });
+  }
+}
+
 async function main() {
   for (const signal of ['SIGINT', 'SIGTERM']) {
     process.on(signal, async () => {
@@ -2526,6 +2639,13 @@ async function main() {
     if (!fs.existsSync(path.join(BACKEND_DIR, 'src', 'server.js'))) {
       throw new Error(`backend not found at ${BACKEND_DIR}; set NOTA_BACKEND_DIR`);
     }
+    const targetProblem = smokeTargetProblem();
+    if (targetProblem) {
+      if (process.env.NOTA_ALLOW_SKIP === '1') { log(`smoke test SKIPPED (NOTA_ALLOW_SKIP=1): ${targetProblem}`); return; }
+      console.error(`[smoke] ERROR: ${targetProblem}`);
+      process.exit(1);
+    }
+    log(SMOKE_SOURCE ? 'target: the SOURCE tree (NOTA_SMOKE_SOURCE=1)' : `target: the staged bytecode bundle in ${STAGE_DIR}`);
     ensureMongod();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-smoke-'));
     await startMongod();
@@ -2576,6 +2696,13 @@ async function main() {
     } finally {
       fs.rmSync(emptyLicenseDir, { recursive: true, force: true });
     }
+    // Stage 25: the shipped bundle itself (needs a stage).
+    const lastBackend = children[children.length - 1];
+    if (lastBackend && lastBackend.exitCode === null && lastBackend.spawnfile !== MONGOD_PATH) {
+      await stopChild(lastBackend);
+      children.splice(children.indexOf(lastBackend), 1);
+    }
+    await runStagedBundleChecks();
   } catch (error) {
     record(false, 'Smoke test setup', error.message);
   } finally {

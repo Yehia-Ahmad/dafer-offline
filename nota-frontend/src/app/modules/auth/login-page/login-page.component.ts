@@ -42,6 +42,8 @@ export class LoginPageComponent implements AfterViewInit {
   readonly isDark = toSignal(this.themeService.isDarkMode$, { initialValue: false });
   /** Main PC or the address of the main PC this client uses. */
   readonly runtime = getDesktopRuntimeConfig();
+  /** Stage 25: version on the sign-in screen (the build number only for an installed build). */
+  readonly versionLabel = this.runtime ? `${this.runtime.appVersion}${this.runtime.appBuild && this.runtime.appBuild !== 'dev' ? ` (${this.runtime.appBuild})` : ''}` : '';
   readonly serverAddress = (() => {
     const url = this.runtime?.apiBaseUrl;
     if (!url || this.runtime?.role !== 'client') return '';
