@@ -385,6 +385,25 @@ test('main.js: the installer (server lock, --quit, --quit-all through the single
   assert.match(main, /if \(!backup && state\.autoBackup\) state\.autoBackup\.cancelCloseBackup\(\)/);
 });
 
+test('a close backup that fails before mongodump starts does not satisfy the cancellation proof', async () => {
+  const ctx = setup({ time: '22:30' });
+  let dumpStarted = false;
+  let abortSeen = false;
+  try {
+    ctx.at(9, 0);
+    ctx.auto.runBackup = async (_file, { signal } = {}) => {
+      signal?.addEventListener('abort', () => { abortSeen = true; }, { once: true });
+      throw Object.assign(new Error('failed before mongodump started'), { code: 'BACKUP_FAILED' });
+    };
+    assert.equal(await ctx.auto.backUpOnClose({ timeoutMs: 700 }), null, 'failures are swallowed on close');
+    assert.equal(dumpStarted, false, 'no dump started');
+    assert.equal(abortSeen, false, 'the cap did not abort an already-finished failure');
+    assert.equal(dumpStarted && abortSeen, false, 'an early failure cannot look like cancellation');
+  } finally {
+    cleanup(ctx);
+  }
+});
+
 test('real tools, scaled down: the cap kills mongodump, no partial file or backup is left, and mongod stops right after', { skip: !canRun, timeout: 300000 }, async () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-s25cap-'));
   const mongodb = require(path.join(resources.backendDir, 'node_modules', 'mongodb'));
@@ -397,24 +416,33 @@ test('real tools, scaled down: the cap kills mongodump, no partial file or backu
     // A real, incompressible archive is sent through stdout. Pause it on its first chunk so the
     // real mongodump is definitely running, then start the close cap. No disk-speed threshold.
     await db.collection('products').insertOne({ filler: randomBytes(4_000_000).toString('base64') });
-    let dumpStartedResolve;
-    const dumpStarted = new Promise((resolve) => { dumpStartedResolve = resolve; });
+    let dumpStarted = false;
+    let abortSeen = false;
+    let dumpReadyResolve;
+    const dumpReady = new Promise((resolve) => { dumpReadyResolve = resolve; });
     const dir = path.join(home, 'backups', 'auto');
     const auto = new AutoBackup({
       dir, statePath: path.join(home, 'backups', 'backup-state.json'), dataDir: home, sameDrive: async () => true,
       getCopyFolder: () => '', getBackupTime: () => '00:00', getPrimaryFolder: () => '', log: silentLog,
-      runBackup: (file, options) => service.createBackup(file, () => {}, {
-        signal: options && options.signal,
-        testOnlyArchiveStream: (stream, child) => {
-          stream.once('data', () => {
-            stream.pause();
-            assert.equal(child.exitCode, null, 'mongodump is running when the cap starts');
-            dumpStartedResolve();
-          });
-        },
-      }),
+      runBackup: (file, options) => {
+        const signal = options && options.signal;
+        signal.addEventListener('abort', () => { abortSeen = true; }, { once: true });
+        return service.createBackup(file, () => {}, {
+          signal,
+          testOnlyArchiveStream: (stream, child) => {
+            stream.once('data', () => {
+              stream.pause();
+              assert.equal(child.exitCode, null, 'mongodump is running when the cap starts');
+              dumpStarted = true;
+              dumpReadyResolve();
+            });
+          },
+        });
+      },
     });
-    assert.equal(await auto.backUpOnClose({ timeoutMs: 700, settleMs: 10000, testOnlyStartTimeoutAfter: dumpStarted }), null, 'the cap fired');
+    assert.equal(await auto.backUpOnClose({ timeoutMs: 700, settleMs: 10000, testOnlyStartTimeoutAfter: dumpReady }), null, 'the cap fired');
+    assert.equal(dumpStarted, true, 'the real dump started before the cap');
+    assert.equal(abortSeen, true, 'the cap aborted the signal passed to the backup');
     const left = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
     assert.deepEqual(left, [], 'no partial file and no half backup');
     const dumps = require('node:child_process').spawnSync('tasklist', ['/FI', 'IMAGENAME eq mongodump.exe', '/NH'], { encoding: 'utf8' }).stdout;

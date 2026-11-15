@@ -14,6 +14,7 @@ Every version has a section. The Arabic and English lists are what the "what's n
 - طباعة ملصقات الباركود (اسم المحل، اسم المنتج، السعر، الباركود، الكود الداخلي) على طابعة ملصقات (رول) بمقاسات 38×25 و40×30 و50×25 و50×30 و58×40 أو مقاس مخصوص، أو على ورق ملصقات A4 (3×7 و3×8 و4×10 و5×13 أو شبكة مخصوصة) مع «ابدأ من الملصق رقم» وورقة اختبار للحدود.
 - صلاحية جديدة «طباعة ملصقات الباركود»: المالك والمدير وأمين المخزن عندهم، والكاشير لا. أقصى عدد 2000 ملصق في المرة.
 - إعدادات الجهاز: طابعة الملصقات، إزاحة ومسافة بين الملصقات، وكتم أصوات المسح.
+- «نوع السعر الافتراضي في البيع» في بيانات المحل: قطاعي أو جملة. أي منتج يضاف بالضغط أو بالسكانر يتسعّر بالنوع ده.
 
 ### en
 - A barcode for every product: scan the factory barcode into the product page, or press "Generate barcode" for an in-store one (it starts with 2). Up to 5 barcodes per product, and no barcode is shared by two products.
@@ -24,6 +25,7 @@ Every version has a section. The Arabic and English lists are what the "what's n
 - Print barcode labels (shop name, product name, price, barcode, internal code) on a label printer (roll) in 38×25, 40×30, 50×25, 50×30, 58×40 or a custom size, or on A4 sticker sheets (3×7, 3×8, 4×10, 5×13 or a custom grid) with "Start at label N" and an outline test sheet.
 - New permission "Print barcode labels": owner, manager and storekeeper have it, the cashier does not. At most 2,000 labels per job.
 - Device settings: the label printer, offsets and the gap between labels, and muting the scan sounds.
+- "Default price type in sales" in the shop profile: retail or wholesale. Any product added by click or by scanner is priced with that type.
 
 ## 1.0.0 - 2026-11-14
 
