@@ -105,3 +105,24 @@ test("the collection names the desktop app reads without mongoose are the real o
   assert.equal(AuditLog.collection.name, collections.AUDIT_LOG);
   assert.equal(require("../src/models/device.model").collection.name, collections.DEVICE);
 });
+
+test("the request log keeps method, path, status and time, and never the query string (search boxes send customer names there)", async () => {
+  const appPath = require("node:path").join(__dirname, "..", "src", "app.js");
+  delete require.cache[appPath];
+  const app = require(appPath);
+  const server = await new Promise((resolve) => { const s = app.listen(0, "127.0.0.1", () => resolve(s)); });
+  const lines = [];
+  const original = process.stdout.write;
+  process.stdout.write = function (chunk, ...rest) { lines.push(String(chunk)); return original.call(this, chunk, ...rest); };
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    await fetch(`${base}/?search=${encodeURIComponent("محمود عبد الرحمن")}&q=Mohamed%20Abdelrahman`);
+    for (let i = 0; i < 50 && !lines.some((line) => line.includes("GET /")); i += 1) await new Promise((resolve) => setTimeout(resolve, 20));
+  } finally {
+    process.stdout.write = original;
+    await new Promise((resolve) => server.close(resolve));
+  }
+  const log = lines.join("");
+  assert.match(log, /GET \/ 200 [\d.]+ ms/, "method, path, status and time are logged");
+  for (const secret of ["search", "Mohamed", "Abdelrahman", "%D9%85", "محمود", "?"]) assert.ok(!log.includes(secret), `${secret} must not be in the request log`);
+});

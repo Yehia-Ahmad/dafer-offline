@@ -267,9 +267,9 @@ function createWindow() {
   // Windows is shutting down, restarting, logging off, or an installer asks the app to close.
   win.on('query-session-end', (event) => {
     if (serverIsActive()) event.preventDefault(); // give mongod time for a clean shutdown
-    gracefulQuit(`Windows session end (${(event.reasons || []).join(', ')})`);
+    gracefulQuit(`Windows session end (${(event.reasons || []).join(', ')})`, { backup: false });
   });
-  win.on('session-end', () => gracefulQuit('Windows session ended'));
+  win.on('session-end', () => gracefulQuit('Windows session ended', { backup: false }));
 
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event, url) => {
@@ -505,10 +505,10 @@ async function exclusive(task) {
 // The backend is paused while mongodump runs, so no invoice is half-saved in the backup.
 // Stage 15: a manual backup (caller = the signed-in user) is audited through the inbox file,
 // written before the backend starts again so it reads the entry at startup.
-function consistentBackup(file, { reason, onProgress, caller }) {
+function consistentBackup(file, { reason, onProgress, caller, signal }) {
   return exclusive(() =>
     state.supervisor.runMaintenance(async () => {
-      const result = await backupService().createBackup(file, onProgress);
+      const result = await backupService().createBackup(file, onProgress, { signal });
       if (caller) auditBackup('backup.created', caller, file);
       return result;
     }, { reason })
@@ -593,7 +593,7 @@ function startAutoBackup() {
     statePath: state.paths.backupState,
     dataDir: state.paths.home,
     sameDrive: otherDrive ? async (a, b) => !inside(a, otherDrive) && onSameDrive(a, b) : onSameDrive,
-    runBackup: (file) => consistentBackup(file, { reason: 'auto-backup' }),
+    runBackup: (file, options) => consistentBackup(file, { reason: 'auto-backup', signal: options && options.signal }),
     getCopyFolder: () => state.config.backupCopyFolder,
     getBackupTime: () => state.config.backupTime,
     getPrimaryFolder: () => state.config.backupFolder,
@@ -1011,7 +1011,7 @@ function applyLoginItem(config) {
 // The machine-wide server lock. `Nota.exe --quit-all` (the installer) can ask the
 // copy holding it to stop, from any Windows account.
 const holdServerLock = () =>
-  holdPortLock(SERVER_LOCK_PORT, { onQuit: () => gracefulQuit('asked to quit through the server lock (installer)') });
+  holdPortLock(SERVER_LOCK_PORT, { onQuit: () => gracefulQuit('asked to quit through the server lock (installer)', { backup: false }) });
 
 // The installer adds the firewall rules; a missing rule is shown in the connection details.
 function checkFirewall() {
@@ -1395,8 +1395,11 @@ async function continueStart() {
   await beginRole(config);
 }
 
-function gracefulQuit(reason) {
+// backup: false = no close-time backup (the installer is waiting for the database to stop, or Windows is ending the session).
+function gracefulQuit(reason, { backup = true } = {}) {
+  if (!backup && state.autoBackup) state.autoBackup.cancelCloseBackup(); // one that already started is stopped too
   if (state.quitPromise) return state.quitPromise;
+  state.skipCloseBackup = !backup;
   state.quitting = true;
   log.info(`shutting down: ${reason}`);
 
@@ -1408,7 +1411,7 @@ function gracefulQuit(reason) {
   state.quitPromise = (async () => {
     if (state.monitor) state.monitor.stop();
     // Stage 25: today's daily backup was not taken (the PC was off at the set time): take it now, while the server still runs (45 s at most).
-    if (state.autoBackup && state.status.state === 'running') await state.autoBackup.backUpOnClose({ timeoutMs: 45000 });
+    if (!state.skipCloseBackup && state.autoBackup && state.status.state === 'running') await state.autoBackup.backUpOnClose({ timeoutMs: 45000 });
     if (state.autoBackup) state.autoBackup.stop();
     if (state.mainPcWatcher) state.mainPcWatcher.stop();
     if (state.responder) await state.responder.stop();
@@ -1464,7 +1467,7 @@ if (quitAllRequested) {
   if (app.isPackaged && hasDebugSwitch(process.argv, app.commandLine)) app.exit(1);
   app.on('web-contents-created', (_event, contents) => hardenContents(contents, { isPackaged: app.isPackaged }));
   app.on('second-instance', (_event, argv, _cwd, data) => {
-    if ((data && data.quit) || argv.includes('--quit')) gracefulQuit('another launch asked the app to quit');
+    if ((data && data.quit) || argv.includes('--quit')) gracefulQuit('another launch asked the app to quit', { backup: false });
     else showWindow();
   });
   app.on('window-all-closed', () => {});

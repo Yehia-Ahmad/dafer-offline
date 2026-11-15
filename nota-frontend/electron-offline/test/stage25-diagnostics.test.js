@@ -77,6 +77,9 @@ const PLANTED = {
   nameAr: 'سامي فؤاد',
   nameEn: 'Sami Fouad Private',
   clientName: 'عميل سري الاسم',
+  searchAr: 'منى عبد الله الشاذلي',
+  searchQ: 'Mohamed%20Abdelrahman',
+  searchTerm: 'Hossam Eldin Private',
   blob: 'QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVowMTIzNDU2Nzg5YWJjZGVm',
   // built at run time: the repo itself must never contain a key block, not even a fake one (a backend test scans for it)
   pem: `-----${'BEGIN'} PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIPLANTEDSECRETKEYMATERIAL\n-----${'END'} PRIVATE KEY-----`,
@@ -126,7 +129,9 @@ function plantHome() {
   fs.writeFileSync(path.join(logs, 'app.log'), [`2026-11-14T10:00:00.000Z [info] [main] starting`, `login password=${PLANTED.password}`, `jwt ${PLANTED.jwt}`, `owner ${PLANTED.email} ${PLANTED.phone}`, `lan ${PLANTED.hex}`,
     `recovered with ${PLANTED.recoveryCode}`, `contact phone:${PLANTED.phoneColon} and tel=${PLANTED.phoneEq} also ${PLANTED.phoneIntl2}`,
     `{"customerName":"${PLANTED.customer}","supplierName": "${PLANTED.supplier}","nameAr":"${PLANTED.nameAr}","nameEn":"${PLANTED.nameEn}"}`,
-    `client: ${PLANTED.clientName}, total 50`, 'shop ok 2026-11-14 build 20261114.2346 ip 192.168.1.10'].join('\n'));
+    `client: ${PLANTED.clientName}, total 50`,
+    `GET /api/customers?search=${encodeURIComponent(PLANTED.searchAr)} 200 4.1 ms`, `GET /api/customers?q=${PLANTED.searchQ}&limit=20 200 3 ms`,
+    `GET /api/products?keyword=${PLANTED.searchTerm} 200 2 ms`, `query: ${PLANTED.searchTerm}`, 'GET /api/invoices?status=open 200 5 ms', 'shop ok 2026-11-14 build 20261114.2346 ip 192.168.1.10'].join('\n'));
   fs.writeFileSync(path.join(logs, 'backend.log'), `[backend] ${PLANTED.mongo}\n[backend] license ${PLANTED.license}\n`);
   fs.writeFileSync(path.join(logs, 'secrets.log'), 'NOT-ON-THE-ALLOWLIST-SECRET');
   fs.writeFileSync(path.join(logs, 'backend.log.9'), 'NOT-A-ROTATION-ON-THE-ALLOWLIST');
@@ -165,6 +170,7 @@ test('the diagnostics zip holds only allowlisted files and not one planted secre
     for (const secret of [
       PLANTED.password, PLANTED.jwt, PLANTED.hex, PLANTED.license, 'Mongo-Pa55w0rd', PLANTED.email, PLANTED.phone, PLANTED.blob,
       'DPAPI-BLOB', 'KEYFILE-SECRET', 'PROTECTED-LAN-SECRET', 'private-owner-name', 'NOT-ON-THE-ALLOWLIST', 'NOT-A-ROTATION', 'ARCHIVE-BYTES', 'AAAA-BBBB', PLANTED.recoveryCode, PLANTED.phoneColon, PLANTED.phoneEq, PLANTED.phoneIntl2, PLANTED.customer, PLANTED.supplier, PLANTED.nameAr, PLANTED.nameEn, PLANTED.clientName,
+      PLANTED.searchAr, encodeURIComponent(PLANTED.searchAr), PLANTED.searchQ, decodeURIComponent(PLANTED.searchQ), 'Abdelrahman', 'Mohamed', PLANTED.searchTerm,
     ]) assert.ok(!everything.includes(secret), `${secret} must not be in the diagnostics file`);
     assert.ok(!zip.includes(Buffer.from(PLANTED.password)), 'not even inside the compressed bytes');
 
@@ -186,6 +192,8 @@ test('the diagnostics zip holds only allowlisted files and not one planted secre
     assert.deepEqual(JSON.parse(byName['printing.json']), { receiptPrinter: 'XP-80', receiptCopies: 1 });
     assert.match(byName['logs/app.log'], /login password= "\[removed\]"/);
     assert.match(byName['logs/app.log'], /starting/, 'the log keeps its useful lines');
+    assert.match(byName['logs/app.log'], /GET \/api\/customers\?search=\[name removed\] 200/, 'search terms go, the path and status stay');
+    assert.match(byName['logs/app.log'], /GET \/api\/invoices\?status=open 200 5 ms/, 'other query values stay');
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }

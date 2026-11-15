@@ -96,7 +96,7 @@ class BackupService {
     return describeArchive(await readArchiveSummary(file, this.bson));
   }
 
-  async createBackup(outputPath, onProgress = () => {}) {
+  async createBackup(outputPath, onProgress = () => {}, { signal } = {}) {
     const total = await this.countCollections();
     const partial = `${outputPath}.partial`;
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -111,6 +111,10 @@ class BackupService {
         { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }
       );
       let output = '';
+      // Stage 25: an abort (the close-time backup ran out of time) kills mongodump; the .partial file is removed below once it has exited.
+      let aborted = false;
+      const onAbort = () => { aborted = true; child.kill(); };
+      if (signal) { if (signal.aborted) onAbort(); else signal.addEventListener('abort', onAbort, { once: true }); }
       const collect = (chunk) => {
         output = (output + chunk).slice(-1024 * 1024);
         onProgress({ phase: 'backup', done: parseDumpOutput(output).length, total });
@@ -119,6 +123,12 @@ class BackupService {
       child.stderr.on('data', collect);
       child.once('error', (error) => reject(new ServiceError('BACKUP_FAILED', 'تعذر تشغيل أداة النسخ الاحتياطي.', error.message)));
       child.once('exit', (code) => {
+        if (signal) signal.removeEventListener('abort', onAbort);
+        if (aborted) {
+          this.log.warn('backup stopped before it finished (cancelled)');
+          reject(new ServiceError('BACKUP_ABORTED', 'أُوقف النسخ الاحتياطي قبل أن ينتهي.'));
+          return;
+        }
         if (code !== 0) {
           const tail = output.trim().split(/\r?\n/).slice(-5).join('\n');
           this.log.error(`mongodump failed (exit ${code}): ${tail}`);

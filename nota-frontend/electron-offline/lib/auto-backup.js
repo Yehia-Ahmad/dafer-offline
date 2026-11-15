@@ -224,11 +224,14 @@ class AutoBackup extends EventEmitter {
 
   // The app is closing: if today's daily backup was not taken (the PC was switched on after the time, or the time never came), take it now.
   // Never throws and never waits longer than timeoutMs, so closing the program is not held up; a busy or failing backup is simply skipped.
-  backUpOnClose({ timeoutMs = 60000 } = {}) {
+  backUpOnClose({ timeoutMs = 60000, settleMs = 5000 } = {}) {
+    const controller = new AbortController();
+    this.closeController = controller;
+    let finished = false;
     const job = this.serial(async () => {
       try {
-        if (this.now().getTime() < this.retryAt || await this.hasBackupToday()) return null;
-        return await this.backUp();
+        if (controller.signal.aborted || this.now().getTime() < this.retryAt || await this.hasBackupToday()) return null;
+        return await this.backUp({ signal: controller.signal });
       } catch (error) {
         this.log.error(`backup on close: ${error.message}`);
         return null;
@@ -236,14 +239,27 @@ class AutoBackup extends EventEmitter {
     });
     let timer = null;
     const limit = new Promise((resolve) => { timer = this.timers.setTimeout(() => resolve(null), timeoutMs); });
-    return Promise.race([job, limit]).finally(() => this.timers.clearTimeout(timer));
+    // The cap: stop the dump (mongodump is killed, its partial file removed) and wait briefly for that, so the server can then be stopped.
+    job.finally(() => { finished = true; }).catch(() => {});
+    return Promise.race([job, limit]).then(async (result) => {
+      if (!finished) {
+        controller.abort();
+        await Promise.race([job.catch(() => {}), new Promise((resolve) => this.timers.setTimeout(resolve, settleMs))]);
+      }
+      return result;
+    }).finally(() => { this.timers.clearTimeout(timer); if (this.closeController === controller) this.closeController = null; });
   }
 
-  async backUp() {
+  // Closing for the installer or a Windows session end: no backup (and one already running is stopped).
+  cancelCloseBackup() {
+    if (this.closeController) this.closeController.abort();
+  }
+
+  async backUp({ signal } = {}) {
     const dir = await this.activeDir();
     const file = path.join(dir, backupFileName(AUTO_PREFIX, this.now()));
     try {
-      const result = await this.runBackup(file);
+      const result = await this.runBackup(file, { signal });
       this.retryAt = 0;
       await this.updateState({ autoError: null });
       await this.prune(dir);
@@ -251,6 +267,10 @@ class AutoBackup extends EventEmitter {
       this.emit('change');
       return result;
     } catch (error) {
+      if (error.code === 'BACKUP_ABORTED' || (signal && signal.aborted)) {
+        this.log.info('automatic backup cancelled while closing');
+        return null;
+      }
       if (BUSY_CODES.has(error.code)) {
         this.log.info(`automatic backup postponed: ${error.message}`);
         return null;

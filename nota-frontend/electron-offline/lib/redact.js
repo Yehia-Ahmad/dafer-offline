@@ -15,10 +15,20 @@ const RECOVERY_CODE = /(?<![A-Za-z0-9])(?:[A-HJ-NP-Z2-9]{4}[-\s]){3}[A-HJ-NP-Z2-
 // It goes to the end of a quoted string, or of the unquoted value (names have spaces), so it errs on removing too much. The shop's own name is
 // not a person's: diagnostics.js adds it on purpose (license.json).
 const NAME_KEYS = 'name|nameAr|nameEn|name_ar|name_en|fullName|full_name|customerName|supplierName|clientName|partyName|ownerName|cashierName|cashier|customer|supplier|client|party|contact|contactName';
+// Search boxes: the same values written as JSON or key: value ("search":"...", query: ...). In a URL (?search=...) they are handled by SEARCH_PARAM below.
+const SEARCH_KEYS = 'search|q|query|term|keyword|filter';
+const SEARCH_KEY = [
+  new RegExp(`(["']?)\\b(${SEARCH_KEYS})\\1\\s*:\\s*("(?:[^"\\\\\\r\\n]|\\\\.)*"|'[^'\\r\\n]*'|[^,;}\\r\\n]+)`, 'gi'),
+  '$1$2$1: "[name removed]"',
+];
 const NAME_RULE = [
   new RegExp(`(["']?)\\b(${NAME_KEYS})\\1\\s*([:=])\\s*("(?:[^"\\\\\\r\\n]|\\\\.)*"|'[^'\\r\\n]*'|[^,;}\\r\\n]+)`, 'gi'),
   '$1$2$1$3 "[name removed]"',
 ];
+
+// Search boxes put a name or a phone number in the URL (?search=...&q=...); the request log no longer records query strings, and this removes them from
+// anything older or from another log. URL-encoded (%D9%85...) or not: the value goes to the next & or space.
+const SEARCH_PARAM = [/([?&])(search|q|query|term|keyword|filter)=[^&\s#]*/gi, '$1$2=[name removed]'];
 
 const RULES = [
   // private keys and certificates
@@ -56,7 +66,7 @@ const RULES = [
  */
 function redactText(text, { names = true } = {}) {
   let out = String(text);
-  if (names) out = out.replace(NAME_RULE[0], NAME_RULE[1]);
+  if (names) out = out.replace(SEARCH_PARAM[0], SEARCH_PARAM[1]).replace(SEARCH_KEY[0], SEARCH_KEY[1]).replace(NAME_RULE[0], NAME_RULE[1]);
   for (const [pattern, replacement] of RULES) out = out.replace(pattern, replacement);
   return out;
 }

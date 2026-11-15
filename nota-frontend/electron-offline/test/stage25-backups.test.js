@@ -120,7 +120,7 @@ test('closing the app: today\'s backup is taken on close when it was not taken; 
     ctx.auto.retryAt = 0;
     ctx.auto.runBackup = () => new Promise(() => {});
     const started = Date.now();
-    assert.equal(await ctx.auto.backUpOnClose({ timeoutMs: 100 }), null);
+    assert.equal(await ctx.auto.backUpOnClose({ timeoutMs: 100, settleMs: 100 }), null);
     assert.ok(Date.now() - started < 3000);
   } finally {
     cleanup(ctx);
@@ -311,6 +311,109 @@ test('real tools: a backup written into a custom folder (the primary folder) res
     assert.equal(await db.collection('products').countDocuments(), 2);
   } finally {
     await client.close();
+    await mongod.stop().catch(() => {});
+    if (mongod.child) { mongod.child.kill(); await mongod.exited; }
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+// ------------------------------------------------------------------ the close-time backup: the cap, the installer, a Windows session end
+
+const hangingBackup = (ctx, taken) => (file, { signal } = {}) => new Promise((resolve, reject) => {
+  // stands in for mongodump: a partial file, and a kill that removes it
+  fs.writeFileSync(`${file}.partial`, 'half a dump');
+  taken.push(file);
+  const stop = () => { fs.rmSync(`${file}.partial`, { force: true }); reject(Object.assign(new Error('stopped'), { code: 'BACKUP_ABORTED' })); };
+  if (signal.aborted) stop(); else signal.addEventListener('abort', stop, { once: true });
+});
+
+test('the cap on the close-time backup stops the dump and removes its partial file, then returns so the shutdown continues', async () => {
+  const ctx = setup({ time: '22:30' });
+  try {
+    ctx.at(9, 0);
+    const started = [];
+    ctx.auto.runBackup = hangingBackup(ctx, started);
+    const begun = Date.now();
+    assert.equal(await ctx.auto.backUpOnClose({ timeoutMs: 100, settleMs: 2000 }), null);
+    assert.ok(Date.now() - begun < 1500, 'it did not wait for the dump');
+    assert.equal(started.length, 1, 'the dump had started');
+    assert.deepEqual(ctx.files(), [], 'no partial file and no backup is left');
+    assert.equal(ctx.auto.retryAt, 0, 'a cancelled backup is not a failure (no retry delay, no error shown)');
+    assert.equal((await ctx.auto.summary()).autoError, null);
+  } finally {
+    cleanup(ctx);
+  }
+});
+
+test('quitting for the installer or on a Windows session end: no close backup, and one already running is stopped', async () => {
+  const ctx = setup({ time: '22:30' });
+  try {
+    ctx.at(9, 0);
+    const started = [];
+    ctx.auto.runBackup = hangingBackup(ctx, started);
+    const closing = ctx.auto.backUpOnClose({ timeoutMs: 60000, settleMs: 2000 });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(started.length, 1, 'the close backup is running');
+    ctx.auto.cancelCloseBackup(); // gracefulQuit(reason, { backup: false })
+    assert.equal(await closing, null);
+    assert.deepEqual(ctx.files(), []);
+
+    // cancelled before it begins: nothing is started at all
+    const second = [];
+    ctx.auto.runBackup = hangingBackup(ctx, second);
+    const early = ctx.auto.backUpOnClose({ timeoutMs: 60000 });
+    ctx.auto.cancelCloseBackup();
+    assert.equal(await early, null);
+    assert.equal(second.length, 0);
+    assert.deepEqual(ctx.files(), []);
+  } finally {
+    cleanup(ctx);
+  }
+});
+
+test('main.js: the installer (server lock, --quit, --quit-all through the single-instance lock) and the Windows session end quit without a backup; a plain close keeps it', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+  const calls = main.split(/\r?\n/).filter((line) => /gracefulQuit\(['`]/.test(line));
+  const noBackup = (text) => calls.filter((call) => call.includes(text)).every((call) => /backup: false/.test(call)) && calls.some((call) => call.includes(text));
+  assert.ok(noBackup('Windows session end ('), 'query-session-end');
+  assert.ok(noBackup("'Windows session ended'"), 'session-end');
+  assert.ok(noBackup('through the server lock (installer)'), 'the installer through the server lock');
+  assert.ok(noBackup('another launch asked the app to quit'), 'the single-instance quit (--quit-all, --quit)');
+  assert.ok(!calls.filter((call) => /window closed|user chose exit|user pressed exit/.test(call)).some((call) => /backup: false/.test(call)), 'a plain close still backs up');
+  assert.match(main, /if \(!state\.skipCloseBackup && state\.autoBackup/);
+  assert.match(main, /if \(!backup && state\.autoBackup\) state\.autoBackup\.cancelCloseBackup\(\)/);
+});
+
+test('real tools, scaled down: the cap kills mongodump, no partial file or backup is left, and mongod stops right after', { skip: !canRun, timeout: 300000 }, async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'nota-s25cap-'));
+  const mongodb = require(path.join(resources.backendDir, 'node_modules', 'mongodb'));
+  const mongod = new MongodManager({ mongodPath: bin('mongod.exe'), dbPath: path.join(home, 'db'), logFile: path.join(home, 'mongod.log'), pidFile: path.join(home, 'mongod.pid'), port: 27391, mongodb, log: silentLog });
+  await mongod.start();
+  const client = new mongodb.MongoClient(mongod.uri, { directConnection: true });
+  const db = client.db(DATABASE_NAME);
+  try {
+    const filler = 'x'.repeat(2000);
+    for (let batch = 0; batch < 30; batch += 1) await db.collection('products').insertMany(Array.from({ length: 2000 }, (_, i) => ({ n: batch * 2000 + i, filler: filler + Math.random() })));
+    const service = new BackupService({ mongodbBin: resources.mongodbBin, port: 27391, backupsDir: path.join(home, 'backups'), mongodb, bson: require(path.join(resources.backendDir, 'node_modules', 'bson')), log: silentLog });
+    const dir = path.join(home, 'backups', 'auto');
+    const auto = new AutoBackup({
+      dir, statePath: path.join(home, 'backups', 'backup-state.json'), dataDir: home, sameDrive: async () => true,
+      getCopyFolder: () => '', getBackupTime: () => '00:00', getPrimaryFolder: () => '', log: silentLog,
+      runBackup: (file, options) => service.createBackup(file, () => {}, { signal: options && options.signal }),
+    });
+    const begun = Date.now();
+    assert.equal(await auto.backUpOnClose({ timeoutMs: 700, settleMs: 10000 }), null, 'the cap fired');
+    assert.ok(Date.now() - begun < 9000, 'the close did not wait for the whole dump');
+    const left = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+    assert.deepEqual(left, [], 'no partial file and no half backup');
+    const dumps = require('node:child_process').spawnSync('tasklist', ['/FI', 'IMAGENAME eq mongodump.exe', '/NH'], { encoding: 'utf8' }).stdout;
+    assert.ok(!/mongodump\.exe/i.test(dumps), 'mongodump was killed');
+    await client.close();
+    const stopping = Date.now();
+    await mongod.stop();
+    assert.ok(Date.now() - stopping < 30000, 'mongod stops right after');
+  } finally {
+    await client.close().catch(() => {});
     await mongod.stop().catch(() => {});
     if (mongod.child) { mongod.child.kill(); await mongod.exited; }
     fs.rmSync(home, { recursive: true, force: true });

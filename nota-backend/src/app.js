@@ -46,7 +46,9 @@ const jwtSecret = authMode ? requireJwtSecret() : null;
 app.use(authFlag(authMode));
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
-app.use(morgan("dev"));
+// The request log keeps method, path, status and time, never the query string: a search box sends customer names and phone numbers there.
+morgan.token("path", (req) => String(req.originalUrl || req.url || "").split("?")[0]);
+app.use(morgan(":method :path :status :response-time ms - :res[content-length]"));
 
 app.get("/", (req, res) => {
   res.json({ message: "Warehouse API is running" });
