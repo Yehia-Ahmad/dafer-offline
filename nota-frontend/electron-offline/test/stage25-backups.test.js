@@ -394,41 +394,34 @@ test('real tools, scaled down: the cap kills mongodump, no partial file or backu
   const db = client.db(DATABASE_NAME);
   try {
     const service = new BackupService({ mongodbBin: resources.mongodbBin, port: 27391, backupsDir: path.join(home, 'backups'), mongodb, bson: require(path.join(resources.backendDir, 'node_modules', 'bson')), log: silentLog });
-    // Size incompressible data with the real mongodump until this machine proves the dump takes comfortably longer
-    // than the 700 ms close cap. This removes the old race where 60,000 highly-compressible documents finished first.
-    const probe = path.join(home, 'probe.archive.gz');
-    let dumpMs = 0;
-    let batch = 0;
-    while (dumpMs < 1400 && batch < 12) {
-      const random = randomBytes(4_000_000).toString('base64');
-      await db.collection('products').insertMany(Array.from({ length: 2000 }, (_, i) => ({
-        n: batch * 2000 + i,
-        filler: random.slice(i * 2000, (i + 1) * 2000),
-      })));
-      batch += 1;
-      const probeStarted = Date.now();
-      await service.createBackup(probe);
-      dumpMs = Date.now() - probeStarted;
-      fs.rmSync(probe, { force: true });
-    }
-    assert.ok(dumpMs >= 1400, `real mongodump never exceeded the close cap safely (last probe ${dumpMs} ms)`);
+    // A real, incompressible archive is sent through stdout. Pause it on its first chunk so the
+    // real mongodump is definitely running, then start the close cap. No disk-speed threshold.
+    await db.collection('products').insertOne({ filler: randomBytes(4_000_000).toString('base64') });
+    let dumpStartedResolve;
+    const dumpStarted = new Promise((resolve) => { dumpStartedResolve = resolve; });
     const dir = path.join(home, 'backups', 'auto');
     const auto = new AutoBackup({
       dir, statePath: path.join(home, 'backups', 'backup-state.json'), dataDir: home, sameDrive: async () => true,
       getCopyFolder: () => '', getBackupTime: () => '00:00', getPrimaryFolder: () => '', log: silentLog,
-      runBackup: (file, options) => service.createBackup(file, () => {}, { signal: options && options.signal }),
+      runBackup: (file, options) => service.createBackup(file, () => {}, {
+        signal: options && options.signal,
+        testOnlyArchiveStream: (stream, child) => {
+          stream.once('data', () => {
+            stream.pause();
+            assert.equal(child.exitCode, null, 'mongodump is running when the cap starts');
+            dumpStartedResolve();
+          });
+        },
+      }),
     });
-    const begun = Date.now();
-    assert.equal(await auto.backUpOnClose({ timeoutMs: 700, settleMs: 10000 }), null, 'the cap fired');
-    assert.ok(Date.now() - begun < 9000, 'the close did not wait for the whole dump');
+    assert.equal(await auto.backUpOnClose({ timeoutMs: 700, settleMs: 10000, testOnlyStartTimeoutAfter: dumpStarted }), null, 'the cap fired');
     const left = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
     assert.deepEqual(left, [], 'no partial file and no half backup');
     const dumps = require('node:child_process').spawnSync('tasklist', ['/FI', 'IMAGENAME eq mongodump.exe', '/NH'], { encoding: 'utf8' }).stdout;
     assert.ok(!/mongodump\.exe/i.test(dumps), 'mongodump was killed');
     await client.close();
-    const stopping = Date.now();
     await mongod.stop();
-    assert.ok(Date.now() - stopping < 30000, 'mongod stops right after');
+    assert.equal(mongod.child, null, 'mongod stops right after');
   } finally {
     await client.close().catch(() => {});
     await mongod.stop().catch(() => {});

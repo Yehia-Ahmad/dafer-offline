@@ -68,11 +68,15 @@ export interface ApiDataResponse<T> {
   data: T;
 }
 
-export interface CreateReturnItemPayload {
-  productId: string;
+interface CreateReturnItemPayloadBase {
   quantity: number;
   returnReason?: string;
 }
+
+export type CreateReturnItemPayload = CreateReturnItemPayloadBase & (
+  | { itemId: string; productId?: never }
+  | { itemId?: never; productId: string }
+);
 
 export interface CreateReturnPayload {
   returnType: ReturnType;

@@ -96,7 +96,7 @@ class BackupService {
     return describeArchive(await readArchiveSummary(file, this.bson));
   }
 
-  async createBackup(outputPath, onProgress = () => {}, { signal } = {}) {
+  async createBackup(outputPath, onProgress = () => {}, { signal, testOnlyArchiveStream } = {}) {
     const total = await this.countCollections();
     const partial = `${outputPath}.partial`;
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -105,9 +105,11 @@ class BackupService {
     this.log.info(`backup to ${outputPath}`);
 
     const dumped = await new Promise((resolve, reject) => {
+      // Tests may ask mongodump to write its real archive to stdout, then pause that stream. This
+      // deliberately holds the process open without making the close-time cap depend on disk speed.
       const child = spawn(
         path.join(this.mongodbBin, 'mongodump.exe'),
-        [`--uri=${mongoUri({ port: this.port, db: this.dbName, auth: this.auth })}`, `--archive=${partial}`, '--gzip'],
+        [`--uri=${mongoUri({ port: this.port, db: this.dbName, auth: this.auth })}`, testOnlyArchiveStream ? '--archive' : `--archive=${partial}`, '--gzip'],
         { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }
       );
       let output = '';
@@ -119,7 +121,8 @@ class BackupService {
         output = (output + chunk).slice(-1024 * 1024);
         onProgress({ phase: 'backup', done: parseDumpOutput(output).length, total });
       };
-      child.stdout.on('data', collect);
+      if (testOnlyArchiveStream) testOnlyArchiveStream(child.stdout, child);
+      else child.stdout.on('data', collect);
       child.stderr.on('data', collect);
       child.once('error', (error) => reject(new ServiceError('BACKUP_FAILED', 'تعذر تشغيل أداة النسخ الاحتياطي.', error.message)));
       child.once('exit', (code) => {

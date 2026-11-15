@@ -224,7 +224,7 @@ class AutoBackup extends EventEmitter {
 
   // The app is closing: if today's daily backup was not taken (the PC was switched on after the time, or the time never came), take it now.
   // Never throws and never waits longer than timeoutMs, so closing the program is not held up; a busy or failing backup is simply skipped.
-  backUpOnClose({ timeoutMs = 60000, settleMs = 5000 } = {}) {
+  backUpOnClose({ timeoutMs = 60000, settleMs = 5000, testOnlyStartTimeoutAfter = null } = {}) {
     const controller = new AbortController();
     this.closeController = controller;
     let finished = false;
@@ -238,7 +238,9 @@ class AutoBackup extends EventEmitter {
       }
     });
     let timer = null;
-    const limit = new Promise((resolve) => { timer = this.timers.setTimeout(() => resolve(null), timeoutMs); });
+    const limit = Promise.resolve(testOnlyStartTimeoutAfter).then(() => new Promise((resolve) => {
+      timer = this.timers.setTimeout(() => resolve(null), timeoutMs);
+    }));
     // The cap: stop the dump (mongodump is killed, its partial file removed) and wait briefly for that, so the server can then be stopped.
     job.finally(() => { finished = true; }).catch(() => {});
     return Promise.race([job, limit]).then(async (result) => {

@@ -454,7 +454,7 @@ describe('print adapters (stored values, never recomputed)', () => {
     const data = toCreditInvoiceData({
       id: 'c1', invoiceId: 'c1', number: 'CR-000032', customerId: 'u1', customerName: 'م', customerPhone: '01', sellingDate: '2026-11-05', dueDate: '2026-12-05', status: 'partially_paid',
       subtotal: 790, discountAmount: null, discountPercentage: null, shippingFees: null, totalPrice: 790, netTotal: 790, paidAmount: 200, remainingAmount: 590, itemCount: 1, totalQuantity: 3, notes: 'ملاحظة', paymentsCount: 1,
-      items: [{ id: 'i', productId: 'p', productName: 'بانل', productCode: 'P', categoryName: 'ك', quantity: 2, pricePerEach: 320, totalPrice: 640 }],
+      items: [{ id: 'i', productId: 'p', productName: 'بانل', productCode: 'P', categoryName: 'ك', quantity: 2, returnedQuantity: 0, pricePerEach: 320, totalPrice: 640 }],
       payments: [{ id: 'p1', number: 'RC-000040', amount: 200, paymentDate: '2026-11-05', note: 'مقدم مع الفاتورة' }], writtenOff: false, refunds: [], refundedAmount: 0, cancellationReason: '',
     }, { customerTaxNumber: '777', balanceBefore: 0, balanceAfter: 590 });
     expect(data).toEqual(jasmine.objectContaining({ number: 'CR-000032', paid: 200, remaining: 590, total: 790, dueDate: '2026-12-05', note: 'ملاحظة', balanceBefore: 0, balanceAfter: 590, customerTaxNumber: '777' }));
