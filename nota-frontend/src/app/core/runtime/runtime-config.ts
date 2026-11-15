@@ -170,6 +170,8 @@ export interface DesktopPrintBridge {
   setPrefs(token: string | null, patch: Pick<Partial<DesktopPrintSettings>, 'scanSoundMuted' | 'labelOptions'>): Promise<DesktopResult<DesktopPrintSettings>>;
   testPage(token: string | null, request: { kind: 'receipt' | 'document' | 'label' | 'sheet'; html: string; heightMm?: number; labelPage?: { widthMm: number; heightMm: number }; /** The printer picked in the settings dropdown ('' = the system dialog); absent = the saved one. */ printer?: string }): Promise<DesktopResult<{ printed: boolean; printer: string | null; cancelled?: boolean }>>;
   print(token: string | null, job: DesktopPrintJob): Promise<DesktopResult<{ printed: boolean; silent: boolean; printer: string | null; cancelled?: boolean }>>;
+  /** Product-label jobs are guarded again in Electron with products.printLabels. */
+  printLabels(token: string | null, job: DesktopPrintJob): Promise<DesktopResult<{ printed: boolean; silent: boolean; printer: string | null; cancelled?: boolean }>>;
   savePdf(token: string | null, job: DesktopPrintJob, options?: { suggestedName?: string }): Promise<DesktopResult<{ saved: boolean; path?: string; bytes?: number }>>;
 }
 

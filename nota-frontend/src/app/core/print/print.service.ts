@@ -10,7 +10,7 @@ import { DesktopPrintJob, getDesktopBridge } from '../runtime/runtime-config';
 import { documentTestPage, receiptCalibrationPage, receiptTestPage } from './documents/test-page';
 import { PrintFontService } from './print-fonts.service';
 import { VatSettingsService } from '../../modules/shop-profile/services/vat-settings.service';
-import { LabelEntry, LabelLimitError, LabelVat, planLabelJob, productLabelRoll, productLabelSheet } from './documents/product-label';
+import { LabelEntry, LabelLimitError, LabelVat, batchLabelEntries, planLabelJob, productLabelRoll, productLabelSheet } from './documents/product-label';
 import { LabelOptions, LabelRollSettings, LabelSheetSettings, DEFAULT_LABEL_OPTIONS, normalizeLabelOptions, normalizeRoll, normalizeSheet } from './label-layout';
 import { PrintContext, PrintDocument, buildPrintHtml, labelPageSize, toShopInfo } from './print-kit';
 import { measureRollHeightMm, printInFrame } from './print-render';
@@ -33,7 +33,7 @@ export interface PrintRequest {
 }
 
 export type PrintMode = 'print' | 'pdf';
-export type PrintOutcome = { ok: true; cancelled?: boolean; silent?: boolean; copy?: number } | { ok: false; message: string };
+export type PrintOutcome = { ok: true; cancelled?: boolean; silent?: boolean; copy?: number; stopped?: boolean } | { ok: false; message: string };
 
 /** Stage 23: the one print pipeline: context → document → (log) → HTML → Electron print / PDF, or the dev-browser fallback. */
 @Injectable({ providedIn: 'root' })
@@ -160,23 +160,34 @@ export class PrintService {
    * "اطبع ملصقات": the labels of `entries` on the label roll or on A4 sticker sheets (options.target). Not a numbered
    * document: no copy counter, no audit entry. Over 2,000 labels is refused with a clear message.
    */
-  async printLabels(entries: LabelEntry[], options: LabelOptions, extra: { startAt?: number } = {}): Promise<PrintOutcome> {
+  async printLabels(entries: LabelEntry[], options: LabelOptions, extra: { startAt?: number; onProgress?: (printed: number, total: number) => void; shouldStop?: () => boolean } = {}): Promise<PrintOutcome> {
     const job = planLabelJob(entries);
     if (job.tooMany) return this.fail(this.translate.instant('labels.tooMany', { max: 2000, total: job.total }));
     if (!job.total) return this.fail(this.translate.instant('labels.nothing'));
     const vat = this.labelVat();
     const saved = await this.labelSettings();
-    const build = (ctx: PrintContext): PrintDocument => {
+    const build = (batch: LabelEntry[]) => (ctx: PrintContext): PrintDocument => {
       try {
         return options.target === 'sheet'
-          ? productLabelSheet(ctx, job.entries, { sheet: saved.sheet, options, startAt: extra.startAt, vat })
-          : productLabelRoll(ctx, job.entries, { roll: saved.roll, options, vat });
+          ? productLabelSheet(ctx, batch, { sheet: saved.sheet, options, startAt: extra.startAt, vat })
+          : productLabelRoll(ctx, batch, { roll: saved.roll, options, vat });
       } catch (error) {
         if (error instanceof LabelLimitError) throw new Error(this.translate.instant('labels.tooMany', { max: 2000, total: error.total }));
         throw error;
       }
     };
-    return this.print({ build }, { quiet: false });
+    if (options.target === 'sheet') return this.run({ build: build(job.entries) }, 'print', { quiet: false, labels: true });
+    let printed = 0;
+    const batches = batchLabelEntries(job.entries, 200);
+    extra.onProgress?.(0, job.total);
+    for (const batch of batches) {
+      if (extra.shouldStop?.()) return { ok: true, stopped: true };
+      const outcome = await this.run({ build: build(batch) }, 'print', { quiet: false, labels: true });
+      if (!outcome.ok || outcome.cancelled) return outcome;
+      printed += batch.reduce((sum, entry) => sum + entry.copies, 0);
+      extra.onProgress?.(printed, job.total);
+    }
+    return { ok: true };
   }
 
   /** "اطبع ملصق تجربة" on the label printer (the printer picked now, or the saved one). */
@@ -186,7 +197,7 @@ export class PrintService {
     try {
       const ctx = await this.context();
       const saved = await this.labelSettings();
-      const sample = { name: this.translate.instant('labels.sampleName'), code: 'TEST-1', barcode: '2000000000015', retailPrice: 123.5, wholesalePrice: 100, priceAfterDiscount: 111.15, vatExempt: false };
+      const sample = { name: this.translate.instant('labels.sampleName'), code: 'TEST-1', barcode: '2900000000018', retailPrice: 123.5, wholesalePrice: 100, priceAfterDiscount: 111.15, vatExempt: false };
       const doc = productLabelRoll(ctx, [{ item: sample, copies: 1 }], { roll: saved.roll, options: { ...saved.options, target: 'roll', internalCode: true }, vat: this.labelVat() });
       const result = await bridge.testPage(this.auth.token(), { kind: 'label', html: buildPrintHtml(ctx, doc), labelPage: labelPageSize(doc), printer });
       if (result.ok === false) return this.fail(result.error.message);
@@ -212,7 +223,7 @@ export class PrintService {
     }
   }
 
-  private async run(request: PrintRequest, mode: PrintMode, options: { quiet?: boolean }): Promise<PrintOutcome> {
+  private async run(request: PrintRequest, mode: PrintMode, options: { quiet?: boolean; labels?: boolean }): Promise<PrintOutcome> {
     if (this.busy()) return { ok: false, message: '' };
     this.busy.set(true);
     let reservation: { id: string; copyNo: number } | null = null;
@@ -250,7 +261,9 @@ export class PrintService {
         return { ok: true, copy: copy() };
       }
       const token = this.auth.token();
-      const result = mode === 'print' ? await bridge.print(token, job) : await bridge.savePdf(token, job, { suggestedName: doc.title });
+      const result = mode === 'print'
+        ? await (options.labels ? bridge.printLabels(token, job) : bridge.print(token, job))
+        : await bridge.savePdf(token, job, { suggestedName: doc.title });
       if (result.ok === false) {
         await settle(false);
         return this.fail(result.error.message);

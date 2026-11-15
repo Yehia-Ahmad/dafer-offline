@@ -23,7 +23,7 @@ const productSchema = new mongoose.Schema(
       trim: true,
       maxlength: [100, "يجب ألا يزيد كود المنتج عن 100 حرف"],
     },
-    // Stage 26: 0-5 barcodes (a factory EAN/UPC or Code 128, or a generated in-store EAN-13 "2…").
+    // Stage 26: 0-5 barcodes (a factory EAN/UPC or Code 128, or a generated in-store EAN-13 "290…").
     // Separate from `code` (the shop's internal code). Unique across non-archived products (index below).
     barcodes: {
       type: [String],

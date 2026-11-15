@@ -71,6 +71,7 @@ const EMPTY_PROFILE = {
   commercialRegister: "",
   invoiceFooter: "",
   autoLockMinutes: 10, // Stage 15 default
+  defaultSalePriceType: "retailPrice",
 };
 
 const PNG_DATA_URI =
@@ -153,6 +154,7 @@ test("PUT rejects invalid profiles with 400", async () => {
     ["commercial register over 50", { name: "Shop", commercialRegister: "c".repeat(51) }, "50"],
     ["address over 500", { name: "Shop", address: "a".repeat(501) }, "500"],
     ["invoice footer over 500", { name: "Shop", invoiceFooter: "f".repeat(501) }, "500"],
+    ["invalid default sale price", { name: "Shop", defaultSalePriceType: "cost" }, "السعر الافتراضي"],
   ];
 
   await withServer(async (baseUrl) => {
@@ -162,6 +164,19 @@ test("PUT rejects invalid profiles with 400", async () => {
       const { message } = await response.json();
       assert.ok(message.includes(messagePart), `${label}: unexpected message "${message}"`);
     }
+  });
+});
+
+test("default sale price is retail and saving wholesale survives an older PUT that omits the field", async () => {
+  const store = useMemoryStore();
+  await withServer(async (baseUrl) => {
+    let response = await put(baseUrl, { name: "Shop", defaultSalePriceType: "wholesalePrice" });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).defaultSalePriceType, "wholesalePrice");
+    response = await put(baseUrl, { name: "Shop", address: "kept" });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).defaultSalePriceType, "wholesalePrice");
+    assert.equal("defaultSalePriceType" in store.writes.at(-1).update.$set, false);
   });
 });
 

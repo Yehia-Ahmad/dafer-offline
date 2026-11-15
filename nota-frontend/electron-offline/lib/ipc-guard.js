@@ -17,6 +17,7 @@ const { LAN_KEY_HEADER } = require('./lan-auth');
 const SESSION = 'session'; // any signed-in user
 const BACKUP_MANAGE = 'backup.manage';
 const SHOP_MANAGE = 'shop.manage';
+const PRODUCTS_PRINT_LABELS = 'products.printLabels';
 
 // channel → rule. Handlers not listed here are not guarded by a session (see OFFLINE_PLAN.md).
 const IPC_RULES = Object.freeze({
@@ -40,6 +41,7 @@ const IPC_RULES = Object.freeze({
   'print:prefs-set': SESSION, // Stage 26: label content options + scan sound mute (whitelisted keys, see print-service setPrefs)
   'print:test-page': SHOP_MANAGE,
   'print:print': SESSION,
+  'print:labels': PRODUCTS_PRINT_LABELS,
   'print:pdf': SESSION,
 });
 
@@ -147,4 +149,4 @@ async function checkCaller({ channel, token, backend }) {
   return caller;
 }
 
-module.exports = { BACKUP_MANAGE, GuardError, IPC_RULES, SESSION, checkCaller, createBackendClient };
+module.exports = { BACKUP_MANAGE, GuardError, IPC_RULES, PRODUCTS_PRINT_LABELS, SESSION, checkCaller, createBackendClient };

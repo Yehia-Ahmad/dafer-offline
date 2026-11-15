@@ -1,7 +1,9 @@
 <!-- New credit invoice (docs/design/screens/NewCreditSale.dc.html). Stage 9: layout only; payload and validation unchanged. -->
 <div class="cs">
   <nota-page-header [title]="'creditSalePage.form.title' | translate" [subtitle]="'creditSalePage.subtitle' | translate"
-    backLink="/credit-sales" [backLabel]="'nav.items.credit' | translate" />
+    backLink="/credit-sales" [backLabel]="'nav.items.credit' | translate">
+    <div notaPageActions><nota-scan-sound-toggle /></div>
+  </nota-page-header>
 
   <form [formGroup]="creditSaleForm" class="cs__form" novalidate>
     <!-- Customer -->

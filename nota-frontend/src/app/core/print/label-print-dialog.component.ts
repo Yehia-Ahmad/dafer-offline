@@ -104,9 +104,16 @@ interface Row {
           <p class="lpd__total" [class.lpd__over]="job().tooMany" data-test="label-total">{{ 'labels.total' | translate: { count: job().total } }}</p>
           @if (job().tooMany) { <p class="lpd__over" role="alert" data-test="too-many">{{ 'labels.tooMany' | translate: { max: max, total: job().total } }}</p> }
           @if (target() === 'roll') { <p class="lpd__hint">{{ 'labels.noPrinterNote' | translate }}</p> }
+          @if (busy() && target() === 'roll') {
+            <div class="lpd__progress" data-test="label-progress">
+              <progress [value]="printedCount()" [max]="job().total"></progress>
+              <span>{{ 'labels.progress' | translate: { printed: printedCount(), total: job().total } }}</span>
+            </div>
+          }
 
           <div class="lpd__actions">
             <button type="button" notaButton (click)="close()">{{ 'auth.close' | translate }}</button>
+            @if (busy() && target() === 'roll') { <button type="button" notaButton="danger" data-test="stop-labels" (click)="stop()">{{ 'labels.stop' | translate }}</button> }
             <button type="button" notaButton="primary" data-test="print-labels" [disabled]="busy() || job().tooMany || job().total === 0" (click)="print()">{{ 'labels.print' | translate }}</button>
           </div>
         </div>
@@ -123,6 +130,7 @@ interface Row {
     .lpd__over { color: var(--danger, #b4401f); font-weight: 700; }
     .lpd__hint { color: var(--text-muted, #4a5856); font-size: 12px; margin: 0; }
     .lpd__actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .lpd__progress { display: grid; gap: 4px; } .lpd__progress progress { width: 100%; }
   `],
 })
 export class LabelPrintDialogComponent {
@@ -149,6 +157,8 @@ export class LabelPrintDialogComponent {
   readonly price = signal<LabelPrice>(DEFAULT_LABEL_OPTIONS.price);
   readonly startAt = signal(1);
   protected readonly busy = signal(false);
+  protected readonly printedCount = signal(0);
+  private stopRequested = false;
   private sheetLayout = normalizeSheet({});
   private readonly rollWidthMm = signal(normalizeRoll({}).widthMm);
   private readonly sheetWidthMm = signal(normalizeSheet({}).labelWidthMm);
@@ -236,20 +246,30 @@ export class LabelPrintDialogComponent {
   }
 
   protected async print(): Promise<void> {
+    this.stopRequested = false;
+    this.printedCount.set(0);
     this.busy.set(true);
     try {
       const outcome = await this.printService.printLabels(
         this.rows().map((row) => ({ item: row.item, copies: row.copies })),
         this.options(),
-        { startAt: this.target() === 'sheet' ? this.startAt() : 1 }
+        {
+          startAt: this.target() === 'sheet' ? this.startAt() : 1,
+          onProgress: (printed) => this.printedCount.set(printed),
+          shouldStop: () => this.stopRequested,
+        }
       );
-      if (outcome.ok) {
+      if (outcome.ok && !outcome.stopped) {
         this.printed.emit();
         this.visible.set(false);
       }
     } finally {
       this.busy.set(false);
     }
+  }
+
+  protected stop(): void {
+    this.stopRequested = true;
   }
 
   protected close(): void {

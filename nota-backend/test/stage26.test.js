@@ -17,6 +17,7 @@ const Customer = require("../src/models/customer.model");
 const JournalEntry = require("../src/models/journalEntry.model");
 const Meta = require("../src/models/meta.model");
 const Product = require("../src/models/product.model");
+const ShopProfile = require("../src/models/shopProfile.model");
 const { runMigrations, migrations } = require("../src/migrations");
 const { ROLE_TEMPLATES, PERMISSIONS } = require("../src/auth/permissions");
 const { barcodeProblem, barcodeType, normalizeBarcode, parseBarcodeList, ean13CheckDigit } = require("../src/utils/barcode");
@@ -102,11 +103,11 @@ test("validation: Code 128-safe ASCII, 4-48 chars, EAN-13/EAN-8/UPC-A check digi
   assert.deepEqual(parseBarcodeList(null), []);
 });
 
-test("generator format: 2 + 11 digits + EAN-13 check digit", () => {
+test("generator format: 290 + 9 digits + EAN-13 check digit", () => {
   const code = ean13FromSeq(125);
   assert.equal(code.length, 13);
-  assert.equal(code.slice(0, 1), "2");
-  assert.equal(code.slice(1, 12), "00000000125");
+  assert.equal(code.slice(0, 3), "290");
+  assert.equal(code.slice(3, 12), "000000125");
   assert.equal(Number(code[12]), ean13CheckDigit(code.slice(0, 12)));
   assert.equal(barcodeType(code), "EAN-13");
 });
@@ -235,7 +236,7 @@ it("archive frees the barcode; unarchive with a conflict is blocked with a clear
   assert.equal((await Product.findById(old._id).lean()).isArchived, false);
 });
 
-it("generate: an in-store EAN-13 (prefix 2, valid check digit) that skips numbers already taken", async () => {
+it("generate: an in-store EAN-13 (prefix 290, valid check digit) that skips numbers already taken", async () => {
   // Someone typed the next generated numbers by hand earlier (one on an archived product).
   await Counter.deleteMany({ _id: COUNTER_ID });
   ok(await create("G1", [ean13FromSeq(1)]), 201);
@@ -244,7 +245,7 @@ it("generate: an in-store EAN-13 (prefix 2, valid check digit) that skips number
   const generated = ok(await call("POST", "/api/products/barcodes/generate"), 201);
   assert.equal(generated.barcode, ean13FromSeq(3));
   assert.equal(generated.type, "EAN-13");
-  assert.equal(generated.barcode[0], "2");
+  assert.equal(generated.barcode.slice(0, 3), "290");
   assert.equal(barcodeProblem(generated.barcode), null);
   const next = ok(await call("POST", "/api/products/barcodes/generate"), 201);
   assert.equal(next.barcode, ean13FromSeq(4));
@@ -266,7 +267,7 @@ it("bulk generate: count first, then one barcode for each product with none (cat
   for (const product of catAProducts) {
     assert.equal(product.barcodes.length, 1);
     assert.equal(barcodeType(product.barcodes[0]), "EAN-13");
-    assert.equal(product.barcodes[0][0], "2");
+    assert.equal(product.barcodes[0].slice(0, 3), "290");
   }
   assert.equal(new Set(catAProducts.map((product) => product.barcodes[0])).size, 3);
   assert.equal(ok(await call("GET", `/api/products/barcodes/missing-count?categoryId=${catB._id}`)).count, 2);
@@ -374,9 +375,23 @@ it("migration 13: existing products get barcodes []; isArchived untouched; nothi
   // Twice is harmless.
   await migration.run(null);
   assert.equal(await Product.countDocuments({ code: /^M/, barcodes: { $size: 0 } }), 3);
-  // Full run from an older schema ends at 13.
+  // Full run from an older schema also applies the next migration.
   await Meta.deleteMany({}); await Meta.create({ _id: "schema", version: 12 });
-  assert.equal(await runMigrations(), 13);
+  assert.equal(await runMigrations(), 14);
+});
+
+it("migration 14: existing shop profiles get retail as the default sale price without overwriting a choice", async () => {
+  await ShopProfile.collection.insertMany([
+    { key: "default", name: "old shop" },
+    { key: "other", name: "chosen shop", defaultSalePriceType: "wholesalePrice" },
+  ]);
+  const migration = migrations.find((entry) => entry.version === 14);
+  assert.ok(migration);
+  await migration.run(null);
+  assert.equal((await ShopProfile.collection.findOne({ key: "default" })).defaultSalePriceType, "retailPrice");
+  assert.equal((await ShopProfile.collection.findOne({ key: "other" })).defaultSalePriceType, "wholesalePrice");
+  await migration.run(null);
+  assert.equal(await ShopProfile.countDocuments({ defaultSalePriceType: "retailPrice" }), 1);
 });
 
 it("Excel workbook: export writes a Barcodes column, import reads it and refuses a barcode another product holds", async () => {

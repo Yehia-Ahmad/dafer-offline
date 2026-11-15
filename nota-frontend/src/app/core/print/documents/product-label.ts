@@ -102,6 +102,29 @@ export function planLabelJob(entries: LabelEntry[]): LabelJob {
   return { entries: kept, total, tooMany: total > MAX_LABELS_PER_JOB, skipped };
 }
 
+/** Splits an already planned roll job without expanding thousands of duplicate item objects. */
+export function batchLabelEntries(entries: LabelEntry[], size = 200): LabelEntry[][] {
+  const batches: LabelEntry[][] = [];
+  let current: LabelEntry[] = [];
+  let remaining = Math.max(1, Math.floor(size));
+  for (const entry of entries) {
+    let copies = entry.copies;
+    while (copies > 0) {
+      const take = Math.min(copies, remaining);
+      current.push({ item: entry.item, copies: take });
+      copies -= take;
+      remaining -= take;
+      if (remaining === 0) {
+        batches.push(current);
+        current = [];
+        remaining = Math.max(1, Math.floor(size));
+      }
+    }
+  }
+  if (current.length) batches.push(current);
+  return batches;
+}
+
 /** The 2,000-label limit as an error, for callers that build the document directly. */
 export class LabelLimitError extends Error {
   constructor(readonly total: number) {

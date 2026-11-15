@@ -49,6 +49,7 @@ describe('SellingComponent payloads (Stage 9 safety)', () => {
   const fillStandardInvoice = () => {
     pickCustomer();
     searchAndPick(0, 'LED', product('p1', 'لمبة LED ١٨ وات', 'LED-18', 60, 75));
+    component.getInvoiceItem(0).get('priceType')!.setValue('wholesalePrice');
     component.getInvoiceItem(0).get('quantity')!.setValue(3);
     component.addInvoiceItem(false);
     searchAndPick(1, 'EXT', product('p2', 'مشترك ٥ مخارج', 'EXT-5', 120, 140));
@@ -182,7 +183,7 @@ describe('SellingComponent payloads (Stage 9 safety)', () => {
     const req = expectSellingPost();
     expect(JSON.stringify(req.request.body)).toBe(JSON.stringify({
       customerName: 'زبون نقدي', customerPhone: '', sellingDate: '2026-11-04', discountAmount: 0, discountPercentage: 0,
-      shippingFees: 0, confirmInsufficientInventory: false, expectedTotal: 60, items: [{ productId: 'p1', quantity: 1, price: 60 }],
+      shippingFees: 0, confirmInsufficientInventory: false, expectedTotal: 75, items: [{ productId: 'p1', quantity: 1, price: 75 }],
     }));
     req.flush({});
   });

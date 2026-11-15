@@ -74,7 +74,7 @@ describe('barcode rules (the same as the backend)', () => {
     expect(barcodeType('4006381333932')).toBe('Code 128');
     expect(barcodeType('ABC-123')).toBe('Code 128');
     expect(barcodeType('1234567')).toBe('Code 128');
-    expect(barcodeType('2000000000015')).toBe('EAN-13'); // an in-store generated number
+    expect(barcodeType('2900000000018')).toBe('EAN-13'); // an in-store generated number
   });
 
   it('a problem is reported as a translation key: length, characters, wrong check digit', () => {

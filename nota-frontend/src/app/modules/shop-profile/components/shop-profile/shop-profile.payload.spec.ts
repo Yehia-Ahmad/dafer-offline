@@ -11,6 +11,7 @@ describe('ShopProfileComponent payloads (Stage 11)', () => {
   const url = `${environment.api_base_url}shop-profile`;
   let http: HttpTestingController;
   let component: any;
+  let fixture: ReturnType<typeof TestBed.createComponent<ShopProfileComponent>>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -18,12 +19,13 @@ describe('ShopProfileComponent payloads (Stage 11)', () => {
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
-    const fixture = TestBed.createComponent(ShopProfileComponent);
+    fixture = TestBed.createComponent(ShopProfileComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
     http.expectOne((r) => r.url === url && r.method === 'GET').flush({
       name: 'النور', address: 'المنصورة', phones: ['0100'], logo: null, taxNumber: '', commercialRegister: '45', invoiceFooter: 'شكرا',
     });
+    fixture.detectChanges();
   });
 
   afterEach(() => http.verify());
@@ -37,7 +39,7 @@ describe('ShopProfileComponent payloads (Stage 11)', () => {
     const req = http.expectOne((r) => r.url === url && r.method === 'PUT');
     expect(JSON.stringify(req.request.body)).toBe(JSON.stringify({
       name: 'النور للأدوات', address: '١٢ شارع الجيش', phones: ['0100', '050 123'], logo: 'data:image/png;base64,AAAA',
-      taxNumber: '123', commercialRegister: '45', invoiceFooter: 'شكرا', autoLockMinutes: 10,
+      taxNumber: '123', commercialRegister: '45', invoiceFooter: 'شكرا', autoLockMinutes: 10, defaultSalePriceType: 'retailPrice',
     }));
     req.flush({ name: 'النور للأدوات', address: '', phones: [], logo: null, taxNumber: '', commercialRegister: '', invoiceFooter: '' });
     expect(component.outcome()).toEqual({ kind: 'saved' });
@@ -47,5 +49,14 @@ describe('ShopProfileComponent payloads (Stage 11)', () => {
     component.form.patchValue({ name: '' });
     component.save();
     http.expectNone((r) => r.method === 'PUT');
+  });
+
+  it('shows the default sale price setting and saves a wholesale choice', () => {
+    expect(fixture.nativeElement.querySelector('[data-test="default-sale-price-card"]')).not.toBeNull();
+    component.form.controls.defaultSalePriceType.setValue('wholesalePrice');
+    component.save();
+    const req = http.expectOne((r) => r.url === url && r.method === 'PUT');
+    expect(req.request.body.defaultSalePriceType).toBe('wholesalePrice');
+    req.flush({ name: 'النور', address: '', phones: [], logo: null, taxNumber: '', commercialRegister: '', invoiceFooter: '', defaultSalePriceType: 'wholesalePrice' });
   });
 });

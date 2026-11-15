@@ -163,12 +163,12 @@ describe('Stage 26 label print dialog', () => {
   it('generate first: an EAN-13 per product without a barcode, saved on the product', async () => {
     const { q, fixture, http } = await open('storekeeper', [bare]);
     q<HTMLButtonElement>('[data-test="generate-first"]')!.click();
-    http.expectOne(`${base}products/barcodes/generate`).flush({ barcode: '2000000000015', type: 'EAN-13' });
+    http.expectOne(`${base}products/barcodes/generate`).flush({ barcode: '2900000000018', type: 'EAN-13' });
     await tick();
     const save = http.expectOne(`${base}products/p2`);
     expect(save.request.method).toBe('PUT');
-    expect(save.request.body).toEqual({ barcodes: ['2000000000015'] });
-    save.flush({ barcodes: ['2000000000015'] });
+    expect(save.request.body).toEqual({ barcodes: ['2900000000018'] });
+    save.flush({ barcodes: ['2900000000018'] });
     await tick();
     fixture.detectChanges();
     expect(q('[data-test="no-barcode"]')).toBeNull();

@@ -341,7 +341,7 @@ const TOKEN = 'valid-token-0123456789';
 
 test('every print channel is guarded in the main process: no token or an expired one → SESSION_EXPIRED and nothing runs', async () => {
   const { calls, handlers } = handlerHarness(['sales.create']);
-  const jobs = { 'print:printers': [], 'print:settings-get': [], 'print:settings-set': [{}], 'print:test-page': [{}], 'print:print': [{}], 'print:pdf': [{}, {}] };
+  const jobs = { 'print:printers': [], 'print:settings-get': [], 'print:settings-set': [{}], 'print:test-page': [{}], 'print:print': [{}], 'print:labels': [{}], 'print:pdf': [{}, {}] };
   for (const [channel, args] of Object.entries(jobs)) {
     for (const token of [undefined, '', 'short', 'x'.repeat(20)]) {
       const result = await handlers[channel](token, ...args);

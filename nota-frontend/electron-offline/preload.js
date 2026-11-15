@@ -67,6 +67,7 @@ contextBridge.exposeInMainWorld('notaDesktop', {
     setPrefs: (token, patch) => ipcRenderer.invoke('print:prefs-set', token, patch),
     testPage: (token, request) => ipcRenderer.invoke('print:test-page', token, request),
     print: (token, job) => ipcRenderer.invoke('print:print', token, job),
+    printLabels: (token, job) => ipcRenderer.invoke('print:labels', token, job),
     savePdf: (token, job, options) => ipcRenderer.invoke('print:pdf', token, job, options),
   },
 

@@ -9,7 +9,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { LanguageService } from '../../../shared/services/translation.service';
 import { brandName } from '../../../../core/brand';
 import { NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent } from '../../../shared/ui';
-import { DEFAULT_CLOSING, DEFAULT_VAT, SHOP_PROFILE_LIMITS, ShopProfile } from '../../models/shop-profile.model';
+import { DEFAULT_CLOSING, DEFAULT_SALE_PRICE_TYPE, DEFAULT_VAT, SHOP_PROFILE_LIMITS, ShopProfile } from '../../models/shop-profile.model';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { ShopProfileService } from '../../services/shop-profile.service';
 import { AUTO_LOCK_CHOICES, DEFAULT_AUTO_LOCK_MINUTES, normalizeAutoLock } from '../../../../core/auth/idle-lock.service';
@@ -59,6 +59,7 @@ export class ShopProfileComponent implements OnInit {
     commercialRegister: ['', Validators.maxLength(SHOP_PROFILE_LIMITS.commercialRegister)],
     invoiceFooter: ['', Validators.maxLength(SHOP_PROFILE_LIMITS.invoiceFooter)],
     autoLockMinutes: [DEFAULT_AUTO_LOCK_MINUTES as number],
+    defaultSalePriceType: [DEFAULT_SALE_PRICE_TYPE],
     // Stage 21: the "الضريبة" card. `vatRate` is a string while typing (2 decimals, 0-100), validated in save().
     vatEnabled: [false],
     vatRate: [String(DEFAULT_VAT.rate), [Validators.required, Validators.pattern(/^\d{1,3}(\.\d{1,2})?$/)]],
@@ -212,6 +213,7 @@ export class ShopProfileComponent implements OnInit {
         commercialRegister: raw.commercialRegister.trim(),
         invoiceFooter: raw.invoiceFooter.trim(),
         autoLockMinutes: normalizeAutoLock(raw.autoLockMinutes),
+        defaultSalePriceType: raw.defaultSalePriceType,
         ...(vat ? { vat } : {}),
         ...(closing ? { closing } : {}),
       })
@@ -241,6 +243,7 @@ export class ShopProfileComponent implements OnInit {
       commercialRegister: profile.commercialRegister || '',
       invoiceFooter: profile.invoiceFooter || '',
       autoLockMinutes: normalizeAutoLock(profile.autoLockMinutes),
+      defaultSalePriceType: profile.defaultSalePriceType ?? DEFAULT_SALE_PRICE_TYPE,
       vatEnabled: profile.vat?.enabled ?? false,
       vatRate: String(profile.vat?.rate ?? DEFAULT_VAT.rate),
       vatIncludes: profile.vat?.pricesIncludeVat ?? DEFAULT_VAT.pricesIncludeVat,

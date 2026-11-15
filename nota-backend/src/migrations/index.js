@@ -20,6 +20,7 @@ const { isLanMode } = require("../middlewares/lanSecret.middleware");
 const CashBox = require("../models/cashBox.model");
 const Device = require("../models/device.model");
 const PrintReservation = require("../models/printReservation.model");
+const ShopProfile = require("../models/shopProfile.model");
 const { syncAccountBoxes } = require("../cashbox/boxes");
 
 const BATCH_SIZE = 500;
@@ -656,6 +657,16 @@ async function stage26BarcodesMigration(session) {
   return { barcodesAdded: barcodes.modifiedCount };
 }
 
+// Stage 26 follow-up: existing shops start with retail, the same as a new shop.
+async function stage26DefaultSalePriceMigration(session) {
+  const result = await ShopProfile.collection.updateMany(
+    { $or: [{ defaultSalePriceType: { $exists: false } }, { defaultSalePriceType: null }] },
+    { $set: { defaultSalePriceType: "retailPrice" } },
+    { session }
+  );
+  return { shopProfilesUpdated: result.modifiedCount };
+}
+
 const migrations = [
   { version: 1, name: "document numbers and receipts", run: numbersMigration },
   { version: 2, name: "original invoice totals and returned status", chunked: true, runChunk: originalTotalsMigrationChunk },
@@ -670,6 +681,7 @@ const migrations = [
   { version: 11, name: "stage 23 review: drop the old key_1_copyNo_1 index (unique or not)", outsideTransaction: true, run: stage23PrintReservationIndexMigration },
   { version: 12, name: "stage 24 license: existing client PCs are paired", run: stage24PairExistingClientsMigration },
   { version: 13, name: "stage 26 barcodes: an empty barcode list on every product", run: stage26BarcodesMigration },
+  { version: 14, name: "stage 26 follow-up: retail is the default POS price tier", run: stage26DefaultSalePriceMigration },
 ];
 
 async function recordMigration(migration, details, session) {

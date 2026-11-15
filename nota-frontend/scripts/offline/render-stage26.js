@@ -83,7 +83,7 @@ async function main() {
   const item = (extra) => ({ name: 'لمبة LED ٩ وات', code: 'LED-9', barcode: '4006381333931', retailPrice: 45, wholesalePrice: 35, priceAfterDiscount: 40.5, vatExempt: false, ...extra });
   const A = item({});
   const B = item({ name: 'LED bulb 9W warm white', barcode: 'SKU-LED-9-WHT', code: 'LED-9W' });
-  const LONG_AR = item({ name: 'كابل كهرباء نحاس خالص مقاس ٣ في ٢٫٥ ملم عزل مزدوج مقاوم للحرارة والرطوبة لفة ١٠٠ متر', code: 'CB-325', barcode: '2000000000015' });
+  const LONG_AR = item({ name: 'كابل كهرباء نحاس خالص مقاس ٣ في ٢٫٥ ملم عزل مزدوج مقاوم للحرارة والرطوبة لفة ١٠٠ متر', code: 'CB-325', barcode: '2900000000018' });
   const LONG_CODE128 = item({ name: 'كابل كهرباء نحاس خالص مقاس ٣ في ٢٫٥ ملم عزل مزدوج مقاوم للحرارة والرطوبة', code: 'CB-325', barcode: 'CABLE-325-100M' });
   const EAN8 = item({ name: 'شاحن', code: 'CH-1', barcode: '96385074' });
   const UPCA = item({ name: 'USB charger', code: 'CH-2', barcode: '036000291452' });

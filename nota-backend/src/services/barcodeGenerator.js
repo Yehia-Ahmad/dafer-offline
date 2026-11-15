@@ -1,17 +1,16 @@
-// Stage 26: in-store EAN-13 barcodes: "2" + 11 digits from an atomic counter + the check digit.
-// Prefix 2 is the GS1 range reserved for in-store use, so a generated number never collides with a
-// factory barcode. A number already held by ANY product (archived ones too, so a later unarchive cannot
-// clash) is skipped and the next one is taken.
+// Stage 26 follow-up: in-store EAN-13 barcodes: "290" + 9 digits from an atomic counter + the check
+// digit. Only 290 is consumed; 20-28 and the rest of 29 stay available for scale barcodes later.
+// A number already held by ANY product (archived ones too) is skipped and the next one is taken.
 
 const Counter = require("../models/counter.model");
 const Product = require("../models/product.model");
 const { ean13CheckDigit } = require("../utils/barcode");
 
 const COUNTER_ID = "barcode_ean13";
-const MAX_SEQ = 99999999999; // 11 digits
+const MAX_SEQ = 999999999; // 9 digits
 
 const ean13FromSeq = (seq) => {
-  const body = `2${String(seq).padStart(11, "0")}`;
+  const body = `290${String(seq).padStart(9, "0")}`;
   return `${body}${ean13CheckDigit(body)}`;
 };
 

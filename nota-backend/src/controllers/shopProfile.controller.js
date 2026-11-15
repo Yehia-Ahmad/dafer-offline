@@ -1,5 +1,5 @@
 const ShopProfile = require("../models/shopProfile.model");
-const { AUTO_LOCK_MINUTES, DEFAULT_AUTO_LOCK_MINUTES } = ShopProfile;
+const { AUTO_LOCK_MINUTES, DEFAULT_AUTO_LOCK_MINUTES, DEFAULT_SALE_PRICE_TYPE } = ShopProfile;
 const asyncHandler = require("../utils/asyncHandler");
 const { readVatUpdate, DEFAULT_VAT } = require("../utils/vatSettings");
 const { DEFAULT_CLOSING } = require("../accounting/closing");
@@ -19,6 +19,7 @@ const EMPTY_PROFILE = Object.freeze({
   commercialRegister: "",
   invoiceFooter: "",
   autoLockMinutes: DEFAULT_AUTO_LOCK_MINUTES,
+  defaultSalePriceType: DEFAULT_SALE_PRICE_TYPE,
 });
 
 const OPTIONAL_STRING_FIELDS = ["address", "logo", "taxNumber", "commercialRegister", "invoiceFooter"];
@@ -82,6 +83,15 @@ const updateShopProfile = asyncHandler(async (req, res) => {
       throw new Error("مدة القفل التلقائي غير صالحة");
     }
     $set.autoLockMinutes = minutes;
+  }
+
+  // Stage 26 follow-up: additive. An older screen that omits it keeps the stored value.
+  if (body.defaultSalePriceType !== undefined) {
+    if (!["retailPrice", "wholesalePrice"].includes(body.defaultSalePriceType)) {
+      res.status(400);
+      throw new Error("نوع السعر الافتراضي في البيع غير صالح");
+    }
+    $set.defaultSalePriceType = body.defaultSalePriceType;
   }
 
   // Stage 21: additive. Only a request that carries `vat` reads the stored settings, so every other PUT is unchanged.

@@ -27,6 +27,7 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { UnsavedWorkService } from '../../../../core/unsaved-work/unsaved-work.service';
 import { isOverDiscountLimit } from '../../../../core/auth/discount-limit';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, NotaLockBannerComponent } from '../../../shared/ui';
+import { ScanSoundToggleComponent } from '../../../../core/scan/scan-sound-toggle.component';
 import {
   CreateCreditSalePayload,
   CreditSalesService
@@ -90,7 +91,8 @@ type CreditLineItemState = {
     NotaFormFieldComponent,
     NotaMoneyPipe,
     NotaNumberPipe,
-    NotaPageHeaderComponent
+    NotaPageHeaderComponent,
+    ScanSoundToggleComponent
   ],
   templateUrl: './credit-sales.component.html',
   styleUrl: './credit-sales.component.scss',

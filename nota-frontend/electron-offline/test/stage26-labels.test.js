@@ -10,7 +10,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
-const { IPC_RULES, SESSION } = require('../lib/ipc-guard');
+const { IPC_RULES, PRODUCTS_PRINT_LABELS, SESSION } = require('../lib/ipc-guard');
 const { normalizeRoll, normalizeSheet, normalizeLabelOptions } = require('../lib/label-settings');
 const { createPrintHandlers } = require('../lib/print-handlers');
 const { DEFAULT_SETTINGS, PREF_KEYS, createPrintService, normalizeSettings, validateJob } = require('../lib/print-service');
@@ -247,11 +247,23 @@ test('print:prefs-set needs only a session (a storekeeper or a cashier keeps the
   const none = await handlerHarness([]).handlers['print:prefs-set'](undefined, { scanSoundMuted: true });
   assert.deepEqual([none.ok, none.error.code], [false, 'SESSION_EXPIRED']);
 });
+
+test('print:labels checks the session and products.printLabels before a label reaches the printer', async () => {
+  assert.equal(IPC_RULES['print:labels'], PRODUCTS_PRINT_LABELS);
+  const allowed = handlerHarness(['products.printLabels']);
+  assert.equal((await allowed.handlers['print:labels'](TOKEN, { paper: 'label' })).ok, true);
+  assert.deepEqual(allowed.calls, [['print', { paper: 'label' }]]);
+  const refused = handlerHarness([]);
+  const result = await refused.handlers['print:labels'](TOKEN, { paper: 'label' });
+  assert.deepEqual([result.ok, result.error.code], [false, 'FORBIDDEN']);
+  assert.deepEqual(refused.calls, []);
+});
 function handlerHandlerFor(permissions) { return handlerHarness(permissions); }
 
 test('the preload exposes setPrefs with the token first, and the label printer is validated like the others', () => {
   const preload = fs.readFileSync(path.join(root, 'preload.js'), 'utf8');
   assert.ok(preload.includes("'print:prefs-set', token"));
+  assert.ok(preload.includes("'print:labels', token"));
   const source = fs.readFileSync(path.join(root, 'lib', 'print-service.js'), 'utf8');
   assert.match(source, /\['receiptPrinter', 'documentPrinter', 'labelPrinter'\]/);
   assert.ok(!/javascript:\s*true/.test(source), 'the print window never enables JavaScript');

@@ -6,6 +6,7 @@ const MAX_PHONES = 3;
 // Stage 15: auto-lock choices in minutes (0 = off).
 const AUTO_LOCK_MINUTES = [0, 5, 10, 15, 30, 60];
 const DEFAULT_AUTO_LOCK_MINUTES = 10;
+const DEFAULT_SALE_PRICE_TYPE = "retailPrice";
 
 // Decoded size of a base64 image (raw or data URI), without decoding it.
 const getBase64DecodedBytes = (value) => {
@@ -96,6 +97,12 @@ const shopProfileSchema = new mongoose.Schema(
       enum: { values: AUTO_LOCK_MINUTES, message: "مدة القفل التلقائي غير صالحة" },
       default: DEFAULT_AUTO_LOCK_MINUTES,
     },
+    // Stage 26 follow-up: the tier used for each new POS line added by tile or scan.
+    defaultSalePriceType: {
+      type: String,
+      enum: { values: ["retailPrice", "wholesalePrice"], message: "نوع السعر الافتراضي في البيع غير صالح" },
+      default: DEFAULT_SALE_PRICE_TYPE,
+    },
     // Stage 22: period closing settings (owner). Additive: absent from GET until saved.
     closing: {
       frequency: { type: String, enum: ["monthly", "yearly"], default: "monthly" },
@@ -115,3 +122,4 @@ const shopProfileSchema = new mongoose.Schema(
 module.exports = mongoose.model("ShopProfile", shopProfileSchema);
 module.exports.AUTO_LOCK_MINUTES = AUTO_LOCK_MINUTES;
 module.exports.DEFAULT_AUTO_LOCK_MINUTES = DEFAULT_AUTO_LOCK_MINUTES;
+module.exports.DEFAULT_SALE_PRICE_TYPE = DEFAULT_SALE_PRICE_TYPE;

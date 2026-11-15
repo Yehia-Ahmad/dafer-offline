@@ -58,11 +58,11 @@ describe('SellingComponent scanning (Stage 26)', () => {
     return box;
   };
 
-  it('Enter with an exact barcode adds the product with quantity 1 at its wholesale price; the box is cleared and keeps the focus', async () => {
+  it('Enter with an exact barcode adds the product with quantity 1 at the default retail price; the box is cleared and keeps the focus', async () => {
     await setup();
     const box = await scan('4006381333931', { barcode: led18 });
     expect(component.invoiceItems.length).toBe(1);
-    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p1', quantity: 1, priceType: 'wholesalePrice', price: 60 }));
+    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p1', quantity: 1, priceType: 'retailPrice', price: 75 }));
     expect(ok).toHaveBeenCalledTimes(1);
     expect(error).not.toHaveBeenCalled();
     expect(box.value).toBe('');
@@ -77,22 +77,22 @@ describe('SellingComponent scanning (Stage 26)', () => {
     await scan('4006381333931', { barcode: led18 });
     expect(component.invoiceItems.length).toBe(1);
     expect(component.getInvoiceItem(0).get('quantity')!.value).toBe(3);
-    expect(component.invoiceGrandTotal).toBe(180);
+    expect(component.invoiceGrandTotal).toBe(225);
     // Another product gets its own line.
     await scan('96385074', { barcode: led12 });
     expect(component.invoiceItems.length).toBe(2);
     expect(component.getInvoiceItem(1).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p2', quantity: 1 }));
   });
 
-  it('the same product on another price type is a new line (a scan is always a new wholesale line unless one exists)', async () => {
+  it('the same product on another price type is a new line (a scan uses the configured retail default)', async () => {
     await setup();
     await scan('4006381333931', { barcode: led18 });
-    component.getInvoiceItem(0).get('priceType')!.setValue('retailPrice');
+    component.getInvoiceItem(0).get('priceType')!.setValue('wholesalePrice');
     await scan('4006381333931', { barcode: led18 });
     expect(component.invoiceItems.length).toBe(2);
-    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ priceType: 'retailPrice', price: 75, quantity: 1 }));
-    expect(component.getInvoiceItem(1).getRawValue()).toEqual(jasmine.objectContaining({ priceType: 'wholesalePrice', price: 60, quantity: 1 }));
-    await scan('4006381333931', { barcode: led18 }); // now the wholesale line exists: +1 on it
+    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ priceType: 'wholesalePrice', price: 60, quantity: 1 }));
+    expect(component.getInvoiceItem(1).getRawValue()).toEqual(jasmine.objectContaining({ priceType: 'retailPrice', price: 75, quantity: 1 }));
+    await scan('4006381333931', { barcode: led18 }); // now the retail line exists: +1 on it
     expect(component.invoiceItems.length).toBe(2);
     expect(component.getInvoiceItem(1).get('quantity')!.value).toBe(2);
   });

@@ -916,6 +916,12 @@
         "hints": {
             "invoiceFooter": "Text printed at the bottom of every invoice, such as a return policy or a thank-you note."
         },
+        "defaultSalePrice": {
+            "title": "Default sale price type",
+            "hint": "Used for a new line added from a product tile or a scan.",
+            "retail": "Retail",
+            "wholesale": "Wholesale"
+        },
         "validation": {
             "nameRequired": "Shop name is required"
         },
@@ -2617,6 +2623,8 @@
     "generateFirst": "Generate barcodes for the products without one first",
     "skipped": "{{count}} products without a barcode will be skipped",
     "total": "Total labels: {{count}}",
+    "progress": "Printed {{printed}} of {{total}}",
+    "stop": "Stop",
     "tooMany": "At most {{max}} labels per print job (requested {{total}}). Reduce the quantities.",
     "nothing": "There are no labels to print",
     "tooSmall": "This long barcode is small for the label size and a scanner may not read it",
@@ -2646,6 +2654,8 @@
       "outlineHint": "Print it on plain paper and hold it over the sticker sheet against the light to check the alignment.",
       "sounds": "Scan sounds",
       "mute": "Mute the scan sounds on this device",
+      "soundOn": "Scan sound on",
+      "soundOff": "Scan sound muted",
       "save": "Save"
     }
   },

@@ -111,11 +111,11 @@ describe('BarcodeListComponent (Stage 26)', () => {
 
   it('"ولّد باركود" asks the server for an in-store EAN-13 and adds it; only for a user who can edit products', async () => {
     el().querySelector<HTMLButtonElement>('[data-test="barcode-generate"]')!.click();
-    http.expectOne(`${base}products/barcodes/generate`).flush({ barcode: '2000000000015', type: 'EAN-13' });
+    http.expectOne(`${base}products/barcodes/generate`).flush({ barcode: '2900000000018', type: 'EAN-13' });
     await tick();
     fixture.detectChanges();
-    expect(host.barcodes).toEqual(['2000000000015']);
-    expect(codes()).toEqual(['2000000000015']);
+    expect(host.barcodes).toEqual(['2900000000018']);
+    expect(codes()).toEqual(['2900000000018']);
 
     host.canGenerate = false;
     fixture.componentRef.changeDetectorRef.detectChanges();

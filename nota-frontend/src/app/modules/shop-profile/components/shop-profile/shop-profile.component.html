@@ -98,6 +98,15 @@
           </nota-form-field>
         </section>
 
+        <section class="sp__security" data-test="default-sale-price-card" aria-labelledby="sp-default-sale-price-title">
+          <h2 id="sp-default-sale-price-title" class="nota-section-title sp__security-title">{{ 'shopProfilePage.defaultSalePrice.title' | translate }}</h2>
+          <p class="nota-hint">{{ 'shopProfilePage.defaultSalePrice.hint' | translate }}</p>
+          <fieldset class="sp__vat-mode">
+            <label class="sp__check"><input type="radio" value="retailPrice" formControlName="defaultSalePriceType" data-field="default-sale-retail" /> {{ 'shopProfilePage.defaultSalePrice.retail' | translate }}</label>
+            <label class="sp__check"><input type="radio" value="wholesalePrice" formControlName="defaultSalePriceType" data-field="default-sale-wholesale" /> {{ 'shopProfilePage.defaultSalePrice.wholesale' | translate }}</label>
+          </fieldset>
+        </section>
+
         <!-- Stage 21: الضريبة — optional per shop. -->
         <section class="sp__vat" data-test="vat-card" aria-labelledby="sp-vat-title">
           <div class="sp__security-head">

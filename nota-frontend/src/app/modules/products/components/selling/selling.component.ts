@@ -51,6 +51,8 @@ import { VatSettingsService } from '../../../shop-profile/services/vat-settings.
 import { SaleVat, computeSaleVat } from '../../../shared/vat/vat-math';
 import { hasMoneyPrecision, twoDecimalsValidator } from '../../../shared/price-precision';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
+import { ShopProfileService } from '../../../shop-profile/services/shop-profile.service';
+import { ScanSoundToggleComponent } from '../../../../core/scan/scan-sound-toggle.component';
 
 type PriceType = 'wholesalePrice' | 'retailPrice' | 'custom';
 
@@ -147,7 +149,8 @@ type InvoiceItemState = {
     NotaFormFieldComponent,
     NotaMoneyPipe,
     NotaNumberPipe,
-    NotaPageHeaderComponent
+    NotaPageHeaderComponent,
+    ScanSoundToggleComponent
   ],
   templateUrl: './selling.component.html',
   styleUrls: ['./selling.component.scss', './selling-invoice.scss'],
@@ -463,6 +466,12 @@ export class SellingComponent implements OnInit, OnDestroy {
 
   private readonly _scan = inject(ScanService);
   private readonly _scanFeedback = inject(ScanFeedbackService);
+  private readonly _shopProfile = inject(ShopProfileService);
+
+  /** Stage 26 follow-up: absent/old data is retail; the migration persists the same value. */
+  private defaultSalePriceType(): Exclude<PriceType, 'custom'> {
+    return this._shopProfile.profile()?.defaultSalePriceType === 'wholesalePrice' ? 'wholesalePrice' : 'retailPrice';
+  }
 
   /**
    * Stage 26: Enter in the product box (a barcode scanner's last key).
@@ -497,10 +506,11 @@ export class SellingComponent implements OnInit, OnDestroy {
     input?.select();
   }
 
-  /** A scanned product: +1 on the line with the same product AND the same price type (a new line starts as wholesale), else a new line. */
+  /** A scanned product: +1 only on the same product + configured default price type; otherwise a new line. */
   addScannedProduct(product: ProductSearchResult): void {
+    const priceType = this.defaultSalePriceType();
     const existing = this.invoiceItemStates.findIndex(
-      (state, index) => state.selectedProduct?.id === product.id && this.getInvoiceItem(index).get('priceType')?.value === 'wholesalePrice'
+      (state, index) => state.selectedProduct?.id === product.id && this.getInvoiceItem(index).get('priceType')?.value === priceType
     );
     if (existing > -1) {
       this.stepQuantity(existing, 1);
@@ -511,12 +521,15 @@ export class SellingComponent implements OnInit, OnDestroy {
       this.addInvoiceItem(false);
       index = this.invoiceItems.length - 1;
     }
-    this.onNativeOptionSelect(index, product);
+    this.selectProductWithPriceType(index, product, priceType);
   }
 
-  /** Tile click: +1 on the line that already has this product, else fill the first empty line (or a new one). */
+  /** Tile click follows the same product + price-type merge rule as scanning. */
   addProductToInvoice(product: ProductSearchResult): void {
-    const existing = this.invoiceItemStates.findIndex((state) => state.selectedProduct?.id === product.id);
+    const priceType = this.defaultSalePriceType();
+    const existing = this.invoiceItemStates.findIndex(
+      (state, index) => state.selectedProduct?.id === product.id && this.getInvoiceItem(index).get('priceType')?.value === priceType
+    );
     if (existing > -1) {
       this.stepQuantity(existing, 1);
       return;
@@ -527,6 +540,11 @@ export class SellingComponent implements OnInit, OnDestroy {
       this.addInvoiceItem(false);
       index = this.invoiceItems.length - 1;
     }
+    this.selectProductWithPriceType(index, product, priceType);
+  }
+
+  private selectProductWithPriceType(index: number, product: ProductSearchResult, priceType: Exclude<PriceType, 'custom'>): void {
+    this.getInvoiceItem(index).get('priceType')?.setValue(priceType, { emitEvent: false });
     this.onNativeOptionSelect(index, product);
   }
 
@@ -1033,7 +1051,7 @@ export class SellingComponent implements OnInit, OnDestroy {
       productId: [null, Validators.required],
       productName: [{ value: '', disabled: true }],
       categoryName: [{ value: '', disabled: true }],
-      priceType: ['wholesalePrice', Validators.required],
+      priceType: ['retailPrice', Validators.required],
       price: [{ value: null, disabled: true }, [Validators.required, Validators.min(0.01), twoDecimalsValidator]],
       quantity: [1, [Validators.required, Validators.min(1)]],
       lineTotal: [{ value: 0, disabled: true }]
@@ -1170,13 +1188,13 @@ export class SellingComponent implements OnInit, OnDestroy {
       productId: null,
       productName: '',
       categoryName: '',
-      priceType: 'wholesalePrice',
+      priceType: 'retailPrice',
       price: null,
       quantity: 1,
       lineTotal: 0
     });
 
-    this.applyPriceTypeToItem(itemGroup, 'wholesalePrice');
+    this.applyPriceTypeToItem(itemGroup, 'retailPrice');
     this.updateInvoiceTotals();
   }
 

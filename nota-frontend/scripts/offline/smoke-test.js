@@ -534,11 +534,11 @@ async function runAuthScenarios(ctx) {
     return `${describe(taken)}; ${describe(wrong)}`;
   });
 
-  await step('Barcodes: generate → an in-store EAN-13 (prefix 2, valid check digit)', async () => {
+  await step('Barcodes: generate → an in-store EAN-13 (prefix 290, valid check digit)', async () => {
     const response = await request('POST', '/api/products/barcodes/generate', { body: {} });
     expectStatus(response, 201, 'POST /api/products/barcodes/generate');
     const code = response.json.barcode;
-    expect(/^2\d{12}$/.test(code), `generated barcode ${code} is not 2 + 12 digits`);
+    expect(/^290\d{10}$/.test(code), `generated barcode ${code} is not 290 + 9 counter digits + check digit`);
     let sum = 0; for (let index = 0; index < 12; index += 1) sum += Number(code[index]) * (index % 2 === 0 ? 1 : 3);
     expect((10 - (sum % 10)) % 10 === Number(code[12]), `generated barcode ${code} has a wrong check digit`);
     expect(response.json.type === 'EAN-13', `type expected EAN-13, got ${response.json.type}`);

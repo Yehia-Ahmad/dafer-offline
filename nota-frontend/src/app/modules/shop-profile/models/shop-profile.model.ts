@@ -20,6 +20,8 @@ export interface ClosingSettings {
 }
 
 export const DEFAULT_CLOSING: ClosingSettings = { frequency: 'monthly', fiscalYearStartMonth: 1 };
+export type DefaultSalePriceType = 'retailPrice' | 'wholesalePrice';
+export const DEFAULT_SALE_PRICE_TYPE: DefaultSalePriceType = 'retailPrice';
 
 export interface ShopProfile {
   name: string;
@@ -35,6 +37,8 @@ export interface ShopProfile {
   invoiceFooter: string;
   /** Stage 15: lock the screen after this many idle minutes (0 = off). Absent on older servers. */
   autoLockMinutes?: number;
+  /** Stage 26 follow-up: price tier for a new POS line (tile or scan). */
+  defaultSalePriceType?: DefaultSalePriceType;
   /** Stage 21 (absent until VAT settings were saved). */
   vat?: VatSettings;
   /** Stage 22 (absent until the closing settings were saved). */

@@ -19,6 +19,7 @@ import { PurchasesService } from './purchases.service';
 import { localDateKey } from '../../core/utilities/local-date';
 import { ScanFeedbackService } from '../../core/scan/scan-feedback.service';
 import { ScanService } from '../../core/scan/scan.service';
+import { ScanSoundToggleComponent } from '../../core/scan/scan-sound-toggle.component';
 
 interface Line {
   key: number;
@@ -35,12 +36,12 @@ interface Line {
 @Component({
   selector: 'app-purchase-form',
   standalone: true,
-  imports: [NotaLockBannerComponent, NotaLockedDateDirective, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, PaymentBoxSelectComponent],
+  imports: [NotaLockBannerComponent, NotaLockedDateDirective, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, PaymentBoxSelectComponent, ScanSoundToggleComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="pf">
       <nota-page-header [title]="'purchases.new.title' | translate" [subtitle]="'purchases.new.subtitle' | translate">
-        <div notaPageActions><a notaButton routerLink="/purchases" data-action="back">{{ 'purchases.title' | translate }}</a></div>
+        <div notaPageActions><nota-scan-sound-toggle /><a notaButton routerLink="/purchases" data-action="back">{{ 'purchases.title' | translate }}</a></div>
       </nota-page-header>
 
       <section class="nota-card pf__card">

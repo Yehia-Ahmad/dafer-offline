@@ -7,6 +7,7 @@
 //   print:settings-set   shop.manage  receipt printer, A4/A5 printer, auto-print, copies
 //   print:test-page      shop.manage  a test page on the chosen printer
 //   print:print          SESSION      "طباعة"
+//   print:labels         products.printLabels  barcode-label jobs
 //   print:pdf            SESSION      "حفظ PDF"
 //
 // The main process never fetches document data: the page sends the finished HTML, which was built
@@ -42,6 +43,7 @@ function createPrintHandlers(deps) {
     'print:prefs-set': guarded('print:prefs-set', (_context, patch) => deps.service.setPrefs(patch)),
     'print:test-page': guarded('print:test-page', (_context, request) => deps.service.printTestPage(request || {})),
     'print:print': guarded('print:print', (_context, job) => deps.service.print(job)),
+    'print:labels': guarded('print:labels', (_context, job) => deps.service.print(job)),
     'print:pdf': guarded('print:pdf', (_context, job, options) => deps.service.savePdf(job, options || {})),
   };
   // Every print rule has a handler and every handler has a rule.

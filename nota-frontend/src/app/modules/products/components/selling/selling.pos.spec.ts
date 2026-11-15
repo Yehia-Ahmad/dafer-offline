@@ -8,6 +8,7 @@ import { environment } from '../../../../../environments/environment';
 import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
 import { SellingComponent } from './selling.component';
 import { provideFakeVat } from '../../../shop-profile/services/vat-settings.testing';
+import { ShopProfileService } from '../../../shop-profile/services/shop-profile.service';
 
 /** Stage 9 POS additions (frontend only): grid, chips, tile → line, stepper, F2 / F9. Rendered with the real template. */
 describe('SellingComponent POS layout (Stage 9)', () => {
@@ -88,9 +89,9 @@ describe('SellingComponent POS layout (Stage 9)', () => {
     fixture.detectChanges();
 
     expect(component.invoiceItems.length).toBe(2);
-    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p1', price: 60, quantity: 2, lineTotal: 120 }));
-    expect(component.getInvoiceItem(1).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p2', price: 45, quantity: 1 }));
-    expect(component.invoiceGrandTotal).toBe(165);
+    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p1', priceType: 'retailPrice', price: 75, quantity: 2, lineTotal: 150 }));
+    expect(component.getInvoiceItem(1).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p2', priceType: 'retailPrice', price: 55, quantity: 1 }));
+    expect(component.invoiceGrandTotal).toBe(205);
   });
 
   it('Stage 11: a missing price never becomes 0 — wholesale null falls back to retail, retail null to wholesale', () => {
@@ -106,11 +107,23 @@ describe('SellingComponent POS layout (Stage 9)', () => {
     tiles[0].click();
     tiles[1].click();
     fixture.detectChanges();
-    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p7', priceType: 'wholesalePrice', price: 80 }));
+    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p7', priceType: 'retailPrice', price: 80 }));
     expect(component.getInvoiceItem(1).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p8', price: 50 }));
 
     component.getInvoiceItem(1).get('priceType')!.setValue('retailPrice');
     expect(component.getInvoiceItem(1).getRawValue().price).toBe(50);
+  });
+
+  it('a wholesale shop setting makes a tile create/merge wholesale lines while preserving a retail line', () => {
+    TestBed.inject(ShopProfileService).saveProfile({} as never).subscribe();
+    http.expectOne(`${base}shop-profile`).flush({ name: 'x', address: '', phones: [], logo: null, taxNumber: '', commercialRegister: '', invoiceFooter: '', defaultSalePriceType: 'wholesalePrice' });
+    const product = { id: 'p1', name: 'Lamp', code: 'L1', displayLabel: 'Lamp - L1', categoryName: '', wholesalePrice: 60, retailPrice: 75, discountPercentage: 0, priceAfterDiscount: 75, inventoryCount: 10 };
+    component.addProductToInvoice(product);
+    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ priceType: 'wholesalePrice', price: 60, quantity: 1 }));
+    component.getInvoiceItem(0).get('priceType')!.setValue('retailPrice');
+    component.addProductToInvoice(product);
+    expect(component.invoiceItems.length).toBe(2);
+    expect(component.getInvoiceItem(1).getRawValue()).toEqual(jasmine.objectContaining({ priceType: 'wholesalePrice', price: 60, quantity: 1 }));
   });
 
   it('− never goes below 1; + adds 1', () => {

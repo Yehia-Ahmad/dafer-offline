@@ -3,7 +3,7 @@
 // no cost ever, and every setting clamped (numbers only, no CSS injection).
 
 import { barcodeBits, barcodeSvgMm, chooseSymbology } from './barcode';
-import { LabelLimitError, LabelItem, planLabelJob, productLabelRoll, productLabelSheet, toLabelItem, labelPriceText } from './documents/product-label';
+import { LabelLimitError, LabelItem, batchLabelEntries, planLabelJob, productLabelRoll, productLabelSheet, toLabelItem, labelPriceText } from './documents/product-label';
 import {
   DEFAULT_LABEL_OPTIONS, LabelOptions, MAX_LABELS_PER_JOB, ROLL_PRESETS, SHEET_PRESETS, barcodeSizing, clampStartAt, labelsPerSheet,
   normalizeLabelOptions, normalizeRoll, normalizeSheet, sheetCell, sheetPages,
@@ -335,6 +335,13 @@ describe('the 2,000-labels limit', () => {
     expect(job.total).toBe(2);
     expect(job.entries.length).toBe(1);
     expect(job.skipped).toEqual([{ name: 'بدون', code: 'NB' }]);
+  });
+
+  it('roll jobs split into batches of at most 200 without losing product boundaries or copies', () => {
+    const batches = batchLabelEntries([{ item: item({ code: 'A' }), copies: 250 }, { item: item({ code: 'B' }), copies: 175 }]);
+    expect(batches.map((batch) => batch.reduce((sum, entry) => sum + entry.copies, 0))).toEqual([200, 200, 25]);
+    expect(batches.flat().filter((entry) => entry.item.code === 'A').reduce((sum, entry) => sum + entry.copies, 0)).toBe(250);
+    expect(batches.flat().filter((entry) => entry.item.code === 'B').reduce((sum, entry) => sum + entry.copies, 0)).toBe(175);
   });
 
   it('a 2,000-label roll job renders as 2,000 pages in well under a few seconds', () => {

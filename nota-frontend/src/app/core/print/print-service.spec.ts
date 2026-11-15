@@ -34,6 +34,7 @@ function fakeBridge(settings: DesktopPrintSettings = SETTINGS): Fake {
     setPrefs: jasmine.createSpy('setPrefs').and.callFake(async (_token: string, patch: Partial<DesktopPrintSettings>) => ({ ok: true, value: { ...settings, ...patch } })),
     testPage: jasmine.createSpy('testPage').and.resolveTo({ ok: true, value: { printed: true, printer: 'EPSON' } }),
     print: jasmine.createSpy('print').and.resolveTo({ ok: true, value: { printed: true, silent: true, printer: 'EPSON' } }),
+    printLabels: jasmine.createSpy('printLabels').and.resolveTo({ ok: true, value: { printed: true, silent: true, printer: 'EPSON' } }),
     savePdf: jasmine.createSpy('savePdf').and.resolveTo({ ok: true, value: { saved: true, path: 'C:\\x.pdf' } }),
   };
 }
@@ -113,6 +114,37 @@ describe('PrintService (Stage 23)', () => {
     expect(job.html).not.toContain('data-copy-mark');
     expect(job.html).toContain('طُبع بواسطة <bdi>محمود</bdi>');
     expect(events).toEqual(['reserve:INV-000125:receipt', 'bridge:print', 'confirm:r1']);
+  });
+
+  it('label rolls use the guarded label IPC in 200-label batches and stop before the next batch', async () => {
+    setup();
+    let stop = false;
+    bridge['printLabels'].and.callFake(async () => {
+      stop = true;
+      return { ok: true, value: { printed: true, silent: true, printer: 'Zebra' } };
+    });
+    const progress: number[] = [];
+    const outcome = await run(service.printLabels(
+      [{ item: { name: 'A', code: 'A', barcode: '4006381333931', retailPrice: 1, wholesalePrice: 1, priceAfterDiscount: 1, vatExempt: false }, copies: 450 }],
+      { target: 'roll', shopName: true, price: 'retail', internalCode: false },
+      { onProgress: (printed) => progress.push(printed), shouldStop: () => stop }
+    )) as { ok: boolean; stopped?: boolean };
+    expect(outcome).toEqual({ ok: true, stopped: true });
+    expect(bridge['printLabels']).toHaveBeenCalledTimes(1);
+    expect(bridge['print']).not.toHaveBeenCalled();
+    expect((bridge['printLabels'].calls.mostRecent().args[1].html.match(/data-label/g) || []).length).toBe(200);
+    expect(progress).toEqual([0, 200]);
+  });
+
+  it('an A4 sticker-sheet job stays one guarded IPC job even above 200 labels', async () => {
+    setup();
+    const outcome = await run(service.printLabels(
+      [{ item: { name: 'A', code: 'A', barcode: '4006381333931', retailPrice: 1, wholesalePrice: 1, priceAfterDiscount: 1, vatExempt: false }, copies: 450 }],
+      { target: 'sheet', shopName: true, price: 'retail', internalCode: false }
+    )) as { ok: boolean };
+    expect(outcome.ok).toBeTrue();
+    expect(bridge['printLabels']).toHaveBeenCalledTimes(1);
+    expect(bridge['printLabels'].calls.mostRecent().args[1].paper).toBe('A4');
   });
 
   it('a cancelled print dialog releases the reserved number (nothing is confirmed)', async () => {

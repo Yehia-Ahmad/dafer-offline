@@ -9,7 +9,7 @@ export class BarcodeApiService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.api_base_url}products/`;
 
-  /** One new in-store EAN-13 (prefix 2); the caller adds it to the product's list and saves. */
+  /** One new in-store EAN-13 (prefix 290); the caller adds it to the product's list and saves. */
   generate() {
     return this.http.post<{ barcode: string; type: BarcodeType }>(`${this.base}barcodes/generate`, {});
   }
