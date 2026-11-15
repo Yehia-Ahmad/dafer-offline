@@ -165,7 +165,7 @@
                   <th>{{ 'returnsPage.fields.returnReason' | translate }}</th>
                 </tr></thead>
                 <tbody>
-                  @for (line of wizardLines; track line.productId) {
+                  @for (line of wizardLines; track line.itemId) {
                     <tr>
                       <td><span dir="auto">{{ line.productName }}</span> <small class="rt__muted" dir="ltr">{{ line.productCode }}</small></td>
                       <td class="num">{{ line.sold | notaNumber }}</td>
@@ -173,7 +173,7 @@
                       <td class="num">
                         <span class="rt__stepper">
                           <button type="button" class="rt__step-btn" (click)="stepWizardQuantity(line, 1)" [attr.aria-label]="'sellingPage.pos.increase' | translate">+</button>
-                          <input type="number" class="rt__qty" min="0" [max]="line.sold" [(ngModel)]="line.quantity" [attr.aria-label]="'returnsPage.s10.wizard.returnNow' | translate" />
+                          <input type="number" class="rt__qty" min="0" [max]="returnableOf(line)" [ngModel]="line.quantity" (ngModelChange)="setWizardQuantity(line, $event)" [attr.aria-label]="'returnsPage.s10.wizard.returnNow' | translate" />
                           <button type="button" class="rt__step-btn" (click)="stepWizardQuantity(line, -1)" [attr.aria-label]="'sellingPage.pos.decrease' | translate">−</button>
                         </span>
                       </td>
@@ -206,7 +206,7 @@
         <aside class="nota-card rt__summary" [attr.aria-label]="'returnsPage.s10.wizard.summary' | translate">
           <h2 class="nota-section-title">{{ 'returnsPage.s10.wizard.summary' | translate }}</h2>
           <ul class="rt__sum-lines">
-            @for (line of wizardSelectedLines; track line.productId) {
+            @for (line of wizardSelectedLines; track line.itemId) {
               <li><span dir="auto">{{ line.productName }} × {{ line.quantity | notaNumber }}</span><span class="nota-num">{{ line.quantity * line.unitPrice | notaMoney }}</span></li>
             } @empty {
               <li class="rt__muted">{{ 'invoiceHistoryPage.returnDialog.selectionRequired' | translate }}</li>

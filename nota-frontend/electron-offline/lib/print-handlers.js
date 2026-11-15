@@ -42,8 +42,11 @@ function createPrintHandlers(deps) {
     'print:settings-set': guarded('print:settings-set', (_context, patch) => deps.service.setSettings(patch)),
     'print:prefs-set': guarded('print:prefs-set', (_context, patch) => deps.service.setPrefs(patch)),
     'print:test-page': guarded('print:test-page', (_context, request) => deps.service.printTestPage(request || {})),
-    'print:print': guarded('print:print', (_context, job) => deps.service.print(job)),
-    'print:labels': guarded('print:labels', (_context, job) => deps.service.print(job)),
+    'print:print': guarded('print:print', (_context, job) => {
+      if (job && job.paper === 'label') throw new PrintError('INVALID_INPUT', 'Label jobs must use print:labels.');
+      return deps.service.print(job);
+    }),
+    'print:labels': guarded('print:labels', (_context, job) => deps.service.printLabels(job)),
     'print:pdf': guarded('print:pdf', (_context, job, options) => deps.service.savePdf(job, options || {})),
   };
   // Every print rule has a handler and every handler has a rule.

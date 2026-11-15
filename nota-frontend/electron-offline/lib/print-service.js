@@ -282,7 +282,10 @@ function createPrintService(deps) {
   }
 
   /** "طباعة": silent for an 80mm receipt with a configured receipt printer and for a label with a configured label printer. Resolves { printed, silent, printer }. */
-  async function print(rawJob) {
+  async function printJob(rawJob, { allowLabel = false } = {}) {
+    if (rawJob && rawJob.paper === 'label' && !allowLabel) {
+      throw badInput('Label jobs must use the dedicated label printing channel.');
+    }
     const job = validateJob(rawJob);
     const settings = getSettings();
     const silentPrinter = job.paper === '80mm' ? settings.receiptPrinter : job.paper === 'label' ? settings.labelPrinter : '';
@@ -304,6 +307,13 @@ function createPrintService(deps) {
       });
     }));
   }
+
+  /** Generic document printing can never select the label printer. Only print:labels reaches this entry point. */
+  const print = (rawJob) => printJob(rawJob);
+  const printLabels = (rawJob) => {
+    if (!rawJob || rawJob.paper !== 'label') throw badInput('Label printing requires label paper.');
+    return printJob(rawJob, { allowLabel: true });
+  };
 
   /** "حفظ PDF": a vector PDF at the document's page size, written where the user picks. */
   async function savePdf(rawJob, { suggestedName } = {}) {
@@ -352,7 +362,7 @@ function createPrintService(deps) {
     }));
   }
 
-  return { getSettings, listPrinters, print, printTestPage, savePdf, setPrefs, setSettings };
+  return { getSettings, listPrinters, print, printLabels, printTestPage, savePdf, setPrefs, setSettings };
 }
 
 module.exports = {

@@ -75,13 +75,13 @@ export type WizardInvoice = {
   date: string | null;
   total: number;
   remaining: number | null;
-  items: Array<{ productId: string; productName: string; productCode: string; quantity: number; unitPrice: number }>;
-  returnedByProduct: Record<string, number>;
+  items: Array<{ itemId: string; productId: string; productName: string; productCode: string; quantity: number; returnedQuantity: number; unitPrice: number }>;
   /** Stage 22: a credit invoice with an unreversed write-off cannot be returned until the entry is reversed. */
   writtenOff?: boolean;
 };
 
 export type WizardLine = {
+  itemId: string;
   productId: string;
   productName: string;
   productCode: string;
@@ -480,11 +480,12 @@ export class ReturnsComponent implements OnInit {
     this.wizardLines = invoice.items
       .filter((item) => item.productId && item.quantity > 0)
       .map((item) => ({
+        itemId: item.itemId,
         productId: item.productId,
         productName: item.productName,
         productCode: item.productCode,
         sold: item.quantity,
-        returnedBefore: invoice.returnedByProduct[item.productId] ?? 0,
+        returnedBefore: item.returnedQuantity,
         quantity: 0,
         unitPrice: item.unitPrice,
         reason: ''
@@ -517,13 +518,15 @@ export class ReturnsComponent implements OnInit {
       return;
     }
     const productId = String((result.product as { _id?: string })._id ?? '');
-    const line = this.wizardLines.find((entry) => entry.productId === productId);
-    if (!line) {
+    const productLines = this.wizardLines.filter((entry) => entry.productId === productId);
+    if (!productLines.length) {
       this.scanFeedback.miss({ kind: 'error', code: result.code, message: this.translate.instant('scan.returnsNotInInvoice') });
       return;
     }
-    if (line.quantity >= this.returnableOf(line)) {
-      this.scanFeedback.miss({ kind: 'error', code: result.code, message: this.translate.instant('scan.returnsLimit', { name: line.productName }) });
+    // Invoice order is significant when one product was sold on several lines (for example retail then wholesale).
+    const line = productLines.find((entry) => this.wizardQuantityOf(entry) < this.returnableOf(entry));
+    if (!line) {
+      this.scanFeedback.miss({ kind: 'error', code: result.code, message: this.translate.instant('scan.returnsLimit', { name: productLines[0].productName }) });
       return;
     }
     line.quantity = Math.min(this.returnableOf(line), Math.max(0, Math.floor(Number(line.quantity) || 0)) + 1);
@@ -533,11 +536,15 @@ export class ReturnsComponent implements OnInit {
   }
 
   stepWizardQuantity(line: WizardLine, delta: number): void {
-    line.quantity = Math.min(line.sold, Math.max(0, Math.floor(Number(line.quantity) || 0) + delta));
+    line.quantity = Math.min(this.returnableOf(line), Math.max(0, Math.floor(Number(line.quantity) || 0) + delta));
+  }
+
+  setWizardQuantity(line: WizardLine, value: unknown): void {
+    line.quantity = Math.min(this.returnableOf(line), Math.max(0, Math.floor(Number(value) || 0)));
   }
 
   wizardReturnAll(): void {
-    this.wizardLines.forEach((line) => (line.quantity = line.sold));
+    this.wizardLines.forEach((line) => (line.quantity = this.returnableOf(line)));
   }
 
   wizardClear(): void {
@@ -570,7 +577,7 @@ export class ReturnsComponent implements OnInit {
 
     const note = this.wizardNote.trim();
     const items = lines.map((line) => ({
-      productId: line.productId,
+      itemId: line.itemId,
       quantity: this.wizardQuantityOf(line),
       ...(line.reason.trim() ? { returnReason: line.reason.trim() } : {})
     }));
@@ -614,7 +621,7 @@ export class ReturnsComponent implements OnInit {
   }
 
   private wizardQuantityOf(line: WizardLine): number {
-    return Math.min(line.sold, Math.max(0, Math.floor(Number(line.quantity) || 0)));
+    return Math.min(this.returnableOf(line), Math.max(0, Math.floor(Number(line.quantity) || 0)));
   }
 
   private resetWizard(): void {
@@ -634,17 +641,19 @@ export class ReturnsComponent implements OnInit {
     const id = String(source?.invoiceId || source?._id || source?.id || '');
     if (!id || source?.status === 'cancelled' || source?.refundStatus === 'full') return null;
     const items = (Array.isArray(source?.items) ? source.items : []).map((item: any) => ({
+      itemId: String(item?._id || ''),
       productId: String(item?.productId || ''),
       productName: String(item?.productName || ''),
       productCode: String(item?.productCode || ''),
       quantity: Math.max(0, Math.floor(Number(item?.productQuantity ?? item?.productQuentity ?? item?.quantity) || 0)),
+      returnedQuantity: Math.max(0, Math.floor(Number(item?.returnedQuantity) || 0)),
       unitPrice: Number(item?.productPricePerEach ?? item?.price) || 0
     }));
     return {
       id, type: 'cash', label: String(source?.number || source?.invoiceNumber || id),
       customerName: String(source?.customerName || ''), customerPhone: String(source?.customerPhone || ''),
       date: source?.sellingDate ? String(source.sellingDate) : null, total: Number(source?.totalPrice) || 0, remaining: null,
-      items, returnedByProduct: this.sumReturned(source?.refunds)
+      items
     };
   }
 
@@ -656,22 +665,11 @@ export class ReturnsComponent implements OnInit {
       customerName: view.customerName, customerPhone: view.customerPhone, date: view.sellingDate,
       total: view.totalPrice, remaining: view.remainingAmount,
       items: view.items.map((item) => ({
-        productId: item.productId, productName: item.productName, productCode: item.productCode, quantity: item.quantity, unitPrice: item.pricePerEach
+        itemId: item.id, productId: item.productId, productName: item.productName, productCode: item.productCode,
+        quantity: item.quantity, returnedQuantity: item.returnedQuantity, unitPrice: item.pricePerEach
       })),
-      returnedByProduct: this.sumReturned(source?.refunds),
       writtenOff: view.writtenOff
     };
-  }
-
-  private sumReturned(refunds: any): Record<string, number> {
-    const totals: Record<string, number> = {};
-    (Array.isArray(refunds) ? refunds : []).forEach((refund: any) =>
-      (Array.isArray(refund?.items) ? refund.items : []).forEach((item: any) => {
-        const productId = String(item?.productId || '');
-        if (productId) totals[productId] = (totals[productId] ?? 0) + (Number(item?.quantity) || 0);
-      })
-    );
-    return totals;
   }
 
   /** Same date format the invoice-history cash return sends (ISO date part). */

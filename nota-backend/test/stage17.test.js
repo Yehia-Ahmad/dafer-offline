@@ -108,6 +108,39 @@ it("return uses original COGS 20, current inventory 25 and adjustment 5; health 
   const health = await call("GET", "/api/accounting/health"); assert.equal(health.status, 200); for (const check of Object.values(health.json)) assert.equal(check.difference, 0, JSON.stringify(health.json));
 });
 
+it("returns controller distinguishes repeated product lines by itemId and each line's returnable quantity", async () => {
+  const p = await product({ code: "RETURN-SAME-PRODUCT", stock: 20, cost: 20, retail: 100 });
+  const sale = await call("POST", "/api/sellings", saleBody([
+    { productId: p._id, quantity: 2, price: 100 },
+    { productId: p._id, quantity: 3, price: 80 },
+  ]));
+  assert.equal(sale.status, 201, JSON.stringify(sale.json));
+  assert.equal(sale.json.items.length, 2);
+
+  const first = await call("POST", "/api/returns", {
+    returnType: "cash", invoiceId: sale.json._id,
+    items: [{ itemId: sale.json.items[0]._id, quantity: 1 }],
+  });
+  assert.equal(first.status, 201, JSON.stringify(first.json));
+
+  const next = await call("POST", "/api/returns", {
+    returnType: "cash", invoiceId: sale.json._id,
+    items: [
+      { itemId: sale.json.items[0]._id, quantity: 1 },
+      { itemId: sale.json.items[1]._id, quantity: 2 },
+    ],
+  });
+  assert.equal(next.status, 201, JSON.stringify(next.json));
+  const stored = await Selling.findById(sale.json._id).lean();
+  assert.deepEqual(stored.items.map((item) => item.returnedQuantity), [2, 2]);
+
+  const overFirstLine = await call("POST", "/api/returns", {
+    returnType: "cash", invoiceId: sale.json._id,
+    items: [{ itemId: sale.json.items[0]._id, quantity: 1 }],
+  });
+  assert.equal(overFirstLine.status, 400);
+});
+
 it("item 14: item or price edits on an invoice with returns are refused exactly as before Stage 17 (cash and credit)", async () => {
   const p = await product({ code: "EDIT-RETURN", stock: 10, cost: 20, retail: 100 });
   const sale = await call("POST", "/api/sellings", saleBody([{ productId: p._id, quantity: 3, price: 100 }]));

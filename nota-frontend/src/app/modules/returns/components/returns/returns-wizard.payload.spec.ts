@@ -53,7 +53,7 @@ describe('ReturnsComponent new-return wizard (Stage 10)', () => {
     expect(params(search)).toEqual({ customerName: 'زبون', page: '1', limit: '10' });
     search.flush({ success: true, data: [{
       _id: 's1', invoiceId: 's1', customerName: 'زبون', customerPhone: '0100', sellingDate: '2026-11-03', totalPrice: 300,
-      items: [{ productId: 'p1', productName: 'لمبة', productQuantity: 3, productPricePerEach: 60 }, { productId: 'p2', productName: 'مشترك', productQuantity: 1, productPricePerEach: 120 }],
+      items: [{ _id: 'i1', productId: 'p1', productName: 'لمبة', productQuantity: 3, returnedQuantity: 1, productPricePerEach: 60 }, { _id: 'i2', productId: 'p2', productName: 'مشترك', productQuantity: 1, returnedQuantity: 0, productPricePerEach: 120 }],
       refunds: [{ items: [{ productId: 'p1', quantity: 1 }] }],
     }], pagination: {} });
     expect(component.wizardResults.length).toBe(1);
@@ -73,7 +73,7 @@ describe('ReturnsComponent new-return wizard (Stage 10)', () => {
     const post = http.expectOne(`${base}returns`);
     expect(post.request.method).toBe('POST');
     expect(JSON.stringify(post.request.body)).toBe(JSON.stringify({
-      returnType: 'cash', invoiceId: 's1', returnDate: '2026-11-04', note: 'عيب', items: [{ productId: 'p1', quantity: 2, returnReason: 'كسر' }],
+      returnType: 'cash', invoiceId: 's1', returnDate: '2026-11-04', note: 'عيب', items: [{ itemId: 'i1', quantity: 2, returnReason: 'كسر' }],
     }));
     post.flush({});
     flushLog();
@@ -89,7 +89,7 @@ describe('ReturnsComponent new-return wizard (Stage 10)', () => {
     search.flush({ success: true, data: [{
       _id: 'cs1', invoiceId: 'cs1', customerName: 'محمد', customerPhone: '01225550199', sellingDate: '2026-10-15', status: 'partially_paid',
       totalPrice: 2800, paidAmount: 800, remainingAmount: 2000, refunds: [],
-      items: [{ _id: 'i1', productId: 'p9', productName: 'كشاف طوارئ', productQuantity: 4, productPricePerEach: 275, totalPrice: 1100 }],
+      items: [{ _id: 'i1', productId: 'p9', productName: 'كشاف طوارئ', productQuantity: 4, returnedQuantity: 0, productPricePerEach: 275, totalPrice: 1100 }],
     }], pagination: {} });
 
     component.pickWizardInvoice(component.wizardResults[0]);
@@ -100,7 +100,7 @@ describe('ReturnsComponent new-return wizard (Stage 10)', () => {
 
     const post = http.expectOne(`${base}returns`);
     expect(JSON.stringify(post.request.body)).toBe(JSON.stringify({
-      returnType: 'credit', invoiceId: 'cs1', refundDate: '2026-11-04', items: [{ productId: 'p9', quantity: 4 }],
+      returnType: 'credit', invoiceId: 'cs1', refundDate: '2026-11-04', items: [{ itemId: 'i1', quantity: 4 }],
     }));
     expect('note' in post.request.body).toBeTrue();
     post.flush({ message: 'تعذر' }, { status: 400, statusText: 'Bad Request' });
@@ -116,7 +116,7 @@ describe('ReturnsComponent new-return wizard (Stage 10)', () => {
       _id: 'cs1', invoiceId: 'cs1', customerName: 'محمد', customerPhone: '01225550199', sellingDate: '2026-10-15', status: 'partially_paid',
       totalPrice: 2800, paidAmount: 800, remainingAmount: 2000, refunds: [],
       payments: [{ _id: 'w1', amount: 800, paymentDate: '2026-10-20', note: 'قيد يدوي JE-000009', source: 'manual_entry' }],
-      items: [{ _id: 'i1', productId: 'p9', productName: 'كشاف طوارئ', productQuantity: 4, productPricePerEach: 275, totalPrice: 1100 }],
+      items: [{ _id: 'i1', productId: 'p9', productName: 'كشاف طوارئ', productQuantity: 4, returnedQuantity: 0, productPricePerEach: 275, totalPrice: 1100 }],
     }], pagination: {} });
     component.pickWizardInvoice(component.wizardResults[0]);
     expect(component.wizardInvoice?.writtenOff).toBeTrue();

@@ -4,6 +4,7 @@
 // custom folder that is restored from there (real mongod / mongodump / mongorestore).
 
 const assert = require('node:assert/strict');
+const { randomBytes } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -392,9 +393,25 @@ test('real tools, scaled down: the cap kills mongodump, no partial file or backu
   const client = new mongodb.MongoClient(mongod.uri, { directConnection: true });
   const db = client.db(DATABASE_NAME);
   try {
-    const filler = 'x'.repeat(2000);
-    for (let batch = 0; batch < 30; batch += 1) await db.collection('products').insertMany(Array.from({ length: 2000 }, (_, i) => ({ n: batch * 2000 + i, filler: filler + Math.random() })));
     const service = new BackupService({ mongodbBin: resources.mongodbBin, port: 27391, backupsDir: path.join(home, 'backups'), mongodb, bson: require(path.join(resources.backendDir, 'node_modules', 'bson')), log: silentLog });
+    // Size incompressible data with the real mongodump until this machine proves the dump takes comfortably longer
+    // than the 700 ms close cap. This removes the old race where 60,000 highly-compressible documents finished first.
+    const probe = path.join(home, 'probe.archive.gz');
+    let dumpMs = 0;
+    let batch = 0;
+    while (dumpMs < 1400 && batch < 12) {
+      const random = randomBytes(4_000_000).toString('base64');
+      await db.collection('products').insertMany(Array.from({ length: 2000 }, (_, i) => ({
+        n: batch * 2000 + i,
+        filler: random.slice(i * 2000, (i + 1) * 2000),
+      })));
+      batch += 1;
+      const probeStarted = Date.now();
+      await service.createBackup(probe);
+      dumpMs = Date.now() - probeStarted;
+      fs.rmSync(probe, { force: true });
+    }
+    assert.ok(dumpMs >= 1400, `real mongodump never exceeded the close cap safely (last probe ${dumpMs} ms)`);
     const dir = path.join(home, 'backups', 'auto');
     const auto = new AutoBackup({
       dir, statePath: path.join(home, 'backups', 'backup-state.json'), dataDir: home, sameDrive: async () => true,

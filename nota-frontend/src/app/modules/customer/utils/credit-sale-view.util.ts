@@ -39,6 +39,7 @@ export type CreditSaleView = {
     productCode: string;
     categoryName: string;
     quantity: number;
+    returnedQuantity: number;
     pricePerEach: number;
     totalPrice: number;
     /** Stage 21: "معفى من الضريبة". */
@@ -117,6 +118,7 @@ function normalizeItems(source: any): CreditSaleView['items'] {
         productCode,
         categoryName,
         quantity,
+        returnedQuantity: toInteger(item?.returnedQuantity),
         pricePerEach: toNumber(item?.productPricePerEach),
         totalPrice: toNumber(item?.totalPrice),
         ...(item?.vatExempt === true ? { vatExempt: true } : {})

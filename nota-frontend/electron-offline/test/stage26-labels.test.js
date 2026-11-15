@@ -112,7 +112,7 @@ test('the label printer must be installed on this PC; the roll, sheet and option
 test('a label prints silently to the label printer at the label size (+ gap) in microns, no margins, one copy', async () => {
   const h = harness();
   await h.service.setSettings({ receiptPrinter: 'EPSON TM-T20', labelPrinter: 'Zebra ZD220', receiptCopies: 3 });
-  const result = await h.service.print({ html: HTML, paper: 'label', labelPage: { widthMm: 38, heightMm: 27 } });
+  const result = await h.service.printLabels({ html: HTML, paper: 'label', labelPage: { widthMm: 38, heightMm: 27 } });
   assert.deepEqual(result, { printed: true, silent: true, printer: 'Zebra ZD220' });
   const options = h.prints[0];
   assert.equal(options.silent, true);
@@ -127,12 +127,12 @@ test('every label preset prints at exactly its size; a custom size is clamped', 
   const h = harness();
   await h.service.setSettings({ labelPrinter: 'Zebra ZD220' });
   for (const [w, h2] of [[38, 25], [40, 30], [50, 25], [50, 30], [58, 40]]) {
-    await h.service.print({ html: HTML, paper: 'label', labelPage: { widthMm: w, heightMm: h2 } });
+    await h.service.printLabels({ html: HTML, paper: 'label', labelPage: { widthMm: w, heightMm: h2 } });
     assert.deepEqual(h.prints.at(-1).pageSize, { width: microns(w), height: microns(h2) });
   }
-  await h.service.print({ html: HTML, paper: 'label', labelPage: { widthMm: 5000, heightMm: -1 } });
+  await h.service.printLabels({ html: HTML, paper: 'label', labelPage: { widthMm: 5000, heightMm: -1 } });
   assert.deepEqual(h.prints.at(-1).pageSize, { width: microns(110), height: microns(15) });
-  await h.service.print({ html: HTML, paper: 'label', labelPage: { widthMm: 'url(x)', heightMm: {} } });
+  await h.service.printLabels({ html: HTML, paper: 'label', labelPage: { widthMm: 'url(x)', heightMm: {} } });
   assert.deepEqual(h.prints.at(-1).pageSize, { width: microns(38), height: microns(25) });
   cleanup(h);
 });
@@ -140,10 +140,23 @@ test('every label preset prints at exactly its size; a custom size is clamped', 
 test('with no label printer configured a label shows the system dialog (not silent, no printer chosen for it)', async () => {
   const h = harness();
   await h.service.setSettings({ receiptPrinter: 'EPSON TM-T20', documentPrinter: 'HP LaserJet' });
-  const result = await h.service.print({ html: HTML, paper: 'label', labelPage: LABEL_PAGE });
+  const result = await h.service.printLabels({ html: HTML, paper: 'label', labelPage: LABEL_PAGE });
   assert.deepEqual(result, { printed: true, silent: false, printer: null });
   assert.equal(h.prints[0].silent, false);
   assert.equal('deviceName' in h.prints[0], false);
+  cleanup(h);
+});
+
+test('the generic print service rejects label paper; only printLabels can reach the label printer', async () => {
+  const h = harness();
+  await h.service.setSettings({ labelPrinter: 'Zebra ZD220' });
+  await assert.rejects(
+    h.service.print({ html: HTML, paper: 'label', labelPage: LABEL_PAGE }),
+    (error) => error.code === 'INVALID_INPUT'
+  );
+  assert.equal(h.prints.length, 0);
+  await h.service.printLabels({ html: HTML, paper: 'label', labelPage: LABEL_PAGE });
+  assert.equal(h.prints.length, 1);
   cleanup(h);
 });
 
@@ -252,11 +265,18 @@ test('print:labels checks the session and products.printLabels before a label re
   assert.equal(IPC_RULES['print:labels'], PRODUCTS_PRINT_LABELS);
   const allowed = handlerHarness(['products.printLabels']);
   assert.equal((await allowed.handlers['print:labels'](TOKEN, { paper: 'label' })).ok, true);
-  assert.deepEqual(allowed.calls, [['print', { paper: 'label' }]]);
+  assert.deepEqual(allowed.calls, [['printLabels', { paper: 'label' }]]);
   const refused = handlerHarness([]);
   const result = await refused.handlers['print:labels'](TOKEN, { paper: 'label' });
   assert.deepEqual([result.ok, result.error.code], [false, 'FORBIDDEN']);
   assert.deepEqual(refused.calls, []);
+});
+
+test('print:print refuses label paper even with a valid session and never calls the print service', async () => {
+  const caller = handlerHarness([]);
+  const result = await caller.handlers['print:print'](TOKEN, { paper: 'label' });
+  assert.deepEqual([result.ok, result.error.code], [false, 'INVALID_INPUT']);
+  assert.deepEqual(caller.calls, []);
 });
 function handlerHandlerFor(permissions) { return handlerHarness(permissions); }
 
