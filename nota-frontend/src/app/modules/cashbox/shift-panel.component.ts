@@ -7,6 +7,8 @@ import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-a
 import { PrintDataService } from '../../core/print/print-data.service';
 import { CashboxService } from './cashbox.service';
 import { ShiftLineKey, ShiftReport } from './cashbox.models';
+import { LayoutService } from '../../core/layout/layout.service';
+import { MobDatePipe } from '../mobile/mob-date.pipe';
 
 export interface DepositOption {
   _id: string;
@@ -25,12 +27,13 @@ const MINUS_LINES: readonly ShiftLineKey[] = ['refunds', 'expenses', 'transfersO
 @Component({
   selector: 'app-shift-panel',
   standalone: true,
-  imports: [DatePipe, FormsModule, TranslatePipe, PrintActionsComponent, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe],
+  imports: [DatePipe, FormsModule, TranslatePipe, PrintActionsComponent, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, MobDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './shift-panel.component.html',
   styleUrl: './shift-panel.component.scss',
 })
 export class ShiftPanelComponent implements OnInit {
+  protected readonly layout = inject(LayoutService);
   private readonly cashbox = inject(CashboxService);
   private readonly printData = inject(PrintDataService);
 

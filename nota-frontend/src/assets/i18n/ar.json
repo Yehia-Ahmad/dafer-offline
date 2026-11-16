@@ -2758,8 +2758,13 @@
     "stock": {
       "manageCategories": "إدارة الفئات"
     },
+    "cash": {
+      "newExpense": "مصروف جديد",
+      "newBox": "خزنة جديدة"
+    },
       "_end": 1
     },
+
 
 
 

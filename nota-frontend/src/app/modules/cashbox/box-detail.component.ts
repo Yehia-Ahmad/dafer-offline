@@ -7,6 +7,9 @@ import { NotaBalancePipe, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComp
 import { BoxDetail, BoxLedger, LedgerLine } from './cashbox.models';
 import { CashboxService } from './cashbox.service';
 import { DepositOption, ShiftPanelComponent } from './shift-panel.component';
+import { LayoutService } from '../../core/layout/layout.service';
+import { MobBarComponent } from '../mobile/mob-sheet.component';
+import { MobDatePipe } from '../mobile/mob-date.pipe';
 
 /** Where a ledger line's source document can be opened (the route that lists it). */
 const SOURCE_LINKS: Record<string, string> = { sale: '/invoice-history', credit_sale: '/credit-sales', return: '/returns', expense: '/expenses' };
@@ -19,9 +22,72 @@ const SOURCE_LINKS: Record<string, string> = { sale: '/invoice-history', credit_
 @Component({
   selector: 'app-box-detail',
   standalone: true,
-  imports: [DatePipe, RouterLink, TranslatePipe, NotaBalancePipe, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, ShiftPanelComponent],
+  imports: [DatePipe, RouterLink, TranslatePipe, NotaBalancePipe, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, ShiftPanelComponent, MobBarComponent, MobDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone): the same box page. The name is in the top bar; the balance as a card; the shift panel; each movement as a card (in green, out red, with its source document); the shifts as cards. -->
+    @if (box(); as b) {
+      <nota-mob-bar [title]="b.name" [subtitle]="('cashbox.types.' + b.type | translate) + (b.deviceName ? ' · ' + b.deviceName : '')" />
+      <div class="m-page" style="padding-top:12px">
+        <div class="m-dark-card">
+          <div class="m-dark-card__label">{{ 'cashbox.detail.balance' | translate }}</div>
+          <div class="m-dark-card__value nota-num" data-test="detail-balance">{{ b.balance ?? 0 | notaMoney }} {{ 'cashbox.currency' | translate }}</div>
+        </div>
+
+        @if (shiftId(); as id) {
+          <app-shift-panel [shiftId]="id" [depositOptions]="depositOptions()" (closed)="load()" />
+        }
+
+        <div class="m-section-label">{{ 'cashbox.detail.ledger' | translate }}</div>
+        <section class="m-card m-card--flush" data-test="ledger">
+          @for (line of ledger()?.lines ?? []; track line.entryId + line.number) {
+            <div class="m-row" [attr.data-source]="line.source?.type">
+              <span class="m-row__body">
+                <span class="m-row__title" style="white-space:normal">{{ 'cashbox.detail.sources.' + (line.source?.type ?? 'other') | translate }}
+                  @if (link(line); as target) { <a [routerLink]="target" dir="ltr" style="color:var(--brand-strong-text)">{{ line.source?.number }}</a> } @else { <span dir="ltr">{{ line.source?.number }}</span> }</span>
+                <span class="m-row__sub nota-num" style="white-space:normal">{{ line.date | mobDate }} · <a [routerLink]="['/accounting/journal', line.entryId]" dir="ltr" style="color:inherit;white-space:nowrap;display:inline-block">{{ line.number }}</a></span>
+              </span>
+              <span class="m-row__end nota-num">
+                @if (line.debit) { <span class="m-in" style="display:block">+ {{ line.debit | notaMoney }}</span> }
+                @if (line.credit) { <span class="m-out" style="display:block">− {{ line.credit | notaMoney }}</span> }
+                @let running = shown(line) | notaBalance;
+                <span class="m-row__sub" style="display:block" [class.m-out]="running.warning" data-test="line-balance">{{ running.abs | notaMoney }}</span>
+              </span>
+            </div>
+          } @empty {
+            <div class="m-empty" data-test="ledger-empty">{{ 'cashbox.detail.emptyLedger' | translate }}</div>
+          }
+        </section>
+
+        @if (b.shiftsEnabled || b.shifts.length) {
+          <div class="m-section-label">{{ 'cashbox.detail.shifts' | translate }}</div>
+          <section class="m-card m-card--flush" data-test="shifts">
+            @for (shift of b.shifts; track shift._id) {
+              <div class="m-row m-stretch-host" [attr.data-shift]="shift.number">
+                <button type="button" class="m-row__open m-stretch" data-action="show-shift" (click)="shiftId.set(shift._id)">
+                  <span class="m-row__title" style="display:block" dir="auto">{{ shift.userName }} · <span dir="ltr">{{ shift.number }}</span></span>
+                  <span class="m-row__sub nota-num" style="display:block">{{ shift.openedAt | mobDate: true }}</span>
+                </button>
+                <span class="m-row__end nota-num">
+                  <span style="display:block">{{ shift.expected === null ? '—' : (shift.expected | notaMoney) }}</span>
+                  <span class="m-row__sub" style="display:block" [class.m-out]="(shift.difference ?? 0) < 0">{{ shift.difference === null ? '—' : (shift.difference | notaMoney) }}</span>
+                </span>
+              </div>
+            } @empty {
+              <div class="m-empty">{{ 'cashbox.detail.noShifts' | translate }}</div>
+            }
+          </section>
+        }
+      </div>
+    } @else if (loadFailed()) {
+      <div class="m-page" style="padding-top:12px"><div class="m-card m-empty"><p class="nota-error" role="alert">{{ 'cashbox.loadFailed' | translate }}</p>
+        <button type="button" class="m-btn" (click)="load()">{{ 'cashbox.retry' | translate }}</button></div></div>
+    } @else {
+      <div class="m-page" style="padding-top:12px"><div class="m-skel" style="height:110px" role="status" [attr.aria-label]="'cashbox.loading' | translate"></div><div class="m-skel" style="height:160px"></div></div>
+    }
+} @else {
+
     <div class="bd">
       @if (box(); as b) {
         <nota-page-header [title]="b.name" [subtitle]="('cashbox.types.' + b.type | translate) + (b.deviceName ? ' · ' + b.deviceName : '')" backLink="/cashbox" [backLabel]="'cashbox.title' | translate">
@@ -101,6 +167,7 @@ const SOURCE_LINKS: Record<string, string> = { sale: '/invoice-history', credit_
         <p role="status">{{ 'cashbox.loading' | translate }}</p>
       }
     </div>
+  }
   `,
   styles: `
     :host { display: block; }
@@ -112,6 +179,7 @@ const SOURCE_LINKS: Record<string, string> = { sale: '/invoice-history', credit_
   `,
 })
 export class BoxDetailComponent implements OnInit {
+  protected readonly layout = inject(LayoutService);
   private readonly cashbox = inject(CashboxService);
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);

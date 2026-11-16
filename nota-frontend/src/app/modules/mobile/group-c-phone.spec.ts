@@ -7,7 +7,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule } from '@ngx-translate/core';
 import { environment } from '../../../environments/environment';
 import { LayoutService } from '../../core/layout/layout.service';
-import { signInAs } from '../../core/auth/testing/sign-in';
+import { signInAs, signInWith } from '../../core/auth/testing/sign-in';
 import { flushPaymentBoxes } from '../cashbox/testing/payment-boxes.testing';
 import { PurchaseFormComponent } from '../purchases/purchase-form.component';
 import { provideFakeVat } from '../shop-profile/services/vat-settings.testing';
@@ -88,5 +88,40 @@ describe('category page on the phone (Online Stage 6B)', () => {
     expect(component.visible).toBeFalse();
     expect(component.deleteCategoryVisible).toBeTrue();
     expect(component.categoryToDelete).toBe(category);
+  });
+});
+
+describe('category delete on the phone follows the desktop rule (Online Stage 6B)', () => {
+  async function deleteButtonShown(permissions: string[], editingId: string, openCategoryId: string): Promise<boolean> {
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [CategoryToolsComponent, TranslateModule.forRoot()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), provideNoopAnimations(), phone(true)],
+    }).compileComponents();
+    signInWith(permissions);
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(CategoryToolsComponent);
+    fixture.componentRef.setInput('openCategoryId', openCategoryId);
+    fixture.detectChanges();
+    http.match(() => true).forEach((request) => request.flush([]));
+    const component = fixture.componentInstance;
+    component.editingCategory = { id: editingId, label: 'لمبات', category: { name: 'لمبات' } };
+    component.visible = true;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const found = document.querySelector('[data-action="delete-category"]') !== null;
+    component.visible = false;
+    fixture.detectChanges();
+    return found;
+  }
+
+  it('shows "حذف الفئة" only for a category that is not the open one, and only with categories.manage + products.manage', async () => {
+    const both = ['categories.manage', 'products.manage'];
+    expect(await deleteButtonShown(both, 'c1', 'c2')).toBeTrue();       // another category is open: deletable
+    expect(await deleteButtonShown(both, 'c1', '')).toBeTrue();         // "كل الأصناف": deletable
+    expect(await deleteButtonShown(both, 'c1', 'c1')).toBeFalse();      // the open category: hidden (same as the desktop list)
+    expect(await deleteButtonShown(['categories.manage'], 'c1', 'c2')).toBeFalse();
+    expect(await deleteButtonShown(['products.manage'], 'c1', 'c2')).toBeFalse();
   });
 });

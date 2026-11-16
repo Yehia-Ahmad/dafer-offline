@@ -1,3 +1,164 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone): the same expenses page. The month and filters at the top, the month's expenses as cards (tap = details, print, cancel), the add form in a bottom sheet behind "+ مصروف". Same signals and save(). -->
+<div class="m-search" style="margin-top:12px;display:flex;gap:8px">
+  <input id="exMonthM" class="m-input" style="flex:1;min-width:0" type="month" name="monthM" data-test="filter-month" [attr.aria-label]="'cashbox.expenses.month' | translate" [ngModel]="month()" (ngModelChange)="month.set($event); load()" />
+  <button type="button" class="m-btn" (click)="filtersOpen.set(true)" data-testid="m-expense-filters">{{ 'mobile.common.filters' | translate }}</button>
+</div>
+<div class="m-chips" *notaCan="'expenses.manage'"><button type="button" class="m-chip" data-action="manage-categories" (click)="manageOpen.set(true)">{{ 'cashbox.expenses.manageCategories' | translate }}</button></div>
+<nota-mob-filter-chips [chips]="activeChips()" (remove)="removeChip($event)" />
+@if (formError()) { <p class="nota-error m-note" role="alert" data-test="expense-error">{{ formError() | translate }}</p> }
+<div class="m-page">
+  @if (loading() && !data()) {
+    <div class="m-skel m-skel-row" style="margin:0" role="status" [attr.aria-label]="'cashbox.loading' | translate"></div>
+    <div class="m-skel m-skel-row" style="margin:0"></div>
+  } @else if (loadError()) {
+    <div class="m-card m-empty"><p class="nota-error" role="alert">{{ 'cashbox.loadFailed' | translate }}</p>
+      <button type="button" class="m-btn" (click)="load()">{{ 'cashbox.retry' | translate }}</button></div>
+  } @else if (data(); as d) {
+    <div class="m-dark-card">
+      <div class="m-dark-card__label">{{ 'cashbox.expenses.monthList' | translate: { month: d.month } }}</div>
+      <div class="m-dark-card__value nota-num" data-test="month-total">{{ d.total | notaMoney }} {{ 'cashbox.currency' | translate }}</div>
+    </div>
+    <div class="m-card m-card--flush" data-test="expenses-table">
+      @for (row of d.data; track row._id) {
+        <div class="m-row m-stretch-host" [class.m-muted]="row.status === 'cancelled'" [attr.data-expense]="row.number">
+          <button type="button" class="m-row__open m-stretch" (click)="detailRow.set(row)">
+            <span class="m-row__title" style="display:block" dir="auto">{{ row.categoryName }}</span>
+            <span class="m-row__sub" style="display:block;white-space:normal">{{ row.date | mobDate }} · {{ row.boxName }}@if (row.note) { · {{ row.note }} }</span>
+          </button>
+          <span class="m-row__end">
+            <span class="nota-num m-out" style="display:block"><strong>{{ row.amount | notaMoney }}</strong></span>
+            @if (row.status === 'cancelled') { <span class="m-pill m-pill--warn">{{ 'cashbox.expenses.cancelled' | translate }}</span> }
+            @if (row.vatAmount) { <span class="m-row__sub" style="display:block" data-test="expense-row-vat">{{ 'vat.expense.inside' | translate: { vat: (row.vatAmount | notaMoney) } }}</span> }
+          </span>
+        </div>
+      } @empty {
+        <div class="m-empty" data-test="empty">{{ 'cashbox.expenses.empty' | translate }}</div>
+      }
+    </div>
+    <div class="m-section-label" data-test="previous-month">{{ 'cashbox.expenses.byCategory' | translate: { month: d.previous.month } }}</div>
+    <div class="m-card">
+      @for (row of d.previous.byCategory; track row.accountId) {
+        <div style="margin-bottom:10px" [attr.data-category]="row.code">
+          <div style="display:flex;justify-content:space-between"><span>{{ categoryLabel(row) }}</span><strong class="nota-num">{{ row.total | notaMoney }}</strong></div>
+          <div class="ex__bar"><div class="ex__bar-fill" [style.width]="barWidth(row)"></div></div>
+        </div>
+      } @empty {
+        <p class="m-empty" style="padding:8px">{{ 'cashbox.expenses.noPrevious' | translate }}</p>
+      }
+      <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:10px"><span>{{ 'cashbox.expenses.total' | translate }}</span><strong class="nota-num" data-test="previous-total">{{ d.previous.total | notaMoney }} {{ 'cashbox.currency' | translate }}</strong></div>
+    </div>
+  }
+</div>
+<button *notaCan="'expenses.create'" type="button" class="m-fab" data-action="new-expense" (click)="addOpen.set(true)">+ {{ 'mobile.b.cash.newExpense' | translate }}</button>
+
+<nota-mob-filter-sheet [(open)]="filtersOpen" [title]="'mobile.common.filters' | translate" (apply)="load()" (clear)="clearFilters()">
+  <label class="m-field">{{ 'cashbox.expenses.category' | translate }}
+    <select id="exFilterCategoryM" class="m-input" name="filterCategoryM" data-test="filter-category" [ngModel]="filterCategory()" (ngModelChange)="filterCategory.set($event)">
+      <option value="">{{ 'cashbox.expenses.all' | translate }}</option>
+      @for (item of categories(); track item._id) { <option [value]="item._id">{{ categoryLabel(item) }}</option> }
+    </select>
+  </label>
+  <label class="m-field">{{ 'cashbox.expenses.box' | translate }}
+    <select id="exFilterBoxM" class="m-input" name="filterBoxM" data-test="filter-box" [ngModel]="filterBox()" (ngModelChange)="filterBox.set($event)">
+      <option value="">{{ 'cashbox.expenses.all' | translate }}</option>
+      @for (box of boxesForFilter(); track box._id) { <option [value]="box._id">{{ box.name }}</option> }
+    </select>
+  </label>
+</nota-mob-filter-sheet>
+
+<nota-mob-sheet [(open)]="addOpen" [title]="'mobile.b.cash.newExpense' | translate">
+  <form (ngSubmit)="save(); addOpen.set(false)" novalidate>
+    <label class="m-field">{{ 'cashbox.expenses.category' | translate }} *
+      <select id="exCategoryM" class="m-input" name="categoryM" data-test="expense-category" [ngModel]="category()" (ngModelChange)="category.set($event)">
+        <option value="">—</option>
+        @for (item of activeCategories(); track item._id) { <option [value]="item._id">{{ categoryLabel(item) }}</option> }
+      </select>
+    </label>
+    <label class="m-field">{{ 'cashbox.expenses.amount' | translate }} *
+      <input id="exAmountM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="amountM" data-test="expense-amount" [ngModel]="amount()" (ngModelChange)="amount.set($event)" />
+    </label>
+    @if (vatContext()) {
+      <label class="m-field">{{ 'vat.expense.amount' | translate }}
+        <input id="exVatM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="vatAmountM" data-test="expense-vat" [ngModel]="vatAmount()" (ngModelChange)="vatAmount.set($event === '' ? null : $event)" />
+        <span class="m-note" style="padding:0">{{ 'vat.expense.hint' | translate }}</span>
+        @if (vatInvalid()) { <span class="nota-error">{{ 'vat.expense.invalid' | translate }}</span> }
+      </label>
+    }
+    <nota-payment-box-select labelKey="cashbox.expenses.fromBox" />
+    <label class="m-field" style="margin-top:12px">{{ 'cashbox.expenses.date' | translate }}
+      <input id="exDateM" class="m-input nota-num" type="date" notaLockedDate name="dateM" data-test="expense-date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+      <nota-lock-banner [selected]="date()" />
+    </label>
+    <label class="m-field">{{ 'cashbox.expenses.note' | translate }}
+      <input id="exNoteM" class="m-input" type="text" name="noteM" data-test="expense-note" [ngModel]="note()" (ngModelChange)="note.set($event)" />
+    </label>
+    <button type="submit" class="m-btn m-btn--primary m-btn--lg m-btn--block" [disabled]="!canSave()" data-action="save-expense">{{ 'cashbox.expenses.record' | translate }}</button>
+  </form>
+</nota-mob-sheet>
+
+<nota-mob-sheet [open]="detailRow() !== null" (openChange)="$event || detailRow.set(null)" [title]="detailRow()?.categoryName ?? ''">
+  @if (detailRow(); as row) {
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="m-card m-card--flush">
+        <div class="m-row"><span class="m-row__body">{{ 'cashbox.expenses.amount' | translate }}</span><strong class="nota-num m-out">{{ row.amount | notaMoney }} {{ 'cashbox.currency' | translate }}</strong></div>
+        <div class="m-row"><span class="m-row__body">{{ 'cashbox.expenses.date' | translate }}</span><span>{{ row.date | mobDate }}</span></div>
+        <div class="m-row"><span class="m-row__body">{{ 'cashbox.expenses.box' | translate }}</span><span>{{ row.boxName }}</span></div>
+        <div class="m-row"><span class="m-row__body">{{ 'cashbox.expenses.by' | translate }}</span><span>{{ row.createdByName }}</span></div>
+        @if (row.note) { <div class="m-row"><span class="m-row__body">{{ 'cashbox.expenses.note' | translate }}</span><span style="white-space:normal">{{ row.note }}</span></div> }
+      </div>
+      @if (row.status === 'cancelled') { <p class="m-pill m-pill--warn" style="white-space:normal">{{ 'cashbox.expenses.cancelled' | translate }}@if (row.cancelReason) { : {{ row.cancelReason }} }</p> }
+      <nota-print-actions [items]="printItems(row)" />
+      @if (row.status !== 'cancelled') {
+        <button *notaCan="'expenses.manage'" type="button" class="m-btn m-btn--danger" data-action="cancel-expense" (click)="detailRow.set(null); startCancel(row)">{{ 'cashbox.expenses.cancel' | translate }}</button>
+      }
+    </div>
+  }
+</nota-mob-sheet>
+
+<!-- Cancel: a reversal with a reason (the same dialog, a short bottom sheet; the destructive action in red). -->
+<p-dialog [visible]="!!cancelTarget()" (visibleChange)="!$event && cancelTarget.set(null)" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+  <nota-dialog-shell [title]="'cashbox.expenses.cancelTitle' | translate: { number: cancelTarget()?.number }" [closeLabel]="'cashbox.close' | translate" (closed)="cancelTarget.set(null)">
+    <p>{{ 'cashbox.expenses.cancelText' | translate }}</p>
+    <label class="m-field">{{ 'cashbox.expenses.reason' | translate }} *
+      <input id="exReasonM" class="m-input" type="text" name="reasonM" data-test="cancel-reason" [ngModel]="cancelReason()" (ngModelChange)="cancelReason.set($event)" />
+      @if (cancelError()) { <span class="nota-error">{{ cancelError() | translate }}</span> }
+    </label>
+    <ng-container notaDialogFooter>
+      <button type="button" class="m-btn" (click)="cancelTarget.set(null)">{{ 'cashbox.cancel' | translate }}</button>
+      <button type="button" class="m-btn m-btn--danger" data-action="confirm-cancel" [disabled]="cancelReason().trim().length < 3" (click)="confirmCancel()">{{ 'cashbox.expenses.confirmCancel' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Categories (expenses.manage): the same dialog, as cards. -->
+<p-dialog [(visible)]="manageOpen" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+  <nota-dialog-shell [title]="'cashbox.expenses.manageCategories' | translate" [closeLabel]="'cashbox.close' | translate" (closed)="manageOpen.set(false)">
+    <div class="m-card m-card--flush" style="margin-bottom:12px">
+      @for (item of categories(); track item._id) {
+        <div class="m-row" style="flex-wrap:wrap" [class.m-muted]="!item.isActive" [attr.data-code]="item.code">
+          <span class="nota-num m-row__sub" dir="ltr">{{ item.code }}</span>
+          @if (item.isSystem) {
+            <span class="m-row__body m-row__title">{{ categoryLabel(item) }}</span>
+            <span class="m-pill m-pill--muted">{{ 'cashbox.expenses.system' | translate }}</span>
+          } @else {
+            <input class="m-input" style="flex:1;min-width:0" type="text" [value]="item.nameAr" [attr.aria-label]="'cashbox.expenses.rename' | translate" data-test="category-name" (change)="renameCategory(item, $any($event.target).value)" />
+            <button type="button" class="m-btn" data-action="toggle-category" (click)="deactivateCategory(item)">{{ (item.isActive ? 'cashbox.expenses.deactivate' : 'cashbox.expenses.activate') | translate }}</button>
+          }
+        </div>
+      }
+    </div>
+    <label class="m-field">{{ 'cashbox.expenses.newCategoryAr' | translate }} *
+      <input id="exNewArM" class="m-input" type="text" name="newArM" data-test="new-category-ar" [ngModel]="newNameAr()" (ngModelChange)="newNameAr.set($event)" />
+    </label>
+    <label class="m-field">{{ 'cashbox.expenses.newCategoryEn' | translate }}
+      <input id="exNewEnM" class="m-input" type="text" name="newEnM" data-test="new-category-en" dir="ltr" [ngModel]="newNameEn()" (ngModelChange)="newNameEn.set($event)" />
+    </label>
+    <button type="button" class="m-btn m-btn--primary m-btn--block" data-action="add-category" [disabled]="!newNameAr().trim()" (click)="addCategory()">+ {{ 'cashbox.expenses.addCategory' | translate }}</button>
+    @if (categoryError()) { <p class="nota-error" role="alert">{{ categoryError() | translate }}</p> }
+  </nota-dialog-shell>
+</p-dialog>
+} @else {
 <!-- Stage 19: المصروفات (Expenses.dc.html). -->
 <div class="ex">
   <nota-page-header [title]="'cashbox.expenses.title' | translate">
@@ -158,3 +319,4 @@
     @if (categoryError()) { <p class="nota-error" role="alert">{{ categoryError() | translate }}</p> }
   </nota-dialog-shell>
 </p-dialog>
+}

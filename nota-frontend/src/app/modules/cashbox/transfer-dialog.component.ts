@@ -7,6 +7,7 @@ import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, 
 import { CashboxService, TransferPayload } from './cashbox.service';
 import { CashBox, TransferRow } from './cashbox.models';
 import { localDateKey } from '../../core/utilities/local-date';
+import { LayoutService } from '../../core/layout/layout.service';
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
@@ -17,6 +18,52 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
   imports: [NotaLockBannerComponent, NotaLockedDateDirective, FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone), MobTransfer: the same transfer dialog as a bottom sheet; from and to stacked with their balances before and after. -->
+    <p-dialog [visible]="visible()" (visibleChange)="visible.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
+      [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+      <nota-dialog-shell [title]="'cashbox.transfer.title' | translate" [closeLabel]="'cashbox.close' | translate" (closed)="cancel()">
+        <label class="m-field">{{ 'cashbox.transfer.from' | translate }}
+          <select id="trFromM" class="m-input" name="fromM" data-test="transfer-from" [ngModel]="fromId()" (ngModelChange)="fromId.set($event)">
+            <option value="">—</option>
+            @for (box of boxes(); track box._id) { <option [value]="box._id">{{ box.name }}</option> }
+          </select>
+          @if (from(); as f) {
+            <span class="m-note nota-num" style="padding:0" data-test="from-balance">{{ 'cashbox.transfer.balance' | translate }}: {{ f.balance ?? 0 | notaMoney }}
+              @if (amountValue() > 0) { ← <b>{{ fromAfter() | notaMoney }}</b> }</span>
+          }
+        </label>
+        <label class="m-field">{{ 'cashbox.transfer.to' | translate }}
+          <select id="trToM" class="m-input" name="toM" data-test="transfer-to" [ngModel]="toId()" (ngModelChange)="toId.set($event)">
+            <option value="">—</option>
+            @for (box of boxes(); track box._id) { <option [value]="box._id">{{ box.name }}</option> }
+          </select>
+          @if (to(); as t) {
+            <span class="m-note nota-num" style="padding:0" data-test="to-balance">{{ 'cashbox.transfer.balance' | translate }}: {{ t.balance ?? 0 | notaMoney }}
+              @if (amountValue() > 0) { ← <b>{{ toAfter() | notaMoney }}</b> }</span>
+          }
+        </label>
+        <label class="m-field">{{ 'cashbox.transfer.amount' | translate }} *
+          <input id="trAmountM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="amountM" data-test="transfer-amount" [ngModel]="amount()" (ngModelChange)="amount.set($event)" />
+          @if (insufficient()) { <span class="nota-error">{{ 'cashbox.errors.INSUFFICIENT_BALANCE' | translate }}</span> }
+          @else if (sameBox()) { <span class="nota-error">{{ 'cashbox.errors.SAME_BOX' | translate }}</span> }
+        </label>
+        <label class="m-field">{{ 'cashbox.transfer.date' | translate }}
+          <input id="trDateM" class="m-input nota-num" type="date" notaLockedDate name="dateM" data-test="transfer-date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+          <nota-lock-banner [selected]="date()" />
+        </label>
+        <label class="m-field">{{ 'cashbox.transfer.note' | translate }}
+          <input id="trNoteM" class="m-input" type="text" name="noteM" data-test="transfer-note" [ngModel]="note()" (ngModelChange)="note.set($event)" />
+        </label>
+        @if (error()) { <p class="nota-error" role="alert" data-test="transfer-error">{{ error() | translate }}</p> }
+        <ng-container notaDialogFooter>
+          <button type="button" class="m-btn" (click)="cancel()">{{ 'cashbox.cancel' | translate }}</button>
+          <button type="button" class="m-btn m-btn--primary" data-action="do-transfer" [disabled]="!valid() || busy()" (click)="save()">{{ 'cashbox.transfer.submit' | translate }}</button>
+        </ng-container>
+      </nota-dialog-shell>
+    </p-dialog>
+} @else {
+
     <p-dialog [visible]="visible()" (visibleChange)="visible.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
       [draggable]="false" [resizable]="false" styleClass="nota-p-dialog td-dialog">
       <nota-dialog-shell [title]="'cashbox.transfer.title' | translate" [closeLabel]="'cashbox.close' | translate" (closed)="cancel()">
@@ -68,6 +115,7 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
         </ng-container>
       </nota-dialog-shell>
     </p-dialog>
+  }
   `,
   styles: `
     .td__row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 12px; margin-bottom: 16px; }
@@ -81,6 +129,7 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
   `,
 })
 export class TransferDialogComponent {
+  protected readonly layout = inject(LayoutService);
   /** Stage 22: a date inside a closed period cannot be submitted (the banner explains, the server refuses too). */
   private readonly lock = inject(LockDateService);
   private readonly cashbox = inject(CashboxService);

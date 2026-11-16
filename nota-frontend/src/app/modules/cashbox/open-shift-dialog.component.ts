@@ -5,6 +5,7 @@ import { Dialog } from 'primeng/dialog';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe } from '../shared/ui';
 import { CashboxService } from './cashbox.service';
 import { ShiftSummary } from './cashbox.models';
+import { LayoutService } from '../../core/layout/layout.service';
 
 /**
  * Stage 19: opens a shift on a drawer (CashBox.dc.html). The float is what the user counted in the drawer; it posts
@@ -17,6 +18,35 @@ import { ShiftSummary } from './cashbox.models';
   imports: [FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone): the same open-shift dialog as a bottom sheet. -->
+    <p-dialog [visible]="visible()" (visibleChange)="visible.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
+      [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+      <nota-dialog-shell [title]="'cashbox.shift.openTitle' | translate: { name: boxName() }" [closeLabel]="'cashbox.close' | translate" (closed)="cancel()">
+        <label class="m-field">{{ 'cashbox.shift.openingFloat' | translate }}
+          <input id="shiftFloatM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="floatM" data-test="shift-float" [ngModel]="float()" (ngModelChange)="float.set($event); mismatch.set(null)" />
+          <span class="m-note" style="padding:0">{{ 'cashbox.shift.openingFloatHint' | translate }}</span>
+          @if (error()) { <span class="nota-error">{{ error() | translate }}</span> }
+        </label>
+        @if (mismatch(); as m) {
+          <p class="m-pill m-pill--warn" style="white-space:normal;margin-bottom:12px" role="alert" data-test="float-mismatch">
+            {{ 'cashbox.shift.floatMismatch' | translate: { balance: (m.balance | notaMoney), counted: (m.openingFloat | notaMoney), difference: (m.difference | notaMoney) } }}
+          </p>
+          <label class="m-field">{{ 'cashbox.shift.openingNote' | translate }} *
+            <input id="shiftOpeningNoteM" class="m-input" type="text" name="openingNoteM" data-test="opening-note" [ngModel]="note()" (ngModelChange)="note.set($event)" />
+            <span class="m-note" style="padding:0">{{ 'cashbox.shift.openingNoteHint' | translate }}</span>
+          </label>
+        }
+        <ng-container notaDialogFooter>
+          <button type="button" class="m-btn" (click)="cancel()">{{ 'cashbox.cancel' | translate }}</button>
+          <button type="button" class="m-btn m-btn--primary" [disabled]="busy() || float() === null || (mismatch() !== null && !note().trim())" data-action="open-shift" (click)="submit()">
+            {{ (mismatch() ? 'cashbox.shift.confirmOpen' : 'cashbox.shift.open') | translate }}
+          </button>
+        </ng-container>
+      </nota-dialog-shell>
+    </p-dialog>
+} @else {
+
     <p-dialog [visible]="visible()" (visibleChange)="visible.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
       [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
       <nota-dialog-shell [title]="'cashbox.shift.openTitle' | translate: { name: boxName() }" [closeLabel]="'cashbox.close' | translate" (closed)="cancel()">
@@ -41,10 +71,12 @@ import { ShiftSummary } from './cashbox.models';
         </ng-container>
       </nota-dialog-shell>
     </p-dialog>
+  }
   `,
   styles: `.osd__mismatch { margin-top: 12px; padding: 12px 14px; border-radius: var(--radius-control); background: var(--warning-soft); color: var(--warning-text); font-size: 14px; line-height: 1.7; }`,
 })
 export class OpenShiftDialogComponent {
+  protected readonly layout = inject(LayoutService);
   private readonly cashbox = inject(CashboxService);
 
   readonly visible = model(false);

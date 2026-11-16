@@ -16,6 +16,9 @@ import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-a
 import { PrintDataService } from '../../core/print/print-data.service';
 import { localDateKey } from '../../core/utilities/local-date';
 import { VatSettingsService } from '../shop-profile/services/vat-settings.service';
+import { LayoutService } from '../../core/layout/layout.service';
+import { FilterChip, MobFilterChipsComponent, MobFilterSheetComponent, MobSheetComponent } from '../mobile/mob-sheet.component';
+import { MobDatePipe } from '../mobile/mob-date.pipe';
 
 const thisMonth = () => {
   const now = new Date();
@@ -30,7 +33,7 @@ const thisMonth = () => {
 @Component({
   selector: 'app-expenses-page',
   standalone: true,
-  imports: [PrintActionsComponent, NotaLockBannerComponent, NotaLockedDateDirective, DatePipe, FormsModule, TranslatePipe, Dialog, NotaCanDirective, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, PaymentBoxSelectComponent],
+  imports: [PrintActionsComponent, NotaLockBannerComponent, NotaLockedDateDirective, DatePipe, FormsModule, TranslatePipe, Dialog, NotaCanDirective, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, PaymentBoxSelectComponent, MobFilterChipsComponent, MobFilterSheetComponent, MobSheetComponent, MobDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './expenses-page.component.html',
   styleUrl: './expenses-page.component.scss',
@@ -38,6 +41,11 @@ const thisMonth = () => {
 export class ExpensesPageComponent implements OnInit {
   /** Stage 22: a date inside a closed period cannot be submitted (the banner explains, the server refuses too). */
   private readonly lock = inject(LockDateService);
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the filter sheet, the add-expense sheet and the details sheet. Presentation state only. */
+  protected readonly filtersOpen = signal(false);
+  protected readonly addOpen = signal(false);
+  protected readonly detailRow = signal<ExpenseRow | null>(null);
   private readonly expenses = inject(ExpensesService);
   private readonly printData = inject(PrintDataService);
   private readonly translate = inject(TranslateService);
@@ -121,6 +129,27 @@ export class ExpensesPageComponent implements OnInit {
       next: (response) => { this.data.set(response); this.loading.set(false); },
       error: () => { this.loadError.set(true); this.loading.set(false); },
     });
+  }
+
+  protected activeChips(): FilterChip[] {
+    const chips: FilterChip[] = [];
+    const category = this.categories().find((item) => item._id === this.filterCategory());
+    if (this.filterCategory()) chips.push({ key: 'category', label: category ? this.categoryLabel(category) : this.filterCategory() });
+    const box = this.boxesForFilter().find((item) => item._id === this.filterBox());
+    if (this.filterBox()) chips.push({ key: 'box', label: box?.name ?? this.filterBox() });
+    return chips;
+  }
+
+  protected removeChip(key: string): void {
+    if (key === 'category') this.filterCategory.set('');
+    if (key === 'box') this.filterBox.set('');
+    this.load();
+  }
+
+  protected clearFilters(): void {
+    this.filterCategory.set('');
+    this.filterBox.set('');
+    this.load();
   }
 
   barWidth(row: CategoryTotal): string {

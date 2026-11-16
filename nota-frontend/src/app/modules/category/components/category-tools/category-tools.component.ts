@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectorRef, Component, DestroyRef, Inject, inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, Inject, inject, input, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -36,6 +36,8 @@ export class CategoryToolsComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly _catalog = inject(CatalogStateService);
   protected readonly layout = inject(LayoutService);
+  /** Phone (Online Stage 6B): the category whose products the page has open; its delete button is hidden, exactly as the desktop list hides it. */
+  readonly openCategoryId = input('');
   visible: boolean = false;
   isSaving = signal(false);
   editingCategory: any = null;

@@ -2758,8 +2758,13 @@
     "stock": {
       "manageCategories": "Manage categories"
     },
+    "cash": {
+      "newExpense": "New expense",
+      "newBox": "New box"
+    },
       "_end": 1
     },
+
 
 
 

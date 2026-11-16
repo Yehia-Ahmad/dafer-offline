@@ -5,6 +5,7 @@ import { Dialog } from 'primeng/dialog';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent } from '../shared/ui';
 import { CashboxService, CreateBoxPayload } from './cashbox.service';
 import { BoxType, CashBox, DeviceRow } from './cashbox.models';
+import { LayoutService } from '../../core/layout/layout.service';
 
 /**
  * Stage 19: "خزنة جديدة" (AddCashBox.dc.html). A drawer, an e-wallet or a bank account. A drawer can be bound to a device
@@ -17,6 +18,54 @@ import { BoxType, CashBox, DeviceRow } from './cashbox.models';
   imports: [FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone), MobAddCash: the same add-box dialog as a bottom sheet with phone fields; the shifts checkbox is a switch. -->
+    <p-dialog [visible]="visible()" (visibleChange)="onVisible($event)" [modal]="true" [showHeader]="false" [closable]="false"
+      [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+      <nota-dialog-shell [title]="'cashbox.add.title' | translate" [closeLabel]="'cashbox.close' | translate" (closed)="cancel()">
+        <div class="m-section-label" style="margin-top:0">{{ 'cashbox.add.type' | translate }}</div>
+        <div class="m-chips" style="padding:0 0 12px" role="radiogroup">
+          @for (option of types; track option) {
+            <label class="m-chip" [class.is-active]="type() === option">
+              <input type="radio" name="boxTypeM" [value]="option" [checked]="type() === option" (change)="type.set(option)" [attr.data-type]="option" style="position:absolute;opacity:0;width:1px;height:1px" />
+              {{ 'cashbox.add.types.' + option | translate }}
+            </label>
+          }
+        </div>
+        <label class="m-field">{{ 'cashbox.add.name' | translate }} *
+          <input id="boxNameM" class="m-input" type="text" name="nameM" data-test="box-name" [ngModel]="name()" (ngModelChange)="name.set($event)" />
+        </label>
+        @if (type() === 'cash') {
+          <label class="m-field">{{ 'cashbox.add.device' | translate }}
+            <select id="boxDeviceM" class="m-input" name="deviceM" data-test="box-device" [ngModel]="deviceId()" (ngModelChange)="deviceId.set($event)">
+              <option value="">{{ 'cashbox.add.anyDevice' | translate }}</option>
+              @for (device of devices(); track device.deviceId) {
+                <option [value]="device.deviceId" [disabled]="!!device.boxId">
+                  {{ device.name }}{{ device.isCurrent ? (' · ' + ('cashbox.add.thisDevice' | translate)) : '' }}{{ device.boxName ? (' · ' + device.boxName) : '' }}
+                </option>
+              }
+            </select>
+            <span class="m-note" style="padding:0">{{ 'cashbox.add.deviceHint' | translate }}</span>
+            @if (error() === 'DEVICE_ALREADY_BOUND') { <span class="nota-error">{{ 'cashbox.errors.DEVICE_ALREADY_BOUND' | translate }}</span> }
+          </label>
+          <label class="m-switch">{{ 'cashbox.add.shifts' | translate }}<input type="checkbox" name="shiftsM" data-test="box-shifts" [ngModel]="shifts()" (ngModelChange)="shifts.set($event)" /></label>
+        }
+        <label class="m-field">{{ 'cashbox.add.openingAmount' | translate }}
+          <input id="boxOpeningM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="openingM" data-test="box-opening" [ngModel]="opening()" (ngModelChange)="opening.set($event)" />
+          <span class="m-note" style="padding:0">{{ 'cashbox.add.openingHint' | translate }}</span>
+          @if (error() === 'INSUFFICIENT_BALANCE') { <span class="nota-error">{{ 'cashbox.errors.INSUFFICIENT_BALANCE' | translate }}</span> }
+        </label>
+        @if (error() && error() !== 'DEVICE_ALREADY_BOUND' && error() !== 'INSUFFICIENT_BALANCE') {
+          <p class="nota-error" role="alert" data-test="add-error">{{ 'cashbox.add.failed' | translate }}</p>
+        }
+        <ng-container notaDialogFooter>
+          <button type="button" class="m-btn" (click)="cancel()">{{ 'cashbox.cancel' | translate }}</button>
+          <button type="button" class="m-btn m-btn--primary" data-action="save-box" [disabled]="busy() || !name().trim()" (click)="save()">{{ 'cashbox.add.save' | translate }}</button>
+        </ng-container>
+      </nota-dialog-shell>
+    </p-dialog>
+} @else {
+
     <p-dialog [visible]="visible()" (visibleChange)="onVisible($event)" [modal]="true" [showHeader]="false" [closable]="false"
       [draggable]="false" [resizable]="false" styleClass="nota-p-dialog abd-dialog">
       <nota-dialog-shell [title]="'cashbox.add.title' | translate" [closeLabel]="'cashbox.close' | translate" (closed)="cancel()">
@@ -65,6 +114,7 @@ import { BoxType, CashBox, DeviceRow } from './cashbox.models';
         </ng-container>
       </nota-dialog-shell>
     </p-dialog>
+  }
   `,
   styles: `
     .abd__types { border: none; margin: 0 0 14px; padding: 0; }
@@ -77,6 +127,7 @@ import { BoxType, CashBox, DeviceRow } from './cashbox.models';
   `,
 })
 export class AddBoxDialogComponent {
+  protected readonly layout = inject(LayoutService);
   private readonly cashbox = inject(CashboxService);
 
   readonly visible = model(false);

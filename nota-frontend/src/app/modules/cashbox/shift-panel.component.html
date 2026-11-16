@@ -1,3 +1,83 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone): the same shift panel. What the drawer should hold, as cards; the close form (count, difference, note, deposit) with phone fields; the closed shift's summary. -->
+@if (report(); as r) {
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <section class="m-card m-card--flush" [attr.aria-label]="'cashbox.shift.expectedTitle' | translate">
+      <div class="m-row">
+        <span class="m-row__body">
+          <span class="m-row__title" style="white-space:normal">{{ 'cashbox.shift.closeTitle' | translate: { name: r.boxName } }}</span>
+          <span class="m-row__sub nota-num" style="white-space:normal">{{ r.userName }} · {{ 'cashbox.shift.since' | translate }} {{ r.openedAt | mobDate: true }}@if (r.closedAt) { · {{ 'cashbox.shift.until' | translate }} {{ r.closedAt | mobDate: true }} } · <span dir="ltr">{{ r.number }}</span></span>
+        </span>
+        <span [class]="r.status === 'open' ? 'm-pill m-pill--warn' : 'm-pill m-pill--muted'" data-test="shift-status">{{ 'cashbox.shift.status.' + r.status | translate }}</span>
+      </div>
+      @if (r.openingDifference) {
+        <div class="m-row" data-line="openingDifference">
+          <span class="m-row__body" style="white-space:normal">{{ 'cashbox.shift.openingDifferenceLine' | translate }}{{ r.openingNote ? ' · ' + r.openingNote : '' }}</span>
+          <span class="nota-num" [class.m-out]="r.openingDifference < 0" [class.m-in]="r.openingDifference > 0">{{ r.openingDifference | notaMoney }}</span>
+        </div>
+      }
+      @for (line of lines(); track line.key) {
+        <div class="m-row" [attr.data-line]="line.key">
+          <span class="m-row__body">{{ (isMinus(line.key) ? '− ' : line.key === 'float' ? '' : '+ ') }}{{ 'cashbox.shift.lines.' + line.key | translate }}</span>
+          <span class="nota-num" [class.m-in]="line.key !== 'float' && !isMinus(line.key)" [class.m-out]="isMinus(line.key)">{{ line.amount | notaMoney }}</span>
+        </div>
+      }
+      <div class="m-row" data-test="expected"><strong class="m-row__body">{{ 'cashbox.shift.expected' | translate }}</strong><strong class="nota-num">{{ r.expected | notaMoney }} {{ 'cashbox.currency' | translate }}</strong></div>
+    </section>
+
+    @if (isOpen()) {
+      <section class="m-card" style="display:flex;flex-direction:column;gap:12px">
+        <label class="m-field" style="margin:0">{{ 'cashbox.shift.counted' | translate }}
+          <input id="shiftCountedM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="countedM" data-test="counted" [ngModel]="counted()" (ngModelChange)="counted.set($event)" />
+        </label>
+        @if (diffKind(); as kind) {
+          <div class="m-pill" [class.m-pill--warn]="kind === 'short'" [class.m-pill--ok]="kind === 'over'" [class.m-pill--muted]="kind === 'even'" style="display:flex;justify-content:space-between;padding:10px 14px;border-radius:12px" role="status" data-test="difference">
+            <span>{{ 'cashbox.shift.diff.' + kind | translate }}</span>
+            <span class="nota-num">{{ (difference() ?? 0) < 0 ? -(difference() ?? 0) : (difference() ?? 0) | notaMoney }} {{ 'cashbox.currency' | translate }}</span>
+          </div>
+        }
+        <label class="m-field" style="margin:0">{{ 'cashbox.shift.note' | translate }}@if (needsNote()) { * }
+          <input id="shiftNoteM" class="m-input" type="text" name="noteM" data-test="note" [placeholder]="'cashbox.shift.notePlaceholder' | translate" [ngModel]="note()" (ngModelChange)="note.set($event)" />
+          @if (needsNote() && !note().trim()) { <span class="nota-error">{{ 'cashbox.shift.noteRequired' | translate }}</span> }
+        </label>
+        <label class="m-field" style="margin:0">{{ 'cashbox.shift.depositTo' | translate }}
+          <select id="shiftDepositBoxM" class="m-input" name="depositBoxM" data-test="deposit-box" [ngModel]="depositBoxId()" (ngModelChange)="depositBoxId.set($event)">
+            <option value="">—</option>
+            @for (option of options(); track option._id) { <option [value]="option._id">{{ option.name }}</option> }
+          </select>
+        </label>
+        <label class="m-field" style="margin:0">{{ 'cashbox.shift.depositAmount' | translate }}
+          <input id="shiftDepositM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="depositM" data-test="deposit" [ngModel]="deposit()" (ngModelChange)="deposit.set($event)" />
+          @if (depositInvalid()) { <span class="nota-error">{{ 'cashbox.shift.depositInvalid' | translate }}</span> }
+        </label>
+        <span class="m-note" style="padding:0" data-test="remaining">{{ 'cashbox.shift.remaining' | translate: { amount: (remaining() | notaMoney) } }}</span>
+        @if (error()) { <p class="nota-error" role="alert" data-test="close-error">{{ error() | translate }}</p> }
+        <button type="button" class="m-btn m-btn--primary m-btn--lg m-btn--block" [disabled]="!canClose()" data-action="close-shift" (click)="close()">{{ (busy() ? 'cashbox.shift.closing' : 'cashbox.shift.closeButton') | translate }}</button>
+        <p class="m-note" style="padding:0">{{ 'cashbox.shift.overShortNote' | translate }}</p>
+      </section>
+    } @else {
+      <section class="m-card m-card--flush" data-test="shift-summary">
+        <div class="m-row"><strong class="m-row__body">{{ 'cashbox.shift.summary' | translate }}</strong></div>
+        <div class="m-row"><span class="m-row__body">{{ 'cashbox.shift.expected' | translate }}</span><span class="nota-num">{{ r.expected | notaMoney }}</span></div>
+        <div class="m-row"><span class="m-row__body">{{ 'cashbox.shift.counted' | translate }}</span><span class="nota-num">{{ r.counted | notaMoney }}</span></div>
+        <div class="m-row" [class.m-out]="(r.difference ?? 0) < 0" [class.m-in]="(r.difference ?? 0) > 0">
+          <span class="m-row__body">{{ 'cashbox.shift.diff.' + ((r.difference ?? 0) < 0 ? 'short' : (r.difference ?? 0) > 0 ? 'over' : 'even') | translate }}</span>
+          <span class="nota-num">{{ ((r.difference ?? 0) < 0 ? -(r.difference ?? 0) : (r.difference ?? 0)) | notaMoney }}</span>
+        </div>
+        @if (r.differenceNote) { <div class="m-row"><span class="m-row__body">{{ 'cashbox.shift.note' | translate }}</span><span style="white-space:normal">{{ r.differenceNote }}</span></div> }
+        @if (r.depositAmount) { <div class="m-row"><span class="m-row__body">{{ 'cashbox.shift.depositAmount' | translate }}</span><span class="nota-num">{{ r.depositAmount | notaMoney }}</span></div> }
+        <div class="m-row"><strong class="m-row__body">{{ 'cashbox.shift.staysInDrawer' | translate }}</strong><strong class="nota-num">{{ r.remaining | notaMoney }}</strong></div>
+        <div class="m-row" style="flex-direction:column;align-items:stretch"><nota-print-actions [items]="printItems()" data-test="shift-print" /></div>
+      </section>
+    }
+  </div>
+} @else if (loadFailed()) {
+  <div class="m-card m-empty"><p class="nota-error" role="alert">{{ 'cashbox.shift.loadFailed' | translate }}</p>
+    <button type="button" class="m-btn" (click)="load()">{{ 'cashbox.retry' | translate }}</button></div>
+} @else {
+  <div class="m-skel" style="height:140px" role="status" [attr.aria-label]="'cashbox.loading' | translate"></div>
+}
+} @else {
 <!-- Stage 19: shift panel (CashBox.dc.html). Open shift: close form. Closed shift: the printable summary. -->
 @if (report(); as r) {
   <div class="sp">
@@ -96,4 +176,5 @@
   <button type="button" notaButton (click)="load()">{{ 'cashbox.retry' | translate }}</button>
 } @else {
   <p role="status">{{ 'cashbox.loading' | translate }}</p>
+}
 }

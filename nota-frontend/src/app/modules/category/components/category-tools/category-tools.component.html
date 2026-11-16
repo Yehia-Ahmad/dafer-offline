@@ -46,8 +46,11 @@
         </div>
         @if (editingCategory?.id) {
           <app-category-website-fields *notaCan="'website.manage'" [categoryId]="editingCategory.id" [website]="editingCategory.category?.website" />
-          <button *notaCan="['categories.manage', 'products.manage']" type="button" class="m-btn m-btn--danger m-btn--block" data-action="delete-category"
-            (click)="removeFromPage()">{{ 'category.delete_button' | translate }}</button>
+          <!-- The desktop rule: delete needs categories.manage + products.manage and is hidden for the category whose products are open. -->
+          @if (editingCategory.id !== openCategoryId()) {
+            <button *notaCan="['categories.manage', 'products.manage']" type="button" class="m-btn m-btn--danger m-btn--block" data-action="delete-category"
+              (click)="removeFromPage()">{{ 'category.delete_button' | translate }}</button>
+          }
         }
       </form>
     </div>
