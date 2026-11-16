@@ -11,7 +11,7 @@ const { requireDiscountPermission, requirePermission } = require("../auth/middle
 
 const router = express.Router();
 
-// Stage 13: permissions (enforced only with NOTA_AUTH=1).
+// Stage 13: permissions (always enforced).
 router
   .route("/")
   .get(requirePermission("sales.view"), getSellings)

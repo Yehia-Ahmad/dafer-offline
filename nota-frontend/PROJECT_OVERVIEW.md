@@ -2,11 +2,11 @@
 
 ## 1. Project Overview
 
-Nota is an Angular-based inventory, sales, customer, returns, and e-commerce administration application. The codebase is a frontend application with optional Electron desktop packaging for Windows.
+Nota is an Angular-based inventory, sales, customer, returns, and e-commerce administration application. The codebase is a frontend web application used from a browser. It talks to the Nota backend (one Node server plus MongoDB per shop).
 
 The project helps a product-based business manage its internal stock catalog, cash sales, credit sales, customers, returns, profit reporting, website orders, storefront settings, and website promotional images from one administrative interface.
 
-Target users are business staff and administrators who manage products, categories, customer records, invoices, credit payments, returns, and e-commerce operational settings. The main value is operational control over inventory and sales activity, with supporting reports, printable invoices, exports, localization, and desktop distribution.
+Target users are business staff and administrators who manage products, categories, customer records, invoices, credit payments, returns, and e-commerce operational settings. The main value is operational control over inventory and sales activity, with supporting reports, printable invoices, exports, and localization.
 
 Verified from: `README.md`, `package.json`, `src/app/app.routes.ts`, `src/app/modules/**`.
 
@@ -124,12 +124,6 @@ This area is marked In Progress because the custom-sales files are newly added o
 | Side navigation | Displays categories and administrative navigation. | All users | Category list, category CRUD, exports/imports, dynamic route links. | `src/app/modules/layout/custom-sidenav/custom-sidenav.component.ts` | Complete |
 
 Localization is Partial because the service registers `en`, `ar`, and `zh`, but only English and Arabic translation JSON files were found in the inspected assets.
-
-### Desktop Packaging
-
-| Feature | What It Does | Who Uses It | Main Capabilities | Related Pages or Modules | Status |
-|---|---|---|---|---|---|
-| Electron desktop app | Packages the Angular build as a desktop application. | Business users on desktop | Loads built Angular output, sets window sizing, supports Windows build targets. | `electron-offline/main.js`, `electron-builder.offline.json`, `scripts/offline/` | Complete |
 
 ## 3. User Roles
 
@@ -273,13 +267,13 @@ Verified from: `src/app/modules/admin/components/admins/admins.component.ts`, `s
 - Routing: `src/app/app.routes.ts` uses direct and lazy-loaded standalone components.
 - Guards and interceptors: Present but inactive in current routing/bootstrap configuration.
 - Server-side rendering: not used. The SSR dependencies were removed; `provideClientHydration` is still listed in `app.config.ts`.
-- Desktop: Electron wrapper loads built Angular files from `dist` and electron-builder is configured for Windows NSIS/zip/unpacked outputs.
+- Hosting: static files from `dist/nota` served by a web server (for example nginx) that also proxies `/api/` to the backend, same origin.
 - Testing tools: Jasmine, Karma, Karma Chrome Launcher, and Angular test builder. Many component/service spec files exist.
-- Build/deployment: Angular CLI build scripts plus Electron build scripts in `package.json`. No CI/CD pipeline was found in the inspected files.
+- Build/deployment: Angular CLI build scripts in `package.json`. No CI/CD pipeline was found in the inspected files.
 
 ## 7. API Integrations
 
-Base API configuration is provided by `api_base_url` in `src/environments/environment.ts` and `src/environments/environment.offline.ts`. Actual URL values are intentionally not documented here.
+Base API configuration is provided by `api_base_url` in `src/environments/environment.ts` (development) and `src/environments/environment.prod.ts` (production, same origin `/api/`).
 
 | API Area | Purpose | Used By | Authentication Required |
 |---|---|---|---|
@@ -362,7 +356,6 @@ For e-commerce operators:
 - Website images management.
 - Website orders moderation.
 - Theme support and English/Arabic localization assets.
-- Electron desktop packaging scripts.
 
 ### Partially Implemented / In Progress
 
@@ -398,7 +391,7 @@ For e-commerce operators:
 | `src/app/app.routes.ts` | Application route definitions. |
 | `src/app/app.config.ts` | Angular providers, router, HTTP client, translation, PrimeNG, hydration, and theme setup. |
 | `src/app/core/guards` | Route guard support. |
-| `src/app/core/interceptor` | HTTP interceptor support for authorization, logout, and offline retry behavior. |
+| `src/app/core/interceptor` | HTTP interceptor support for authorization and session handling. |
 | `src/app/core/utilities` | Shared helper functions for params, FormData, parsing, and date formatting. |
 | `src/app/modules/layout` | Home shell, header, side navigation, and home view constants. |
 | `src/app/modules/admin` | User/admin management components and service. |
@@ -415,9 +408,7 @@ For e-commerce operators:
 | `src/assets` | App assets copied by Angular build: fonts, images, SVGs, translations. |
 | `public` | Public favicon used by build/test configuration. |
 | `src/environments` | Environment-specific configuration names, including `api_base_url` and `baseHREF`. |
-| `electron` | electron-builder beforeBuild hook used by the offline packaging. |
-| `electron-offline` | Electron main process and desktop app bootstrap for the offline edition. |
-| `package.json` | Dependencies, Angular scripts, and Electron scripts. |
+| `package.json` | Dependencies and Angular scripts. |
 | `angular.json` | Angular CLI build, serve, and test configuration. |
 
 Generated/dependency folders such as `node_modules`, `dist`, `build`, `coverage`, cache folders, and `release` are intentionally excluded.
@@ -429,8 +420,6 @@ Generated/dependency folders such as `node_modules`, `dist`, `build`, `coverage`
 - Node.js 20.19+ or 22.12+ for Angular 20, as noted in `README.md`.
 - npm.
 - Angular CLI through project scripts.
-- For desktop builds: Electron/electron-builder dependencies from `package.json`.
-- For Windows installer generation on Linux: Wine may be required, as noted in `README.md`.
 
 ### Commands
 
@@ -439,10 +428,6 @@ Generated/dependency folders such as `node_modules`, `dist`, `build`, `coverage`
 | Install dependencies | `npm install` |
 | Development server | `npm start` or `ng serve` |
 | Production build | `npm run build` |
-| Offline Angular build | `npm run build:offline` |
-| Run Electron desktop app | `npm run electron:start:offline` |
-| Build Windows unpacked desktop folder | `npm run electron:build:win:offline:dir` |
-| Build Windows installer | `npm run electron:build:win:offline` |
 | Unit tests | `npm test` or `ng test` |
 
 ### Required Environment Variables / Configuration Names
@@ -457,6 +442,6 @@ Actual values are intentionally not included.
 
 ## 13. Summary
 
-Nota is a business operations frontend for inventory, sales, customers, returns, reporting, and e-commerce administration. It is built with Angular 20 and can also be packaged as an Electron desktop application. The strongest implemented areas are product/category management, cash sales, credit sales, customer credit tracking, returns, profit reporting, website settings, website image targeting, and website order moderation.
+Nota is a business operations frontend for inventory, sales, customers, returns, reporting, and e-commerce administration. It is built with Angular 20 and runs in a browser. The strongest implemented areas are product/category management, cash sales, credit sales, customer credit tracking, returns, profit reporting, website settings, website image targeting, and website order moderation.
 
 The project is best suited for administrators, sales staff, finance staff, warehouse/inventory staff, and e-commerce operators who need a unified interface for day-to-day product and order operations. Authentication scaffolding exists, but active route protection and interceptor-based token usage need verification or completion before the application can be considered access-controlled.

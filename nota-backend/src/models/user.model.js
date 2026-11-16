@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const { ROLES, isValidPermission } = require("../auth/permissions");
 
-// Stage 13: users of the offline edition (main PC). Passwords and the owner's recovery code are
+// Stage 13: users. Passwords and the owner's recovery code are
 // stored only as bcrypt hashes.
 const BCRYPT_COST = 10;
 const MIN_PASSWORD_LENGTH = 6;

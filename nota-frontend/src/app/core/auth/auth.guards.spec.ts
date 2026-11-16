@@ -76,11 +76,6 @@ describe('auth guards (Stage 14)', () => {
     expect(run(permissionGuard(ROUTE_RULES.productNew))).not.toBeTrue();
   });
 
-  it('backup needs backup.manage and the main PC (outside the desktop app: never)', () => {
-    signInAs('owner');
-    expect(run(permissionGuard(ROUTE_RULES.backup))).not.toBeTrue();
-  });
-
   it('guestGuard (/login): signed in → first allowed page', () => {
     expect(run(guestGuard)).toBeTrue();
     signInAs('storekeeper');
@@ -109,9 +104,8 @@ describe('app routes (Stage 14 route → permission map)', () => {
     expect(byPath('audit')).toBeDefined();
   });
 
-  it('/backup keeps the main-PC guard and adds backup.manage', () => {
-    expect(byPath('backup').canMatch?.length).toBe(1);
-    expect(byPath('backup').canActivate?.length).toBe(1);
+  it('/backup is gone: backups are the server\'s job', () => {
+    expect(routes.some((route) => route.path === 'backup')).toBeFalse();
   });
 
   it('/products/new uses the create rule, /products/edit/:id the edit rule', () => {

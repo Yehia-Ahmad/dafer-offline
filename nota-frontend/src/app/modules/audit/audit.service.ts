@@ -30,7 +30,7 @@ export interface AuditPage {
   pagination: { page: number; limit: number; totalItems: number; totalPages: number };
 }
 
-/** Every action the backend records (nota-backend Stage 13, OFFLINE_PLAN "Audit log"). */
+/** Every action the backend records (nota-backend Stage 13, "Audit log"). */
 export const AUDIT_ACTIONS = [
   'auth.login', 'auth.login_failed', 'auth.locked', 'auth.setup_owner', 'auth.recover', 'auth.recover_failed', 'auth.password_changed',
   'user.created', 'user.updated', 'user.status_changed', 'user.password_reset',

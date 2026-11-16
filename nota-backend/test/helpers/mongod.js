@@ -1,5 +1,5 @@
 // Throwaway mongod for tests that need a real database (Stage 12: aggregations).
-// Binary: NOTA_TEST_MONGOD, else the bundled ../nota-frontend/vendor/mongodb/bin/mongod(.exe).
+// Binary: NOTA_TEST_MONGOD, else mongod on PATH.
 // Port 27098 by default (Stage 13 tests use 27097), fresh dbpath under the OS temp folder,
 // removed afterwards. Never touches 27017.
 // When no binary exists the caller skips its tests (see `mongodSkipReason`).
@@ -14,15 +14,18 @@ const PORT = 27098;
 const DB_NAME = "nota_test";
 const REPLICA_SET = "rs0";
 
-const candidate = () =>
-  process.env.NOTA_TEST_MONGOD ||
-  path.resolve(__dirname, "..", "..", "..", "nota-frontend", "vendor", "mongodb", "bin",
-    process.platform === "win32" ? "mongod.exe" : "mongod");
+// NOTA_TEST_MONGOD (path to the binary), else the first mongod found on PATH.
+const candidate = () => {
+  if (process.env.NOTA_TEST_MONGOD) return process.env.NOTA_TEST_MONGOD;
+  const name = process.platform === "win32" ? "mongod.exe" : "mongod";
+  const dir = (process.env.PATH || "").split(path.delimiter).find((entry) => entry && fs.existsSync(path.join(entry, name)));
+  return dir ? path.join(dir, name) : path.resolve(name);
+};
 
 const mongodPath = candidate();
 const mongodSkipReason = fs.existsSync(mongodPath)
   ? false
-  : `no mongod (set NOTA_TEST_MONGOD or run "npm run offline:vendor" in nota-frontend); looked for ${mongodPath}`;
+  : "no mongod (set NOTA_TEST_MONGOD or put mongod on PATH)";
 
 const isPortOpen = (port) =>
   new Promise((resolve) => {

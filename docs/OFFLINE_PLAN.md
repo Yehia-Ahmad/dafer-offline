@@ -1,3 +1,5 @@
+> **This branch (`online`) is the online edition.** This file describes the offline edition and is kept as history; see `docs/ONLINE_PLAN.md` for the online edition.
+
 # Offline Edition Plan
 
 ## Context

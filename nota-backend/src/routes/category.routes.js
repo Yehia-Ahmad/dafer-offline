@@ -16,7 +16,7 @@ const { auditOnSuccess } = require("../auth/audit");
 
 const router = express.Router();
 
-// Stage 13: permissions (enforced only with NOTA_AUTH=1). The import result's counts go in the audit log.
+// Stage 13: permissions (always enforced). The import result's counts go in the audit log.
 const importCounts = (_req, body) =>
   Object.fromEntries(Object.entries(body || {}).filter(([, value]) => typeof value === "number"));
 

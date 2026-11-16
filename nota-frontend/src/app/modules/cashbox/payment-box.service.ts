@@ -23,11 +23,11 @@ const writeChoice = (value: string | null): void => {
 };
 
 /**
- * Stage 19: "طريقة الدفع". The boxes this user may pay into (their PC's drawer + wallets/banks; the main box
- * only for cashbox.manage, or when the PC has no drawer) and the one a document defaults to.
+ * Stage 19: "طريقة الدفع". The boxes this user may pay into (their device's drawer + wallets/banks; the main box
+ * only for cashbox.manage, or when the device has no drawer) and the one a document defaults to.
  *
- * The choice is remembered for the session on this PC. `boxId()` is what goes into a request: undefined while the
- * user keeps the default (the backend then picks this PC's drawer, else the main box, exactly as before), the
+ * The choice is remembered for the session on this device. `boxId()` is what goes into a request: undefined while the
+ * user keeps the default (the backend then picks this device's drawer, else the main box, exactly as before), the
  * chosen box's id otherwise.
  */
 @Injectable({ providedIn: 'root' })

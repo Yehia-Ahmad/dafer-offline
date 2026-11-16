@@ -1,5 +1,4 @@
 process.env.NODE_ENV = "test";
-process.env.NOTA_AUTH = "1";
 process.env.NOTA_JWT_SECRET = "stage17-test-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
@@ -38,8 +37,9 @@ test.after(async () => { if (server) await new Promise((resolve) => server.close
 test.beforeEach(async () => {
   if (mongodSkipReason) return;
   await clearDatabase(); token = null;
-  const owner = await call("POST", "/api/auth/setup-owner", { name: "Owner", username: "stage17-owner", password: "owner-pass-123" });
-  assert.equal(owner.status, 201); token = owner.json.token;
+  await require("../src/auth/ownerAccount").createOwner({ name: "Owner", username: "stage17-owner", password: "owner-pass-123" });
+  const owner = await call("POST", "/api/auth/login", { username: "stage17-owner", password: "owner-pass-123" });
+  assert.equal(owner.status, 200); token = owner.json.token;
 });
 const it = (name, fn) => test(name, { skip: mongodSkipReason }, fn);
 async function call(method, path, body) {

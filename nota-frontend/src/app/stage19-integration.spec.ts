@@ -32,7 +32,7 @@ const TWO_BOXES: PaymentBoxesResponse = {
 };
 
 describe('Stage 19 — sidebar and routes', () => {
-  const labels = (permissions: string[]) => visibleNavGroups(NAV_GROUPS, { isMainPc: true, has: (key) => permissions.includes(key) })
+  const labels = (permissions: string[]) => visibleNavGroups(NAV_GROUPS, { has: (key) => permissions.includes(key) })
     .flatMap((group) => group.items.map((item) => item.key));
 
   it('الخزائن والوردية and المصروفات are real links with their own permissions', () => {
@@ -48,10 +48,10 @@ describe('Stage 19 — sidebar and routes', () => {
 
   it('route rules: boxes need cashbox.view; expenses need create, manage or view; the landing order includes both', () => {
     const has = (...keys: string[]) => (key: string) => keys.includes(key);
-    expect(ruleAllows(ROUTE_RULES.cashbox, has('cashbox.view'), false)).toBeTrue();
-    expect(ruleAllows(ROUTE_RULES.cashbox, has('cashbox.manage'), false)).toBeFalse();
-    expect(ruleAllows(ROUTE_RULES.expenses, has('expenses.manage'), false)).toBeTrue();
-    expect(ruleAllows(ROUTE_RULES.expenses, has('sales.create'), false)).toBeFalse();
+    expect(ruleAllows(ROUTE_RULES.cashbox, has('cashbox.view'))).toBeTrue();
+    expect(ruleAllows(ROUTE_RULES.cashbox, has('cashbox.manage'))).toBeFalse();
+    expect(ruleAllows(ROUTE_RULES.expenses, has('expenses.manage'))).toBeTrue();
+    expect(ruleAllows(ROUTE_RULES.expenses, has('sales.create'))).toBeFalse();
     expect(LANDING_ORDER.map((entry) => entry.path)).toEqual(jasmine.arrayContaining(['/cashbox', '/expenses']));
   });
 });

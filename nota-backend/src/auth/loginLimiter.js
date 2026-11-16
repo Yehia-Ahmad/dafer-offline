@@ -1,8 +1,8 @@
-// Stage 13: login (and recover) lockout. After MAX_FAILURES failed attempts for one username from
-// one IP address, that (username, IP) pair is locked for LOCK_MS. Another PC (another IP) can still
-// sign in as that user, so nobody on the LAN can lock the owner out of every PC by guessing.
-// Kept in memory: the backend runs on one main PC, so one process sees every attempt; a restart of
-// the app clears the counters (documented in OFFLINE_PLAN.md).
+// Stage 13: login lockout. After MAX_FAILURES failed attempts for one username from
+// one IP address, that (username, IP) pair is locked for LOCK_MS. Another IP can still
+// sign in as that user, so nobody can lock the owner out everywhere by guessing.
+// Kept in memory: the backend is one process, so it sees every attempt; a restart
+// clears the counters.
 const MAX_FAILURES = 5;
 const LOCK_MS = 5 * 60 * 1000;
 

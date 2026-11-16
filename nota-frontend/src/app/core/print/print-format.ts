@@ -2,7 +2,7 @@
 // Pure functions (no Angular, no browser APIs), so every template is unit-testable with fixtures.
 //
 // Arabic prints use Arabic-Indic digits and the Arabic separators ("١٢٬٣٤٥٫٥٠"); English prints use
-// Latin digits. Money always has two decimals and thousands separators. Dates are the PC's LOCAL day.
+// Latin digits. Money always has two decimals and thousands separators. Dates are the browser's LOCAL day.
 
 export type PrintLanguage = 'ar' | 'en';
 

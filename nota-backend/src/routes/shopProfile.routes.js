@@ -8,7 +8,7 @@ const { auditOnSuccess } = require("../auth/audit");
 
 const router = express.Router();
 
-// Stage 13 (only with NOTA_AUTH=1): every signed-in user may read it (all roles print invoices);
+// Stage 13: every signed-in user may read it (all roles print invoices);
 // changing it needs shop.manage.
 router
   .route("/")

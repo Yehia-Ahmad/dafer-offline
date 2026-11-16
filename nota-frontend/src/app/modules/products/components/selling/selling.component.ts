@@ -23,7 +23,6 @@ import { isOverDiscountLimit } from '../../../../core/auth/discount-limit';
 import { ToastService } from '../../../../core/auth/toast.service';
 import { PrintActionItem, PrintActionsComponent } from '../../../../core/print/print-actions.component';
 import { PrintDataService } from '../../../../core/print/print-data.service';
-import { PrintService } from '../../../../core/print/print.service';
 import { UnsavedWorkService } from '../../../../core/unsaved-work/unsaved-work.service';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, NotaLockBannerComponent } from '../../../shared/ui';
 import {
@@ -166,7 +165,6 @@ export class SellingComponent implements OnInit, OnDestroy {
   private readonly _cartRescue = inject(CartRescueService);
   private readonly _toast = inject(ToastService);
   private readonly _printData = inject(PrintDataService);
-  private readonly _print = inject(PrintService);
   /** Stage 23: the sale just saved (its receipt's print buttons show in the success dialog). */
   lastSale: unknown = null;
 
@@ -203,7 +201,7 @@ export class SellingComponent implements OnInit, OnDestroy {
   errorDialogVisible = false;
   inventoryConfirmationVisible = false;
   inventoryShortages: InventoryShortage[] = [];
-  /** Stage 21 review: the VAT settings changed on another PC; the cashier confirms the new total before it is saved. */
+  /** Stage 21 review: the VAT settings changed on another device; the cashier confirms the new total before it is saved. */
   totalChangedVisible = false;
   totalChanged = { expected: 0, current: 0 };
   private pendingTotalChangedPayload: SellingPayload | null = null;
@@ -289,9 +287,9 @@ export class SellingComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Stage 21 review: another PC may have changed the VAT settings since this one signed in.
+    // Stage 21 review: another device may have changed the VAT settings since this one signed in.
     this._vat.refresh();
-    // Stage 22 review: another PC may have closed a period since this one signed in.
+    // Stage 22 review: another device may have closed a period since this one signed in.
     this.lock.refresh();
     // Stage 15: the invoice that was open when the session expired, for the same user only.
     const saved = this._cartRescue.take<PosSnapshot>(this._auth.user()?._id);
@@ -743,8 +741,6 @@ export class SellingComponent implements OnInit, OnDestroy {
     this._productsService.createSelling(payload).subscribe({
       next: (response: unknown) => {
         this.lastSale = response;
-        const method = this.payment.effective()?.name || null;
-        void this._print.autoPrintReceipt(() => this._printData.savedSaleReceipt(response, method));
         this.isSaving = false;
         this.pendingSellingPayload = null;
         this.inventoryShortages = [];

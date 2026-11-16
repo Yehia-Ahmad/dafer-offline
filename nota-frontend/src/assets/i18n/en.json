@@ -1,36 +1,15 @@
 {
   "print": {
     "print": "Print",
-    "savePdf": "Save PDF",
-    "saved": "File saved",
-    "sent": "Receipt sent to the printer",
     "notRecorded": "Printed, but the print was not recorded. Tell the manager.",
     "failed": "Printing failed",
-    "desktopOnly": "This feature is available in the desktop app only",
     "preparing": "Preparing…",
     "invoiceA4": "A4 invoice",
     "receipt80": "80mm receipt",
     "voucherA5": "A5 voucher",
     "returnReceipt": "Return receipt",
     "receiptSlip": "Receipt",
-    "statement": "Print statement",
-    "settings": {
-      "title": "Printing",
-      "perDevice": "These settings belong to this PC only.",
-      "desktopOnly": "Print settings are available in the desktop app only.",
-      "receiptPrinter": "Receipt printer (80mm)",
-      "documentPrinter": "A4 / A5 printer",
-      "noneDialog": "None (show the print dialog)",
-      "systemDefault": "System default printer",
-      "autoPrint": "Print the receipt automatically after a sale",
-      "copies": "Receipt copies",
-      "testPage": "Print a test page",
-      "footerNote": "The receipt footer text is the invoice footer saved in the shop details.",
-      "save": "Save print settings",
-      "saved": "Print settings saved",
-      "loading": "Loading printers…",
-      "noPrinters": "No printers are installed on this PC."
-    }
+    "statement": "Print statement"
   },
     "searchPlaceholder": "Search ...",
     "sidebarTitles": {
@@ -824,74 +803,6 @@
             }
         }
     },
-    "backupPage": {
-        "title": "Backup and restore",
-        "subtitle": "Available on the main PC only.",
-        "create": {
-            "description": "Saves all of the program's data in one file. Keep the file on a USB drive or another computer so the data survives if this PC fails.",
-            "button": "Create a backup now",
-            "working": "Creating the backup...",
-            "done": "Backup saved: {{collections}} collections, {{documents}} records ({{size}} MB).",
-            "sameDrive": "This backup is on the same drive as the program's data ({{drive}}), so it does not count as a copy outside this PC. Copy the file to a USB drive, an external disk or another partition."
-        },
-        "restore": {
-            "title": "Restore from a backup",
-            "description": "Replaces all current data with the contents of the backup file. Before it starts, the program saves a copy of the current data automatically, and client PCs are disconnected until the restore finishes.",
-            "button": "Choose a file and restore",
-            "working": "Restoring...",
-            "done": "Restore finished: {{documents}} records in {{collections}} collections.",
-            "safety": "The data from before the restore is saved here:"
-        },
-        "safety": {
-            "title": "Backups folder on this PC",
-            "description": "The program keeps the daily backups (the last 14) and a copy of the data from before each restore (the last 5) in the backups folder on this PC.",
-            "openFolder": "Open the backups folder"
-        },
-        "status": {
-            "title": "Backup status",
-            "lastBackup": "Last backup: {{date}}",
-            "kind": {
-                "auto": "(daily, automatic)",
-                "manual": "(manual)"
-            },
-            "none": "There is no backup yet.",
-            "daily": "The program saves an automatic backup once a day and keeps the last {{keep}}. The server pauses for a few seconds while it saves.",
-            "autoError": "The last daily backup failed ({{date}}): {{message}} The program will try again later."
-        },
-        "warning": {
-            "title": "We recommend keeping a backup on a USB drive or another disk",
-            "never": "No backup has been saved on a drive other than the program's data drive yet.",
-            "since": "The last backup on another drive was on {{date}}, more than {{days}} days ago.",
-            "advice": "If the program's data drive ({{drive}}) fails, the backups on it are lost too. Create a backup and save it on a USB drive, an external disk or another partition, or choose a folder on another drive below."
-        },
-        "copy": {
-            "title": "Extra copy on a USB drive or another disk",
-            "description": "The program copies every daily backup to this folder and keeps the last 14 there. If the folder is not available at that time it is skipped, and the latest backup is copied once it is.",
-            "none": "No folder chosen.",
-            "choose": "Choose a folder",
-            "change": "Change folder",
-            "clear": "Stop the extra copy",
-            "copied": "The latest daily backup was copied to this folder on {{date}}.",
-            "unavailable": "The folder is not available right now (is the USB drive plugged in?). The copy happens automatically once it is.",
-            "failed": "Could not copy to this folder: {{message}}",
-            "waiting": "The next daily backup will be copied to this folder.",
-            "sameDrive": "This folder is on the same drive as the program's data ({{drive}}), so it does not protect the data if that drive fails and does not count as a copy outside this PC. Choose a folder on a USB drive, an external disk or another partition."
-        },
-        "progress": {
-            "backup": "Saving data... {{done}} of {{total}}",
-            "safety-backup": "Saving a copy of the current data... {{done}} of {{total}}",
-            "restoring": "Restoring data... {{done}} of {{total}}",
-            "rolling-back": "The restore failed; putting the previous data back..."
-        },
-        "showFile": "Show the file",
-        "s11": {
-            "autoTitle": "Automatic backup",
-            "autoOn": "On",
-            "autoCount": "Daily backups saved now: {{count}}",
-            "autoDir": "Daily backups folder",
-            "destination": "Folder"
-        }
-    },
     "invoicePrint": {
         "salesTitle": "Sales Invoice",
         "creditTitle": "Credit Sales Invoice",
@@ -977,7 +888,6 @@
             "profit": "Profit report",
             "users": "Users & permissions",
             "shop": "Shop profile",
-            "backup": "Backup",
             "audit": "Audit log",
             "opening": "Opening balances"
         },
@@ -990,8 +900,6 @@
         "theme": "Theme",
         "themeLight": "Light",
         "themeDark": "Dark",
-        "deviceMain": "Main PC",
-        "deviceClient": "Client PC",
         "categories": {
             "empty": "No categories yet",
             "edit": "Edit category",
@@ -1120,64 +1028,43 @@
         "logout": "Sign out",
         "showPassword": "Show password",
         "hidePassword": "Hide password",
-        "backToLogin": "Back to sign in",
         "sessionExpired": "Your session ended. Please sign in again.",
         "noPagePermission": "You don't have permission to open this page",
         "brand": {
             "headline": "All your shop's books in one place",
-            "tagline": "Sales, stock and credit, on every PC in the shop, without internet."
-        },
-        "device": {
-            "main": "Main PC",
-            "client": "Connected to the main PC"
+            "tagline": "Sales, stock and credit, from any browser."
         },
         "unreachable": {
-            "title": "Can't reach the main PC",
-            "text": "Make sure the app is running on the main PC and both PCs are on the same network, then try again."
+            "title": "Can't reach the server",
+            "text": "Check your connection and try again."
         },
         "login": {
             "title": "Sign in",
             "lead": "Enter the username and password the shop owner gave you.",
             "submit": "Sign in",
-            "forgot": "Forgot your password?",
-            "forgotHelp": "Ask the shop owner to change it from the Users page. If you are the owner, use your recovery code on the main PC."
+            "forgotHelp": "Forgot your password? Ask the shop owner to change it from the Users page. If you are the owner, ask whoever manages the server to run recover-owner."
         },
-        "setup": {
-            "title": "Create the owner account",
-            "lead": "This is the first run. Create the shop owner's account: the owner adds the other users and sets their permissions.",
-            "submit": "Create owner account"
+        "device": {
+            "title": "Name this device",
+            "lead": "Give this device a name, for example \"Cashier 1\". It is used to pick this device's default cash box. You can change it later from your user card.",
+            "name": "Device name",
+            "placeholder": "Cashier 1",
+            "required": "Enter a name for this device",
+            "save": "Save",
+            "current": "Device: {{name}}",
+            "unnamed": "no name",
+            "change": "Change the device name"
         },
-        "noOwnerClient": {
+        "noOwner": {
             "title": "No owner account yet",
-            "text": "There is no owner account yet. Open Nota on the main PC first and create the owner account, then come back here and press Try again."
-        },
-        "recover": {
-            "title": "Recover the owner account",
-            "lead": "Enter the owner's username, the recovery code you saved when the account was created, and a new password.",
-            "submit": "Recover account",
-            "codeHint": "Like: ABCD-EFGH-JKLM-NPQR",
-            "clientText": "The owner account can only be recovered with the recovery code on the main PC. If you are an employee, ask the shop owner to change your password from the Users page."
-        },
-        "recoveryCode": {
-            "title": "Recovery code",
-            "explain": "This code is the only way back into the owner account if you forget the password. Write it down or print it and keep it somewhere safe, away from this PC. It will not be shown again.",
-            "oldCodeInvalid": "The old code no longer works. Use this new code from now on.",
-            "printTitle": "Owner account recovery code · {{shop}}",
-            "printNote": "Keep this paper somewhere safe. The code only works on the main PC.",
-            "copy": "Copy code",
-            "copied": "Copied",
-            "print": "Print",
-            "mainPcOnly": "The code only works on the main PC, from the sign-in screen → Forgot your password?",
-            "ack": "I wrote the code down and kept it somewhere safe",
-            "continue": "Continue"
+            "text": "There is no owner account yet. It is created on the server with the create-owner command. Then come back here and press Try again."
         },
         "fields": {
             "name": "Name",
             "username": "Username",
             "password": "Password",
             "confirm": "Confirm password",
-            "newPassword": "New password",
-            "recoveryCode": "Recovery code"
+            "newPassword": "New password"
         },
         "validation": {
             "nameRequired": "Enter the name",
@@ -1187,19 +1074,15 @@
             "passwordRequired": "Enter the password",
             "passwordLength": "The password must be 6 to 128 characters",
             "passwordHint": "At least 6 characters",
-            "passwordMismatch": "The passwords don't match",
-            "codeRequired": "Enter the recovery code"
+            "passwordMismatch": "The passwords don't match"
         },
         "errors": {
             "INVALID_CREDENTIALS": "Wrong username or password",
             "LOGIN_LOCKED": "Too many failed attempts. Wait {{minutes}} minute(s) and try again",
             "SESSION_EXPIRED": "Your session ended. Please sign in again.",
             "FORBIDDEN": "You don't have permission for this action",
-            "LOCAL_ONLY": "This can only be done on the main PC",
-            "OWNER_EXISTS": "The owner account already exists. Please sign in.",
             "WRONG_PASSWORD": "The current password is wrong",
-            "INVALID_RECOVERY": "Wrong username or recovery code",
-            "UNREACHABLE": "Can't reach the main PC. Try again.",
+            "UNREACHABLE": "Can't reach the server. Try again.",
             "generic": "Something went wrong. Try again.",
             "DISCOUNT_LIMIT": "This discount is above your maximum allowed discount"
         },
@@ -1209,7 +1092,7 @@
             "current": "Current password",
             "new": "New password",
             "confirm": "Confirm new password",
-            "note": "Other PCs will be signed out; you stay signed in on this one.",
+            "note": "Your other sessions will be signed out; you stay signed in here.",
             "save": "Save",
             "done": "Password changed"
         },
@@ -1242,7 +1125,7 @@
         "customized": "Customized",
         "empty": "No users",
         "neverLoggedIn": "Never",
-        "logoutEverywhere": "They will be signed out on every PC",
+        "logoutEverywhere": "They will be signed out on every device",
         "columns": {
             "name": "Name",
             "username": "Username",
@@ -1385,7 +1268,6 @@
         }
     },
     "session": {
-        "restoredNotice": "The backup was restored. Sign in with an account from the restored backup",
         "cartRestored": "Your open invoice is back",
         "lock": {
             "title": "Screen locked",
@@ -1405,15 +1287,9 @@
         "security": {
             "title": "Security",
             "autoLock": "Lock the screen automatically after",
-            "autoLockHint": "If nobody touches the PC for this long, the screen locks and asks for the password. An open invoice stays as it was. Applies to every PC.",
+            "autoLockHint": "If nobody touches the device for this long, the screen locks and asks for the password. An open invoice stays as it was. Applies to every device.",
             "off": "Off (no auto-lock)",
             "minutes": "{{count}} minutes"
-        },
-        "restore": {
-            "title": "Confirm restore",
-            "warning": "Restoring replaces all current data, including users, with the backup's.",
-            "lead": "Enter your password to confirm. After the restore you sign in again with an account from the restored backup.",
-            "continue": "Confirm and choose the file"
         },
         "discount": {
             "limitLabel": "Maximum discount",
@@ -1422,14 +1298,6 @@
             "limitInvalid": "Enter a number from 0 to 100, or leave it empty",
             "limitHintShort": "Max discount: {{limit}}%",
             "overLimit": "Your maximum allowed discount is {{limit}}%"
-        },
-        "otherMain": {
-            "banner": "Another main PC is running on the network:",
-            "whatToDo": "What should I do?",
-            "why": "A shop must have only one main PC. With two, each one saves its own invoices and stock and the data is split.",
-            "step1": "Decide which PC has the right shop data and keep it as the main PC.",
-            "step2": "On the other PC: make a backup first, then set it up again as a client PC connected to the main PC.",
-            "step3": "If you are not sure, call support before deleting anything."
         }
     },
     "accounting": {
@@ -1709,7 +1577,7 @@
             "BOX_INACTIVE": "This box is stopped.",
             "BOX_NOT_ALLOWED": "This box is not available to you.",
             "INVALID_CATEGORY": "The expense category is not valid.",
-            "DEVICE_ALREADY_BOUND": "This PC is already the default of another box.",
+            "DEVICE_ALREADY_BOUND": "This device is already the default of another box.",
             "SAME_BOX": "Choose two different boxes.",
             "BOX_NOT_EMPTY": "The box still has a balance. Transfer it first.",
             "BOX_HAS_OPEN_SHIFT": "A shift is open on this box."
@@ -1782,10 +1650,10 @@
                 "bank": "Bank account"
             },
             "name": "Name",
-            "device": "PC that uses it by default",
-            "deviceHint": "Every cash invoice from that PC goes into this drawer.",
-            "anyDevice": "Any PC",
-            "thisDevice": "This PC",
+            "device": "Device that uses it by default",
+            "deviceHint": "Every cash invoice from that device goes into this drawer.",
+            "anyDevice": "Any device",
+            "thisDevice": "This device",
             "shifts": "Use shifts on this drawer",
             "openingAmount": "Opening amount",
             "openingHint": "The change put in the drawer. It is moved from the main box.",
@@ -2220,11 +2088,11 @@
         "priceDecimals": "A price can have at most two decimals",
         "totalChanged": {
             "title": "VAT settings changed",
-            "message": "The VAT settings were changed on another PC. The invoice total is now {{current}} instead of {{expected}}. Check it and confirm to save.",
+            "message": "The VAT settings were changed on another device. The invoice total is now {{current}} instead of {{expected}}. Check it and confirm to save.",
             "confirm": "Confirm and save",
             "cancel": "Back to review"
         },
-        "purchaseChanged": "The VAT settings were changed on another PC. The VAT is now {{current}} instead of {{expected}}. Check the invoice and save again."
+        "purchaseChanged": "The VAT settings were changed on another device. The VAT is now {{current}} instead of {{expected}}. Check the invoice and save again."
     },
   "reports": {
     "title": "Financial reports",

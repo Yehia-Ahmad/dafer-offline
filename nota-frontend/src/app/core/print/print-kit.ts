@@ -1,10 +1,10 @@
 // Stage 23: the shared part of every printed document: the page (paper, margins, page-number boxes),
 // the light palette, the shared header and footer, the "نسخة" mark, the "ملغي" watermark and a few
 // small building blocks (tables, signature blocks). Pure functions: a template gets a PrintContext and
-// returns HTML text, which the print service renders in a hidden window (Electron) or an iframe (dev browser).
+// returns HTML text, which the print service renders in a hidden iframe and prints with the browser's dialog.
 //
 // Copies: a numbered document RESERVES its copy number on the server before it renders (copyNo 1 = the original, one
-// across all PCs; 2+ = reprints, marked "نسخة" by copyMark below), then CONFIRMS it when the print / PDF save went out
+// across all devices; 2+ = reprints, marked "نسخة" by copyMark below), then CONFIRMS it when the print / PDF save went out
 // or RELEASES it on cancel / failure (see PrintService and print.controller.js). There are two counters per document:
 // receipt (80mm) and page (A4/A5, a PDF counts in its paper's class). A missing document is a 404 and a reservation
 // that is never settled (a crash) stays counted: a gap that stays is an over-count (the safe side).

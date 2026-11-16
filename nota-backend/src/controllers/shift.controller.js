@@ -19,7 +19,7 @@ const { httpError, isId } = boxes;
 // DOCUMENTS say should be there; a difference posts to CASH_OVER_SHORT (530), and an optional deposit is a
 // transfer to another box.
 
-const isOwn = (req, shift) => !req.authEnabled || !req.user || !shift.userId || String(shift.userId) === String(req.user._id);
+const isOwn = (req, shift) => !req.user || !shift.userId || String(shift.userId) === String(req.user._id);
 
 const shiftView = (shift) => ({
   _id: shift._id, number: shift.number, boxId: shift.boxId, userId: shift.userId || null, userName: shift.userName || null,
@@ -106,7 +106,7 @@ const openShift = async (req, res) => {
 const getShifts = async (req, res) => {
   res.set("Cache-Control", "no-store");
   const filter = {};
-  if (req.authEnabled && req.user && !can(req, "shift.manage")) filter.userId = req.user._id;
+  if (req.user && !can(req, "shift.manage")) filter.userId = req.user._id;
   if (req.query.boxId) {
     if (!isId(req.query.boxId)) { res.status(400); throw new Error("معرّف الخزنة غير صالح"); }
     filter.boxId = req.query.boxId;

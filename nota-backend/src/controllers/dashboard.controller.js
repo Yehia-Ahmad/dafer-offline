@@ -14,7 +14,7 @@ const { loadVatSettings, vatPosition } = require("../accounting/vat");
 
 // Stage 12: read-only dashboard summary (GET /api/dashboard/summary).
 //
-// "Today" is the server's local calendar date (the shop's main PC). Sales and credit sales store
+// "Today" is the server's local calendar date (the shop's server). Sales and credit sales store
 // sellingDate as UTC midnight of the date the cashier picked (the app sends "yyyy-MM-dd"), so a day
 // is matched as [Date.UTC(y, m, d), next day) on sellingDate, the same UTC day ranges the existing
 // list filters use. dueDate is stored the same way; a credit invoice is overdue when its dueDate is
@@ -123,7 +123,7 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
     }
   }
   let suppliersDue = null;
-  if (!req.authEnabled || (req.user && hasPermission(req.user, "suppliers.view"))) {
+  if (req.user && hasPermission(req.user, "suppliers.view")) {
     const ids = (await Supplier.find({}).select("_id").lean()).map((row) => row._id);
     const { balances } = await supplierBalances(ids);
     const owed = [...balances.values()].filter((value) => value > 0);
@@ -132,7 +132,7 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
   // Stage 21: with VAT on, today's sales are still what the customer paid (VAT included) and the screen says so; the VAT due
   // figure needs vat.file or accounting.view. A shop that never used VAT gets neither (the response is unchanged).
   const vatSettings = await loadVatSettings();
-  const vatPos = !req.authEnabled || (req.user && (hasPermission(req.user, "vat.file") || hasPermission(req.user, "accounting.view"))) ? await vatPosition() : null;
+  const vatPos = (req.user && (hasPermission(req.user, "vat.file") || hasPermission(req.user, "accounting.view"))) ? await vatPosition() : null;
   const vatBlock = vatSettings.enabled ? { enabled: true, rate: vatSettings.rate, pricesIncludeVat: vatSettings.pricesIncludeVat } : null;
   const vatDue = vatPos && (vatSettings.enabled || vatPos.payable !== 0 || vatPos.input !== 0) ? { amount: vatPos.due, payable: vatPos.payable, input: vatPos.input } : null;
   const recentInvoices = [

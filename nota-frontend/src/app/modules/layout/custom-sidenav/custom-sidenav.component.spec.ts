@@ -5,8 +5,9 @@ import { Router, provideRouter } from '@angular/router';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule } from '@ngx-translate/core';
 
-import { CustomSidenavComponent, deviceLabelKey, userRoleLabelKey } from './custom-sidenav.component';
+import { CustomSidenavComponent, userRoleLabelKey } from './custom-sidenav.component';
 import { AuthService } from '../../../core/auth/auth.service';
+import { DeviceService } from '../../../core/device/device.service';
 import { UnsavedWorkService } from '../../../core/unsaved-work/unsaved-work.service';
 import { fakeUser } from '../../../core/auth/testing/auth-fixtures';
 import { LanguageService } from '../../shared/services/translation.service';
@@ -38,7 +39,7 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
     expect(hrefs).toEqual(['/home', '/selling', '/credit-sales', '/invoice-history', '/returns', '/customers', '/products', '/purchases', '/suppliers', '/cashbox', '/expenses', '/accounting/vat', '/products/profit-report', '/users', '/audit', '/shop-profile']);
     // Stage 11: no category list or tools in the sidebar any more.
     expect(el().querySelector('app-sidebar-categories')).toBeNull();
-    // Not the main PC outside the desktop app: no backup link.
+    // Backups are the server's job: no backup link.
     expect(el().querySelector('a[href="/backup"]')).toBeNull();
   });
 
@@ -66,12 +67,6 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
     expect(change).toHaveBeenCalled();
     component.toggleTheme();
     expect(toggle).toHaveBeenCalled();
-  });
-
-  it('device line comes from the runtime role', () => {
-    expect(deviceLabelKey('main')).toBe('nav.deviceMain');
-    expect(deviceLabelKey('client')).toBe('nav.deviceClient');
-    expect(deviceLabelKey(null)).toBeNull();
   });
 
   // ---- Stage 14 ----
@@ -136,7 +131,18 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
   });
 
   it('"change password" in the user card opens the dialog', () => {
-    (el().querySelector('.nota-user-card__link') as HTMLButtonElement).click();
+    (el().querySelector('[data-action="change-password"]') as HTMLButtonElement).click();
     expect(component.changePasswordOpen).toBeTrue();
+  });
+
+  it('the user card shows this device\'s name and opens the name dialog to change it', () => {
+    const device = TestBed.inject(DeviceService);
+    device.name.set('كاشير 1');
+    fixture.detectChanges();
+    const link = el().querySelector('[data-action="device-name"]') as HTMLButtonElement;
+    expect(link.textContent).toContain('auth.device.current'); // the test translations return the key
+    device.dialogOpen.set(false);
+    link.click();
+    expect(device.dialogOpen()).toBeTrue();
   });
 });

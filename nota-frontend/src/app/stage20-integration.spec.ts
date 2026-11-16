@@ -24,9 +24,9 @@ describe('Stage 20 — routes and permissions', () => {
     expect(ROUTE_RULES.purchaseNew.all).toEqual(['purchases.create']);
     expect(LANDING_ORDER.some((entry) => entry.path === '/purchases')).toBeTrue();
     const has = (keys: string[]) => (key: string) => keys.includes(key);
-    expect(ruleAllows(ROUTE_RULES.purchases, has(['purchases.view']), true)).toBeTrue();
-    expect(ruleAllows(ROUTE_RULES.purchases, has(['suppliers.view']), true)).toBeFalse();
-    expect(ruleAllows(ROUTE_RULES.purchaseNew, has(['purchases.view']), true)).toBeFalse();
+    expect(ruleAllows(ROUTE_RULES.purchases, has(['purchases.view']))).toBeTrue();
+    expect(ruleAllows(ROUTE_RULES.purchases, has(['suppliers.view']))).toBeFalse();
+    expect(ruleAllows(ROUTE_RULES.purchaseNew, has(['purchases.view']))).toBeFalse();
   });
 });
 

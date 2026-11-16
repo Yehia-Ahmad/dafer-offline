@@ -5,7 +5,7 @@ const controller = require("../controllers/cashbox.controller");
 
 const router = express.Router();
 
-// Stage 19: cash boxes, transfers and owner drawings (permissions enforced only with NOTA_AUTH=1).
+// Stage 19: cash boxes, transfers and owner drawings (permissions always enforced).
 router.get("/payment-boxes", requireLogin(), asyncHandler(controller.getPaymentBoxes));
 router.get("/boxes", requirePermission("cashbox.view"), asyncHandler(controller.getBoxes));
 router.post("/boxes", requirePermission("cashbox.manage"), asyncHandler(controller.createBox));

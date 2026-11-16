@@ -1,5 +1,5 @@
-// Stage 23: the browser-side helpers of printing: measuring an 80mm receipt, and the dev-browser fallback
-// (window.print() of a hidden iframe). The Electron path never needs the second one.
+// Stage 23: the browser-side helpers of printing: measuring an 80mm receipt, and the print itself
+// (window.print() of a hidden iframe).
 
 const PX_PER_MM = 96 / 25.4;
 
@@ -31,7 +31,7 @@ export async function measureRollHeightMm(html: string): Promise<number> {
   }
 }
 
-/** Dev browser only: print the document through a hidden iframe (the browser's own print dialog; "Save as PDF" is there). */
+/** Prints the document through a hidden iframe (the browser's own print dialog; "Save as PDF" is there). */
 export async function printInFrame(html: string): Promise<void> {
   const frame = await hiddenFrame(html, '210mm');
   frame.style.visibility = 'visible';

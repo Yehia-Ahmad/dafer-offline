@@ -7,7 +7,7 @@ const { ALL_PERMISSIONS, PERMISSIONS, PERMISSION_GROUPS, ROLES, ROLE_LABELS, eff
 const { signToken } = require("../auth/jwt");
 const { createLoginLimiter } = require("../auth/loginLimiter");
 const { audit } = require("../auth/audit");
-const { httpError, isLoopback } = require("../auth/middleware");
+const { httpError } = require("../auth/middleware");
 const { getLockedThrough, isoDay } = require("../accounting/period");
 
 // Stage 22: the posting forms disable locked dates. The lock date rides on the responses the screen already asks for (login, /me,
@@ -19,7 +19,7 @@ const lockInfo = async () => {
 
 const SHOP_PROFILE_KEY = "default"; // the single ShopProfile document (shopProfile.controller.js)
 
-// No 0/O or 1/I (same alphabet as the LAN secret in electron-offline/lib/setup-controller.js).
+// No 0/O or 1/I.
 const RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const RECOVERY_GROUPS = 4;
 const RECOVERY_GROUP_LENGTH = 4;
@@ -38,7 +38,6 @@ const canonicalRecoveryCode = (value) => {
 
 const INVALID_CREDENTIALS_MESSAGE = "اسم الدخول أو كلمة المرور غير صحيحة";
 const invalidCredentials = () => httpError(401, "INVALID_CREDENTIALS", INVALID_CREDENTIALS_MESSAGE);
-const invalidRecovery = () => httpError(401, "INVALID_RECOVERY", "اسم الدخول أو رمز الاستعادة غير صحيح");
 const locked = (ms) => {
   const error = httpError(429, "LOGIN_LOCKED", `محاولات كثيرة غير صحيحة. حاول مرة أخرى بعد ${Math.max(1, Math.ceil(ms / 60000))} دقائق`);
   error.responseData.retryAfterSeconds = Math.ceil(ms / 1000);
@@ -79,11 +78,8 @@ const getDummyHash = () => {
   return dummyHash;
 };
 
-const isDuplicateKey = (error) => error && error.code === 11000;
-
 function createAuthController({ secret, now = () => Date.now() } = {}) {
   const loginLimiter = createLoginLimiter({ now });
-  const recoverLimiter = createLoginLimiter({ now });
   const issue = (user) => signToken(user, secret);
 
   const bootstrap = asyncHandler(async (req, res) => {
@@ -91,40 +87,11 @@ function createAuthController({ secret, now = () => Date.now() } = {}) {
       User.exists({ role: "owner" }),
       ShopProfile.findOne({ key: SHOP_PROFILE_KEY }, "name logo").lean(),
     ]);
-    // Stage 14: isLocal tells the login screen whether it runs on the main PC (owner setup, recover).
+    // The owner is created on the server with `npm run create-owner`; the login screen only needs hasOwner.
     res.json({
       hasOwner: Boolean(owner),
-      isLocal: isLoopback(req),
       shop: { name: profile?.name || "", logo: profile?.logo || "" },
     });
-  });
-
-  const setupOwner = asyncHandler(async (req, res) => {
-    const body = req.body || {};
-    if (await User.exists({})) throw httpError(409, "OWNER_EXISTS", "تم إنشاء حساب المالك بالفعل");
-    const name = normalizeName(body.name);
-    const username = normalizeUsername(body.username);
-    validateName(name);
-    validateUsername(username);
-    validatePassword(body.password);
-
-    const recoveryCode = generateRecoveryCode();
-    let owner;
-    try {
-      owner = await User.create({
-        name,
-        username,
-        role: "owner",
-        passwordHash: await User.hashSecret(body.password),
-        recoveryCodeHash: await User.hashSecret(recoveryCode),
-      });
-    } catch (error) {
-      // Two setup requests racing: the one_owner (or username) unique index lets only one through.
-      if (isDuplicateKey(error)) throw httpError(409, "OWNER_EXISTS", "تم إنشاء حساب المالك بالفعل");
-      throw error;
-    }
-    await audit(req, { action: "auth.setup_owner", entity: "User", entityId: owner._id, user: owner });
-    res.status(201).json({ user: presentUser(owner), token: issue(owner), recoveryCode, permissions: effectivePermissions(owner) });
   });
 
   const login = asyncHandler(async (req, res) => {
@@ -170,7 +137,7 @@ function createAuthController({ secret, now = () => Date.now() } = {}) {
     res.json({ user: presentUser(user), token: issue(user), permissions: effectivePermissions(user) });
   });
 
-  // Stage 15: the lock screen (and the desktop app before a restore) asks the signed-in user for
+  // Stage 15: the lock screen asks the signed-in user for
   // their password again. Same lockout as login (per username + IP, in memory). 204 when right;
   // 400 WRONG_PASSWORD (not 401: the session itself is fine) or 429 LOGIN_LOCKED. The token is
   // not changed.
@@ -198,37 +165,6 @@ function createAuthController({ secret, now = () => Date.now() } = {}) {
     res.json({ user: presentUser(req.user), token: issue(req.user), permissions: effectivePermissions(req.user), ...(await lockInfo()) });
   });
 
-  const recover = asyncHandler(async (req, res) => {
-    const body = req.body || {};
-    const username = normalizeUsername(body.username);
-    const lockedMs = recoverLimiter.lockedFor(username, req.ip);
-    if (lockedMs > 0) throw locked(lockedMs);
-    validatePassword(body.newPassword);
-
-    const owner = username ? await User.findOne({ username, role: "owner" }) : null;
-    const code = canonicalRecoveryCode(body.recoveryCode);
-    const codeOk = await User.compareSecret(code || "-", owner && owner.recoveryCodeHash ? owner.recoveryCodeHash : getDummyHash());
-    if (!owner || !code || !codeOk) {
-      const nowLocked = recoverLimiter.fail(username, req.ip);
-      await audit(req, { action: "auth.recover_failed", entity: "User", details: { username } });
-      if (nowLocked) {
-        await audit(req, { action: "auth.locked", entity: "User", details: { username, flow: "recover" } });
-        throw locked(recoverLimiter.lockedFor(username, req.ip));
-      }
-      throw invalidRecovery();
-    }
-
-    recoverLimiter.succeed(username, req.ip);
-    loginLimiter.clearUsername(username); // the owner proved who they are: unlock login on every PC
-    const recoveryCode = generateRecoveryCode(); // the old code stops working
-    owner.passwordHash = await User.hashSecret(body.newPassword);
-    owner.recoveryCodeHash = await User.hashSecret(recoveryCode);
-    owner.tokenVersion = Number(owner.tokenVersion || 0) + 1;
-    await owner.save();
-    await audit(req, { action: "auth.recover", entity: "User", entityId: owner._id, user: owner });
-    res.json({ user: presentUser(owner), token: issue(owner), recoveryCode, permissions: effectivePermissions(owner) });
-  });
-
   const permissionsCatalog = asyncHandler(async (_req, res) => {
     res.json({
       permissions: ALL_PERMISSIONS.map((key) => ({ key, ...PERMISSIONS[key] })),
@@ -242,7 +178,7 @@ function createAuthController({ secret, now = () => Date.now() } = {}) {
     });
   });
 
-  return { bootstrap, setupOwner, login, me, changePassword, verifyPassword, refresh, recover, permissionsCatalog, loginLimiter, recoverLimiter };
+  return { bootstrap, login, me, changePassword, verifyPassword, refresh, permissionsCatalog, loginLimiter };
 }
 
 module.exports = {

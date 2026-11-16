@@ -7,7 +7,7 @@ const {
 } = require("../controllers/returns.controller");
 const { requirePermission } = require("../auth/middleware");
 
-// Stage 13: permissions (enforced only with NOTA_AUTH=1). createReturn sets req.params.id to the
+// Stage 13: permissions (always enforced). createReturn sets req.params.id to the
 // invoice id, so the audit entry names the invoice.
 router.get("/summary", requirePermission("returns.view"), getReturnsSummary);
 router

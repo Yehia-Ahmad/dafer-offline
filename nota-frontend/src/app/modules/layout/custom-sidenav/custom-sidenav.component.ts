@@ -6,20 +6,19 @@ import { filter, map } from 'rxjs';
 import { LanguageService } from '../../shared/services/translation.service';
 import { ThemeService } from '../../shared/services/theme.service';
 import { brandName } from '../../../core/brand';
-import { isOfflineMainPc } from '../../../core/runtime/app-features';
-import { getDesktopRuntimeConfig } from '../../../core/runtime/runtime-config';
 import { NAV_GROUPS, NavContext, NavItem, visibleNavGroups } from '../nav/nav-menu.config';
 import { NavIconComponent } from '../nav/nav-icon.component';
 import { SidebarStateService } from '../nav/sidebar-state.service';
 import { CatalogStateService } from '../nav/catalog-state.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { DeviceService } from '../../../core/device/device.service';
 import { UnsavedWorkService } from '../../../core/unsaved-work/unsaved-work.service';
 import { ChangePasswordDialogComponent } from '../../auth/change-password-dialog/change-password-dialog.component';
 
 /**
  * Nota sidebar (docs/design/screens/Sidebar.dc.html): logo, grouped menu from NAV_GROUPS,
- * footer with language, theme and device. Category tools live on the products page since Stage 11.
- * Stage 14: items follow the signed-in user's permissions; the user card (name, role, device,
+ * footer with language and theme. Category tools live on the products page since Stage 11.
+ * Stage 14: items follow the signed-in user's permissions; the user card (name, role,
  * change password, logout) sits at the bottom.
  */
 @Component({
@@ -37,16 +36,16 @@ export class CustomSidenavComponent implements OnInit {
   protected readonly state = inject(SidebarStateService);
   private readonly _catalog = inject(CatalogStateService);
   protected readonly auth = inject(AuthService);
+  protected readonly device = inject(DeviceService);
 
   readonly language = this._languageService.selectedLanguage;
   readonly brandName = computed(() => brandName(this._languageService.selectedLanguage()));
   readonly isDark = toSignal(this._themeService.isDarkMode$, { initialValue: false });
 
-  private readonly isMainPc = isOfflineMainPc();
   /** Re-evaluated when the signed-in user or their permissions change. */
   readonly groups = computed(() => {
     const permissions = new Set(this.auth.permissions());
-    const ctx: NavContext = { isMainPc: this.isMainPc, has: (key) => permissions.has(key) };
+    const ctx: NavContext = { has: (key) => permissions.has(key) };
     return visibleNavGroups(NAV_GROUPS, ctx);
   });
 
@@ -56,9 +55,6 @@ export class CustomSidenavComponent implements OnInit {
   /** "المالك" / "كاشير" …, or "صلاحيات مخصصة" when the template was edited (or role custom). */
   readonly roleLabelKey = computed(() => userRoleLabelKey(this.user()));
   changePasswordOpen = false;
-
-  /** "الجهاز الرئيسي" / "جهاز فرعي" from the desktop runtime config; nothing outside the desktop app. */
-  readonly deviceLabelKey: string | null = deviceLabelKey(getDesktopRuntimeConfig()?.role);
 
   private readonly url = toSignal(
     this._router.events.pipe(
@@ -89,7 +85,7 @@ export class CustomSidenavComponent implements OnInit {
   }
 
   /**
-   * Signs out on this PC. Stage 15: asks first when a screen has unsaved work (POS cart, a form
+   * Signs out in this browser. Stage 15: asks first when a screen has unsaved work (POS cart, a form
    * being filled; UnsavedWorkService).
    */
   async logout(): Promise<void> {
@@ -105,10 +101,4 @@ export function userRoleLabelKey(user: { role: string; permissionsEdited?: boole
   if (!user) return '';
   if (user.role === 'custom' || (user.role !== 'owner' && user.permissionsEdited)) return 'auth.roles.customized';
   return `auth.roles.${user.role}`;
-}
-
-export function deviceLabelKey(role: 'main' | 'client' | null | undefined): string | null {
-  if (role === 'main') return 'nav.deviceMain';
-  if (role === 'client') return 'nav.deviceClient';
-  return null;
 }

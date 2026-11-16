@@ -1,4 +1,3 @@
-import { PrintSettingsCardComponent } from '../print-settings-card/print-settings-card.component';
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -18,7 +17,7 @@ type Outcome = { kind: 'saved' } | { kind: 'error'; message: string };
 /** The shop's own details (name, address, phones, logo, tax number, ...), printed on invoices. Stage 11: ShopProfile.dc.html + live preview. */
 @Component({
   selector: 'app-shop-profile',
-  imports: [PrintSettingsCardComponent, DatePipe, TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent],
+  imports: [DatePipe, TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './shop-profile.component.html',
   styleUrl: './shop-profile.component.scss',

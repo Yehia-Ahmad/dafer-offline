@@ -1,6 +1,6 @@
 // Stage 23: a real Code 128 barcode of the document number (INV-000125) as an inline SVG.
 // The encoder is jsbarcode's CODE128 (pinned 3.12.3); only that encoder is imported, not the other
-// formats. The bars are drawn here, so the barcode is vector, works offline and prints sharp.
+// formats. The bars are drawn here, so the barcode is vector and prints sharp.
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 import * as Code128Module from 'jsbarcode/bin/barcodes/CODE128/CODE128_AUTO.js';

@@ -132,7 +132,7 @@ const getExpenses = async (req, res) => {
     filter.boxId = new mongoose.Types.ObjectId(req.query.box);
   }
   // A cashier who may only record expenses sees their own.
-  if (req.authEnabled && req.user && !can(req, "expenses.manage") && !can(req, "cashbox.view")) filter.createdBy = req.user._id;
+  if (req.user && !can(req, "expenses.manage") && !can(req, "cashbox.view")) filter.createdBy = req.user._id;
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
   const previous = previousMonth(range);

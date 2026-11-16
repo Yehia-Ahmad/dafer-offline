@@ -10,7 +10,7 @@ import {
 export interface CreateBoxPayload {
   name: string;
   type: BoxType;
-  /** The PC whose sales default to this box (X-Nota-Device-Id of that PC); omit for "any device". */
+  /** The device whose sales default to this box (X-Nota-Device-Id of that device); omit for "any device". */
   deviceId?: string | null;
   shiftsEnabled?: boolean;
   /** Moved in from the main box when the box is created. */

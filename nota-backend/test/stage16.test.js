@@ -1,5 +1,4 @@
 process.env.NODE_ENV = "test";
-process.env.NOTA_AUTH = "1";
 process.env.NOTA_JWT_SECRET = "stage16-test-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
@@ -44,8 +43,9 @@ test.beforeEach(async () => {
   if (!mongodSkipReason) {
     await clearDatabase();
     authToken = null;
-    const owner = await call("POST", "/api/auth/setup-owner", { name: "مالك", username: "stage16-owner", password: "owner-pass-123" });
-    assert.equal(owner.status, 201, JSON.stringify(owner.json));
+    await require("../src/auth/ownerAccount").createOwner({ name: "مالك", username: "stage16-owner", password: "owner-pass-123" });
+    const owner = await call("POST", "/api/auth/login", { username: "stage16-owner", password: "owner-pass-123" });
+    assert.equal(owner.status, 200, JSON.stringify(owner.json));
     authToken = owner.json.token;
   }
 });
@@ -756,40 +756,6 @@ it("original-total migration resumes after a committed first chunk and matches a
   await runMigrations();
   const clean = await snapshot();
   assert.deepEqual(resumed, clean);
-});
-
-it("desktop startup kills a leftover transaction before resuming migrations", async () => {
-  const mongoose = require("mongoose");
-  await Meta.create({ _id: "schema", version: 1 });
-  const invoiceId = new mongoose.Types.ObjectId();
-  await Selling.collection.insertOne({
-    _id: invoiceId, number: "INV-LOCKED", customerName: "locked migrated invoice",
-    sellingDate: new Date("2025-08-01"), totalPrice: 1, items: [], refunds: [],
-    stage16OriginalTotalsRestored: true, shippingLocation: "old", createdAt: new Date(), updatedAt: new Date(),
-  });
-  const uri = `mongodb://127.0.0.1:${mongoose.connection.port}/${mongoose.connection.name}?replicaSet=rs0&directConnection=true`;
-  const client = new mongoose.mongo.MongoClient(uri);
-  await client.connect();
-  const session = client.startSession();
-  session.startTransaction();
-  await client.db().collection("sellings").updateOne(
-    { _id: invoiceId }, { $set: { customerName: "uncommitted lock" } }, { session }
-  );
-  const oldLanMode = process.env.NOTA_LAN_MODE;
-  const oldMongoUri = process.env.MONGO_URI;
-  process.env.NOTA_LAN_MODE = "1";
-  process.env.MONGO_URI = uri;
-  try {
-  assert.equal(await runMigrations(), 11);
-  } finally {
-    if (oldLanMode === undefined) delete process.env.NOTA_LAN_MODE; else process.env.NOTA_LAN_MODE = oldLanMode;
-    if (oldMongoUri === undefined) delete process.env.MONGO_URI; else process.env.MONGO_URI = oldMongoUri;
-    await session.abortTransaction().catch(() => {});
-    await session.endSession().catch(() => {});
-    await client.close();
-  }
-  assert.equal((await Meta.findById("schema")).version, 11);
-  assert.equal((await Selling.collection.findOne({ _id: invoiceId })).shippingLocation, undefined);
 });
 
 it("a pre-Stage-16 restore fixture with a missing ReturnLog fails the migration atomically and names the invoice", async () => {

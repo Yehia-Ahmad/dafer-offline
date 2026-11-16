@@ -16,7 +16,6 @@ const { customerStatementBalances } = require("../services/customerStatement.ser
 const { buildInvoiceTotals, roundMoney } = require("../utils/invoicePricing");
 const { PREFIXES, formatDocumentNumber, nextDocumentNumber } = require("../utils/documentNumber");
 const { withTransaction } = require("../utils/transaction");
-const { isLanMode } = require("../middlewares/lanSecret.middleware");
 const CashBox = require("../models/cashBox.model");
 const PrintReservation = require("../models/printReservation.model");
 const { syncAccountBoxes } = require("../cashbox/boxes");
@@ -661,27 +660,6 @@ async function recordMigration(migration, details, session) {
   );
 }
 
-const isDesktopMongo = (env = process.env) => {
-  if (!isLanMode(env) || !env.MONGO_URI) return false;
-  try {
-    const host = new URL(env.MONGO_URI).hostname.toLowerCase();
-    return host === "127.0.0.1" || host === "localhost" || host === "::1" || host === "[::1]";
-  } catch (_error) {
-    return false;
-  }
-};
-
-async function killDesktopSessions(env = process.env) {
-  if (!isDesktopMongo(env)) return false;
-  try {
-    await mongoose.connection.db.admin().command({ killAllSessions: [] });
-    return true;
-  } catch (error) {
-    console.warn(`MongoDB killAllSessions skipped: ${error.message}`);
-    return false;
-  }
-}
-
 async function runChunkedMigration(migration, afterChunk) {
   for (;;) {
     const schema = await Meta.findById("schema").lean();
@@ -711,7 +689,6 @@ async function runMigrations({ afterChunk } = {}) {
   let version = Number(schema?.version || 0);
   const pending = migrations.filter((migration) => migration.version > version);
   if (!pending.length) return version;
-  await killDesktopSessions();
 
   for (const migration of pending) {
     if (migration.chunked) {
@@ -730,4 +707,4 @@ async function runMigrations({ afterChunk } = {}) {
   return version;
 }
 
-module.exports = { migrations, runMigrations, isDesktopMongo, killDesktopSessions };
+module.exports = { migrations, runMigrations };

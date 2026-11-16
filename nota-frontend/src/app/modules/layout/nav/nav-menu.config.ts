@@ -6,8 +6,6 @@ import { ROUTE_RULES, RouteRule } from '../../../core/auth/route-permissions';
 
 /** Everything an item's visibility rule may look at. */
 export interface NavContext {
-  /** Offline main PC (backup lives there only). */
-  isMainPc: boolean;
   /** The signed-in user has this permission. */
   has: (key: string) => boolean;
 }
@@ -52,12 +50,10 @@ export const NAV_ICONS = {
   users: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4',
   shop: 'M3 9l2-5h14l2 5M4 9v11h16V9M3 9h18M9 20v-6h6v6',
   audit: 'M9 4h6v3H9zM7 5H5v16h14V5h-2M8 11h8M8 15h8M8 19h5',
-  backup: 'M12 3c4.4 0 8 1.3 8 3v12c0 1.7-3.6 3-8 3s-8-1.3-8-3V6c0-1.7 3.6-3 8-3zM4 6c0 1.7 3.6 3 8 3s8-1.3 8-3M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
 } as const;
 
 /** The route's permission rule, as its guard checks it. */
 const allowed = (rule: RouteRule) => (ctx: NavContext) =>
-  (!rule.mainPcOnly || ctx.isMainPc) &&
   (!rule.all || rule.all.every((key) => ctx.has(key))) &&
   (!rule.any || rule.any.some((key) => ctx.has(key)));
 
@@ -117,9 +113,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { key: 'users', labelKey: 'nav.items.users', route: '/users', icon: NAV_ICONS.users, visible: allowed(ROUTE_RULES.users) },
       { key: 'audit', labelKey: 'nav.items.audit', route: '/audit', icon: NAV_ICONS.audit, visible: allowed(ROUTE_RULES.audit) },
-      { key: 'shop', labelKey: 'nav.items.shop', route: '/shop-profile', icon: NAV_ICONS.shop, visible: allowed(ROUTE_RULES.shopProfile) },
-      { key: 'backup', labelKey: 'nav.items.backup', route: '/backup', icon: NAV_ICONS.backup, visible: allowed(ROUTE_RULES.backup) },
-    ],
+      { key: 'shop', labelKey: 'nav.items.shop', route: '/shop-profile', icon: NAV_ICONS.shop, visible: allowed(ROUTE_RULES.shopProfile) },    ],
   },
 ];
 

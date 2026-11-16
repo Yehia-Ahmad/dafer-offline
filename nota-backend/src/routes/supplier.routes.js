@@ -6,7 +6,7 @@ const asyncHandler = require("../utils/asyncHandler");
 
 const router = express.Router();
 
-// Stage 18: suppliers (permissions enforced only with NOTA_AUTH=1, like every other route).
+// Stage 18: suppliers (permissions always enforced, like every other route).
 router
   .route("/")
   .get(requirePermission("suppliers.view"), controller.getSuppliers)

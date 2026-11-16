@@ -7,8 +7,6 @@ export interface RouteRule {
   all?: readonly string[];
   /** At least one key is needed. */
   any?: readonly string[];
-  /** Offline main PC only (backup). */
-  mainPcOnly?: boolean;
 }
 
 export const ROUTE_RULES = {
@@ -27,7 +25,6 @@ export const ROUTE_RULES = {
   productNew: { all: ['products.manage', 'products.viewCost'] },
   profitReport: { all: ['reports.profit', 'products.viewCost'] },
   shopProfile: { all: ['shop.manage'] },
-  backup: { all: ['backup.manage'], mainPcOnly: true },
   users: { all: ['users.manage'] },
   audit: { all: ['audit.view'] },
   accounting: { all: ['accounting.view'] },
@@ -77,14 +74,12 @@ export const LANDING_ORDER: readonly { path: string; rule: RouteRule }[] = [
   { path: '/accounting/reports', rule: ROUTE_RULES.financialReports },
   { path: '/accounting/closing', rule: ROUTE_RULES.closing },
   { path: '/shop-profile', rule: ROUTE_RULES.shopProfile },
-  { path: '/backup', rule: ROUTE_RULES.backup },
 ];
 
 /** Shown when the user may open no page at all (a custom role with an empty list). */
 export const NO_ACCESS_PATH = '/no-access';
 
-export function ruleAllows(rule: RouteRule, has: (key: string) => boolean, isMainPc: boolean): boolean {
-  if (rule.mainPcOnly && !isMainPc) return false;
+export function ruleAllows(rule: RouteRule, has: (key: string) => boolean): boolean {
   if (rule.all && !rule.all.every(has)) return false;
   if (rule.any && !rule.any.some(has)) return false;
   return true;

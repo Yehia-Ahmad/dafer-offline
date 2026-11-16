@@ -7,7 +7,6 @@ import { cashInvoice, creditInvoice, purchaseInvoice, receiptVoucher, voucher } 
 import { cashReceipt, paymentReceipt, returnReceipt, shiftClose } from './documents/receipts';
 import { boxMovements, financials, journalEntry, partyBalances, profitReport, recoveryCodeSheet, trialBalance, vatReturn } from './documents/reports';
 import { customerStatement, stockList, supplierStatement } from './documents/statements';
-import { documentTestPage, receiptTestPage } from './documents/test-page';
 import { InvoiceHistoryRow, sellingResponseToCashSaleData, toCashSaleData, toCreditInvoiceData } from './print-adapters';
 import { measureRollHeightMm } from './print-render';
 import { amountInWords, cssString, formatDate, formatDateTime, formatMoney, formatPercent, formatQty, formatTime, localizeDigits } from './print-format';
@@ -420,11 +419,6 @@ describe('statements, stock list and reports', () => {
     expect(recovery).not.toContain('123-456-789');
   });
 
-  it('test pages for the receipt and the A4 printer', () => {
-    expect(html(receiptTestPage(ctxOf(), 'EPSON'))).toContain('EPSON');
-    expect(html(documentTestPage(ctxOf(), 'HP'))).toContain('HP');
-    expect(html(receiptTestPage(ctxOf(), ''))).toContain('data-barcode="TEST-000001"');
-  });
 });
 
 describe('print adapters (stored values, never recomputed)', () => {

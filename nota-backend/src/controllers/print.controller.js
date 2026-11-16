@@ -24,7 +24,7 @@ const { hasPermission, forbidden } = require("../auth/middleware");
 //   POST /api/print/confirm  { reservationId }               the print / PDF save went out: writes the document.printed audit
 //   POST /api/print/release  { reservationId }               the dialog was cancelled or the print failed: gives the number back
 //
-// copyNo 1 is THE original (exactly one across all PCs: the reserve is an atomic $inc, two PCs can never both get 1);
+// copyNo 1 is THE original (exactly one across all devices: the reserve is an atomic $inc, two devices can never both get 1);
 // 2 and up are reprints ("نسخة"). There are two counters per document: "receipt" (80mm) and "page" (A4/A5, a PDF counts
 // in the class of its paper), so an A4 print of an invoice does not turn its next 80mm receipt into a copy.
 // Counter key: "<number>|receipt" or "<number>|page"; every reserve also stores a PrintReservation.
@@ -72,7 +72,7 @@ const httpError = (statusCode, code, message) => {
   error.responseData = { code };
   return error;
 };
-const actorId = (req) => (req.authEnabled && req.user ? String(req.user._id) : null);
+const actorId = (req) => (req.user ? String(req.user._id) : null);
 const sameActor = (req, reservation) => (reservation.userId ? String(reservation.userId) : null) === actorId(req);
 
 /** Validates the request, checks the permission, then that the document exists. */
@@ -88,7 +88,7 @@ async function resolveDocument(req, res, source) {
     res.status(400);
     throw new Error("نوع الورق غير صحيح");
   }
-  if (req.authEnabled && !permissions.some((key) => hasPermission(req.user, key))) throw forbidden();
+  if (!permissions.some((key) => hasPermission(req.user, key))) throw forbidden();
   if (!(await PREFIX_MODELS[match[1]].exists({ number }))) throw httpError(404, "DOCUMENT_NOT_FOUND", "المستند غير موجود");
   return { number, prefix: match[1], paperClass: source.paperClass };
 }
@@ -158,7 +158,7 @@ const getJournalRef = async (req, res) => {
     res.status(400);
     throw new Error("رقم المستند غير صحيح");
   }
-  if (req.authEnabled && !permissions.some((key) => hasPermission(req.user, key))) throw forbidden();
+  if (!permissions.some((key) => hasPermission(req.user, key))) throw forbidden();
   const entry = await JournalEntry.findOne({ "source.number": number, type: "auto" }).sort({ createdAt: 1 }).select("number").lean();
   res.json({ number, journalNumber: entry ? entry.number : null });
 };

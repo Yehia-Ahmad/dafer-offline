@@ -108,7 +108,7 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
   submitAttempted = false;
   isSaving = false;
   saveError = '';
-  /** Stage 21 review: the VAT settings changed on another PC; the review dialog shows the new total and asks to confirm again. */
+  /** Stage 21 review: the VAT settings changed on another device; the review dialog shows the new total and asks to confirm again. */
   totalChangedNotice: { expected: number; current: number } | null = null;
   productsCount = 1;
   totalQuantity = 0;
@@ -172,9 +172,9 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Stage 21 review: another PC may have changed the VAT settings since this one signed in.
+    // Stage 21 review: another device may have changed the VAT settings since this one signed in.
     this.vatSettings.refresh();
-    // Stage 22 review: another PC may have closed a period since this one signed in.
+    // Stage 22 review: another device may have closed a period since this one signed in.
     this.lock.refresh();
     this.updateDirection();
     this.subscriptions.add(

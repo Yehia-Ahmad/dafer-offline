@@ -65,33 +65,21 @@ describe('AuthService (Stage 14)', () => {
     expect(TestBed.inject(AuthService).firstAllowedPath()).toBe('/login');
   });
 
-  it('setup-owner, recover and change-password: exact bodies; the returned token replaces the old one', () => {
+  it('change-password: exact body; the returned token replaces the old one', () => {
     const auth = TestBed.inject(AuthService);
-    auth.setupOwner({ name: 'أحمد', username: 'ahmed', password: 'owner-pass' }).subscribe();
-    let req = http.expectOne(`${base}auth/setup-owner`);
-    expect(req.request.body).toEqual({ name: 'أحمد', username: 'ahmed', password: 'owner-pass' });
-    req.flush({ user: fakeUser('owner'), token: 't-setup', permissions: ROLE_PERMISSIONS.owner, recoveryCode: 'ABCD-EFGH-JKLM-NPQR' });
-    expect(auth.token()).toBe('t-setup');
-
     auth.changePassword('owner-pass', 'new-pass-1').subscribe();
-    req = http.expectOne(`${base}auth/change-password`);
+    const req = http.expectOne(`${base}auth/change-password`);
     expect(req.request.body).toEqual({ currentPassword: 'owner-pass', newPassword: 'new-pass-1' });
     req.flush({ user: fakeUser('owner'), token: 't-changed', permissions: ROLE_PERMISSIONS.owner });
     expect(auth.token()).toBe('t-changed');
     expect(sessionStorage.getItem('nota.session')).toBe('t-changed');
-
-    auth.recover({ username: 'ahmed', recoveryCode: 'ABCD-EFGH-JKLM-NPQR', newPassword: 'again-123' }).subscribe();
-    req = http.expectOne(`${base}auth/recover`);
-    expect(req.request.body).toEqual({ username: 'ahmed', recoveryCode: 'ABCD-EFGH-JKLM-NPQR', newPassword: 'again-123' });
-    req.flush({ user: fakeUser('owner'), token: 't-recovered', permissions: ROLE_PERMISSIONS.owner, recoveryCode: 'WXYZ-WXYZ-WXYZ-WXYZ' });
-    expect(auth.token()).toBe('t-recovered');
   });
 
   it('bootstrap: GET auth/bootstrap', () => {
     TestBed.inject(AuthService).bootstrap().subscribe();
     const req = http.expectOne(`${base}auth/bootstrap`);
     expect(req.request.method).toBe('GET');
-    req.flush({ hasOwner: true, isLocal: true, shop: { name: '', logo: '' } });
+    req.flush({ hasOwner: true, shop: { name: '', logo: '' } });
   });
 
   it('app start with a stored token: GET auth/me fills user and permissions', async () => {

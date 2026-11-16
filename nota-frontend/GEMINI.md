@@ -3,12 +3,11 @@
 This document provides foundational context and instructions for AI agents working on Nota.
 
 ## Project Overview
-Nota is a modern inventory management application built with **Angular** and wrapped as a desktop application using **Electron**. It features customer management, product categorization, sales tracking (including credit sales), and profit reporting.
+Nota is a modern inventory management application built with **Angular**, used from a browser. It talks to one Node backend plus MongoDB per shop, hosted on a server. It features customer management, product categorization, sales tracking (including credit sales), purchases, cash boxes, accounting and profit reporting.
 
 ### Core Technology Stack
 - **Framework:** Angular 20 (utilizing Standalone Components, Functional Guards/Interceptors, and Zoneless Change Detection).
 - **UI & Styling:** PrimeNG (Aura theme), Tailwind CSS, SCSS, FontAwesome.
-- **Desktop Wrapper:** Electron (cross-platform, optimized for Windows builds).
 - **Utilities:**
   - `chart.js`: For data visualization and reporting.
   - `jspdf`: For generating PDF invoices and reports.
@@ -30,9 +29,7 @@ The project follows a modular structure under `src/app/modules/`:
 | Command | Purpose |
 | :--- | :--- |
 | `npm start` | Launches the Angular development server (`http://localhost:4200`). |
-| `npm run electron:start:offline` | Builds the offline Angular app and launches it in Electron. |
-| `npm run build:offline` | Compiles the Angular project with the offline configuration (relative base href). |
-| `npm run electron:build:win:offline` | Packages the offline edition for Windows (generates NSIS installer). |
+| `npm run build` | Production build into `dist/nota` (API on the same origin, `/api/`). |
 | `npm test` | Runs unit tests using Karma. |
 
 ## Development Conventions & Standards
@@ -44,6 +41,6 @@ The project follows a modular structure under `src/app/modules/`:
 - **Error Handling:** Global error handling is configured via `provideBrowserGlobalErrorListeners()` in `app.config.ts`.
 
 ## Deployment & Distribution
-- Offline build artifacts are stored in `dist-offline/`.
-- Electron distribution packages (installers) are output to the `release-offline/` directory.
-- The `electron-offline/main.js` file handles the bootstrapping of the desktop window.
+- The production build is static files in `dist/nota`, served by the web server (for example nginx), which also proxies `/api/` to the backend.
+- The API base URL comes from the environment file: `src/environments/environment.ts` (development) and `environment.prod.ts` (production, `/api/`).
+- Printing uses the browser's print dialog ("Save as PDF" is a destination there).

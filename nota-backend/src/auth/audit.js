@@ -1,5 +1,4 @@
-// Stage 13: writes AuditLog entries. Only when auth is on for this request (req.authEnabled, set
-// by app.js); with auth off there is no user to name and nothing is written.
+// Stage 13: writes AuditLog entries.
 // Never stores passwords, hashes, tokens, secrets or recovery codes: details go through `safeDetails`.
 const AuditLog = require("../models/auditLog.model");
 
@@ -33,7 +32,7 @@ const safeDetails = (value, depth = 0) => {
  * problem must never break the request it describes.
  */
 async function audit(req, { action, entity, entityId, details, user, session, strict = false } = {}) {
-  if (!req || !req.authEnabled) return;
+  if (!req) return;
   const actor = user || (req && req.user) || null;
   try {
     const entry = {
@@ -65,7 +64,6 @@ const idOf = (body) => {
  * detailsFn(req, responseBody) returns a small details object (optional).
  */
 const auditOnSuccess = (action, entity, detailsFn) => (req, res, next) => {
-  if (!req.authEnabled) return next();
   let responseBody;
   const originalJson = res.json.bind(res);
   res.json = (body) => {

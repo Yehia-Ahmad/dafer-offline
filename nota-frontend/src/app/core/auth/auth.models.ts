@@ -18,21 +18,17 @@ export interface AuthUser {
   createdAt?: string;
 }
 
-/** login / setup-owner / recover / change-password. */
+/** login / change-password / refresh. */
 export interface AuthResult {
   user: AuthUser;
   token: string;
   permissions: string[];
-  /** setup-owner and recover only; shown once. */
-  recoveryCode?: string;
   /** Stage 22: the last closed business day (YYYY-MM-DD), present only while a period is closed (login, /me and refresh). */
   lockedThrough?: string;
 }
 
 export interface BootstrapInfo {
   hasOwner: boolean;
-  /** The request came over loopback: this is the main PC itself. */
-  isLocal: boolean;
   shop: { name: string; logo: string };
 }
 
@@ -63,11 +59,8 @@ export const AUTH_ERROR_CODES = [
   'LOGIN_LOCKED',
   'SESSION_EXPIRED',
   'FORBIDDEN',
-  'LOCAL_ONLY',
-  'OWNER_EXISTS',
   'PASSWORD_INVALID',
   'WRONG_PASSWORD',
-  'INVALID_RECOVERY',
   'VALIDATION_ERROR',
   'USERNAME_TAKEN',
   'PERMISSION_NOT_HELD',

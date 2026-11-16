@@ -46,7 +46,7 @@ export class LockDateService {
   });
 
   /**
-   * Re-reads GET /accounting/lock-date in the background. A posting form calls it when it opens: another PC may have closed (or
+   * Re-reads GET /accounting/lock-date in the background. A posting form calls it when it opens: another device may have closed (or
    * reopened) a period since this one signed in. A failed read keeps what is known (the server still enforces the lock).
    */
   refresh(): void {

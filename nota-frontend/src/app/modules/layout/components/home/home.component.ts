@@ -72,10 +72,10 @@ export class HomeComponent implements OnInit {
   readonly loading = signal(true);
   readonly failed = signal(false);
 
-  /** Greeting by the time of day on this PC. */
+  /** Greeting by the time of day in this browser. */
   readonly greetingKey = computed(() => (new Date().getHours() < 12 ? 'dashboard.greeting.morning' : 'dashboard.greeting.evening'));
 
-  /** "الأربعاء ٤ نوفمبر" from the server's date when loaded, else this PC's date. */
+  /** "الأربعاء ٤ نوفمبر" from the server's date when loaded, else this browser's date. */
   readonly dateLabel = computed(() => {
     const lang = this.language.selectedLanguage();
     const date = this.summary() ? parseDateKey(this.summary()!.date) : new Date();

@@ -2,7 +2,7 @@ const express = require("express");
 const { createUser, getUser, listUsers, resetUserPassword, setUserStatus, updateUser } = require("../controllers/users.controller");
 const { requirePermission } = require("../auth/middleware");
 
-// Stage 13: /api/users. Mounted only when NOTA_AUTH=1. No DELETE: users are disabled instead.
+// Stage 13: /api/users. No DELETE: users are disabled instead.
 const router = express.Router();
 const manage = requirePermission("users.manage");
 

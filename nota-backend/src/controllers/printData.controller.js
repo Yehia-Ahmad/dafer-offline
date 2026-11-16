@@ -22,7 +22,7 @@ const { DEFAULT_LOW_STOCK_THRESHOLD } = require("../utils/lowStock");
 // journal entry's lines): nothing is recomputed for the print.
 
 const isId = (value) => mongoose.Types.ObjectId.isValid(value);
-const can = (req, key) => !req.authEnabled || hasPermission(req.user, key);
+const can = (req, key) => hasPermission(req.user, key);
 
 // GET /api/customers/:id/receipts/:number/print-data (customers.view or credit.collect)
 // The receipt, its allocations (invoice numbers) and the customer's balance before and after it,

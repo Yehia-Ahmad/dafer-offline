@@ -1,4 +1,5 @@
 process.env.NODE_ENV = "test";
+process.env.NOTA_JWT_SECRET = "stage12-test-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
@@ -24,6 +25,7 @@ const daysAgo = (n) => new Date(today.getTime() - n * DAY);
 let stop;
 let baseUrl;
 let server;
+let token;
 
 test.before(async () => {
   if (mongodSkipReason) return;
@@ -39,13 +41,22 @@ test.after(async () => {
 });
 
 test.beforeEach(async () => {
-  if (!mongodSkipReason) await clearDatabase();
+  if (mongodSkipReason) return;
+  await clearDatabase();
+  // Auth is always on: the owner is created the way the server does it, then signs in.
+  await require("../src/auth/ownerAccount").createOwner({ name: "Owner", username: "stage12-owner", password: "owner-pass-123" });
+  const login = await fetch(`${baseUrl}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: "stage12-owner", password: "owner-pass-123" }),
+  });
+  token = (await login.json()).token;
 });
 
 const call = async (method, path, body) => {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers: { ...(body ? { "Content-Type": "application/json" } : {}), Authorization: `Bearer ${token}` },
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await response.text();
@@ -234,8 +245,9 @@ it("POST /api/products without the new fields: same response as before (no lowSt
   assert.equal("lowStockThreshold" in json, false);
   assert.equal(json.discountPercentage, 0);
   assert.equal(json.priceAfterDiscount, 50);
-  assert.deepEqual(Object.keys(json).sort(), ["__v", "_id", "category", "code", "createdAt", "discountPercentage", "inventoryCount", "name",
-    "priceAfterDiscount", "purchasePrice", "retailPrice", "soldItemCount", "specifications", "updatedAt", "wholesalePrice"]);
+  // Auth is always on: the signed-in user is recorded (createdBy / updatedBy and their names).
+  assert.deepEqual(Object.keys(json).sort(), ["__v", "_id", "category", "code", "createdAt", "createdBy", "createdByName", "discountPercentage", "inventoryCount", "name",
+    "priceAfterDiscount", "purchasePrice", "retailPrice", "soldItemCount", "specifications", "updatedAt", "updatedBy", "updatedByName", "wholesalePrice"]);
 });
 
 it("POST /api/products accepts discountPercentage (0–100) and lowStockThreshold (≥ 0); invalid values → 400", async () => {

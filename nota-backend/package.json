@@ -7,6 +7,8 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "test": "node scripts/run-tests.js",
+    "create-owner": "node scripts/create-owner.js",
+    "recover-owner": "node scripts/recover-owner.js",
     "test:legacy-migration": "node scripts/legacy-migration.js"
   },
   "keywords": [

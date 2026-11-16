@@ -2,7 +2,6 @@ import { HttpClient, HttpContext, HttpContextToken } from '@angular/common/http'
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, firstValueFrom, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { isOfflineMainPc } from '../runtime/app-features';
 import { AuthResult, AuthUser, BootstrapInfo, PermissionCatalog } from './auth.models';
 import { LANDING_ORDER, NO_ACCESS_PATH, RouteRule, ruleAllows } from './route-permissions';
 import { readStoredToken, writeStoredToken } from './session-storage';
@@ -10,7 +9,7 @@ import { LockStateService } from './lock-state.service';
 import { LockDateService } from '../accounting-lock/lock-date.service';
 
 /**
- * Requests whose errors the screen shows itself (login, first run, recover, change password):
+ * Requests whose errors the screen shows itself (login, change password):
  * the interceptor adds no toast and does not end the session on their 401.
  */
 export const HANDLES_OWN_ERRORS = new HttpContextToken<boolean>(() => false);
@@ -59,7 +58,7 @@ export class AuthService {
   }
 
   allows(rule: RouteRule): boolean {
-    return ruleAllows(rule, (key) => this.has(key), isOfflineMainPc());
+    return ruleAllows(rule, (key) => this.has(key));
   }
 
   /** The first page this user may open (sidebar order), e.g. /selling for a cashier without the dashboard. */
@@ -84,14 +83,6 @@ export class AuthService {
 
   login(username: string, password: string): Observable<AuthResult> {
     return this.http.post<AuthResult>(`${this.base}login`, { username, password }, ownErrors()).pipe(tap((result) => this.apply(result)));
-  }
-
-  setupOwner(body: { name: string; username: string; password: string }): Observable<AuthResult> {
-    return this.http.post<AuthResult>(`${this.base}setup-owner`, body, ownErrors()).pipe(tap((result) => this.apply(result)));
-  }
-
-  recover(body: { username: string; recoveryCode: string; newPassword: string }): Observable<AuthResult> {
-    return this.http.post<AuthResult>(`${this.base}recover`, body, ownErrors()).pipe(tap((result) => this.apply(result)));
   }
 
   /** The backend raises tokenVersion; the returned token keeps this user signed in. */
@@ -125,7 +116,7 @@ export class AuthService {
     return this.http.get<PermissionCatalog>(`${this.base}permissions`);
   }
 
-  /** Sign out on this PC (the token simply stops being sent; it expires on its own). */
+  /** Sign out in this browser (the token simply stops being sent; it expires on its own). */
   logout(): void {
     this.clear();
   }

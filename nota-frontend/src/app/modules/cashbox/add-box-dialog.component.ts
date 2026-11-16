@@ -7,8 +7,8 @@ import { CashboxService, CreateBoxPayload } from './cashbox.service';
 import { BoxType, CashBox, DeviceRow } from './cashbox.models';
 
 /**
- * Stage 19: "خزنة جديدة" (AddCashBox.dc.html). A drawer, an e-wallet or a bank account. A drawer can be bound to a PC
- * ("الجهاز اللي بيستخدمها تلقائي"): the list comes from the PCs the backend has seen, with "الجهاز ده" marked.
+ * Stage 19: "خزنة جديدة" (AddCashBox.dc.html). A drawer, an e-wallet or a bank account. A drawer can be bound to a device
+ * ("الجهاز اللي بيستخدمها تلقائي"): the list comes from the devices the backend has seen, with "الجهاز ده" marked.
  * "رصيد البداية" is moved in from the main box.
  */
 @Component({

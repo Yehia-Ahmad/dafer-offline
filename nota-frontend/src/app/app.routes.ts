@@ -1,7 +1,6 @@
 import { unsavedWorkGuard } from './core/unsaved-work/unsaved-work.service';
 import { inject } from '@angular/core';
 import { Router, Routes } from '@angular/router';
-import { mainPcGuard } from './core/guards/main-pc.guard';
 import { authGuard, guestGuard, landingRedirect, permissionGuard } from './core/auth/auth.guards';
 import { ROUTE_RULES } from './core/auth/route-permissions';
 import { HomeComponent } from './modules/layout/components/home/home.component';
@@ -213,13 +212,6 @@ export const routes: Routes = [
         path: 'audit',
         canActivate: [permissionGuard(ROUTE_RULES.audit)],
         loadComponent: () => import('./modules/audit/audit-page/audit-page.component').then(m => m.AuditPageComponent)
-    },
-    {
-        // Offline edition, main PC only, and backup.manage.
-        path: 'backup',
-        canMatch: [mainPcGuard],
-        canActivate: [permissionGuard(ROUTE_RULES.backup)],
-        loadComponent: () => import('./offline/backup-page.component').then(m => m.BackupPageComponent)
     },
     {
         // Design-system preview; not linked from the menu, static content only.

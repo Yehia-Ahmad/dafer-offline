@@ -64,7 +64,7 @@ const closePeriod = async (req, res) => {
 
 const reopenPeriod = async (req, res) => {
   const body = req.body || {};
-  if (req.authEnabled && req.user?.role !== "owner") throw httpError(403, "OWNER_ONLY", "إعادة فتح الفترة للمالك فقط");
+  if (req.user?.role !== "owner") throw httpError(403, "OWNER_ONLY", "إعادة فتح الفترة للمالك فقط");
   const reason = requiredReason(body.reason);
   if (body.confirm !== true) throw httpError(400, "CONFIRM_REQUIRED", "لازم تأكد إعادة الفتح");
   const result = await withTransaction(async (session) => {

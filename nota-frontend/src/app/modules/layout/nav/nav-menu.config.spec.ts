@@ -3,23 +3,22 @@ import { ROLE_PERMISSIONS } from '../../../core/auth/testing/auth-fixtures';
 
 describe('nav menu config', () => {
   const keys = (groups: NavGroup[]) => groups.map((g) => [g.key, g.items.map((i) => i.key)] as const);
-  const ctxFor = (permissions: readonly string[], isMainPc = true): NavContext => ({
-    isMainPc,
+  const ctxFor = (permissions: readonly string[]): NavContext => ({
     has: (key) => permissions.includes(key),
   });
 
-  it('owner (main PC): every screen that exists today, in the design order, with users and audit', () => {
+  it('owner: every screen that exists today, in the design order, with users and audit', () => {
     expect(keys(visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.owner)))).toEqual([
       ['main', ['home']],
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
       ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
       ['accounting', ['vat', 'profit']],
-      ['admin', ['users', 'audit', 'shop', 'backup']],
+      ['admin', ['users', 'audit', 'shop']],
     ]);
   });
 
-  it('manager: everything except users and backup', () => {
+  it('manager: everything except users', () => {
     expect(keys(visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.manager)))).toEqual([
       ['main', ['home']],
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
@@ -73,11 +72,6 @@ describe('nav menu config', () => {
     const profit = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.key === 'profit')!;
     expect(profit.visible(ctxFor(['reports.profit']))).toBeFalse();
     expect(profit.visible(ctxFor(['reports.profit', 'products.viewCost']))).toBeTrue();
-  });
-
-  it('hides backup on a client PC, even for the owner', () => {
-    const admin = visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.owner, false)).find((g) => g.key === 'admin');
-    expect(admin?.items.map((i) => i.key)).toEqual(['users', 'audit', 'shop']);
   });
 
   it('Stage 20: purchases sit under المخزون and show only with purchases.view', () => {

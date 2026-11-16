@@ -209,7 +209,7 @@ export class ManualEntryComponent implements OnInit {
   readonly canPost = computed(() => this.balanced() && !!this.date() && this.memo().trim().length > 0 && !this.lock.isLocked(this.date()) && this.lines().every((row, index) => !this.lineError(row, index)));
 
   ngOnInit(): void {
-    // Stage 22 review: another PC may have closed a period since this one signed in.
+    // Stage 22 review: another device may have closed a period since this one signed in.
     this.lock.refresh();
     this.service.accounts().subscribe({ next: (rows) => this.options.set(rows), error: () => this.loadError.set(true) });
     const id = this.route.snapshot.paramMap.get('id');

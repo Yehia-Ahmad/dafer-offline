@@ -235,7 +235,7 @@
   [resizable]="false" styleClass="nota-p-dialog pos-dialog">
   <nota-dialog-shell [title]="'sellingPage.messages.createdSuccess' | translate" [closeLabel]="'sellingPage.pos.ok' | translate"
     (closed)="closeSuccessPopup()">
-    <nota-print-actions [items]="lastSalePrintItems()" [pdf]="false" data-testid="sale-print" />
+    <nota-print-actions [items]="lastSalePrintItems()" data-testid="sale-print" />
     <ng-container notaDialogFooter>
       <button type="button" notaButton="primary" (click)="closeSuccessPopup()">{{ 'sellingPage.pos.ok' | translate }}</button>
     </ng-container>
@@ -269,7 +269,7 @@
   </nota-dialog-shell>
 </p-dialog>
 
-<!-- VAT settings changed on another PC: the new total must be confirmed before saving -->
+<!-- VAT settings changed on another device: the new total must be confirmed before saving -->
 <p-dialog [(visible)]="totalChangedVisible" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false"
   [resizable]="false" styleClass="nota-p-dialog pos-dialog">
   <nota-dialog-shell [title]="'vat.totalChanged.title' | translate" [closeLabel]="'vat.totalChanged.cancel' | translate"

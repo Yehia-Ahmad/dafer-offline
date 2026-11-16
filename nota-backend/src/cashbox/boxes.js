@@ -92,15 +92,15 @@ const boxHasLines = async (box, session) => Boolean(await JournalEntry.exists({ 
 
 const openShiftOf = (boxId, session) => Shift.findOne({ boxId, status: "open" }).session(session || null);
 
-/** The box a PC's sales go to by default (an active box bound to the device), else null. */
+/** The box a device's sales go to by default (an active box bound to the device), else null. */
 const deviceBox = (deviceId, session) => (deviceId ? CashBox.findOne({ deviceId, isActive: true }).session(session || null) : null);
 
 /**
  * May this user pick this box? Only checked when permissions are on. A user with cashbox.manage may use any
- * box. Others: wallets and banks, their own PC's drawer, and the main box only when the PC has no drawer.
+ * box. Others: wallets and banks, their own device's drawer, and the main box only when the device has no drawer.
  */
 const assertBoxAllowed = async (req, box, session) => {
-  if (!req || !req.authEnabled || !req.user) return;
+  if (!req || !req.user) return;
   if (hasPermission(req.user, "cashbox.manage")) return;
   if (box.type !== "cash") return;
   if (req.deviceId && box.deviceId === req.deviceId) return;
@@ -157,7 +157,7 @@ const resolveBox = async ({ req = null, boxId = null, session, requireShift = tr
   } else {
     box = (await deviceBox(req && req.deviceId, session)) || main;
   }
-  if (direction === "out" && box.isMain && req && req.authEnabled && req.user
+  if (direction === "out" && box.isMain && req && req.user
     && !["cashbox.manage", ...alsoAllow].some((key) => hasPermission(req.user, key))
     && !(oneBoxAllowed && await mainIsTheOnlyDrawer(session))) {
     throw httpError(403, "BOX_NOT_ALLOWED", "السحب من الخزنة الرئيسية للمدير بس", { boxId: box._id });

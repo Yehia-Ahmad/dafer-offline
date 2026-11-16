@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
 import { catchError, defer, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { DeviceService } from '../device/device.service';
 import { UnsavedWorkService } from '../unsaved-work/unsaved-work.service';
 import { AuthService, HANDLES_OWN_ERRORS } from './auth.service';
 import { errorCode, errorMessage, lockedMinutes } from './auth-errors';
@@ -22,11 +23,10 @@ const sentWhileLocked = (req: HttpRequest<unknown>) =>
 
 /**
  * Stage 14 (replaces the online edition's httpconfig/logout/request-online interceptors).
- * - Adds `Authorization: Bearer` to backend requests. The LAN key header is added by the desktop
- *   app itself (Electron session), so both are sent.
+ * - Adds `Authorization: Bearer` and the device headers (X-Nota-Device-Id / X-Nota-Device-Name) to backend requests.
  * - 401 SESSION_EXPIRED → the session is cleared and the user goes to /login, keeping returnUrl.
- *   Stage 15: an open POS invoice is kept for the same user (CartRescueService), the leave is not
- *   asked about, and reason DATA_RESTORED (a backup was restored) shows the restore message.
+ *   Stage 15: an open POS invoice is kept for the same user (CartRescueService) and the leave is not
+ *   asked about.
  * - 403 FORBIDDEN / DISCOUNT_LIMIT → a toast with the server message; the user stays on the page.
  * - 429 LOGIN_LOCKED → a toast with the minutes left.
  * - Stage 15: while the screen is locked, new backend requests wait until it is unlocked
@@ -44,9 +44,16 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   const toBackend = Boolean(environment.api_base_url) && req.url.startsWith(environment.api_base_url);
   const ownErrors = req.context.get(HANDLES_OWN_ERRORS);
+  const device = inject(DeviceService);
   const withToken = (request: HttpRequest<unknown>) => {
+    if (!toBackend) return request;
+    // Decision D: which device (browser) this is, for the default cash box. Not an authentication factor.
+    const headers: Record<string, string> = { 'X-Nota-Device-Id': device.deviceId };
+    const name = device.name();
+    if (name) headers['X-Nota-Device-Name'] = encodeURIComponent(name);
     const token = auth.token();
-    return token && toBackend ? request.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : request;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return request.clone({ setHeaders: headers });
   };
 
   // Only a signed-in window is ever locked; without a session nothing waits (sign-in screen, bootstrap).
@@ -60,13 +67,13 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       if (error instanceof HttpErrorResponse && toBackend && !ownErrors) {
         const code = errorCode(error);
         if (error.status === 401 && code === 'SESSION_EXPIRED') {
-          if (auth.token()) endSession(injector, auth, error);
+          if (auth.token()) endSession(injector, auth);
         } else if (error.status === 403 && (code === 'FORBIDDEN' || code === 'DISCOUNT_LIMIT')) {
           const message = errorMessage(error);
           if (message) toast().error(message);
           else translate().get(`auth.errors.${code}`).subscribe((text: string) => toast().error(text));
         } else if (error.status === 409 && code === 'PERIOD_LOCKED') {
-          // Stage 22: another PC closed a period since this one signed in. The error names the lock date; the form shows the server message.
+          // Stage 22: another device closed a period since this one signed in. The error names the lock date; the form shows the server message.
           injector.get(LockDateService).set((error.error as { lockedThrough?: string } | null)?.lockedThrough);
         } else if (error.status === 429 && code === 'LOGIN_LOCKED') {
           translate().get('auth.errors.LOGIN_LOCKED', { minutes: lockedMinutes(error) }).subscribe((text: string) => toast().error(text));
@@ -77,19 +84,18 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   );
 };
 
-function endSession(injector: Injector, auth: AuthService, error: HttpErrorResponse): void {
+function endSession(injector: Injector, auth: AuthService): void {
   const router = injector.get(Router);
-  const restored = (error.error as { reason?: unknown } | null)?.reason === 'DATA_RESTORED';
   const current = router.url;
   // Stage 15: keep an open POS invoice for this user, then leave without the unsaved-work question.
-  if (!restored) injector.get(CartRescueService).capture(auth.user()?._id);
+  injector.get(CartRescueService).capture(auth.user()?._id);
   injector.get(UnsavedWorkService).allowNextNavigation();
   auth.clear();
   const onLogin = current.startsWith('/login');
   router.navigate(['/login'], {
     queryParams: {
-      reason: restored ? 'restored' : 'expired',
-      ...(restored || onLogin || current === '/' ? {} : { returnUrl: current }),
+      reason: 'expired',
+      ...(onLogin || current === '/' ? {} : { returnUrl: current }),
     },
   });
 }

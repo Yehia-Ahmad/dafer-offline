@@ -1,5 +1,5 @@
 // Stage 14: the session token lives in memory and sessionStorage only. A reload keeps the user
-// signed in; closing the app (the window) signs them out. Never localStorage: shop PCs are shared.
+// signed in; closing the tab (the window) signs them out. Never localStorage: shop devices are shared.
 
 const KEY = 'nota.session';
 

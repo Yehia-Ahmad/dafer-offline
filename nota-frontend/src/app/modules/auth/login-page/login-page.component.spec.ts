@@ -9,7 +9,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { fakeUser, ROLE_PERMISSIONS } from '../../../core/auth/testing/auth-fixtures';
 import { LoginPageComponent } from './login-page.component';
 
-/** Stage 14: login, first run (main PC vs client PC), forgot password, recovery-code screen. */
+/** Stage 14: sign in. The owner is created on the server (npm run create-owner), so there is no owner form here. */
 describe('LoginPageComponent (Stage 14)', () => {
   const base = environment.api_base_url;
   let fixture: ComponentFixture<LoginPageComponent>;
@@ -35,16 +35,11 @@ describe('LoginPageComponent (Stage 14)', () => {
   };
 
   // Template-driven controls are wired up in a microtask: wait before typing.
-  const boot = async (info: { hasOwner: boolean; isLocal: boolean }) => {
+  const boot = async (info: { hasOwner: boolean }) => {
     http.expectOne(`${base}auth/bootstrap`).flush({ ...info, shop });
     fixture.detectChanges();
     await fixture.whenStable();
   };
-  const settle = async () => {
-    fixture.detectChanges();
-    await fixture.whenStable();
-  };
-
   const type = (selector: string, value: string) => {
     const input = el().querySelector<HTMLInputElement>(selector)!;
     input.value = value;
@@ -64,7 +59,7 @@ describe('LoginPageComponent (Stage 14)', () => {
   it('shows the shop name from bootstrap, username + password + show/hide + "دخول", focuses the username', async () => {
     await setup();
     fixture.detectChanges();
-    await boot({ hasOwner: true, isLocal: false });
+    await boot({ hasOwner: true });
     await new Promise((resolve) => setTimeout(resolve));
     expect(el().textContent).toContain('محل النور');
     expect(el().querySelector('#loginUser')).not.toBeNull();
@@ -80,7 +75,7 @@ describe('LoginPageComponent (Stage 14)', () => {
   it('Enter (form submit) sends POST auth/login and goes to the first allowed page', async () => {
     await setup();
     fixture.detectChanges();
-    await boot({ hasOwner: true, isLocal: true });
+    await boot({ hasOwner: true });
     type('#loginUser', ' mahmoud ');
     type('#loginPass', 'secret-1');
     submit('login');
@@ -93,7 +88,7 @@ describe('LoginPageComponent (Stage 14)', () => {
   it('returnUrl (after a session expired) wins over the first allowed page; the "expired" notice shows', async () => {
     await setup({ reason: 'expired', returnUrl: '/customers/c1' });
     fixture.detectChanges();
-    await boot({ hasOwner: true, isLocal: true });
+    await boot({ hasOwner: true });
     expect(el().querySelector('.nota-auth__notice')).not.toBeNull();
     type('#loginUser', 'owner');
     type('#loginPass', 'owner-pass');
@@ -105,7 +100,7 @@ describe('LoginPageComponent (Stage 14)', () => {
   it('error per code: INVALID_CREDENTIALS, LOGIN_LOCKED (minutes)', async () => {
     await setup();
     fixture.detectChanges();
-    await boot({ hasOwner: true, isLocal: true });
+    await boot({ hasOwner: true });
     type('#loginUser', 'x');
     type('#loginPass', 'bad-pass');
     submit('login');
@@ -124,122 +119,30 @@ describe('LoginPageComponent (Stage 14)', () => {
   it('empty fields: no request', async () => {
     await setup();
     fixture.detectChanges();
-    await boot({ hasOwner: true, isLocal: true });
+    await boot({ hasOwner: true });
     submit('login');
     http.expectNone(`${base}auth/login`);
     expect(component.fieldErrors()['username']).toBe('auth.validation.usernameRequired');
   });
 
-  it('first run on the main PC (isLocal): owner form → POST setup-owner → recovery code shown once', async () => {
+  it('no owner yet: a message to create it on the server, with retry, and no form', async () => {
     await setup();
     fixture.detectChanges();
-    await boot({ hasOwner: false, isLocal: true });
-    expect(el().querySelector('form[data-form="setup"]')).not.toBeNull();
-    type('#ownerName', 'أحمد');
-    type('#ownerUser', 'ahmed');
-    type('#ownerPass', 'owner-pass');
-    type('#ownerConfirm', 'owner-pass');
-    submit('setup');
-    const req = http.expectOne(`${base}auth/setup-owner`);
-    expect(req.request.body).toEqual({ name: 'أحمد', username: 'ahmed', password: 'owner-pass' });
-    req.flush({ user: fakeUser('owner'), token: 'tok', permissions: ROLE_PERMISSIONS.owner, recoveryCode: 'ABCD-EFGH-JKLM-NPQR' });
-    fixture.detectChanges();
-    expect(el().querySelector('[data-testid="recovery-code"]')!.textContent).toBe('ABCD-EFGH-JKLM-NPQR');
-  });
-
-  it('first run: passwords that differ send nothing', async () => {
-    await setup();
-    fixture.detectChanges();
-    await boot({ hasOwner: false, isLocal: true });
-    type('#ownerName', 'أحمد');
-    type('#ownerUser', 'ahmed');
-    type('#ownerPass', 'owner-pass');
-    type('#ownerConfirm', 'other-pass');
-    submit('setup');
-    http.expectNone(`${base}auth/setup-owner`);
-    expect(component.fieldErrors()['confirm']).toBe('auth.validation.passwordMismatch');
-  });
-
-  it('first run on a client PC: the "no owner yet" message with retry, no form', async () => {
-    await setup();
-    fixture.detectChanges();
-    await boot({ hasOwner: false, isLocal: false });
-    expect(el().querySelector('[data-form="no-owner-client"]')!.textContent).toContain('auth.noOwnerClient.text');
+    await boot({ hasOwner: false });
+    expect(el().querySelector('[data-form="no-owner"]')!.textContent).toContain('auth.noOwner.text');
     expect(el().querySelector('form')).toBeNull();
     el().querySelector<HTMLButtonElement>('[data-action="retry"]')!.click();
-    await boot({ hasOwner: true, isLocal: false });
+    await boot({ hasOwner: true });
     expect(el().querySelector('form[data-form="login"]')).not.toBeNull();
   });
 
-  it('recovery-code screen: "متابعة" stays disabled until the checkbox is ticked', async () => {
+  it('there is no owner setup or password recovery from the login screen', async () => {
     await setup();
     fixture.detectChanges();
-    await boot({ hasOwner: false, isLocal: true });
-    component.ownerName.set('أحمد');
-    component.username.set('ahmed');
-    component.password.set('owner-pass');
-    component.confirmPassword.set('owner-pass');
-    component.setupOwner();
-    http.expectOne(`${base}auth/setup-owner`).flush({ user: fakeUser('owner'), token: 'tok', permissions: ROLE_PERMISSIONS.owner, recoveryCode: 'ABCD-EFGH-JKLM-NPQR' });
-    fixture.detectChanges();
-    const cont = () => el().querySelector<HTMLButtonElement>('[data-action="continue"]')!;
-    expect(cont().disabled).toBeTrue();
-    cont().click();
-    expect(navigateByUrl).not.toHaveBeenCalled();
-    const ack = el().querySelector<HTMLInputElement>('[data-testid="ack"]')!;
-    ack.checked = true;
-    ack.dispatchEvent(new Event('change'));
-    fixture.detectChanges();
-    expect(cont().disabled).toBeFalse();
-    cont().click();
-    expect(navigateByUrl).toHaveBeenCalledWith('/home');
-    // copy and print are offered
-    expect(el().querySelector('[data-action="copy-code"]')).not.toBeNull();
-    expect(el().querySelector('[data-action="print-code"]')).not.toBeNull();
-  });
-
-  it('forgot password on the main PC: POST recover → the new code, with "the old code no longer works"', async () => {
-    await setup();
-    fixture.detectChanges();
-    await boot({ hasOwner: true, isLocal: true });
-    el().querySelector<HTMLButtonElement>('[data-action="forgot"]')!.click();
-    await settle();
-    type('#recUser', 'ahmed');
-    type('#recCode', 'abcd-efgh-jklm-npqr');
-    type('#recPass', 'new-pass-1');
-    type('#recConfirm', 'new-pass-1');
-    submit('recover');
-    const req = http.expectOne(`${base}auth/recover`);
-    expect(req.request.body).toEqual({ username: 'ahmed', recoveryCode: 'abcd-efgh-jklm-npqr', newPassword: 'new-pass-1' });
-    req.flush({ user: fakeUser('owner'), token: 'tok', permissions: ROLE_PERMISSIONS.owner, recoveryCode: 'WXYZ-WXYZ-WXYZ-WXYZ' });
-    fixture.detectChanges();
-    expect(el().querySelector('[data-testid="recovery-code"]')!.textContent).toBe('WXYZ-WXYZ-WXYZ-WXYZ');
-    expect(el().textContent).toContain('auth.recoveryCode.oldCodeInvalid');
-  });
-
-  it('forgot password on a client PC: a message to use the main PC, no form', async () => {
-    await setup();
-    fixture.detectChanges();
-    await boot({ hasOwner: true, isLocal: false });
-    el().querySelector<HTMLButtonElement>('[data-action="forgot"]')!.click();
-    fixture.detectChanges();
-    expect(el().querySelector('form[data-form="recover"]')).toBeNull();
-    expect(el().querySelector('[data-form="recover-client"]')!.textContent).toContain('auth.recover.clientText');
-  });
-
-  it('a wrong recovery code shows INVALID_RECOVERY', async () => {
-    await setup();
-    fixture.detectChanges();
-    await boot({ hasOwner: true, isLocal: true });
-    component.openRecover();
-    component.username.set('ahmed');
-    component.recoveryCode.set('AAAA-AAAA-AAAA-AAAA');
-    component.password.set('new-pass-1');
-    component.confirmPassword.set('new-pass-1');
-    component.recover();
-    http.expectOne(`${base}auth/recover`).flush({ code: 'INVALID_RECOVERY' }, { status: 401, statusText: 'Unauthorized' });
-    expect(component.error()).toBe('auth.errors.INVALID_RECOVERY');
-    expect(component.view()).toBe('recover');
+    await boot({ hasOwner: true });
+    expect(el().querySelector('[data-action="forgot"]')).toBeNull();
+    expect('setupOwner' in component).toBeFalse();
+    expect('recover' in component).toBeFalse();
   });
 
   it('backend unreachable: a retry screen', async () => {

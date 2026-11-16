@@ -1,6 +1,6 @@
 // Stage 13 integration tests: users, login, tokens, permissions, cost stripping, below-cost rule,
 // createdBy/updatedBy and the audit log, against a real throwaway mongod (port 27097; see
-// helpers/mongod.js). The same process also runs the app with NOTA_AUTH unset to prove the switch.
+// helpers/mongod.js).
 process.env.NODE_ENV = "test";
 
 const assert = require("node:assert/strict");
@@ -12,9 +12,9 @@ const jwt = require("jsonwebtoken");
 const SECRET = "stage13-test-secret-0123456789abcdef";
 const APP_PATH = path.join(__dirname, "..", "src", "app.js");
 
-// Both apps are loaded before the database starts, so their models get their indexes (one owner).
+// The app is loaded before the database starts, so its models get their indexes (one owner).
 const loadApp = (env) => {
-  const keys = ["NOTA_AUTH", "NOTA_JWT_SECRET", "NOTA_LAN_MODE", "NOTA_LAN_SECRET"];
+  const keys = ["NOTA_JWT_SECRET"];
   const saved = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   keys.forEach((key) => delete process.env[key]);
   Object.assign(process.env, env);
@@ -25,8 +25,7 @@ const loadApp = (env) => {
     keys.forEach((key) => (saved[key] === undefined ? delete process.env[key] : (process.env[key] = saved[key])));
   }
 };
-const appOn = loadApp({ NOTA_AUTH: "1", NOTA_JWT_SECRET: SECRET });
-const appOff = loadApp({});
+const appOn = loadApp({ NOTA_JWT_SECRET: SECRET });
 
 const { clearDatabase, mongodSkipReason, startMongod } = require("./helpers/mongod");
 const User = require("../src/models/user.model");
@@ -38,7 +37,7 @@ const Selling = require("../src/models/selling.model");
 const CreditSale = require("../src/models/creditSale.model");
 const ReturnLog = require("../src/models/returnLog.model");
 const { createAuthRouter } = require("../src/routes/auth.routes");
-const { authFlag } = require("../src/auth/middleware");
+const { createOwner, recoverOwner } = require("../src/auth/ownerAccount");
 const errorHandler = require("../src/middlewares/error.middleware");
 const { LOCK_MS } = require("../src/auth/loginLimiter");
 
@@ -49,18 +48,15 @@ const listen = (app) =>
 
 let stopMongod;
 let on;
-let off;
 
 test.before(async () => {
   if (mongodSkipReason) return;
   stopMongod = await startMongod({ port: 27097 });
   on = await listen(appOn);
-  off = await listen(appOff);
 });
 
 test.after(async () => {
   if (on) await new Promise((resolve) => on.server.close(resolve));
-  if (off) await new Promise((resolve) => off.server.close(resolve));
   if (stopMongod) await stopMongod();
 });
 
@@ -68,7 +64,6 @@ test.beforeEach(async () => {
   if (mongodSkipReason) return;
   await clearDatabase();
   appOn.locals.auth.loginLimiter.reset();
-  appOn.locals.auth.recoverLimiter.reset();
 });
 
 const call = async (target, method, url, { token, body, headers: extraHeaders } = {}) => {
@@ -88,10 +83,12 @@ const call = async (target, method, url, { token, body, headers: extraHeaders } 
 
 const OWNER = { name: "صاحب المحل", username: "owner", password: "owner-pass-1" };
 
+// The owner is created the way the server does it (npm run create-owner), then signs in.
 const setupOwner = async () => {
-  const response = await call(on, "POST", "/api/auth/setup-owner", { body: OWNER });
-  assert.equal(response.status, 201, response.text);
-  return response.json;
+  const { recoveryCode } = await createOwner(OWNER);
+  const response = await call(on, "POST", "/api/auth/login", { body: { username: OWNER.username, password: OWNER.password } });
+  assert.equal(response.status, 200, response.text);
+  return { ...response.json, recoveryCode };
 };
 
 const login = async (username, password) => call(on, "POST", "/api/auth/login", { body: { username, password } });
@@ -142,12 +139,12 @@ const findCostKeys = (value, found = new Set()) => {
 
 const skip = { skip: mongodSkipReason };
 
-// ---- setup-owner, passwords, login, lockout -------------------------------------------------
+// ---- create-owner, passwords, login, lockout -------------------------------------------------
 
-test("setup-owner: works once, bootstrap reflects it, a second call is 409 OWNER_EXISTS", skip, async () => {
+test("create-owner: works once, bootstrap reflects it, a second call is refused with OWNER_EXISTS", skip, async () => {
   const before = await call(on, "GET", "/api/auth/bootstrap");
   assert.equal(before.status, 200);
-  assert.deepEqual(before.json, { hasOwner: false, isLocal: true, shop: { name: "", logo: "" } });
+  assert.deepEqual(before.json, { hasOwner: false, shop: { name: "", logo: "" } });
 
   const created = await setupOwner();
   assert.ok(created.token);
@@ -157,33 +154,36 @@ test("setup-owner: works once, bootstrap reflects it, a second call is 409 OWNER
   const after = await call(on, "GET", "/api/auth/bootstrap");
   assert.equal(after.json.hasOwner, true);
 
-  const again = await call(on, "POST", "/api/auth/setup-owner", { body: { name: "Other", username: "other", password: "other-pass" } });
-  assert.equal(again.status, 409);
-  assert.equal(again.json.code, "OWNER_EXISTS");
+  await assert.rejects(createOwner({ name: "Other", username: "other", password: "other-pass" }), { code: "OWNER_EXISTS" });
   assert.equal(await User.countDocuments(), 1);
 });
 
-test("setup-owner: two racing requests create exactly one owner", skip, async () => {
-  const results = await Promise.all([
-    call(on, "POST", "/api/auth/setup-owner", { body: { name: "A", username: "owner-a", password: "password-a" } }),
-    call(on, "POST", "/api/auth/setup-owner", { body: { name: "B", username: "owner-b", password: "password-b" } }),
+test("create-owner: two racing calls create exactly one owner", skip, async () => {
+  const results = await Promise.allSettled([
+    createOwner({ name: "A", username: "owner-a", password: "password-a" }),
+    createOwner({ name: "B", username: "owner-b", password: "password-b" }),
   ]);
-  assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
-  assert.equal(results.find((r) => r.status === 409).json.code, "OWNER_EXISTS");
+  assert.deepEqual(results.map((r) => r.status).sort(), ["fulfilled", "rejected"]);
+  assert.equal(results.find((r) => r.status === "rejected").reason.code, "OWNER_EXISTS");
   assert.equal(await User.countDocuments({ role: "owner" }), 1);
   assert.equal(await User.countDocuments(), 1);
 });
 
+test("the HTTP routes setup-owner and recover do not exist", skip, async () => {
+  assert.equal((await call(on, "POST", "/api/auth/setup-owner", { body: OWNER })).status, 401, "behind the login like any unknown route");
+  assert.equal(await User.countDocuments(), 0, "nobody claimed the shop");
+  assert.equal((await call(on, "POST", "/api/auth/recover", { body: { username: "owner", recoveryCode: "AAAA-BBBB-CCCC-DDDD", newPassword: "x-123456" } })).status, 401);
+});
+
 test("passwords: bcrypt cost 10, 6–128 characters, Arabic and spaces allowed; responses never show secrets", skip, async () => {
-  const short = await call(on, "POST", "/api/auth/setup-owner", { body: { ...OWNER, password: "12345" } });
-  assert.equal(short.status, 400);
-  assert.equal(short.json.code, "PASSWORD_INVALID");
-  const long = await call(on, "POST", "/api/auth/setup-owner", { body: { ...OWNER, password: "x".repeat(129) } });
-  assert.equal(long.status, 400);
+  await assert.rejects(createOwner({ ...OWNER, password: "12345" }), { responseData: { code: "PASSWORD_INVALID" } });
+  await assert.rejects(createOwner({ ...OWNER, password: "x".repeat(129) }), { responseData: { code: "PASSWORD_INVALID" } });
+  assert.equal(await User.countDocuments(), 0);
 
   const arabic = "كلمة سر ١٢٣";
-  const created = await call(on, "POST", "/api/auth/setup-owner", { body: { ...OWNER, password: arabic } });
-  assert.equal(created.status, 201, created.text);
+  await createOwner({ ...OWNER, password: arabic });
+  const created = await login("owner", arabic);
+  assert.equal(created.status, 200, created.text);
   for (const secretKey of ["passwordHash", "recoveryCodeHash", "tokenVersion"]) {
     assert.equal(created.text.includes(secretKey), false, `${secretKey} is not in the response`);
   }
@@ -222,13 +222,12 @@ test("login: success; wrong password, unknown user and disabled user get the sam
 test("login lockout: 5 failures → 429 LOGIN_LOCKED for 5 minutes, then it expires (injected clock)", skip, async () => {
   let clock = Date.now();
   const mini = express();
-  mini.use(authFlag(true));
   mini.use(express.json());
   mini.use("/api/auth", createAuthRouter({ secret: SECRET, now: () => clock }));
   mini.use(errorHandler);
   const target = await listen(mini);
   try {
-    assert.equal((await call(target, "POST", "/api/auth/setup-owner", { body: OWNER })).status, 201);
+    await createOwner(OWNER);
     const attempt = (password) => call(target, "POST", "/api/auth/login", { body: { username: "owner", password } });
     for (let i = 1; i <= 4; i++) assert.equal((await attempt("bad-password")).status, 401, `attempt ${i}`);
     const fifth = await attempt("bad-password");
@@ -247,7 +246,6 @@ test("login lockout: 5 failures → 429 LOGIN_LOCKED for 5 minutes, then it expi
 test("login lockout is per username + IP: 5 bad logins from IP A lock A only; IP B still signs in", skip, async () => {
   // The test overrides req.ip from a header, so two "PCs" can be simulated on one machine.
   const mini = express();
-  mini.use(authFlag(true));
   mini.use((req, _res, next) => {
     Object.defineProperty(req, "ip", { value: req.get("x-test-ip") || "127.0.0.1", configurable: true });
     next();
@@ -257,7 +255,7 @@ test("login lockout is per username + IP: 5 bad logins from IP A lock A only; IP
   mini.use(errorHandler);
   const target = await listen(mini);
   try {
-    assert.equal((await call(target, "POST", "/api/auth/setup-owner", { body: OWNER })).status, 201);
+    await createOwner(OWNER);
     const attempt = (ip, password) =>
       call(target, "POST", "/api/auth/login", { body: { username: "owner", password }, headers: { "x-test-ip": ip } });
     for (let i = 1; i <= 4; i++) assert.equal((await attempt("192.168.1.20", "bad-password")).status, 401);
@@ -312,34 +310,18 @@ test("tokens: change-password, reset-password and disable end old sessions; expi
   assert.equal(none.status, 401, "no token");
 });
 
-test("recover: the code works once, a new code is issued, the old one stops working; lockout", skip, async () => {
+test("recover-owner: sets a new password, issues a new recovery code, ends old sessions", skip, async () => {
+  await assert.rejects(recoverOwner({ password: "recovered-pass" }), { code: "NO_OWNER" });
   const owner = await setupOwner();
-  const cashier = await addUser(owner.token, { username: "cashier", role: "cashier" });
-  void cashier;
+  await addUser(owner.token, { username: "cashier", role: "cashier" });
 
-  const notOwner = await call(on, "POST", "/api/auth/recover", { body: { username: "cashier", recoveryCode: owner.recoveryCode, newPassword: "x-123456" } });
-  assert.equal(notOwner.status, 401);
-  assert.equal(notOwner.json.code, "INVALID_RECOVERY");
-
-  const recovered = await call(on, "POST", "/api/auth/recover", {
-    body: { username: "owner", recoveryCode: owner.recoveryCode.toLowerCase().replace(/-/g, " "), newPassword: "recovered-pass" },
-  });
-  assert.equal(recovered.status, 200, recovered.text);
-  assert.ok(recovered.json.token);
-  assert.notEqual(recovered.json.recoveryCode, owner.recoveryCode, "a new code is issued");
+  const recovered = await recoverOwner({ password: "recovered-pass" });
+  assert.match(recovered.recoveryCode, /^[A-HJ-NP-Z2-9]{4}(-[A-HJ-NP-Z2-9]{4}){3}$/);
+  assert.notEqual(recovered.recoveryCode, owner.recoveryCode, "a new code is issued");
   assert.equal((await call(on, "GET", "/api/auth/me", { token: owner.token })).status, 401, "old sessions end");
+  assert.equal((await login("owner", OWNER.password)).status, 401, "the old password stops working");
   assert.equal((await login("owner", "recovered-pass")).status, 200);
-
-  const oldCode = await call(on, "POST", "/api/auth/recover", { body: { username: "owner", recoveryCode: owner.recoveryCode, newPassword: "another-pass" } });
-  assert.equal(oldCode.status, 401, "the old code stops working");
-  for (let i = 2; i <= 4; i++) {
-    assert.equal((await call(on, "POST", "/api/auth/recover", { body: { username: "owner", recoveryCode: "AAAA-BBBB-CCCC-DDDD", newPassword: "another-pass" } })).status, 401);
-  }
-  const locked = await call(on, "POST", "/api/auth/recover", { body: { username: "owner", recoveryCode: "AAAA-BBBB-CCCC-DDDD", newPassword: "another-pass" } });
-  assert.equal(locked.status, 429);
-  assert.equal(locked.json.code, "LOGIN_LOCKED");
-  const lockedRight = await call(on, "POST", "/api/auth/recover", { body: { username: "owner", recoveryCode: recovered.json.recoveryCode, newPassword: "another-pass" } });
-  assert.equal(lockedRight.status, 429, "locked even with the right code");
+  assert.equal(await User.countDocuments({ role: "owner" }), 1);
 });
 
 // ---- users endpoint rules ----------------------------------------------------------------
@@ -563,7 +545,7 @@ test("cost stripping: a cashier sees no purchase price or profit; the owner does
   assert.equal((await call(on, "GET", "/api/products/export/excel", { token: cashier.token })).status, 403);
 });
 
-test("below cost: the message never has the price; auth off blocks everyone; auth on only sales.priceBelowCost may (cash and credit)", skip, async () => {
+test("below cost: the message never has the price; only sales.priceBelowCost may sell below cost (cash and credit)", skip, async () => {
   const owner = await setupOwner();
   const { productId } = await seedCatalog(owner.token, { purchasePrice: 73.5 });
   const cashier = await addUser(owner.token, { username: "cashier", role: "cashier" });
@@ -583,13 +565,6 @@ test("below cost: the message never has the price; auth off blocks everyone; aut
   assert.equal(ownerCredit.status, 201, ownerCredit.text);
   const ownerEdit = await call(on, "PUT", `/api/sellings/${ownerCash.json._id}`, { token: owner.token, body: { items: [{ productId, quantity: 2, price: 50 }] } });
   assert.equal(ownerEdit.status, 200, "editing to below cost also needs the permission, which the owner has");
-
-  // Auth off: blocked for everyone, exactly as before Stage 13.
-  const offSale = await call(off, "POST", "/api/sellings", { body: sale(productId, 60) });
-  assert.equal(offSale.status, 400);
-  assert.ok(noPrice(offSale.json.message));
-  const offCredit = await call(off, "POST", "/api/credit-sales", { body: sale(productId, 60, { customerPhone: "01000000004" }) });
-  assert.equal(offCredit.status, 400);
 });
 
 test("sales.discount: a cashier cannot give an invoice discount (cash or credit); a manager can", skip, async () => {
@@ -745,24 +720,6 @@ test("createdBy / updatedBy come from the signed-in user (sale, credit + payment
   is(editedDoc, ownerRef, "updatedBy");
 });
 
-test("createdBy / updatedBy are absent with auth off", skip, async () => {
-  const category = await call(off, "POST", "/api/categories", { body: { name: "تصنيف" } });
-  const product = await call(off, "POST", "/api/products", {
-    body: { name: "منتج", code: "P-1", categoryId: category.json._id, inventoryCount: 5, purchasePrice: 10, wholesalePrice: 20, retailPrice: 30 },
-  });
-  const cash = await call(off, "POST", "/api/sellings", { body: sale(product.json._id, 30) });
-  assert.equal(cash.status, 201);
-  for (const doc of [
-    await Category.findById(category.json._id).lean(),
-    await Product.findById(product.json._id).lean(),
-    await Selling.findById(cash.json._id).lean(),
-    await Customer.findOne({}).lean(),
-  ]) {
-    for (const key of ["createdBy", "createdByName", "updatedBy", "updatedByName"]) assert.equal(key in doc, false, `${key} not set`);
-  }
-  for (const response of [product, cash]) assert.equal(/createdBy|updatedBy/.test(response.text), false, "not in the response either");
-});
-
 // ---- audit log -----------------------------------------------------------------------------
 
 test("audit: entries for auth, users and business actions; filters, newest first; no secrets stored", skip, async () => {
@@ -819,93 +776,6 @@ test("audit: entries for auth, users and business actions; filters, newest first
     assert.equal(everything.includes(secret), false, `audit log never contains ${secret.slice(0, 6)}…`);
   }
   assert.equal(/password|hash|token|recovery/i.test(everything.replace(/auth\.password_changed|user\.password_reset/g, "")), false);
-});
-
-// ---- the switch ----------------------------------------------------------------------------
-
-test("auth off: existing requests behave as before (no token, nothing stripped, new routes are 404)", skip, async () => {
-  for (const url of ["/api/auth/bootstrap", "/api/users", "/api/audit"]) {
-    assert.equal((await call(off, "GET", url)).status, 404, `${url} is not mounted`);
-  }
-  assert.equal((await call(off, "POST", "/api/auth/setup-owner", { body: OWNER })).status, 404);
-  assert.equal(await User.countDocuments(), 0);
-
-  const category = await call(off, "POST", "/api/categories", { body: { name: "تصنيف" } });
-  assert.equal(category.status, 201);
-  const product = await call(off, "POST", "/api/products", {
-    body: { name: "منتج", code: "P-1", categoryId: category.json._id, inventoryCount: 5, purchasePrice: 10, wholesalePrice: 20, retailPrice: 30 },
-  });
-  assert.equal(product.status, 201);
-  assert.equal(product.json.purchasePrice, 10, "nothing is stripped");
-  const cash = await call(off, "POST", "/api/sellings", { body: sale(product.json._id, 30, { discountAmount: 2 }) });
-  assert.equal(cash.status, 201, "discounts need no permission");
-  const details = await call(off, "GET", `/api/sellings/${cash.json._id}`);
-  assert.equal(details.json.items[0].purchasePrice, 10);
-  assert.ok("totalProfit" in details.json);
-  assert.equal((await call(off, "GET", "/api/products/profit-report")).status, 200);
-  assert.equal((await call(off, "GET", "/api/dashboard/summary")).status, 200);
-  assert.equal((await call(off, "PUT", "/api/shop-profile", { body: { name: "متجر" } })).status, 200);
-  assert.equal(await AuditLog.countDocuments(), 0, "nothing is audited with auth off");
-});
-
-// ---- Stage 14: owner actions only from the main PC itself ---------------------------------
-
-// The whole auth app behind an outer app that overrides req.ip, to simulate a client PC.
-const withIp = async (ip) => {
-  const outer = express();
-  outer.use((req, _res, next) => {
-    Object.defineProperty(req, "ip", { value: ip, configurable: true });
-    next();
-  });
-  outer.use(appOn);
-  return listen(outer);
-};
-const closeTarget = (target) => new Promise((resolve) => target.server.close(resolve));
-
-test("stage 14: setup-owner and recover from loopback work (127.0.0.1, ::1, ::ffff:127.0.0.1)", skip, async () => {
-  for (const ip of ["::1", "::ffff:127.0.0.1"]) {
-    const target = await withIp(ip);
-    try {
-      const response = await call(target, "GET", "/api/auth/bootstrap");
-      assert.equal(response.json.isLocal, true, ip);
-    } finally {
-      await closeTarget(target);
-    }
-  }
-  const owner = await setupOwner(); // real 127.0.0.1
-  const recovered = await call(on, "POST", "/api/auth/recover", {
-    body: { username: OWNER.username, recoveryCode: owner.recoveryCode, newPassword: "recovered-pass" },
-  });
-  assert.equal(recovered.status, 200, recovered.text);
-});
-
-test("stage 14: setup-owner and recover from a non-loopback address get 403 LOCAL_ONLY; bootstrap isLocal is false", skip, async () => {
-  const target = await withIp("192.168.1.20");
-  try {
-    const boot = await call(target, "GET", "/api/auth/bootstrap");
-    assert.equal(boot.status, 200);
-    assert.equal(boot.json.isLocal, false);
-    assert.equal(boot.json.hasOwner, false);
-
-    const setup = await call(target, "POST", "/api/auth/setup-owner", { body: OWNER });
-    assert.equal(setup.status, 403);
-    assert.equal(setup.json.code, "LOCAL_ONLY");
-    assert.equal(await User.countDocuments(), 0, "no owner was created");
-
-    const owner = await setupOwner(); // from the main PC
-    const recover = await call(target, "POST", "/api/auth/recover", {
-      body: { username: OWNER.username, recoveryCode: owner.recoveryCode, newPassword: "stolen-pass" },
-    });
-    assert.equal(recover.status, 403);
-    assert.equal(recover.json.code, "LOCAL_ONLY");
-    assert.equal((await login(OWNER.username, OWNER.password)).status, 200, "the password did not change");
-
-    // Login itself still works from a client PC.
-    const clientLogin = await call(target, "POST", "/api/auth/login", { body: { username: OWNER.username, password: OWNER.password } });
-    assert.equal(clientLogin.status, 200);
-  } finally {
-    await closeTarget(target);
-  }
 });
 
 test("stage 14: creating a product needs products.viewCost; a custom role with products.manage but no viewCost gets 403 on POST, 200 on PUT, and the stored purchasePrice is kept", skip, async () => {

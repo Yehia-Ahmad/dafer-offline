@@ -239,7 +239,7 @@ export class ReturnsComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Stage 22 review: another PC may have closed a period since this one signed in.
+    // Stage 22 review: another device may have closed a period since this one signed in.
     this.lock.refresh();
     // Stage 14: the log needs returns.view; a user who may only record returns (the cashier
     // template) opens straight on the new-return wizard and never requests the log.

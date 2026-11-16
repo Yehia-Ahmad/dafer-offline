@@ -19,7 +19,7 @@ const { getStockPrintData } = require("../controllers/printData.controller");
 
 const router = express.Router();
 
-// Stage 13: permissions (enforced only with NOTA_AUTH=1). Profit plus revenue reveals cost, so the
+// Stage 13: permissions (always enforced). Profit plus revenue reveals cost, so the
 // profit reports need products.viewCost as well; the Excel export holds purchase prices too.
 const profit = requirePermission("reports.profit", "products.viewCost");
 router

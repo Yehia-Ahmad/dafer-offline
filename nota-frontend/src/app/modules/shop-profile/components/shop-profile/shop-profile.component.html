@@ -76,7 +76,7 @@
           <textarea id="sp-footer" rows="2" class="nota-textarea" formControlName="invoiceFooter" [maxLength]="limits.invoiceFooter"></textarea>
         </nota-form-field>
 
-        <!-- Stage 15: الأمان — auto-lock after idle minutes (every PC). -->
+        <!-- Stage 15: الأمان — auto-lock after idle minutes (every device). -->
         <section class="sp__security" data-test="security-card" aria-labelledby="sp-security-title">
           <div class="sp__security-head">
             <span class="sp__security-icon" aria-hidden="true">
@@ -145,8 +145,6 @@
             </nota-form-field>
           </section>
         }
-
-        <app-print-settings-card />
 
         <div class="sp__footer">
           @if (outcome(); as result) {

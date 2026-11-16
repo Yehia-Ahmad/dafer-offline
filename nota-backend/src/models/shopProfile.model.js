@@ -84,7 +84,7 @@ const shopProfileSchema = new mongoose.Schema(
       trim: true,
       maxlength: [500, "يجب ألا يزيد نص تذييل الفاتورة عن 500 حرف"],
     },
-    // Stage 15: lock the screen after this many idle minutes, on every PC (0 = off).
+    // Stage 15: lock the screen after this many idle minutes, on every device (0 = off).
     autoLockMinutes: {
       type: Number,
       enum: { values: AUTO_LOCK_MINUTES, message: "مدة القفل التلقائي غير صالحة" },

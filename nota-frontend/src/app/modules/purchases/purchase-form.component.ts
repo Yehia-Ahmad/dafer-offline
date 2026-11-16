@@ -294,7 +294,7 @@ export class PurchaseFormComponent implements OnInit {
   // ---- Stage 21: VAT. Only while the shop has VAT on and the purchase date is on/after its start date; otherwise nothing below shows.
   private readonly vatSettings = inject(VatSettingsService);
   readonly vatContext = computed(() => this.vatSettings.contextFor(this.date()));
-  /** Stage 21 review: the VAT settings changed on another PC; the form now shows the server's VAT and asks to save again. */
+  /** Stage 21 review: the VAT settings changed on another device; the form now shows the server's VAT and asks to save again. */
   readonly vatChanged = signal<{ expected: number; current: number } | null>(null);
   readonly hasMoneyPrecision = hasMoneyPrecision;
   /** A unit price has at most two decimals (the server refuses more with PRICE_PRECISION). */
@@ -377,9 +377,9 @@ export class PurchaseFormComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    // Stage 21 review: another PC may have changed the VAT settings since this one signed in.
+    // Stage 21 review: another device may have changed the VAT settings since this one signed in.
     this.vatSettings.refresh();
-    // Stage 22 review: another PC may have closed a period since this one signed in.
+    // Stage 22 review: another device may have closed a period since this one signed in.
     this.lock.refresh();
     this.paymentBox.load();
     this.suppliersService.list().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({

@@ -562,16 +562,6 @@ describe('Stage 15: interceptor (session end, restore, discount limit)', () => {
     expect(rescue.take('id-cashier')).toBeNull();
   });
 
-  it('reason DATA_RESTORED → /login with reason=restored (no returnUrl, no cart kept)', () => {
-    signInAs('cashier');
-    const rescue = TestBed.inject(CartRescueService);
-    rescue.register(() => ({ lines: ['x'] }));
-    TestBed.inject(HttpClient).get(`${base}customers`).subscribe({ error: () => undefined });
-    http.expectOne(`${base}customers`).flush({ code: 'SESSION_EXPIRED', reason: 'DATA_RESTORED' }, { status: 401, statusText: 'Unauthorized' });
-    expect(navigate).toHaveBeenCalledWith(['/login'], { queryParams: { reason: 'restored' } });
-    expect(rescue.hasSaved()).toBeFalse();
-  });
-
   it('403 DISCOUNT_LIMIT shows the server message as a toast', async () => {
     signInAs('manager');
     TestBed.inject(HttpClient).post(`${base}sellings`, {}).subscribe({ error: () => undefined });

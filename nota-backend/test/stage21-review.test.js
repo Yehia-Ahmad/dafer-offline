@@ -1,5 +1,4 @@
 process.env.NODE_ENV = "test";
-process.env.NOTA_AUTH = "1";
 process.env.NOTA_JWT_SECRET = "stage21-review-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
@@ -44,8 +43,9 @@ test.beforeEach(async () => {
   if (mongodSkipReason) return;
   setClock(null);
   await clearDatabase(); token = null; resetDeviceThrottle();
-  const owner = await call("POST", "/api/auth/setup-owner", { name: "Owner", username: "stage21rv-owner", password: "owner-pass-123" });
-  assert.equal(owner.status, 201); token = owner.json.token;
+  await require("../src/auth/ownerAccount").createOwner({ name: "Owner", username: "stage21rv-owner", password: "owner-pass-123" });
+  const owner = await call("POST", "/api/auth/login", { username: "stage21rv-owner", password: "owner-pass-123" });
+  assert.equal(owner.status, 200); token = owner.json.token;
 });
 const it = (name, fn) => test(name, { skip: mongodSkipReason }, fn);
 

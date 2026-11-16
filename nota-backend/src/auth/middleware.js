@@ -1,5 +1,4 @@
-// Stage 13 enforcement. Everything here is a pass-through unless the app was loaded with
-// NOTA_AUTH=1; app.js marks each request with req.authEnabled.
+// Stage 13 enforcement. Authentication is always on.
 const mongoose = require("mongoose");
 const User = require("../models/user.model");
 const { hasPermission } = require("./permissions");
@@ -21,7 +20,7 @@ const httpError = (statusCode, code, message) => {
 };
 
 const sessionExpired = () => httpError(401, SESSION_EXPIRED, "انتهت الجلسة. سجّل الدخول مرة أخرى");
-// Stage 15: a backup was restored on the main PC after this token was issued.
+// Stage 15: sessions issued before NOTA_SESSIONS_VALID_AFTER are refused.
 const DATA_RESTORED = "DATA_RESTORED";
 const sessionEndedByRestore = () => {
   const error = httpError(401, SESSION_EXPIRED, "تم استرجاع النسخة. سجّل الدخول بحساب من النسخة المسترجعة");
@@ -31,20 +30,14 @@ const sessionEndedByRestore = () => {
 const forbidden = () => httpError(403, FORBIDDEN, "ليست لديك صلاحية للقيام بهذه العملية");
 
 // Paths under /api that need no login (relative to the /api mount).
-const PUBLIC_PATHS = new Set(["/auth/bootstrap", "/auth/login", "/auth/setup-owner", "/auth/recover"]);
-const isPublicPath = (path) => path === "/lan" || path.startsWith("/lan/") || PUBLIC_PATHS.has(path);
-
-/** Marks requests of this app as auth-enabled or not (captured once, when app.js is loaded). */
-const authFlag = (enabled) => (req, _res, next) => {
-  req.authEnabled = enabled;
-  next();
-};
+const PUBLIC_PATHS = new Set(["/auth/bootstrap", "/auth/login"]);
+const isPublicPath = (path) => PUBLIC_PATHS.has(path);
 
 /**
- * Mounted on /api after the LAN guard. Loads the user of the Bearer token on every request and
+ * Mounted on /api. Loads the user of the Bearer token on every request and
  * rejects a missing, disabled or outdated session (tv !== tokenVersion) with 401 SESSION_EXPIRED.
- * Stage 15: `sessionsValidAfter` (ms, NOTA_SESSIONS_VALID_AFTER, set by the desktop app after a
- * restore): a token issued before it gets 401 SESSION_EXPIRED with reason DATA_RESTORED, on every PC.
+ * Stage 15: `sessionsValidAfter` (ms, NOTA_SESSIONS_VALID_AFTER): a token issued before it gets
+ * 401 SESSION_EXPIRED with reason DATA_RESTORED.
  */
 const requireAuth = (secret, { sessionsValidAfter = 0 } = {}) => async (req, _res, next) => {
   if (req.method === "OPTIONS" || isPublicPath(req.path)) return next();
@@ -66,10 +59,9 @@ const tag = (handler, value) => {
   return handler;
 };
 
-/** 403 FORBIDDEN unless the signed-in user has every key. No-op when auth is off. */
+/** 403 FORBIDDEN unless the signed-in user has every key. */
 const requirePermission = (...keys) =>
   tag((req, _res, next) => {
-    if (!req.authEnabled) return next();
     if (!req.user) return next(sessionExpired());
     return keys.every((key) => hasPermission(req.user, key)) ? next() : next(forbidden());
   }, keys);
@@ -77,11 +69,10 @@ const requirePermission = (...keys) =>
 /**
  * Stage 19: 403 FORBIDDEN unless the signed-in user has AT LEAST ONE of the keys (a screen several roles
  * use, e.g. shifts: shift.operate or shift.manage). The handler decides what each role may see.
- * Tagged "a | b" for the route-coverage test. No-op when auth is off.
+ * Tagged "a | b" for the route-coverage test.
  */
 const requireAnyPermission = (...keys) =>
   tag((req, _res, next) => {
-    if (!req.authEnabled) return next();
     if (!req.user) return next(sessionExpired());
     return keys.some((key) => hasPermission(req.user, key)) ? next() : next(forbidden());
   }, [keys.join(" | ")]);
@@ -89,33 +80,16 @@ const requireAnyPermission = (...keys) =>
 /** Any signed-in user (no specific permission). */
 const requireLogin = () =>
   tag((req, _res, next) => {
-    if (!req.authEnabled || req.user) return next();
+    if (req.user) return next();
     return next(sessionExpired());
   }, AUTHENTICATED);
-
-/**
- * Stage 14: did this request come from the main PC itself? The desktop app's own window calls the
- * backend on 127.0.0.1; client PCs use the LAN address. There is no "trust proxy", so req.ip is
- * the socket address.
- */
-const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
-const isLoopback = (req) => LOOPBACK_ADDRESSES.has(String(req.ip || ""));
-
-/** Stage 14: 403 LOCAL_ONLY unless the request came over loopback (setup-owner, recover). */
-const localOnly = () => (req, _res, next) =>
-  isLoopback(req)
-    ? next()
-    : next(httpError(403, "LOCAL_ONLY", "العملية دي متاحة على الجهاز الرئيسي بس"));
 
 /** No login (the exempt list in requireAuth). Only a marker for the route-coverage test. */
 const publicRoute = () => tag((_req, _res, next) => next(), PUBLIC);
 
-/**
- * May this request sell (or edit an invoice to) below purchase price? Only with NOTA_AUTH=1 and
- * sales.priceBelowCost. With auth off: never, so the sale stays blocked for everyone as before.
- */
+/** May this request sell (or edit an invoice to) below purchase price? Only with sales.priceBelowCost. */
 const canSellBelowCost = (req) =>
-  Boolean(req && req.authEnabled && req.user && hasPermission(req.user, "sales.priceBelowCost"));
+  Boolean(req && req.user &&hasPermission(req.user, "sales.priceBelowCost"));
 
 const positive = (value) => {
   const number = Number(value);
@@ -213,8 +187,7 @@ const discountLimitError = (limit) => {
  * discountAmount / subtotal * 100 ≤ limit (+0.01 for rounding), else 403 DISCOUNT_LIMIT.
  */
 const requireDiscountPermission = (Model) => async (req, _res, next) => {
-  if (!req.authEnabled) return next();
-  const allowed = hasPermission(req.user, "sales.discount");
+  const allowed =hasPermission(req.user, "sales.discount");
   const limit = discountLimitOf(req.user);
   if (allowed && limit === null) return next();
   try {
@@ -244,7 +217,7 @@ const stripCost = (value) => {
 
 /** The single response helper for cost stripping (mounted after requireAuth). */
 const costStrip = () => (req, res, next) => {
-  if (!req.authEnabled || !req.user || hasPermission(req.user, "products.viewCost")) return next();
+  if (!req.user || hasPermission(req.user, "products.viewCost")) return next();
   const originalJson = res.json.bind(res);
   // JSON round-trip first, so Mongoose documents go through their toJSON like they would anyway.
   res.json = (body) => originalJson(body === undefined ? body : stripCost(JSON.parse(JSON.stringify(body))));
@@ -259,15 +232,12 @@ module.exports = {
   PERMISSION_TAG,
   PUBLIC,
   SESSION_EXPIRED,
-  authFlag,
   canSellBelowCost,
   costStrip,
   forbidden,
   httpError,
   hasPermission,
-  isLoopback,
   isPublicPath,
-  localOnly,
   publicRoute,
   requireAuth,
   discountLimitOf,

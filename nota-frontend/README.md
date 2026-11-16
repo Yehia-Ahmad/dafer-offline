@@ -36,26 +36,9 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
-## Electron (Windows build)
+## Deployment
 
-Requirements:
-
-- Node.js `20.19+` (or `22.12+`)
-
-Commands:
-
-```bash
-# Build the offline Angular app and run it in Electron
-npm run electron:start:offline
-
-# Build Windows unpacked app folder (for testing)
-npm run electron:build:win:offline:dir
-
-# Build Windows installer (.exe via NSIS)
-npm run electron:build:win:offline
-```
-
-Build artifacts are generated in the `release-offline/` directory.
+Nota is a normal web app: one Node backend plus MongoDB per shop, used from a browser. The production build calls the API on the same origin (`/api/`, see `src/environments/environment.prod.ts`), so the web server (for example nginx) serves `dist/nota` and proxies `/api/` to the backend. In development (`ng serve`) the API address is `src/environments/environment.ts` (`http://localhost:5000/api/`); add `http://localhost:4200` to `CORS_ORIGINS` in the backend `.env`. The first owner account is created on the server with `npm run create-owner` (see `nota-backend/README.md`).
 
 ## Running unit tests
 

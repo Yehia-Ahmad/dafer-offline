@@ -44,7 +44,7 @@ export function normalizeAutoLock(value: unknown): number {
 }
 
 /**
- * Stage 15: locks the screen after N idle minutes (shop setting, 0 = off), per window, on every PC.
+ * Stage 15: locks the screen after N idle minutes (shop setting, 0 = off), per window, on every device.
  * Idle = no mouse, keyboard, touch or wheel input in this window. The lock is an overlay
  * (LockOverlayComponent): the page under it stays as it was. The same activity refreshes the
  * session token when less than 2 hours are left; a locked or idle session is never refreshed, so
@@ -123,7 +123,7 @@ export class IdleLockService {
         this.lockState.unlock();
         this.lastReset = this.timers.now();
         this.schedule();
-        // The shop settings (VAT among them) may have been changed on another PC while this one was locked.
+        // The shop settings (VAT among them) may have been changed on another device while this one was locked.
         this.shopProfile.refresh();
       })
     );

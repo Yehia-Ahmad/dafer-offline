@@ -1,10 +1,24 @@
 process.env.NODE_ENV = "test";
+process.env.NOTA_JWT_SECRET = "shop-profile-test-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const ShopProfile = require("../src/models/shopProfile.model");
+const User = require("../src/models/user.model");
+const AuditLog = require("../src/models/auditLog.model");
+const { signToken } = require("../src/auth/jwt");
 const app = require("../src/app");
+
+// Auth is always on. There is no database here, so the signed-in owner is an in-memory document
+// and every request in this file carries its token.
+const owner = new User({ name: "Owner", username: "owner", role: "owner", passwordHash: "x" });
+User.findById = async () => owner;
+AuditLog.create = async () => undefined;
+const ownerToken = signToken(owner, process.env.NOTA_JWT_SECRET);
+const plainFetch = globalThis.fetch;
+globalThis.fetch = (url, options = {}) =>
+  plainFetch(url, { ...options, headers: { ...(options.headers || {}), authorization: `Bearer ${ownerToken}` } });
 
 // There is no database in these tests. Successful reads and writes go through an in-memory
 // stand-in for findOne / findOneAndUpdate. Validation failures use the real model methods:

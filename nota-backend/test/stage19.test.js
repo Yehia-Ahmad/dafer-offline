@@ -1,5 +1,4 @@
 process.env.NODE_ENV = "test";
-process.env.NOTA_AUTH = "1";
 process.env.NOTA_JWT_SECRET = "stage19-test-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
@@ -40,8 +39,9 @@ test.after(async () => { if (server) await new Promise((resolve) => server.close
 test.beforeEach(async () => {
   if (mongodSkipReason) return;
   await clearDatabase(); token = null; resetDeviceThrottle();
-  const owner = await call("POST", "/api/auth/setup-owner", { name: "Owner", username: "stage19-owner", password: "owner-pass-123" });
-  assert.equal(owner.status, 201); token = owner.json.token; ownerToken = token;
+  await require("../src/auth/ownerAccount").createOwner({ name: "Owner", username: "stage19-owner", password: "owner-pass-123" });
+  const owner = await call("POST", "/api/auth/login", { username: "stage19-owner", password: "owner-pass-123" });
+  assert.equal(owner.status, 200); token = owner.json.token; ownerToken = token;
 });
 const it = (name, fn) => test(name, { skip: mongodSkipReason }, fn);
 
@@ -206,7 +206,7 @@ it("deactivate: only with a zero balance and no open shift; the main box never; 
 
 // ------------------------------------------------------------ devices
 
-it("device header: registers the PC (name, role, throttled), picks the default box, never authenticates", async () => {
+it("device header: registers the device (name, throttled, no role), picks the default box, never authenticates", async () => {
   const { main } = await shop();
   const drawer = await createBox({ name: "درج PC1", type: "cash", shiftsEnabled: false, deviceId: DEVICE_A });
   const p = await product({ code: "DEV-1" });
@@ -220,7 +220,7 @@ it("device header: registers the PC (name, role, throttled), picks the default b
   assert.equal(String(invalid.boxId), String(main._id), "an invalid id is ignored");
   assert.equal(await Device.countDocuments({ deviceId: "bad id with spaces!!" }), 0);
   const registered = await Device.findOne({ deviceId: DEVICE_A }).lean();
-  assert.equal(registered.name, "كاشير 1"); assert.equal(registered.role, "client");
+  assert.equal(registered.name, "كاشير 1"); assert.equal("role" in registered, false, "no main/client role any more");
   const first = registered.lastSeenAt.getTime();
   await call("GET", "/api/cashbox/payment-boxes", null, asDevice(DEVICE_A, "اسم تاني"));
   const again = await Device.findOne({ deviceId: DEVICE_A }).lean();
@@ -235,10 +235,6 @@ it("device header: registers the PC (name, role, throttled), picks the default b
   assert.equal((await call("GET", "/api/cashbox/payment-boxes", null, asDevice("device-cccc-0003"))).status, 401);
   token = saved;
   assert.equal(await Device.countDocuments({ deviceId: "device-cccc-0003" }), 0);
-  // The main PC is recognised by NOTA_INSTANCE_ID.
-  process.env.NOTA_INSTANCE_ID = "device-main-0000"; resetDeviceThrottle();
-  try { await call("GET", "/api/cashbox/payment-boxes", null, asDevice("device-main-0000", "Main PC")); } finally { delete process.env.NOTA_INSTANCE_ID; }
-  assert.equal((await Device.findOne({ deviceId: "device-main-0000" }).lean()).role, "main");
   const long = "x".repeat(200); resetDeviceThrottle();
   await call("GET", "/api/cashbox/payment-boxes", null, asDevice("device-dddd-0004", long));
   assert.equal((await Device.findOne({ deviceId: "device-dddd-0004" }).lean()).name.length, 64);
@@ -1223,20 +1219,18 @@ it("review 11, can fail: an expense posted as Dr 521 / Cr CAPITAL (no box line) 
 
 // ---- 12. the device registry without users, and its cap
 
-it("review 12: with users off (no req.user) a PC still registers; with users on, an unsigned request does not; the throttle map is capped (LRU)", async () => {
+it("review 12: an unsigned request does not register a PC, a signed one does; the throttle map is capped (LRU)", async () => {
   await shop();
   const { deviceContext, rememberedCount, resetDeviceThrottle: reset } = require("../src/middlewares/device.middleware");
   const requestFor = (id, extra = {}) => ({ get: (name) => ({ "x-nota-device-id": id, "x-nota-device-name": "PC" })[name.toLowerCase()], ...extra });
   reset();
-  await deviceContext()(requestFor("device-authoff-0001", { authEnabled: false }), {}, () => {});
-  assert.equal(await Device.countDocuments({ deviceId: "device-authoff-0001" }), 1, "NOTA_AUTH off: registered");
-  await deviceContext()(requestFor("device-unsigned-0002", { authEnabled: true }), {}, () => {});
-  assert.equal(await Device.countDocuments({ deviceId: "device-unsigned-0002" }), 0, "users on, nobody signed in: not registered");
-  await deviceContext()(requestFor("device-signed-0003", { authEnabled: true, user: { _id: "u" } }), {}, () => {});
+  await deviceContext()(requestFor("device-unsigned-0002"), {}, () => {});
+  assert.equal(await Device.countDocuments({ deviceId: "device-unsigned-0002" }), 0, "nobody signed in: not registered");
+  await deviceContext()(requestFor("device-signed-0003", { user: { _id: "u" } }), {}, () => {});
   assert.equal(await Device.countDocuments({ deviceId: "device-signed-0003" }), 1);
   reset();
   const capped = deviceContext({ maxEntries: 3 });
-  for (let index = 1; index <= 8; index += 1) await capped(requestFor(`device-cap-${String(index).padStart(4, "0")}`, { authEnabled: false }), {}, () => {});
+  for (let index = 1; index <= 8; index += 1) await capped(requestFor(`device-cap-${String(index).padStart(4, "0")}`, { user: { _id: "u" } }), {}, () => {});
   assert.equal(rememberedCount(), 3, "only the 3 most recent ids are remembered");
   assert.equal(await Device.countDocuments({ deviceId: /^device-cap-/ }), 8, "every one was still registered");
   reset();

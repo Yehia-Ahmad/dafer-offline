@@ -102,7 +102,7 @@ const repriceEditedInvoice = ({ invoice, persistedItems, productsById, invoiceTo
 };
 
 /**
- * A client that works from cached VAT settings (another PC that has not signed in since the owner changed them) may show the
+ * A client that works from cached VAT settings (another device that has not signed in since the owner changed them) may show the
  * cashier a total the server no longer computes. The screen sends the total it showed as `expected` (expectedTotal for sales,
  * expectedVat for purchases); when the server's figure differs the request is refused with 409 and the CURRENT vat settings, so
  * the screen can refresh, show the new figure and ask again. An absent field changes nothing. Call it inside the transaction.

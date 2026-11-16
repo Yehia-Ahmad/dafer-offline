@@ -1,12 +1,10 @@
 node_modules/
 .angular/
 dist/
+dist-online/
 dist-offline/
 offline-stage/
-offline-dev-home/
 release-offline/
 vendor/
 release/
-build/*
-!build/icon.ico
 .codex

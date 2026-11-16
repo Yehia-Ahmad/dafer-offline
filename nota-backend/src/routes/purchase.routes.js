@@ -6,7 +6,7 @@ const { getPurchasePrintData } = require("../controllers/printData.controller");
 
 const router = express.Router();
 
-// Stage 20: purchases (permissions enforced only with NOTA_AUTH=1, like every other route).
+// Stage 20: purchases (permissions always enforced, like every other route).
 router.get("/", requirePermission("purchases.view"), asyncHandler(controller.getPurchases));
 router.post("/", requirePermission("purchases.create"), asyncHandler(controller.createPurchase));
 router.get("/:id/print-data", requirePermission("purchases.view"), asyncHandler(getPurchasePrintData));

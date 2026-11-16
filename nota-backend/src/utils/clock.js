@@ -7,7 +7,7 @@ const now = () => (override ? override() : new Date());
 const setClock = (fn) => { override = fn; };
 
 /**
- * The default cut-off for "as of now": the end of the current LOCAL day (the server's timezone, Africa/Cairo on a shop PC).
+ * The default cut-off for "as of now": the end of the current LOCAL day (the server's timezone, Africa/Cairo on a shop's server).
  * Business dates are stored as the UTC midnight of the day the user picked, so a plain `new Date()` cut-off would
  * hide a sale dated today for the first hours of the local day (00:00-02:00 in Cairo). A date-only asOf is the same value.
  */

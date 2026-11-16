@@ -23,8 +23,7 @@ export function fontFaceCss(encoded: Array<{ base64: string; range: string }>): 
 }
 
 /**
- * XMLHttpRequest, not fetch(): in the desktop app the UI is a file:// page, where Chromium refuses fetch() of file:// URLs but allows
- * XHR to the app's own assets (the same way the translation files are read).
+ * XMLHttpRequest rather than fetch(), the same way the translation files are read.
  */
 function readBytes(url: string): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
@@ -66,7 +65,7 @@ export class PrintFontService {
         const bytes = await readBytes(new URL(entry.file, document.baseURI).href);
         if (bytes.byteLength > 1000) encoded.push({ base64: toBase64(bytes), range: entry.range });
       } catch {
-        // offline fallback stack
+        // fallback font stack
       }
     }
     return fontFaceCss(encoded);

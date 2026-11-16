@@ -106,7 +106,7 @@ export class TransferDialogComponent {
   readonly insufficient = computed(() => Boolean(this.from()) && this.amountValue() > (this.from()?.balance ?? 0));
   readonly sameBox = computed(() => Boolean(this.fromId()) && this.fromId() === this.toId());
   constructor() {
-    // Stage 22 review: re-read the lock date each time the dialog opens (another PC may have closed a period).
+    // Stage 22 review: re-read the lock date each time the dialog opens (another device may have closed a period).
     effect(() => { if (this.visible()) untracked(() => this.lock.refresh()); });
   }
 

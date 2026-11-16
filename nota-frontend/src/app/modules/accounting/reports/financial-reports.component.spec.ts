@@ -243,12 +243,12 @@ describe('FinancialReportsComponent (Stage 22)', () => {
     expect(q('[data-test="error"]')?.textContent).toContain('reports.loadFailed');
   });
 
-  it('Excel للمحاسب: the same report as an .xlsx file (format=xlsx with the same filters), a download starts; print and PDF buttons are there (Stage 23)', async () => {
+  it('Excel للمحاسب: the same report as an .xlsx file (format=xlsx with the same filters), a download starts; the print button is there, with no Save PDF button (the browser dialog saves PDFs) (Stage 23)', async () => {
     await open();
     expectGet('income-statement').flush(INCOME);
     await settle();
     expect(q('[data-action="print-report"]')).toBeTruthy();
-    expect(q('[data-action="pdf-report"]')).toBeTruthy();
+    expect(q('[data-action="pdf-report"]')).toBeNull();
     const created = spyOn(URL, 'createObjectURL').and.returnValue('blob:report');
     const revoked = spyOn(URL, 'revokeObjectURL');
     const clicked = spyOn(HTMLAnchorElement.prototype, 'click');

@@ -127,7 +127,7 @@ const KNOWN_ERRORS = ['OUT_OF_ORDER', 'ALREADY_FILED', 'PERIOD_NOT_ENDED', 'EXCE
             <h3 class="vr__h">{{ 'vat.returns.payments' | translate }}</h3>
             <ul class="vr__payments" data-test="payments">
               @for (p of d.payments; track p._id) {
-                <li><span dir="ltr">{{ p.number }}</span><span class="vr__muted">{{ p.date | date: 'yyyy-MM-dd' }}@if (p.boxName) { · {{ p.boxName }} }@if (p.reference) { · {{ p.reference }} }</span><strong class="nota-num">{{ p.amount | notaMoney }}</strong><nota-print-actions [items]="paymentPrintItems(d, p)" [pdf]="false" /></li>
+                <li><span dir="ltr">{{ p.number }}</span><span class="vr__muted">{{ p.date | date: 'yyyy-MM-dd' }}@if (p.boxName) { · {{ p.boxName }} }@if (p.reference) { · {{ p.reference }} }</span><strong class="nota-num">{{ p.amount | notaMoney }}</strong><nota-print-actions [items]="paymentPrintItems(d, p)" /></li>
               }
             </ul>
           }

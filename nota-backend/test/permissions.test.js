@@ -88,13 +88,10 @@ test("effective permissions: owner always all, custom its list, template unless 
 
 // ---- Route → permission map ---------------------------------------------------------------
 
-// PUBLIC = no login (LAN key only); AUTHENTICATED = any signed-in user; otherwise every listed key.
+// PUBLIC = no login; AUTHENTICATED = any signed-in user; otherwise every listed key.
 const EXPECTED_ROUTES = {
-  "GET /api/lan/info": "PUBLIC",
   "GET /api/auth/bootstrap": "PUBLIC",
-  "POST /api/auth/setup-owner": "PUBLIC",
   "POST /api/auth/login": "PUBLIC",
-  "POST /api/auth/recover": "PUBLIC",
   "GET /api/auth/me": "AUTHENTICATED",
   "POST /api/auth/change-password": "AUTHENTICATED",
   "POST /api/auth/verify-password": "AUTHENTICATED",
@@ -247,7 +244,7 @@ const EXPECTED_ROUTES = {
 };
 
 const loadApp = (env) => {
-  const keys = ["NOTA_AUTH", "NOTA_JWT_SECRET", "NOTA_LAN_MODE", "NOTA_LAN_SECRET"];
+  const keys = ["NOTA_JWT_SECRET", "CORS_ORIGINS"];
   const saved = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   keys.forEach((key) => delete process.env[key]);
   Object.assign(process.env, env);
@@ -294,7 +291,7 @@ const permissionOf = (stack) => {
 };
 
 test("every /api route has exactly one permission, and the map is the documented one", () => {
-  const app = loadApp({ NOTA_AUTH: "1", NOTA_JWT_SECRET: SECRET, NOTA_LAN_MODE: "1", NOTA_LAN_SECRET: "lan-secret-123" });
+  const app = loadApp({ NOTA_JWT_SECRET: SECRET });
   const routes = listRoutes(app).filter((route) => route.key.split(" ")[1].startsWith("/api"));
   const actual = Object.fromEntries(routes.map((route) => [route.key, permissionOf(route.stack)]));
   const missing = Object.entries(actual).filter(([, permission]) => !permission).map(([key]) => key);
@@ -307,11 +304,10 @@ test("every /api route has exactly one permission, and the map is the documented
   }
 });
 
-test("with NOTA_AUTH unset the auth, users and audit routes are not mounted", () => {
-  const app = loadApp({});
+test("setup-owner and recover are not routes: an owner is created and recovered on the server only", () => {
+  const app = loadApp({ NOTA_JWT_SECRET: SECRET });
   const keys = listRoutes(app).map((route) => route.key);
-  assert.ok(!keys.some((key) => /\/api\/(auth|users|audit)\b/.test(key)), keys.filter((k) => /auth|users|audit/.test(k)).join(", "));
-  assert.ok(keys.includes("GET /api/products"), "the existing routes are still there");
+  assert.ok(!keys.some((key) => /setup-owner|recover/.test(key)), keys.join(", "));
 });
 
 // ---- Lockout, tokens, stripping, audit details, recovery codes --------------------------------
@@ -393,18 +389,17 @@ test("recovery codes: XXXX-XXXX-XXXX-XXXX without 0/O/1/I; input is normalized",
   assert.equal(canonicalRecoveryCode("ABCD-EFGH"), "");
 });
 
-test("startup fails with NOTA_AUTH=1 and a missing or short NOTA_JWT_SECRET", () => {
+test("startup fails with a missing or short NOTA_JWT_SECRET", () => {
   const run = (env) => {
     const childEnv = { ...process.env, ...env };
     if (env.NOTA_JWT_SECRET === undefined) delete childEnv.NOTA_JWT_SECRET;
     return spawnSync(process.execPath, ["-e", `require(${JSON.stringify(APP_PATH)})`], { env: childEnv, encoding: "utf8", windowsHide: true });
   };
-  const missing = run({ NOTA_AUTH: "1" });
+  const missing = run({});
   assert.notEqual(missing.status, 0);
-  assert.match(missing.stderr, /NOTA_JWT_SECRET must be at least 32 characters when NOTA_AUTH=1/);
-  const short = run({ NOTA_AUTH: "1", NOTA_JWT_SECRET: "x".repeat(31) });
+  assert.match(missing.stderr, /NOTA_JWT_SECRET must be at least 32 characters/);
+  const short = run({ NOTA_JWT_SECRET: "x".repeat(31) });
   assert.notEqual(short.status, 0);
   assert.match(short.stderr, /NOTA_JWT_SECRET must be at least 32/);
-  assert.equal(run({ NOTA_AUTH: "1", NOTA_JWT_SECRET: "x".repeat(32) }).status, 0, "32 characters is enough");
-  assert.equal(run({}).status, 0, "auth off needs no secret");
+  assert.equal(run({ NOTA_JWT_SECRET: "x".repeat(32) }).status, 0, "32 characters is enough");
 });

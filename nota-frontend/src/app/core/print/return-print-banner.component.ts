@@ -3,11 +3,10 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { ReturnLog } from '../../modules/returns/models/returns.model';
 import { PrintActionItem, PrintActionsComponent } from './print-actions.component';
 import { PrintDataService } from './print-data.service';
-import { PrintService } from './print.service';
 
 /**
  * Stage 23: shown right after a return was recorded: the new return's number and its print buttons (80mm return
- * receipt). It also prints the receipt at once when this PC has auto-print on. The create call does not always answer
+ * receipt). The create call does not always answer
  * with the return number (a credit return answers with the invoice), so the newest return of the invoice is read.
  */
 @Component({
@@ -27,7 +26,6 @@ import { PrintService } from './print.service';
 })
 export class ReturnPrintBannerComponent implements OnInit {
   private readonly data = inject(PrintDataService);
-  private readonly printer = inject(PrintService);
   private readonly translate = inject(TranslateService);
 
   readonly invoiceId = input.required<string>();
@@ -43,7 +41,6 @@ export class ReturnPrintBannerComponent implements OnInit {
       const entry = await this.data.latestReturnOf(this.invoiceId());
       if (!entry) return;
       this.log.set(entry);
-      void this.printer.autoPrintReceipt(() => this.data.returnReceipt(entry));
     } catch {
       // the banner is a convenience: the return itself is saved
     }

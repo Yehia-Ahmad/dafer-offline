@@ -1,10 +1,6 @@
 <!-- Stage 9: the app frame (sidebar + top bar + page container) is rendered once here. Routes with data.frame === false (e.g. /ui-kit) render without it. -->
 @if (framed()) {
   <app-side-nav>
-    @if (offline) {
-      <!-- Stage 15: another main PC answers on the LAN (users with shop.manage). -->
-      <app-other-main-banner />
-    }
     <router-outlet />
   </app-side-nav>
 } @else {
@@ -15,7 +11,5 @@
 <!-- Stage 15: the lock screen (an overlay: the page under it keeps its state) and the unsaved-work question. -->
 <nota-lock-overlay />
 <nota-unsaved-work-dialog />
-@if (offline) {
-  <app-connection-overlay />
-  <app-version-notice />
-}
+<!-- Decision D: the name of this device, asked once after the first sign in. -->
+<nota-device-name-dialog />

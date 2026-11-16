@@ -49,7 +49,7 @@ export class ProductsService {
     discountPercentage?: number;
     shippingFees?: number;
     confirmInsufficientInventory?: boolean;
-    /** Stage 19: the box the sale goes into (omitted = this PC's drawer, else the main box). */
+    /** Stage 19: the box the sale goes into (omitted = this device's drawer, else the main box). */
     boxId?: string;
     items: Array<{
       productId: string;
@@ -73,7 +73,7 @@ export class ProductsService {
     return this._http.get(`${this._baseUrl}sellings`, { params });
   }
 
-  /** boxId (Stage 19): the box that pays the customer back (omitted = this PC's drawer, else the main box). */
+  /** boxId (Stage 19): the box that pays the customer back (omitted = this device's drawer, else the main box). */
   cancelSelling(id: string, reason: string, boxId?: string) {
     return this._http.post(`${this._baseUrl}sellings/${id}/cancel`, { reason, ...(boxId ? { boxId } : {}) });
   }

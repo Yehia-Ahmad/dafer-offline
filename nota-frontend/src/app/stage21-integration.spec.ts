@@ -25,9 +25,9 @@ describe('Stage 21 — routes and permissions', () => {
     expect(ROUTE_RULES.vat.any).toEqual(['vat.file', 'accounting.view']);
     expect(LANDING_ORDER.some((entry) => entry.path === '/accounting/vat')).toBeTrue();
     const has = (keys: string[]) => (key: string) => keys.includes(key);
-    expect(ruleAllows(ROUTE_RULES.vat, has(['vat.file']), true)).toBeTrue();
-    expect(ruleAllows(ROUTE_RULES.vat, has(['accounting.view']), true)).toBeTrue();
-    expect(ruleAllows(ROUTE_RULES.vat, has(['sales.view', 'purchases.view']), true)).toBeFalse();
+    expect(ruleAllows(ROUTE_RULES.vat, has(['vat.file']))).toBeTrue();
+    expect(ruleAllows(ROUTE_RULES.vat, has(['accounting.view']))).toBeTrue();
+    expect(ruleAllows(ROUTE_RULES.vat, has(['sales.view', 'purchases.view']))).toBeFalse();
   });
 });
 

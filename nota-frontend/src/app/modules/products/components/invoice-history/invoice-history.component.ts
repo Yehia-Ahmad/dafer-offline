@@ -139,7 +139,7 @@ export class InvoiceHistoryComponent implements OnInit {
 
   ngOnInit(): void {
     if (!this.isBrowser) return;
-    // Stage 22 review: another PC may have closed a period since this one signed in.
+    // Stage 22 review: another device may have closed a period since this one signed in.
     this.lock.refresh();
     this.loadCategories();
     this.loadSellings();

@@ -244,7 +244,7 @@ const payReturn = async (req, res) => {
 // POST /api/vat/returns/:period/unfile { reason } (vat.file, owner only): the latest filed return, with no payment.
 const unfileReturn = async (req, res) => {
   const period = requirePeriod(req.params.period);
-  if (req.authEnabled && req.user?.role !== "owner") throw httpError(403, "OWNER_ONLY", "إلغاء تقديم الإقرار للمالك فقط");
+  if (req.user?.role !== "owner") throw httpError(403, "OWNER_ONLY", "إلغاء تقديم الإقرار للمالك فقط");
   const reason = requiredReason(req.body && req.body.reason);
   await withTransaction(async (session) => {
     await touchVatLock(session);

@@ -43,7 +43,7 @@ const PERMISSIONS = {
   "shop.manage": { group: "admin", ar: "إدارة بيانات المتجر", en: "Manage shop profile" },
   "users.manage": { group: "admin", ar: "إدارة المستخدمين والصلاحيات", en: "Manage users and permissions" },
   "audit.view": { group: "admin", ar: "عرض سجل العمليات", en: "View the audit log" },
-  // Reserved for Stage 15 (backup and restore through Electron IPC). No backend route uses it yet.
+  // Kept in the catalog but unused: backups are the server's job. No backend route uses it.
   "backup.manage": { group: "admin", ar: "النسخ الاحتياطي والاستعادة", en: "Backup and restore" },
   "accounting.view": { group: "accounting", ar: "عرض الحسابات", en: "View accounting" },
   "accounting.manage": { group: "accounting", ar: "إدارة الحسابات", en: "Manage accounting" },

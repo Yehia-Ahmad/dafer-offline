@@ -94,29 +94,31 @@ npm run dev
 npm start
 ```
 
-## Offline LAN Mode (desktop edition only)
+## Server configuration
 
-The offline desktop edition of the admin app bundles this backend and starts it itself on the shop's main PC. It sets these variables in the process environment. They never go in `.env`, and the online deployment leaves them unset, which keeps its behavior unchanged.
+One Node backend plus MongoDB (a replica set: transactions are required) per shop. Settings come from the process environment, or from `.env` (copy `.env.example`):
 
 | Variable | Meaning |
 |---|---|
-| `NOTA_LAN_MODE` | `1` turns LAN mode on. Any other value or unset means off. |
-| `NOTA_LAN_SECRET` | Shared LAN secret, at least 8 characters. Startup fails in LAN mode without it. |
-| `NOTA_LISTEN_HOST` | Optional bind address. Unset means all interfaces, as before. |
-| `NOTA_APP_VERSION` | Desktop app version, reported by `/api/lan/info`. |
-| `NOTA_INSTANCE_ID` | Stable ID of the main PC, reported by `/api/lan/info`. |
-| `NOTA_AUTH` | Stage 13. `1` turns users and permissions on (login, `requirePermission` on every route, cost stripping, audit log). Any other value or unset means off, and the backend behaves exactly as before. The desktop app does not set it yet (Stage 14 does). |
-| `NOTA_JWT_SECRET` | Stage 13. Signing secret of the session tokens, at least 32 characters. Startup fails with `NOTA_AUTH=1` without it. The desktop app generates it on the main PC (32 random bytes, hex), keeps it DPAPI-protected in `config.json` and always passes it. |
-| `MONGO_URI` | Required in LAN mode: the backend refuses to start without it instead of falling back to `127.0.0.1:27017`. |
+| `PORT` | Port to listen on (default `5000`). |
+| `MONGO_URI` | MongoDB connection string. |
+| `NOTA_JWT_SECRET` | Signing secret of the session tokens, at least 32 characters. **Required**: the server refuses to start without it. |
+| `CORS_ORIGINS` | Comma-separated list of browser origins allowed to call the API. Empty or unset: same origin only (the normal case when nginx serves the app and proxies `/api/`). |
 
-In LAN mode:
-- Every `/api/*` request must send the secret in the `X-Nota-Lan-Key` header. Otherwise the response is `401 { "message": "كلمة سر الشبكة غير صحيحة", "code": "LAN_KEY_INVALID" }`. CORS preflight `OPTIONS` requests are let through.
-- `GET /api/lan/info` returns `{ app, lanMode, appVersion, instanceId, backendVersion, serverTime }`, which clients use to check the connection, the secret and the version.
-- When run as an Electron utility process, the backend posts `{ type: "ready", port }` once listening and `{ type: "error", code, message }` if listening fails. On `{ type: "shutdown" }` it stops accepting connections, gives in-flight requests up to 10 seconds, disconnects from MongoDB and exits.
+Authentication is always on: every `/api/*` request needs `Authorization: Bearer <token>`, except `GET /api/auth/bootstrap` and `POST /api/auth/login`. Permissions, cost stripping, `createdBy`/`updatedBy` and the audit log are always enforced. See `docs/OFFLINE_PLAN.md` ("Stage 13 — users and permissions") for the endpoints, the permission catalog and the route → permission table (history; the same rules apply online).
 
-With `NOTA_AUTH=1` (Stage 13), after the LAN key every `/api/*` request also needs `Authorization: Bearer <token>`, except `/api/lan/*` and `GET /api/auth/bootstrap`, `POST /api/auth/login`, `/setup-owner` and `/recover`. See `docs/OFFLINE_PLAN.md` ("Stage 13 — users and permissions") for the endpoints, the permission catalog and the route → permission table.
+### Creating the owner and recovering it
 
-Stage 19: the desktop app also sends `X-Nota-Device-Id` (this PC's id) and `X-Nota-Device-Name` (its hostname, percent-encoded, at most 64 characters). The backend uses them only to pick the default cash box of that PC and to list the PCs (`GET /api/devices`, `cashbox.manage`). **They are not authentication**: permissions, shifts and the audit log follow the signed-in user, and an id that is not 8-64 letters, digits, dots, dashes or underscores is ignored.
+There is no HTTP route that creates or recovers the owner (on a public server it would let anyone claim an empty shop). Run these on the server:
+
+```bash
+npm run create-owner -- --username <username> [--name "<Full name>"]   # asks for the password, prints the recovery code once; refuses if an owner exists
+npm run recover-owner                                                  # asks for a new owner password, prints a new recovery code, ends every session
+```
+
+### Devices
+
+A client may send `X-Nota-Device-Id` (8-64 letters, digits, dots, dashes or underscores; anything else is ignored) and `X-Nota-Device-Name` (percent-encoded, at most 64 characters). The backend uses them only to pick the default cash box of that device and to list the devices (`GET /api/devices`, `cashbox.manage`). **They are not authentication**: permissions, shifts and the audit log follow the signed-in user.
 
 ## API Endpoints
 
@@ -590,7 +592,6 @@ Sample selling invoice from `GET /api/sellings`:
 
 ## Tests
 
-`npm test` runs every backend test. Most of them need a real `mongod`: it is found at `NOTA_TEST_MONGOD`, else at the bundled
-`nota-frontend/vendor/mongodb/bin/mongod(.exe)` (found automatically on Windows after `npm run offline:vendor`). With no `mongod`
+`npm test` runs every backend test. Most of them need a real `mongod`: it is found at `NOTA_TEST_MONGOD` (the path to the binary), else on `PATH`. With no `mongod`
 `npm test` **fails** instead of silently skipping; set `NOTA_ALLOW_SKIP=1` to run without one on purpose. The skip count is printed at
 the end of every run.

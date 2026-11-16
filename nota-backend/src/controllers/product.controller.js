@@ -455,7 +455,7 @@ const getProducts = asyncHandler(async (req, res) => {
 
   // Stage 12: without categoryId the list covers all products (same paging and shape).
   const includeArchived = req.query.includeArchived === "1";
-  if (includeArchived && req.authEnabled && !hasPermission(req.user, "products.manage")) {
+  if (includeArchived && !hasPermission(req.user, "products.manage")) {
     const error = new Error("ليست لديك صلاحية لعرض المنتجات المؤرشفة"); error.statusCode = 403; throw error;
   }
   const filter = includeArchived ? {} : { isArchived: { $ne: true } };

@@ -10,7 +10,7 @@ import { VAT_14_EXCLUDED, fakeVat, provideFakeVat } from '../../../shop-profile/
 import { SellingComponent } from './selling.component';
 
 /**
- * Stage 21 review: another PC changed the VAT settings after this one signed in. The POS refreshes the settings when it opens,
+ * Stage 21 review: another device changed the VAT settings after this one signed in. The POS refreshes the settings when it opens,
  * sends the total the cashier saw, and on 409 TOTAL_CHANGED takes the server's settings, shows the new total and asks again.
  */
 describe('SellingComponent stale VAT settings (Stage 21 review)', () => {

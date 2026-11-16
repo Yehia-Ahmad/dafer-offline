@@ -130,8 +130,8 @@ describe('AddBoxDialogComponent (Stage 19)', () => {
     const { fixture, http, component } = await open();
     component.loadDevices();
     http.expectOne(`${base}devices`).flush({ currentDeviceId: 'device-aaaa-0001', data: [
-      { deviceId: 'device-aaaa-0001', name: 'كاشير 1', role: 'client', lastSeenAt: '2026-11-06T07:00:00Z', isCurrent: true, boxId: null, boxName: null },
-      { deviceId: 'device-bbbb-0002', name: 'كاشير 2', role: 'client', lastSeenAt: '2026-11-06T07:00:00Z', isCurrent: false, boxId: 'b-x', boxName: 'درج ٣' },
+      { deviceId: 'device-aaaa-0001', name: 'كاشير 1', lastSeenAt: '2026-11-06T07:00:00Z', isCurrent: true, boxId: null, boxName: null },
+      { deviceId: 'device-bbbb-0002', name: 'كاشير 2', lastSeenAt: '2026-11-06T07:00:00Z', isCurrent: false, boxId: 'b-x', boxName: 'درج ٣' },
     ] });
     await settle(fixture);
     const devices = document.body.querySelectorAll('[data-test="box-device"] option');
@@ -354,7 +354,7 @@ describe('ShiftPanelComponent (Stage 19)', () => {
     expect(el.querySelector('[data-test="shift-summary"]')!.textContent).toContain('500');
     expect(el.querySelector('[data-action="close-shift"]')).toBeNull();
     expect(el.querySelector('[data-action="print-shift"]')).toBeTruthy(); // Stage 23: PrShiftClose
-    expect(el.querySelector('[data-action="pdf-shift"]')).toBeTruthy();
+    expect(el.querySelector('[data-action="pdf-shift"]')).toBeNull(); // the browser dialog saves PDFs
     http.verify();
   });
 

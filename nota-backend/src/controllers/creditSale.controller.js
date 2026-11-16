@@ -462,7 +462,7 @@ const buildQuantityByProductId = (items) => {
   return quantityByProductId;
 };
 
-// Stage 13: allowBelowCost is true on create/edit only with NOTA_AUTH=1 for a user with
+// Stage 13: allowBelowCost is true on create/edit only for a user with
 // sales.priceBelowCost, and always on returns (they keep the original prices).
 const applyInventoryForInvoiceChange = async ({ currentItems, nextItems, res, allowBelowCost = false, session }) => {
   const currentQuantityByProductId = buildQuantityByProductId(currentItems);
@@ -1098,7 +1098,7 @@ const createCreditSaleInTransaction = async (req, res, session) => {
   }], { session });
   const creditSale = created[0];
   if (initialPaidAmount > 0) {
-    // Stage 19: the down payment goes into a box (request boxId, else this PC's drawer, else the main box).
+    // Stage 19: the down payment goes into a box (request boxId, else this device's drawer, else the main box).
     const downPaymentBox = await resolveBox({ req, boxId: req.body.boxId, session });
     await Receipt.create([{
         _id: receiptId,
@@ -1823,7 +1823,7 @@ const cancelCreditSale = asyncHandler(async (req, res) => {
     invoice.cancelledByName = req.user?.name;
     invoice.cancellationReason = reason;
     invoice.cancelRefundAmount = roundMoney(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
-    // Stage 19: "رد المقدم" comes out of a box (request boxId, else this PC's drawer, else the main box).
+    // Stage 19: "رد المقدم" comes out of a box (request boxId, else this device's drawer, else the main box).
     const refundBox = invoice.cancelRefundAmount > 0 && payments.some((payment) => payment.source === "down_payment")
       ? await resolveBox({ req, boxId: req.body?.boxId, session, direction: "out" }) : null;
     if (refundBox) invoice.cancelRefundBoxId = refundBox._id;

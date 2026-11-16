@@ -93,9 +93,9 @@ export class ExpensesPageComponent implements OnInit {
   readonly canSave = computed(() => Boolean(this.category()) && (this.amount() ?? 0) > 0 && !this.saving() && !this.payment.needsShift() && !(this.vatContext() && this.vatInvalid()) && !this.lock.isLocked(this.date()));
 
   ngOnInit(): void {
-    // Stage 21 review: another PC may have changed the VAT settings since this one signed in.
+    // Stage 21 review: another device may have changed the VAT settings since this one signed in.
     this.vatSettings.refresh();
-    // Stage 22 review: another PC may have closed a period since this one signed in.
+    // Stage 22 review: another device may have closed a period since this one signed in.
     this.lock.refresh();
     this.payment.load();
     this.loadCategories();

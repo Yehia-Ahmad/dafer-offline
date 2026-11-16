@@ -589,7 +589,7 @@ const applyInventoryForInvoiceChange = async ({
   res,
   allowInsufficientInventory = false,
   inventoryAdjustmentsByProductId = new Map(),
-  // Stage 13: true only with NOTA_AUTH=1 for a user with sales.priceBelowCost (canSellBelowCost).
+  // Stage 13: true only for a user with sales.priceBelowCost (canSellBelowCost).
   allowBelowCost = false,
   session,
 }) => {
@@ -775,7 +775,7 @@ const createSellingInvoice = async ({ body, res, allowBelowCost = false, session
 
 const createSelling = asyncHandler(async (req, res) => {
   const selling = await withTransaction(async (session) => {
-    // Stage 19: the sale goes into a box (request boxId, else this PC's drawer, else the main box).
+    // Stage 19: the sale goes into a box (request boxId, else this device's drawer, else the main box).
     const box = await resolveBox({ req, boxId: req.body && req.body.boxId, session });
     const number = await require("../utils/documentNumber").nextDocumentNumber(PREFIXES.CASH_INVOICE, session);
     const created = await createSellingInvoice({
@@ -1117,7 +1117,7 @@ const cancelSelling = asyncHandler(async (req, res) => {
     selling.cancelledByName = req.user?.name;
     selling.cancellationReason = reason;
     selling.cancelRefundAmount = roundMoney(Math.max(0, Number(selling.totalPrice || 0) - Number(selling.refundedAmount || 0)));
-    // Stage 19: the customer is paid back (total - already returned) out of a box: the request's boxId, else this PC's
+    // Stage 19: the customer is paid back (total - already returned) out of a box: the request's boxId, else this device's
     // drawer, else the main box. Nothing to pay back (everything was returned) needs no box.
     const refundBox = selling.cancelRefundAmount > 0 ? await resolveBox({ req, boxId: req.body && req.body.boxId, session, direction: "out" }) : null;
     if (refundBox) selling.cancelRefundBoxId = refundBox._id;
@@ -1211,7 +1211,7 @@ const addSellingRefund = asyncHandler(async (req, res) => {
       };
     }
 
-    // Stage 19: the cash refund comes out of a box (request boxId, else this PC's drawer, else the main box).
+    // Stage 19: the cash refund comes out of a box (request boxId, else this device's drawer, else the main box).
     const refundBox = await resolveBox({ req, boxId: req.body && req.body.boxId, session, direction: "out" });
     const number = await nextDocumentNumber(PREFIXES.RETURN, session);
     const returnLog = await createReturnLog({

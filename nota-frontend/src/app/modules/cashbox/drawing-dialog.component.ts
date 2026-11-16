@@ -60,7 +60,7 @@ export class DrawingDialogComponent {
   readonly busy = signal(false);
 
   constructor() {
-    // Stage 22 review: re-read the lock date each time the dialog opens (another PC may have closed a period).
+    // Stage 22 review: re-read the lock date each time the dialog opens (another device may have closed a period).
     effect(() => { if (this.visible()) untracked(() => this.lock.refresh()); });
   }
 

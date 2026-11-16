@@ -45,7 +45,7 @@ export interface CreditSalePaymentPayload {
   amount: number;
   paymentDate?: string;
   note?: string;
-  /** Stage 19: the box the money goes into (omitted = this PC's drawer, else the main box). */
+  /** Stage 19: the box the money goes into (omitted = this device's drawer, else the main box). */
   boxId?: string;
 }
 

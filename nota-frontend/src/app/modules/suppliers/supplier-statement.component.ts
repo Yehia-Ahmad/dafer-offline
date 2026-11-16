@@ -70,7 +70,7 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
                   <td class="nota-num">{{ line.debit ? (line.debit | notaMoney) : '' }}</td>
                   <td class="nota-num">{{ line.credit ? (line.credit | notaMoney) : '' }}</td>
                   <td class="nota-num">{{ line.balance | notaMoney }}</td>
-                  <td>@if (line.type === 'supplier_refund' && line.number) { <nota-print-actions [items]="refundPrintItems(line)" [pdf]="false" data-test="refund-print" /> }</td>
+                  <td>@if (line.type === 'supplier_refund' && line.number) { <nota-print-actions [items]="refundPrintItems(line)" data-test="refund-print" /> }</td>
                 </tr>
               } @empty {
                 <tr><td colspan="7" class="ss__empty" data-test="statement-empty">{{ 'suppliers.statement.empty' | translate }}</td></tr>

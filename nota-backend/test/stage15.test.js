@@ -1,19 +1,17 @@
 // Stage 15 integration tests against a real throwaway mongod (port 27096; see helpers/mongod.js):
 // auto-lock setting, verify-password (+ lockout), token refresh, the restore cut-off
-// (NOTA_SESSIONS_VALID_AFTER), a restored backup without users, the audit inbox, and the
+// (NOTA_SESSIONS_VALID_AFTER), a database without users, and the
 // per-user max discount (cash and credit, create and edit).
 process.env.NODE_ENV = "test";
 
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const jwt = require("jsonwebtoken");
 
 const SECRET = "stage15-test-secret-0123456789abcdef";
 const APP_PATH = path.join(__dirname, "..", "src", "app.js");
-const ENV_KEYS = ["NOTA_AUTH", "NOTA_JWT_SECRET", "NOTA_LAN_MODE", "NOTA_LAN_SECRET", "NOTA_SESSIONS_VALID_AFTER"];
+const ENV_KEYS = ["NOTA_JWT_SECRET", "NOTA_SESSIONS_VALID_AFTER"];
 
 const loadApp = (env) => {
   const saved = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
@@ -27,16 +25,16 @@ const loadApp = (env) => {
   }
 };
 
-const appOn = loadApp({ NOTA_AUTH: "1", NOTA_JWT_SECRET: SECRET });
-// The same database, as the backend restarted by the desktop app after a restore at RESTORED_AT.
+const appOn = loadApp({ NOTA_JWT_SECRET: SECRET });
+// The same database, with the session cut-off NOTA_SESSIONS_VALID_AFTER set to RESTORED_AT.
 const RESTORED_AT = Date.now() + 60 * 60 * 1000; // every token issued by the test "before" it
-const appRestored = loadApp({ NOTA_AUTH: "1", NOTA_JWT_SECRET: SECRET, NOTA_SESSIONS_VALID_AFTER: String(RESTORED_AT) });
+const appRestored = loadApp({ NOTA_JWT_SECRET: SECRET, NOTA_SESSIONS_VALID_AFTER: String(RESTORED_AT) });
 
 const { clearDatabase, mongodSkipReason, startMongod } = require("./helpers/mongod");
 const User = require("../src/models/user.model");
 const AuditLog = require("../src/models/auditLog.model");
 const Selling = require("../src/models/selling.model");
-const { drainAuditInbox } = require("../src/auth/auditInbox");
+const { createOwner } = require("../src/auth/ownerAccount");
 
 const listen = (app) =>
   new Promise((resolve) => {
@@ -82,10 +80,12 @@ const call = async (target, method, url, { token, body } = {}) => {
 
 const OWNER = { name: "صاحب المحل", username: "owner", password: "owner-pass-1" };
 
+// The owner is created the way the server does it (npm run create-owner), then signs in.
 const setupOwner = async () => {
-  const response = await call(on, "POST", "/api/auth/setup-owner", { body: OWNER });
-  assert.equal(response.status, 201, response.text);
-  return response.json;
+  const { recoveryCode } = await createOwner(OWNER);
+  const response = await call(on, "POST", "/api/auth/login", { body: { username: OWNER.username, password: OWNER.password } });
+  assert.equal(response.status, 200, response.text);
+  return { ...response.json, recoveryCode };
 };
 
 const login = (username, password) => call(on, "POST", "/api/auth/login", { body: { username, password } });
@@ -252,55 +252,17 @@ test("after a restore (NOTA_SESSIONS_VALID_AFTER): older tokens get 401 SESSION_
   assert.equal((await call(restored, "POST", "/api/auth/login", { body: { username: OWNER.username, password: OWNER.password } })).status, 200);
 });
 
-test("a restored backup with users: bootstrap reports an owner (login screen); without users (pre-Stage 13): first-run owner screen", skip, async () => {
+test("bootstrap reports an owner (login screen); without users it reports none", skip, async () => {
   await setupOwner();
   let response = await call(restored, "GET", "/api/auth/bootstrap");
   assert.equal(response.status, 200, response.text);
   assert.equal(response.json.hasOwner, true, JSON.stringify(response.json));
 
-  // A backup made before Stage 13 has no users collection at all.
+  // A database without a users collection at all.
   await User.collection.drop();
   response = await call(restored, "GET", "/api/auth/bootstrap");
   assert.equal(response.status, 200, response.text);
   assert.equal(response.json.hasOwner, false, JSON.stringify(response.json));
-  // The main PC (loopback) can create the owner again.
-  assert.equal((await call(restored, "POST", "/api/auth/setup-owner", { body: OWNER })).status, 201);
-});
-
-// ---- audit inbox --------------------------------------------------------------------------------
-
-test("audit inbox: backup.created / backup.restored / backup.restore_failed lines become audit entries; paths and unknown actions are dropped", skip, async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nota-inbox-"));
-  const file = path.join(dir, "audit-inbox.jsonl");
-  const userId = "6aec5163155ae0405e6b1d67";
-  fs.writeFileSync(
-    file,
-    [
-      JSON.stringify({ action: "backup.created", userId, userName: "صاحب المحل", file: "C:\\Users\\me\\Documents\\nota-backup-2026-11-05_101010.archive.gz", at: "2026-11-05T08:10:10Z" }),
-      JSON.stringify({ action: "backup.restored", userId, userName: "صاحب المحل", file: "/home/x/nota-backup-old.archive.gz" }),
-      JSON.stringify({ action: "backup.restore_failed", userName: "صاحب المحل", file: "bad.archive.gz", code: "RESTORE_FAILED", error: "boom", password: "secret" }),
-      JSON.stringify({ action: "user.created", userName: "intruder" }),
-      "not json",
-      "",
-    ].join("\n")
-  );
-  assert.equal(await drainAuditInbox(file), 3);
-  assert.equal(fs.existsSync(file), false, "the inbox is deleted");
-  assert.equal(await drainAuditInbox(file), 0, "a missing inbox is fine");
-
-  const entries = await AuditLog.find({ entity: "Backup" }).sort({ action: 1 }).lean();
-  assert.deepEqual(entries.map((e) => e.action), ["backup.created", "backup.restore_failed", "backup.restored"]);
-  const created = entries[0];
-  assert.equal(created.details.file, "nota-backup-2026-11-05_101010.archive.gz", "base name only");
-  assert.equal(String(created.userId), userId);
-  assert.equal(created.userName, "صاحب المحل");
-  assert.equal(created.at.toISOString(), "2026-11-05T08:10:10.000Z");
-  assert.equal(entries[2].details.file, "nota-backup-old.archive.gz");
-  assert.equal(entries[1].details.code, "RESTORE_FAILED");
-  assert.ok(!JSON.stringify(entries).includes("secret"), "no secrets");
-  assert.ok(!JSON.stringify(entries).includes("Documents"), "no folder paths");
-  assert.equal(await AuditLog.countDocuments({ action: "user.created" }), 0);
-  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 // ---- max discount ------------------------------------------------------------------------------

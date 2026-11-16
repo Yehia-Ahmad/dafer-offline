@@ -68,7 +68,7 @@ const updateShopProfile = asyncHandler(async (req, res) => {
 
   // Stage 22: additive, owner only. The fiscal year start cannot move once a period was closed (the periods would stop lining up).
   if (body.closing !== undefined) {
-    if (req.authEnabled && req.user?.role !== "owner") {
+    if (req.user?.role !== "owner") {
       res.status(403);
       throw new Error("إعدادات إقفال الفترات للمالك فقط");
     }

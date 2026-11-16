@@ -22,7 +22,7 @@ const DRAWER = payBox({ _id: 'b-d1', name: 'درج الكاشير ١', isMain: f
 const OPEN_DRAWER = payBox({ ...DRAWER, needsShift: false, openShift: { _id: 's1', number: 'SH-000001', userName: 'محمود', openedAt: '2026-11-06T07:00:00Z' } });
 const WALLET = payBox({ _id: 'b-w1', name: 'فودافون كاش', type: 'wallet', isMain: false });
 
-/** What the backend answers for each role (Stage 19: a cashier never gets the main box while their PC has a drawer). */
+/** What the backend answers for each role (Stage 19: a cashier never gets the main box while their device has a drawer). */
 const cashierOnDrawerPc = (drawer = DRAWER): PaymentBoxesResponse => ({
   defaultBoxId: 'b-d1', deviceId: 'device-aaaa-0001', mainBox: { _id: 'b-main', name: 'الخزنة الرئيسية' }, data: [drawer, WALLET],
 });

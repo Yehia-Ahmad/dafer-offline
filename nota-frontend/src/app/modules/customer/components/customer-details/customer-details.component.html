@@ -289,7 +289,7 @@
                 @for (payment of allPayments; track $index) {
                   <tr><td class="nota-num">{{ formatDate(payment.paymentDate) }}</td><td class="nota-num" dir="ltr">{{ payment.number || payment.invoiceNumber || shortRef(payment.invoiceId) }}</td>
                     <td class="num cd__in">{{ payment.amount | notaMoney }}</td><td>{{ payment.note || '—' }}</td>
-                    <td>@if (payment.number) {<nota-print-actions [items]="receiptPrintItems(payment.number)" [pdf]="false" />}</td></tr>
+                    <td>@if (payment.number) {<nota-print-actions [items]="receiptPrintItems(payment.number)" />}</td></tr>
                 } @empty {
                   <tr><td colspan="5" class="cd__empty">{{ 'customerDetailsPage.s10.noPayments' | translate }}</td></tr>
                 }

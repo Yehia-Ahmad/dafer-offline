@@ -172,7 +172,7 @@ const toDay = (value) => {
   return utc(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
 };
 
-/** Closes the oldest open period. `expectedEnd` (YYYY-MM-DD) is what the screen showed: another PC may have closed it meanwhile. */
+/** Closes the oldest open period. `expectedEnd` (YYYY-MM-DD) is what the screen showed: another device may have closed it meanwhile. */
 const closeNextPeriod = async ({ expectedEnd, actor, computeHealth, session }) => {
   const settings = await loadClosingSettings(session);
   const lockedThrough = await getLockedThrough(session);

@@ -1,5 +1,4 @@
 process.env.NODE_ENV = "test";
-process.env.NOTA_AUTH = "1";
 process.env.NOTA_JWT_SECRET = "stage23-test-secret-0123456789abcdef-0123456789";
 
 // Stage 23: the print backend. POST /api/print/reserve|confirm|release (copy numbers + the document.printed audit) and the
@@ -40,8 +39,9 @@ test.beforeEach(async () => {
   if (mongodSkipReason) return;
   setClock(null);
   await clearDatabase(); token = null; resetDeviceThrottle();
-  const owner = await call("POST", "/api/auth/setup-owner", { name: "Owner", username: "stage23-owner", password: "owner-pass-123" });
-  assert.equal(owner.status, 201); token = owner.json.token;
+  await require("../src/auth/ownerAccount").createOwner({ name: "Owner", username: "stage23-owner", password: "owner-pass-123" });
+  const owner = await call("POST", "/api/auth/login", { username: "stage23-owner", password: "owner-pass-123" });
+  assert.equal(owner.status, 200); token = owner.json.token;
 });
 const it = (name, fn) => test(name, { skip: mongodSkipReason }, fn);
 

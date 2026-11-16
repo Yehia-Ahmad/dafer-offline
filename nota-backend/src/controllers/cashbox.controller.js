@@ -20,7 +20,7 @@ const { httpError, isId } = boxes;
 
 // Stage 19: cash boxes, devices, transfers and owner drawings.
 
-const can = (req, key) => !req.authEnabled || (req.user && hasPermission(req.user, key));
+const can = (req, key) => Boolean(req.user && hasPermission(req.user, key));
 const shiftView = (shift) => (shift ? { _id: shift._id, number: shift.number, userId: shift.userId || null, userName: shift.userName || null, openedAt: shift.openedAt, openingFloat: shift.openingFloat } : null);
 
 const boxView = (box, { account, balance, shift, deviceName } = {}) => ({
@@ -201,7 +201,7 @@ const updateBox = async (req, res) => {
         if (await boxes.openShiftOf(box._id, session)) throw httpError(409, "BOX_HAS_OPEN_SHIFT", "في وردية مفتوحة على الخزنة دي", { boxId: box._id });
         const balance = await boxes.boxBalance(box, session);
         if (balance !== 0) throw httpError(409, "BOX_NOT_EMPTY", "الخزنة فيها رصيد. حوّله الأول", { boxId: box._id, balance });
-        box.deviceId = undefined; // frees the PC for another box
+        box.deviceId = undefined; // frees the device for another box
       }
       box.isActive = body.isActive;
       changes.isActive = body.isActive;
@@ -231,15 +231,15 @@ const deleteBox = async (req, res) => {
   res.json({ message: "تم حذف الخزنة" });
 };
 
-// GET /api/devices (cashbox.manage): the PCs that talked to the backend, with the box each one defaults to.
+// GET /api/devices (cashbox.manage): the devices that talked to the backend, with the box each one defaults to.
 const getDevices = async (req, res) => {
   res.set("Cache-Control", "no-store");
-  const [devices, bound] = await Promise.all([Device.find({}).sort({ role: 1, name: 1 }).lean(), CashBox.find({ deviceId: { $type: "string" } }).select("name deviceId").lean()]);
+  const [devices, bound] = await Promise.all([Device.find({}).sort({ name: 1 }).lean(), CashBox.find({ deviceId: { $type: "string" } }).select("name deviceId").lean()]);
   const boxByDevice = new Map(bound.map((box) => [box.deviceId, box]));
   res.json({
     currentDeviceId: req.deviceId || null,
     data: devices.map((device) => ({
-      deviceId: device.deviceId, name: device.name || device.deviceId, role: device.role, lastSeenAt: device.lastSeenAt,
+      deviceId: device.deviceId, name: device.name || device.deviceId, lastSeenAt: device.lastSeenAt,
       isCurrent: Boolean(req.deviceId) && device.deviceId === req.deviceId,
       boxId: boxByDevice.get(device.deviceId)?._id || null, boxName: boxByDevice.get(device.deviceId)?.name || null,
     })),

@@ -18,7 +18,6 @@ import {
 import { ReturnPrintBannerComponent } from '../../../../core/print/return-print-banner.component';
 import { PrintActionItem, PrintActionsComponent } from '../../../../core/print/print-actions.component';
 import { PrintDataService } from '../../../../core/print/print-data.service';
-import { PrintService } from '../../../../core/print/print.service';
 import { CreditSalesService } from '../../../products/services/credit-sales.service';
 import { ReturnsService } from '../../../returns/services/returns.service';
 import { ShopProfileService } from '../../../shop-profile/services/shop-profile.service';
@@ -91,7 +90,6 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   lastReturnInvoiceId = '';
   lastPayout: { number: string; amount: number; boxName: string | null } | null = null;
   private readonly printData = inject(PrintDataService);
-  private readonly printService = inject(PrintService);
   isLoading = true;
   paymentDialogVisible = false;
   paymentDialogMode: 'invoice' | 'customer' = 'invoice';
@@ -211,7 +209,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Stage 22 review: another PC may have closed a period since this one signed in.
+    // Stage 22 review: another device may have closed a period since this one signed in.
     this.lock.refresh();
     this.updateDirection();
     if (this.isBrowser) {
@@ -322,13 +320,11 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     } }];
   }
 
-  /** After a payment is saved: show its print buttons, and print it right away when this PC has auto-print on. */
+  /** After a payment is saved: show its print buttons. */
   private receiptSaved(response: unknown): void {
     const number = (response as { receiptNumber?: string } | null)?.receiptNumber;
     if (!number || !this.currentCustomerId) return;
     this.lastReceipt = { number };
-    const customerId = this.currentCustomerId;
-    void this.printService.autoPrintReceipt(() => this.printData.paymentReceipt(customerId, number, '80mm'));
   }
 
   openPaymentDialog(entry: CustomerHistoryView): void {

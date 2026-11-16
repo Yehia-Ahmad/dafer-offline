@@ -3,26 +3,22 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { flushPaymentBoxes } from './modules/cashbox/testing/payment-boxes.testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { provideRouter } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { environment } from '../environments/environment';
-import { AuthService } from './core/auth/auth.service';
 import { CartRescueService } from './core/auth/cart-rescue.service';
 import { isOverDiscountLimit } from './core/auth/discount-limit';
 import { FAKE_CATALOG, fakeUser } from './core/auth/testing/auth-fixtures';
-import { signInAs, signInWith } from './core/auth/testing/sign-in';
+import { signInAs } from './core/auth/testing/sign-in';
 import { ToastService } from './core/auth/toast.service';
-import { OtherMainPc } from './core/runtime/runtime-config';
 import { UnsavedWorkService } from './core/unsaved-work/unsaved-work.service';
-import { LoginPageComponent } from './modules/auth/login-page/login-page.component';
 import { CreditSalesComponent } from './modules/products/components/credit-sales/credit-sales.component';
 import { PosSnapshot, SellingComponent } from './modules/products/components/selling/selling.component';
 import { ShopProfileComponent } from './modules/shop-profile/components/shop-profile/shop-profile.component';
 import { UserFormDialogComponent } from './modules/users/user-form-dialog/user-form-dialog.component';
-import { OtherMainBannerComponent } from './offline/other-main-banner.component';
 import { provideFakeVat } from './modules/shop-profile/services/vat-settings.testing';
 
-/** Stage 15 screens: max discount (POS, credit, user form), cart restore, security card, restore notice, other main PC banner. */
+/** Stage 15 screens: max discount (POS, credit, user form), cart restore, security card. */
 const base = environment.api_base_url;
 const providers = () => [provideRouter([]), provideNoopAnimations(), provideHttpClient(), provideHttpClientTesting(), provideFakeVat()];
 const product = { id: 'p1', name: 'لمبة', displayLabel: 'لمبة', categoryName: 'لمبات', wholesalePrice: 100, retailPrice: 120, inventoryCount: 9 } as never;
@@ -252,75 +248,3 @@ describe('Stage 15: shop profile security card', () => {
   });
 });
 
-describe('Stage 15: login after a restore', () => {
-  it('reason=restored shows "تم استرجاع النسخة..."; a backup without users shows the first-run owner screen', async () => {
-    await TestBed.configureTestingModule({
-      imports: [LoginPageComponent, TranslateModule.forRoot()],
-      providers: [...providers(), { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({ reason: 'restored' }) } } }],
-    }).compileComponents();
-    spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
-    const http = TestBed.inject(HttpTestingController);
-    let fixture = TestBed.createComponent(LoginPageComponent);
-    http.expectOne(`${base}auth/bootstrap`).flush({ hasOwner: true, isLocal: true, shop: { name: '', logo: '' } });
-    fixture.detectChanges();
-    await fixture.whenStable();
-    expect((fixture.nativeElement as HTMLElement).querySelector('[data-test="restored-notice"]')!.textContent).toContain('session.restoredNotice');
-
-    fixture = TestBed.createComponent(LoginPageComponent);
-    http.expectOne(`${base}auth/bootstrap`).flush({ hasOwner: false, isLocal: true, shop: { name: '', logo: '' } });
-    fixture.detectChanges();
-    await fixture.whenStable();
-    expect(fixture.componentInstance.view()).toBe('setup');
-  });
-});
-
-describe('Stage 15: another main PC banner', () => {
-  const original = window.notaDesktop;
-  let push: (list: OtherMainPc[]) => void;
-  const other: OtherMainPc = { instanceId: 'x', shopName: 'محل تاني', address: '192.168.1.20', port: 5055 };
-
-  beforeEach(async () => {
-    window.notaDesktop = {
-      getRuntimeConfig: async () => ({}) as never,
-      getOtherMainPcs: async () => [],
-      onOtherMainPcs: (callback) => {
-        push = callback;
-        return () => undefined;
-      },
-    };
-    await TestBed.configureTestingModule({ imports: [OtherMainBannerComponent, TranslateModule.forRoot()], providers: providers() }).compileComponents();
-  });
-  afterEach(() => (window.notaDesktop = original));
-
-  const render = async () => {
-    const fixture = TestBed.createComponent(OtherMainBannerComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    return fixture;
-  };
-
-  it('shown to shop.manage when another main PC answers; the help explains what to do; gone when it stops', async () => {
-    signInAs('owner');
-    const fixture = await render();
-    const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('[data-test="other-main-banner"]')).toBeNull();
-    push([other]);
-    fixture.detectChanges();
-    expect(el.querySelector('[data-test="other-main-banner"]')!.textContent).toContain('192.168.1.20:5055');
-    (el.querySelector('[data-test="other-main-help"]') as HTMLButtonElement).click();
-    fixture.detectChanges();
-    expect(el.querySelector('[data-test="other-main-explain"]')).not.toBeNull();
-    push([]);
-    fixture.detectChanges();
-    expect(el.querySelector('[data-test="other-main-banner"]')).toBeNull();
-  });
-
-  it('not shown to a user without shop.manage', async () => {
-    signInWith(['sales.create', 'sales.view']);
-    const fixture = await render();
-    push([other]);
-    fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).querySelector('[data-test="other-main-banner"]')).toBeNull();
-    expect(TestBed.inject(AuthService).has('shop.manage')).toBeFalse();
-  });
-});

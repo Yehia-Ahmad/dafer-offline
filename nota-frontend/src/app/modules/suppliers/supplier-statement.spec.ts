@@ -108,7 +108,7 @@ describe('SupplierStatementComponent (Stage 20)', () => {
     expect(el.querySelector('[data-action="new-purchase"]')!.getAttribute('href')).toBe('/purchases/new?supplier=s1');
     // Stage 23: the statement has its print buttons (PrSupplierStatement)
     expect(el.querySelector('[data-action="print-statement"]')).toBeTruthy();
-    expect(el.querySelector('[data-action="pdf-statement"]')).toBeTruthy();
+    expect(el.querySelector('[data-action="pdf-statement"]')).toBeNull(); // the browser dialog saves PDFs
     const paid: unknown[] = [];
     owner.component.pay.subscribe((row) => paid.push(row));
     (el.querySelector('[data-action="pay"]') as HTMLButtonElement).click();

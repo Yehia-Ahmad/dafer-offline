@@ -4,6 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { Router, provideRouter } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../../environments/environment';
+import { DeviceService } from '../device/device.service';
 import { authInterceptor } from './auth.interceptor';
 import { AuthService, HANDLES_OWN_ERRORS } from './auth.service';
 import { ToastService } from './toast.service';
@@ -36,6 +37,20 @@ describe('authInterceptor (Stage 14)', () => {
     client.get('./assets/i18n/ar.json').subscribe();
     expect(http.expectOne(`${base}products`).request.headers.get('Authorization')).toBe('Bearer test-token-cashier');
     expect(http.expectOne('./assets/i18n/ar.json').request.headers.has('Authorization')).toBeFalse();
+  });
+
+  it('adds the device headers to backend requests only: the id always, the percent-encoded name once it is set', () => {
+    const device = TestBed.inject(DeviceService);
+    device.name.set('');
+    client.get(`${base}products`).subscribe();
+    const unnamed = http.expectOne(`${base}products`).request.headers;
+    expect(unnamed.get('X-Nota-Device-Id')).toBe(device.deviceId);
+    expect(unnamed.has('X-Nota-Device-Name')).toBeFalse();
+    device.name.set('كاشير 1');
+    client.get(`${base}products`).subscribe();
+    client.get('./assets/i18n/ar.json').subscribe();
+    expect(http.expectOne(`${base}products`).request.headers.get('X-Nota-Device-Name')).toBe(encodeURIComponent('كاشير 1'));
+    expect(http.expectOne('./assets/i18n/ar.json').request.headers.has('X-Nota-Device-Id')).toBeFalse();
   });
 
   it('no token → no Authorization header', () => {

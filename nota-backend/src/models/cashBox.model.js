@@ -9,7 +9,7 @@ const cashBoxSchema = new mongoose.Schema({
   type: { type: String, enum: ["cash", "wallet", "bank"], required: true },
   accountId: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true, unique: true },
   isMain: { type: Boolean, default: false },
-  // The PC (its config instanceId) whose sales default to this box. At most one box per device.
+  // The device (the browser's random id) whose sales default to this box. At most one box per device.
   deviceId: { type: String, trim: true, maxlength: 64, default: undefined },
   shiftsEnabled: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },

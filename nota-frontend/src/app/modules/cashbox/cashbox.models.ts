@@ -125,7 +125,6 @@ export interface PaymentBoxesResponse {
 export interface DeviceRow {
   deviceId: string;
   name: string;
-  role: 'main' | 'client';
   lastSeenAt: string;
   isCurrent: boolean;
   boxId: string | null;
