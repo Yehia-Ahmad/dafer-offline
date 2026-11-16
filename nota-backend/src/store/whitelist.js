@@ -3,6 +3,7 @@
 // never reach a customer.
 const { storeSlug } = require("../utils/storeSlug");
 const { effectiveSettings } = require("./catalog");
+const { DEFAULT_BRAND_COLOR } = require("../models/websiteSettings.model");
 
 const money = (value) => Number(Number(value || 0).toFixed(2));
 const text = (value) => (typeof value === "string" && value ? value : undefined);
@@ -174,7 +175,7 @@ const publicSettings = (settings, extras) => {
       ...(rules.payments.vodafone_cash.enabled ? { vodafoneCash: { number: rules.payments.vodafone_cash.number } } : {}),
     },
     fulfillment: { delivery: rules.fulfillment.delivery, pickup: rules.fulfillment.pickup },
-    brandColor: text(settings.brandColor) || null,
+    brandColor: text(settings.brandColor) || DEFAULT_BRAND_COLOR,
     logoUrl: settings.websiteLogo ? websiteLogoUrl(settings.updatedAt) : shop.logoUrl,
     announcement: settings.announcement && settings.announcement.enabled && text(settings.announcement.text) ? { text: settings.announcement.text } : null,
     seoDescription: settings.seoDescription || "",

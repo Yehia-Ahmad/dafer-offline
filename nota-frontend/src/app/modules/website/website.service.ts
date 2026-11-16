@@ -85,7 +85,7 @@ export class WebsiteService {
       announcement: { ...EMPTY_WEBSITE_SETTINGS.announcement, ...(raw?.announcement || {}) },
       highlights: raw?.highlights || [],
       productVisibility: raw?.productVisibility === 'all' ? 'all' : 'marked',
-      brandColor: raw?.brandColor || null,
+      brandColor: raw?.brandColor || EMPTY_WEBSITE_SETTINGS.brandColor,
       websiteLogo: raw?.websiteLogo || null,
     };
   }

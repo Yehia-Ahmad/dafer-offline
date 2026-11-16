@@ -79,8 +79,10 @@
             <p class="nota-hint">{{ 'website.settings.look.brandHint' | translate }}</p>
             <div class="ws__swatches" role="radiogroup" [attr.aria-label]="'website.settings.look.brandTitle' | translate">
               @for (color of brandColors; track color) {
-                <button type="button" role="radio" class="ws__swatch" data-test="brand-swatch" [attr.data-color]="color" [style.background]="color"
-                  [class.is-on]="form.controls.brandColor.value === color" [attr.aria-checked]="form.controls.brandColor.value === color" [attr.aria-label]="color" (click)="setBrandColor(color)"></button>
+                <button type="button" role="radio" class="ws__swatch" data-test="brand-swatch" [attr.data-color]="color"
+                  [class.is-on]="form.controls.brandColor.value === color" [attr.aria-checked]="form.controls.brandColor.value === color" [attr.aria-label]="brandNames[color]" (click)="setBrandColor(color)">
+                  <span class="ws__dot" [style.background]="color"></span><span class="ws__swatch-name">{{ brandNames[color] }}</span>
+                </button>
               }
             </div>
 

@@ -63,7 +63,7 @@ const EMPTY_SETTINGS = Object.freeze({
   fulfillment: { delivery: true, pickup: false },
   payments: { cod: { enabled: true }, instapay: { enabled: false, address: "", boxId: null }, vodafoneCash: { enabled: false, number: "", boxId: null } },
   stock: { showOutOfStock: true, showRemaining: { enabled: true, threshold: 5 } },
-  productVisibility: "marked", brandColor: null, websiteLogo: null, announcement: { enabled: false, text: "" },
+  productVisibility: "marked", brandColor: WebsiteSettings.DEFAULT_BRAND_COLOR, websiteLogo: null, announcement: { enabled: false, text: "" },
   seoDescription: "", openingHours: "", sameDayCutoff: "", highlights: [], whatsappConfirmTemplate: "",
 });
 

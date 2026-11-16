@@ -758,3 +758,68 @@ it("a cash sale made for an order that cannot be invoiced (stock sold elsewhere)
   const order = await WebOrder.findById(placed.id).lean();
   assert.equal(order.status, "ready_for_pickup"); assert.equal(order.cashSaleId, undefined);
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// review fixes
+
+it("a website order never creates or renames a shop Customer: a sale for the phone of an existing customer or a courier keeps both names; the sale carries the order reference", async () => {
+  const { product, zone, courier } = await shop();
+  const Customer = require("../src/models/customer.model");
+  const existing = await Customer.create({ name: "أحمد الأصلي", phone: "01055555555" });
+  const courierCustomer = await Customer.findById(courier.customerId).lean();
+  const before = await Customer.countDocuments({});
+  const named = async (id) => (await Customer.findById(id).lean()).name;
+
+  const contactOf = (phone) => ({ name: "اسم تاني خالص", phone, address: "شارع 1" });
+  // pickup (cash) for the existing customer's phone
+  const pickup = await place(pickupBody([{ productId: product.id, qty: 1 }], { contact: { name: "اسم تاني خالص", phone: "01055555555" } }));
+  ok(await act(pickup.id, "confirm")); ok(await act(pickup.id, "prepare")); ok(await act(pickup.id, "ready")); ok(await act(pickup.id, "pickup"));
+  let sale = await sellingOf(pickup.id);
+  assert.equal(sale.sourceRef, `طلب موقع ${pickup.number}`); assert.equal(sale.customerPhone, undefined); assert.notEqual(sale.customerName, "اسم تاني خالص");
+  assert.equal(ok(await staff("GET", `/api/sellings/${sale._id}`)).sourceRef, `طلب موقع ${pickup.number}`, "shown on the sale like the credit sale's note");
+  // wallet delivery send-out for the courier's phone
+  const wallet = await place(deliveryBody([{ productId: product.id, qty: 1 }], zone.id, { paymentMethod: "instapay", contact: contactOf(courierCustomer.phone) }));
+  ok(await act(wallet.id, "confirm")); ok(await act(wallet.id, "verify-payment", {})); ok(await act(wallet.id, "dispatch", { courierId: courier.id }));
+  sale = await sellingOf(wallet.id);
+  assert.equal(sale.sourceRef, `طلب موقع ${wallet.number}`);
+
+  assert.equal(await named(existing._id), "أحمد الأصلي");
+  assert.equal(await named(courier.customerId), courierCustomer.name);
+  assert.equal(await Customer.countDocuments({}), before, "no customer was created");
+  assert.equal(await Customer.countDocuments({ name: "اسم تاني خالص" }), 0);
+  // the POS keeps its own behavior: a request body cannot ask for a walk-in sale
+  const pos = await staff("POST", "/api/sellings", { customerName: "عميل جديد", customerPhone: "01066666666", sellingDate: new Date().toISOString().slice(0, 10), items: [{ productId: product.id, quantity: 1, price: 100 }], walkIn: true, sourceRef: "x" });
+  assert.equal(pos.status, 201, pos.text);
+  assert.equal(pos.json.customerName, "عميل جديد"); assert.equal(pos.json.sourceRef, null);
+  assert.equal(await Customer.countDocuments({ phone: "01066666666" }), 1);
+  // a return of the walk-in sale still works (the refund path never needed a customer)
+  const refused = await place(deliveryBody([{ productId: product.id, qty: 1 }], zone.id, { paymentMethod: "vodafone_cash" }));
+  ok(await act(refused.id, "confirm")); ok(await act(refused.id, "verify-payment", {})); ok(await act(refused.id, "dispatch", { courierId: courier.id }));
+  ok(await act(refused.id, "refuse", { reason: "رفض" }));
+});
+
+it("a customer cannot cancel their own order once the transfer is verified (409 PAYMENT_VERIFIED); before it, they can", async () => {
+  const { product } = await shop();
+  const alice = ok(await store("POST", "/api/store/auth/register", { name: "علياء", phone: "01011112222", password: "customer-pass-1" }), 201);
+  const mine = async (method = "wallet") => ok(await store("POST", "/api/store/orders", pickupBody([{ productId: product.id, qty: 1 }], { paymentMethod: method, contact: { name: "علياء", phone: "01011112222" } }), alice.token), 201);
+  const verifiedOrder = await mine("instapay");
+  ok(await act(verifiedOrder.id, "verify-payment", { reference: "R1" }));
+  const refused = await store("POST", `/api/store/me/orders/${verifiedOrder.id}/cancel`, {}, alice.token);
+  assert.equal(refused.status, 409); assert.equal(refused.json.code, "PAYMENT_VERIFIED"); assert.ok(refused.json.message.includes("المحل"));
+  assert.equal((await WebOrder.findById(verifiedOrder.id).lean()).status, "new");
+  // not verified yet: still allowed; cash orders too
+  const unverified = await mine("instapay");
+  assert.equal(ok(await store("POST", `/api/store/me/orders/${unverified.id}/cancel`, {}, alice.token)).status, "cancelled");
+  const cash = await mine("cod");
+  assert.equal(ok(await store("POST", `/api/store/me/orders/${cash.id}/cancel`, {}, alice.token)).status, "cancelled");
+});
+
+it("brand colors: the design's six presets in order; the default is the first; others are refused", async () => {
+  await openSite();
+  assert.deepEqual(WebsiteSettings.BRAND_COLORS, ["#0E4D45", "#7C2D12", "#3F3F46", "#14532D", "#831843", "#4C1D95"]);
+  assert.equal(ok(await staff("GET", "/api/website/settings")).brandColor, "#0E4D45");
+  assert.equal(ok(await store("GET", "/api/store/settings")).brandColor, "#0E4D45", "unset = the default");
+  ok(await putSettings({ brandColor: "#4c1d95" }));
+  assert.equal(ok(await store("GET", "/api/store/settings")).brandColor, "#4C1D95");
+  assert.equal((await putSettings({ brandColor: "#1F6FEB" })).status, 400);
+});

@@ -2351,7 +2351,7 @@
       "preview": { "title": "Quick preview", "noTitle": "Website name", "button": "Order now" },
       "look": {
         "brandTitle": "Website color",
-        "brandHint": "Pick one of the ready colors. Click it again to clear.",
+        "brandHint": "Pick one of the ready colors (the default is the first, Nota green).",
         "logoTitle": "Website logo",
         "logoHint": "Optional. Without one, the shop logo is shown.",
         "logoFallback": "The shop logo is shown",

@@ -431,6 +431,7 @@ const toSellingInvoice = (selling, options = {}) => {
     invoiceId: getInvoiceIdentifier(selling),
     customerName: selling.customerName,
     customerPhone: selling.customerPhone ?? null,
+    sourceRef: selling.sourceRef ?? null,
     sellingDate: selling.sellingDate,
     itemCount: items.length,
     totalQuantity: options.excludeRefundedItems
@@ -726,16 +727,21 @@ const hasLineItemChanges = (body) =>
   body.price !== undefined ||
   getRawQuantity(body) !== undefined;
 
-const createSellingInvoice = async ({ body, res, allowBelowCost = false, session, number, boxId }) => {
+// Online Stage 5A review: the label of a website order's sale. It is NOT a customer: no Customer is looked up, created or renamed.
+const WALK_IN_NAME = "عميل الموقع";
+
+// walkIn / sourceRef come from the order service only (never from a request body): a walk-in sale has no customer, and sourceRef is the
+// order it came from ("طلب موقع W-000001"), a plain reference that pricing and posting never read.
+const createSellingInvoice = async ({ body, res, allowBelowCost = false, session, number, boxId, walkIn = false, sourceRef }) => {
   const { customerName, customerPhone } = body;
-  const normalizedCustomerName = normalizeRequiredString(customerName, "اسم العميل", res);
-  const normalizedCustomerPhone = normalizeRequiredString(customerPhone, "رقم هاتف العميل", res);
+  const normalizedCustomerName = walkIn ? WALK_IN_NAME : normalizeRequiredString(customerName, "اسم العميل", res);
+  const normalizedCustomerPhone = walkIn ? undefined : normalizeRequiredString(customerPhone, "رقم هاتف العميل", res);
   const normalizedSellingDate = normalizeSellingDate(body.sellingDate, res);
   await assertOpenDate(normalizedSellingDate, { session }); // Stage 22: a sale cannot be dated in a closed period
   const items = normalizeSellingItems(body, res);
   const invoicePricing = resolveInvoicePricing(body, {}, res);
 
-  await ensureCustomerExistsForSelling({
+  if (!walkIn) await ensureCustomerExistsForSelling({
     customerName: normalizedCustomerName,
     customerPhone: normalizedCustomerPhone,
     session,
@@ -760,6 +766,7 @@ const createSellingInvoice = async ({ body, res, allowBelowCost = false, session
       number,
       customerName: normalizedCustomerName,
       customerPhone: normalizedCustomerPhone,
+      ...(sourceRef ? { sourceRef } : {}),
       sellingDate: normalizedSellingDate,
       items: persistedItems,
       totalQuantity: invoiceTotals.totalQuantity,
@@ -786,6 +793,8 @@ const createCashSaleInTransaction = async (req, res, session) => {
     session,
     number,
     boxId: box._id,
+    walkIn: req.walkIn === true,
+    sourceRef: req.sourceRef,
   });
   await audit(req, { action: "sale.created", entity: "Selling", entityId: created._id, session, strict: true });
   await postSale({ sale: created, session });

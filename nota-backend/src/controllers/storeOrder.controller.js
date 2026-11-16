@@ -225,9 +225,11 @@ const createStoreOrderController = ({ secret }) => {
   const getMyOrder = asyncHandler(async (req, res) => res.json(wl.publicOwnOrder(await ownOrder(req))));
 
   const cancelMyOrder = asyncHandler(async (req, res) => {
-    await ownOrder(req);
+    const own = await ownOrder(req);
+    // Online Stage 5A review: once the shop confirmed the transfer, the customer cannot cancel on their own (a refund is outside Nota).
+    if (own.payment && own.payment.status === "verified" && own.status === "new") throw httpError(409, "PAYMENT_VERIFIED", "التحويل اتأكد. كلّم المحل لو عايز تلغي الطلب");
     const order = await WebOrder.findOneAndUpdate(
-      { _id: req.params.id, storeCustomer: req.storeCustomer._id, status: "new" },
+      { _id: req.params.id, storeCustomer: req.storeCustomer._id, status: "new", "payment.status": { $ne: "verified" } },
       { $set: { status: "cancelled" }, $push: { statusHistory: { status: "cancelled", at: new Date(), by: `customer:${req.storeCustomer._id}` } } },
       { new: true }
     ).lean();

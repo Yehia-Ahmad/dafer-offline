@@ -9,7 +9,7 @@ import { ProductsService } from '../../products/services/products.service';
 import { NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent, NotaStatusPillComponent } from '../../shared/ui';
 import { DeliveryZonesComponent } from '../delivery-zones/delivery-zones.component';
 import {
-  BRAND_COLORS, BannerLinkType, DEFAULT_WHATSAPP_TEMPLATE, EMPTY_WEBSITE_SETTINGS, HIGHLIGHT_ICONS, HighlightIcon, WEBSITE_LIMITS, WebsiteBanner, WebsiteHighlight, WebsiteSettings,
+  BRAND_COLORS, BRAND_COLOR_NAMES, DEFAULT_BRAND_COLOR, BannerLinkType, DEFAULT_WHATSAPP_TEMPLATE, EMPTY_WEBSITE_SETTINGS, HIGHLIGHT_ICONS, HighlightIcon, WEBSITE_LIMITS, WebsiteBanner, WebsiteHighlight, WebsiteSettings,
   WebsiteSettingsPayload,
 } from '../website.models';
 import { WebsiteService } from '../website.service';
@@ -50,6 +50,7 @@ export class WebsiteSettingsComponent implements OnInit {
   protected readonly categories = this.catalog.categories;
   protected readonly tabs = SETTINGS_TABS;
   protected readonly brandColors = BRAND_COLORS;
+  protected readonly brandNames = BRAND_COLOR_NAMES;
   protected readonly highlightIcons = HIGHLIGHT_ICONS;
   protected readonly defaultTemplate = DEFAULT_WHATSAPP_TEMPLATE;
   protected readonly placeholders = ['{الاسم}', '{رقم الطلب}', '{الإجمالي}', '{مدة التوصيل}'];
@@ -95,7 +96,7 @@ export class WebsiteSettingsComponent implements OnInit {
     // Online Stage 5A
     seoDescription: ['', Validators.maxLength(WEBSITE_LIMITS.seoDescription)],
     openingHours: ['', Validators.maxLength(WEBSITE_LIMITS.openingHours)],
-    brandColor: [''],
+    brandColor: [DEFAULT_BRAND_COLOR],
     announcementEnabled: [false],
     announcementText: ['', Validators.maxLength(WEBSITE_LIMITS.announcement)],
     fulfillmentDelivery: [true],
@@ -184,7 +185,7 @@ export class WebsiteSettingsComponent implements OnInit {
   }
 
   protected setBrandColor(color: string): void {
-    this.form.controls.brandColor.setValue(this.form.controls.brandColor.value === color ? '' : color);
+    this.form.controls.brandColor.setValue(color);
     this.form.controls.brandColor.markAsDirty();
   }
 
@@ -425,7 +426,7 @@ export class WebsiteSettingsComponent implements OnInit {
       terms: merged.terms || '',
       seoDescription: merged.seoDescription || '',
       openingHours: merged.openingHours || '',
-      brandColor: merged.brandColor || '',
+      brandColor: merged.brandColor || DEFAULT_BRAND_COLOR,
       announcementEnabled: merged.announcement.enabled,
       announcementText: merged.announcement.text || '',
       fulfillmentDelivery: merged.fulfillment.delivery,

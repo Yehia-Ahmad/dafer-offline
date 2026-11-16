@@ -340,15 +340,15 @@ const creditSaleItem = (creditSale, productId) => creditSale.items.find((item) =
  */
 const createOrderCashSale = async (req, order, boxId, session) => {
   const res = makeRes();
-  return callHandler(() => createCashSaleInTransaction(handlerReq(req, {
-    customerName: order.contact.name,
-    customerPhone: order.contact.phone,
+  // A website order's sale is a walk-in sale: the customer's name and phone are NEVER passed (the cash sale upserts a Customer by phone
+  // and overwrites its name, which would rename a shop customer or a courier). The sale keeps the order as its reference.
+  return callHandler(() => createCashSaleInTransaction({ ...handlerReq(req, {
     sellingDate: today(),
     items: order.items.map((line) => ({ productId: String(line.productId), price: line.unitPrice, quantity: line.qty })),
     shippingFees: order.deliveryFee,
     expectedTotal: order.total,
     ...(boxId ? { boxId: String(boxId) } : {}),
-  }), res, session), res);
+  }), walkIn: true, sourceRef: `طلب موقع ${order.number}` }, res, session), res);
 };
 
 /** Every line against stock minus what orders confirmed BEFORE this one still reserve (see dispatch). */

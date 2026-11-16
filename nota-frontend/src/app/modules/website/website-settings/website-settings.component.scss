@@ -9,8 +9,9 @@
 .ws__tab { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 999px; padding: 6px 16px; font: inherit; cursor: pointer;
   &.is-active { background: var(--brand-soft); color: var(--brand-strong-text); border-color: var(--brand); font-weight: 700; } }
 .ws__swatches { display: flex; flex-wrap: wrap; gap: 10px; }
-.ws__swatch { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--border-strong); cursor: pointer;
-  &.is-on { box-shadow: 0 0 0 3px var(--text); } }
+.ws__swatch { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font: inherit; cursor: pointer;
+  &.is-on { border-color: var(--text); box-shadow: 0 0 0 2px var(--text); font-weight: 700; } }
+.ws__dot { width: 22px; height: 22px; border-radius: 50%; display: inline-block; }
 .ws__logo-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .ws__logo { height: 56px; max-width: 160px; object-fit: contain; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); padding: 4px; }
 .ws__method { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }

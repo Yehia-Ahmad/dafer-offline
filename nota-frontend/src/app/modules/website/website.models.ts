@@ -13,8 +13,13 @@ export interface WebsiteBanner {
   sortOrder: number;
 }
 
-/** Online Stage 5A. The six brand presets (PLACEHOLDER values: the design file WebSettings.dc.html is not in the repository; keep in sync with BRAND_COLORS in nota-backend/src/models/websiteSettings.model.js). */
-export const BRAND_COLORS: readonly string[] = ['#1F6FEB', '#0E9F6E', '#D97706', '#DC2626', '#7C3AED', '#0F172A'];
+/** Online Stage 5A. The design's six brand presets, in its order (keep in sync with BRAND_COLORS in nota-backend/src/models/websiteSettings.model.js). The first is the default. */
+export const BRAND_COLORS: readonly string[] = ['#0E4D45', '#7C2D12', '#3F3F46', '#14532D', '#831843', '#4C1D95'];
+export const DEFAULT_BRAND_COLOR = BRAND_COLORS[0];
+/** The Arabic name of each preset (the label in the settings page). */
+export const BRAND_COLOR_NAMES: Readonly<Record<string, string>> = {
+  '#0E4D45': 'أخضر نوتة', '#7C2D12': 'بني', '#3F3F46': 'رمادي غامق', '#14532D': 'أخضر زرعي', '#831843': 'نبيتي', '#4C1D95': 'بنفسجي',
+};
 export const HIGHLIGHT_ICONS = ['delivery', 'cash', 'exchange', 'shield', 'clock', 'star'] as const;
 export type HighlightIcon = (typeof HIGHLIGHT_ICONS)[number];
 export interface WebsiteHighlight { icon: HighlightIcon; title: string; text: string; }
@@ -156,7 +161,7 @@ export const EMPTY_WEBSITE_SETTINGS: WebsiteSettings = {
   payments: { cod: { enabled: true }, instapay: { enabled: false, address: '', boxId: null }, vodafoneCash: { enabled: false, number: '', boxId: null } },
   stock: { showOutOfStock: true, showRemaining: { enabled: true, threshold: 5 } },
   productVisibility: 'marked',
-  brandColor: null,
+  brandColor: DEFAULT_BRAND_COLOR,
   websiteLogo: null,
   announcement: { enabled: false, text: '' },
   seoDescription: '',

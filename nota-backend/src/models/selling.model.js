@@ -103,6 +103,8 @@ const sellingSchema = new mongoose.Schema(
       trim: true,
       maxlength: [30, "يجب ألا يزيد رقم هاتف العميل عن 30 حرف"],
     },
+    // Online Stage 5A review: the website order a sale came from ("طلب موقع W-000001"). A reference only: never read by pricing or posting.
+    sourceRef: { type: String, trim: true, maxlength: 100 },
     sellingDate: {
       type: Date,
       required: [true, "تاريخ البيع مطلوب"],

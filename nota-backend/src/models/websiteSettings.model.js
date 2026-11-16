@@ -5,9 +5,9 @@ const MAX_BANNERS = 5;
 const MAX_FEATURED = 8;
 const MAX_BANNER_BYTES = 1024 * 1024;
 const HIGHLIGHT_ICONS = ["delivery", "cash", "exchange", "shield", "clock", "star"];
-// PLACEHOLDER: the six presets of WebSettings.dc.html are not in the repository (docs/design/screens has no Web*.dc.html).
-// Replace these six values with the design's presets; nothing else reads them except the settings validation and the admin UI.
-const BRAND_COLORS = ["#1F6FEB", "#0E9F6E", "#D97706", "#DC2626", "#7C3AED", "#0F172A"];
+// The design's six brand presets, in the design's order: أخضر نوتة, بني, رمادي غامق, أخضر زرعي, نبيتي, بنفسجي. The default is the first.
+const BRAND_COLORS = ["#0E4D45", "#7C2D12", "#3F3F46", "#14532D", "#831843", "#4C1D95"];
+const DEFAULT_BRAND_COLOR = BRAND_COLORS[0];
 
 const decodedBytes = (value) => {
   if (typeof value !== "string") return 0;
@@ -114,3 +114,4 @@ module.exports.MAX_BANNERS = MAX_BANNERS;
 module.exports.MAX_FEATURED = MAX_FEATURED;
 module.exports.HIGHLIGHT_ICONS = HIGHLIGHT_ICONS;
 module.exports.BRAND_COLORS = BRAND_COLORS;
+module.exports.DEFAULT_BRAND_COLOR = DEFAULT_BRAND_COLOR;

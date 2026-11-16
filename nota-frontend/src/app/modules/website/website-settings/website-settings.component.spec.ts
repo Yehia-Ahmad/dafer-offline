@@ -98,7 +98,7 @@ describe('WebsiteSettingsComponent (Online Stage 3)', () => {
       fulfillment: { delivery: true, pickup: false },
       payments: { cod: { enabled: true }, instapay: { enabled: false, address: '', boxId: '' }, vodafoneCash: { enabled: false, number: '', boxId: '' } },
       stock: { showOutOfStock: true, showRemaining: { enabled: true, threshold: 5 } },
-      productVisibility: 'marked', brandColor: '', announcement: { enabled: false, text: '' },
+      productVisibility: 'marked', brandColor: '#0E4D45', announcement: { enabled: false, text: '' },
       seoDescription: '', openingHours: '', sameDayCutoff: '', highlights: [], whatsappConfirmTemplate: '',
     });
     expect('websiteLogo' in req.request.body).withContext('the logo is not re-sent when unchanged').toBeFalse();
@@ -164,6 +164,17 @@ describe('WebsiteSettingsComponent (Online Stage 3)', () => {
     component.setTab('products');
     fixture.detectChanges();
     expect(root.querySelectorAll('.ws__soon [disabled]').length).toBe(2);
+  });
+
+  it('Stage 5A review: the six presets are the design\'s, in order, with their Arabic names; the first is the default', () => {
+    open();
+    component.setTab('look');
+    fixture.detectChanges();
+    expect(component.brandColors).toEqual(['#0E4D45', '#7C2D12', '#3F3F46', '#14532D', '#831843', '#4C1D95']);
+    const labels = Array.from(fixture.nativeElement.querySelectorAll('[data-test="brand-swatch"]')).map((el: any) => el.textContent.trim());
+    expect(labels).toEqual(['أخضر نوتة', 'بني', 'رمادي غامق', 'أخضر زرعي', 'نبيتي', 'بنفسجي']);
+    expect(component.form.controls.brandColor.value).toBe('#0E4D45');
+    expect(fixture.nativeElement.querySelector('[data-color="#0E4D45"]').getAttribute('aria-checked')).toBe('true');
   });
 
   it('Stage 5A: the site status pill follows the saved status, and "افتح الموقع" opens the site root in a new tab', () => {
