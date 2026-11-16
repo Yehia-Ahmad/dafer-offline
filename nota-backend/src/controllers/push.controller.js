@@ -7,6 +7,20 @@ const pushService = require("../push/pushService");
 
 const text = (value, max) => (typeof value === "string" ? value.trim() : "").slice(0, max);
 
+// The server POSTs to the stored endpoint, so only the browsers' real push services are accepted (no SSRF to internal hosts).
+// Exact host, or "*." + suffix (at least one label before the suffix); https on the default port only; never an IP or localhost.
+const PUSH_HOSTS_EXACT = ["fcm.googleapis.com", "web.push.apple.com", "updates.push.services.mozilla.com"];
+const PUSH_HOST_SUFFIXES = ["push.apple.com", "push.services.mozilla.com", "notify.windows.com"];
+const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
+
+const isPushHost = (host) => {
+  const name = String(host || "").toLowerCase().replace(/\.$/, "");
+  if (!name || IPV4.test(name) || name.includes(":") || name.startsWith("[") || name === "localhost") return false;
+  if (PUSH_HOSTS_EXACT.includes(name)) return true;
+  // "*.push.apple.com", "*.push.services.mozilla.com", "*.notify.windows.com" (covers wns2-*.notify.windows.com)
+  return PUSH_HOST_SUFFIXES.some((suffix) => name.endsWith(`.${suffix}`) && /^[a-z0-9-]+(\.[a-z0-9-]+)*$/.test(name.slice(0, -suffix.length - 1)));
+};
+
 const readSubscription = (body) => {
   const endpoint = text(body && body.endpoint, 2048);
   const keys = (body && body.keys) || {};
@@ -14,7 +28,9 @@ const readSubscription = (body) => {
   const auth = text(keys.auth, 512);
   let url = null;
   try { url = new URL(endpoint); } catch { /* invalid */ }
-  if (!url || url.protocol !== "https:") throw httpError(400, "INVALID_SUBSCRIPTION", "اشتراك الإشعارات غير صالح");
+  if (!url || url.protocol !== "https:" || url.port !== "" || url.username || url.password || !isPushHost(url.hostname)) {
+    throw httpError(400, "INVALID_SUBSCRIPTION", "اشتراك الإشعارات غير صالح");
+  }
   if (!p256dh || !auth) throw httpError(400, "INVALID_SUBSCRIPTION", "اشتراك الإشعارات غير صالح");
   return { endpoint, keys: { p256dh, auth } };
 };

@@ -2,6 +2,7 @@ const CreditSale = require("../models/creditSale.model");
 const Product = require("../models/product.model");
 const Selling = require("../models/selling.model");
 const WebOrder = require("../models/webOrder.model");
+const Courier = require("../models/courier.model");
 const clock = require("../utils/clock");
 const asyncHandler = require("../utils/asyncHandler");
 const { roundMoney } = require("../utils/invoicePricing");
@@ -220,7 +221,11 @@ const getMobileSummary = asyncHandler(async (req, res) => {
   if (hasPermission(req.user, "cashbox.view")) {
     const { loadBoxViews } = require("./cashbox.controller");
     const views = await loadBoxViews();
-    out.cashDrawer = roundMoney(views.filter((box) => box.type === "cash" && box.isActive).reduce((sum, box) => sum + box.balance, 0));
+    // The shop's own cash boxes only: a courier's box (the one a Courier is linked to) holds the courier's money, not the drawer.
+    const courierBoxes = new Set((await Courier.find({}, "boxId").lean()).map((courier) => String(courier.boxId)));
+    out.cashDrawer = roundMoney(views
+      .filter((box) => box.type === "cash" && box.isActive && !courierBoxes.has(String(box._id)))
+      .reduce((sum, box) => sum + box.balance, 0));
   }
   res.json(out);
 });

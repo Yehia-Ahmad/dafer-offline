@@ -226,6 +226,8 @@ env_set MONGO_URI "mongodb://nota_app:${app_pass}@127.0.0.1:27017/${DB_NAME}?rep
 [ -n "$(env_get NOTA_JWT_SECRET "$NOTA_BACKEND_ENV")" ] || env_set NOTA_JWT_SECRET "$(rand_hex 48)" "$NOTA_BACKEND_ENV"
 # Online Stage 3: the customer website signs its own tokens with a separate secret (only generated when missing).
 [ -n "$(env_get NOTA_STORE_JWT_SECRET "$NOTA_BACKEND_ENV")" ] || env_set NOTA_STORE_JWT_SECRET "$(rand_hex 48)" "$NOTA_BACKEND_ENV"
+# Online Stage 6A: the VAPID key pair for phone notifications (only generated when missing; same function update.sh uses).
+ensure_vapid
 PORT="$(backend_port)"
 
 # Online Stage 5B: the storefront's environment. It calls the backend on loopback and never needs a secret. Existing values

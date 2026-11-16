@@ -10,8 +10,14 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4" /></svg>
         <span class="nota-sr-only">{{ 'sellingPage.pos.searchLabel' | translate }}</span>
-        <input #posSearch type="text" class="pos__search-input" autofocus autocomplete="off" [value]="gridQuery"
-          [placeholder]="'sellingPage.pos.searchPlaceholder' | translate" (input)="onGridSearchInput($event)" />
+        @if (layout.isMobile()) {
+          <!-- Phone: no autofocus (it would open the keyboard over the grid on load) -->
+          <input #posSearch type="text" class="pos__search-input" autocomplete="off" [value]="gridQuery"
+            [placeholder]="'sellingPage.pos.searchPlaceholder' | translate" (input)="onGridSearchInput($event)" />
+        } @else {
+          <input #posSearch type="text" class="pos__search-input" autofocus autocomplete="off" [value]="gridQuery"
+            [placeholder]="'sellingPage.pos.searchPlaceholder' | translate" (input)="onGridSearchInput($event)" />
+        }
         <kbd class="pos__kbd" aria-hidden="true">F2</kbd>
       </label>
 

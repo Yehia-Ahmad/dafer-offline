@@ -83,7 +83,7 @@ async function shop() {
 const placeRaw = (productId, zoneId, extra = {}) => call("POST", "/api/store/orders", {
   body: { items: [{ productId, qty: 2 }], zoneId, idempotencyKey: uuid(), contact: { name: "عميل سري", phone: PHONE, address: "شارع سري 1", notes: "" }, ...extra },
 });
-const subBody = (name = "a") => ({ endpoint: `https://push.example.com/send/${name}`, keys: { p256dh: `p256-${name}`, auth: `auth-${name}` } });
+const subBody = (name = "a") => ({ endpoint: `https://fcm.googleapis.com/fcm/send/${name}`, keys: { p256dh: `p256-${name}`, auth: `auth-${name}` } });
 
 // ---------------------------------------------------------------------------------------------------------------------
 
@@ -94,7 +94,7 @@ it("push subscriptions: any signed-in user, validated, own only, re-assigned on 
   const manager = await makeStaff("s6-manager", "manager");
 
   assert.equal((await staff("POST", "/api/push/subscribe", { endpoint: "http://insecure.example/x", keys: { p256dh: "a", auth: "b" } }, cashier)).status, 400);
-  assert.equal((await staff("POST", "/api/push/subscribe", { endpoint: "https://push.example.com/x", keys: { p256dh: "a" } }, cashier)).status, 400);
+  assert.equal((await staff("POST", "/api/push/subscribe", { endpoint: "https://fcm.googleapis.com/x", keys: { p256dh: "a" } }, cashier)).status, 400);
   assert.equal((await staff("POST", "/api/push/subscribe", {}, cashier)).status, 400);
 
   ok(await staff("POST", "/api/push/subscribe", subBody("one"), cashier, { "X-Nota-Device-Id": "web-aaaaaaaaaaaaaaaa" }), 201);
@@ -113,6 +113,50 @@ it("push subscriptions: any signed-in user, validated, own only, re-assigned on 
 
   assert.equal(ok(await staff("DELETE", "/api/push/subscribe", { endpoint: subBody("one").endpoint }, manager)).removed, 1);
   assert.equal(await PushSubscription.countDocuments({}), 0);
+});
+
+it("push endpoints: only https on the known push services (no IPs, localhost, look-alikes, ports, credentials)", async () => {
+  const keys = { p256dh: "a", auth: "b" };
+  const post = (endpoint) => staff("POST", "/api/push/subscribe", { endpoint, keys });
+  const accepted = [
+    "https://fcm.googleapis.com/fcm/send/abc",
+    "https://web.push.apple.com/QAbc",
+    "https://api.push.apple.com/3/device/abc",
+    "https://updates.push.services.mozilla.com/wpush/v2/abc",
+    "https://autopush.push.services.mozilla.com/wpush/v2/abc",
+    "https://db5p.notify.windows.com/w/?token=abc",
+    "https://wns2-par02p.notify.windows.com/w/?token=abc",
+    "https://FCM.GoogleAPIs.com/fcm/send/upper",
+  ];
+  for (const endpoint of accepted) assert.equal((await post(endpoint)).status, 201, endpoint);
+  const refused = [
+    "http://fcm.googleapis.com/fcm/send/abc", // not https
+    "https://127.0.0.1/x", "https://10.0.0.5/x", "https://[::1]/x", "https://169.254.169.254/latest",
+    "https://localhost/x", "https://localhost.localdomain/x",
+    "https://fcm.googleapis.com.evil.com/x", // look-alikes
+    "https://evilfcm.googleapis.com/x",
+    "https://fcm-googleapis.com/x",
+    "https://push.apple.com.evil.com/x",
+    "https://notify.windows.com/x", // the bare suffix has no leading label
+    "https://evilnotify.windows.com.attacker.io/x",
+    "https://fcm.googleapis.com@evil.com/x", // credentials trick: the real host is evil.com
+    "https://evil.com@fcm.googleapis.com/x", // credentials are refused too
+    "https://fcm.googleapis.com:8443/x", // non-default port
+    "https://push.example.com/x",
+  ];
+  for (const endpoint of refused) {
+    const response = await post(endpoint);
+    assert.equal(response.status, 400, endpoint);
+    assert.equal(response.json.code, "INVALID_SUBSCRIPTION", endpoint);
+  }
+  assert.equal(await PushSubscription.countDocuments({}), accepted.length, "only the accepted endpoints were stored");
+});
+
+it("order list rows carry itemsCount (pieces, read-only)", async () => {
+  const { productId, zoneId } = await shop();
+  ok(await placeRaw(productId, zoneId), 201); // qty 2
+  const list = ok(await staff("GET", "/api/orders?status=new"));
+  assert.equal(list.data[0].itemsCount, 2);
 });
 
 it("public key: disabled without VAPID keys, served with them", async () => {
@@ -196,6 +240,16 @@ it("mobile summary: read-only, filtered by permission, website vs shop split", a
   assert.equal(full.today.website, 230);
   assert.equal(full.today.shop, 0);
   assert.equal(typeof full.cashDrawer, "number");
+
+  // The courier hands the money in: it sits in the courier's box. The drawer is the shop's boxes only, so it stays out.
+  ok(await staff("POST", `/api/orders/${placed.id}/deliver`, {}));
+  const boxes = ok(await staff("GET", "/api/cashbox/boxes"));
+  assert.equal(boxes.cashTotal, 230, "the cashbox page counts every active cash box");
+  const afterDeliver = ok(await staff("GET", "/api/dashboard/mobile-summary"));
+  assert.equal(afterDeliver.cashDrawer, 0, "a courier's box is not in the shop's drawer");
+  const main = boxes.data.find((box) => box.isMain);
+  ok(await staff("POST", "/api/cashbox/transfers", { fromBoxId: String(boxes.data.find((box) => String(box._id) === String(courier.boxId))._id), toBoxId: String(main._id), amount: 230 }), 201);
+  assert.equal(ok(await staff("GET", "/api/dashboard/mobile-summary")).cashDrawer, 230, "after the courier hands it to the main box it is in the drawer");
 
   const dashOnly = await makeStaff("s6-dash", "custom", ["dashboard.view"]);
   const partial = ok(await staff("GET", "/api/dashboard/mobile-summary", undefined, dashOnly));

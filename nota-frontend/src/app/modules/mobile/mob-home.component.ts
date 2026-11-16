@@ -2,8 +2,6 @@ import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, injec
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/auth/auth-errors';
 import { ToastService } from '../../core/auth/toast.service';
@@ -13,13 +11,13 @@ import { LanguageService } from '../shared/services/translation.service';
 import { NotaMoneyPipe, NotaNumberPipe } from '../shared/ui';
 import { ShopProfileService } from '../shop-profile/services/shop-profile.service';
 import { allowedOrderActions } from '../orders/order-actions';
-import { OrderDetail, OrderListRow } from '../orders/orders.models';
+import { OrderListRow } from '../orders/orders.models';
 import { OrdersService } from '../orders/orders.service';
 import { PushToggleComponent } from './push-toggle.component';
 import { timeAgo } from './mobile-utils';
 
 /** A new website order on the home screen: the list row plus the number of lines (from the order itself). */
-interface HomeOrder { row: OrderListRow; items: number | null; detail: OrderDetail | null }
+interface HomeOrder { row: OrderListRow; items: number | null }
 
 /** How many new orders the home screen shows. */
 export const HOME_ORDERS_LIMIT = 3;
@@ -145,7 +143,7 @@ export class MobHomeComponent implements OnInit {
 
   /** "تأكيد الطلب": only when the order's status, kind and the user's permissions allow it (the Stage 4/5A table). */
   protected canConfirm(order: HomeOrder): boolean {
-    const context = order.detail ?? { status: order.row.status, fulfillment: order.row.fulfillment, paymentMethod: order.row.paymentMethod, payment: { status: order.row.paymentStatus } };
+    const context = { status: order.row.status, fulfillment: order.row.fulfillment, paymentMethod: order.row.paymentMethod, payment: { status: order.row.paymentStatus } };
     return allowedOrderActions(context, (key) => this.auth.has(key)).includes('confirm');
   }
 
@@ -161,16 +159,8 @@ export class MobHomeComponent implements OnInit {
   private loadOrders(): void {
     this.ordersApi.list({ status: 'new', limit: HOME_ORDERS_LIMIT }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (response) => {
-        const rows = response.data.slice(0, HOME_ORDERS_LIMIT);
-        this.orders.set(rows.map((row) => ({ row, items: null, detail: null })));
-        if (!rows.length) return;
-        forkJoin(rows.map((row) => this.ordersApi.get(row.id).pipe(catchError(() => of(null)))))
-          .pipe(takeUntilDestroyed(this.destroyRef))
-          .subscribe((details) => this.orders.set(rows.map((row, index) => ({
-            row,
-            detail: details[index],
-            items: details[index] ? details[index]!.items.reduce((sum, line) => sum + line.qty, 0) : null,
-          }))));
+        // The list row already carries the piece count: one request, no per-order detail calls.
+        this.orders.set(response.data.slice(0, HOME_ORDERS_LIMIT).map((row) => ({ row, items: row.itemsCount ?? null })));
       },
       error: () => undefined,
     });

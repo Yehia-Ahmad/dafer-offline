@@ -85,13 +85,15 @@ wait_storefront() {
   return 1
 }
 
-# ensure_vapid BACKEND_DIR: Online Stage 6A. Web Push needs a VAPID key pair on the server. Generated once, only when missing
-# (never replaces an existing pair: a new pair would orphan every phone's subscription), with the web-push package of the release.
+# ensure_vapid: Online Stage 6A. Web Push needs a VAPID key pair on the server. Generated once, only when missing
+# (never replaces an existing pair: a new pair would orphan every phone's subscription). Used by setup-server.sh (a new server has
+# push from the start) and update.sh (an older server gets it on its first update): the same code path. It needs only Node's own
+# crypto (the same P-256 pair, base64url, that web-push's generateVAPIDKeys makes), so it works before any release is installed.
 # The keys live only in the backend env file, never in the repo or the release.
 ensure_vapid() {
-  local dir="$1" keys subject
+  local keys subject
   if [ -z "$(env_get NOTA_VAPID_PUBLIC_KEY "$NOTA_BACKEND_ENV")" ] || [ -z "$(env_get NOTA_VAPID_PRIVATE_KEY "$NOTA_BACKEND_ENV")" ]; then
-    keys="$(cd "$dir" && runuser -u nota -- node -e "const k=require('web-push').generateVAPIDKeys();process.stdout.write(k.publicKey+' '+k.privateKey)" 2>/dev/null || true)"
+    keys="$(node -e "const c=require('node:crypto');const k=c.generateKeyPairSync('ec',{namedCurve:'prime256v1'}).privateKey.export({format:'jwk'});const b=(s)=>Buffer.from(s,'base64url');process.stdout.write(Buffer.concat([Buffer.from([4]),b(k.x),b(k.y)]).toString('base64url')+' '+k.d)" 2>/dev/null || true)"
     case "$keys" in
       *" "*)
         env_set NOTA_VAPID_PUBLIC_KEY "${keys%% *}" "$NOTA_BACKEND_ENV"

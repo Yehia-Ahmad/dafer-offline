@@ -78,7 +78,7 @@ if [ -z "$(env_get NOTA_STORE_JWT_SECRET "$NOTA_BACKEND_ENV")" ]; then
 fi
 
 # 2b2. Online Stage 6A: the VAPID key pair for phone notifications, generated once when missing (see ensure_vapid).
-ensure_vapid "$target/backend"
+ensure_vapid
 
 # 2c. The storefront's environment is written by setup-server.sh; if it is missing, setup was not re-run.
 [ -f "$NOTA_STOREFRONT_ENV" ] || die "$NOTA_STOREFRONT_ENV is missing: run setup-server.sh again (see above)"
