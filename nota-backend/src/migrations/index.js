@@ -4,6 +4,7 @@ const Counter = require("../models/counter.model");
 const CreditSale = require("../models/creditSale.model");
 const Meta = require("../models/meta.model");
 const Product = require("../models/product.model");
+const Category = require("../models/category.model");
 const Receipt = require("../models/receipt.model");
 const ReturnLog = require("../models/returnLog.model");
 const Selling = require("../models/selling.model");
@@ -634,6 +635,14 @@ async function stage23PrintReservationIndexMigration() {
   return { dropped: true };
 }
 
+// Online Stage 3: the website fields with their defaults. Nothing is made visible. Only documents that have no `website`
+// yet are touched, so running it twice changes nothing.
+async function onlineStage3WebsiteFieldsMigration(session) {
+  const products = await Product.collection.updateMany({ website: { $exists: false } }, { $set: { website: { visible: false, images: [] } } }, { session });
+  const categories = await Category.collection.updateMany({ website: { $exists: false } }, { $set: { website: { visible: false, sortOrder: 0 } } }, { session });
+  return { products: products.modifiedCount, categories: categories.modifiedCount };
+}
+
 const migrations = [
   { version: 1, name: "document numbers and receipts", run: numbersMigration },
   { version: 2, name: "original invoice totals and returned status", chunked: true, runChunk: originalTotalsMigrationChunk },
@@ -646,6 +655,7 @@ const migrations = [
   { version: 9, name: "stage 21 VAT: input VAT account 115", run: stage21VatInputAccountMigration },
   { version: 10, name: "stage 21 review: product prices rounded to 2 decimals (cost revaluation posted)", run: stage21ProductPricesMigration },
   { version: 11, name: "stage 23 review: drop the old non-unique printreservations index key_1_copyNo_1", outsideTransaction: true, run: stage23PrintReservationIndexMigration },
+  { version: 12, name: "online stage 3: website fields on products and categories (hidden by default)", run: onlineStage3WebsiteFieldsMigration },
 ];
 
 async function recordMigration(migration, details, session) {

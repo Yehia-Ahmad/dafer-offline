@@ -28,7 +28,9 @@ const printRoutes = require("./routes/print.routes");
 const { deviceContext } = require("./middlewares/device.middleware");
 const notFound = require("./middlewares/notFound.middleware");
 const errorHandler = require("./middlewares/error.middleware");
-const { requireJwtSecret, sessionsValidAfter } = require("./auth/config");
+const { requireJwtSecret, requireStoreJwtSecret, sessionsValidAfter } = require("./auth/config");
+const { createStoreRouter } = require("./routes/store.routes");
+const websiteRoutes = require("./routes/website.routes");
 const { costStrip, requireAuth } = require("./auth/middleware");
 
 const app = express();
@@ -37,6 +39,8 @@ const app = express();
 if (process.env.NOTA_TRUST_PROXY === "1") app.set("trust proxy", "loopback");
 // Fail closed: without a usable NOTA_JWT_SECRET the app must not start (throws here, at load).
 const jwtSecret = requireJwtSecret();
+// Online Stage 3: the customer website signs its own tokens with a different secret; the server must not start without it.
+const storeJwtSecret = requireStoreJwtSecret();
 
 // CORS_ORIGINS: comma-separated allow-list. Unset or empty: no cross-origin access (same origin only).
 const corsOrigins = String(process.env.CORS_ORIGINS || "")
@@ -44,7 +48,6 @@ const corsOrigins = String(process.env.CORS_ORIGINS || "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 app.use(cors({ origin: corsOrigins }));
-app.use(express.json({ limit: "10mb" }));
 app.use(createAccessLog());
 
 // Health check for nginx/systemd/deploy scripts: outside /api, no auth, no data besides ok/version/db.
@@ -54,6 +57,14 @@ app.get("/", (req, res) => {
   res.json({ message: "Warehouse API is running" });
 });
 
+// Online Stage 3: the public API of the customer website. Mounted BEFORE the staff requireAuth below, so it never sees a
+// staff token, and with its own small body limit (the 10mb staff limit never applies here).
+const storeRouter = createStoreRouter({ secret: storeJwtSecret });
+app.locals.store = storeRouter.controller; // the customer lockout counters, for tests
+app.use("/api/store", express.json({ limit: "64kb" }), storeRouter);
+
+// The staff API: 10mb JSON bodies (product images), then the session token.
+app.use("/api", express.json({ limit: "10mb" }));
 // Every /api request needs the session token, except the login screen's own endpoints
 // (bootstrap, login).
 app.use("/api", requireAuth(jwtSecret, { sessionsValidAfter: sessionsValidAfter() }));
@@ -88,6 +99,7 @@ app.use("/api/shop-profile", shopProfileRoutes);
 app.use("/api/suppliers", supplierRoutes);
 app.use("/api/purchases", purchaseRoutes);
 app.use("/api/supplier-payments", supplierPaymentRoutes);
+app.use("/api/website", websiteRoutes); // Online Stage 3: website.manage
 
 app.use(notFound);
 app.use(errorHandler);

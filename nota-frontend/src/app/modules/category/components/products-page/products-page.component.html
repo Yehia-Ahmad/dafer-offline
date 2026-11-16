@@ -64,6 +64,10 @@
           <input type="checkbox" [(ngModel)]="lowStockOnly" [ngModelOptions]="{ standalone: true }" />
           {{ 'productsPage.lowStockOnly' | translate }}
         </label>
+        <label *notaCan="'website.manage'" class="pp__toggle" data-test="website-filter">
+          <input type="checkbox" [(ngModel)]="websiteOnly" [ngModelOptions]="{ standalone: true }" />
+          {{ 'website.products.onlyOnWebsite' | translate }}
+        </label>
         <button *notaCan="'products.manage'" type="button" notaButton (click)="toggleArchived()">
           {{ (includeArchived ? 'productsPage.hideArchived' : 'productsPage.showArchived') | translate }}
         </button>
@@ -80,6 +84,7 @@
             <th class="num">{{ 'productsPage.columns.retail' | translate }}</th>
             <th class="num">{{ 'productsPage.columns.wholesale' | translate }}</th>
             <th class="num">{{ 'productsPage.columns.discount' | translate }}</th>
+            <th *notaCan="'website.manage'">{{ 'website.products.column' | translate }}</th>
             <th><span class="nota-sr-only">{{ 'tableHeaders.actions' | translate }}</span></th>
           </tr></thead>
           <tbody>
@@ -93,6 +98,7 @@
                 <td class="nota-num pp__strong">{{ product?.['retailPrice'] | notaMoney }}</td>
                 <td class="nota-num">{{ product?.['wholesalePrice'] | notaMoney }}</td>
                 <td class="nota-num pp__muted-cell">{{ product?.discountPercentage ? ('productsPage.percent' | translate: { value: (product.discountPercentage | notaNumber) }) : '—' }}</td>
+                <td *notaCan="'website.manage'"><span class="nota-pill" data-test="website-badge" [class.nota-pill--ok]="isOnWebsite(product)">{{ (isOnWebsite(product) ? 'website.products.on' : 'website.products.off') | translate }}</span></td>
                 <td>
                   @if (product.isArchived) {
                     <button *notaCan="'products.manage'" type="button" notaButton (click)="restoreProduct(product)">{{ 'productsPage.restore' | translate }}</button>
@@ -103,7 +109,7 @@
               </tr>
             } @empty {
               @if (hasLoadedProducts && !isLoadingProducts) {
-                <tr><td [attr.colspan]="columnCount()" class="pp__empty">{{ (lowStockOnly || searchTerm ? 'productsPage.noMatches' : 'productsPage.empty') | translate }}</td></tr>
+                <tr><td [attr.colspan]="columnCount()" class="pp__empty">{{ (lowStockOnly || websiteOnly || searchTerm ? 'productsPage.noMatches' : 'productsPage.empty') | translate }}</td></tr>
               }
             }
           </tbody>

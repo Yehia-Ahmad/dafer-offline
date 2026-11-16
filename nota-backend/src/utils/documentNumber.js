@@ -10,6 +10,8 @@ const PREFIXES = Object.freeze({
   PURCHASE_RETURN: "PR", SUPPLIER_REFUND: "SR",
   // Stage 21: monthly VAT return, VAT payment
   VAT_RETURN: "VR", VAT_PAYMENT: "VP",
+  // Online Stage 3: orders placed on the customer website (own counter, separate from every invoice type)
+  WEB_ORDER: "W",
 });
 
 const formatDocumentNumber = (prefix, seq) => `${prefix}-${String(seq).padStart(6, "0")}`;

@@ -25,6 +25,7 @@ const { canonicalRecoveryCode, generateRecoveryCode } = require("../src/controll
 
 const APP_PATH = path.join(__dirname, "..", "src", "app.js");
 const SECRET = "0123456789abcdef0123456789abcdef-test";
+const STORE_SECRET = "store-0123456789abcdef0123456789abcdef-test";
 
 const EXPECTED_CATALOG = [
   "sales.create", "sales.view", "sales.edit", "sales.delete", "sales.discount", "sales.priceBelowCost",
@@ -44,6 +45,8 @@ const EXPECTED_CATALOG = [
   "vat.file",
   // Stage 22
   "reports.financial", "accounting.close",
+  // Online Stage 3
+  "website.manage",
 ];
 
 test("catalog: exactly the Stage 13 keys, each with an Arabic and English label and a group", () => {
@@ -241,10 +244,43 @@ const EXPECTED_ROUTES = {
   "POST /api/purchases/:id/cancel": "purchases.cancel",
   "POST /api/purchases/:id/returns": "purchases.create",
   "PUT /api/shop-profile": "shop.manage",
+  // Online Stage 3: the admin side of the customer website
+  "GET /api/website/settings": "website.manage",
+  "PUT /api/website/settings": "website.manage",
+  "GET /api/website/delivery-zones": "website.manage",
+  "POST /api/website/delivery-zones": "website.manage",
+  "PUT /api/website/delivery-zones/:id": "website.manage",
+  "DELETE /api/website/delivery-zones/:id": "website.manage",
+  "PUT /api/website/products/:id": "website.manage",
+  "PUT /api/website/categories/:id": "website.manage",
+  // Online Stage 3: the public API of the customer website. STORE = no token needed (a guest may call it),
+  // STORE:customer = needs a customer token (never a staff token). POST /orders accepts a guest or a customer.
+  "GET /api/store/settings": "STORE",
+  "GET /api/store/categories": "STORE",
+  "GET /api/store/products": "STORE",
+  "GET /api/store/products/:id": "STORE",
+  "GET /api/store/delivery-zones": "STORE",
+  "GET /api/store/images/product/:id/:index": "STORE",
+  "GET /api/store/images/category/:id": "STORE",
+  "GET /api/store/images/banner/:id": "STORE",
+  "GET /api/store/images/logo": "STORE",
+  "POST /api/store/auth/register": "STORE",
+  "POST /api/store/auth/login": "STORE",
+  "POST /api/store/orders": "STORE",
+  "GET /api/store/orders/track/:token": "STORE",
+  "GET /api/store/me": "STORE:customer",
+  "PUT /api/store/me": "STORE:customer",
+  "GET /api/store/me/addresses": "STORE:customer",
+  "POST /api/store/me/addresses": "STORE:customer",
+  "PUT /api/store/me/addresses/:id": "STORE:customer",
+  "DELETE /api/store/me/addresses/:id": "STORE:customer",
+  "GET /api/store/me/orders": "STORE:customer",
+  "GET /api/store/me/orders/:id": "STORE:customer",
+  "POST /api/store/me/orders/:id/cancel": "STORE:customer",
 };
 
 const loadApp = (env) => {
-  const keys = ["NOTA_JWT_SECRET", "CORS_ORIGINS"];
+  const keys = ["NOTA_JWT_SECRET", "NOTA_STORE_JWT_SECRET", "CORS_ORIGINS"];
   const saved = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   keys.forEach((key) => delete process.env[key]);
   Object.assign(process.env, env);
@@ -291,7 +327,7 @@ const permissionOf = (stack) => {
 };
 
 test("every /api route has exactly one permission, and the map is the documented one", () => {
-  const app = loadApp({ NOTA_JWT_SECRET: SECRET });
+  const app = loadApp({ NOTA_JWT_SECRET: SECRET, NOTA_STORE_JWT_SECRET: STORE_SECRET });
   const routes = listRoutes(app).filter((route) => route.key.split(" ")[1].startsWith("/api"));
   const actual = Object.fromEntries(routes.map((route) => [route.key, permissionOf(route.stack)]));
   const missing = Object.entries(actual).filter(([, permission]) => !permission).map(([key]) => key);
@@ -299,13 +335,18 @@ test("every /api route has exactly one permission, and the map is the documented
   assert.deepEqual(actual, EXPECTED_ROUTES);
   for (const permission of Object.values(actual)) {
     for (const key of permission.split(/ [+|] /)) {
-      assert.ok(key === "PUBLIC" || key === "AUTHENTICATED" || PERMISSIONS[key], `${key} is in the catalog`);
+      assert.ok(key === "PUBLIC" || key === "AUTHENTICATED" || key === "STORE" || key === "STORE:customer" || PERMISSIONS[key], `${key} is in the catalog`);
     }
+  }
+  // Online Stage 3: every /api/store route carries a STORE tag and nothing else does.
+  for (const [key, permission] of Object.entries(actual)) {
+    const isStoreRoute = key.split(" ")[1].startsWith("/api/store/");
+    assert.equal(permission.startsWith("STORE"), isStoreRoute, `${key}: a STORE tag belongs on /api/store routes only`);
   }
 });
 
 test("setup-owner and recover are not routes: an owner is created and recovered on the server only", () => {
-  const app = loadApp({ NOTA_JWT_SECRET: SECRET });
+  const app = loadApp({ NOTA_JWT_SECRET: SECRET, NOTA_STORE_JWT_SECRET: STORE_SECRET });
   const keys = listRoutes(app).map((route) => route.key);
   assert.ok(!keys.some((key) => /setup-owner|recover/.test(key)), keys.join(", "));
 });
@@ -391,7 +432,7 @@ test("recovery codes: XXXX-XXXX-XXXX-XXXX without 0/O/1/I; input is normalized",
 
 test("startup fails with a missing or short NOTA_JWT_SECRET", () => {
   const run = (env) => {
-    const childEnv = { ...process.env, ...env };
+    const childEnv = { NOTA_STORE_JWT_SECRET: STORE_SECRET, ...process.env, ...env };
     if (env.NOTA_JWT_SECRET === undefined) delete childEnv.NOTA_JWT_SECRET;
     return spawnSync(process.execPath, ["-e", `require(${JSON.stringify(APP_PATH)})`], { env: childEnv, encoding: "utf8", windowsHide: true });
   };

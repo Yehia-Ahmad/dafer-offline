@@ -223,6 +223,8 @@ env_set CORS_ORIGINS "https://$domain" "$NOTA_BACKEND_ENV"
 [ -n "$(env_get PORT "$NOTA_BACKEND_ENV")" ] || env_set PORT "$PORT" "$NOTA_BACKEND_ENV"
 env_set MONGO_URI "mongodb://nota_app:${app_pass}@127.0.0.1:27017/${DB_NAME}?replicaSet=rs0&authSource=${DB_NAME}" "$NOTA_BACKEND_ENV"
 [ -n "$(env_get NOTA_JWT_SECRET "$NOTA_BACKEND_ENV")" ] || env_set NOTA_JWT_SECRET "$(rand_hex 48)" "$NOTA_BACKEND_ENV"
+# Online Stage 3: the customer website signs its own tokens with a separate secret (only generated when missing).
+[ -n "$(env_get NOTA_STORE_JWT_SECRET "$NOTA_BACKEND_ENV")" ] || env_set NOTA_STORE_JWT_SECRET "$(rand_hex 48)" "$NOTA_BACKEND_ENV"
 PORT="$(backend_port)"
 
 if [ ! -f "$NOTA_BACKUP_ENV" ]; then

@@ -30,6 +30,12 @@ const categorySchema = new mongoose.Schema(
       ],
       default: [],
     },
+    // Online Stage 3: the customer website. Nothing shows until the shop sets visible = true (website.manage). No schema defaults on
+    // purpose: a missing field means hidden, and the staff API answers stay exactly as before for categories that never had it.
+    website: {
+      visible: { type: Boolean },
+      sortOrder: { type: Number },
+    },
   },
   { timestamps: true }
 );

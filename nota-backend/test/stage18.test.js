@@ -784,7 +784,7 @@ it("bank and wallet accounts are 5-digit children of 112 and the migration renam
   await Account.collection.updateOne({ _id: bank._id }, { $set: { code: "1121" } });
   await JournalEntry.collection.updateMany({ "lines.accountId": bank._id }, { $set: { "lines.$[row].accountCode": "1121" } }, { arrayFilters: [{ "row.accountId": bank._id }] });
   await Meta.updateOne({ _id: "schema" }, { $set: { version: 5 } });
-  assert.equal(await runMigrations(), 11);
+  assert.equal(await runMigrations(), 12);
   assert.equal((await Account.findById(bank._id).lean()).code, "11201");
   const entry = await currentOpening();
   assert.equal(entry.lines.find((row) => String(row.accountId) === String(bank._id)).accountCode, "11201");
@@ -800,7 +800,7 @@ it("the migration marks setupEndedAt for installs that already have documents af
   await sell(p);
   await Meta.updateOne({ _id: "schema" }, { $unset: { "opening.setupEndedAt": "" }, $set: { version: 5 } });
   assert.equal(await isSetupMode(), true, "the marker is missing");
-  assert.equal(await runMigrations(), 11);
+  assert.equal(await runMigrations(), 12);
   assert.equal(await isSetupMode(), false);
   assert.ok((await Meta.findById("schema").lean()).opening.setupEndedAt);
 });

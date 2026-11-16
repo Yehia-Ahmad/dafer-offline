@@ -50,6 +50,9 @@ export const NAV_ICONS = {
   users: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4',
   shop: 'M3 9l2-5h14l2 5M4 9v11h16V9M3 9h18M9 20v-6h6v6',
   audit: 'M9 4h6v3H9zM7 5H5v16h14V5h-2M8 11h8M8 15h8M8 19h5',
+  /** Online Stage 3: a globe (the customer website) and a delivery truck. */
+  website: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9S14.5 18.3 12 21M12 3C9.5 5.7 8.2 8.7 8.2 12S9.5 18.3 12 21',
+  delivery: 'M3 6h11v10H3zM14 10h4l3 3v3h-7M7 19h.01M17 19h.01',
 } as const;
 
 /** The route's permission rule, as its guard checks it. */
@@ -105,6 +108,15 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { key: 'reports', labelKey: 'nav.items.reports', route: '/accounting/reports', icon: NAV_ICONS.reports, visible: allowed(ROUTE_RULES.financialReports) },
       { key: 'closing', labelKey: 'closing.navLabel', route: '/accounting/closing', icon: NAV_ICONS.audit, visible: allowed(ROUTE_RULES.closing) },
       { key: 'profit', labelKey: 'nav.items.profit', route: '/products/profit-report', icon: NAV_ICONS.profit, visible: allowed(ROUTE_RULES.profitReport) },
+    ],
+  },
+  {
+    // Online Stage 3: the customer website (website.manage).
+    key: 'website',
+    labelKey: 'nav.groups.website',
+    items: [
+      { key: 'website-settings', labelKey: 'nav.items.websiteSettings', route: '/website/settings', icon: NAV_ICONS.website, visible: allowed(ROUTE_RULES.websiteSettings) },
+      { key: 'delivery-zones', labelKey: 'nav.items.deliveryZones', route: '/website/delivery-zones', icon: NAV_ICONS.delivery, visible: allowed(ROUTE_RULES.deliveryZones) },
     ],
   },
   {

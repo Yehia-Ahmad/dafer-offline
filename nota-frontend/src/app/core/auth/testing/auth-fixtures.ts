@@ -16,6 +16,8 @@ export const ALL_PERMISSIONS = [
   'cashbox.view', 'cashbox.manage', 'shift.operate', 'shift.manage', 'expenses.create', 'expenses.manage', 'owner.drawings',
   // Stage 21
   'vat.file',
+  // Online Stage 3
+  'website.manage',
 ] as const;
 
 const VIEW = ['sales.view', 'credit.view', 'returns.view', 'customers.view', 'products.view', 'dashboard.view'];
@@ -57,7 +59,7 @@ const LABELS: Record<string, string> = {
   'shop.manage': 'إدارة بيانات المتجر', 'users.manage': 'إدارة المستخدمين والصلاحيات', 'audit.view': 'عرض سجل العمليات',
   'backup.manage': 'النسخ الاحتياطي والاستعادة', 'vat.file': 'تقديم الإقرار الضريبي وسداد الضريبة',
   'cashbox.view': 'عرض الخزائن وأرصدتها', 'cashbox.manage': 'إدارة الخزائن والتحويلات', 'shift.operate': 'فتح وإغلاق ورديتك',
-  'shift.manage': 'عرض كل الورديات وإغلاق وردية غيرك', 'expenses.create': 'تسجيل مصروف', 'expenses.manage': 'إلغاء المصروفات وإدارة البنود', 'owner.drawings': 'سحب المالك',
+  'shift.manage': 'عرض كل الورديات وإغلاق وردية غيرك', 'expenses.create': 'تسجيل مصروف', 'expenses.manage': 'إلغاء المصروفات وإدارة البنود', 'owner.drawings': 'سحب المالك', 'website.manage': 'إدارة الموقع',
 };
 
 /** GET /api/auth/permissions, as the backend returns it. */
@@ -76,6 +78,7 @@ export const FAKE_CATALOG: PermissionCatalog = {
     products: { ar: 'المنتجات والمخزون', en: 'Products and inventory' },
     reports: { ar: 'التقارير', en: 'Reports' },
     admin: { ar: 'الإدارة', en: 'Administration' },
+    website: { ar: 'الموقع', en: 'Website' },
   },
   roles: [
     { role: 'owner', ar: 'المالك', en: 'Owner', permissions: ROLE_PERMISSIONS.owner, editable: false },

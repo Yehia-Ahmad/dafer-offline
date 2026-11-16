@@ -8,6 +8,9 @@ const { runWithUser } = require("./context");
 const PERMISSION_TAG = Symbol.for("nota.permission");
 const PUBLIC = "PUBLIC";
 const AUTHENTICATED = "AUTHENTICATED";
+// Online Stage 3: routes of the customer website (/api/store). They never use the staff token.
+const STORE = "STORE";
+const STORE_CUSTOMER = "STORE:customer";
 
 const SESSION_EXPIRED = "SESSION_EXPIRED";
 const FORBIDDEN = "FORBIDDEN";
@@ -231,6 +234,8 @@ module.exports = {
   FORBIDDEN,
   PERMISSION_TAG,
   PUBLIC,
+  STORE,
+  STORE_CUSTOMER,
   SESSION_EXPIRED,
   canSellBelowCost,
   costStrip,

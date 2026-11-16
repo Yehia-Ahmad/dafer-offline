@@ -203,6 +203,18 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/shop-profile/components/shop-profile/shop-profile.component').then(m => m.ShopProfileComponent)
     },
     {
+        // Online Stage 3: the customer website's settings (website.manage).
+        path: 'website/settings',
+        canDeactivate: [unsavedWorkGuard],
+        canActivate: [permissionGuard(ROUTE_RULES.websiteSettings)],
+        loadComponent: () => import('./modules/website/website-settings/website-settings.component').then(m => m.WebsiteSettingsComponent)
+    },
+    {
+        path: 'website/delivery-zones',
+        canActivate: [permissionGuard(ROUTE_RULES.deliveryZones)],
+        loadComponent: () => import('./modules/website/delivery-zones/delivery-zones.component').then(m => m.DeliveryZonesComponent)
+    },
+    {
         path: 'users',
         canDeactivate: [unsavedWorkGuard],
         canActivate: [permissionGuard(ROUTE_RULES.users)],

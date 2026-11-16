@@ -1,0 +1,99 @@
+<!-- Online Stage 3: delivery zones. /api/website/delivery-zones (website.manage). -->
+<div class="dz">
+  <nota-page-header [title]="'website.zones.title' | translate" [subtitle]="'website.zones.subtitle' | translate">
+    <div notaPageActions>
+      <button type="button" notaButton="primary" data-action="add-zone" (click)="openAdd()">+ {{ 'website.zones.add' | translate }}</button>
+    </div>
+  </nota-page-header>
+
+  @if (loadError()) {
+    <div class="dz__alert" role="alert">
+      {{ 'website.zones.loadFailed' | translate }}
+      <button type="button" notaButton (click)="load()">{{ 'website.zones.retry' | translate }}</button>
+    </div>
+  }
+  @if (errorMessage() && !dialogOpen()) {
+    <div class="dz__alert" role="alert" data-test="zone-error">{{ errorMessage() }}</div>
+  }
+
+  <div class="nota-table-wrap">
+    <table class="nota-table dz__table">
+      <thead><tr>
+        <th>{{ 'website.zones.columns.name' | translate }}</th>
+        <th class="num">{{ 'website.zones.columns.fee' | translate }}</th>
+        <th>{{ 'website.zones.columns.time' | translate }}</th>
+        <th>{{ 'website.zones.columns.status' | translate }}</th>
+        <th><span class="nota-sr-only">{{ 'tableHeaders.actions' | translate }}</span></th>
+      </tr></thead>
+      <tbody>
+        @for (zone of zones(); track zone.id) {
+          <tr data-test="zone-row" [class.is-off]="!zone.isActive">
+            <td class="dz__name">{{ zone.name }}</td>
+            <td class="nota-num">{{ zone.fee | notaMoney }}</td>
+            <td>{{ zone.estimatedTime || '—' }}</td>
+            <td>
+              <span class="nota-pill" [class.nota-pill--ok]="zone.isActive">{{ (zone.isActive ? 'website.zones.active' : 'website.zones.inactive') | translate }}</span>
+            </td>
+            <td class="dz__actions">
+              <button type="button" notaButton data-action="edit-zone" (click)="openEdit(zone)">{{ 'website.zones.edit' | translate }}</button>
+              @if (zone.used) {
+                <!-- An order used this zone: it can only be deactivated. -->
+                @if (zone.isActive) {
+                  <button type="button" notaButton data-action="deactivate-zone" (click)="deactivate(zone)" [title]="'website.zones.usedHint' | translate">{{ 'website.zones.deactivate' | translate }}</button>
+                } @else {
+                  <button type="button" notaButton data-action="activate-zone" (click)="activate(zone)">{{ 'website.zones.activate' | translate }}</button>
+                }
+              } @else {
+                <button type="button" notaButton="danger" data-action="delete-zone" (click)="askDelete(zone)">{{ 'website.zones.delete' | translate }}</button>
+              }
+            </td>
+          </tr>
+        } @empty {
+          @if (!loading()) {
+            <tr><td colspan="5" class="dz__empty">{{ 'website.zones.empty' | translate }}</td></tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+  @if (loading()) { <p class="dz__muted" role="status">{{ 'website.zones.loading' | translate }}</p> }
+</div>
+
+<!-- Add / edit -->
+<p-dialog [visible]="dialogOpen()" (visibleChange)="dialogOpen.set($event)" [modal]="true" [showHeader]="false" styleClass="nota-p-dialog" appendTo="body">
+  <nota-dialog-shell [title]="(editing() ? 'website.zones.editTitle' : 'website.zones.addTitle') | translate" [closeLabel]="'nav.categories.close' | translate" (closed)="closeDialog()">
+    <form class="dz__form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <nota-form-field [label]="'website.zones.fields.name' | translate" forId="dz-name" [required]="true" [error]="showError('name') ? ('website.zones.validation.nameRequired' | translate) : null">
+        <input id="dz-name" type="text" class="nota-input" formControlName="name" [maxLength]="limits.zoneName" />
+      </nota-form-field>
+      <nota-form-field [label]="'website.zones.fields.fee' | translate" forId="dz-fee" [required]="true" [hint]="'website.zones.feeHint' | translate" [error]="showError('fee') ? ('website.zones.validation.feeInvalid' | translate) : null">
+        <input id="dz-fee" type="text" inputmode="decimal" dir="ltr" class="nota-input dz__num" formControlName="fee" />
+      </nota-form-field>
+      <nota-form-field [label]="'website.zones.fields.time' | translate" forId="dz-time">
+        <input id="dz-time" type="text" class="nota-input" formControlName="estimatedTime" [maxLength]="limits.zoneTime" [placeholder]="'website.zones.timePlaceholder' | translate" />
+      </nota-form-field>
+      <nota-form-field [label]="'website.zones.fields.order' | translate" forId="dz-order" [error]="showError('sortOrder') ? ('website.zones.validation.orderInvalid' | translate) : null">
+        <input id="dz-order" type="text" inputmode="numeric" dir="ltr" class="nota-input dz__num" formControlName="sortOrder" />
+      </nota-form-field>
+      <label class="dz__check"><input type="checkbox" formControlName="isActive" data-field="zone-active" /> {{ 'website.zones.fields.active' | translate }}</label>
+      @if (errorMessage()) {
+        <p class="dz__error" role="alert">{{ errorMessage() }}</p>
+      }
+    </form>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="closeDialog()">{{ 'website.zones.cancel' | translate }}</button>
+      <button type="button" notaButton="primary" data-action="save-zone" [disabled]="saving()" (click)="save()">{{ (saving() ? 'website.zones.saving' : 'website.zones.save') | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Delete (only a zone no order used) -->
+<p-dialog [visible]="!!deleting()" (visibleChange)="$event || cancelDelete()" [modal]="true" [showHeader]="false" styleClass="nota-p-dialog nota-p-dialog--sm" appendTo="body">
+  <nota-dialog-shell [title]="'website.zones.deleteTitle' | translate" [closeLabel]="'nav.categories.close' | translate" (closed)="cancelDelete()">
+    <p class="dz__message">{{ 'website.zones.deleteMessage' | translate }} <strong>{{ deleting()?.name }}</strong></p>
+    <ng-container notaDialogFooter>
+      <button type="button" notaButton (click)="cancelDelete()">{{ 'website.zones.cancel' | translate }}</button>
+      <button type="button" notaButton="danger" data-action="confirm-delete-zone" [disabled]="saving()" (click)="confirmDelete()">{{ 'website.zones.delete' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>

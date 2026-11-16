@@ -68,7 +68,7 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   }
   private readonly _auth = inject(AuthService);
   /** Table columns: the purchase-price column is there only with products.viewCost. */
-  readonly columnCount = computed(() => (this._auth.has('products.viewCost') ? 8 : 7));
+  readonly columnCount = computed(() => 7 + (this._auth.has('products.viewCost') ? 1 : 0) + (this._auth.has('website.manage') ? 1 : 0));
   private readonly _catalog = inject(CatalogStateService);
   private readonly _cateoryService = inject(CateoryService);
   private readonly _activatedRoute = inject(ActivatedRoute);
@@ -98,6 +98,8 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   products: Product[] = [];
   searchTerm = '';
   lowStockOnly = false;
+  /** Online Stage 3: only products shown on the website (needs website.manage; filters the loaded rows like the low-stock filter). */
+  websiteOnly = false;
   includeArchived = false;
   errorVisible = false;
   errorMessage = '';
@@ -132,6 +134,11 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
     return !this.categoryId;
   }
 
+  /** Online Stage 3: the product's website.visible flag (a product without the field is not on the website). */
+  isOnWebsite(product: Product | null | undefined): boolean {
+    return Boolean((product?.['website'] as { visible?: boolean } | undefined)?.visible);
+  }
+
   get filteredProducts(): Product[] {
     const normalizedSearchTerm = this.searchTerm.trim().toLowerCase();
     const searched = !normalizedSearchTerm
@@ -141,7 +148,8 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
         const productCode = String(product?.code || '').toLowerCase();
         return productName.includes(normalizedSearchTerm) || productCode.includes(normalizedSearchTerm);
       });
-    return this.lowStockOnly ? searched.filter((product) => this.isLowStock(product)) : searched;
+    const lowStock = this.lowStockOnly ? searched.filter((product) => this.isLowStock(product)) : searched;
+    return this.websiteOnly ? lowStock.filter((product) => this.isOnWebsite(product)) : lowStock;
   }
 
   selectCategory(categoryId: string, replaceUrl = false): void {

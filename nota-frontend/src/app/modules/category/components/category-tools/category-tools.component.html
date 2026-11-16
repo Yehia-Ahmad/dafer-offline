@@ -94,6 +94,11 @@
       </div>
     </form>
 
+    <!-- Online Stage 3: show on website + order (website.manage), for an existing category. Saves on its own. -->
+    @if (editingCategory?.id) {
+      <app-category-website-fields *notaCan="'website.manage'" [categoryId]="editingCategory.id" [website]="editingCategory.category?.website" />
+    }
+
     <ng-container notaDialogFooter>
       <button type="button" notaButton (click)="closeDialog()">{{ 'nav.categories.cancel' | translate }}</button>
       <button type="button" notaButton="primary" data-action="save-category" (click)="addNewCategory()"

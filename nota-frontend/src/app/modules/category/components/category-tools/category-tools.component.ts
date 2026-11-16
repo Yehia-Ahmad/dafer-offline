@@ -12,6 +12,7 @@ import { LanguageService } from '../../../shared/services/translation.service';
 import { BRAND } from '../../../../core/brand';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent } from '../../../shared/ui';
 import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
+import { CategoryWebsiteFieldsComponent } from '../../../website/category-website-fields.component';
 
 /**
  * Category tools of the Products page (Stage 11; moved unchanged from the Stage 8 sidebar item):
@@ -25,7 +26,7 @@ import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
   selector: 'app-category-tools',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule, MatProgressSpinnerModule, MatSnackBarModule, DialogModule, TranslatePipe,
-    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaCanDirective],
+    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaCanDirective, CategoryWebsiteFieldsComponent],
   templateUrl: './category-tools.component.html',
   host: { class: 'cat-tools' },
 })

@@ -1,0 +1,30 @@
+// Website settings (Online Stage 3). Tokens only.
+:host { display: block; }
+.ws { display: flex; flex-direction: column; gap: var(--space-gap); }
+.ws__form { display: flex; flex-direction: column; gap: 16px; max-width: 880px; }
+.ws__card { display: flex; flex-direction: column; gap: 14px; }
+.ws__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.ws__check { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.ws__ltr { text-align: left; }
+:host-context(html[dir='rtl']) .ws__ltr { text-align: right; }
+.ws__muted { margin: 0; color: var(--text-muted); }
+.ws__alert { padding: 14px 16px; border-radius: 12px; line-height: 1.7; background: var(--danger-soft); color: var(--danger-text); }
+.ws__file { cursor: pointer; align-self: flex-start; }
+
+.ws__banners { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.ws__banner { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+.ws__banner-img { width: 160px; max-width: 100%; aspect-ratio: 16 / 7; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); }
+.ws__banner-body { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.ws__banner-actions { display: flex; gap: 6px; }
+.ws__search { display: flex; gap: 6px; .nota-input { flex: 1; min-width: 0; } }
+.ws__results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ws__result { width: 100%; text-align: start; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer;
+  &:hover { background: var(--brand-soft); } }
+.ws__chosen { font-size: 13px; font-weight: 600; color: var(--brand-strong-text); }
+
+.ws__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ws__chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--border-strong); border-radius: 999px; cursor: pointer; background: var(--surface);
+  &.is-on { background: var(--brand-soft); color: var(--brand-strong-text); border-color: var(--brand); } }
+
+.ws__footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.ws__status { margin-inline-end: auto; font-size: 14px; font-weight: 500; color: var(--success); &.is-error { color: var(--danger); } }

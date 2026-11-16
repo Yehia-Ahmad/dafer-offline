@@ -11,6 +11,7 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { format as formatDate } from 'date-fns';
 import { CateoryService } from '../../services/cateory.service';
 import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
+import { ProductWebsiteSectionComponent } from '../../../website/product-website-section.component';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import {
@@ -33,7 +34,7 @@ export type ProductFormMode = 'new' | 'edit';
   selector: 'app-product-form',
   standalone: true,
   imports: [CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DialogModule, DatePickerModule, NotaCanDirective,
-    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
+    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, ProductWebsiteSectionComponent],
   templateUrl: './product-form.component.html',
   styleUrl: './product-form.component.scss',
 })

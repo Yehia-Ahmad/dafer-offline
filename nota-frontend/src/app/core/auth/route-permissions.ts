@@ -25,6 +25,9 @@ export const ROUTE_RULES = {
   productNew: { all: ['products.manage', 'products.viewCost'] },
   profitReport: { all: ['reports.profit', 'products.viewCost'] },
   shopProfile: { all: ['shop.manage'] },
+  /** Online Stage 3: the customer website's settings and delivery zones. */
+  websiteSettings: { all: ['website.manage'] },
+  deliveryZones: { all: ['website.manage'] },
   users: { all: ['users.manage'] },
   audit: { all: ['audit.view'] },
   accounting: { all: ['accounting.view'] },

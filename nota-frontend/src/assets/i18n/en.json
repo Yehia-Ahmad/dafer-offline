@@ -867,6 +867,7 @@
             "inventory": "Inventory",
             "treasury": "Treasury",
             "accounting": "Accounting",
+            "website": "Website",
             "admin": "Administration"
         },
         "items": {
@@ -889,6 +890,8 @@
             "users": "Users & permissions",
             "shop": "Shop profile",
             "audit": "Audit log",
+            "websiteSettings": "Website settings",
+            "deliveryZones": "Delivery zones",
             "opening": "Opening balances"
         },
         "collapse": "Collapse menu",
@@ -2330,5 +2333,161 @@
   "lock": {
     "banner": "This period is closed through {{date}}",
     "selectedLocked": "This date is in a closed period. Pick a date after {{date}}"
+  },
+  "website": {
+    "settings": {
+      "title": "Website settings",
+      "subtitle": "Everything about the shop's website that customers see",
+      "loading": "Loading settings…",
+      "loadFailed": "Could not load the website settings",
+      "saved": "Website settings saved",
+      "saveFailed": "Could not save the website settings",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "status": {
+        "title": "Website status",
+        "enabled": "The website is open to customers",
+        "enabledHint": "When closed, customers only see the closed message and no products.",
+        "ordering": "Accept orders",
+        "orderingHint": "When off, customers can browse but not order.",
+        "closedMessage": "Closed message"
+      },
+      "identity": {
+        "title": "Identity",
+        "siteTitle": "Website title",
+        "about": "About the shop"
+      },
+      "banners": {
+        "title": "Banners",
+        "hint": "Up to {{count}} banners at the top of the home page. Reorder them with the arrows.",
+        "image": "Banner image",
+        "invalidType": "The file must be an image",
+        "tooLarge": "The image is larger than 1 MB",
+        "readFailed": "Could not read the image",
+        "linkMissing": "Choose where each linked banner goes",
+        "linkTo": "Link",
+        "linkNone": "No link",
+        "linkCategory": "Category",
+        "linkProduct": "Product",
+        "choose": "Choose…",
+        "productChosen": "Product chosen",
+        "searchProduct": "Search a product by name or code",
+        "search": "Search",
+        "noResults": "No results",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "remove": "Remove banner",
+        "add": "Add banner"
+      },
+      "featured": {
+        "title": "Featured categories",
+        "hint": "Up to {{count}} categories on the home page. Categories hidden from the website are not shown.",
+        "none": "No categories yet"
+      },
+      "contact": {
+        "title": "Contact and social",
+        "whatsapp": "WhatsApp",
+        "whatsappHint": "A mobile number or a wa.me link",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "tiktok": "TikTok",
+        "urlInvalid": "Enter a valid link starting with https://"
+      },
+      "rules": {
+        "title": "Ordering rules",
+        "minOrder": "Minimum order",
+        "minOrderHint": "Measured on the products total. Leave empty for no minimum.",
+        "freeDelivery": "Free delivery from",
+        "freeDeliveryHint": "When the products total reaches this amount, delivery is free. Leave empty to turn it off.",
+        "amountInvalid": "Enter zero or more (up to 2 decimals)"
+      },
+      "texts": {
+        "title": "Website texts",
+        "orderNote": "Note shown at checkout",
+        "orderNoteHint": "For example delivery times",
+        "returnsPolicy": "Returns policy",
+        "terms": "Terms and conditions"
+      }
+    },
+    "zones": {
+      "title": "Delivery zones",
+      "subtitle": "Each zone has a delivery fee. The fee is the final amount the customer pays for delivery.",
+      "add": "Add zone",
+      "loadFailed": "Could not load the zones",
+      "retry": "Retry",
+      "loading": "Loading…",
+      "empty": "No delivery zones yet",
+      "columns": {
+        "name": "Zone",
+        "fee": "Fee",
+        "time": "Estimated time",
+        "status": "Status"
+      },
+      "active": "Active",
+      "inactive": "Inactive",
+      "edit": "Edit",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "delete": "Delete",
+      "usedHint": "Used by orders: it can only be deactivated",
+      "addTitle": "Add a delivery zone",
+      "editTitle": "Edit the delivery zone",
+      "fields": {
+        "name": "Zone name",
+        "fee": "Delivery fee",
+        "time": "Estimated time",
+        "order": "Order",
+        "active": "The zone is active"
+      },
+      "feeHint": "Zero = free delivery for this zone",
+      "timePlaceholder": "e.g. within 24 hours",
+      "validation": {
+        "nameRequired": "The zone name is required",
+        "feeInvalid": "Enter a valid fee (zero or more)",
+        "orderInvalid": "Enter a whole number"
+      },
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…",
+      "deleteTitle": "Delete a delivery zone",
+      "deleteMessage": "The zone will be deleted:"
+    },
+    "product": {
+      "title": "Website",
+      "visible": "Show on the website",
+      "visibleHint": "A product reaches customers only if its category is also shown on the website.",
+      "description": "Website description",
+      "images": "Extra website images",
+      "image": "Image",
+      "removeImage": "Remove the image",
+      "addImage": "Add an image",
+      "imagesHint": "Up to {{count}} extra images next to the main product image",
+      "invalidType": "The file must be an image",
+      "tooLarge": "The image is larger than 1 MB",
+      "readFailed": "Could not read the image",
+      "saved": "Website details saved",
+      "saveFailed": "Could not save the website details",
+      "saving": "Saving…",
+      "save": "Save website details",
+      "saveFirst": "Save the product first, then open it for editing to put it on the website."
+    },
+    "category": {
+      "title": "Website",
+      "visible": "Show the category on the website",
+      "visibleHint": "A hidden category and all its products are not shown to customers.",
+      "order": "Category order on the website",
+      "orderInvalid": "Enter a whole number",
+      "saved": "Saved",
+      "saveFailed": "Could not save",
+      "saving": "Saving…",
+      "save": "Save website details"
+    },
+    "products": {
+      "onlyOnWebsite": "Only on the website",
+      "column": "Website",
+      "on": "Shown",
+      "off": "Hidden"
+    }
   }
 }

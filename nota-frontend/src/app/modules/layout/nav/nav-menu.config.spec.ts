@@ -14,17 +14,19 @@ describe('nav menu config', () => {
       ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
       ['accounting', ['vat', 'profit']],
+      ['website', ['website-settings', 'delivery-zones']],
       ['admin', ['users', 'audit', 'shop']],
     ]);
   });
 
-  it('manager: everything except users', () => {
+  it('manager: everything except users (the website group included: website.manage is in its template)', () => {
     expect(keys(visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.manager)))).toEqual([
       ['main', ['home']],
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
       ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
       ['accounting', ['vat', 'profit']],
+      ['website', ['website-settings', 'delivery-zones']],
       ['admin', ['audit', 'shop']],
     ]);
   });
@@ -117,6 +119,18 @@ describe('nav menu config', () => {
       expect(!!item.route).withContext(item.key).toBeTrue();
       expect(item.icon).withContext(item.key).toBeTruthy();
       expect(item.labelKey).withContext(item.key).toMatch(/^nav\.items\./);
+    }
+  });
+
+  it('Online Stage 3: the website group needs website.manage; cashier, storekeeper and accountant never see it', () => {
+    const website = NAV_GROUPS.find((g) => g.key === 'website')!;
+    expect(website.items.map((i) => i.route)).toEqual(['/website/settings', '/website/delivery-zones']);
+    for (const item of website.items) {
+      expect(item.visible(ctxFor([]))).toBeFalse();
+      expect(item.visible(ctxFor(['website.manage']))).toBeTrue();
+    }
+    for (const role of ['cashier', 'storekeeper', 'accountant'] as const) {
+      expect(visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS[role])).some((g) => g.key === 'website')).toBeFalse();
     }
   });
 });

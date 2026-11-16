@@ -61,6 +61,9 @@ const PERMISSIONS = {
   "expenses.create": { group: "cashbox", ar: "تسجيل مصروف", en: "Record expenses" },
   "expenses.manage": { group: "cashbox", ar: "إلغاء المصروفات وإدارة البنود", en: "Cancel expenses and manage categories" },
   "owner.drawings": { group: "cashbox", ar: "سحب المالك", en: "Owner drawings" },
+
+  // Online Stage 3: the customer website (settings, delivery zones, which products/categories show on it).
+  "website.manage": { group: "website", ar: "إدارة الموقع", en: "Manage website" },
 };
 
 const PERMISSION_GROUPS = {
@@ -74,6 +77,7 @@ const PERMISSION_GROUPS = {
   admin: { ar: "الإدارة", en: "Administration" },
   accounting: { ar: "الحسابات", en: "Accounting" },
   cashbox: { ar: "الخزنة", en: "Cash" },
+  website: { ar: "الموقع", en: "Website" },
 };
 
 const ALL_PERMISSIONS = Object.freeze(Object.keys(PERMISSIONS));

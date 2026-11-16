@@ -1,0 +1,15 @@
+// Delivery zones (Online Stage 3). Tokens only.
+:host { display: block; }
+.dz { display: flex; flex-direction: column; gap: var(--space-gap); }
+.dz__alert { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 12px; line-height: 1.7; background: var(--danger-soft); color: var(--danger-text); }
+.dz__muted { margin: 0; color: var(--text-muted); }
+.dz__name { font-weight: 600; }
+.dz__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.dz__empty { text-align: center; color: var(--text-muted); padding: 24px; }
+tr.is-off .dz__name { color: var(--text-muted); }
+.dz__form { display: flex; flex-direction: column; gap: 14px; min-width: min(420px, 80vw); }
+.dz__num { font-variant-numeric: tabular-nums; text-align: left; }
+:host-context(html[dir='rtl']) .dz__num { text-align: right; }
+.dz__check { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.dz__error { margin: 0; color: var(--danger); }
+.dz__message { margin: 0; line-height: 1.8; }

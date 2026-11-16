@@ -58,6 +58,13 @@ chmod -R u=rwX,g=rX,o= "$staging"
 rm -rf "$target"
 mv "$staging" "$target"
 
+# 2b. Online Stage 3: a server installed before the customer website has no NOTA_STORE_JWT_SECRET, and the new backend refuses to
+#     start without it. Generate it once, only when missing (never replaces an existing secret).
+if [ -z "$(env_get NOTA_STORE_JWT_SECRET "$NOTA_BACKEND_ENV")" ]; then
+  log "update: generating NOTA_STORE_JWT_SECRET (customer website)"
+  env_set NOTA_STORE_JWT_SECRET "$(openssl rand -hex 48)" "$NOTA_BACKEND_ENV"
+fi
+
 # 3. Switch and restart. Migrations run when the backend starts.
 switch_to() {
   ln -sfn "$1" "$current.new"

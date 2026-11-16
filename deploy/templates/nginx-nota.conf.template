@@ -60,6 +60,42 @@ server {
         proxy_pass http://127.0.0.1:@@PORT@@;
     }
 
+    # Online Stage 3: the customer website's public API. Small bodies only (the backend limits them too).
+    location /api/store/ {
+        client_max_body_size 64k;
+        include /etc/nginx/snippets/nota-proxy-api.conf;
+        proxy_pass http://127.0.0.1:@@PORT@@;
+    }
+
+    # Placing an order: 10 POSTs per minute per IP, burst 5, then 429 (zone nota_store_order).
+    location = /api/store/orders {
+        client_max_body_size 64k;
+        limit_req zone=nota_store_order burst=5 nodelay;
+        limit_req_status 429;
+        limit_req_log_level warn;
+        include /etc/nginx/snippets/nota-proxy-api.conf;
+        proxy_pass http://127.0.0.1:@@PORT@@;
+    }
+
+    # Customer sign-in and registration: 10 POSTs per minute per IP each, burst 5, then 429 (zone nota_store_auth).
+    # The app's own lockout (5 failures per phone + IP) still applies on top.
+    location = /api/store/auth/login {
+        client_max_body_size 64k;
+        limit_req zone=nota_store_auth burst=5 nodelay;
+        limit_req_status 429;
+        limit_req_log_level warn;
+        include /etc/nginx/snippets/nota-proxy-api.conf;
+        proxy_pass http://127.0.0.1:@@PORT@@;
+    }
+    location = /api/store/auth/register {
+        client_max_body_size 64k;
+        limit_req zone=nota_store_auth burst=5 nodelay;
+        limit_req_status 429;
+        limit_req_log_level warn;
+        include /etc/nginx/snippets/nota-proxy-api.conf;
+        proxy_pass http://127.0.0.1:@@PORT@@;
+    }
+
     location = /health {
         proxy_pass http://127.0.0.1:@@PORT@@/health;
         proxy_set_header Host $host;
