@@ -17,6 +17,7 @@ const { priceWebOrder } = require("../store/orderPricing");
 const catalog = require("../store/catalog");
 const wl = require("../store/whitelist");
 const { withAvailableStock } = require("../store/reservations");
+const pushService = require("../push/pushService");
 
 const MAX_LINES = 50;
 const MAX_QTY = 99;
@@ -207,6 +208,10 @@ const createStoreOrderController = ({ secret }) => {
       const existing = await findExisting(request, customer);
       if (!existing) throw error;
       result = { order: existing, created: false };
+    }
+    // Online Stage 6A: the order is committed. Tell the staff phones, fire-and-forget (never awaited, never throws).
+    if (result.created) {
+      try { pushService.notifyNewOrder(result.order).catch(() => {}); } catch { /* push never affects the order */ }
     }
     res.status(result.created ? 201 : 200).json(placed(result.order, request.idempotencyKey));
   });

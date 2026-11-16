@@ -29,6 +29,7 @@
     "mongoose": "^8.5.1",
     "morgan": "^1.10.0",
     "multer": "^2.2.0",
+    "web-push": "^4.0.0",
     "xlsx": "file:vendor/xlsx-0.20.3.tgz"
   },
   "devDependencies": {

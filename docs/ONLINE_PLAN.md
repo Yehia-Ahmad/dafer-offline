@@ -203,3 +203,27 @@ Lighthouse 12, mobile, production build behind a local stand-in for nginx (gzip,
 
 ### Not in this stage
 The PWA and phone notifications (Stage 6), English, card payment, automatic order acceptance, a website price list, product variants / reviews / coupons (none exist in the data), a WhatsApp API.
+
+## Stage 6A — the admin app on the phone (PWA shell, push, core screens)
+
+### Decisions (made in the brief)
+1. **One app, two layouts.** Below 768 px (`LayoutService`, the same media query as the CSS) the admin app uses the phone shell; at 768 px and above nothing changes. Every rule, API call, permission and validation is the existing one.
+2. **PWA:** manifest for `/admin/` (standalone, RTL, theme `#0E4D45`), a service worker that caches the app shell and static files only, update prompt, install hint (Android button / iOS steps, dismissible), offline banner, no offline queue.
+3. **Push** for new website orders (Web Push, VAPID, `web-push`): title `طلب جديد #<number>`, body total + delivery/pickup, no personal data. Sent after the order commits, fire-and-forget.
+4. **Core screens:** home, POS, orders + order page, stock + product form, customers + add/edit, المزيد. Every other page opens inside the phone shell (6B converts them).
+
+### What was built
+- **Backend.** Model `PushSubscription` (user, deviceId, endpoint unique, keys, userAgent, lastSuccessAt). Routes (any signed-in user, own rows only): `GET /api/push/public-key`, `POST /api/push/subscribe`, `DELETE /api/push/subscribe`. `src/push/pushService.js`: reads `NOTA_VAPID_PUBLIC_KEY` / `NOTA_VAPID_PRIVATE_KEY` / `NOTA_VAPID_SUBJECT`, loads `web-push` lazily, takes the recipients at send time (active user AND `orders.view` right now), deletes a subscription on 404/410, has an injectable sender for tests. `placeOrder` calls it only when the order was newly created, after `withTransaction` returned, without `await`. One read-only endpoint `GET /api/dashboard/mobile-summary` (signed-in; each block filtered inside): `today.total` (`dashboard.view`), `today.website` / `today.shop` (also `orders.view`; website = invoices linked from website orders, dated today), `cashDrawer` (`cashbox.view`). Tests: `test/online-stage6a.test.js`; the route table in `permissions.test.js`.
+- **Frontend.** `@angular/service-worker` configured by hand (`ngsw-config.json`, no `dataGroups`, so `/api` is never cached; `provideServiceWorker` is off in dev builds), `public/manifest.webmanifest`, icons generated from `docs/design/brand/png` (192, 512, maskable 512, apple-touch 180). `core/layout`, `core/pwa` (update, install hint, online, push), `modules/mobile` (shell, tab bar, المزيد, home, push toggle, utils), `styles/_mobile.scss`. The phone versions of the screens are template blocks inside the existing components (`@if (layout.isMobile())`), so forms, services, guards and totals are the same code; the desktop markup sits in the `@else` unchanged. Dialogs are bottom sheets on the phone (CSS).
+- **Deploy.** `ensure_vapid` in `nota-lib.sh`, called by `update.sh` (keys generated once when missing, kept in `/etc/nota/backend.env`); nginx exact-match locations so `ngsw-worker.js`, `ngsw.json` and `manifest.webmanifest` are never served from a cache. Arabic guide: `docs/deploy/PHONE_APP_AR.md`.
+
+### Decisions taken while building (not in the brief)
+- **Push click** uses the Angular service worker's notification envelope (`onActionClick` → `navigateLastFocusedOrOpen`) instead of a hand-written worker. If a real phone does not focus the open app reliably, the fallback is a small wrapper worker.
+- **Subscriptions move with the browser:** the same endpoint signing in as another user re-assigns the row, so a shared phone never notifies the previous user.
+- **Website-vs-shop split:** `Selling` / `CreditSale` have no source field, so the split is computed through `WebOrder.cashSaleId` / `creditSaleId`. No field was added.
+- **MobPos is the real POS form**, with the invoice panel as a bottom sheet (CSS + a bar), so the totals, payment box, discount limits and VAT are the desktop ones by construction.
+- **MobAddCustomer** is the existing customer dialog shown as a bottom sheet (the customer form has no page route and only name, phone, tax number).
+- **Karma's window is narrower than 768 px**, so `test-setup.spec.ts` now answers the phone breakpoint with "not mobile" for every spec that does not provide its own `LayoutService`.
+
+### Not in this stage
+Barcode scanning with the camera, an offline queue, printer setup on the phone, the remaining screens in the phone design (6B), the invoice number in the POS header (it exists only after saving), a second phone / credit limit on customers (not in the backend).

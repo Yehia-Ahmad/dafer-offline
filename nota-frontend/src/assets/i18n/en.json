@@ -2740,5 +2740,80 @@
       "joined": "Joined",
       "status": "Status"
     }
+  },
+  "mobile": {
+    "tabs": {
+      "pos": "Sell",
+      "orders": "Orders",
+      "stock": "Stock",
+      "more": "More"
+    },
+    "pwa": {
+      "offline": "No internet connection",
+      "updateReady": "A new version is available",
+      "reload": "Reload",
+      "installAndroid": "Install Nota on your phone",
+      "install": "Install",
+      "installIos": "Install Nota: tap Share, then \"Add to Home Screen\"",
+      "dismiss": "Dismiss"
+    },
+    "push": {
+      "title": "Order notifications",
+      "enable": "Turn on",
+      "disable": "Turn off",
+      "state": {
+        "on": "Notifications are on for this device",
+        "off": "Notifications are off",
+        "blocked": "Notifications are blocked in the browser settings",
+        "unsupported": "This browser does not support notifications",
+        "needs-install": "On iPhone, install Nota first (Share, then Add to Home Screen)",
+        "unavailable": "Notifications are not available on the server yet"
+      }
+    },
+    "home": {
+      "bell": "Notifications",
+      "today": "Today's sales",
+      "fromShop": "In the shop",
+      "fromWebsite": "From the website",
+      "inDrawer": "In the drawer",
+      "newOrders": "New website orders",
+      "all": "All",
+      "itemsCount": "{{count}} items",
+      "details": "Details",
+      "noNewOrders": "No new orders"
+    },
+    "order": {
+      "steps": {
+        "new": "New",
+        "preparing": "Preparing",
+        "onTheWay": "On the way",
+        "ready": "Ready for pickup",
+        "done": "Delivered"
+      },
+      "call": "Call",
+      "invoiceHintDelivery": "Nota creates the sales invoice when the order leaves with the courier.",
+      "invoiceHintPickup": "Nota creates the sales invoice when the customer picks the order up."
+    },
+    "pos": {
+      "cashier": "Cashier",
+      "itemsCount": "{{count}} pieces",
+      "viewInvoice": "View invoice",
+      "closeInvoice": "Close",
+      "payAndPrint": "Pay and print"
+    },
+    "stock": {
+      "count": "{{count}} products",
+      "search": "Search by name or code",
+      "lowOnly": "Low stock",
+      "newProduct": "New product"
+    },
+    "customers": {
+      "newCustomer": "New customer"
+    },
+    "more": {
+      "logout": "Sign out",
+      "darkMode": "Dark mode",
+      "lightMode": "Light mode"
+    }
   }
 }

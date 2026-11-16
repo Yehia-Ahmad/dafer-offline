@@ -6,6 +6,8 @@ import { ActivatedRoute } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { DialogModule } from 'primeng/dialog';
 import { AuthService } from '../../../core/auth/auth.service';
+import { LayoutService } from '../../../core/layout/layout.service';
+import { invoiceHintKey, mobilePillClass, orderSteps } from '../../mobile/mobile-utils';
 import { ToastService } from '../../../core/auth/toast.service';
 import { deliveryNote80, deliveryNoteA4, DeliveryNoteData } from '../../../core/print/documents/delivery-note';
 import { PrintActionItem, PrintActionsComponent } from '../../../core/print/print-actions.component';
@@ -33,6 +35,7 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="op">
+      @if (!layout.isMobile() || editing()) {
       <nota-page-header [title]="('orders.page.title' | translate) + ' ' + (order()?.number || '')" [subtitle]="order() ? (order()!.createdAt | date: 'medium') : ''" backLink="/orders" [backLabel]="'orders.title' | translate">
         <div notaPageActions>
           @if (order(); as o) {
@@ -45,11 +48,109 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
           }
         </div>
       </nota-page-header>
+      }
 
       @if (loadError()) { <div class="op__alert" role="alert">{{ 'orders.loadFailed' | translate }} <button type="button" notaButton (click)="load()">{{ 'orders.retry' | translate }}</button></div> }
       @if (errorMessage()) { <div class="op__alert" role="alert" data-test="order-error">{{ errorMessage() }}</div> }
 
       @if (order(); as o) {
+        @if (layout.isMobile() && !editing()) {
+          <!-- Online Stage 6A, MobOrder: the same order, actions and rules, laid out for the phone. -->
+          <div class="m-page" data-testid="m-order">
+            <section class="m-card">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px">
+                <b class="nota-num">{{ o.number }}</b>
+                <span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+                  <span class="m-pill m-pill--muted">{{ 'orders.fulfillment.' + o.fulfillment | translate }}</span>
+                  <span [class]="pillClass(o.status)" data-test="order-status">{{ 'orders.status.' + o.status | translate }}</span>
+                </span>
+              </div>
+              @if (stepInfo(o); as s) {
+                @if (!s.closed) {
+                  <div class="m-steps" data-testid="m-steps">
+                    @for (key of s.keys; track key; let i = $index) {
+                      <div class="m-step" [class.is-done]="i < s.done">{{ key | translate }}</div>
+                    }
+                  </div>
+                }
+              }
+            </section>
+
+            <section class="m-card" data-test="order-contact">
+              <div class="m-card__title">{{ 'orders.page.contact' | translate }}</div>
+              <div class="m-row" style="padding:0;border:0">
+                <span class="m-avatar">{{ o.contact.name.trim().charAt(0) || '؟' }}</span>
+                <div class="m-row__body"><div class="m-row__title">{{ o.contact.name }}</div><div class="m-row__sub nota-num" dir="ltr" style="text-align:start">{{ o.contact.phone }}</div></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <a class="m-btn" style="flex:1" [href]="'tel:' + o.contact.phone" data-action="call">{{ 'mobile.order.call' | translate }}</a>
+                <a class="m-btn" style="flex:1" data-action="whatsapp" [href]="whatsapp(o.contact.phone)" target="_blank" rel="noopener noreferrer">{{ 'orders.page.whatsapp' | translate }}</a>
+              </div>
+              @if (o.fulfillment === 'pickup') {
+                <p style="margin-top:10px" data-test="order-pickup">{{ 'orders.page.pickupAtShop' | translate }}</p>
+              } @else {
+                <p style="margin-top:10px">{{ o.contact.address }}</p>
+                @if (o.zone) { <p class="m-muted">{{ 'orders.page.zone' | translate }}: {{ o.zone.name }}</p> }
+              }
+              @if (o.contact.notes) { <p class="m-muted">{{ o.contact.notes }}</p> }
+              @if (o.courier) { <p>{{ 'orders.page.courier' | translate }}: <b>{{ o.courier.name }}</b></p> }
+              @if (o.reason) { <p class="m-muted">{{ 'orders.page.reason' | translate }}: {{ o.reason }}</p> }
+              @if (o.status !== 'cancelled' && o.status !== 'rejected' && o.status !== 'refused') {
+                <p style="margin-top:8px"><a class="m-btn m-btn--block" data-test="whatsapp-confirm" [href]="confirmLink(o)" target="_blank" rel="noopener noreferrer">{{ 'orders.actions.whatsappConfirm' | translate }}</a></p>
+              }
+            </section>
+
+            <section class="m-card m-card--flush">
+              <div class="m-card__title" style="padding:12px 14px 0">{{ 'orders.page.lines' | translate }}</div>
+              @for (line of o.items; track line.productId) {
+                <div class="m-row" data-test="order-line">
+                  <div class="m-row__body"><div class="m-row__title">{{ line.name }}</div><div class="m-row__sub nota-num">{{ line.qty }} × {{ line.unitPrice | notaMoney }}</div></div>
+                  <div class="m-row__end nota-num">{{ line.lineTotal | notaMoney }}</div>
+                </div>
+              }
+            </section>
+
+            <section class="m-card">
+              <dl class="op__totals nota-num">
+                <dt>{{ 'orders.page.subtotal' | translate }}</dt><dd>{{ o.subtotal | notaMoney }}</dd>
+                @if (o.vat) { <dt>{{ 'orders.page.vat' | translate }}</dt><dd>{{ o.vat | notaMoney }}</dd> }
+                @if (o.fulfillment !== 'pickup') { <dt>{{ 'orders.page.deliveryFee' | translate }}</dt><dd>{{ o.deliveryFee | notaMoney }}</dd> }
+                <dt class="op__grand">{{ 'orders.page.total' | translate }}</dt><dd class="op__grand" data-test="order-total">{{ o.total | notaMoney }}</dd>
+                @if (o.invoice) { <dt>{{ 'orders.page.invoice' | translate }}</dt><dd data-test="order-invoice">{{ o.invoice.number }}</dd> }
+                @if (o.collectedAmount !== null) { <dt>{{ 'orders.page.collected' | translate }}</dt><dd>{{ o.collectedAmount | notaMoney }}</dd> }
+              </dl>
+              <p style="margin-top:8px" data-test="order-payment">
+                {{ 'orders.method.' + o.paymentMethod | translate }}
+                @if (o.payment.status) { <span [class]="o.payment.status === 'verified' ? 'm-pill m-pill--ok' : 'm-pill m-pill--warn'">{{ 'orders.payment.' + o.payment.status | translate }}</span> }
+              </p>
+              @if (invoiceHint(o); as hint) { <p class="m-muted" style="margin-top:8px" data-testid="invoice-hint">{{ hint | translate }}</p> }
+            </section>
+
+            <section class="m-card m-card--flush" data-test="order-history">
+              <div class="m-card__title" style="padding:12px 14px 0">{{ 'orders.page.history' | translate }}</div>
+              @for (entry of o.statusHistory; track $index) {
+                <div class="m-row">
+                  <div class="m-row__body">
+                    <div class="m-row__title">{{ entry.type === 'edit' ? ('orders.page.edited' | translate) : entry.type === 'payment' ? ('orders.page.paymentVerified' | translate) : ('orders.status.' + entry.status | translate) }}</div>
+                    <div class="m-row__sub">{{ entry.at | date: 'short' }}@if (entry.byName || entry.by) { · {{ entry.byName || entry.by }} }</div>
+                  </div>
+                </div>
+              }
+            </section>
+
+            @if (o.fulfillment !== 'pickup' && (o.status === 'out_for_delivery' || o.status === 'confirmed' || o.status === 'preparing' || o.status === 'delivered')) {
+              <section class="m-card"><nota-print-actions [items]="printItems()" /></section>
+            }
+          </div>
+          @if (actions().length) {
+            <div class="m-actions" data-test="order-actions" data-testid="m-order-actions">
+              @for (action of actions(); track action) {
+                <button type="button" class="m-btn" [class.m-btn--primary]="action === primaryAction()" [class.m-btn--danger]="action === 'reject' || action === 'cancel' || action === 'refuse'"
+                  [attr.data-action]="action" [disabled]="busy()" (click)="run(action)">{{ 'orders.actions.' + action | translate }}</button>
+              }
+            </div>
+          }
+        } @else {
         <div class="op__actions" data-test="order-actions">
           @for (action of actions(); track action) {
             <button type="button" notaButton [attr.data-action]="action" [disabled]="busy()" [class.is-danger]="action === 'reject' || action === 'cancel' || action === 'refuse'" (click)="run(action)">{{ 'orders.actions.' + action | translate }}</button>
@@ -187,6 +288,7 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
             }
           </ol>
         </section>
+        }
       }
     </div>
 
@@ -325,6 +427,7 @@ export class OrderPageComponent implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly translate = inject(TranslateService);
 
+  protected readonly layout = inject(LayoutService);
   protected readonly order = signal<OrderDetail | null>(null);
   protected readonly loadError = signal(false);
   protected readonly errorMessage = signal('');
@@ -376,6 +479,12 @@ export class OrderPageComponent implements OnInit {
   ngOnInit(): void {
     this.load();
   }
+
+  protected stepInfo(order: OrderDetail) { return orderSteps(order); }
+  protected invoiceHint(order: OrderDetail): string | null { return invoiceHintKey(order); }
+  protected pillClass(status: OrderDetail['status']): string { return mobilePillClass(this.variant(status)); }
+  /** The one action the sticky bar highlights: the first allowed action that is not a refusal. */
+  protected primaryAction = computed<OrderAction | null>(() => this.actions().find((action) => action !== 'reject' && action !== 'cancel' && action !== 'refuse' && action !== 'edit') ?? null);
 
   protected variant(status: OrderDetail['status']): NotaPillVariant {
     return ORDER_STATUS_VARIANT[status] ?? 'neutral';

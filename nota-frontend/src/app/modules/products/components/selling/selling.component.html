@@ -1,9 +1,11 @@
 <!-- Cash sale / POS (docs/design/screens/Pos.dc.html, PosDark.dc.html). Stage 9: layout only; save logic unchanged. -->
-<div class="pos">
+<!-- Online Stage 6A, MobPos: below 768 px the same page is a product grid with the invoice as a bottom sheet (same form, totals and rules). -->
+<div class="pos" [class.pos--m]="layout.isMobile()">
   <div class="pos__layout">
     <!-- Catalog: title, search, category chips, product tiles -->
     <section class="pos__catalog" [attr.aria-label]="'sellingPage.pos.catalog' | translate">
       <nota-page-header [title]="'nav.items.pos' | translate" />
+      @if (layout.isMobile()) { <p class="pos__cashier" data-testid="pos-cashier">{{ 'mobile.pos.cashier' | translate }}: {{ cashierName }}</p> }
       <label class="pos__search">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4" /></svg>
@@ -53,9 +55,11 @@
     </section>
 
     <!-- Current invoice -->
-    <aside class="pos__invoice" [attr.aria-label]="'sellingPage.pos.currentInvoice' | translate">
+    <aside class="pos__invoice" [class.is-open]="sheetOpen" [attr.aria-label]="'sellingPage.pos.currentInvoice' | translate">
       <form [formGroup]="sellingForm" (ngSubmit)="saveSelling()" class="pos__form" novalidate>
-        <h2 class="pos__title">{{ 'sellingPage.pos.currentInvoice' | translate }}</h2>
+        <h2 class="pos__title">{{ 'sellingPage.pos.currentInvoice' | translate }}
+          @if (layout.isMobile()) { <button type="button" class="pos__sheet-close" (click)="sheetOpen = false" [attr.aria-label]="'mobile.pos.closeInvoice' | translate">✕</button> }
+        </h2>
 
         <!-- Scrolls inside the panel; the totals and the save button below stay in view. -->
         <div class="pos__scroll">
@@ -218,8 +222,12 @@
         }
 
         <button type="submit" notaButton="primary" size="lg" class="pos__pay" [disabled]="isSaving || sellingForm.invalid || discountOverLimit || payment.needsShift()">
-          {{ (isSaving ? 'sellingPage.actions.saving' : 'sellingPage.actions.createSelling') | translate }}
-          <span class="pos__kbd-inline" aria-hidden="true">(F9)</span>
+          @if (layout.isMobile() && !isSaving) {
+            <span data-testid="pos-pay-label">{{ 'mobile.pos.payAndPrint' | translate }} · {{ invoiceGrandTotal | notaMoney }}</span>
+          } @else {
+            {{ (isSaving ? 'sellingPage.actions.saving' : 'sellingPage.actions.createSelling') | translate }}
+            <span class="pos__kbd-inline" aria-hidden="true">(F9)</span>
+          }
         </button>
         <button type="button" notaButton="danger" class="pos__clear" [disabled]="isSaving" (click)="clearInvoice()">
           {{ 'sellingPage.pos.clearInvoice' | translate }}
@@ -228,6 +236,18 @@
       </form>
     </aside>
   </div>
+  @if (layout.isMobile()) {
+    @if (sheetOpen) { <div class="m-sheet__scrim" (click)="sheetOpen = false" aria-hidden="true"></div> }
+    <div class="pos-m-bar" data-testid="pos-m-bar">
+      <span class="pos-m-bar__info">
+        <span>{{ 'mobile.pos.itemsCount' | translate: { count: (invoiceQuantityTotal | notaNumber) } }}</span>
+        <strong class="nota-num" data-testid="pos-m-total">{{ invoiceGrandTotal | notaMoney }}</strong>
+      </span>
+      <button type="button" class="m-btn m-btn--primary m-btn--lg" (click)="sheetOpen = !sheetOpen" data-testid="pos-m-toggle">
+        {{ (sheetOpen ? 'mobile.pos.closeInvoice' : 'mobile.pos.viewInvoice') | translate }}
+      </button>
+    </div>
+  }
 </div>
 
 <!-- Success -->

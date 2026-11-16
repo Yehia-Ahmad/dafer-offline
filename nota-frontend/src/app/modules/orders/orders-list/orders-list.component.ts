@@ -8,6 +8,9 @@ import { NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatus
 import { NotaPillVariant } from '../../shared/ui/status-pill.component';
 import { OrdersNotifierService } from '../../../core/orders-notifier/orders-notifier.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { LayoutService } from '../../../core/layout/layout.service';
+import { LanguageService } from '../../shared/services/translation.service';
+import { initialOf, mobilePillClass, timeAgo } from '../../mobile/mobile-utils';
 import { Courier, Fulfillment, ORDER_STATUSES, OrderListRow, OrderStatus, PaymentMethod } from '../orders.models';
 import { OrdersService } from '../orders.service';
 
@@ -30,6 +33,53 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, NotaPillVariant> = {
   imports: [TranslatePipe, FormsModule, RouterLink, DatePipe, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    @if (layout.isMobile()) {
+      <!-- Online Stage 6A, MobOrders: status chips with counts and order cards (same list, filters and API as below). -->
+      <header class="m-head"><div><div class="m-head__title">{{ 'orders.title' | translate }}</div></div></header>
+      <div class="m-chips" role="tablist" data-testid="m-order-chips">
+        <button type="button" role="tab" class="m-chip" data-tab="all" [class.is-active]="status() === ''" (click)="setStatus('')">
+          {{ 'orders.tabs.all' | translate }} <span class="m-chip__count">{{ total() }}</span>
+        </button>
+        @for (s of statuses; track s) {
+          @if (status() === s || (counts()[s] || 0) > 0) {
+            <button type="button" role="tab" class="m-chip" [attr.data-tab]="s" [class.is-active]="status() === s" (click)="setStatus(s)">
+              {{ 'orders.status.' + s | translate }} <span class="m-chip__count">{{ counts()[s] || 0 }}</span>
+            </button>
+          }
+        }
+      </div>
+      <div class="m-search"><input class="m-input" type="search" [placeholder]="'orders.search' | translate" [ngModel]="q()" (ngModelChange)="q.set($event)" (keyup.enter)="reload()" /></div>
+      @if (loadError()) {
+        <div class="m-page"><div class="m-card" role="alert">{{ 'orders.loadFailed' | translate }} <button type="button" class="m-btn" (click)="reload()">{{ 'orders.retry' | translate }}</button></div></div>
+      }
+      <div class="m-page">
+        <div class="m-card m-card--flush">
+          @for (order of rows(); track order.id) {
+            <a class="m-row" [routerLink]="['/orders', order.id]" data-test="order-row">
+              <span class="m-avatar">{{ initial(order.customerName) }}</span>
+              <span class="m-row__body">
+                <span class="m-row__title" style="display:block">{{ order.customerName }}</span>
+                <span class="m-row__sub" style="display:block">{{ order.number }} · {{ 'orders.fulfillment.' + order.fulfillment | translate }} · {{ ago(order.createdAt) }}</span>
+              </span>
+              <span class="m-row__end">
+                <span style="display:block">{{ order.total | notaMoney }}</span>
+                <span [class]="pill(order.status)">{{ 'orders.status.' + order.status | translate }}</span>
+              </span>
+            </a>
+          } @empty {
+            @if (!loading()) { <div class="m-empty">{{ 'orders.empty' | translate }}</div> }
+          }
+        </div>
+        @if (loading()) { <p class="m-muted" role="status">{{ 'orders.loading' | translate }}</p> }
+        @if (totalPages() > 1) {
+          <div style="display:flex;gap:12px;align-items:center;justify-content:center">
+            <button type="button" class="m-btn" [disabled]="page() <= 1" (click)="go(page() - 1)">‹</button>
+            <span>{{ page() }} / {{ totalPages() }}</span>
+            <button type="button" class="m-btn" [disabled]="page() >= totalPages()" (click)="go(page() + 1)">›</button>
+          </div>
+        }
+      </div>
+    } @else {
     <div class="ol">
       <nota-page-header [title]="'orders.title' | translate" [subtitle]="'orders.subtitle' | translate">
         <div notaPageActions>
@@ -126,6 +176,7 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, NotaPillVariant> = {
         </div>
       }
     </div>
+    }
   `,
   styles: `
     :host { display: block; }
@@ -151,6 +202,8 @@ export class OrdersListComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly auth = inject(AuthService);
   protected readonly notifier = inject(OrdersNotifierService);
+  protected readonly layout = inject(LayoutService);
+  private readonly language = inject(LanguageService);
 
   protected readonly statuses = ORDER_STATUSES;
   protected readonly rows = signal<OrderListRow[]>([]);
@@ -176,6 +229,10 @@ export class OrdersListComponent implements OnInit {
     this.reload();
     this.service.listCouriers().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (list) => this.couriers.set(list), error: () => undefined });
   }
+
+  protected initial(name: string): string { return initialOf(name); }
+  protected ago(iso: string): string { return timeAgo(iso, this.language.selectedLanguage()); }
+  protected pill(status: OrderStatus): string { return mobilePillClass(this.variant(status)); }
 
   protected variant(status: OrderStatus): NotaPillVariant {
     return ORDER_STATUS_VARIANT[status] ?? 'neutral';

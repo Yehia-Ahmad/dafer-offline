@@ -18,6 +18,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
 import { CateoryService } from '../../../category/services/cateory.service';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { LayoutService } from '../../../../core/layout/layout.service';
 import { CartRescueService } from '../../../../core/auth/cart-rescue.service';
 import { isOverDiscountLimit } from '../../../../core/auth/discount-limit';
 import { ToastService } from '../../../../core/auth/toast.service';
@@ -159,6 +160,10 @@ export class SellingComponent implements OnInit, OnDestroy {
   readonly categories = inject(CatalogStateService).categories;
   private readonly _cateoryService = inject(CateoryService);
   private readonly _auth = inject(AuthService);
+  /** Online Stage 6A: the phone layout; the invoice panel is a bottom sheet there (open / closed). */
+  readonly layout = inject(LayoutService);
+  sheetOpen = false;
+  get cashierName(): string { return this._auth.user()?.name ?? ''; }
   /** Stage 19: "طريقة الدفع" — the box this sale goes into. */
   readonly payment = inject(PaymentBoxService);
   private readonly _unsaved = inject(UnsavedWorkService);
@@ -807,6 +812,7 @@ export class SellingComponent implements OnInit, OnDestroy {
 
   closeSuccessPopup(): void {
     this.successDialogVisible = false;
+    this.sheetOpen = false;
   }
 
   closeErrorPopup(): void {

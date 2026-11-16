@@ -19,6 +19,8 @@ import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { OpeningBannerComponent } from '../../../accounting/opening-banner.component';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { CashboxService } from '../../../cashbox/cashbox.service';
+import { LayoutService } from '../../../../core/layout/layout.service';
+import { MobHomeComponent } from '../../../mobile/mob-home.component';
 
 export interface DashboardKpi {
   key: string;
@@ -52,7 +54,7 @@ export interface DashboardBar {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [OpeningBannerComponent, NotaCanDirective, NgTemplateOutlet, RouterLink, TranslatePipe, NotaButtonDirective, NotaEmptyStateComponent, NotaMoneyPipe, NotaNumberPipe],
+  imports: [MobHomeComponent, OpeningBannerComponent, NotaCanDirective, NgTemplateOutlet, RouterLink, TranslatePipe, NotaButtonDirective, NotaEmptyStateComponent, NotaMoneyPipe, NotaNumberPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss'],
@@ -63,6 +65,7 @@ export class HomeComponent implements OnInit {
   private readonly language = inject(LanguageService);
   private readonly cashbox = inject(CashboxService);
   private readonly auth = inject(AuthService);
+  protected readonly layout = inject(LayoutService);
 
   /** Stage 19: Σ of the cash-type boxes ("كاش في الخزنة"), only for users who may see the boxes. */
   readonly cashTotal = signal<number | null>(null);

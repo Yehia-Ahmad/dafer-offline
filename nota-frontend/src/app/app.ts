@@ -10,12 +10,17 @@ import { LockOverlayComponent } from './core/auth/lock-overlay.component';
 import { IdleLockService } from './core/auth/idle-lock.service';
 import { UnsavedWorkDialogComponent } from './core/unsaved-work/unsaved-work-dialog.component';
 import { DeviceNameDialogComponent } from './modules/auth/device-name-dialog/device-name-dialog.component';
+import { LayoutService } from './core/layout/layout.service';
+import { MobileShellComponent } from './modules/mobile/mobile-shell.component';
+import { InstallHintService } from './core/pwa/install-hint.service';
+import { UpdateService } from './core/pwa/update.service';
 
 @Component({
   selector: 'app-root',
   imports: [
     RouterOutlet,
     SideNavComponent,
+    MobileShellComponent,
     ToastsComponent,
     LockOverlayComponent,
     UnsavedWorkDialogComponent,
@@ -27,11 +32,16 @@ import { DeviceNameDialogComponent } from './modules/auth/device-name-dialog/dev
 export class App {
   /** False when the active route has `data: { frame: false }` (design previews such as /ui-kit). */
   protected readonly framed = signal(true);
+  /** Online Stage 6A: phone layout below 768 px. */
+  protected readonly layout = inject(LayoutService);
 
   constructor() {
     // Created at startup so <html lang/dir> and the theme class are set before any page renders.
     inject(LanguageService);
     inject(ThemeService);
+    // Online Stage 6A: listen for the install prompt and for new versions from the start (both events can fire early).
+    inject(InstallHintService);
+    inject(UpdateService);
 
     const router = inject(Router);
     router.events

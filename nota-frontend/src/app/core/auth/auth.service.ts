@@ -1,5 +1,5 @@
 import { HttpClient, HttpContext, HttpContextToken } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, Injector, computed, inject, signal } from '@angular/core';
 import { Observable, firstValueFrom, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthResult, AuthUser, BootstrapInfo, PermissionCatalog } from './auth.models';
@@ -7,6 +7,7 @@ import { LANDING_ORDER, NO_ACCESS_PATH, RouteRule, ruleAllows } from './route-pe
 import { readStoredToken, writeStoredToken } from './session-storage';
 import { LockStateService } from './lock-state.service';
 import { LockDateService } from '../accounting-lock/lock-date.service';
+import { PushService } from '../pwa/push.service';
 
 /**
  * Requests whose errors the screen shows itself (login, change password):
@@ -24,6 +25,7 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly lockState = inject(LockStateService);
   private readonly lockDate = inject(LockDateService);
+  private readonly injector = inject(Injector);
 
   readonly token = signal<string | null>(readStoredToken());
   readonly user = signal<AuthUser | null>(null);
@@ -118,6 +120,8 @@ export class AuthService {
 
   /** Sign out in this browser (the token simply stops being sent; it expires on its own). */
   logout(): void {
+    // Online Stage 6A: this device stops getting order notifications for this user (best effort, before the token is dropped).
+    try { this.injector.get(PushService).unsubscribeForLogout(this.token()); } catch { /* never blocks sign-out */ }
     this.clear();
   }
 

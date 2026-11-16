@@ -1,4 +1,49 @@
 <!-- Customers (docs/design/screens/Customers.dc.html, AddCustomer.dc.html). Stage 10: layout only; requests unchanged. -->
+<!-- Online Stage 6A, MobCustomers: the same list and search as cards; add / edit open the same form as a full-screen page (MobAddCustomer). -->
+@if (layout.isMobile()) {
+  <header class="m-head">
+    <div>
+      <div class="m-head__title">{{ 'customerPage.title' | translate }}</div>
+      <div class="m-head__sub nota-num">{{ customers.length | notaNumber }} {{ 'customerPage.count' | translate }}</div>
+    </div>
+  </header>
+  <div class="m-search">
+    <input type="search" class="m-input" [(ngModel)]="searchTerm" (keyup.enter)="searchCustomers()" [placeholder]="'customerPage.searchPlaceholder' | translate" data-testid="m-customer-search" />
+  </div>
+  <div class="m-chips">
+    <button type="button" class="m-chip" [class.is-active]="listFilter === 'all'" (click)="listFilter = 'all'">{{ 'customerPage.s10.all' | translate }}</button>
+    <button type="button" class="m-chip" [class.is-active]="listFilter === 'indebted'" (click)="listFilter = 'indebted'">{{ 'customerPage.s10.indebted' | translate }} <span class="m-chip__count nota-num">{{ indebtedCount | notaNumber }}</span></button>
+  </div>
+  <div class="m-page">
+    <div class="m-card m-card--flush">
+      @if (isFetching) {
+        <div class="m-empty" role="status">{{ 'customerPage.loading' | translate }}</div>
+      } @else {
+        @for (customer of visibleCustomers; track customer._id ?? $index) {
+          <div class="m-row" data-test="customer-row">
+            <button type="button" class="m-row" style="padding:0;border:0;flex:1;min-width:0" (click)="openCustomerDetails(customer)">
+              <span class="m-avatar">{{ initial(customer.name) }}</span>
+              <span class="m-row__body">
+                <span class="m-row__title" style="display:block" dir="auto">{{ customer.name }}</span>
+                <span class="m-row__sub nota-num" dir="ltr" style="display:block;text-align:start">{{ customer.phone }}</span>
+              </span>
+              <span class="m-row__end">
+                <span [class]="customer.isIndebted ? 'm-pill m-pill--warn' : 'm-pill m-pill--ok'">{{ (customer.isIndebted ? 'customerPage.s10.owes' : 'customerPage.s10.settled') | translate }}</span>
+                @if (customer.balance) { <span class="nota-num" style="display:block;font-size:12px">{{ (customer.balance < 0 ? -customer.balance : customer.balance) | notaMoney }}</span> }
+              </span>
+            </button>
+            <button *notaCan="'customers.manage'" type="button" class="m-btn" (click)="editCustomer(customer)" [disabled]="isFormBusy || isDeleting" [attr.aria-label]="'customerPage.actions.edit' | translate">✎</button>
+          </div>
+        } @empty {
+          <div class="m-empty">{{ 'customerPage.empty' | translate }}</div>
+        }
+      }
+    </div>
+  </div>
+  <button *notaCan="'customers.manage'" type="button" class="m-fab" data-action="new-customer" (click)="openCreateDialog()" [disabled]="isFormBusy || isDeleting">
+    + {{ 'mobile.customers.newCustomer' | translate }}
+  </button>
+} @else {
 <div class="cu">
   <nota-page-header [title]="'customerPage.title' | translate" [subtitle]="'customerPage.subtitle' | translate">
     <div notaPageActions>
@@ -69,6 +114,7 @@
     <p class="cu__count">{{ visibleCustomers.length | notaNumber }} {{ 'customerPage.count' | translate }}</p>
   </section>
 </div>
+}
 
 <!-- Add / edit customer -->
 <p-dialog [(visible)]="formDialogVisible" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog"

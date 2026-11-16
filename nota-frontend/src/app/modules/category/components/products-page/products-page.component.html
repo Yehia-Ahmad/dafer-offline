@@ -1,4 +1,56 @@
 <!-- Products & categories (docs/design/screens/Products.dc.html). Stage 11: requests unchanged. -->
+<!-- Online Stage 6A, MobStock: the same product list (paging, search, low-stock filter) as cards. -->
+@if (layout.isMobile()) {
+  <header class="m-head">
+    <div>
+      <div class="m-head__title">{{ 'mobile.tabs.stock' | translate }}</div>
+      @if (allCount() !== null) { <div class="m-head__sub nota-num">{{ 'mobile.stock.count' | translate: { count: (allCount() | notaNumber) } }}</div> }
+    </div>
+  </header>
+  <div class="m-search"><input class="m-input" type="search" [placeholder]="'mobile.stock.search' | translate" [(ngModel)]="searchTerm" data-testid="m-stock-search" /></div>
+  <div class="m-chips" data-testid="m-stock-chips">
+    <a class="m-chip" [class.is-active]="isAllProducts" [routerLink]="['/products']">{{ 'productsPage.allProducts' | translate }}</a>
+    @for (category of categories(); track category.id) {
+      <a class="m-chip" [class.is-active]="category.id === categoryId" [routerLink]="['/products']" [queryParams]="{ category: category.id }">{{ category.label }}</a>
+    }
+    <button type="button" class="m-chip" [class.is-active]="lowStockOnly" (click)="lowStockOnly = !lowStockOnly" data-action="low-stock">{{ 'mobile.stock.lowOnly' | translate }}</button>
+  </div>
+  <div class="m-page">
+    <div class="m-card m-card--flush">
+      @for (product of filteredProducts; track product?._id) {
+        @if (canEdit() && !product.isArchived) {
+          <a class="m-row" [routerLink]="['/products/edit', product._id]" data-test="stock-row">
+            <span class="m-avatar">{{ initial(product?.name) }}</span>
+            <span class="m-row__body">
+              <span class="m-row__title" style="display:block">{{ product?.name }}</span>
+              <span class="m-row__sub nota-num" style="display:block">{{ product?.code || '—' }} · {{ product?.['retailPrice'] | notaMoney }}</span>
+            </span>
+            <span [class]="pillClass(product)" class="nota-num">{{ product?.inventoryCount | notaNumber }}</span>
+          </a>
+        } @else {
+          <div class="m-row" data-test="stock-row">
+            <span class="m-avatar">{{ initial(product?.name) }}</span>
+            <span class="m-row__body">
+              <span class="m-row__title" style="display:block">{{ product?.name }}</span>
+              <span class="m-row__sub nota-num" style="display:block">{{ product?.code || '—' }} · {{ product?.['retailPrice'] | notaMoney }}</span>
+            </span>
+            <span [class]="pillClass(product)" class="nota-num">{{ product?.inventoryCount | notaNumber }}</span>
+          </div>
+        }
+      } @empty {
+        @if (hasLoadedProducts && !isLoadingProducts) {
+          <div class="m-empty">{{ (lowStockOnly || searchTerm ? 'productsPage.noMatches' : 'productsPage.empty') | translate }}</div>
+        }
+      }
+    </div>
+    <div #scrollSentinel aria-live="polite" class="m-muted" style="text-align:center;min-height:24px">
+      @if (isLoadingProducts) { <span role="status">{{ 'category.products.loading' | translate }}</span> }
+    </div>
+  </div>
+  <button *notaCan="['products.manage', 'products.viewCost']" type="button" class="m-fab" data-action="new-product" (click)="newProduct()" [disabled]="!categories().length">
+    + {{ 'mobile.stock.newProduct' | translate }}
+  </button>
+} @else {
 <div class="pp">
   <nota-page-header [title]="'productsPage.title' | translate">
     <div notaPageActions class="pp__actions">
@@ -130,6 +182,7 @@
     </section>
   </div>
 </div>
+}
 
 <p-dialog [(visible)]="errorVisible" [modal]="true" [showHeader]="false" [dismissableMask]="true"
   styleClass="nota-p-dialog nota-p-dialog--sm" appendTo="body">

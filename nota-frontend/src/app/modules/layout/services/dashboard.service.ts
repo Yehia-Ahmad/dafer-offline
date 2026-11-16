@@ -36,6 +36,15 @@ export interface DashboardSummary {
   lowStock: Array<{ id: string; name: string; code: string; inventoryCount: number; threshold: number }>;
 }
 
+/**
+ * Online Stage 6A: GET /api/dashboard/mobile-summary (read-only). Every block is optional: the server leaves out what the user may not see.
+ * today.website / today.shop need orders.view too; cashDrawer needs cashbox.view.
+ */
+export interface MobileSummary {
+  today?: { total: number; shop?: number; website?: number };
+  cashDrawer?: number;
+}
+
 /** Stage 12: GET /api/dashboard/summary (read-only). */
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
@@ -44,5 +53,9 @@ export class DashboardService {
 
   getSummary(): Observable<DashboardSummary> {
     return this.http.get<DashboardSummary>(`${this.baseUrl}dashboard/summary`);
+  }
+
+  getMobileSummary(): Observable<MobileSummary> {
+    return this.http.get<MobileSummary>(`${this.baseUrl}dashboard/mobile-summary`);
   }
 }

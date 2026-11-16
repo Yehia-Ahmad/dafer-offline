@@ -130,6 +130,31 @@ server {
         include /etc/nginx/snippets/nota-security-headers.conf;
     }
 
+    # Online Stage 6A: the admin app is an installable app. The service worker, the list of files it keeps (ngsw.json) and the web
+    # app manifest must be re-checked on every visit, otherwise phones keep an old version after an update. `no-cache` still allows
+    # a cheap conditional request (304); `no-store` is only for the entry page above. These are exact matches, so they win over the
+    # `^~ /admin/` prefix below; the hashed JS/CSS files keep their one-year cache.
+    location = /admin/ngsw-worker.js {
+        default_type application/javascript;
+        add_header Cache-Control "no-cache" always;
+        include /etc/nginx/snippets/nota-security-headers.conf;
+    }
+    location = /admin/safety-worker.js {
+        default_type application/javascript;
+        add_header Cache-Control "no-cache" always;
+        include /etc/nginx/snippets/nota-security-headers.conf;
+    }
+    location = /admin/ngsw.json {
+        default_type application/json;
+        add_header Cache-Control "no-cache" always;
+        include /etc/nginx/snippets/nota-security-headers.conf;
+    }
+    location = /admin/manifest.webmanifest {
+        default_type application/manifest+json;
+        add_header Cache-Control "no-cache" always;
+        include /etc/nginx/snippets/nota-security-headers.conf;
+    }
+
     # Admin single page app: unknown paths under /admin/ go to the admin index.html.
     # `^~` stops the regex search, so nothing under /admin/ can reach the storefront's hashed-file rule below (it would proxy the
     # admin's fonts and icons to the storefront). The hashed-file cache rule is nested inside, so it only ever sees /admin/ paths.

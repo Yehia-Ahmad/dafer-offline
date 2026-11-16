@@ -81,6 +81,8 @@ PS> scp release\release-<النسخة>-<الكوميت>.tar.gz root@<IP>:/root/
 - لو الموقع مقفول من إعدادات الموقع، الصفحة الرئيسية تعرض صفحة «المتجر مقفول» برمز 503 (هذا طبيعي)، وتطبيق الإدارة يعمل كالمعتاد.
 اضبط بعدها النسخ الاحتياطي خارج السيرفر: `BACKUP_RESTORE_AR.md`.
 
+**تطبيق الموبايل:** افتح `https://shop.example.com/admin/` من الموبايل وثبّته (أندرويد: «تثبيت»، آيفون: مشاركة ← إضافة إلى الشاشة الرئيسية). مفاتيح الإشعارات تُولَّد تلقائياً مع أول `update.sh`. التفاصيل في `PHONE_APP_AR.md`.
+
 ## ملاحظات
 - المسارات: الإصدارات في `/opt/nota/releases`، والنسخة الحالية `/opt/nota/current`، والإعدادات `/etc/nota`، والنسخ الاحتياطية `/var/backups/nota`، وملف مفتاح MongoDB في `/etc/mongodb-keyfile`.
 - سجل الخدمتين: `journalctl -u nota-backend` و `journalctl -u nota-storefront`.

@@ -29,6 +29,12 @@ export const routes: Routes = [
         component: HomeComponent
     },
     {
+        // Online Stage 6A: المزيد, the phone's menu of every page (any signed-in user; each item shows only with its permission).
+        path: 'more',
+        canActivate: [authGuard],
+        loadComponent: () => import('./modules/mobile/more-page.component').then(m => m.MorePageComponent)
+    },
+    {
         path: 'customers',
         canActivate: [permissionGuard(ROUTE_RULES.customers)],
         loadComponent: () => import('./modules/customer/components/customers/customers.component').then(m => m.CustomersComponent)

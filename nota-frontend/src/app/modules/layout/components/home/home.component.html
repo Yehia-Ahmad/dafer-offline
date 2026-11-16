@@ -1,4 +1,8 @@
 <!-- Dashboard (docs/design/screens/Dashboard.dc.html, DashboardDark.dc.html). Stage 12: GET dashboard/summary only. -->
+<!-- Online Stage 6A: the phone gets MobHome (same data); 768 px and above the dashboard below is unchanged. -->
+@if (layout.isMobile()) {
+  <nota-mob-home [summary]="summary()" />
+} @else {
 <div class="db">
   <header class="db__head">
     <div class="db__title">
@@ -155,3 +159,4 @@
     </section>
   }
 </div>
+}

@@ -85,6 +85,29 @@ wait_storefront() {
   return 1
 }
 
+# ensure_vapid BACKEND_DIR: Online Stage 6A. Web Push needs a VAPID key pair on the server. Generated once, only when missing
+# (never replaces an existing pair: a new pair would orphan every phone's subscription), with the web-push package of the release.
+# The keys live only in the backend env file, never in the repo or the release.
+ensure_vapid() {
+  local dir="$1" keys subject
+  if [ -z "$(env_get NOTA_VAPID_PUBLIC_KEY "$NOTA_BACKEND_ENV")" ] || [ -z "$(env_get NOTA_VAPID_PRIVATE_KEY "$NOTA_BACKEND_ENV")" ]; then
+    keys="$(cd "$dir" && runuser -u nota -- node -e "const k=require('web-push').generateVAPIDKeys();process.stdout.write(k.publicKey+' '+k.privateKey)" 2>/dev/null || true)"
+    case "$keys" in
+      *" "*)
+        env_set NOTA_VAPID_PUBLIC_KEY "${keys%% *}" "$NOTA_BACKEND_ENV"
+        env_set NOTA_VAPID_PRIVATE_KEY "${keys#* }" "$NOTA_BACKEND_ENV"
+        log "VAPID keys generated (phone notifications)"
+        ;;
+      *) log "WARNING: could not generate VAPID keys; phone notifications stay off until the next update" ;;
+    esac
+  fi
+  if [ -z "$(env_get NOTA_VAPID_SUBJECT "$NOTA_BACKEND_ENV")" ]; then
+    subject="$(shop_domain)"
+    [ -n "$subject" ] && env_set NOTA_VAPID_SUBJECT "https://$subject" "$NOTA_BACKEND_ENV"
+  fi
+  return 0
+}
+
 backend_port() {
   local port
   port="$(env_get PORT "$NOTA_BACKEND_ENV")"

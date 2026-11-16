@@ -35,6 +35,8 @@ import {
 import { CategoryToolsComponent } from '../category-tools/category-tools.component';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { LayoutService } from '../../../../core/layout/layout.service';
+import { initialOf, mobilePillClass } from '../../../mobile/mobile-utils';
 
 /** Low stock when inventoryCount <= the product's lowStockThreshold, or this default (same as the backend). */
 export const LOW_STOCK_THRESHOLD = 5;
@@ -69,6 +71,11 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
     return [{ key: 'stock', load: () => this.printData.stockList(this.categoryId || null, this.categoryId ? (this.categories().find((category) => category.id === this.categoryId)?.label ?? '') : '') }];
   }
   private readonly _auth = inject(AuthService);
+  /** Online Stage 6A: the phone layout (MobStock) is a template block of this same component. */
+  readonly layout = inject(LayoutService);
+  readonly canEdit = computed(() => this._auth.has('products.manage'));
+  initial(name: unknown): string { return initialOf(String(name ?? '')); }
+  pillClass(product: Product): string { return mobilePillClass(this.stockVariant(product)); }
   /** Table columns: the purchase-price column is there only with products.viewCost. */
   readonly columnCount = computed(() => 7 + (this._auth.has('products.viewCost') ? 1 : 0) + (this._auth.has('website.manage') ? 1 : 0));
   private readonly _website = inject(WebsiteService);

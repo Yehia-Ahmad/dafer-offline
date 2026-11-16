@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { DialogModule } from 'primeng/dialog';
@@ -13,6 +13,8 @@ import {
 import { Customer, CustomerQueryParams, CustomersService } from '../../services/customers.service';
 import { LanguageService } from '../../../shared/services/translation.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { LayoutService } from '../../../../core/layout/layout.service';
+import { initialOf } from '../../../mobile/mobile-utils';
 
 @Component({
   selector: 'app-customers',
@@ -29,6 +31,9 @@ export class CustomersComponent implements OnInit {
   /** Frontend-only filter pill on the loaded list. */
   listFilter: 'all' | 'indebted' = 'all';
   customerForm: FormGroup;
+  /** Online Stage 6A: the phone layout (MobCustomers) is a template block of this same component. */
+  readonly layout = inject(LayoutService);
+  initial(name: string): string { return initialOf(name); }
   customers: Customer[] = [];
   searchTerm = '';
   selectedCustomerId: string | null = null;

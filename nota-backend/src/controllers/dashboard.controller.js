@@ -1,6 +1,7 @@
 const CreditSale = require("../models/creditSale.model");
 const Product = require("../models/product.model");
 const Selling = require("../models/selling.model");
+const WebOrder = require("../models/webOrder.model");
 const clock = require("../utils/clock");
 const asyncHandler = require("../utils/asyncHandler");
 const { roundMoney } = require("../utils/invoicePricing");
@@ -181,4 +182,47 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { getDashboardSummary, localTodayAsUtcDay };
+// Online Stage 6A: GET /api/dashboard/mobile-summary. Read-only; each block appears only when the user may see it.
+//   today.total / today.shop / today.website: dashboard.view (website also needs orders.view). Website = the invoices created from
+//   website orders (WebOrder.cashSaleId / creditSaleId) dated today; shop = total - website. Same net-of-refunds, non-cancelled
+//   rule as the dashboard summary.
+//   cashDrawer: cashbox.view, the sum of the active cash boxes (same figure as GET /api/cashbox/boxes -> cashTotal).
+const getMobileSummary = asyncHandler(async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const out = {};
+  if (hasPermission(req.user, "dashboard.view")) {
+    const today = localTodayAsUtcDay();
+    const tomorrow = new Date(today.getTime() + DAY_MS);
+    const [cashRows, creditRows] = await Promise.all([
+      Selling.find({ sellingDate: { $gte: today, $lt: tomorrow }, status: { $ne: "cancelled" } }).lean(),
+      CreditSale.find({ sellingDate: { $gte: today, $lt: tomorrow }, status: { $ne: "cancelled" } }).lean(),
+    ]);
+    const creditTotal = (row) => roundMoney(Math.max(0, Number(row.totalPrice || 0) - Number(row.refundedAmount || 0)));
+    const total = roundMoney(cashRows.reduce((sum, row) => sum + cashInvoiceTotal(row), 0) + creditRows.reduce((sum, row) => sum + creditTotal(row), 0));
+    const today_ = { total };
+    if (hasPermission(req.user, "orders.view")) {
+      const cashIds = cashRows.map((row) => row._id);
+      const creditIds = creditRows.map((row) => row._id);
+      const linked = (cashIds.length || creditIds.length)
+        ? await WebOrder.find({ $or: [{ cashSaleId: { $in: cashIds } }, { creditSaleId: { $in: creditIds } }] }, "cashSaleId creditSaleId").lean()
+        : [];
+      const webCash = new Set(linked.filter((order) => order.cashSaleId).map((order) => String(order.cashSaleId)));
+      const webCredit = new Set(linked.filter((order) => order.creditSaleId).map((order) => String(order.creditSaleId)));
+      const website = roundMoney(
+        cashRows.filter((row) => webCash.has(String(row._id))).reduce((sum, row) => sum + cashInvoiceTotal(row), 0)
+        + creditRows.filter((row) => webCredit.has(String(row._id))).reduce((sum, row) => sum + creditTotal(row), 0)
+      );
+      today_.website = website;
+      today_.shop = roundMoney(total - website);
+    }
+    out.today = today_;
+  }
+  if (hasPermission(req.user, "cashbox.view")) {
+    const { loadBoxViews } = require("./cashbox.controller");
+    const views = await loadBoxViews();
+    out.cashDrawer = roundMoney(views.filter((box) => box.type === "cash" && box.isActive).reduce((sum, box) => sum + box.balance, 0));
+  }
+  res.json(out);
+});
+
+module.exports = { getDashboardSummary, getMobileSummary, localTodayAsUtcDay };
