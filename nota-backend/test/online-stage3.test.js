@@ -446,7 +446,7 @@ it("STORE_CLOSED when the website is disabled (settings still answers); ordering
   const closed = ok(await store("GET", "/api/store/settings"));
   assert.deepEqual(Object.keys(closed).sort(), ["closedMessage", "enabled", "shop"]);
   assert.equal(closed.closedMessage, "رجوع قريب");
-  for (const path of ["/api/store/categories", "/api/store/products", `/api/store/products/${id}`, "/api/store/delivery-zones", `/api/store/images/product/${id}/0`, "/api/store/images/logo", "/api/store/orders/track/x"]) {
+  for (const path of ["/api/store/categories", "/api/store/products", `/api/store/products/${id}`, "/api/store/delivery-zones", `/api/store/images/product/${id}/0`, "/api/store/images/banner/" + "a".repeat(24), "/api/store/orders/track/x"]) {
     const response = await store("GET", path);
     assert.equal(response.status, 503, path); assert.equal(response.json.code, "STORE_CLOSED", path);
   }
@@ -462,6 +462,66 @@ it("STORE_CLOSED when the website is disabled (settings still answers); ordering
   assert.equal(await WebOrder.countDocuments(), 0);
 });
 
+it("while the website is closed the logo still answers and settings still offers its URL; every other image stays closed", async () => {
+  ok(await staff("PUT", "/api/shop-profile", { name: "متجر النور", logo: PNG_URI }));
+  const { id, category } = await seedProduct({ code: "LG1" });
+  await openSite({ banners: [{ image: PNG_URI }] });
+  const banner = (await staff("GET", "/api/website/settings")).json.banners[0]._id;
+  await staff("PUT", "/api/website/settings", { enabled: false });
+  const settings = ok(await store("GET", "/api/store/settings"));
+  assert.equal(settings.enabled, false);
+  assert.match(settings.shop.logoUrl, /^\/api\/store\/images\/logo\?v=\d+$/);
+  const logo = await call("GET", settings.shop.logoUrl, { raw: true });
+  assert.equal(logo.status, 200); assert.equal(logo.headers.get("content-type"), "image/png");
+  for (const path of [`/api/store/images/product/${id}/0`, `/api/store/images/category/${category}`, `/api/store/images/banner/${banner}`]) {
+    const response = await call("GET", path, { raw: true });
+    assert.equal(response.status, 503, path);
+  }
+});
+
+it("staff product responses never carry website.images; only GET /api/website/products/:id returns them", async () => {
+  const { id, category } = await seedProduct({ code: "NI1", name: "بصور" }); // seedProduct stores one website image
+  assert.equal((await Product.findById(id).lean()).website.images.length, 1);
+  const list = ok(await staff("GET", "/api/products?limit=50"));
+  assert.equal(list.data.length, 1);
+  assert.equal(list.data[0].website.visible, true, "the flag and description stay");
+  assert.equal(list.data[0].website.images, undefined);
+  for (const [label, response] of Object.entries({
+    list: await staff("GET", "/api/products"),
+    inCategory: await staff("GET", `/api/products?categoryId=${category}`),
+    all: await staff("GET", "/api/products?includeArchived=1"),
+    search: await staff("GET", "/api/products/search?q=" + encodeURIComponent("بصور")),
+    byId: await staff("GET", `/api/products/${id}`),
+    update: await staff("PUT", `/api/products/${id}`, { name: "بصور" }),
+  })) {
+    assert.equal(response.status, 200, label);
+    assert.ok(!/"images"/.test(response.text), `${label}: no website.images`);
+  }
+  const own = ok(await staff("GET", `/api/website/products/${id}`));
+  assert.deepEqual(own.website, { visible: true, description: "وصف", images: [PNG_URI] });
+  assert.equal((await staff("GET", `/api/website/products/${id}`, undefined, await makeStaff("keeper2", "storekeeper"))).status, 403);
+  assert.equal((await staff("GET", `/api/website/products/${"a".repeat(24)}`)).status, 404);
+});
+
+it("the access log masks order tracking tokens (both formats) and the raw token never appears", async () => {
+  const express = require("express");
+  const { createAccessLog, maskUrl } = require("../src/utils/accessLog");
+  assert.equal(maskUrl("/api/store/orders/track/abc_DEF-123?x=1"), "/api/store/orders/track/***?x=1");
+  assert.equal(maskUrl("/api/store/orders/track/abc"), "/api/store/orders/track/***");
+  assert.equal(maskUrl("/api/store/products/abc"), "/api/store/products/abc");
+  for (const NODE_ENV of ["production", "development"]) {
+    const lines = [];
+    const logged = express();
+    logged.use(createAccessLog({ NODE_ENV }, { stream: { write: (line) => lines.push(line) } }));
+    logged.get("/api/store/orders/track/:token", (_req, res) => res.json({}));
+    const listener = logged.listen(0, "127.0.0.1"); await new Promise((resolve) => listener.once("listening", resolve));
+    try { await fetch(`http://127.0.0.1:${listener.address().port}/api/store/orders/track/SECRET-TOKEN-xyz?a=1`); } finally { await new Promise((resolve) => listener.close(resolve)); }
+    const text = lines.join("");
+    assert.ok(text.includes("/api/store/orders/track/***"), NODE_ENV + ": " + text);
+    assert.ok(!text.includes("SECRET-TOKEN-xyz"), NODE_ENV + ": token not logged");
+  }
+});
+
 it("website.manage is required for every admin website route and for the product/category website fields", async () => {
   const { id, category } = await seedProduct({ code: "W1", visible: false });
   const zone = await seedZone();
@@ -472,7 +532,7 @@ it("website.manage is required for every admin website route and for the product
     ["GET", "/api/website/settings"], ["PUT", "/api/website/settings", { title: "x" }],
     ["GET", "/api/website/delivery-zones"], ["POST", "/api/website/delivery-zones", { name: "ز", fee: 1 }],
     ["PUT", `/api/website/delivery-zones/${zone.id}`, { fee: 2 }], ["DELETE", `/api/website/delivery-zones/${zone.id}`],
-    ["PUT", `/api/website/products/${id}`, { visible: true }], ["PUT", `/api/website/categories/${category}`, { visible: true }],
+    ["GET", `/api/website/products/${id}`], ["PUT", `/api/website/products/${id}`, { visible: true }], ["PUT", `/api/website/categories/${category}`, { visible: true }],
   ];
   for (const [method, path, body] of routes) {
     for (const [who, token] of [["cashier", cashier], ["storekeeper (products.manage)", storekeeper]]) {

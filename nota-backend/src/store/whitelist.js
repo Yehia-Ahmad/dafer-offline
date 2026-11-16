@@ -78,8 +78,7 @@ const publicShop = (profile) => ({
 const publicSettings = (settings, extras) => {
   const shop = publicShop(extras.shop);
   if (!settings || !settings.enabled) {
-    // The image routes answer STORE_CLOSED while the site is closed, so no logo URL is offered.
-    return { enabled: false, closedMessage: (settings && settings.closedMessage) || "", shop: { ...shop, logoUrl: null } };
+    return { enabled: false, closedMessage: (settings && settings.closedMessage) || "", shop };
   }
   const banners = (settings.banners || [])
     .slice()

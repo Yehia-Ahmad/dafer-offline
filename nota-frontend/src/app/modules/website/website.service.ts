@@ -42,6 +42,11 @@ export class WebsiteService {
     return this.http.delete<void>(`${this.base}/delivery-zones/${id}`);
   }
 
+  /** The one staff endpoint that carries a product's website images (the products list and the product itself do not). */
+  getProductWebsite(productId: string): Observable<{ id: string; website: ProductWebsite }> {
+    return this.http.get<{ id: string; website: ProductWebsite }>(`${this.base}/products/${productId}`);
+  }
+
   saveProductWebsite(productId: string, body: { visible?: boolean; description?: string; images?: string[] }): Observable<{ id: string; website: ProductWebsite }> {
     return this.http.put<{ id: string; website: ProductWebsite }>(`${this.base}/products/${productId}`, body);
   }

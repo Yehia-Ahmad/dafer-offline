@@ -130,6 +130,8 @@ productSchema.set("toJSON", {
   virtuals: true,
   transform: (_document, returnedObject) => {
     delete returnedObject.id;
+    // Online Stage 3: staff responses never carry the website images (GET /api/website/products/:id is the one place).
+    if (returnedObject.website) delete returnedObject.website.images;
     return returnedObject;
   },
 });

@@ -21,6 +21,7 @@ router
   .put(manage, auditOnSuccess("website.zone.updated", "DeliveryZone"), c.updateZone)
   .delete(manage, auditOnSuccess("website.zone.deleted", "DeliveryZone"), c.deleteZone);
 
+router.get("/products/:id", manage, c.getProductWebsite);
 router.put("/products/:id", manage, auditOnSuccess("website.product.updated", "Product"), c.updateProductWebsite);
 router.put("/categories/:id", manage, auditOnSuccess("website.category.updated", "Category"), c.updateCategoryWebsite);
 

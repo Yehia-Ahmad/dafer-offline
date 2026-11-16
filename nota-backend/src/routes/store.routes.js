@@ -24,6 +24,9 @@ const createStoreRouter = ({ secret }) => {
   // The one route that still answers while the website is closed.
   router.get("/settings", pub, catalogController.getSettings);
 
+  // The closed page shows the shop logo, so the logo is the one image that still answers while the website is closed.
+  router.get("/images/logo", pub, catalogController.getLogoImage);
+
   // Website disabled: every other route answers 503 STORE_CLOSED.
   router.use(asyncHandler(async (_req, _res, next) => {
     const settings = await loadWebsiteSettings();
@@ -42,7 +45,6 @@ const createStoreRouter = ({ secret }) => {
   router.get("/images/product/:id/:index", pub, catalogController.getProductImage);
   router.get("/images/category/:id", pub, catalogController.getCategoryImage);
   router.get("/images/banner/:id", pub, catalogController.getBannerImage);
-  router.get("/images/logo", pub, catalogController.getLogoImage);
 
   router.post("/auth/register", pub, account.register);
   router.post("/auth/login", pub, account.login);

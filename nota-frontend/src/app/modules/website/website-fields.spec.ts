@@ -25,10 +25,15 @@ describe('website fields on products and categories (Online Stage 3)', () => {
   afterEach(() => http.verify());
 
   describe('product form section', () => {
+    const productUrl = `${environment.api_base_url}website/products/p1`;
+    // The section reads the product's website data (images included) from GET /website/products/:id.
     const open = (website?: unknown) => {
       const fixture = TestBed.createComponent(ProductWebsiteSectionComponent);
       fixture.componentRef.setInput('productId', 'p1');
-      fixture.componentRef.setInput('website', website);
+      fixture.detectChanges();
+      const req = http.expectOne(productUrl);
+      expect(req.request.method).toBe('GET');
+      req.flush({ id: 'p1', website: website ?? { visible: false, description: '', images: [] } });
       fixture.detectChanges();
       return { fixture, component: fixture.componentInstance as any };
     };
@@ -48,8 +53,7 @@ describe('website fields on products and categories (Online Stage 3)', () => {
       component.images.update((list: string[]) => [...list, 'data:image/png;base64,BBBB']);
       expect(component.dirty()).toBeTrue();
       component.save();
-      const req = http.expectOne(`${environment.api_base_url}website/products/p1`);
-      expect(req.request.method).toBe('PUT');
+      const req = http.expectOne((r) => r.url === productUrl && r.method === 'PUT');
       expect(req.request.body).toEqual({ visible: true, description: 'وصف جديد', images: [PNG, 'data:image/png;base64,BBBB'] });
       req.flush({ id: 'p1', website: { visible: true, description: 'وصف جديد', images: [PNG, 'data:image/png;base64,BBBB'] } });
       fixture.detectChanges();
@@ -89,15 +93,15 @@ describe('website fields on products and categories (Online Stage 3)', () => {
       expect(unsaved.hasUnsavedWork()).toBeFalse();
     });
 
-    it('a reloaded product replaces the values unless the user is editing', () => {
-      const { fixture, component } = open({ visible: false, description: 'أ' });
-      fixture.componentRef.setInput('website', { visible: true, description: 'ب' });
+    it('while loading nothing can be saved, and a failed load shows an error', () => {
+      const fixture = TestBed.createComponent(ProductWebsiteSectionComponent);
+      fixture.componentRef.setInput('productId', 'p1');
       fixture.detectChanges();
-      expect(component.description()).toBe('ب');
-      component.description.set('كتابة المستخدم');
-      fixture.componentRef.setInput('website', { visible: true, description: 'ج' });
-      fixture.detectChanges();
-      expect(component.description()).toBe('كتابة المستخدم');
+      expect((fixture.componentInstance as any).loading()).toBeTrue();
+      expect(fixture.nativeElement.querySelector('[data-action="save-website"]').disabled).toBeTrue();
+      http.expectOne(productUrl).flush({}, { status: 500, statusText: 'Server Error' });
+      expect((fixture.componentInstance as any).loading()).toBeFalse();
+      expect((fixture.componentInstance as any).outcome()).toEqual({ kind: 'error', message: '' });
     });
   });
 

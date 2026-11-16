@@ -477,6 +477,7 @@ const getProducts = asyncHandler(async (req, res) => {
   // MongoDB, so only the requested page is loaded into application memory.
   const [products, totalItems] = await Promise.all([
     Product.find(filter)
+      .select("-website.images") // Online Stage 3: up to 4 base64 images per product stay out of staff lists
       .populate("category", CATEGORY_PRODUCT_FIELDS)
       // Keep the existing newest-first order and make ties deterministic so
       // records do not move between pages when createdAt values are equal.
@@ -528,6 +529,7 @@ const searchProducts = asyncHandler(async (req, res) => {
   }
 
   const products = await Product.find({ $or: searchFilters, isArchived: { $ne: true } })
+    .select("-website.images")
     .populate("category", CATEGORY_PRODUCT_FIELDS)
     .sort({ createdAt: -1 });
 
@@ -535,7 +537,7 @@ const searchProducts = asyncHandler(async (req, res) => {
 });
 
 const getProductById = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id).populate(
+  const product = await Product.findById(req.params.id).select("-website.images").populate(
     "category",
     CATEGORY_PRODUCT_FIELDS
   );
@@ -549,6 +551,7 @@ const getProductById = asyncHandler(async (req, res) => {
 
 const exportProductsExcel = asyncHandler(async (req, res) => {
   const products = await Product.find({})
+    .select("-website.images")
     .populate("category", "name")
     .sort({ createdAt: -1 })
     .lean();

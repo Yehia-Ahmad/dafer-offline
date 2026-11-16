@@ -230,7 +230,7 @@ const exportCategories = async () => {
       .sort({ createdAt: 1, _id: 1 })
       .lean(),
     Product.find()
-      .select("-__v")
+      .select("-__v -website.images")
       .sort({ createdAt: 1, _id: 1 })
       .lean(),
   ]);

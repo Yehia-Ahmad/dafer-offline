@@ -9,7 +9,8 @@ import { WebsiteService } from './website.service';
 
 /**
  * Online Stage 3: the "الموقع" section of the product form (edit mode; the parent shows it only with website.manage).
- * It saves on its own, through PUT /api/website/products/:id, so the product's own save and its request body are untouched:
+ * It loads and saves on its own through /api/website/products/:id (the product itself and the products list carry no website
+ * images), so the product's own save and its request body are untouched:
  * show on website, a website description and up to 4 extra images.
  */
 @Component({
@@ -51,7 +52,7 @@ import { WebsiteService } from './website.service';
             {{ result.kind === 'saved' ? ('website.product.saved' | translate) : (result.message || ('website.product.saveFailed' | translate)) }}
           </span>
         }
-        <button type="button" notaButton="primary" data-action="save-website" [disabled]="saving() || !dirty()" (click)="save()">
+        <button type="button" notaButton="primary" data-action="save-website" [disabled]="saving() || loading() || !dirty()" (click)="save()">
           {{ (saving() ? 'website.product.saving' : 'website.product.save') | translate }}
         </button>
       </div>
@@ -78,28 +79,39 @@ export class ProductWebsiteSectionComponent {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly productId = input.required<string>();
-  /** Product.website as loaded with the product (absent on a product the migration has not reached: hidden). */
-  readonly website = input<ProductWebsite | undefined | null>(undefined);
 
   protected readonly limits = WEBSITE_LIMITS;
   protected readonly visible = signal(false);
   protected readonly description = signal('');
   protected readonly images = signal<string[]>([]);
+  protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly imageError = signal<string | null>(null);
   protected readonly outcome = signal<{ kind: 'saved' } | { kind: 'error'; message: string } | null>(null);
   private saved = '';
 
   constructor() {
-    // A new product loaded (or the parent reloaded it): take its values, unless the user is mid-edit.
+    // The product opened (or another one): read its website data, images included.
     effect(() => {
-      const incoming = this.website();
-      untracked(() => {
-        if (this.saved && this.dirty()) return;
-        this.apply(incoming);
-      });
+      const id = this.productId();
+      untracked(() => this.load(id));
     });
     this.destroyRef.onDestroy(inject(UnsavedWorkService).register('product-website', () => this.dirty() && !this.saving()));
+  }
+
+  private load(id: string): void {
+    this.loading.set(true);
+    this.outcome.set(null);
+    this.service.getProductWebsite(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (response) => {
+        this.apply(response.website);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.outcome.set({ kind: 'error', message: '' });
+      },
+    });
   }
 
   protected dirty(): boolean {

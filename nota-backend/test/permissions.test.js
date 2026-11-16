@@ -251,6 +251,7 @@ const EXPECTED_ROUTES = {
   "POST /api/website/delivery-zones": "website.manage",
   "PUT /api/website/delivery-zones/:id": "website.manage",
   "DELETE /api/website/delivery-zones/:id": "website.manage",
+  "GET /api/website/products/:id": "website.manage",
   "PUT /api/website/products/:id": "website.manage",
   "PUT /api/website/categories/:id": "website.manage",
   // Online Stage 3: the public API of the customer website. STORE = no token needed (a guest may call it),

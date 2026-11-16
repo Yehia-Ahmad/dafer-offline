@@ -199,7 +199,7 @@
 
       <!-- Online Stage 3: الموقع (website.manage). Saves on its own; a new product is put on the website after it exists. -->
       @if (mode === 'edit' && product?._id) {
-        <app-product-website-section *notaCan="'website.manage'" [productId]="product._id" [website]="product.website" />
+        <app-product-website-section *notaCan="'website.manage'" [productId]="product._id" />
       } @else if (mode === 'new') {
         <p *notaCan="'website.manage'" class="nota-hint" data-test="website-after-save">{{ 'website.product.saveFirst' | translate }}</p>
       }

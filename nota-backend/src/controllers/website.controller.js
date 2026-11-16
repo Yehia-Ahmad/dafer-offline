@@ -179,6 +179,14 @@ const deleteZone = asyncHandler(async (req, res) => {
 
 // ---- website fields of a product / category -------------------------------------------------------------------------
 
+// The one staff endpoint that returns a product's website images (the product form's website section reads it).
+const getProductWebsite = asyncHandler(async (req, res) => {
+  if (!isId(req.params.id)) throw httpError(404, "NOT_FOUND", "المنتج غير موجود");
+  const product = await Product.findById(req.params.id).select("website").lean();
+  if (!product) throw httpError(404, "NOT_FOUND", "المنتج غير موجود");
+  res.json({ id: String(product._id), website: { visible: Boolean(product.website && product.website.visible), description: (product.website && product.website.description) || "", images: (product.website && product.website.images) || [] } });
+});
+
 const updateProductWebsite = asyncHandler(async (req, res) => {
   const body = req.body && typeof req.body === "object" ? req.body : {};
   if (!isId(req.params.id)) throw httpError(404, "NOT_FOUND", "المنتج غير موجود");
@@ -213,5 +221,5 @@ const updateCategoryWebsite = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  createZone, deleteZone, getSettings, listZones, updateCategoryWebsite, updateProductWebsite, updateSettings, updateZone,
+  createZone, deleteZone, getProductWebsite, getSettings, listZones, updateCategoryWebsite, updateProductWebsite, updateSettings, updateZone,
 };
