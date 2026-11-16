@@ -643,6 +643,19 @@ async function onlineStage3WebsiteFieldsMigration(session) {
   return { products: products.modifiedCount, categories: categories.modifiedCount };
 }
 
+// Online Stage 5A: `website.visible` (boolean) becomes `website.visibility` ("show" | "hide" | unset). true -> "show". false carries no
+// choice (migration 12 wrote false for everything) and missing stays missing, so both just lose the old field. Idempotent: the second
+// run finds no `website.visible` anywhere.
+async function onlineStage5aVisibilityMigration(session) {
+  const out = {};
+  for (const [name, Model] of [["products", Product], ["categories", Category]]) {
+    const shown = await Model.collection.updateMany({ "website.visible": true }, { $set: { "website.visibility": "show" }, $unset: { "website.visible": "" } }, { session });
+    const cleared = await Model.collection.updateMany({ "website.visible": { $exists: true } }, { $unset: { "website.visible": "" } }, { session });
+    out[name] = { shown: shown.modifiedCount, cleared: cleared.modifiedCount };
+  }
+  return out;
+}
+
 const migrations = [
   { version: 1, name: "document numbers and receipts", run: numbersMigration },
   { version: 2, name: "original invoice totals and returned status", chunked: true, runChunk: originalTotalsMigrationChunk },
@@ -656,6 +669,7 @@ const migrations = [
   { version: 10, name: "stage 21 review: product prices rounded to 2 decimals (cost revaluation posted)", run: stage21ProductPricesMigration },
   { version: 11, name: "stage 23 review: drop the old non-unique printreservations index key_1_copyNo_1", outsideTransaction: true, run: stage23PrintReservationIndexMigration },
   { version: 12, name: "online stage 3: website fields on products and categories (hidden by default)", run: onlineStage3WebsiteFieldsMigration },
+  { version: 13, name: "online stage 5a: website.visible becomes website.visibility (show / hide / unset)", run: onlineStage5aVisibilityMigration },
 ];
 
 async function recordMigration(migration, details, session) {

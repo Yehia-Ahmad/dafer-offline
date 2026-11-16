@@ -1,10 +1,18 @@
 <!-- Online Stage 3: delivery zones. /api/website/delivery-zones (website.manage). -->
 <div class="dz">
-  <nota-page-header [title]="'website.zones.title' | translate" [subtitle]="'website.zones.subtitle' | translate">
-    <div notaPageActions>
+  @if (embedded()) {
+    <!-- Online Stage 5A: inside the التوصيل tab of the settings page (no page header). -->
+    <div class="dz__bar">
+      <h3 class="nota-section-title">{{ 'website.zones.title' | translate }}</h3>
       <button type="button" notaButton="primary" data-action="add-zone" (click)="openAdd()">+ {{ 'website.zones.add' | translate }}</button>
     </div>
-  </nota-page-header>
+  } @else {
+    <nota-page-header [title]="'website.zones.title' | translate" [subtitle]="'website.zones.subtitle' | translate">
+      <div notaPageActions>
+        <button type="button" notaButton="primary" data-action="add-zone" (click)="openAdd()">+ {{ 'website.zones.add' | translate }}</button>
+      </div>
+    </nota-page-header>
+  }
 
   @if (loadError()) {
     <div class="dz__alert" role="alert">

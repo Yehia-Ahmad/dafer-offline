@@ -4,6 +4,10 @@ const isBase64Image = require("../utils/isBase64Image");
 const MAX_BANNERS = 5;
 const MAX_FEATURED = 8;
 const MAX_BANNER_BYTES = 1024 * 1024;
+const HIGHLIGHT_ICONS = ["delivery", "cash", "exchange", "shield", "clock", "star"];
+// PLACEHOLDER: the six presets of WebSettings.dc.html are not in the repository (docs/design/screens has no Web*.dc.html).
+// Replace these six values with the design's presets; nothing else reads them except the settings validation and the admin UI.
+const BRAND_COLORS = ["#1F6FEB", "#0E9F6E", "#D97706", "#DC2626", "#7C3AED", "#0F172A"];
 
 const decodedBytes = (value) => {
   if (typeof value !== "string") return 0;
@@ -60,6 +64,47 @@ const websiteSettingsSchema = new mongoose.Schema(
     orderNote: { type: String, trim: true, maxlength: 1000 },
     returnsPolicy: { type: String, trim: true, maxlength: 5000 },
     terms: { type: String, trim: true, maxlength: 10000 },
+
+    // ---- Online Stage 5A. No schema defaults: a missing value means the documented default (see store/catalog.js `withDefaults`).
+    // How the customer gets the order. At least one on (checked when saving).
+    fulfillment: { delivery: { type: Boolean }, pickup: { type: Boolean } },
+    // Payment methods. boxId = an active wallet/bank box (never leaves the server).
+    payments: {
+      cod: { enabled: { type: Boolean } },
+      instapay: { enabled: { type: Boolean }, address: { type: String, trim: true, maxlength: 100 }, boxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox" } },
+      vodafoneCash: { enabled: { type: Boolean }, number: { type: String, trim: true, maxlength: 30 }, boxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox" } },
+    },
+    // Stock display.
+    stock: {
+      showOutOfStock: { type: Boolean },
+      showRemaining: { enabled: { type: Boolean }, threshold: { type: Number, min: 1, max: 1000 } },
+    },
+    // "marked": only products/categories marked "show". "all": everything except those marked "hide".
+    productVisibility: { type: String, enum: ["marked", "all"] },
+    // Look.
+    brandColor: { type: String, trim: true, maxlength: 20 },
+    websiteLogo: {
+      type: String,
+      trim: true,
+      validate: [
+        { validator: (value) => value === undefined || value === null || value === "" || isBase64Image(value), message: "يجب أن يكون شعار الموقع سلسلة base64 صالحة" },
+        { validator: (value) => decodedBytes(value) <= MAX_BANNER_BYTES, message: "يجب ألا يزيد حجم شعار الموقع عن 1 ميجابايت" },
+      ],
+    },
+    announcement: { enabled: { type: Boolean }, text: { type: String, trim: true, maxlength: 160 } },
+    // General.
+    seoDescription: { type: String, trim: true, maxlength: 300 },
+    openingHours: { type: String, trim: true, maxlength: 500 },
+    // Delivery: information only ("HH:mm").
+    sameDayCutoff: { type: String, trim: true, maxlength: 5 },
+    // Home highlights (up to 3). Empty = the website builds three from the settings.
+    highlights: {
+      type: [new mongoose.Schema({ icon: { type: String, enum: HIGHLIGHT_ICONS }, title: { type: String, trim: true, maxlength: 60 }, text: { type: String, trim: true, maxlength: 160 } }, { _id: false })],
+      default: undefined,
+      validate: { validator: (list) => !Array.isArray(list) || list.length <= 3, message: "الحد الأقصى 3 مميزات" },
+    },
+    // Orders: the WhatsApp confirmation message ({الاسم} {رقم الطلب} {الإجمالي} {مدة التوصيل}).
+    whatsappConfirmTemplate: { type: String, trim: true, maxlength: 1000 },
   },
   { timestamps: true }
 );
@@ -67,3 +112,5 @@ const websiteSettingsSchema = new mongoose.Schema(
 module.exports = mongoose.model("WebsiteSettings", websiteSettingsSchema);
 module.exports.MAX_BANNERS = MAX_BANNERS;
 module.exports.MAX_FEATURED = MAX_FEATURED;
+module.exports.HIGHLIGHT_ICONS = HIGHLIGHT_ICONS;
+module.exports.BRAND_COLORS = BRAND_COLORS;

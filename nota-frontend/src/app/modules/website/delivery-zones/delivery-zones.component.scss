@@ -3,6 +3,8 @@
 .dz { display: flex; flex-direction: column; gap: var(--space-gap); }
 .dz__alert { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 12px; line-height: 1.7; background: var(--danger-soft); color: var(--danger-text); }
 .dz__muted { margin: 0; color: var(--text-muted); }
+.dz__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.dz__bar h3 { margin: 0; }
 .dz__name { font-weight: 600; }
 .dz__actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .dz__empty { text-align: center; color: var(--text-muted); padding: 24px; }

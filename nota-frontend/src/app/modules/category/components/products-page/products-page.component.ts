@@ -21,6 +21,8 @@ import { distinctUntilChanged, map } from 'rxjs';
 import { TranslatePipe } from '@ngx-translate/core';
 import { DialogModule } from 'primeng/dialog';
 import { CateoryService, Product } from '../../services/cateory.service';
+import { isOnWebsite, ProductVisibilityMode, VisibilityChoice } from '../../../website/website.models';
+import { WebsiteService } from '../../../website/website.service';
 import { CatalogStateService, SidebarCategory } from '../../../layout/nav/catalog-state.service';
 import {
   NotaButtonDirective,
@@ -69,6 +71,7 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   private readonly _auth = inject(AuthService);
   /** Table columns: the purchase-price column is there only with products.viewCost. */
   readonly columnCount = computed(() => 7 + (this._auth.has('products.viewCost') ? 1 : 0) + (this._auth.has('website.manage') ? 1 : 0));
+  private readonly _website = inject(WebsiteService);
   private readonly _catalog = inject(CatalogStateService);
   private readonly _cateoryService = inject(CateoryService);
   private readonly _activatedRoute = inject(ActivatedRoute);
@@ -110,6 +113,12 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   totalPages = 1;
 
   ngOnInit(): void {
+    if (this._auth.has('website.manage')) {
+      this._website.getSettings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: (settings) => { this.websiteMode = settings.productVisibility; this.cdr.markForCheck(); },
+        error: () => undefined,
+      });
+    }
     this._activatedRoute.queryParamMap.pipe(
       map((params) => params.get('category') ?? ''),
       distinctUntilChanged(),
@@ -134,9 +143,15 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
     return !this.categoryId;
   }
 
-  /** Online Stage 3: the product's website.visible flag (a product without the field is not on the website). */
+  /** Online Stage 5A: the website's mode ("marked" until the settings arrive; only read with website.manage). */
+  websiteMode: ProductVisibilityMode = 'marked';
+
+  /**
+   * Online Stage 5A: is the product on the website? Its website.visibility (show / hide / unset) read with the website's mode:
+   * "marked" shows only "show"; "all" shows everything unless "hide". (A label only: the server decides what the website shows.)
+   */
   isOnWebsite(product: Product | null | undefined): boolean {
-    return Boolean((product?.['website'] as { visible?: boolean } | undefined)?.visible);
+    return isOnWebsite((product?.['website'] as { visibility?: VisibilityChoice } | undefined)?.visibility ?? null, this.websiteMode);
   }
 
   get filteredProducts(): Product[] {

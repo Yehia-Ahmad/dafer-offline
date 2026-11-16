@@ -4,7 +4,7 @@ import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { HANDLES_OWN_ERRORS } from '../../core/auth/auth.service';
 import {
-  Courier, CourierDetail, DeliverPayload, OrderDetail, OrderEditPayload, OrderListQuery, OrderListResponse, WebsiteCustomer,
+  Courier, CourierDetail, DeliverPayload, OrderDetail, OrderEditPayload, OrderListQuery, OrderListResponse, PickupPayload, WebsiteCustomer,
 } from './orders.models';
 
 /** Online Stage 4: /api/orders, /api/couriers and /api/website/customers. */
@@ -40,6 +40,11 @@ export class OrdersService {
   prepare(id: string): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/prepare`, {}); }
   reject(id: string, reason: string): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/reject`, { reason }); }
   cancel(id: string, reason: string): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/cancel`, { reason }); }
+  /** Online Stage 5A: pickup orders. ready = packed and waiting at the shop. */
+  ready(id: string): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/ready`, {}); }
+  pickup(id: string, payload: PickupPayload = {}): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/pickup`, payload); }
+  /** Wallet orders: the shop saw the transfer. Posts nothing; the invoice does. */
+  verifyPayment(id: string, reference = ''): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/verify-payment`, reference.trim() ? { reference: reference.trim() } : {}); }
   dispatch(id: string, courierId: string): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/dispatch`, { courierId }); }
   deliver(id: string, payload: DeliverPayload): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/deliver`, payload); }
   refuse(id: string, reason: string): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/refuse`, { reason }); }

@@ -78,7 +78,7 @@ async function seedProduct({ name = "منتج", code = "P1", stock = 50, retail 
   if (!category) {
     const created = ok(await staff("POST", "/api/categories", { name: `فئة ${name} ${++categorySeq}`, image: PNG_URI }), 201);
     category = created._id || created.id || created.category?._id;
-    if (categoryVisible) ok(await staff("PUT", `/api/website/categories/${category}`, { visible: true, sortOrder: 1 }));
+    if (categoryVisible) ok(await staff("PUT", `/api/website/categories/${category}`, { visibility: "show", sortOrder: 1 }));
   }
   const created = ok(await staff("POST", "/api/products", {
     name, code, categoryId: category, inventoryCount: stock, purchasePrice: cost, wholesalePrice: wholesale, retailPrice: retail,
@@ -86,7 +86,7 @@ async function seedProduct({ name = "منتج", code = "P1", stock = 50, retail 
     ...(lowStockThreshold !== undefined ? { lowStockThreshold } : {}),
   }), 201);
   const id = created._id || created.product?._id;
-  if (visible) ok(await staff("PUT", `/api/website/products/${id}`, { visible: true, description: "وصف", images: [PNG_URI] }));
+  if (visible) ok(await staff("PUT", `/api/website/products/${id}`, { visibility: "show", description: "وصف", images: [PNG_URI] }));
   return { id, category };
 }
 async function openSite(extra = {}) {
@@ -104,8 +104,11 @@ async function register(phone = PHONE, name = "عميل") {
 
 const FORBIDDEN_KEYS = new Set([
   "purchasePrice", "wholesalePrice", "profit", "profitAmount", "totalProfit", "inventoryCount", "soldItemCount", "lowStockThreshold",
-  "createdBy", "updatedBy", "isArchived", "archivedAt", "archivedBy", "code", "passwordHash", "tokenVersion", "isActive", "requestHash",
-  "idempotencyKey", "trackingTokenHash", "storeCustomer", "__v", "specifications", "taxNumber", "commercialRegister", "invoiceFooter", "vatExempt",
+  "createdBy", "updatedBy", "isArchived", "archivedAt", "archivedBy", "passwordHash", "tokenVersion", "isActive", "requestHash",
+  "idempotencyKey", "trackingTokenHash", "storeCustomer", "__v", "taxNumber", "commercialRegister", "invoiceFooter", "vatExempt",
+  // Online Stage 5A (decision 6): `code` and `specifications` of a visible product are public now ("كود الصنف", the specs table);
+  // online-stage5a.test.js checks them (strings only, never for archived products). Also new and never public: box ids.
+  "boxId", "payment", "cashSaleId", "creditSaleId",
 ]);
 const walk = (value, visit, path = "$") => {
   if (Array.isArray(value)) return value.forEach((item, index) => walk(item, visit, `${path}[${index}]`));
@@ -146,11 +149,15 @@ it("every public response contains only whitelisted fields (walk the JSON, fail 
     login: await store("POST", "/api/store/auth/login", { phone: PHONE, password: "customer-pass-1" }),
   };
   for (const [label, response] of Object.entries(responses)) { assert.equal(response.status < 300, true, `${label} ${response.status} ${response.text}`); assertClean(response, label); }
-  // the product code is internal: its value never appears anywhere
-  for (const [label, response] of Object.entries(responses)) assert.ok(!response.text.includes("SECRET-CODE-77"), `${label}: no product code`);
+  // Online Stage 5A (decision 6): the code of a VISIBLE product is public now ("كود الصنف"), on the product answers only; it is
+  // still nowhere else (online-stage5a.test.js checks that an archived product's code never appears).
+  for (const [label, response] of Object.entries(responses)) {
+    if (label === "products" || label === "product") assert.ok(response.text.includes("SECRET-CODE-77"), `${label}: the product code`);
+    else assert.ok(!response.text.includes("SECRET-CODE-77"), `${label}: no product code`);
+  }
   assert.deepEqual(responses.products.json.data.map((p) => p.name), ["هاتف"]);
-  assert.deepEqual(Object.keys(responses.product.json).sort(), ["availability", "category", "description", "discountPercentage", "finalPrice", "id", "images", "maxOrderQty", "name", "price", "slug"]);
-  assert.deepEqual(Object.keys(responses.tracking.json).sort(), ["createdAt", "deliveryFee", "items", "number", "paymentMethod", "status", "subtotal", "total", "vat", "zone"]);
+  assert.deepEqual(Object.keys(responses.product.json).sort(), ["availability", "badges", "category", "code", "description", "discountPercentage", "finalPrice", "id", "images", "maxOrderQty", "name", "price", "slug", "specifications"]);
+  assert.deepEqual(Object.keys(responses.tracking.json).sort(), ["createdAt", "deliveryFee", "fulfillment", "items", "number", "paymentMethod", "paymentStatus", "status", "subtotal", "total", "vat", "zone"]);
   assert.equal(responses.tracking.json.contact, undefined);
 });
 
@@ -486,7 +493,7 @@ it("staff product responses never carry website.images; only GET /api/website/pr
   assert.equal((await Product.findById(id).lean()).website.images.length, 1);
   const list = ok(await staff("GET", "/api/products?limit=50"));
   assert.equal(list.data.length, 1);
-  assert.equal(list.data[0].website.visible, true, "the flag and description stay");
+  assert.equal(list.data[0].website.visibility, "show", "the flag and description stay");
   assert.equal(list.data[0].website.images, undefined);
   for (const [label, response] of Object.entries({
     list: await staff("GET", "/api/products"),
@@ -500,7 +507,7 @@ it("staff product responses never carry website.images; only GET /api/website/pr
     assert.ok(!/"images"/.test(response.text), `${label}: no website.images`);
   }
   const own = ok(await staff("GET", `/api/website/products/${id}`));
-  assert.deepEqual(own.website, { visible: true, description: "وصف", images: [PNG_URI] });
+  assert.deepEqual(own.website, { visibility: "show", description: "وصف", images: [PNG_URI] });
   assert.equal((await staff("GET", `/api/website/products/${id}`, undefined, await makeStaff("keeper2", "storekeeper"))).status, 403);
   assert.equal((await staff("GET", `/api/website/products/${"a".repeat(24)}`)).status, 404);
 });
@@ -534,7 +541,7 @@ it("website.manage is required for every admin website route and for the product
     ["GET", "/api/website/settings"], ["PUT", "/api/website/settings", { title: "x" }],
     ["GET", "/api/website/delivery-zones"], ["POST", "/api/website/delivery-zones", { name: "ز", fee: 1 }],
     ["PUT", `/api/website/delivery-zones/${zone.id}`, { fee: 2 }], ["DELETE", `/api/website/delivery-zones/${zone.id}`],
-    ["GET", `/api/website/products/${id}`], ["PUT", `/api/website/products/${id}`, { visible: true }], ["PUT", `/api/website/categories/${category}`, { visible: true }],
+    ["GET", `/api/website/products/${id}`], ["PUT", `/api/website/products/${id}`, { visibility: "show" }], ["PUT", `/api/website/categories/${category}`, { visibility: "show" }],
   ];
   for (const [method, path, body] of routes) {
     for (const [who, token] of [["cashier", cashier], ["storekeeper (products.manage)", storekeeper]]) {
@@ -543,22 +550,22 @@ it("website.manage is required for every admin website route and for the product
     }
     assert.equal((await call(method, path, { body })).status, 401, `no token: ${method} ${path}`);
   }
-  assert.equal(Boolean((await Product.findById(id).lean()).website?.visible), false);
-  assert.equal((await staff("PUT", `/api/website/products/${id}`, { visible: true }, manager)).status, 200, "the manager template has website.manage");
-  assert.equal((await Product.findById(id).lean()).website?.visible, true);
+  assert.equal((await Product.findById(id).lean()).website?.visibility, undefined);
+  assert.equal((await staff("PUT", `/api/website/products/${id}`, { visibility: "show" }, manager)).status, 200, "the manager template has website.manage");
+  assert.equal((await Product.findById(id).lean()).website?.visibility, "show");
 
   // products.manage alone cannot change the website fields through the normal product endpoints either
-  await Product.updateOne({ _id: id }, { $set: { "website.visible": false } });
-  const edit = await staff("PUT", `/api/products/${id}`, { name: "اسم جديد", website: { visible: true, description: "hack", images: [PNG_URI] } }, storekeeper);
+  await Product.updateOne({ _id: id }, { $set: { "website.visibility": "hide" } });
+  const edit = await staff("PUT", `/api/products/${id}`, { name: "اسم جديد", website: { visibility: "show", description: "hack", images: [PNG_URI] } }, storekeeper);
   assert.equal(edit.status, 200, edit.text);
   const after = await Product.findById(id).lean();
-  assert.equal(after.name, "اسم جديد"); assert.equal(Boolean(after.website?.visible), false); assert.notEqual(after.website?.description, "hack");
-  const create = await staff("POST", "/api/products", { name: "جديد", code: "NEWW", categoryId: category, inventoryCount: 1, purchasePrice: 1, wholesalePrice: 2, retailPrice: 3, website: { visible: true } }, storekeeper);
+  assert.equal(after.name, "اسم جديد"); assert.equal(after.website?.visibility, "hide"); assert.notEqual(after.website?.description, "hack");
+  const create = await staff("POST", "/api/products", { name: "جديد", code: "NEWW", categoryId: category, inventoryCount: 1, purchasePrice: 1, wholesalePrice: 2, retailPrice: 3, website: { visibility: "show" } }, storekeeper);
   assert.equal(create.status, 201, create.text);
-  assert.equal(Boolean((await Product.findOne({ code: "NEWW" }).lean()).website?.visible), false);
-  const categoryEdit = await staff("PUT", `/api/categories/${category}`, { name: "فئة جديدة", website: { visible: false, sortOrder: 9 } }, storekeeper);
+  assert.equal((await Product.findOne({ code: "NEWW" }).lean()).website?.visibility, undefined);
+  const categoryEdit = await staff("PUT", `/api/categories/${category}`, { name: "فئة جديدة", website: { visibility: "hide", sortOrder: 9 } }, storekeeper);
   assert.equal(categoryEdit.status, 200, categoryEdit.text);
-  assert.equal((await Category.findById(category).lean()).website.visible, true, "unchanged by categories.manage");
+  assert.equal((await Category.findById(category).lean()).website.visibility, "show", "unchanged by categories.manage");
 });
 
 it("admin settings: validation, banners, featured categories and the public view of them", async () => {
@@ -716,11 +723,11 @@ it("website fields: product description and images are validated like the main i
   assert.equal((await put({ description: "x".repeat(2001) })).status, 400);
   assert.equal((await put({ images: [PNG_URI, PNG_URI, PNG_URI, PNG_URI, PNG_URI] })).status, 400);
   assert.equal((await put({ images: ["not base64!!"] })).status, 400);
-  assert.equal((await put({ visible: "yes" })).status, 400);
+  assert.equal((await put({ visibility: "yes" })).status, 400);
   assert.equal((await put({})).status, 400);
   assert.equal((await put({ images: [PNG_URI, PNG_URI, PNG_URI, PNG_URI] })).status, 200);
-  assert.equal((await staff("PUT", `/api/website/products/${"a".repeat(24)}`, { visible: true })).status, 404);
-  assert.equal((await staff("PUT", `/api/website/categories/${"a".repeat(24)}`, { visible: true })).status, 404);
+  assert.equal((await staff("PUT", `/api/website/products/${"a".repeat(24)}`, { visibility: "show" })).status, 404);
+  assert.equal((await staff("PUT", `/api/website/categories/${"a".repeat(24)}`, { visibility: "show" })).status, 404);
   assert.equal((await staff("PUT", `/api/website/categories/${(await Product.findById(id).lean()).category}`, { sortOrder: "abc" })).status, 400);
 });
 
@@ -729,7 +736,7 @@ it("category order: sortOrder then name", async () => {
   const names = [["ج", 2], ["ب", 2], ["أ", 1]];
   for (const [index, [name, sortOrder]] of names.entries()) {
     const created = ok(await staff("POST", "/api/categories", { name }), 201);
-    ok(await staff("PUT", `/api/website/categories/${created._id || created.id}`, { visible: true, sortOrder }));
+    ok(await staff("PUT", `/api/website/categories/${created._id || created.id}`, { visibility: "show", sortOrder }));
     void index;
   }
   assert.deepEqual(ok(await store("GET", "/api/store/categories")).data.map((c) => c.name), ["أ", "ب", "ج"]);

@@ -22,6 +22,9 @@ describe('OrderPageComponent (Online Stage 4)', () => {
     items: [line('p1', 'لمبة', 100, 2), line('p2', 'كابل', 50, 1)],
     subtotal: 250, vat: 0, deliveryFee: 30, total: 280, zone: { id: 'z1', name: 'القاهرة', fee: 30 },
     contact: { name: 'منى', phone: '01012345678', address: 'شارع 1', notes: 'اتصل قبل الوصول' }, reason: null, collectedAmount: null, courier: null, creditSale: null,
+    // Online Stage 5A: an order placed before Stage 5A is a delivery order paid on delivery
+    fulfillment: 'delivery', paymentMethod: 'cod', payment: { status: null, verifiedAt: null, verifiedByName: null, reference: null }, invoice: null,
+    whatsappTemplate: 'أهلاً {الاسم}، طلبك {رقم الطلب} بإجمالي {الإجمالي}. مدة التوصيل {مدة التوصيل}', deliveryTime: 'خلال 24 ساعة',
     statusHistory: [{ status: 'new', at: '2026-11-05T10:00:00Z', by: 'customer', byName: null, type: 'status', note: null, details: null }], ...extra,
   });
 
@@ -225,5 +228,126 @@ describe('OrderPageComponent (Online Stage 4)', () => {
     expect(entries.length).toBe(3);
     expect(entries[1]).toContain('محمود'); expect(entries[1]).toContain('230 → 280'); expect(entries[1]).toContain('orders.page.edited');
     expect(entries[2]).toContain('orders.status.confirmed');
+  });
+
+  // ------------------------------------------------------------------ Online Stage 5A
+
+  const pickupOrder = (status: OrderStatus, extra: Partial<OrderDetail> = {}) => order(status, { fulfillment: 'pickup', zone: null, deliveryFee: 0, total: 250, contact: { name: 'منى', phone: '01012345678', address: '', notes: '' }, deliveryTime: '', ...extra });
+  const wallet = (verified: boolean): Partial<OrderDetail> => ({ paymentMethod: 'instapay', payment: { status: verified ? 'verified' : 'unpaid', verifiedAt: null, verifiedByName: null, reference: null } });
+
+  it('a pickup order follows new → confirmed → preparing → ready → picked up, with cancel (reason) while ready', async () => {
+    await open('cashier', pickupOrder('new'));
+    expect(actions()).toEqual(['confirm', 'edit', 'reject']);
+    expect(fixture.nativeElement.querySelector('[data-test="order-pickup"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-action="copy-address"]')).toBeNull();
+    component.order.set(pickupOrder('confirmed')); fixture.detectChanges();
+    expect(actions()).toEqual(['prepare', 'edit', 'reject', 'cancel']);
+    component.order.set(pickupOrder('preparing')); fixture.detectChanges();
+    expect(actions()).toEqual(['ready', 'edit', 'cancel']);
+    component.order.set(pickupOrder('ready_for_pickup')); fixture.detectChanges();
+    expect(actions()).toEqual(['pickup', 'cancel']);
+    for (const status of ['picked_up', 'cancelled'] as OrderStatus[]) { component.order.set(pickupOrder(status)); fixture.detectChanges(); expect(actions()).withContext(status).toEqual([]); }
+  });
+
+  it('ready posts to /ready; a pickup order has no delivery fee, no zone field and no delivery note to print', async () => {
+    await open('cashier', pickupOrder('preparing'));
+    expect(fixture.nativeElement.querySelector('nota-print-actions')).toBeNull();
+    fixture.nativeElement.querySelector('[data-action="ready"]').click();
+    http.expectOne((r) => r.url === `${url}/ready` && r.method === 'POST').flush(pickupOrder('ready_for_pickup'));
+    fixture.detectChanges();
+    expect(component.order().status).toBe('ready_for_pickup');
+    component.run('edit');
+    http.expectOne(`${environment.api_base_url}orders/delivery-zones`).flush({ data: [] });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-test="edit-zone"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-test="edit-fee"]')).toBeNull();
+    component.saveEdit();
+    const body = http.expectOne((r) => r.url === url && r.method === 'PUT').request.body;
+    expect('zoneId' in body).toBeFalse(); expect('deliveryFee' in body).toBeFalse();
+  });
+
+  it('picked up with cash opens the box choice and posts it only when it is not the default; a wallet order sends none', async () => {
+    await open('cashier', pickupOrder('ready_for_pickup'));
+    component.run('pickup');
+    fixture.detectChanges();
+    http.match((r) => r.url.endsWith('cashbox/payment-boxes')).forEach((r) => r.flush({ defaultBoxId: 'main', mainBox: { _id: 'main', name: 'الخزنة الرئيسية' }, deviceId: null, data: [{ _id: 'main', name: 'الخزنة الرئيسية', type: 'cash', isMain: true, shiftsEnabled: false, isDefault: true, openShift: null, needsShift: false }] }));
+    fixture.detectChanges();
+    expect(component.pickupOpen()).toBeTrue();
+    component.submitPickup();
+    let request = http.expectOne((r) => r.url === `${url}/pickup` && r.method === 'POST');
+    expect(request.request.body).toEqual({});
+    request.flush(pickupOrder('picked_up', { invoice: { kind: 'cash', id: 's1', number: 'INV-1', totalPrice: 250, shippingFees: 0, refundedAmount: 0, refundStatus: 'none', boxId: 'main' } }));
+    fixture.detectChanges();
+    expect(component.pickupOpen()).toBeFalse();
+    expect(fixture.nativeElement.querySelector('[data-test="order-invoice"]').textContent).toContain('INV-1');
+
+    component.order.set(pickupOrder('ready_for_pickup', wallet(true))); fixture.detectChanges();
+    component.run('pickup'); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-test="pickup-wallet"]')).not.toBeNull();
+    component.submitPickup();
+    request = http.expectOne((r) => r.url === `${url}/pickup`);
+    expect(request.request.body).toEqual({});
+    request.flush(pickupOrder('picked_up', wallet(true)));
+  });
+
+  it('a wallet order offers "تأكيد استلام التحويل" first; send out / pickup appear only after it, and the badges show method and status', async () => {
+    await open('cashier', order('confirmed', wallet(false)));
+    expect(actions()).toEqual(['verifyPayment', 'prepare', 'edit', 'reject', 'cancel']);
+    expect(fixture.nativeElement.querySelector('[data-test="order-method"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-test="order-payment"]')).not.toBeNull();
+    component.order.set(order('confirmed', wallet(true))); fixture.detectChanges();
+    expect(actions()).toEqual(['prepare', 'dispatch', 'edit', 'reject', 'cancel']);
+    component.order.set(pickupOrder('ready_for_pickup', wallet(false))); fixture.detectChanges();
+    expect(actions()).toEqual(['verifyPayment', 'cancel']);
+    component.order.set(pickupOrder('ready_for_pickup', wallet(true))); fixture.detectChanges();
+    expect(actions()).toEqual(['pickup', 'cancel']);
+  });
+
+  it('verify posts the optional reference; nothing is typed = an empty body', async () => {
+    await open('cashier', order('new', wallet(false)));
+    component.run('verifyPayment');
+    expect(component.verifyOpen()).toBeTrue();
+    component.reference.set('  TX-77 ');
+    component.submitVerify();
+    const request = http.expectOne((r) => r.url === `${url}/verify-payment` && r.method === 'POST');
+    expect(request.request.body).toEqual({ reference: 'TX-77' });
+    request.flush(order('new', { ...wallet(true), payment: { status: 'verified', verifiedAt: '2026-11-05T11:00:00Z', verifiedByName: 'محمود', reference: 'TX-77' } }));
+    fixture.detectChanges();
+    expect(component.verifyOpen()).toBeFalse();
+    expect(actions()).toEqual(['confirm', 'edit', 'reject']);
+    expect(fixture.nativeElement.textContent).toContain('TX-77');
+  });
+
+  it('a wallet order delivers without collecting anything (no amount to collect, no typed amount)', async () => {
+    await open('cashier', order('out_for_delivery', wallet(true)));
+    expect(actions()).toEqual(['deliver', 'refuse']);
+    component.run('deliver');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-test="amount-to-collect"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-test="nothing-to-collect"]')).not.toBeNull();
+    component.submitDeliver();
+    const request = http.expectOne((r) => r.url === `${url}/deliver`);
+    expect(request.request.body).toEqual({});
+    request.flush(order('delivered', wallet(true)));
+  });
+
+  it('permissions: a wallet send-out needs sales.create (not credit.create); a cash-on-delivery send-out still needs credit.create', async () => {
+    await open(['orders.view', 'orders.dispatch', 'sales.create'], order('confirmed', wallet(true)));
+    expect(actions()).toEqual(['dispatch']);
+    component.order.set(order('confirmed')); fixture.detectChanges();
+    expect(actions()).toEqual([]);
+    component.order.set(pickupOrder('ready_for_pickup')); fixture.detectChanges();
+    expect(actions()).toEqual(['pickup']);
+  });
+
+  it('the WhatsApp confirmation link: wa.me/<customer phone>?text=<the filled template>, opened in a new tab; not shown for a closed order', async () => {
+    await open('cashier', order('confirmed'));
+    const link: HTMLAnchorElement = fixture.nativeElement.querySelector('[data-test="whatsapp-confirm"]');
+    expect(link.getAttribute('target')).toBe('_blank');
+    const href = link.getAttribute('href')!;
+    expect(href.startsWith('https://wa.me/201012345678?text=')).toBeTrue();
+    expect(decodeURIComponent(href.split('?text=')[1])).toBe('أهلاً منى، طلبك W-000001 بإجمالي 280. مدة التوصيل خلال 24 ساعة');
+    component.order.set(order('cancelled')); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-test="whatsapp-confirm"]')).toBeNull();
   });
 });

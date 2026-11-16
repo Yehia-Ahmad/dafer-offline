@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { NotaButtonDirective } from '../shared/ui';
-import { CategoryWebsite } from './website.models';
+import { CategoryWebsite, ProductVisibilityMode, VisibilityChoice } from './website.models';
 import { WebsiteService } from './website.service';
 
 /**
@@ -17,8 +17,14 @@ import { WebsiteService } from './website.service';
   template: `
     <section class="cwf" data-test="category-website">
       <span class="cwf__title">{{ 'website.category.title' | translate }}</span>
-      <label class="cwf__check"><input type="checkbox" data-field="category-website-visible" [ngModel]="visible()" (ngModelChange)="visible.set($event)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.category.visible' | translate }}</label>
-      <span class="nota-hint">{{ 'website.category.visibleHint' | translate }}</span>
+      <!-- Online Stage 5A: follows the website's mode. "marked": tick to show. "all": tick to hide. -->
+      @if (mode() === 'all') {
+        <label class="cwf__check"><input type="checkbox" data-field="category-website-hidden" [ngModel]="choice() === 'hide'" (ngModelChange)="choice.set($event ? 'hide' : null)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.category.hide' | translate }}</label>
+        <span class="nota-hint">{{ 'website.category.hideHint' | translate }}</span>
+      } @else {
+        <label class="cwf__check"><input type="checkbox" data-field="category-website-visible" [ngModel]="choice() === 'show'" (ngModelChange)="choice.set($event ? 'show' : null)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.category.visible' | translate }}</label>
+        <span class="nota-hint">{{ 'website.category.visibleHint' | translate }}</span>
+      }
       <label class="nota-label" for="cwf-order">{{ 'website.category.order' | translate }}</label>
       <input id="cwf-order" type="text" inputmode="numeric" dir="ltr" class="nota-input cwf__num" data-field="category-website-order"
         [ngModel]="sortOrder()" (ngModelChange)="sortOrder.set($event)" [ngModelOptions]="{ standalone: true }" />
@@ -51,13 +57,15 @@ export class CategoryWebsiteFieldsComponent {
   readonly categoryId = input.required<string>();
   readonly website = input<CategoryWebsite | undefined | null>(undefined);
 
-  protected readonly visible = signal(false);
+  protected readonly mode = signal<ProductVisibilityMode>('marked');
+  protected readonly choice = signal<VisibilityChoice>(null);
   protected readonly sortOrder = signal<string>('0');
   protected readonly saving = signal(false);
   protected readonly outcome = signal<'saved' | 'error' | null>(null);
   private saved = '';
 
   constructor() {
+    this.service.getSettings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (settings) => this.mode.set(settings.productVisibility), error: () => undefined });
     effect(() => {
       const incoming = this.website();
       untracked(() => {
@@ -80,7 +88,7 @@ export class CategoryWebsiteFieldsComponent {
     this.outcome.set(null);
     this.saving.set(true);
     this.service
-      .saveCategoryWebsite(this.categoryId(), { visible: this.visible(), sortOrder: Number(this.sortOrder()) })
+      .saveCategoryWebsite(this.categoryId(), { visibility: this.choice(), sortOrder: Number(this.sortOrder()) })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (response) => {
@@ -96,12 +104,12 @@ export class CategoryWebsiteFieldsComponent {
   }
 
   private apply(website: CategoryWebsite | undefined | null): void {
-    this.visible.set(Boolean(website?.visible));
+    this.choice.set(website?.visibility ?? null);
     this.sortOrder.set(String(website?.sortOrder ?? 0));
     this.saved = this.snapshot();
   }
 
   private snapshot(): string {
-    return JSON.stringify([this.visible(), String(this.sortOrder()).trim()]);
+    return JSON.stringify([this.choice(), String(this.sortOrder()).trim()]);
   }
 }

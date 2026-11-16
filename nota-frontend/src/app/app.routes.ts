@@ -210,9 +210,10 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/website/website-settings/website-settings.component').then(m => m.WebsiteSettingsComponent)
     },
     {
+        // Online Stage 5A: the delivery zones are a tab of the settings page now; an old bookmark lands there.
         path: 'website/delivery-zones',
-        canActivate: [permissionGuard(ROUTE_RULES.deliveryZones)],
-        loadComponent: () => import('./modules/website/delivery-zones/delivery-zones.component').then(m => m.DeliveryZonesComponent)
+        redirectTo: 'website/settings',
+        pathMatch: 'full'
     },
     {
         // Online Stage 4: website orders, couriers and the website's customers.

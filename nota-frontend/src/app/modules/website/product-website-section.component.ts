@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { UnsavedWorkService } from '../../core/unsaved-work/unsaved-work.service';
 import { NotaButtonDirective } from '../shared/ui';
-import { ProductWebsite, WEBSITE_LIMITS } from './website.models';
+import { ProductVisibilityMode, ProductWebsite, VisibilityChoice, WEBSITE_LIMITS } from './website.models';
 import { WebsiteService } from './website.service';
 
 /**
@@ -20,8 +20,14 @@ import { WebsiteService } from './website.service';
   template: `
     <section class="nota-card pws" data-test="product-website">
       <h2 class="pws__title">{{ 'website.product.title' | translate }}</h2>
-      <label class="pws__check"><input type="checkbox" data-field="website-visible" [ngModel]="visible()" (ngModelChange)="visible.set($event)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.product.visible' | translate }}</label>
-      <p class="nota-hint">{{ 'website.product.visibleHint' | translate }}</p>
+      <!-- Online Stage 5A: the control follows the website's mode. "marked": tick to show. "all": tick to hide. -->
+      @if (mode() === 'all') {
+        <label class="pws__check"><input type="checkbox" data-field="website-hidden" [ngModel]="choice() === 'hide'" (ngModelChange)="setHidden($event)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.product.hide' | translate }}</label>
+        <p class="nota-hint">{{ 'website.product.hideHint' | translate }}</p>
+      } @else {
+        <label class="pws__check"><input type="checkbox" data-field="website-visible" [ngModel]="choice() === 'show'" (ngModelChange)="setShown($event)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.product.visible' | translate }}</label>
+        <p class="nota-hint">{{ 'website.product.visibleHint' | translate }}</p>
+      }
 
       <label class="nota-label" for="pws-description">{{ 'website.product.description' | translate }}</label>
       <textarea id="pws-description" rows="4" class="nota-textarea" data-field="website-description" [maxLength]="limits.productDescription"
@@ -81,7 +87,9 @@ export class ProductWebsiteSectionComponent {
   readonly productId = input.required<string>();
 
   protected readonly limits = WEBSITE_LIMITS;
-  protected readonly visible = signal(false);
+  /** The website's product visibility mode (GET /api/website/settings). */
+  protected readonly mode = signal<ProductVisibilityMode>('marked');
+  protected readonly choice = signal<VisibilityChoice>(null);
   protected readonly description = signal('');
   protected readonly images = signal<string[]>([]);
   protected readonly loading = signal(true);
@@ -99,9 +107,18 @@ export class ProductWebsiteSectionComponent {
     this.destroyRef.onDestroy(inject(UnsavedWorkService).register('product-website', () => this.dirty() && !this.saving()));
   }
 
+  protected setShown(on: boolean): void {
+    this.choice.set(on ? 'show' : null);
+  }
+
+  protected setHidden(on: boolean): void {
+    this.choice.set(on ? 'hide' : null);
+  }
+
   private load(id: string): void {
     this.loading.set(true);
     this.outcome.set(null);
+    this.service.getSettings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (settings) => this.mode.set(settings.productVisibility), error: () => undefined });
     this.service.getProductWebsite(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (response) => {
         this.apply(response.website);
@@ -143,7 +160,7 @@ export class ProductWebsiteSectionComponent {
     this.outcome.set(null);
     this.saving.set(true);
     this.service
-      .saveProductWebsite(this.productId(), { visible: this.visible(), description: this.description().trim(), images: this.images() })
+      .saveProductWebsite(this.productId(), { visibility: this.choice(), description: this.description().trim(), images: this.images() })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (response) => {
@@ -159,13 +176,13 @@ export class ProductWebsiteSectionComponent {
   }
 
   private apply(website: ProductWebsite | undefined | null): void {
-    this.visible.set(Boolean(website?.visible));
+    this.choice.set(website?.visibility ?? null);
     this.description.set(website?.description || '');
     this.images.set([...(website?.images || [])]);
     this.saved = this.snapshot();
   }
 
   private snapshot(): string {
-    return JSON.stringify([this.visible(), this.description().trim(), this.images()]);
+    return JSON.stringify([this.choice(), this.description().trim(), this.images()]);
   }
 }

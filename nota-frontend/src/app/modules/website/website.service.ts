@@ -8,6 +8,7 @@ import {
   DeliveryZonePayload,
   EMPTY_WEBSITE_SETTINGS,
   ProductWebsite,
+  VisibilityChoice,
   WebsiteSettings,
   WebsiteSettingsPayload,
 } from './website.models';
@@ -47,11 +48,11 @@ export class WebsiteService {
     return this.http.get<{ id: string; website: ProductWebsite }>(`${this.base}/products/${productId}`);
   }
 
-  saveProductWebsite(productId: string, body: { visible?: boolean; description?: string; images?: string[] }): Observable<{ id: string; website: ProductWebsite }> {
+  saveProductWebsite(productId: string, body: { visibility?: VisibilityChoice; description?: string; images?: string[] }): Observable<{ id: string; website: ProductWebsite }> {
     return this.http.put<{ id: string; website: ProductWebsite }>(`${this.base}/products/${productId}`, body);
   }
 
-  saveCategoryWebsite(categoryId: string, body: { visible?: boolean; sortOrder?: number }): Observable<{ id: string; website: CategoryWebsite }> {
+  saveCategoryWebsite(categoryId: string, body: { visibility?: VisibilityChoice; sortOrder?: number }): Observable<{ id: string; website: CategoryWebsite }> {
     return this.http.put<{ id: string; website: CategoryWebsite }>(`${this.base}/categories/${categoryId}`, body);
   }
 
@@ -70,6 +71,22 @@ export class WebsiteService {
       featuredCategoryIds: (raw?.featuredCategoryIds || []).map(String),
       minOrderAmount: raw?.minOrderAmount ?? null,
       freeDeliveryFrom: raw?.freeDeliveryFrom ?? null,
+      // Online Stage 5A: every nested group keeps the default of a key the saved document does not have.
+      fulfillment: { ...EMPTY_WEBSITE_SETTINGS.fulfillment, ...(raw?.fulfillment || {}) },
+      payments: {
+        cod: { ...EMPTY_WEBSITE_SETTINGS.payments.cod, ...(raw?.payments?.cod || {}) },
+        instapay: { ...EMPTY_WEBSITE_SETTINGS.payments.instapay, ...(raw?.payments?.instapay || {}), boxId: raw?.payments?.instapay?.boxId ? String(raw.payments.instapay.boxId) : null },
+        vodafoneCash: { ...EMPTY_WEBSITE_SETTINGS.payments.vodafoneCash, ...(raw?.payments?.vodafoneCash || {}), boxId: raw?.payments?.vodafoneCash?.boxId ? String(raw.payments.vodafoneCash.boxId) : null },
+      },
+      stock: {
+        showOutOfStock: raw?.stock?.showOutOfStock ?? true,
+        showRemaining: { ...EMPTY_WEBSITE_SETTINGS.stock.showRemaining, ...(raw?.stock?.showRemaining || {}) },
+      },
+      announcement: { ...EMPTY_WEBSITE_SETTINGS.announcement, ...(raw?.announcement || {}) },
+      highlights: raw?.highlights || [],
+      productVisibility: raw?.productVisibility === 'all' ? 'all' : 'marked',
+      brandColor: raw?.brandColor || null,
+      websiteLogo: raw?.websiteLogo || null,
     };
   }
 }

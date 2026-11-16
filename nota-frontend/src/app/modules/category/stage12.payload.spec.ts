@@ -47,7 +47,8 @@ describe('Stage 12 — products page "كل الأصناف"', () => {
     component.ngOnInit();
   });
 
-  afterEach(() => http.verify());
+  // Online Stage 5A: the owner (website.manage) also reads the website's visibility mode for the "on website" labels.
+  afterEach(() => { http.match((r) => r.url === `${base}website/settings`).forEach((r) => r.flush({})); http.verify(); });
 
   it('no ?category → GET products?page=1&limit=10 without categoryId; total = sum of productCount', () => {
     const req = http.expectOne((r) => r.url === `${base}products`);

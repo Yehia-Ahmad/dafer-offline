@@ -18,26 +18,27 @@ const getSettings = asyncHandler(async (_req, res) => {
   const [settings, shop, vat] = await Promise.all([catalog.loadWebsiteSettings(), catalog.loadShopProfile(), catalog.currentVat()]);
   if (!settings || !settings.enabled) return res.json(wl.publicSettings(settings, { shop }));
 
-  const categoryIds = await catalog.visibleCategoryIds();
+  const { categoryIds, rules, filter } = await catalog.storeScope();
   const visible = new Set(categoryIds.map(String));
   const featuredCategories = (settings.featuredCategoryIds || []).filter((id) => visible.has(String(id)));
   const bannerLinks = new Set(categoryIds.map((id) => `category:${id}`));
   const productLinkIds = (settings.banners || []).filter((banner) => banner.linkType === "product" && banner.linkId).map((banner) => banner.linkId);
   if (productLinkIds.length) {
-    const rows = await Product.find({ _id: { $in: productLinkIds }, ...catalog.visibleProductFilter(categoryIds) }).select("_id").lean();
+    const rows = await Product.find({ ...filter, _id: { $in: productLinkIds, ...(filter._id || {}) } }).select("_id").lean();
     rows.forEach((row) => bannerLinks.add(`product:${row._id}`));
   }
-  return res.json(wl.publicSettings(settings, { shop, featuredCategories, bannerLinks, vat }));
+  return res.json(wl.publicSettings(settings, { shop, featuredCategories, bannerLinks, vat, rules }));
 });
 
 const getCategories = asyncHandler(async (_req, res) => {
+  const scope = await catalog.storeScope();
   const categories = await Category.aggregate([
-    { $match: { "website.visible": true } },
+    { $match: { _id: { $in: scope.categoryIds } } },
     { $project: { name: 1, updatedAt: 1, sortOrder: { $ifNull: ["$website.sortOrder", 0] }, hasImage: { $gt: [{ $strLenCP: { $ifNull: ["$image", ""] } }, 0] } } },
     { $sort: { sortOrder: 1, name: 1 } },
   ]).collation({ locale: "ar", strength: 2 });
   const counts = await Product.aggregate([
-    { $match: catalog.visibleProductFilter(categories.map((category) => category._id)) },
+    { $match: scope.filter },
     { $group: { _id: "$category", count: { $sum: 1 } } },
   ]);
   const countOf = new Map(counts.map((row) => [String(row._id), row.count]));
@@ -52,24 +53,32 @@ const getProducts = asyncHandler(async (req, res) => {
   if (categoryId && !catalog.isId(categoryId)) throw httpError(400, "INVALID_CATEGORY", "معرّف الفئة غير صالح");
   const q = typeof query.q === "string" ? query.q.trim().slice(0, 100) : "";
   const sort = typeof query.sort === "string" ? query.sort : "newest";
-  if (!["newest", "price-asc", "price-desc", "name"].includes(sort)) throw httpError(400, "INVALID_SORT", "ترتيب غير صالح");
+  if (!["newest", "price-asc", "price-desc", "name", "bestselling"].includes(sort)) throw httpError(400, "INVALID_SORT", "ترتيب غير صالح");
 
-  const [{ rows, total }, vat] = await Promise.all([
+  const [{ rows, total, rules }, vat] = await Promise.all([
     catalog.findVisibleProducts({ categoryId, q, sort, skip: (page - 1) * limit, limit }),
     catalog.currentVat(),
   ]);
   const names = await catalog.categoryNames(rows);
   res.json({
-    data: rows.map((row) => wl.publicProduct(row, names.get(String(row.category)) || "", vat)),
+    data: rows.map((row) => wl.publicProduct(row, names.get(String(row.category)) || "", vat, rules.stock)),
     pagination: buildPaginationMetadata({ page, limit, totalItems: total }),
   });
 });
 
 const getProduct = asyncHandler(async (req, res) => {
-  const row = await catalog.findVisibleProduct(req.params.id);
-  if (!row) throw notFound();
-  const [names, vat] = await Promise.all([catalog.categoryNames([row]), catalog.currentVat()]);
-  res.json(wl.publicProduct(row, names.get(String(row.category)) || "", vat));
+  const found = await catalog.findVisibleProduct(req.params.id);
+  if (!found) throw notFound();
+  const [names, vat] = await Promise.all([catalog.categoryNames([found.row]), catalog.currentVat()]);
+  res.json(wl.publicProduct(found.row, names.get(String(found.row.category)) || "", vat, found.rules.stock));
+});
+
+// Online Stage 5A: up to 8 other visible products of the same category, in stock first.
+const getRelatedProducts = asyncHandler(async (req, res) => {
+  const found = await catalog.findRelatedProducts(req.params.id);
+  if (!found) throw notFound();
+  const [names, vat] = await Promise.all([catalog.categoryNames(found.rows), catalog.currentVat()]);
+  res.json({ data: found.rows.map((row) => wl.publicProduct(row, names.get(String(row.category)) || "", vat, found.rules.stock)) });
 });
 
 const getDeliveryZones = asyncHandler(async (_req, res) => {
@@ -127,8 +136,8 @@ const sendImage = (req, res, stored) => {
 const getProductImage = asyncHandler(async (req, res) => {
   const index = /^\d+$/.test(req.params.index) ? Number(req.params.index) : -1;
   if (!catalog.isId(req.params.id) || index < 0 || index > 4) throw notFound();
-  const categoryIds = await catalog.visibleCategoryIds();
-  const product = await Product.findOne({ _id: req.params.id, ...catalog.visibleProductFilter(categoryIds) }).select("image website.images").lean();
+  const { filter } = await catalog.storeScope();
+  const product = await Product.findOne({ ...filter, _id: req.params.id }).select("image website.images").lean();
   if (!product) throw notFound();
   // Index 0 is the main image when the product has one; the extra website images follow in order.
   const images = [product.image, ...((product.website && product.website.images) || [])].filter((value) => typeof value === "string" && value.trim());
@@ -137,9 +146,17 @@ const getProductImage = asyncHandler(async (req, res) => {
 
 const getCategoryImage = asyncHandler(async (req, res) => {
   if (!catalog.isId(req.params.id)) throw notFound();
-  const category = await Category.findOne({ _id: req.params.id, "website.visible": true }).select("image").lean();
+  const { rules } = await catalog.storeScope();
+  const category = await Category.findOne({ _id: req.params.id, ...catalog.visibilityMatch(rules.productVisibility) }).select("image").lean();
   if (!category) throw notFound();
   return sendImage(req, res, category.image);
+});
+
+// Online Stage 5A: the website's own logo (falls back to the shop logo in the settings URL, so this is only linked when it is set).
+const getWebsiteLogoImage = asyncHandler(async (req, res) => {
+  const settings = await catalog.loadWebsiteSettings();
+  if (!settings || !settings.websiteLogo) throw notFound();
+  return sendImage(req, res, settings.websiteLogo);
 });
 
 const getBannerImage = asyncHandler(async (req, res) => {
@@ -165,5 +182,7 @@ module.exports = {
   getProduct,
   getProductImage,
   getProducts,
+  getRelatedProducts,
   getSettings,
+  getWebsiteLogoImage,
 };

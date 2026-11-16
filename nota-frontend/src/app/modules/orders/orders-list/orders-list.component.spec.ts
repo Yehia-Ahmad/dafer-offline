@@ -15,10 +15,10 @@ describe('OrdersListComponent (Online Stage 4)', () => {
   let fixture: any;
   let component: any;
 
-  const row = (over: Partial<OrderListRow>): OrderListRow => ({ id: 'o1', number: 'W-000001', status: 'new', createdAt: '2026-11-05T10:00:00Z', customerName: 'منى', phone: '01012345678', zone: 'القاهرة', total: 230, courierId: null, courierName: null, ...over });
+  const row = (over: Partial<OrderListRow>): OrderListRow => ({ id: 'o1', number: 'W-000001', status: 'new', createdAt: '2026-11-05T10:00:00Z', customerName: 'منى', phone: '01012345678', zone: 'القاهرة', fulfillment: 'delivery', paymentMethod: 'cod', paymentStatus: null, needsTransfer: false, total: 230, courierId: null, courierName: null, ...over });
   const response = (rows: OrderListRow[], counts: Partial<OrderListResponse['counts']> = {}): OrderListResponse => ({
     data: rows,
-    counts: { new: 1, confirmed: 0, preparing: 0, out_for_delivery: 1, delivered: 3, cancelled: 0, rejected: 0, refused: 0, ...counts },
+    counts: { new: 1, confirmed: 0, preparing: 0, ready_for_pickup: 0, picked_up: 0, out_for_delivery: 1, delivered: 3, cancelled: 0, rejected: 0, refused: 0, ...counts },
     pagination: { page: 1, limit: 20, totalItems: rows.length, totalPages: 1 },
   });
   const listRequests = () => http.match((request) => request.url === url && request.method === 'GET');
@@ -56,7 +56,39 @@ describe('OrdersListComponent (Online Stage 4)', () => {
     expect(tabs['new']).toContain('1');
     expect(tabs['delivered']).toContain('3');
     expect(tabs['refused']).toContain('0');
-    expect(Object.keys(tabs).length).toBe(9);
+    expect(Object.keys(tabs).length).toBe(11); // all + the ten statuses (Online Stage 5A added ready_for_pickup and picked_up)
+    expect(tabs['ready_for_pickup']).toContain('0');
+  });
+
+  it('Stage 5A: fulfillment and payment show in every row; a pickup order has no zone', () => {
+    component.reload();
+    listRequests()[0].flush(response([
+      row({ id: 'o3', number: 'W-000003', fulfillment: 'pickup', zone: null, paymentMethod: 'instapay', paymentStatus: 'unpaid', needsTransfer: true }),
+      row({ id: 'o4', number: 'W-000004', paymentMethod: 'vodafone_cash', paymentStatus: 'verified' }),
+    ]));
+    fixture.detectChanges();
+    const rows = text('[data-test="order-row"]');
+    expect(rows[0]).toContain('orders.fulfillment.pickup'); expect(rows[0]).toContain('orders.method.instapay'); expect(rows[0]).toContain('orders.payment.unpaid');
+    expect(rows[1]).toContain('orders.fulfillment.delivery'); expect(rows[1]).toContain('orders.method.vodafone_cash'); expect(rows[1]).toContain('orders.payment.verified');
+  });
+
+  it('Stage 5A: the fulfillment, payment-method and "needs transfer confirmation" filters go to the server', () => {
+    component.fulfillment.set('pickup');
+    component.paymentMethod.set('instapay');
+    component.needsTransfer.set(true);
+    component.reload();
+    const [request] = listRequests();
+    expect(request.request.params.get('fulfillment')).toBe('pickup');
+    expect(request.request.params.get('paymentMethod')).toBe('instapay');
+    expect(request.request.params.get('needsTransfer')).toBe('1');
+    request.flush(response([]));
+    component.fulfillment.set(''); component.paymentMethod.set(''); component.needsTransfer.set(false);
+    component.reload();
+    const [cleared] = listRequests();
+    expect(cleared.request.params.has('fulfillment')).toBeFalse();
+    expect(cleared.request.params.has('paymentMethod')).toBeFalse();
+    expect(cleared.request.params.has('needsTransfer')).toBeFalse();
+    cleared.flush(response([]));
   });
 
   it('a status tab, the search, the dates and the courier filter go to the server as query parameters', () => {

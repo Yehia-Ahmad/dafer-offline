@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, input, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -22,6 +22,9 @@ export class DeliveryZonesComponent implements OnInit {
   private readonly service = inject(WebsiteService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+
+  /** Online Stage 5A: true inside the settings page's التوصيل tab (the page header is not shown). */
+  readonly embedded = input(false);
 
   protected readonly limits = WEBSITE_LIMITS;
   protected readonly zones = signal<DeliveryZone[]>([]);

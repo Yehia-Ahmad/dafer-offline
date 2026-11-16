@@ -70,7 +70,8 @@ describe('Stage 11 payloads — products list (AFTER: ProductsPageComponent)', (
     req.flush(page(listProducts));
   });
 
-  afterEach(() => http.verify());
+  // Online Stage 5A: the owner (website.manage) also reads the website's visibility mode for the "on website" labels.
+  afterEach(() => { http.match((r) => r.url === `${base}website/settings`).forEach((r) => r.flush({})); http.verify(); });
 
   it('search by name/code and the low-stock toggle filter the loaded rows only (no request)', () => {
     component.searchTerm = ' 02 ';

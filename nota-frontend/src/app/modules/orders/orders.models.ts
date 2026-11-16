@@ -1,8 +1,15 @@
 // Online Stage 4: website orders in the admin app (/api/orders, /api/couriers, /api/website/customers).
 
-export type OrderStatus = 'new' | 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'rejected' | 'refused';
+export type OrderStatus = 'new' | 'confirmed' | 'preparing' | 'ready_for_pickup' | 'picked_up' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'rejected' | 'refused';
 
-export const ORDER_STATUSES: readonly OrderStatus[] = ['new', 'confirmed', 'preparing', 'out_for_delivery', 'delivered', 'cancelled', 'rejected', 'refused'];
+export const ORDER_STATUSES: readonly OrderStatus[] = ['new', 'confirmed', 'preparing', 'ready_for_pickup', 'picked_up', 'out_for_delivery', 'delivered', 'cancelled', 'rejected', 'refused'];
+
+/** Online Stage 5A. A missing value on an order placed before this stage means delivery / cash on delivery. */
+export type Fulfillment = 'delivery' | 'pickup';
+export type PaymentMethod = 'cod' | 'instapay' | 'vodafone_cash';
+/** Wallet orders: whether the shop confirmed the transfer. Cash on delivery / pickup: null. */
+export type PaymentStatus = 'unpaid' | 'verified' | null;
+export const isWalletMethod = (method: PaymentMethod | undefined): boolean => method === 'instapay' || method === 'vodafone_cash';
 
 export interface OrderListRow {
   id: string;
@@ -11,7 +18,13 @@ export interface OrderListRow {
   createdAt: string;
   customerName: string;
   phone: string;
-  zone: string;
+  /** null for a pickup order. */
+  zone: string | null;
+  fulfillment: Fulfillment;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  /** A wallet order whose transfer is not confirmed yet and that is still open. */
+  needsTransfer: boolean;
   total: number;
   courierId: string | null;
   courierName: string | null;
@@ -32,6 +45,11 @@ export interface OrderListQuery {
   courierId?: string;
   page?: number;
   limit?: number;
+  // Online Stage 5A
+  fulfillment?: Fulfillment | '';
+  paymentMethod?: PaymentMethod | '';
+  /** '1' = wallet orders waiting for the transfer to be confirmed. */
+  needsTransfer?: '1' | '';
 }
 
 export interface OrderLine {
@@ -55,7 +73,7 @@ export interface OrderHistoryEntry {
   at: string;
   by: string;
   byName: string | null;
-  type: 'status' | 'edit';
+  type: 'status' | 'edit' | 'payment';
   note: string | null;
   details: Record<string, unknown> | null;
 }
@@ -73,12 +91,23 @@ export interface OrderDetail {
   vatIncluded?: boolean;
   deliveryFee: number;
   total: number;
-  zone: { id: string; name: string; fee: number };
+  /** null for a pickup order. */
+  zone: { id: string; name: string; fee: number } | null;
   contact: { name: string; phone: string; address: string; notes: string };
   reason: string | null;
   collectedAmount: number | null;
   courier: { id: string; name: string; phone: string } | null;
   creditSale: { id: string; number: string; totalPrice: number; paidAmount: number; remainingAmount: number; status: string; shippingFees: number } | null;
+  // Online Stage 5A
+  fulfillment: Fulfillment;
+  paymentMethod: PaymentMethod;
+  payment: { status: PaymentStatus; verifiedAt: string | null; verifiedByName: string | null; reference: string | null };
+  /** The ONE invoice of the order: a credit sale (cash on delivery) or a cash sale (pickup / wallet). */
+  invoice: { kind: 'credit' | 'cash'; id: string; number: string; totalPrice: number; shippingFees: number; refundedAmount: number; refundStatus: string | null; boxId: string | null } | null;
+  /** The WhatsApp confirmation message with its {placeholders}. */
+  whatsappTemplate: string;
+  /** The zone's estimated delivery time ('' for pickup). */
+  deliveryTime: string;
   statusHistory: OrderHistoryEntry[];
 }
 
@@ -88,6 +117,9 @@ export interface OrderEditPayload {
   deliveryFee?: number;
   contact?: Partial<{ name: string; phone: string; address: string; notes: string }>;
 }
+
+/** POST /api/orders/:id/pickup: a cash-on-pickup order goes into the chosen box (a wallet order ignores it). */
+export interface PickupPayload { boxId?: string }
 
 export interface DeliverPayload {
   returns?: Array<{ productId: string; qty: number; reason?: string }>;

@@ -14,7 +14,7 @@ describe('nav menu config', () => {
       ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
       ['accounting', ['vat', 'profit']],
-      ['website', ['orders', 'couriers', 'website-customers', 'website-settings', 'delivery-zones']],
+      ['website', ['orders', 'couriers', 'website-customers', 'website-settings']],
       ['admin', ['users', 'audit', 'shop']],
     ]);
   });
@@ -26,7 +26,7 @@ describe('nav menu config', () => {
       ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
       ['accounting', ['vat', 'profit']],
-      ['website', ['orders', 'couriers', 'website-customers', 'website-settings', 'delivery-zones']],
+      ['website', ['orders', 'couriers', 'website-customers', 'website-settings']],
       ['admin', ['audit', 'shop']],
     ]);
   });
@@ -126,8 +126,9 @@ describe('nav menu config', () => {
 
   it('Online Stage 3/4: settings, zones and website customers need website.manage; orders need orders.view (the badge item); storekeeper and accountant never see the group', () => {
     const website = NAV_GROUPS.find((g) => g.key === 'website')!;
-    expect(website.items.map((i) => i.route)).toEqual(['/orders', '/website/couriers', '/website/customers', '/website/settings', '/website/delivery-zones']);
-    for (const item of website.items.filter((i) => ['website-customers', 'website-settings', 'delivery-zones'].includes(i.key))) {
+    // Online Stage 5A: the delivery zones are a tab of the settings page, no longer a sidebar item.
+    expect(website.items.map((i) => i.route)).toEqual(['/orders', '/website/couriers', '/website/customers', '/website/settings']);
+    for (const item of website.items.filter((i) => ['website-customers', 'website-settings'].includes(i.key))) {
       expect(item.visible(ctxFor([]))).toBeFalse();
       expect(item.visible(ctxFor(['website.manage']))).toBeTrue();
       expect(item.visible(ctxFor(['orders.view']))).toBeFalse();

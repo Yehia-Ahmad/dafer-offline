@@ -78,7 +78,7 @@ async function seedProduct({ name = "منتج", code = "P1", stock = 50, retail 
   if (!category) {
     const created = ok(await staff("POST", "/api/categories", { name: `فئة ${name} ${++categorySeq}`, image: PNG_URI }), 201);
     category = created._id || created.id || created.category?._id;
-    ok(await staff("PUT", `/api/website/categories/${category}`, { visible: true, sortOrder: 1 }));
+    ok(await staff("PUT", `/api/website/categories/${category}`, { visibility: "show", sortOrder: 1 }));
   }
   const wholesale = Math.min(60, retail);
   const created = ok(await staff("POST", "/api/products", {
@@ -86,7 +86,7 @@ async function seedProduct({ name = "منتج", code = "P1", stock = 50, retail 
     ...(discount ? { discountPercentage: discount } : {}), image: PNG_URI, ...(exempt ? { vatExempt: true } : {}),
   }), 201);
   const id = created._id || created.product?._id;
-  if (visible) ok(await staff("PUT", `/api/website/products/${id}`, { visible: true, description: "وصف", images: [PNG_URI] }));
+  if (visible) ok(await staff("PUT", `/api/website/products/${id}`, { visibility: "show", description: "وصف", images: [PNG_URI] }));
   return { id, category };
 }
 const openSite = async (extra = {}) => ok(await staff("PUT", "/api/website/settings", { enabled: true, orderingEnabled: true, title: "متجر", ...extra }));

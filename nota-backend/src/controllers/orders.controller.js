@@ -10,10 +10,21 @@ const asyncHandler = require("../utils/asyncHandler");
 const { parsePaginationInteger, buildPaginationMetadata } = require("../utils/pagination");
 const { httpError } = require("../auth/middleware");
 const { reservedByProduct } = require("../store/reservations");
+const Selling = require("../models/selling.model");
+const { loadWebsiteSettings } = require("../store/catalog");
 const service = require("../services/webOrders.service");
 
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const isId = (value) => typeof value === "string" && mongoose.Types.ObjectId.isValid(value);
+
+const isWalletMethod = (method) => WebOrder.WALLET_METHODS.includes(method);
+/** Wallet orders: "verified" / "unpaid". Cash on delivery / pickup has no transfer: null. */
+const paymentStatusOf = (order) => (isWalletMethod(order.paymentMethod) ? (order.payment && order.payment.status === "verified" ? "verified" : "unpaid") : null);
+/** A wallet order whose transfer the shop has not confirmed yet and that is still open. */
+const OPEN_STATUSES = ["new", "confirmed", "preparing", "ready_for_pickup"];
+const needsTransfer = (order) => paymentStatusOf(order) === "unpaid" && OPEN_STATUSES.includes(order.status);
+
+const DEFAULT_WHATSAPP_TEMPLATE = "أهلاً {الاسم}، تم تأكيد طلبك رقم {رقم الطلب} بإجمالي {الإجمالي} جنيه. مدة التوصيل: {مدة التوصيل}. شكرًا لاختيارك لنا.";
 
 const listView = (order, courierNames) => ({
   id: String(order._id),
@@ -22,7 +33,11 @@ const listView = (order, courierNames) => ({
   createdAt: order.createdAt,
   customerName: order.contact.name,
   phone: order.contact.phone,
-  zone: order.zone.name,
+  zone: order.zone ? order.zone.name : null,
+  fulfillment: service.fulfillmentOf(order),
+  paymentMethod: order.paymentMethod,
+  paymentStatus: paymentStatusOf(order),
+  needsTransfer: needsTransfer(order),
   total: order.total,
   courierId: order.courierId ? String(order.courierId) : null,
   courierName: order.courierId ? courierNames.get(String(order.courierId)) || null : null,
@@ -44,6 +59,25 @@ const buildFilter = (query, { withStatus }) => {
     }
   }
   if (Object.keys(range).length) filter.createdAt = range;
+  // Online Stage 5A: fulfillment, payment method, transfer status. Orders without the fields are delivery / cash on delivery.
+  if (typeof query.fulfillment === "string" && query.fulfillment) {
+    if (!WebOrder.FULFILLMENTS.includes(query.fulfillment)) throw httpError(400, "INVALID_FULFILLMENT", "طريقة استلام غير صالحة");
+    filter.fulfillment = query.fulfillment === "pickup" ? "pickup" : { $ne: "pickup" };
+  }
+  if (typeof query.paymentMethod === "string" && query.paymentMethod) {
+    if (!WebOrder.PAYMENT_METHODS.includes(query.paymentMethod)) throw httpError(400, "INVALID_PAYMENT_METHOD", "طريقة دفع غير صالحة");
+    filter.paymentMethod = query.paymentMethod === "cod" ? { $in: ["cod", null] } : query.paymentMethod;
+  }
+  if (typeof query.payment === "string" && query.payment) {
+    if (query.payment === "verified") { filter.paymentMethod = { $in: WebOrder.WALLET_METHODS }; filter["payment.status"] = "verified"; }
+    else if (query.payment === "unpaid") { filter.paymentMethod = { $in: WebOrder.WALLET_METHODS }; filter["payment.status"] = { $ne: "verified" }; }
+    else throw httpError(400, "INVALID_PAYMENT", "حالة دفع غير صالحة");
+  }
+  if (query.needsTransfer === "1" || query.needsTransfer === "true") {
+    filter.paymentMethod = { $in: WebOrder.WALLET_METHODS };
+    filter["payment.status"] = { $ne: "verified" };
+    filter.status = { $in: OPEN_STATUSES };
+  }
   if (typeof query.courierId === "string" && query.courierId) {
     if (!isId(query.courierId)) throw httpError(400, "INVALID_COURIER", "مندوب غير صالح");
     filter.courierId = new mongoose.Types.ObjectId(query.courierId);
@@ -90,11 +124,15 @@ const summary = asyncHandler(async (_req, res) => {
 /** The full order for the order page: lines with stock and reserved-by-others, the courier, the invoice and the history. */
 const detailView = async (order) => {
   const ids = order.items.map((line) => String(line.productId));
-  const [products, reserved, courier, creditSale] = await Promise.all([
+  const pickup = service.fulfillmentOf(order) === "pickup";
+  const [products, reserved, courier, creditSale, cashSale, zone, settings] = await Promise.all([
     Product.find({ _id: { $in: ids } }).select("inventoryCount").lean(),
     reservedByProduct(ids, { excludeOrderId: order._id }),
     order.courierId ? Courier.findById(order.courierId).select("name phone").lean() : null,
     order.creditSaleId ? CreditSale.findById(order.creditSaleId).select("number totalPrice paidAmount remainingAmount status shippingFees refundedAmount").lean() : null,
+    order.cashSaleId ? Selling.findById(order.cashSaleId).select("number totalPrice shippingFees refundedAmount refundStatus boxId").lean() : null,
+    !pickup && order.zone && order.zone.id ? DeliveryZone.findById(order.zone.id).select("estimatedTime").lean() : null,
+    loadWebsiteSettings(),
   ]);
   const stock = new Map(products.map((product) => [String(product._id), Number(product.inventoryCount || 0)]));
   return {
@@ -103,6 +141,20 @@ const detailView = async (order) => {
     status: order.status,
     source: order.source,
     paymentMethod: order.paymentMethod,
+    fulfillment: service.fulfillmentOf(order),
+    // Wallet orders: whether the shop confirmed the transfer (nothing is posted by that; the invoice is the posting).
+    payment: {
+      status: paymentStatusOf(order),
+      verifiedAt: (order.payment && order.payment.verifiedAt) || null,
+      verifiedByName: (order.payment && order.payment.verifiedByName) || null,
+      reference: (order.payment && order.payment.reference) || null,
+    },
+    // The ONE invoice of the order: a credit sale (cash on delivery) or a cash sale (pickup / wallet).
+    invoice: cashSale
+      ? { kind: "cash", id: String(cashSale._id), number: cashSale.number, totalPrice: cashSale.totalPrice, shippingFees: cashSale.shippingFees || 0, refundedAmount: cashSale.refundedAmount || 0, refundStatus: cashSale.refundStatus || "none", boxId: cashSale.boxId ? String(cashSale.boxId) : null }
+      : creditSale ? { kind: "credit", id: String(creditSale._id), number: creditSale.number, totalPrice: creditSale.totalPrice, shippingFees: creditSale.shippingFees || 0, refundedAmount: creditSale.refundedAmount || 0, refundStatus: null, boxId: null } : null,
+    whatsappTemplate: (settings && settings.whatsappConfirmTemplate) || DEFAULT_WHATSAPP_TEMPLATE,
+    deliveryTime: (zone && zone.estimatedTime) || "",
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     items: order.items.map((line) => ({
@@ -112,8 +164,8 @@ const detailView = async (order) => {
       reservedByOthers: reserved.get(String(line.productId)) || 0,
     })),
     subtotal: order.subtotal, vat: order.vat, vatRate: order.vatRate, vatIncluded: order.vatIncluded, deliveryFee: order.deliveryFee, total: order.total,
-    zone: { id: String(order.zone.id), name: order.zone.name, fee: order.zone.fee },
-    contact: { name: order.contact.name, phone: order.contact.phone, address: order.contact.address, notes: order.contact.notes || "" },
+    zone: pickup || !order.zone ? null : { id: String(order.zone.id), name: order.zone.name, fee: order.zone.fee },
+    contact: { name: order.contact.name, phone: order.contact.phone, address: order.contact.address || "", notes: order.contact.notes || "" },
     storeCustomerId: order.storeCustomer ? String(order.storeCustomer) : null,
     reason: order.reason || null,
     collectedAmount: order.collectedAmount === undefined ? null : order.collectedAmount,
@@ -151,9 +203,12 @@ module.exports = {
   confirm: action(service.confirm),
   reject: action(service.reject),
   prepare: action(service.prepare),
+  ready: action(service.markReady),
+  verifyPayment: action(service.verifyPayment),
   cancel: action(service.cancel),
   edit: action(service.edit),
   dispatch: action(service.dispatch),
+  pickup: action(service.pickup),
   deliver: action(service.deliver),
   refuse: action(service.refuse),
 };

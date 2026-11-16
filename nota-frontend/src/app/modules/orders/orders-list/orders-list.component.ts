@@ -8,13 +8,15 @@ import { NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatus
 import { NotaPillVariant } from '../../shared/ui/status-pill.component';
 import { OrdersNotifierService } from '../../../core/orders-notifier/orders-notifier.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { Courier, ORDER_STATUSES, OrderListRow, OrderStatus } from '../orders.models';
+import { Courier, Fulfillment, ORDER_STATUSES, OrderListRow, OrderStatus, PaymentMethod } from '../orders.models';
 import { OrdersService } from '../orders.service';
 
 export const ORDER_STATUS_VARIANT: Record<OrderStatus, NotaPillVariant> = {
   new: 'due',
   confirmed: 'info',
   preparing: 'info',
+  ready_for_pickup: 'due',
+  picked_up: 'ok',
   out_for_delivery: 'due',
   delivered: 'ok',
   cancelled: 'overdue',
@@ -56,6 +58,19 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, NotaPillVariant> = {
           <option value="">{{ 'orders.allCouriers' | translate }}</option>
           @for (courier of couriers(); track courier.id) { <option [value]="courier.id">{{ courier.name }}</option> }
         </select>
+        <!-- Online Stage 5A -->
+        <select class="nota-select" data-test="order-fulfillment" [ngModel]="fulfillment()" (ngModelChange)="fulfillment.set($event); reload()" [attr.aria-label]="'orders.filters.fulfillment' | translate">
+          <option value="">{{ 'orders.filters.allFulfillments' | translate }}</option>
+          <option value="delivery">{{ 'orders.fulfillment.delivery' | translate }}</option>
+          <option value="pickup">{{ 'orders.fulfillment.pickup' | translate }}</option>
+        </select>
+        <select class="nota-select" data-test="order-method" [ngModel]="paymentMethod()" (ngModelChange)="paymentMethod.set($event); reload()" [attr.aria-label]="'orders.filters.method' | translate">
+          <option value="">{{ 'orders.filters.allMethods' | translate }}</option>
+          <option value="cod">{{ 'orders.method.cod' | translate }}</option>
+          <option value="instapay">{{ 'orders.method.instapay' | translate }}</option>
+          <option value="vodafone_cash">{{ 'orders.method.vodafone_cash' | translate }}</option>
+        </select>
+        <label class="ol__check"><input type="checkbox" data-test="needs-transfer" [ngModel]="needsTransfer()" (ngModelChange)="needsTransfer.set($event); reload()" /> {{ 'orders.filters.needsTransfer' | translate }}</label>
         <button type="button" notaButton data-action="search" (click)="reload()">{{ 'orders.searchAction' | translate }}</button>
       </div>
 
@@ -71,6 +86,8 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, NotaPillVariant> = {
             <th>{{ 'orders.columns.customer' | translate }}</th>
             <th>{{ 'orders.columns.phone' | translate }}</th>
             <th>{{ 'orders.columns.zone' | translate }}</th>
+            <th>{{ 'orders.columns.fulfillment' | translate }}</th>
+            <th>{{ 'orders.columns.payment' | translate }}</th>
             <th class="num">{{ 'orders.columns.total' | translate }}</th>
             <th>{{ 'orders.columns.status' | translate }}</th>
             <th>{{ 'orders.columns.courier' | translate }}</th>
@@ -82,13 +99,20 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, NotaPillVariant> = {
                 <td class="nota-num">{{ order.createdAt | date: 'short' }}</td>
                 <td>{{ order.customerName }}</td>
                 <td class="nota-num ol__ltr">{{ order.phone }}</td>
-                <td>{{ order.zone }}</td>
+                <td>{{ order.zone || '—' }}</td>
+                <td data-test="row-fulfillment">{{ 'orders.fulfillment.' + order.fulfillment | translate }}</td>
+                <td data-test="row-payment">
+                  {{ 'orders.method.' + order.paymentMethod | translate }}
+                  @if (order.paymentStatus) {
+                    <nota-status-pill [variant]="order.paymentStatus === 'verified' ? 'ok' : 'due'">{{ 'orders.payment.' + order.paymentStatus | translate }}</nota-status-pill>
+                  }
+                </td>
                 <td class="nota-num">{{ order.total | notaMoney }}</td>
                 <td><nota-status-pill [variant]="variant(order.status)">{{ 'orders.status.' + order.status | translate }}</nota-status-pill></td>
                 <td>{{ order.courierName || '—' }}</td>
               </tr>
             } @empty {
-              @if (!loading()) { <tr><td colspan="8" class="ol__empty">{{ 'orders.empty' | translate }}</td></tr> }
+              @if (!loading()) { <tr><td colspan="10" class="ol__empty">{{ 'orders.empty' | translate }}</td></tr> }
             }
           </tbody>
         </table>
@@ -112,6 +136,7 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, NotaPillVariant> = {
     .ol__count { font-size: 12px; color: var(--text-muted); }
     .ol__filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
     .ol__field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); }
+    .ol__check { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
     .ol__alert { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 14px 16px; border-radius: 12px; background: var(--danger-soft); color: var(--danger-text); }
     .ol__row { cursor: pointer; }
     .ol__ltr { direction: ltr; text-align: start; }
@@ -142,6 +167,10 @@ export class OrdersListComponent implements OnInit {
   protected readonly from = signal('');
   protected readonly to = signal('');
   protected readonly courierId = signal('');
+  // Online Stage 5A
+  protected readonly fulfillment = signal<Fulfillment | ''>('');
+  protected readonly paymentMethod = signal<PaymentMethod | ''>('');
+  protected readonly needsTransfer = signal(false);
 
   ngOnInit(): void {
     this.reload();
@@ -175,7 +204,7 @@ export class OrdersListComponent implements OnInit {
     this.loading.set(true);
     this.loadError.set(false);
     this.service
-      .list({ status: this.status(), q: this.q(), from: this.from(), to: this.to(), courierId: this.courierId(), page: this.page() })
+      .list({ status: this.status(), q: this.q(), from: this.from(), to: this.to(), courierId: this.courierId(), page: this.page(), fulfillment: this.fulfillment(), paymentMethod: this.paymentMethod(), needsTransfer: this.needsTransfer() ? '1' : '' })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (response) => {

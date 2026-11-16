@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const Product = require("../models/product.model");
 const DeliveryZone = require("../models/deliveryZone.model");
 const WebOrder = require("../models/webOrder.model");
+const CashBox = require("../models/cashBox.model");
 const asyncHandler = require("../utils/asyncHandler");
 const { withTransaction } = require("../utils/transaction");
 const { PREFIXES, nextDocumentNumber } = require("../utils/documentNumber");
@@ -43,14 +44,15 @@ const readItems = (value) => {
   });
 };
 
-const readContact = (input) => {
+// Pickup: the address is optional (a delivery order must have one).
+const readContact = (input, { addressRequired = true } = {}) => {
   const body = input && typeof input === "object" ? input : {};
   const name = str(body.name, 121);
   const phone = normalizeStorePhone(body.phone);
   const address = str(body.address, 501);
   if (!name || name.length > 120) throw fail("INVALID_CONTACT", "الاسم مطلوب");
   if (!phone) throw fail("INVALID_PHONE", "رقم الموبايل غير صالح");
-  if (!address || address.length > 500) throw fail("INVALID_CONTACT", "العنوان مطلوب");
+  if ((addressRequired && !address) || address.length > 500) throw fail("INVALID_CONTACT", "العنوان مطلوب");
   return { name, phone, address, notes: str(body.notes, 500) };
 };
 
@@ -58,23 +60,31 @@ const readOrderRequest = (body, customer) => {
   const input = body && typeof body === "object" ? body : {};
   if (typeof input.idempotencyKey !== "string" || !UUID.test(input.idempotencyKey)) throw fail("INVALID_IDEMPOTENCY_KEY", "مفتاح الطلب غير صالح");
   const items = readItems(input.items);
-  const zoneId = typeof input.zoneId === "string" && mongoose.Types.ObjectId.isValid(input.zoneId) ? input.zoneId : null;
-  if (!zoneId) throw fail("INVALID_ZONE", "اختار منطقة التوصيل");
+  // Online Stage 5A: how the customer gets the order and how they pay. Absent = delivery / cash on delivery (the Stage 3 request).
+  const fulfillment = input.fulfillment === undefined ? "delivery" : input.fulfillment;
+  if (!WebOrder.FULFILLMENTS.includes(fulfillment)) throw fail("INVALID_FULFILLMENT", "طريقة الاستلام غير صالحة");
+  const paymentMethod = input.paymentMethod === undefined ? "cod" : input.paymentMethod;
+  if (!WebOrder.PAYMENT_METHODS.includes(paymentMethod)) throw fail("INVALID_PAYMENT_METHOD", "طريقة الدفع غير صالحة");
+  const zoneId = fulfillment === "pickup" ? null : (typeof input.zoneId === "string" && mongoose.Types.ObjectId.isValid(input.zoneId) ? input.zoneId : null);
+  if (fulfillment === "delivery" && !zoneId) throw fail("INVALID_ZONE", "اختار منطقة التوصيل");
   let contact;
   if (input.addressId !== undefined && input.addressId !== null && input.addressId !== "") {
     const saved = customer && mongoose.Types.ObjectId.isValid(input.addressId) ? customer.addresses.id(input.addressId) : null;
     if (!saved) throw fail("INVALID_ADDRESS", "العنوان المحفوظ غير موجود");
     contact = { name: customer.name, phone: customer.phone, address: saved.address, notes: str(input.contact && input.contact.notes, 500) || saved.notes || "" };
   } else {
-    contact = readContact(input.contact);
+    contact = readContact(input.contact, { addressRequired: fulfillment === "delivery" });
   }
   const canonical = {
     items: [...items].sort((a, b) => (a.productId < b.productId ? -1 : 1)),
-    zoneId: zoneId.toLowerCase(),
+    zoneId: zoneId ? zoneId.toLowerCase() : undefined,
     contact,
     customerId: customer ? String(customer._id) : null,
+    // Only when not the default, so the hash of a Stage 3 / 4 request (and its idempotent retry) does not change.
+    ...(fulfillment !== "delivery" ? { fulfillment } : {}),
+    ...(paymentMethod !== "cod" ? { paymentMethod } : {}),
   };
-  return { idempotencyKey: input.idempotencyKey.toLowerCase(), items, zoneId, contact, requestHash: sha256(JSON.stringify(canonical)) };
+  return { idempotencyKey: input.idempotencyKey.toLowerCase(), items, zoneId, fulfillment, paymentMethod, contact, requestHash: sha256(JSON.stringify(canonical)) };
 };
 
 const createStoreOrderController = ({ secret }) => {
@@ -93,15 +103,25 @@ const createStoreOrderController = ({ secret }) => {
     const existing = await findExisting(request, customer, session);
     if (existing) return { order: existing, created: false };
 
-    const settings = await catalog.loadWebsiteSettings(session);
+    const scope = await catalog.storeScope({ session });
+    const { settings, rules } = scope;
     if (!settings || !settings.enabled) throw httpError(503, "STORE_CLOSED", "الموقع مقفول حاليًا");
     if (settings.orderingEnabled === false) throw httpError(409, "ORDERING_DISABLED", "استقبال الطلبات متوقف حاليًا");
 
-    const zone = await DeliveryZone.findOne({ _id: request.zoneId, isActive: true }).session(session).lean();
-    if (!zone) throw httpError(409, "ZONE_UNAVAILABLE", "منطقة التوصيل غير متاحة");
+    // Online Stage 5A: a fulfillment or payment option the shop switched off (or a wallet whose box is no longer usable) is refused.
+    if (!rules.fulfillment[request.fulfillment]) throw httpError(409, "FULFILLMENT_UNAVAILABLE", "طريقة الاستلام دي مش متاحة");
+    if (!rules.payments[request.paymentMethod].enabled) throw httpError(409, "PAYMENT_UNAVAILABLE", "طريقة الدفع دي مش متاحة");
+    if (request.paymentMethod !== "cod") {
+      const box = await CashBox.findById(rules.payments[request.paymentMethod].boxId).select("type isActive").session(session).lean();
+      if (!box || !box.isActive || !["wallet", "bank"].includes(box.type)) throw httpError(409, "PAYMENT_UNAVAILABLE", "طريقة الدفع دي مش متاحة");
+    }
 
-    const categoryIds = await catalog.visibleCategoryIds(session);
-    const products = await Product.find({ _id: { $in: request.items.map((row) => row.productId) }, ...catalog.visibleProductFilter(categoryIds) })
+    const pickup = request.fulfillment === "pickup";
+    const zone = pickup ? null : await DeliveryZone.findOne({ _id: request.zoneId, isActive: true }).session(session).lean();
+    if (!pickup && !zone) throw httpError(409, "ZONE_UNAVAILABLE", "منطقة التوصيل غير متاحة");
+
+    const filter = scope.filter;
+    const products = await Product.find({ ...filter, _id: { $in: request.items.map((row) => row.productId), ...(filter._id || {}) } })
       .select("name code retailPrice discountPercentage inventoryCount vatExempt")
       .session(session)
       .lean();
@@ -126,7 +146,8 @@ const createStoreOrderController = ({ secret }) => {
       throw error;
     }
 
-    const priced = await priceWebOrder({ lines, zone, settings, session });
+    // Pickup: no zone, delivery fee 0 (priced like a delivery order with a zero fee, so VAT and the total use the same code).
+    const priced = await priceWebOrder({ lines, zone: pickup ? { fee: 0 } : zone, settings, session, ...(pickup ? { feeOverride: 0 } : {}) });
     if (settings.minOrderAmount !== undefined && settings.minOrderAmount !== null && priced.subtotal < Number(settings.minOrderAmount)) {
       const error = httpError(409, "MIN_ORDER_NOT_REACHED", "الطلب أقل من الحد الأدنى");
       error.responseData.minOrderAmount = Number(settings.minOrderAmount);
@@ -139,14 +160,16 @@ const createStoreOrderController = ({ secret }) => {
       number,
       status: "new",
       source: "website",
-      paymentMethod: "cod",
+      fulfillment: request.fulfillment,
+      paymentMethod: request.paymentMethod,
+      ...(request.paymentMethod !== "cod" ? { payment: { status: "unpaid" } } : {}),
       items: priced.items,
       subtotal: priced.subtotal,
       vat: priced.vat,
       ...(priced.vatRate !== undefined ? { vatRate: priced.vatRate, vatIncluded: priced.vatIncluded } : {}),
       deliveryFee: priced.deliveryFee,
       total: priced.total,
-      zone: { id: zone._id, name: zone.name, fee: zone.fee },
+      ...(pickup ? {} : { zone: { id: zone._id, name: zone.name, fee: zone.fee } }),
       contact: request.contact,
       ...(customer ? { storeCustomer: customer._id } : {}),
       statusHistory: [{ status: "new", at, by: customer ? `customer:${customer._id}` : "guest" }],

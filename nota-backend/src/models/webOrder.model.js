@@ -1,11 +1,15 @@
 const mongoose = require("mongoose");
 
-const ORDER_STATUSES = ["new", "confirmed", "preparing", "out_for_delivery", "delivered", "cancelled", "rejected", "refused"];
+const ORDER_STATUSES = ["new", "confirmed", "preparing", "ready_for_pickup", "picked_up", "out_for_delivery", "delivered", "cancelled", "rejected", "refused"];
 // Online Stage 4: statuses whose quantities are reserved (computed from WebOrder, never stored on the product).
-const RESERVING_STATUSES = ["confirmed", "preparing"];
-// An order can be edited until it leaves with the courier.
+// Online Stage 5A: a pickup order waiting at the shop still holds its stock.
+const RESERVING_STATUSES = ["confirmed", "preparing", "ready_for_pickup"];
+// An order can be edited until it leaves with the courier / is ready at the shop.
 const EDITABLE_STATUSES = ["new", "confirmed", "preparing"];
-const PAYMENT_METHODS = ["cod"];
+// Online Stage 5A: cash on delivery / pickup, or a wallet transfer the staff verify (InstaPay, Vodafone Cash).
+const PAYMENT_METHODS = ["cod", "instapay", "vodafone_cash"];
+const WALLET_METHODS = ["instapay", "vodafone_cash"];
+const FULFILLMENTS = ["delivery", "pickup"];
 
 const itemSchema = new mongoose.Schema(
   {
@@ -23,13 +27,29 @@ const itemSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const isDelivery = function isDelivery() {
+  return this.fulfillment !== "pickup";
+};
+
 // The order as the customer saw it. A snapshot: never recalculated from products, zones or settings afterwards.
 const webOrderSchema = new mongoose.Schema(
   {
     number: { type: String, required: true, unique: true },
     status: { type: String, enum: ORDER_STATUSES, default: "new", index: true },
     source: { type: String, enum: ["website"], default: "website" },
+    // Online Stage 5A: a missing value on an order placed before this stage means delivery (the readers default it).
+    fulfillment: { type: String, enum: FULFILLMENTS, default: "delivery" },
     paymentMethod: { type: String, enum: PAYMENT_METHODS, default: "cod" },
+    // Wallet orders: staff verify the transfer. Nothing is posted at that moment; the invoice (cash sale) is the posting.
+    // boxId = the wallet/bank box configured for the method AT verification (the money arrived there).
+    payment: {
+      status: { type: String, enum: ["unpaid", "verified"] },
+      verifiedAt: { type: Date },
+      verifiedBy: { type: String },
+      verifiedByName: { type: String },
+      reference: { type: String },
+      boxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox" },
+    },
     items: { type: [itemSchema], required: true },
     subtotal: { type: Number, required: true, min: 0 },
     vat: { type: Number, default: 0 },
@@ -37,15 +57,16 @@ const webOrderSchema = new mongoose.Schema(
     vatIncluded: { type: Boolean },
     deliveryFee: { type: Number, required: true, min: 0 },
     total: { type: Number, required: true, min: 0 },
+    // Pickup orders have no zone.
     zone: {
-      id: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryZone", required: true },
-      name: { type: String, required: true },
-      fee: { type: Number, required: true },
+      id: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryZone", required: isDelivery },
+      name: { type: String, required: isDelivery },
+      fee: { type: Number, required: isDelivery },
     },
     contact: {
       name: { type: String, required: true },
       phone: { type: String, required: true },
-      address: { type: String, required: true },
+      address: { type: String, required: isDelivery },
       notes: { type: String },
     },
     storeCustomer: { type: mongoose.Schema.Types.ObjectId, ref: "StoreCustomer", index: true },
@@ -57,6 +78,8 @@ const webOrderSchema = new mongoose.Schema(
     // Online Stage 4: what the order created, and who carries it.
     courierId: { type: mongoose.Schema.Types.ObjectId, ref: "Courier", index: true },
     creditSaleId: { type: mongoose.Schema.Types.ObjectId, ref: "CreditSale" },
+    // Online Stage 5A: the cash sale of a pickup or wallet order.
+    cashSaleId: { type: mongoose.Schema.Types.ObjectId, ref: "Selling" },
     paymentIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
     returnIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
     collectedAmount: { type: Number },
@@ -81,3 +104,5 @@ module.exports.ORDER_STATUSES = ORDER_STATUSES;
 module.exports.RESERVING_STATUSES = RESERVING_STATUSES;
 module.exports.EDITABLE_STATUSES = EDITABLE_STATUSES;
 module.exports.PAYMENT_METHODS = PAYMENT_METHODS;
+module.exports.WALLET_METHODS = WALLET_METHODS;
+module.exports.FULFILLMENTS = FULFILLMENTS;

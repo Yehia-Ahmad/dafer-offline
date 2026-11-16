@@ -27,7 +27,6 @@ export const ROUTE_RULES = {
   shopProfile: { all: ['shop.manage'] },
   /** Online Stage 3: the customer website's settings and delivery zones. */
   websiteSettings: { all: ['website.manage'] },
-  deliveryZones: { all: ['website.manage'] },
   /** Online Stage 4: website orders (orders.view; the actions need orders.manage / orders.dispatch), couriers, website customers. */
   orders: { all: ['orders.view'] },
   couriers: { any: ['orders.view', 'website.manage'] },

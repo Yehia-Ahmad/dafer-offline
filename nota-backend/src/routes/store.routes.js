@@ -41,7 +41,9 @@ const createStoreRouter = ({ secret }) => {
   router.get("/categories", pub, catalogController.getCategories);
   router.get("/products", pub, catalogController.getProducts);
   router.get("/products/:id", pub, catalogController.getProduct);
+  router.get("/products/:id/related", pub, catalogController.getRelatedProducts); // Online Stage 5A
   router.get("/delivery-zones", pub, catalogController.getDeliveryZones);
+  router.get("/images/website-logo", pub, catalogController.getWebsiteLogoImage); // Online Stage 5A
   router.get("/images/product/:id/:index", pub, catalogController.getProductImage);
   router.get("/images/category/:id", pub, catalogController.getCategoryImage);
   router.get("/images/banner/:id", pub, catalogController.getBannerImage);

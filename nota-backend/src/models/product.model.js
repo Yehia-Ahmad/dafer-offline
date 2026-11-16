@@ -108,7 +108,8 @@ const productSchema = new mongoose.Schema(
     // Online Stage 3: the customer website. Nothing shows until the shop sets visible = true (website.manage). No schema defaults on
     // purpose: a missing field means hidden, and the staff API answers stay exactly as before for products that never had it.
     website: {
-      visible: { type: Boolean },
+      // Online Stage 5A: replaces the boolean `visible`. "show" / "hide" / unset; what unset means depends on the website's productVisibility mode.
+      visibility: { type: String, enum: ["show", "hide"] },
       description: { type: String, trim: true, maxlength: [2000, "يجب ألا يزيد وصف الموقع عن 2000 حرف"] },
       images: {
         type: [{ type: String, trim: true, validate: { validator: isBase64Image, message: "يجب أن تكون صورة الموقع سلسلة base64 صالحة (خام أو بصيغة data URI)" } }],

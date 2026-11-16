@@ -28,6 +28,9 @@ const { loadWebsiteSettings } = require("../store/catalog");
 const { reservedByProduct } = require("../store/reservations");
 const { normalizeStorePhone } = require("../utils/storePhone");
 const { createCreditSaleInTransaction, addCreditSalePaymentInTransaction, refundCreditSaleInTransaction } = require("../controllers/creditSale.controller");
+// Online Stage 5A: pickup and wallet orders create a CASH sale (and its return) through the same in-transaction functions the POS uses.
+const { createCashSaleInTransaction, refundSellingInTransaction } = require("../controllers/selling.controller");
+const Selling = require("../models/selling.model");
 
 const MAX_QTY = 9999;
 const MAX_LINES = 50;
@@ -68,13 +71,31 @@ const loadOrder = async (id, session) => {
   return order;
 };
 
+// Online Stage 5A. An order placed before this stage has neither field: it is a delivery order (paid on delivery).
+const fulfillmentOf = (order) => (order.fulfillment === "pickup" ? "pickup" : "delivery");
+const isWallet = (order) => WebOrder.WALLET_METHODS.includes(order.paymentMethod);
+const isVerified = (order) => Boolean(order.payment && order.payment.status === "verified");
+/** The fulfillment condition of the status guard (`$ne` for delivery so orders without the field still match). */
+const fulfillmentFilter = (fulfillment) => (fulfillment === "pickup" ? { fulfillment: "pickup" } : { fulfillment: { $ne: "pickup" } });
+const wrongFulfillment = (order, expected) => {
+  if (fulfillmentOf(order) !== expected) throw httpError(409, "WRONG_FULFILLMENT", expected === "pickup" ? "الإجراء ده لطلبات الاستلام من المحل بس" : "الإجراء ده لطلبات التوصيل بس", { fulfillment: fulfillmentOf(order) });
+};
+const assertPermission = (req, key, message) => {
+  if (!hasPermission(req.user, key)) throw httpError(403, "FORBIDDEN", message);
+};
+/** A wallet order's invoice is refused until the shop checked the transfer. */
+const assertPaid = (order) => {
+  if (isWallet(order) && !isVerified(order)) throw httpError(409, "PAYMENT_NOT_VERIFIED", "أكّد استلام التحويل الأول");
+};
+
 /**
  * The status guard: moves the order from one of `from` to `status`, or answers 409. It is the first write of every
  * transition, so a concurrent transition on the same order conflicts here and then sees the new status.
+ * `fulfillment` (Stage 5A) is part of the same condition, so a pickup-only or delivery-only transition cannot hit the other kind.
  */
-const moveOrder = async (id, from, status, { req, set = {}, note, session }) => {
+const moveOrder = async (id, from, status, { req, set = {}, note, session, fulfillment }) => {
   const updated = await WebOrder.findOneAndUpdate(
-    { _id: id, status: { $in: from } },
+    { _id: id, status: { $in: from }, ...(fulfillment ? fulfillmentFilter(fulfillment) : {}) },
     { $set: { status, ...set }, $push: { statusHistory: historyEntry(req, status, { note }) } },
     { new: true, session }
   );
@@ -117,6 +138,7 @@ const confirm = (req, id) => withTransaction(async (session) => {
   return updated;
 });
 
+// (reject: new / confirmed, both fulfillments)
 const reject = (req, id, body) => withTransaction(async (session) => {
   const reason = readReason(body && body.reason, true);
   const updated = await moveOrder(id, ["new", "confirmed"], "rejected", { req, set: { reason }, note: reason, session });
@@ -130,10 +152,58 @@ const prepare = (req, id) => withTransaction(async (session) => {
   return updated;
 });
 
+// Online Stage 5A: a pickup order can also be cancelled when it is ready and the customer never comes (reason required).
+// A verified transfer posted nothing, so there is nothing to reverse; the refund to the customer happens outside Nota and the reason records it.
 const cancel = (req, id, body) => withTransaction(async (session) => {
   const reason = readReason(body && body.reason, true);
-  const updated = await moveOrder(id, ["confirmed", "preparing"], "cancelled", { req, set: { reason }, note: reason, session });
+  const order = await loadOrder(id, session);
+  const pickup = fulfillmentOf(order) === "pickup";
+  const updated = await moveOrder(order._id, pickup ? ["confirmed", "preparing", "ready_for_pickup"] : ["confirmed", "preparing"], "cancelled", { req, set: { reason }, note: reason, session, fulfillment: fulfillmentOf(order) });
   await audit(req, { action: "order.cancelled", entity: "WebOrder", entityId: updated._id, details: { number: updated.number, reason }, session, strict: true });
+  return updated;
+});
+
+/** Pickup: the order is packed and waiting at the shop. Its stock stays reserved. */
+const markReady = (req, id) => withTransaction(async (session) => {
+  wrongFulfillment(await loadOrder(id, session), "pickup");
+  const updated = await moveOrder(id, ["preparing"], "ready_for_pickup", { req, session, fulfillment: "pickup" });
+  await audit(req, { action: "order.ready_for_pickup", entity: "WebOrder", entityId: updated._id, details: { number: updated.number }, session, strict: true });
+  return updated;
+});
+
+const PAYMENT_METHOD_KEY = { instapay: "instapay", vodafone_cash: "vodafoneCash" };
+const VERIFIABLE = ["new", "confirmed", "preparing", "ready_for_pickup"];
+
+/**
+ * Staff checked the transfer. NOTHING IS POSTED here: the money is posted when the invoice (a cash sale) is created. The wallet box of the
+ * method is stored on the order now (the moment the money is seen), so a later settings change cannot move the sale to another box.
+ */
+const verifyPayment = (req, id, body) => withTransaction(async (session) => {
+  const input = body && typeof body === "object" ? body : {};
+  const reference = str(input.reference, 101);
+  if (reference.length > 100) throw bad("INVALID_REFERENCE", "رقم العملية طويل (حتى 100 حرف)");
+  const order = await loadOrder(id, session);
+  if (!isWallet(order)) throw httpError(409, "NOT_WALLET_ORDER", "الطلب ده دفعه عند الاستلام");
+  if (isVerified(order)) throw httpError(409, "ALREADY_VERIFIED", "التحويل اتأكد قبل كده");
+  if (!VERIFIABLE.includes(order.status)) throw httpError(409, "INVALID_STATUS", "حالة الطلب اتغيرت. حدّث الصفحة", { status: order.status });
+
+  const settings = await loadWebsiteSettings(session);
+  const configured = settings && settings.payments && settings.payments[PAYMENT_METHOD_KEY[order.paymentMethod]];
+  const box = configured && configured.boxId ? await CashBox.findById(configured.boxId).session(session).lean() : null;
+  if (!box || !box.isActive || !["wallet", "bank"].includes(box.type)) throw httpError(409, "PAYMENT_BOX_UNAVAILABLE", "خزنة طريقة الدفع دي مش متاحة. راجع إعدادات الدفع");
+
+  const actor = actorOf(req);
+  const at = new Date();
+  const updated = await WebOrder.findOneAndUpdate(
+    { _id: order._id, status: { $in: VERIFIABLE }, "payment.status": { $ne: "verified" } },
+    {
+      $set: { payment: { status: "verified", verifiedAt: at, verifiedBy: actor.id || "system", verifiedByName: actor.name, ...(reference ? { reference } : {}), boxId: box._id } },
+      $push: { statusHistory: historyEntry(req, order.status, { type: "payment", note: reference || undefined, details: { event: "payment_verified", ...(reference ? { reference } : {}) } }) },
+    },
+    { new: true, session }
+  );
+  if (!updated) throw httpError(409, "INVALID_STATUS", "حالة الطلب اتغيرت. حدّث الصفحة");
+  await audit(req, { action: "order.payment_verified", entity: "WebOrder", entityId: order._id, details: { number: order.number, method: order.paymentMethod, ...(reference ? { reference } : {}) }, session, strict: true });
   return updated;
 });
 
@@ -152,13 +222,14 @@ const readEditItems = (value) => {
   });
 };
 
-const readEditContact = (input, current) => {
+const readEditContact = (input, current, { addressRequired = true } = {}) => {
   if (input === undefined) return { contact: undefined, changes: {} };
   if (!input || typeof input !== "object" || Array.isArray(input)) throw bad("INVALID_CONTACT", "بيانات التواصل غير صالحة");
   const next = { name: current.name, phone: current.phone, address: current.address, notes: current.notes || "" };
   if (input.name !== undefined) { next.name = str(input.name, 121); if (!next.name || next.name.length > 120) throw bad("INVALID_CONTACT", "الاسم مطلوب"); }
   if (input.phone !== undefined) { next.phone = normalizeStorePhone(input.phone); if (!next.phone) throw bad("INVALID_PHONE", "رقم الموبايل غير صالح"); }
-  if (input.address !== undefined) { next.address = str(input.address, 501); if (!next.address || next.address.length > 500) throw bad("INVALID_CONTACT", "العنوان مطلوب"); }
+  // A pickup order's address is optional.
+  if (input.address !== undefined) { next.address = str(input.address, 501); if ((addressRequired && !next.address) || next.address.length > 500) throw bad("INVALID_CONTACT", "العنوان مطلوب"); }
   if (input.notes !== undefined) next.notes = str(input.notes, 500);
   const changes = {};
   for (const key of ["name", "phone", "address", "notes"]) if (next[key] !== (current[key] || "")) changes[key] = { from: current[key] || "", to: next[key] };
@@ -173,17 +244,21 @@ const edit = (req, id, body) => withTransaction(async (session) => {
   if (!WebOrder.EDITABLE_STATUSES.includes(order.status)) throw httpError(409, "NOT_EDITABLE", "الطلب خرج للتوصيل ومينفعش يتعدّل. اعمل مرتجع", { status: order.status });
 
   const items = input.items === undefined ? order.items.map((line) => ({ productId: String(line.productId), qty: line.qty })) : readEditItems(input.items);
-  const { contact, changes: contactChanges } = readEditContact(input.contact, order.contact);
+  const pickupOrder = fulfillmentOf(order) === "pickup";
+  const { contact, changes: contactChanges } = readEditContact(input.contact, order.contact, { addressRequired: !pickupOrder });
 
   let feeOverride;
-  if (input.deliveryFee !== undefined && input.deliveryFee !== null && input.deliveryFee !== "") {
+  const feeGiven = input.deliveryFee !== undefined && input.deliveryFee !== null && input.deliveryFee !== "";
+  // Pickup: no zone and no delivery fee, ever.
+  if (pickupOrder && (feeGiven || input.zoneId !== undefined)) throw bad("NOT_DELIVERY", "طلب الاستلام من المحل مالوش منطقة ولا رسوم توصيل");
+  if (feeGiven) {
     const fee = Number(input.deliveryFee);
     if (!Number.isFinite(fee) || fee < 0 || fee > 1e6) throw bad("INVALID_AMOUNT", "رسوم التوصيل لازم تكون رقم صفر أو أكبر");
     feeOverride = roundMoney(fee);
   }
-  let zone = { id: order.zone.id, name: order.zone.name, fee: order.zone.fee };
+  let zone = pickupOrder ? null : { id: order.zone.id, name: order.zone.name, fee: order.zone.fee };
   let zoneChanged = false;
-  if (input.zoneId !== undefined && String(input.zoneId) !== String(order.zone.id)) {
+  if (!pickupOrder && input.zoneId !== undefined && String(input.zoneId) !== String(order.zone.id)) {
     if (!isId(input.zoneId)) throw bad("INVALID_ZONE", "اختار منطقة التوصيل");
     const found = await DeliveryZone.findOne({ _id: input.zoneId, isActive: true }).session(session).lean();
     if (!found) throw httpError(409, "ZONE_UNAVAILABLE", "منطقة التوصيل غير متاحة");
@@ -192,6 +267,7 @@ const edit = (req, id, body) => withTransaction(async (session) => {
   }
   // The fee stays as it is unless staff set it or change the zone.
   if (feeOverride === undefined && !zoneChanged) feeOverride = order.deliveryFee;
+  if (pickupOrder) feeOverride = 0;
 
   const oldByProduct = new Map(order.items.map((line) => [String(line.productId), line]));
   const products = await Product.find({ _id: { $in: items.map((row) => row.productId) } }).select("name code retailPrice discountPercentage vatExempt isArchived").session(session).lean();
@@ -207,7 +283,9 @@ const edit = (req, id, body) => withTransaction(async (session) => {
   await assertAvailable(lines.map((line) => ({ productId: line.product._id, qty: line.qty })), { orderId: order._id, session });
 
   const settings = await loadWebsiteSettings(session);
-  const priced = await priceWebOrder({ lines, zone, settings, session, feeOverride });
+  const priced = await priceWebOrder({ lines, zone: zone || { fee: 0 }, settings, session, feeOverride });
+  // The customer paid the old total by transfer: an edit that changes it is refused (staff cancel the order and refund outside Nota).
+  if (isWallet(order) && isVerified(order) && priced.total !== order.total) throw httpError(409, "PAYMENT_VERIFIED", "التحويل اتأكد بمبلغ الطلب. مينفعش تعديل يغيّر الإجمالي. الغي الطلب لو لازم", { total: order.total, newTotal: priced.total });
 
   const lineChanges = [];
   for (const line of priced.items) {
@@ -226,7 +304,7 @@ const edit = (req, id, body) => withTransaction(async (session) => {
   if (Object.keys(details).length === 1 && priced.total === order.total) throw bad("NO_CHANGES", "مفيش تغييرات");
 
   const set = {
-    items: priced.items, subtotal: priced.subtotal, vat: priced.vat, deliveryFee: priced.deliveryFee, total: priced.total, zone,
+    items: priced.items, subtotal: priced.subtotal, vat: priced.vat, deliveryFee: priced.deliveryFee, total: priced.total, ...(zone ? { zone } : {}),
     ...(priced.vatRate !== undefined ? { vatRate: priced.vatRate, vatIncluded: priced.vatIncluded } : {}),
     ...(contact ? { contact } : {}),
   };
@@ -255,21 +333,59 @@ const handlerReq = (req, body, params = {}) => ({ user: req.user, ip: req.ip, de
 
 const creditSaleItem = (creditSale, productId) => creditSale.items.find((item) => String(item.product && item.product._id ? item.product._id : item.product) === String(productId));
 
-/** Sends the order out: the credit sale on the courier's customer account is created by the existing credit-sale function. */
+/**
+ * Online Stage 5A: the cash sale of a pickup or wallet order, created by the POS's own function (box, number, stock, VAT, audit, posting).
+ * Same lines at the order's snapshot prices, the delivery fee as shippingFees, and the order total as the expected total, so the invoice
+ * total IS the order total (or nothing is created: 409 TOTAL_CHANGED).
+ */
+const createOrderCashSale = async (req, order, boxId, session) => {
+  const res = makeRes();
+  return callHandler(() => createCashSaleInTransaction(handlerReq(req, {
+    customerName: order.contact.name,
+    customerPhone: order.contact.phone,
+    sellingDate: today(),
+    items: order.items.map((line) => ({ productId: String(line.productId), price: line.unitPrice, quantity: line.qty })),
+    shippingFees: order.deliveryFee,
+    expectedTotal: order.total,
+    ...(boxId ? { boxId: String(boxId) } : {}),
+  }), res, session), res);
+};
+
+/** Every line against stock minus what orders confirmed BEFORE this one still reserve (see dispatch). */
+const assertAvailableInQueue = (order, session) => assertAvailable(order.items, { orderId: order._id, session, before: { at: order.confirmedAt || order.createdAt, id: order._id } });
+
+/**
+ * Sends the order out.
+ *  - cash on delivery: the credit sale on the courier's customer account is created by the existing credit-sale function (Stage 4, unchanged).
+ *  - wallet (Stage 5A): the transfer must be verified; a CASH sale into the wallet box stored at verification is created instead. The
+ *    courier collects nothing.
+ */
 const dispatch = (req, id, body) => withTransaction(async (session) => {
   const input = body && typeof body === "object" ? body : {};
   await lockReservations(session); // two dispatches / confirms / edits competing for the same stock conflict here
   const courier = await loadCourier(input.courierId, session);
   const order = await loadOrder(id, session);
+  wrongFulfillment(order, "delivery");
+  const wallet = isWallet(order);
+  if (wallet) assertPermission(req, "sales.create", "مش مسموحلك تعمل فاتورة نقدية");
+  else assertPermission(req, "credit.create", "مش مسموحلك تعمل فاتورة آجلة");
   if (!["confirmed", "preparing"].includes(order.status)) throw httpError(409, "INVALID_STATUS", "حالة الطلب اتغيرت. حدّث الصفحة", { status: order.status });
+  assertPaid(order);
 
   // The status guard comes first: a second parallel dispatch conflicts here, then answers 409 and creates nothing.
-  await moveOrder(order._id, ["confirmed", "preparing"], "out_for_delivery", { req, set: { courierId: courier._id }, note: courier.name, session });
+  await moveOrder(order._id, ["confirmed", "preparing"], "out_for_delivery", { req, set: { courierId: courier._id }, note: courier.name, session, fulfillment: "delivery" });
 
   // Every line against stock minus what orders confirmed BEFORE this one still reserve (first come, first served: the POS may have
   // sold reserved stock, and the later order is the one that waits). All line problems come back at once, before the credit
   // sale, which stays the final guard.
-  await assertAvailable(order.items, { orderId: order._id, session, before: { at: order.confirmedAt || order.createdAt, id: order._id } });
+  await assertAvailableInQueue(order, session);
+
+  if (wallet) {
+    const sale = await createOrderCashSale(req, order, order.payment && order.payment.boxId, session);
+    const updated = await WebOrder.findByIdAndUpdate(order._id, { $set: { cashSaleId: sale._id } }, { new: true, session });
+    await audit(req, { action: "order.dispatched", entity: "WebOrder", entityId: order._id, details: { number: order.number, courier: courier.name, invoice: sale.number, kind: "cash" }, session, strict: true });
+    return updated;
+  }
 
   const res = makeRes();
   const creditSale = await callHandler(() => createCreditSaleInTransaction(handlerReq(req, {
@@ -283,6 +399,30 @@ const dispatch = (req, id, body) => withTransaction(async (session) => {
 
   const updated = await WebOrder.findByIdAndUpdate(order._id, { $set: { creditSaleId: creditSale._id } }, { new: true, session });
   await audit(req, { action: "order.dispatched", entity: "WebOrder", entityId: order._id, details: { number: order.number, courier: courier.name, invoice: creditSale.number }, session, strict: true });
+  return updated;
+});
+
+/**
+ * Picked up (pickup only): the order becomes a cash sale. Cash on pickup goes into the box the staff member chose (`boxId`, resolved by
+ * resolveBox like any POS sale: their device's drawer by default); a wallet order goes into the wallet box stored at verification.
+ */
+const pickup = (req, id, body) => withTransaction(async (session) => {
+  const input = body && typeof body === "object" ? body : {};
+  await lockReservations(session);
+  const order = await loadOrder(id, session);
+  wrongFulfillment(order, "pickup");
+  assertPermission(req, "sales.create", "مش مسموحلك تعمل فاتورة نقدية");
+  if (order.status !== "ready_for_pickup") throw httpError(409, "INVALID_STATUS", "حالة الطلب اتغيرت. حدّث الصفحة", { status: order.status });
+  assertPaid(order);
+
+  await moveOrder(order._id, ["ready_for_pickup"], "picked_up", { req, session, fulfillment: "pickup" });
+  await assertAvailableInQueue(order, session);
+
+  // A wallet order ignores any box in the request: the money is in the wallet that was verified.
+  const boxId = isWallet(order) ? order.payment && order.payment.boxId : input.boxId;
+  const sale = await createOrderCashSale(req, order, boxId, session);
+  const updated = await WebOrder.findByIdAndUpdate(order._id, { $set: { cashSaleId: sale._id } }, { new: true, session });
+  await audit(req, { action: "order.picked_up", entity: "WebOrder", entityId: order._id, details: { number: order.number, invoice: sale.number }, session, strict: true });
   return updated;
 });
 
@@ -303,6 +443,15 @@ const readReturns = (value, order) => {
 
 const returnLogIds = (creditSale) => (creditSale.refunds || []).map((refund) => refund.returnLog).filter(Boolean);
 
+/** Online Stage 5A: a return of the order's cash sale by the existing cash-sale return, refunded from the box the sale went into. */
+const returnCashSale = async (req, order, items, note, session) => {
+  const sale = await Selling.findById(order.cashSaleId).select("boxId").session(session).lean();
+  if (!sale) throw httpError(409, "ORDER_NOT_DISPATCHED", "فاتورة الطلب غير موجودة");
+  const res = makeRes();
+  const result = await callHandler(() => refundSellingInTransaction(handlerReq(req, { items, note, ...(sale.boxId ? { boxId: String(sale.boxId) } : {}) }, { id: String(order.cashSaleId) }), res, session), res);
+  return returnLogIds(result.selling);
+};
+
 /**
  * Delivered. `returns` (optional) = lines/quantities the customer refused: a credit-sale return first, then the payment for
  * what was collected (`collectedAmount`, default: everything still owed on the invoice) into the courier's box.
@@ -316,6 +465,19 @@ const deliver = (req, id, body) => withTransaction(async (session) => {
   const returnedQty = returns.reduce((sum, row) => sum + row.qty, 0);
   if (returns.length && returnedQty === order.items.reduce((sum, line) => sum + line.qty, 0)) throw bad("USE_REFUSE", "المرتجع بالكامل = رفض الطلب. استخدم زر الرفض");
   const note = readReason(input.note, false);
+
+  // Online Stage 5A: a wallet order was paid before it left (the cash sale was made at dispatch). Delivered only changes the status; lines
+  // the customer refused are a return of that cash sale, refunded from the box the sale went into. The courier collects nothing.
+  if (isWallet(order)) {
+    if (!order.cashSaleId) throw httpError(409, "ORDER_NOT_DISPATCHED", "الطلب مالوش فاتورة");
+    await moveOrder(order._id, ["out_for_delivery"], "delivered", { req, note, session });
+    let returnIds = [];
+    if (returns.length) returnIds = await returnCashSale(req, order, returns.map((row) => ({ productId: row.productId, quantity: row.qty, ...(row.reason ? { returnReason: row.reason } : {}) })), note || `مرتجع طلب موقع ${order.number}`, session);
+    const updated = await WebOrder.findByIdAndUpdate(order._id, { $set: { returnIds } }, { new: true, session });
+    await audit(req, { action: "order.delivered", entity: "WebOrder", entityId: order._id, details: { number: order.number, collected: 0, returnedQty }, session, strict: true });
+    return updated;
+  }
+  assertPermission(req, "credit.collect", "مش مسموحلك تسجّل تحصيل");
 
   const courier = await Courier.findById(order.courierId).session(session);
   if (!courier || !order.creditSaleId) throw httpError(409, "ORDER_NOT_DISPATCHED", "الطلب مالوش فاتورة أو مندوب");
@@ -363,6 +525,15 @@ const refuse = (req, id, body) => withTransaction(async (session) => {
   const reason = readReason(input.reason, false);
   const order = await loadOrder(id, session);
   if (order.status !== "out_for_delivery") throw httpError(409, "INVALID_STATUS", "حالة الطلب اتغيرت. حدّث الصفحة", { status: order.status });
+  if (isWallet(order)) {
+    // Online Stage 5A: a wallet order was a cash sale: refused = a full return of it, refunded from the box the sale went into.
+    if (!order.cashSaleId) throw httpError(409, "ORDER_NOT_DISPATCHED", "الطلب مالوش فاتورة");
+    await moveOrder(order._id, ["out_for_delivery"], "refused", { req, set: reason ? { reason } : {}, note: reason, session });
+    const returnIds = await returnCashSale(req, order, order.items.map((line) => ({ productId: String(line.productId), quantity: line.qty })), reason || `رفض طلب موقع ${order.number}`, session);
+    const refusedWallet = await WebOrder.findByIdAndUpdate(order._id, { $set: { returnIds } }, { new: true, session });
+    await audit(req, { action: "order.refused", entity: "WebOrder", entityId: order._id, details: { number: order.number, reason }, session, strict: true });
+    return refusedWallet;
+  }
   if (!order.creditSaleId) throw httpError(409, "ORDER_NOT_DISPATCHED", "الطلب مالوش فاتورة");
   await moveOrder(order._id, ["out_for_delivery"], "refused", { req, set: reason ? { reason } : {}, note: reason, session });
 
@@ -374,4 +545,4 @@ const refuse = (req, id, body) => withTransaction(async (session) => {
   return updated;
 });
 
-module.exports = { confirm, reject, prepare, cancel, edit, dispatch, deliver, refuse, loadOrder, isId };
+module.exports = { confirm, reject, prepare, cancel, markReady, verifyPayment, edit, dispatch, pickup, deliver, refuse, loadOrder, isId, fulfillmentOf };

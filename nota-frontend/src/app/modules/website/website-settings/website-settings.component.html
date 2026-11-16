@@ -1,6 +1,11 @@
-<!-- Online Stage 3: website settings. GET / PUT /api/website/settings (website.manage). -->
+<!-- Online Stage 3 / 5A: website settings. GET / PUT /api/website/settings (website.manage). Tabs + side preview. -->
 <div class="ws">
-  <nota-page-header [title]="'website.settings.title' | translate" [subtitle]="'website.settings.subtitle' | translate" />
+  <nota-page-header [title]="'website.settings.title' | translate" [subtitle]="'website.settings.subtitle' | translate">
+    <div notaPageActions class="ws__head-actions">
+      <nota-status-pill [variant]="savedEnabled() ? 'ok' : 'neutral'" data-test="site-status">{{ (savedEnabled() ? 'website.settings.status.pillOn' : 'website.settings.status.pillOff') | translate }}</nota-status-pill>
+      <a notaButton data-action="open-site" [href]="siteUrl" target="_blank" rel="noopener noreferrer">{{ 'website.settings.openSite' | translate }}</a>
+    </div>
+  </nota-page-header>
 
   @if (loading()) {
     <p class="ws__muted" role="status">{{ 'website.settings.loading' | translate }}</p>
@@ -9,173 +14,370 @@
       <div class="ws__alert" role="alert">{{ 'website.settings.loadFailed' | translate }}</div>
     }
 
-    <form class="ws__form" [formGroup]="form" (ngSubmit)="save()" novalidate>
-      <!-- Status -->
-      <section class="nota-card ws__card" data-test="status-card">
-        <h2 class="nota-section-title">{{ 'website.settings.status.title' | translate }}</h2>
-        <label class="ws__check"><input type="checkbox" formControlName="enabled" data-field="enabled" /> {{ 'website.settings.status.enabled' | translate }}</label>
-        <p class="nota-hint">{{ 'website.settings.status.enabledHint' | translate }}</p>
-        <label class="ws__check"><input type="checkbox" formControlName="orderingEnabled" data-field="ordering-enabled" /> {{ 'website.settings.status.ordering' | translate }}</label>
-        <p class="nota-hint">{{ 'website.settings.status.orderingHint' | translate }}</p>
-        <nota-form-field [label]="'website.settings.status.closedMessage' | translate" forId="ws-closed">
-          <textarea id="ws-closed" rows="2" class="nota-textarea" formControlName="closedMessage" [maxLength]="limits.closedMessage"></textarea>
-        </nota-form-field>
-      </section>
+    <div class="ws__layout">
+      <form class="ws__form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+        <div class="ws__tabs" role="tablist">
+          @for (t of tabs; track t) {
+            <button type="button" role="tab" class="ws__tab" [attr.data-tab]="t" [class.is-active]="tab() === t" [attr.aria-selected]="tab() === t" (click)="setTab(t)">
+              {{ 'website.settings.tabs.' + t | translate }}
+            </button>
+          }
+        </div>
 
-      <!-- Identity -->
-      <section class="nota-card ws__card" data-test="identity-card">
-        <h2 class="nota-section-title">{{ 'website.settings.identity.title' | translate }}</h2>
-        <nota-form-field [label]="'website.settings.identity.siteTitle' | translate" forId="ws-title">
-          <input id="ws-title" type="text" class="nota-input" formControlName="title" [maxLength]="limits.title" />
-        </nota-form-field>
-        <nota-form-field [label]="'website.settings.identity.about' | translate" forId="ws-about">
-          <textarea id="ws-about" rows="4" class="nota-textarea" formControlName="about" [maxLength]="limits.about"></textarea>
-        </nota-form-field>
-      </section>
+        <!-- ============================== عام ============================== -->
+        @if (tab() === 'general') {
+          <section class="nota-card ws__card" data-test="status-card">
+            <h2 class="nota-section-title">{{ 'website.settings.status.title' | translate }}</h2>
+            <label class="ws__check"><input type="checkbox" formControlName="enabled" data-field="enabled" /> {{ 'website.settings.status.enabled' | translate }}</label>
+            <p class="nota-hint">{{ 'website.settings.status.enabledHint' | translate }}</p>
+            <label class="ws__check"><input type="checkbox" formControlName="orderingEnabled" data-field="ordering-enabled" /> {{ 'website.settings.status.ordering' | translate }}</label>
+            <p class="nota-hint">{{ 'website.settings.status.orderingHint' | translate }}</p>
+            <nota-form-field [label]="'website.settings.status.closedMessage' | translate" forId="ws-closed">
+              <textarea id="ws-closed" rows="2" class="nota-textarea" formControlName="closedMessage" [maxLength]="limits.closedMessage"></textarea>
+            </nota-form-field>
+          </section>
 
-      <!-- Banners -->
-      <section class="nota-card ws__card" data-test="banners-card">
-        <h2 class="nota-section-title">{{ 'website.settings.banners.title' | translate }}</h2>
-        <p class="nota-hint">{{ 'website.settings.banners.hint' | translate: { count: limits.banners } }}</p>
-        <ul class="ws__banners">
-          @for (banner of banners(); track $index; let i = $index; let first = $first; let last = $last) {
-            <li class="ws__banner" data-test="banner-row">
-              <img class="ws__banner-img" [src]="banner.image" [alt]="('website.settings.banners.image' | translate) + ' ' + (i + 1)" />
-              <div class="ws__banner-body">
-                <label class="nota-label" [for]="'ws-link-type-' + i">{{ 'website.settings.banners.linkTo' | translate }}</label>
-                <select class="nota-select" [id]="'ws-link-type-' + i" [value]="banner.linkType" (change)="setLinkType(i, $any($event.target).value)">
-                  <option value="none">{{ 'website.settings.banners.linkNone' | translate }}</option>
-                  <option value="category">{{ 'website.settings.banners.linkCategory' | translate }}</option>
-                  <option value="product">{{ 'website.settings.banners.linkProduct' | translate }}</option>
-                </select>
-                @if (banner.linkType === 'category') {
-                  <select class="nota-select" [attr.aria-label]="'website.settings.banners.linkCategory' | translate" [value]="banner.linkId || ''" (change)="setLinkId(i, $any($event.target).value)">
-                    <option value="">{{ 'website.settings.banners.choose' | translate }}</option>
-                    @for (category of categories(); track category.id) {
-                      <option [value]="category.id" [selected]="category.id === banner.linkId">{{ category.label }}</option>
-                    }
-                  </select>
-                }
-                @if (banner.linkType === 'product') {
-                  @if (banner.linkId) {
-                    <span class="ws__chosen" data-test="chosen-product">{{ 'website.settings.banners.productChosen' | translate }}</span>
-                  }
-                  <div class="ws__search">
-                    <input #term type="text" class="nota-input" [placeholder]="'website.settings.banners.searchProduct' | translate"
-                      [attr.aria-label]="'website.settings.banners.searchProduct' | translate" (keydown.enter)="$event.preventDefault(); searchProducts(i, term.value)" />
-                    <button type="button" notaButton (click)="searchProducts(i, term.value)">{{ 'website.settings.banners.search' | translate }}</button>
-                  </div>
-                  @if (productSearch(); as found) {
-                    @if (found.index === i) {
-                      <ul class="ws__results">
-                        @for (product of found.results; track product._id) {
-                          <li><button type="button" class="ws__result" (click)="setLinkId(i, product._id)">{{ product.name }}</button></li>
-                        } @empty {
-                          <li class="nota-hint">{{ 'website.settings.banners.noResults' | translate }}</li>
+          <section class="nota-card ws__card" data-test="identity-card">
+            <h2 class="nota-section-title">{{ 'website.settings.identity.title' | translate }}</h2>
+            <nota-form-field [label]="'website.settings.identity.siteTitle' | translate" forId="ws-title">
+              <input id="ws-title" type="text" class="nota-input" formControlName="title" [maxLength]="limits.title" />
+            </nota-form-field>
+            <nota-form-field [label]="'website.settings.identity.about' | translate" forId="ws-about">
+              <textarea id="ws-about" rows="4" class="nota-textarea" formControlName="about" [maxLength]="limits.about"></textarea>
+            </nota-form-field>
+            <nota-form-field [label]="'website.settings.identity.seo' | translate" forId="ws-seo" [hint]="'website.settings.identity.seoHint' | translate: { count: limits.seoDescription }">
+              <textarea id="ws-seo" rows="2" class="nota-textarea" formControlName="seoDescription" [maxLength]="limits.seoDescription"></textarea>
+            </nota-form-field>
+            <nota-form-field [label]="'website.settings.identity.hours' | translate" forId="ws-hours">
+              <textarea id="ws-hours" rows="2" class="nota-textarea" formControlName="openingHours" [maxLength]="limits.openingHours"></textarea>
+            </nota-form-field>
+          </section>
+
+          <section class="nota-card ws__card" data-test="contact-card">
+            <h2 class="nota-section-title">{{ 'website.settings.contact.title' | translate }}</h2>
+            <div class="ws__grid">
+              <nota-form-field [label]="'website.settings.contact.whatsapp' | translate" forId="ws-whatsapp" [hint]="'website.settings.contact.whatsappHint' | translate">
+                <input id="ws-whatsapp" type="text" dir="ltr" class="nota-input ws__ltr" formControlName="whatsapp" maxlength="100" />
+              </nota-form-field>
+              <nota-form-field [label]="'website.settings.contact.facebook' | translate" forId="ws-facebook" [error]="showError('facebook') ? ('website.settings.contact.urlInvalid' | translate) : null">
+                <input id="ws-facebook" type="url" dir="ltr" class="nota-input ws__ltr" formControlName="facebook" placeholder="https://" />
+              </nota-form-field>
+              <nota-form-field [label]="'website.settings.contact.instagram' | translate" forId="ws-instagram" [error]="showError('instagram') ? ('website.settings.contact.urlInvalid' | translate) : null">
+                <input id="ws-instagram" type="url" dir="ltr" class="nota-input ws__ltr" formControlName="instagram" placeholder="https://" />
+              </nota-form-field>
+              <nota-form-field [label]="'website.settings.contact.tiktok' | translate" forId="ws-tiktok" [error]="showError('tiktok') ? ('website.settings.contact.urlInvalid' | translate) : null">
+                <input id="ws-tiktok" type="url" dir="ltr" class="nota-input ws__ltr" formControlName="tiktok" placeholder="https://" />
+              </nota-form-field>
+            </div>
+          </section>
+        }
+
+        <!-- ============================== الشكل ============================== -->
+        @if (tab() === 'look') {
+          <section class="nota-card ws__card" data-test="brand-card">
+            <h2 class="nota-section-title">{{ 'website.settings.look.brandTitle' | translate }}</h2>
+            <p class="nota-hint">{{ 'website.settings.look.brandHint' | translate }}</p>
+            <div class="ws__swatches" role="radiogroup" [attr.aria-label]="'website.settings.look.brandTitle' | translate">
+              @for (color of brandColors; track color) {
+                <button type="button" role="radio" class="ws__swatch" data-test="brand-swatch" [attr.data-color]="color" [style.background]="color"
+                  [class.is-on]="form.controls.brandColor.value === color" [attr.aria-checked]="form.controls.brandColor.value === color" [attr.aria-label]="color" (click)="setBrandColor(color)"></button>
+              }
+            </div>
+
+            <span class="nota-label">{{ 'website.settings.look.logoTitle' | translate }}</span>
+            <p class="nota-hint">{{ 'website.settings.look.logoHint' | translate }}</p>
+            <div class="ws__logo-row">
+              @if (logo(); as src) {
+                <img class="ws__logo" data-test="logo-image" [src]="src" [alt]="'website.settings.look.logoTitle' | translate" />
+                <button type="button" notaButton="danger" data-action="remove-logo" (click)="removeLogo()">{{ 'website.settings.look.removeLogo' | translate }}</button>
+              } @else {
+                <span class="nota-hint">{{ 'website.settings.look.logoFallback' | translate }}</span>
+              }
+              <label class="nota-btn nota-btn--secondary ws__file" data-action="add-logo">
+                {{ 'website.settings.look.uploadLogo' | translate }}
+                <input type="file" accept="image/*" hidden (change)="onLogoSelected($event)" />
+              </label>
+            </div>
+            @if (logoError(); as key) { <span class="nota-error" role="alert">{{ key | translate }}</span> }
+          </section>
+
+          <section class="nota-card ws__card" data-test="announcement-card">
+            <h2 class="nota-section-title">{{ 'website.settings.look.announcementTitle' | translate }}</h2>
+            <label class="ws__check"><input type="checkbox" formControlName="announcementEnabled" data-field="announcement-enabled" /> {{ 'website.settings.look.announcementEnabled' | translate }}</label>
+            <nota-form-field [label]="'website.settings.look.announcementText' | translate" forId="ws-announcement" [hint]="'website.settings.look.announcementHint' | translate: { count: limits.announcement }">
+              <input id="ws-announcement" type="text" class="nota-input" formControlName="announcementText" [maxLength]="limits.announcement" />
+            </nota-form-field>
+          </section>
+
+          <section class="nota-card ws__card" data-test="banners-card">
+            <h2 class="nota-section-title">{{ 'website.settings.banners.title' | translate }}</h2>
+            <p class="nota-hint">{{ 'website.settings.banners.hint' | translate: { count: limits.banners } }}</p>
+            <p class="nota-hint" data-test="banners-recommended">{{ 'website.settings.banners.recommended' | translate: { count: limits.bannersRecommended } }}</p>
+            <ul class="ws__banners">
+              @for (banner of banners(); track $index; let i = $index; let first = $first; let last = $last) {
+                <li class="ws__banner" data-test="banner-row">
+                  <img class="ws__banner-img" [src]="banner.image" [alt]="('website.settings.banners.image' | translate) + ' ' + (i + 1)" />
+                  <div class="ws__banner-body">
+                    <label class="nota-label" [for]="'ws-link-type-' + i">{{ 'website.settings.banners.linkTo' | translate }}</label>
+                    <select class="nota-select" [id]="'ws-link-type-' + i" [value]="banner.linkType" (change)="setLinkType(i, $any($event.target).value)">
+                      <option value="none">{{ 'website.settings.banners.linkNone' | translate }}</option>
+                      <option value="category">{{ 'website.settings.banners.linkCategory' | translate }}</option>
+                      <option value="product">{{ 'website.settings.banners.linkProduct' | translate }}</option>
+                    </select>
+                    @if (banner.linkType === 'category') {
+                      <select class="nota-select" [attr.aria-label]="'website.settings.banners.linkCategory' | translate" [value]="banner.linkId || ''" (change)="setLinkId(i, $any($event.target).value)">
+                        <option value="">{{ 'website.settings.banners.choose' | translate }}</option>
+                        @for (category of categories(); track category.id) {
+                          <option [value]="category.id" [selected]="category.id === banner.linkId">{{ category.label }}</option>
                         }
-                      </ul>
+                      </select>
                     }
-                  }
-                }
-              </div>
-              <div class="ws__banner-actions">
-                <button type="button" notaButton icon [disabled]="first" (click)="moveBanner(i, -1)" [attr.aria-label]="'website.settings.banners.moveUp' | translate" [title]="'website.settings.banners.moveUp' | translate">↑</button>
-                <button type="button" notaButton icon [disabled]="last" (click)="moveBanner(i, 1)" [attr.aria-label]="'website.settings.banners.moveDown' | translate" [title]="'website.settings.banners.moveDown' | translate">↓</button>
-                <button type="button" notaButton="danger" icon data-action="remove-banner" (click)="removeBanner(i)" [attr.aria-label]="'website.settings.banners.remove' | translate" [title]="'website.settings.banners.remove' | translate">×</button>
-              </div>
-            </li>
-          }
-        </ul>
-        @if (canAddBanner()) {
-          <label class="nota-btn nota-btn--secondary ws__file" data-action="add-banner">
-            + {{ 'website.settings.banners.add' | translate }}
-            <input type="file" accept="image/*" hidden (change)="onBannerSelected($event)" />
-          </label>
-        }
-        @if (bannerError(); as key) {
-          <span class="nota-error" role="alert">{{ key | translate }}</span>
-        }
-      </section>
-
-      <!-- Featured categories -->
-      <section class="nota-card ws__card" data-test="featured-card">
-        <h2 class="nota-section-title">{{ 'website.settings.featured.title' | translate }}</h2>
-        <p class="nota-hint">{{ 'website.settings.featured.hint' | translate: { count: limits.featured } }}</p>
-        <div class="ws__chips">
-          @for (category of categories(); track category.id) {
-            <label class="ws__chip" [class.is-on]="isFeatured(category.id)">
-              <input type="checkbox" [checked]="isFeatured(category.id)" [disabled]="featuredFull() && !isFeatured(category.id)" (change)="toggleFeatured(category.id)" />
-              {{ category.label }}
-            </label>
-          } @empty {
-            <span class="nota-hint">{{ 'website.settings.featured.none' | translate }}</span>
-          }
-        </div>
-      </section>
-
-      <!-- Contact and social links -->
-      <section class="nota-card ws__card" data-test="contact-card">
-        <h2 class="nota-section-title">{{ 'website.settings.contact.title' | translate }}</h2>
-        <div class="ws__grid">
-          <nota-form-field [label]="'website.settings.contact.whatsapp' | translate" forId="ws-whatsapp" [hint]="'website.settings.contact.whatsappHint' | translate">
-            <input id="ws-whatsapp" type="text" dir="ltr" class="nota-input ws__ltr" formControlName="whatsapp" maxlength="100" />
-          </nota-form-field>
-          <nota-form-field [label]="'website.settings.contact.facebook' | translate" forId="ws-facebook" [error]="showError('facebook') ? ('website.settings.contact.urlInvalid' | translate) : null">
-            <input id="ws-facebook" type="url" dir="ltr" class="nota-input ws__ltr" formControlName="facebook" placeholder="https://" />
-          </nota-form-field>
-          <nota-form-field [label]="'website.settings.contact.instagram' | translate" forId="ws-instagram" [error]="showError('instagram') ? ('website.settings.contact.urlInvalid' | translate) : null">
-            <input id="ws-instagram" type="url" dir="ltr" class="nota-input ws__ltr" formControlName="instagram" placeholder="https://" />
-          </nota-form-field>
-          <nota-form-field [label]="'website.settings.contact.tiktok' | translate" forId="ws-tiktok" [error]="showError('tiktok') ? ('website.settings.contact.urlInvalid' | translate) : null">
-            <input id="ws-tiktok" type="url" dir="ltr" class="nota-input ws__ltr" formControlName="tiktok" placeholder="https://" />
-          </nota-form-field>
-        </div>
-      </section>
-
-      <!-- Ordering rules -->
-      <section class="nota-card ws__card" data-test="rules-card">
-        <h2 class="nota-section-title">{{ 'website.settings.rules.title' | translate }}</h2>
-        <div class="ws__grid">
-          <nota-form-field [label]="'website.settings.rules.minOrder' | translate" forId="ws-min" [hint]="'website.settings.rules.minOrderHint' | translate" [error]="showError('minOrderAmount') ? ('website.settings.rules.amountInvalid' | translate) : null">
-            <input id="ws-min" type="text" inputmode="decimal" dir="ltr" class="nota-input ws__ltr" formControlName="minOrderAmount" />
-          </nota-form-field>
-          <nota-form-field [label]="'website.settings.rules.freeDelivery' | translate" forId="ws-free" [hint]="'website.settings.rules.freeDeliveryHint' | translate" [error]="showError('freeDeliveryFrom') ? ('website.settings.rules.amountInvalid' | translate) : null">
-            <input id="ws-free" type="text" inputmode="decimal" dir="ltr" class="nota-input ws__ltr" formControlName="freeDeliveryFrom" />
-          </nota-form-field>
-        </div>
-      </section>
-
-      <!-- Texts -->
-      <section class="nota-card ws__card" data-test="texts-card">
-        <h2 class="nota-section-title">{{ 'website.settings.texts.title' | translate }}</h2>
-        <nota-form-field [label]="'website.settings.texts.orderNote' | translate" forId="ws-note" [hint]="'website.settings.texts.orderNoteHint' | translate">
-          <textarea id="ws-note" rows="2" class="nota-textarea" formControlName="orderNote" [maxLength]="limits.orderNote"></textarea>
-        </nota-form-field>
-        <nota-form-field [label]="'website.settings.texts.returnsPolicy' | translate" forId="ws-returns">
-          <textarea id="ws-returns" rows="4" class="nota-textarea" formControlName="returnsPolicy" [maxLength]="limits.returnsPolicy"></textarea>
-        </nota-form-field>
-        <nota-form-field [label]="'website.settings.texts.terms' | translate" forId="ws-terms">
-          <textarea id="ws-terms" rows="4" class="nota-textarea" formControlName="terms" [maxLength]="limits.terms"></textarea>
-        </nota-form-field>
-      </section>
-
-      <div class="ws__footer">
-        @if (outcome(); as result) {
-          <span class="ws__status" role="status" [class.is-error]="result.kind === 'error'">
-            @if (result.kind === 'saved') {
-              {{ 'website.settings.saved' | translate }}
-            } @else if (result.message) {
-              {{ result.message }}
-            } @else {
-              {{ 'website.settings.saveFailed' | translate }}
+                    @if (banner.linkType === 'product') {
+                      @if (banner.linkId) {
+                        <span class="ws__chosen" data-test="chosen-product">{{ 'website.settings.banners.productChosen' | translate }}</span>
+                      }
+                      <div class="ws__search">
+                        <input #term type="text" class="nota-input" [placeholder]="'website.settings.banners.searchProduct' | translate"
+                          [attr.aria-label]="'website.settings.banners.searchProduct' | translate" (keydown.enter)="$event.preventDefault(); searchProducts(i, term.value)" />
+                        <button type="button" notaButton (click)="searchProducts(i, term.value)">{{ 'website.settings.banners.search' | translate }}</button>
+                      </div>
+                      @if (productSearch(); as found) {
+                        @if (found.index === i) {
+                          <ul class="ws__results">
+                            @for (product of found.results; track product._id) {
+                              <li><button type="button" class="ws__result" (click)="setLinkId(i, product._id)">{{ product.name }}</button></li>
+                            } @empty {
+                              <li class="nota-hint">{{ 'website.settings.banners.noResults' | translate }}</li>
+                            }
+                          </ul>
+                        }
+                      }
+                    }
+                  </div>
+                  <div class="ws__banner-actions">
+                    <button type="button" notaButton icon [disabled]="first" (click)="moveBanner(i, -1)" [attr.aria-label]="'website.settings.banners.moveUp' | translate" [title]="'website.settings.banners.moveUp' | translate">↑</button>
+                    <button type="button" notaButton icon [disabled]="last" (click)="moveBanner(i, 1)" [attr.aria-label]="'website.settings.banners.moveDown' | translate" [title]="'website.settings.banners.moveDown' | translate">↓</button>
+                    <button type="button" notaButton="danger" icon data-action="remove-banner" (click)="removeBanner(i)" [attr.aria-label]="'website.settings.banners.remove' | translate" [title]="'website.settings.banners.remove' | translate">×</button>
+                  </div>
+                </li>
+              }
+            </ul>
+            @if (canAddBanner()) {
+              <label class="nota-btn nota-btn--secondary ws__file" data-action="add-banner">
+                + {{ 'website.settings.banners.add' | translate }}
+                <input type="file" accept="image/*" hidden (change)="onBannerSelected($event)" />
+              </label>
             }
-          </span>
+            @if (bannerError(); as key) {
+              <span class="nota-error" role="alert">{{ key | translate }}</span>
+            }
+          </section>
+
+          <section class="nota-card ws__card" data-test="featured-card">
+            <h2 class="nota-section-title">{{ 'website.settings.featured.title' | translate }}</h2>
+            <p class="nota-hint">{{ 'website.settings.featured.hint' | translate: { count: limits.featured } }}</p>
+            <div class="ws__chips">
+              @for (category of categories(); track category.id) {
+                <label class="ws__chip" [class.is-on]="isFeatured(category.id)">
+                  <input type="checkbox" [checked]="isFeatured(category.id)" [disabled]="featuredFull() && !isFeatured(category.id)" (change)="toggleFeatured(category.id)" />
+                  {{ category.label }}
+                </label>
+              } @empty {
+                <span class="nota-hint">{{ 'website.settings.featured.none' | translate }}</span>
+              }
+            </div>
+          </section>
+
+          <section class="nota-card ws__card" data-test="highlights-card">
+            <h2 class="nota-section-title">{{ 'website.settings.look.highlightsTitle' | translate }}</h2>
+            <p class="nota-hint">{{ 'website.settings.look.highlightsHint' | translate: { count: limits.highlights } }}</p>
+            <ul class="ws__highlights">
+              @for (row of highlights(); track $index; let i = $index) {
+                <li class="ws__highlight" data-test="highlight-row">
+                  <select class="nota-select" [attr.aria-label]="'website.settings.look.highlightIcon' | translate" [value]="row.icon" (change)="setHighlightIcon(i, $any($event.target).value)">
+                    @for (icon of highlightIcons; track icon) { <option [value]="icon" [selected]="icon === row.icon">{{ 'website.settings.look.icons.' + icon | translate }}</option> }
+                  </select>
+                  <input class="nota-input" type="text" [attr.aria-label]="'website.settings.look.highlightTitle' | translate" [placeholder]="'website.settings.look.highlightTitle' | translate" [maxLength]="limits.highlightTitle" [value]="row.title" (input)="patchHighlight(i, { title: $any($event.target).value })" />
+                  <input class="nota-input" type="text" [attr.aria-label]="'website.settings.look.highlightText' | translate" [placeholder]="'website.settings.look.highlightText' | translate" [maxLength]="limits.highlightText" [value]="row.text" (input)="patchHighlight(i, { text: $any($event.target).value })" />
+                  <button type="button" notaButton="danger" icon data-action="remove-highlight" (click)="removeHighlight(i)" [attr.aria-label]="'website.settings.look.removeHighlight' | translate">×</button>
+                </li>
+              } @empty {
+                <li class="nota-hint">{{ 'website.settings.look.highlightsDefault' | translate }}</li>
+              }
+            </ul>
+            @if (canAddHighlight()) {
+              <button type="button" notaButton data-action="add-highlight" class="ws__file" (click)="addHighlight()">+ {{ 'website.settings.look.addHighlight' | translate }}</button>
+            }
+          </section>
         }
-        <button type="button" notaButton data-action="cancel" (click)="cancel()" [disabled]="saving()">{{ 'website.settings.cancel' | translate }}</button>
-        <button type="submit" notaButton="primary" data-action="save" [disabled]="saving()">
-          {{ (saving() ? 'website.settings.saving' : 'website.settings.save') | translate }}
-        </button>
-      </div>
-    </form>
+
+        <!-- ============================== التوصيل ============================== -->
+        @if (tab() === 'delivery') {
+          <section class="nota-card ws__card" data-test="fulfillment-card">
+            <h2 class="nota-section-title">{{ 'website.settings.delivery.fulfillmentTitle' | translate }}</h2>
+            <label class="ws__check"><input type="checkbox" formControlName="fulfillmentDelivery" data-field="fulfillment-delivery" /> {{ 'website.settings.delivery.delivery' | translate }}</label>
+            <label class="ws__check"><input type="checkbox" formControlName="fulfillmentPickup" data-field="fulfillment-pickup" /> {{ 'website.settings.delivery.pickup' | translate }}</label>
+            <p class="nota-hint">{{ 'website.settings.delivery.pickupHint' | translate }}</p>
+            @if (noFulfillment()) { <p class="nota-error" role="alert" data-test="no-fulfillment">{{ 'website.settings.delivery.noneOn' | translate }}</p> }
+            <div class="ws__grid">
+              <nota-form-field [label]="'website.settings.rules.freeDelivery' | translate" forId="ws-free" [hint]="'website.settings.rules.freeDeliveryHint' | translate" [error]="showError('freeDeliveryFrom') ? ('website.settings.rules.amountInvalid' | translate) : null">
+                <input id="ws-free" type="text" inputmode="decimal" dir="ltr" class="nota-input ws__ltr" formControlName="freeDeliveryFrom" />
+              </nota-form-field>
+              <nota-form-field [label]="'website.settings.delivery.cutoff' | translate" forId="ws-cutoff" [hint]="'website.settings.delivery.cutoffHint' | translate" [error]="showError('sameDayCutoff') ? ('website.settings.delivery.cutoffInvalid' | translate) : null">
+                <input id="ws-cutoff" type="text" dir="ltr" class="nota-input ws__ltr" formControlName="sameDayCutoff" placeholder="HH:mm" maxlength="5" />
+              </nota-form-field>
+            </div>
+          </section>
+
+          <section class="nota-card ws__card" data-test="zones-card">
+            <app-delivery-zones [embedded]="true" />
+          </section>
+        }
+
+        <!-- ============================== الدفع ============================== -->
+        @if (tab() === 'payment') {
+          <section class="nota-card ws__card" data-test="payment-card">
+            <h2 class="nota-section-title">{{ 'website.settings.payment.title' | translate }}</h2>
+            @if (noPayment()) { <p class="nota-error" role="alert" data-test="no-payment">{{ 'website.settings.payment.noneOn' | translate }}</p> }
+
+            <div class="ws__method" data-test="method-cod">
+              <label class="ws__check"><input type="checkbox" formControlName="codEnabled" data-field="cod-enabled" /> {{ 'website.settings.payment.cod' | translate }}</label>
+              <p class="nota-hint">{{ 'website.settings.payment.codHint' | translate }}</p>
+            </div>
+
+            <div class="ws__method" data-test="method-instapay">
+              <label class="ws__check"><input type="checkbox" formControlName="instapayEnabled" data-field="instapay-enabled" /> {{ 'website.settings.payment.instapay' | translate }}</label>
+              <div class="ws__grid">
+                <nota-form-field [label]="'website.settings.payment.ipa' | translate" forId="ws-ipa" [error]="showError('instapayAddress') ? ('website.settings.payment.ipaInvalid' | translate) : null">
+                  <input id="ws-ipa" type="text" dir="ltr" class="nota-input ws__ltr" formControlName="instapayAddress" [maxLength]="limits.instapayAddress" placeholder="name@instapay" />
+                </nota-form-field>
+                <nota-form-field [label]="'website.settings.payment.box' | translate" forId="ws-ipa-box" [hint]="'website.settings.payment.boxHint' | translate">
+                  <select id="ws-ipa-box" class="nota-select" formControlName="instapayBoxId" data-field="instapay-box">
+                    <option value="">—</option>
+                    @for (box of walletBoxes(); track box._id) { <option [value]="box._id">{{ box.name }}</option> }
+                  </select>
+                </nota-form-field>
+              </div>
+            </div>
+
+            <div class="ws__method" data-test="method-vodafone">
+              <label class="ws__check"><input type="checkbox" formControlName="vodafoneEnabled" data-field="vodafone-enabled" /> {{ 'website.settings.payment.vodafone' | translate }}</label>
+              <div class="ws__grid">
+                <nota-form-field [label]="'website.settings.payment.walletNumber' | translate" forId="ws-voda">
+                  <input id="ws-voda" type="text" inputmode="tel" dir="ltr" class="nota-input ws__ltr" formControlName="vodafoneNumber" maxlength="30" />
+                </nota-form-field>
+                <nota-form-field [label]="'website.settings.payment.box' | translate" forId="ws-voda-box" [hint]="'website.settings.payment.boxHint' | translate">
+                  <select id="ws-voda-box" class="nota-select" formControlName="vodafoneBoxId" data-field="vodafone-box">
+                    <option value="">—</option>
+                    @for (box of walletBoxes(); track box._id) { <option [value]="box._id">{{ box.name }}</option> }
+                  </select>
+                </nota-form-field>
+              </div>
+            </div>
+
+            <div class="ws__method ws__soon" data-test="method-card">
+              <label class="ws__check"><input type="checkbox" disabled data-field="card-soon" /> {{ 'website.settings.payment.card' | translate }}</label>
+              <nota-status-pill variant="neutral">{{ 'website.settings.soon' | translate }}</nota-status-pill>
+            </div>
+          </section>
+        }
+
+        <!-- ============================== المنتجات والطلبات ============================== -->
+        @if (tab() === 'products') {
+          <section class="nota-card ws__card" data-test="visibility-card">
+            <h2 class="nota-section-title">{{ 'website.settings.products.visibilityTitle' | translate }}</h2>
+            <label class="ws__check"><input type="radio" value="marked" formControlName="productVisibility" data-field="visibility-marked" /> {{ 'website.settings.products.marked' | translate }}</label>
+            <label class="ws__check"><input type="radio" value="all" formControlName="productVisibility" data-field="visibility-all" /> {{ 'website.settings.products.all' | translate }}</label>
+            <p class="nota-hint">{{ 'website.settings.products.visibilityHint' | translate }}</p>
+          </section>
+
+          <section class="nota-card ws__card" data-test="stock-card">
+            <h2 class="nota-section-title">{{ 'website.settings.products.stockTitle' | translate }}</h2>
+            <label class="ws__check"><input type="checkbox" formControlName="showOutOfStock" data-field="show-out-of-stock" /> {{ 'website.settings.products.showOutOfStock' | translate }}</label>
+            <p class="nota-hint">{{ 'website.settings.products.showOutOfStockHint' | translate }}</p>
+            <label class="ws__check"><input type="checkbox" formControlName="showRemainingEnabled" data-field="show-remaining" /> {{ 'website.settings.products.showRemaining' | translate }}</label>
+            <nota-form-field [label]="'website.settings.products.threshold' | translate" forId="ws-threshold" [error]="showError('showRemainingThreshold') ? ('website.settings.products.thresholdInvalid' | translate) : null">
+              <input id="ws-threshold" type="text" inputmode="numeric" dir="ltr" class="nota-input ws__ltr ws__short" formControlName="showRemainingThreshold" />
+            </nota-form-field>
+          </section>
+
+          <section class="nota-card ws__card" data-test="rules-card">
+            <h2 class="nota-section-title">{{ 'website.settings.rules.title' | translate }}</h2>
+            <div class="ws__grid">
+              <nota-form-field [label]="'website.settings.rules.minOrder' | translate" forId="ws-min" [hint]="'website.settings.rules.minOrderHint' | translate" [error]="showError('minOrderAmount') ? ('website.settings.rules.amountInvalid' | translate) : null">
+                <input id="ws-min" type="text" inputmode="decimal" dir="ltr" class="nota-input ws__ltr" formControlName="minOrderAmount" />
+              </nota-form-field>
+            </div>
+            <div class="ws__method ws__soon" data-test="soon-autoaccept">
+              <label class="ws__check"><input type="checkbox" disabled /> {{ 'website.settings.products.autoAccept' | translate }}</label>
+              <nota-status-pill variant="neutral">{{ 'website.settings.soon' | translate }}</nota-status-pill>
+            </div>
+            <div class="ws__method ws__soon" data-test="soon-pricelist">
+              <label class="ws__check"><input type="checkbox" disabled /> {{ 'website.settings.products.priceList' | translate }}</label>
+              <nota-status-pill variant="neutral">{{ 'website.settings.soon' | translate }}</nota-status-pill>
+            </div>
+          </section>
+
+          <section class="nota-card ws__card" data-test="whatsapp-card">
+            <h2 class="nota-section-title">{{ 'website.settings.products.whatsappTitle' | translate }}</h2>
+            <nota-form-field [label]="'website.settings.products.whatsappTemplate' | translate" forId="ws-wa-template" [hint]="'website.settings.products.whatsappHint' | translate: { placeholders: placeholders.join('  ') }">
+              <textarea id="ws-wa-template" rows="3" class="nota-textarea" formControlName="whatsappConfirmTemplate" [maxLength]="limits.whatsappTemplate" [placeholder]="defaultTemplate"></textarea>
+            </nota-form-field>
+          </section>
+
+          <section class="nota-card ws__card" data-test="texts-card">
+            <h2 class="nota-section-title">{{ 'website.settings.texts.title' | translate }}</h2>
+            <nota-form-field [label]="'website.settings.texts.orderNote' | translate" forId="ws-note" [hint]="'website.settings.texts.orderNoteHint' | translate">
+              <textarea id="ws-note" rows="2" class="nota-textarea" formControlName="orderNote" [maxLength]="limits.orderNote"></textarea>
+            </nota-form-field>
+            <nota-form-field [label]="'website.settings.texts.returnsPolicy' | translate" forId="ws-returns">
+              <textarea id="ws-returns" rows="4" class="nota-textarea" formControlName="returnsPolicy" [maxLength]="limits.returnsPolicy"></textarea>
+            </nota-form-field>
+            <nota-form-field [label]="'website.settings.texts.terms' | translate" forId="ws-terms">
+              <textarea id="ws-terms" rows="4" class="nota-textarea" formControlName="terms" [maxLength]="limits.terms"></textarea>
+            </nota-form-field>
+          </section>
+        }
+
+        <div class="ws__footer">
+          @if (outcome(); as result) {
+            <span class="ws__status" role="status" [class.is-error]="result.kind === 'error'">
+              @if (result.kind === 'saved') {
+                {{ 'website.settings.saved' | translate }}
+              } @else if (result.message) {
+                {{ result.message }}
+              } @else {
+                {{ 'website.settings.saveFailed' | translate }}
+              }
+            </span>
+          }
+          <button type="button" notaButton data-action="cancel" (click)="cancel()" [disabled]="saving()">{{ 'website.settings.cancel' | translate }}</button>
+          <button type="submit" notaButton="primary" data-action="save" [disabled]="saving()">
+            {{ (saving() ? 'website.settings.saving' : 'website.settings.save') | translate }}
+          </button>
+        </div>
+      </form>
+
+      <!-- Quick preview: the brand color, the announcement and the logo as they are in the form now. -->
+      <aside class="nota-card ws__preview" data-test="preview" [attr.aria-label]="'website.settings.preview.title' | translate">
+        <h2 class="nota-section-title">{{ 'website.settings.preview.title' | translate }}</h2>
+        @if (preview(); as p) {
+          <div class="ws__mock" [style.--brand]="p.color || 'var(--brand)'">
+            @if (p.announcement) { <div class="ws__mock-announce" data-test="preview-announcement" [style.background]="p.color || 'var(--brand)'">{{ p.announcement }}</div> }
+            <div class="ws__mock-bar">
+              @if (p.logo) { <img class="ws__mock-logo" data-test="preview-logo" [src]="p.logo" alt="" /> } @else { <span class="ws__mock-logo ws__mock-logo--empty"></span> }
+              <b class="ws__mock-title">{{ p.title || ('website.settings.preview.noTitle' | translate) }}</b>
+            </div>
+            <div class="ws__mock-body">
+              <span class="ws__mock-btn" data-test="preview-button" [style.background]="p.color || 'var(--brand)'">{{ 'website.settings.preview.button' | translate }}</span>
+              <span class="ws__mock-tags">
+                @if (p.delivery) { <i>{{ 'website.settings.delivery.delivery' | translate }}</i> }
+                @if (p.pickup) { <i>{{ 'website.settings.delivery.pickup' | translate }}</i> }
+              </span>
+            </div>
+          </div>
+        }
+      </aside>
+    </div>
   }
 </div>

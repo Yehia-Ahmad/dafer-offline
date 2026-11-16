@@ -3,23 +3,37 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { UnsavedWorkService } from '../../../core/unsaved-work/unsaved-work.service';
+import { CashboxService } from '../../cashbox/cashbox.service';
 import { CatalogStateService } from '../../layout/nav/catalog-state.service';
 import { ProductsService } from '../../products/services/products.service';
-import { NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent } from '../../shared/ui';
-import { BannerLinkType, EMPTY_WEBSITE_SETTINGS, WEBSITE_LIMITS, WebsiteBanner, WebsiteSettings, WebsiteSettingsPayload } from '../website.models';
+import { NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent, NotaStatusPillComponent } from '../../shared/ui';
+import { DeliveryZonesComponent } from '../delivery-zones/delivery-zones.component';
+import {
+  BRAND_COLORS, BannerLinkType, DEFAULT_WHATSAPP_TEMPLATE, EMPTY_WEBSITE_SETTINGS, HIGHLIGHT_ICONS, HighlightIcon, WEBSITE_LIMITS, WebsiteBanner, WebsiteHighlight, WebsiteSettings,
+  WebsiteSettingsPayload,
+} from '../website.models';
 import { WebsiteService } from '../website.service';
 
 type Outcome = { kind: 'saved' } | { kind: 'error'; message: string };
 
+/** Online Stage 5A: the tabs of the page (the labels are website.settings.tabs.*). */
+export type SettingsTab = 'general' | 'look' | 'delivery' | 'payment' | 'products';
+export const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'look', 'delivery', 'payment', 'products'];
+
 const URL_PATTERN = /^https?:\/\/\S+$/i;
+const MONEY_PATTERN = /^\d{1,9}(\.\d{1,2})?$/;
+
+/** A wallet or bank box the transfer methods can be paid into. */
+interface WalletBox { _id: string; name: string; type: string }
 
 /**
- * Online Stage 3: /website/settings. One page, sections: status, identity, banners, featured categories, contact and
- * social links, ordering rules, texts. GET/PUT /api/website/settings (website.manage). Leaving with unsaved changes asks first.
+ * Online Stage 3 / 5A: /website/settings. Tabs عام / الشكل / التوصيل / الدفع / المنتجات والطلبات, a side preview (brand color,
+ * announcement, logo), "افتح الموقع" and the site status pill. GET/PUT /api/website/settings (website.manage). Delivery zones live in
+ * the التوصيل tab (their own API). Leaving with unsaved changes asks first.
  */
 @Component({
   selector: 'app-website-settings',
-  imports: [TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent],
+  imports: [TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent, NotaStatusPillComponent, DeliveryZonesComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './website-settings.component.html',
   styleUrl: './website-settings.component.scss',
@@ -27,13 +41,20 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
 export class WebsiteSettingsComponent implements OnInit {
   private readonly service = inject(WebsiteService);
   private readonly productsService = inject(ProductsService);
+  private readonly cashbox = inject(CashboxService);
   private readonly catalog = inject(CatalogStateService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly limits = WEBSITE_LIMITS;
   protected readonly categories = this.catalog.categories;
+  protected readonly tabs = SETTINGS_TABS;
+  protected readonly brandColors = BRAND_COLORS;
+  protected readonly highlightIcons = HIGHLIGHT_ICONS;
+  protected readonly defaultTemplate = DEFAULT_WHATSAPP_TEMPLATE;
+  protected readonly placeholders = ['{الاسم}', '{رقم الطلب}', '{الإجمالي}', '{مدة التوصيل}'];
 
+  protected readonly tab = signal<SettingsTab>('general');
   protected readonly loading = signal(true);
   protected readonly loadError = signal(false);
   protected readonly saving = signal(false);
@@ -43,6 +64,15 @@ export class WebsiteSettingsComponent implements OnInit {
   protected readonly bannerError = signal<string | null>(null);
   /** The product search of the banner whose link is being chosen. */
   protected readonly productSearch = signal<{ index: number; results: Array<{ _id: string; name: string }> } | null>(null);
+  // Online Stage 5A
+  /** The website logo as a data URI (null = the shop logo is used). `logoChanged`: only then is it sent on save. */
+  protected readonly logo = signal<string | null>(null);
+  private logoChanged = false;
+  protected readonly logoError = signal<string | null>(null);
+  protected readonly highlights = signal<WebsiteHighlight[]>([]);
+  protected readonly walletBoxes = signal<WalletBox[]>([]);
+  /** Bumped on every form change so the preview recomputes. */
+  private readonly formTick = signal(0);
   /** What was loaded or saved last, to tell whether anything changed. */
   private lastSnapshot = '';
 
@@ -57,21 +87,67 @@ export class WebsiteSettingsComponent implements OnInit {
     instagram: ['', [Validators.maxLength(300), Validators.pattern(URL_PATTERN)]],
     tiktok: ['', [Validators.maxLength(300), Validators.pattern(URL_PATTERN)]],
     // Strings while typing; a blank means "not set".
-    minOrderAmount: ['', Validators.pattern(/^\d{1,9}(\.\d{1,2})?$/)],
-    freeDeliveryFrom: ['', Validators.pattern(/^\d{1,9}(\.\d{1,2})?$/)],
+    minOrderAmount: ['', Validators.pattern(MONEY_PATTERN)],
+    freeDeliveryFrom: ['', Validators.pattern(MONEY_PATTERN)],
     orderNote: ['', Validators.maxLength(WEBSITE_LIMITS.orderNote)],
     returnsPolicy: ['', Validators.maxLength(WEBSITE_LIMITS.returnsPolicy)],
     terms: ['', Validators.maxLength(WEBSITE_LIMITS.terms)],
+    // Online Stage 5A
+    seoDescription: ['', Validators.maxLength(WEBSITE_LIMITS.seoDescription)],
+    openingHours: ['', Validators.maxLength(WEBSITE_LIMITS.openingHours)],
+    brandColor: [''],
+    announcementEnabled: [false],
+    announcementText: ['', Validators.maxLength(WEBSITE_LIMITS.announcement)],
+    fulfillmentDelivery: [true],
+    fulfillmentPickup: [false],
+    sameDayCutoff: ['', Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)],
+    codEnabled: [true],
+    instapayEnabled: [false],
+    // No spaces inside (leading / trailing ones are trimmed when saving).
+    instapayAddress: ['', [Validators.maxLength(WEBSITE_LIMITS.instapayAddress), Validators.pattern(/^\s*\S*\s*$/)]],
+    instapayBoxId: [''],
+    vodafoneEnabled: [false],
+    vodafoneNumber: ['', Validators.maxLength(30)],
+    vodafoneBoxId: [''],
+    productVisibility: ['marked' as 'marked' | 'all'],
+    showOutOfStock: [true],
+    showRemainingEnabled: [true],
+    showRemainingThreshold: ['5', Validators.pattern(/^[1-9]\d{0,2}$|^1000$/)],
+    whatsappConfirmTemplate: ['', Validators.maxLength(WEBSITE_LIMITS.whatsappTemplate)],
   });
 
   protected readonly featuredFull = computed(() => this.featured().length >= WEBSITE_LIMITS.featured);
   protected readonly canAddBanner = computed(() => this.banners().length < WEBSITE_LIMITS.banners);
+  protected readonly canAddHighlight = computed(() => this.highlights().length < WEBSITE_LIMITS.highlights);
+
+  /** The saved site status (not the unsaved toggle): the pill next to the title. */
+  protected readonly savedEnabled = signal(false);
+  protected readonly siteUrl = typeof window !== 'undefined' ? `${window.location.origin}/` : '/';
+
+  /** The side preview: brand color, announcement and logo as they are in the form now. */
+  protected readonly preview = computed(() => {
+    this.formTick();
+    const raw = this.form.getRawValue();
+    return {
+      color: raw.brandColor || null,
+      title: raw.title.trim(),
+      announcement: raw.announcementEnabled ? raw.announcementText.trim() : '',
+      logo: this.logo(),
+      pickup: raw.fulfillmentPickup,
+      delivery: raw.fulfillmentDelivery,
+    };
+  });
+
+  /** Neither fulfillment option on, or no payment method on: the page says so and the server refuses it. */
+  protected readonly noFulfillment = computed(() => { this.formTick(); const raw = this.form.getRawValue(); return !raw.fulfillmentDelivery && !raw.fulfillmentPickup; });
+  protected readonly noPayment = computed(() => { this.formTick(); const raw = this.form.getRawValue(); return !raw.codEnabled && !raw.instapayEnabled && !raw.vodafoneEnabled; });
 
   constructor() {
     this.destroyRef.onDestroy(inject(UnsavedWorkService).register('website-settings', () => this.hasUnsavedChanges()));
+    this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.formTick.update((n) => n + 1));
   }
 
-  /** A field, a banner or a featured category changed since the last load / save. */
+  /** A field, a banner, a highlight, the logo or a featured category changed since the last load / save. */
   hasUnsavedChanges(): boolean {
     if (this.loading() || this.saving()) return false;
     return this.snapshot() !== this.lastSnapshot;
@@ -79,6 +155,10 @@ export class WebsiteSettingsComponent implements OnInit {
 
   ngOnInit(): void {
     if (!this.catalog.categories().length) this.catalog.refresh();
+    this.cashbox.paymentBoxes().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (response) => this.walletBoxes.set((response?.data || []).filter((box: any) => box.type === 'wallet' || box.type === 'bank').map((box: any) => ({ _id: box._id, name: box.name, type: box.type }))),
+      error: () => undefined,
+    });
     this.service
       .getSettings()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -94,9 +174,64 @@ export class WebsiteSettingsComponent implements OnInit {
       });
   }
 
-  protected showError(control: "facebook" | "instagram" | "tiktok" | "minOrderAmount" | "freeDeliveryFrom"): boolean {
+  protected setTab(tab: SettingsTab): void {
+    this.tab.set(tab);
+  }
+
+  protected showError(control: keyof typeof this.form.controls): boolean {
     const field = this.form.controls[control];
     return field.invalid && (field.touched || field.dirty);
+  }
+
+  protected setBrandColor(color: string): void {
+    this.form.controls.brandColor.setValue(this.form.controls.brandColor.value === color ? '' : color);
+    this.form.controls.brandColor.markAsDirty();
+  }
+
+  // ---- website logo ----
+
+  protected onLogoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return this.logoError.set('website.settings.look.logoInvalidType');
+    if (file.size > WEBSITE_LIMITS.bannerBytes) return this.logoError.set('website.settings.look.logoTooLarge');
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') return;
+      this.logo.set(reader.result);
+      this.logoChanged = true;
+      this.logoError.set(null);
+      this.formTick.update((n) => n + 1);
+    };
+    reader.onerror = () => this.logoError.set('website.settings.look.logoReadFailed');
+    reader.readAsDataURL(file);
+  }
+
+  protected removeLogo(): void {
+    this.logo.set(null);
+    this.logoChanged = true;
+    this.formTick.update((n) => n + 1);
+  }
+
+  // ---- highlights ----
+
+  protected addHighlight(): void {
+    if (!this.canAddHighlight()) return;
+    this.highlights.update((list) => [...list, { icon: 'star', title: '', text: '' }]);
+  }
+
+  protected removeHighlight(index: number): void {
+    this.highlights.update((list) => list.filter((_, i) => i !== index));
+  }
+
+  protected patchHighlight(index: number, patch: Partial<WebsiteHighlight>): void {
+    this.highlights.update((list) => list.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  protected setHighlightIcon(index: number, icon: string): void {
+    this.patchHighlight(index, { icon: (HIGHLIGHT_ICONS as readonly string[]).includes(icon) ? (icon as HighlightIcon) : 'star' });
   }
 
   // ---- banners ----
@@ -191,6 +326,11 @@ export class WebsiteSettingsComponent implements OnInit {
     }
     if (this.banners().some((banner) => banner.linkType !== 'none' && !banner.linkId)) {
       this.bannerError.set('website.settings.banners.linkMissing');
+      this.tab.set('look');
+      return;
+    }
+    if (this.noFulfillment() || this.noPayment()) {
+      this.tab.set(this.noFulfillment() ? 'delivery' : 'payment');
       return;
     }
     const raw = this.form.getRawValue();
@@ -217,6 +357,24 @@ export class WebsiteSettingsComponent implements OnInit {
       orderNote: raw.orderNote.trim(),
       returnsPolicy: raw.returnsPolicy.trim(),
       terms: raw.terms.trim(),
+      // Online Stage 5A
+      fulfillment: { delivery: raw.fulfillmentDelivery, pickup: raw.fulfillmentPickup },
+      payments: {
+        cod: { enabled: raw.codEnabled },
+        instapay: { enabled: raw.instapayEnabled, address: raw.instapayAddress.trim(), boxId: raw.instapayBoxId },
+        vodafoneCash: { enabled: raw.vodafoneEnabled, number: raw.vodafoneNumber.trim(), boxId: raw.vodafoneBoxId },
+      },
+      stock: { showOutOfStock: raw.showOutOfStock, showRemaining: { enabled: raw.showRemainingEnabled, threshold: Number(raw.showRemainingThreshold) || 5 } },
+      productVisibility: raw.productVisibility,
+      brandColor: raw.brandColor,
+      announcement: { enabled: raw.announcementEnabled, text: raw.announcementText.trim() },
+      seoDescription: raw.seoDescription.trim(),
+      openingHours: raw.openingHours.trim(),
+      sameDayCutoff: raw.sameDayCutoff.trim(),
+      highlights: this.highlights().map((row) => ({ icon: row.icon, title: row.title.trim(), text: row.text.trim() })),
+      whatsappConfirmTemplate: raw.whatsappConfirmTemplate.trim(),
+      // The logo is sent only when it changed ('' removes it).
+      ...(this.logoChanged ? { websiteLogo: this.logo() ?? '' } : {}),
     };
     this.bannerError.set(null);
     this.saving.set(true);
@@ -246,6 +404,10 @@ export class WebsiteSettingsComponent implements OnInit {
     const merged = { ...EMPTY_WEBSITE_SETTINGS, ...settings };
     this.banners.set([...merged.banners].sort((a, b) => a.sortOrder - b.sortOrder).map((banner, index) => ({ ...banner, sortOrder: index })));
     this.featured.set([...merged.featuredCategoryIds]);
+    this.highlights.set((merged.highlights || []).map((row) => ({ icon: row.icon, title: row.title || '', text: row.text || '' })));
+    this.logo.set(merged.websiteLogo || null);
+    this.logoChanged = false;
+    this.savedEnabled.set(merged.enabled);
     this.form.reset({
       enabled: merged.enabled,
       orderingEnabled: merged.orderingEnabled,
@@ -261,17 +423,42 @@ export class WebsiteSettingsComponent implements OnInit {
       orderNote: merged.orderNote || '',
       returnsPolicy: merged.returnsPolicy || '',
       terms: merged.terms || '',
+      seoDescription: merged.seoDescription || '',
+      openingHours: merged.openingHours || '',
+      brandColor: merged.brandColor || '',
+      announcementEnabled: merged.announcement.enabled,
+      announcementText: merged.announcement.text || '',
+      fulfillmentDelivery: merged.fulfillment.delivery,
+      fulfillmentPickup: merged.fulfillment.pickup,
+      sameDayCutoff: merged.sameDayCutoff || '',
+      codEnabled: merged.payments.cod.enabled,
+      instapayEnabled: merged.payments.instapay.enabled,
+      instapayAddress: merged.payments.instapay.address || '',
+      instapayBoxId: merged.payments.instapay.boxId || '',
+      vodafoneEnabled: merged.payments.vodafoneCash.enabled,
+      vodafoneNumber: merged.payments.vodafoneCash.number || '',
+      vodafoneBoxId: merged.payments.vodafoneCash.boxId || '',
+      productVisibility: merged.productVisibility,
+      showOutOfStock: merged.stock.showOutOfStock,
+      showRemainingEnabled: merged.stock.showRemaining.enabled,
+      showRemainingThreshold: String(merged.stock.showRemaining.threshold),
+      whatsappConfirmTemplate: merged.whatsappConfirmTemplate || '',
     });
+    this.formTick.update((n) => n + 1);
     this.lastSnapshot = this.snapshot();
   }
 
-  private restore(snapshot: { form: any; banners: WebsiteBanner[]; featured: string[] }): void {
+  private restore(snapshot: { form: any; banners: WebsiteBanner[]; featured: string[]; highlights: WebsiteHighlight[]; logo: string | null }): void {
     this.form.reset(snapshot.form);
     this.banners.set(snapshot.banners);
     this.featured.set(snapshot.featured);
+    this.highlights.set(snapshot.highlights);
+    this.logo.set(snapshot.logo);
+    this.logoChanged = false;
+    this.formTick.update((n) => n + 1);
   }
 
   private snapshot(): string {
-    return JSON.stringify({ form: this.form.getRawValue(), banners: this.banners(), featured: this.featured() });
+    return JSON.stringify({ form: this.form.getRawValue(), banners: this.banners(), featured: this.featured(), highlights: this.highlights(), logo: this.logo() });
   }
 }

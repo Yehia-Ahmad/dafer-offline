@@ -1,7 +1,34 @@
 // Website settings (Online Stage 3). Tokens only.
 :host { display: block; }
 .ws { display: flex; flex-direction: column; gap: var(--space-gap); }
-.ws__form { display: flex; flex-direction: column; gap: 16px; max-width: 880px; }
+.ws__layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: var(--space-gap); align-items: start; }
+@media (max-width: 1000px) { .ws__layout { grid-template-columns: minmax(0, 1fr); } }
+.ws__form { display: flex; flex-direction: column; gap: 16px; max-width: 880px; min-width: 0; }
+.ws__head-actions { display: flex; align-items: center; gap: 10px; }
+.ws__tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.ws__tab { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 999px; padding: 6px 16px; font: inherit; cursor: pointer;
+  &.is-active { background: var(--brand-soft); color: var(--brand-strong-text); border-color: var(--brand); font-weight: 700; } }
+.ws__swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.ws__swatch { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--border-strong); cursor: pointer;
+  &.is-on { box-shadow: 0 0 0 3px var(--text); } }
+.ws__logo-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.ws__logo { height: 56px; max-width: 160px; object-fit: contain; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); padding: 4px; }
+.ws__method { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+.ws__soon { flex-direction: row; align-items: center; justify-content: space-between; opacity: .75; }
+.ws__short { max-width: 140px; }
+.ws__highlights { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ws__highlight { display: grid; grid-template-columns: 130px 1fr 1.4fr auto; gap: 8px; align-items: center; }
+@media (max-width: 700px) { .ws__highlight { grid-template-columns: 1fr; } }
+.ws__preview { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 12px; }
+.ws__mock { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.ws__mock-announce { color: #fff; font-size: 12px; text-align: center; padding: 6px 8px; }
+.ws__mock-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.ws__mock-logo { width: 28px; height: 28px; object-fit: contain; border-radius: 6px; }
+.ws__mock-logo--empty { display: inline-block; background: var(--surface-2); border: 1px dashed var(--border-strong); }
+.ws__mock-title { font-size: 14px; }
+.ws__mock-body { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px 12px; }
+.ws__mock-btn { color: #fff; border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; }
+.ws__mock-tags { display: flex; gap: 6px; flex-wrap: wrap; i { font-style: normal; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); } }
 .ws__card { display: flex; flex-direction: column; gap: 14px; }
 .ws__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .ws__check { display: flex; align-items: center; gap: 8px; font-weight: 600; }

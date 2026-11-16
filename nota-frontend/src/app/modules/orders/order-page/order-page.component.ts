@@ -12,7 +12,10 @@ import { PrintActionItem, PrintActionsComponent } from '../../../core/print/prin
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent } from '../../shared/ui';
 import { NotaPillVariant } from '../../shared/ui/status-pill.component';
 import { estimateCollect, returnsEverything } from '../collect-estimate';
+import { PaymentBoxSelectComponent } from '../../cashbox/payment-box-select.component';
+import { PaymentBoxService } from '../../cashbox/payment-box.service';
 import { OrderAction, allowedOrderActions, canReturnLines, whatsappLink } from '../order-actions';
+import { whatsappConfirmLink } from '../order-whatsapp';
 import { Courier, OrderDetail, OrderEditPayload, OrderHistoryEntry } from '../orders.models';
 import { OrdersService } from '../orders.service';
 import { ORDER_STATUS_VARIANT } from '../orders-list/orders-list.component';
@@ -26,7 +29,7 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
  */
 @Component({
   selector: 'app-order-page',
-  imports: [TranslatePipe, FormsModule, DatePipe, DialogModule, PrintActionsComponent, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent],
+  imports: [TranslatePipe, FormsModule, DatePipe, DialogModule, PaymentBoxSelectComponent, PrintActionsComponent, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="op">
@@ -34,6 +37,11 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
         <div notaPageActions>
           @if (order(); as o) {
             <nota-status-pill [variant]="variant(o.status)" data-test="order-status">{{ 'orders.status.' + o.status | translate }}</nota-status-pill>
+            <nota-status-pill variant="neutral" data-test="order-fulfillment">{{ 'orders.fulfillment.' + o.fulfillment | translate }}</nota-status-pill>
+            <nota-status-pill variant="neutral" data-test="order-method">{{ 'orders.method.' + o.paymentMethod | translate }}</nota-status-pill>
+            @if (o.payment.status) {
+              <nota-status-pill [variant]="o.payment.status === 'verified' ? 'ok' : 'due'" data-test="order-payment">{{ 'orders.payment.' + o.payment.status | translate }}</nota-status-pill>
+            }
           }
         </div>
       </nota-page-header>
@@ -46,7 +54,7 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
           @for (action of actions(); track action) {
             <button type="button" notaButton [attr.data-action]="action" [disabled]="busy()" [class.is-danger]="action === 'reject' || action === 'cancel' || action === 'refuse'" (click)="run(action)">{{ 'orders.actions.' + action | translate }}</button>
           }
-          @if (o.status === 'out_for_delivery' || o.status === 'confirmed' || o.status === 'preparing' || o.status === 'delivered') {
+          @if (o.fulfillment !== 'pickup' && (o.status === 'out_for_delivery' || o.status === 'confirmed' || o.status === 'preparing' || o.status === 'delivered')) {
             <nota-print-actions [items]="printItems()" />
           }
         </div>
@@ -60,8 +68,17 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
                 <button type="button" notaButton data-action="copy-phone" (click)="copy(o.contact.phone)">{{ 'orders.page.copy' | translate }}</button>
                 <a notaButton data-action="whatsapp" [href]="whatsapp(o.contact.phone)" target="_blank" rel="noopener noreferrer">{{ 'orders.page.whatsapp' | translate }}</a>
               </p>
-              <p>{{ o.contact.address }} <button type="button" notaButton data-action="copy-address" (click)="copy(o.contact.address)">{{ 'orders.page.copy' | translate }}</button></p>
-              <p>{{ 'orders.page.zone' | translate }}: {{ o.zone.name }}</p>
+              <!-- Online Stage 5A: opens wa.me with the shop's confirmation message in a new tab (no WhatsApp API). -->
+              @if (o.status !== 'cancelled' && o.status !== 'rejected' && o.status !== 'refused') {
+                <p><a notaButton data-test="whatsapp-confirm" [href]="confirmLink(o)" target="_blank" rel="noopener noreferrer">{{ 'orders.actions.whatsappConfirm' | translate }}</a></p>
+              }
+              @if (o.fulfillment === 'pickup') {
+                <p data-test="order-pickup">{{ 'orders.page.pickupAtShop' | translate }}</p>
+                @if (o.contact.address) { <p>{{ o.contact.address }}</p> }
+              } @else {
+                <p>{{ o.contact.address }} <button type="button" notaButton data-action="copy-address" (click)="copy(o.contact.address)">{{ 'orders.page.copy' | translate }}</button></p>
+                <p>{{ 'orders.page.zone' | translate }}: {{ o.zone?.name }}</p>
+              }
               @if (o.contact.notes) { <p class="op__muted">{{ o.contact.notes }}</p> }
               @if (o.courier) { <p>{{ 'orders.page.courier' | translate }}: <b>{{ o.courier.name }}</b></p> }
               @if (o.reason) { <p class="op__muted">{{ 'orders.page.reason' | translate }}: {{ o.reason }}</p> }
@@ -71,12 +88,14 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
                 <nota-form-field [label]="'orders.page.phone' | translate" forId="ePhone"><input id="ePhone" class="nota-input" name="phone" [ngModel]="draft().phone" (ngModelChange)="patchDraft({ phone: $event })" /></nota-form-field>
                 <nota-form-field [label]="'orders.page.address' | translate" forId="eAddress"><input id="eAddress" class="nota-input" name="address" [ngModel]="draft().address" (ngModelChange)="patchDraft({ address: $event })" /></nota-form-field>
                 <nota-form-field [label]="'orders.page.notes' | translate" forId="eNotes"><input id="eNotes" class="nota-input" name="notes" [ngModel]="draft().notes" (ngModelChange)="patchDraft({ notes: $event })" /></nota-form-field>
-                <nota-form-field [label]="'orders.page.zone' | translate" forId="eZone">
-                  <select id="eZone" class="nota-select" name="zone" data-test="edit-zone" [ngModel]="draft().zoneId" (ngModelChange)="patchDraft({ zoneId: $event })">
-                    @for (zone of zones(); track zone.id) { <option [value]="zone.id">{{ zone.name }} — {{ zone.fee }}</option> }
-                  </select>
-                </nota-form-field>
-                <nota-form-field [label]="'orders.page.deliveryFee' | translate" forId="eFee"><input id="eFee" class="nota-input nota-num" type="number" min="0" step="0.01" name="fee" data-test="edit-fee" [ngModel]="draft().deliveryFee" (ngModelChange)="patchDraft({ deliveryFee: $event })" /></nota-form-field>
+                @if (o.fulfillment !== 'pickup') {
+                  <nota-form-field [label]="'orders.page.zone' | translate" forId="eZone">
+                    <select id="eZone" class="nota-select" name="zone" data-test="edit-zone" [ngModel]="draft().zoneId" (ngModelChange)="patchDraft({ zoneId: $event })">
+                      @for (zone of zones(); track zone.id) { <option [value]="zone.id">{{ zone.name }} — {{ zone.fee }}</option> }
+                    </select>
+                  </nota-form-field>
+                  <nota-form-field [label]="'orders.page.deliveryFee' | translate" forId="eFee"><input id="eFee" class="nota-input nota-num" type="number" min="0" step="0.01" name="fee" data-test="edit-fee" [ngModel]="draft().deliveryFee" (ngModelChange)="patchDraft({ deliveryFee: $event })" /></nota-form-field>
+                }
               </div>
             }
           </section>
@@ -86,9 +105,10 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
             <dl class="op__totals nota-num">
               <dt>{{ 'orders.page.subtotal' | translate }}</dt><dd>{{ o.subtotal | notaMoney }}</dd>
               @if (o.vat) { <dt>{{ 'orders.page.vat' | translate }}</dt><dd>{{ o.vat | notaMoney }}</dd> }
-              <dt>{{ 'orders.page.deliveryFee' | translate }}</dt><dd>{{ o.deliveryFee | notaMoney }}</dd>
+              @if (o.fulfillment !== 'pickup') { <dt>{{ 'orders.page.deliveryFee' | translate }}</dt><dd>{{ o.deliveryFee | notaMoney }}</dd> }
               <dt class="op__grand">{{ 'orders.page.total' | translate }}</dt><dd class="op__grand" data-test="order-total">{{ o.total | notaMoney }}</dd>
-              @if (o.creditSale) { <dt>{{ 'orders.page.invoice' | translate }}</dt><dd>{{ o.creditSale.number }}</dd> }
+              @if (o.invoice) { <dt>{{ 'orders.page.invoice' | translate }}</dt><dd data-test="order-invoice">{{ o.invoice.number }}</dd> }
+              @if (o.payment.reference) { <dt>{{ 'orders.page.transferRef' | translate }}</dt><dd class="op__ltr">{{ o.payment.reference }}</dd> }
               @if (o.collectedAmount !== null) { <dt>{{ 'orders.page.collected' | translate }}</dt><dd>{{ o.collectedAmount | notaMoney }}</dd> }
             </dl>
           </section>
@@ -159,7 +179,7 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
             @for (entry of o.statusHistory; track $index) {
               <li>
                 <span class="nota-num">{{ entry.at | date: 'short' }}</span>
-                <b>{{ entry.type === 'edit' ? ('orders.page.edited' | translate) : ('orders.status.' + entry.status | translate) }}</b>
+                <b>{{ entry.type === 'edit' ? ('orders.page.edited' | translate) : entry.type === 'payment' ? ('orders.page.paymentVerified' | translate) : ('orders.status.' + entry.status | translate) }}</b>
                 @if (entry.byName || entry.by) { <span class="op__muted">{{ entry.byName || entry.by }}</span> }
                 @if (entry.note) { <span>{{ entry.note }}</span> }
                 @if (entry.type === 'edit') { <span class="op__muted">{{ editSummary(entry) }}</span> }
@@ -198,6 +218,40 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
       </nota-dialog-shell>
     </p-dialog>
 
+    <!-- Online Stage 5A: confirm the transfer (optional reference). Nothing is posted by it. -->
+    <p-dialog [visible]="verifyOpen()" (visibleChange)="$event ? null : verifyOpen.set(false)" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+      <nota-dialog-shell [title]="'orders.actions.verifyPayment' | translate" [closeLabel]="'orders.close' | translate" (closed)="verifyOpen.set(false)">
+        @if (order(); as o) { <p data-test="verify-amount">{{ 'orders.page.verifyAmount' | translate }}: <b class="nota-num">{{ o.total | notaMoney }}</b></p> }
+        <p class="op__muted">{{ 'orders.page.verifyHint' | translate }}</p>
+        <nota-form-field [label]="'orders.page.transferRef' | translate" forId="transferRef">
+          <input id="transferRef" class="nota-input" maxlength="100" data-test="transfer-reference" [ngModel]="reference()" (ngModelChange)="reference.set($event)" />
+        </nota-form-field>
+        <ng-container notaDialogFooter>
+          <button type="button" notaButton (click)="verifyOpen.set(false)">{{ 'orders.close' | translate }}</button>
+          <button type="button" notaButton="primary" data-action="submit-verify" [disabled]="busy()" (click)="submitVerify()">{{ 'orders.confirm' | translate }}</button>
+        </ng-container>
+      </nota-dialog-shell>
+    </p-dialog>
+
+    <!-- Online Stage 5A: picked up = a cash sale. Cash on pickup: the staff member picks the box (their device's box by default). A wallet order goes into the wallet's box. -->
+    <p-dialog [visible]="pickupOpen()" (visibleChange)="$event ? null : pickupOpen.set(false)" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+      <nota-dialog-shell [title]="'orders.actions.pickup' | translate" [closeLabel]="'orders.close' | translate" (closed)="pickupOpen.set(false)">
+        @if (order(); as o) {
+          <p class="op__collect" data-test="pickup-amount">{{ 'orders.page.amountToCollect' | translate }}: <b class="nota-num">{{ o.total | notaMoney }}</b></p>
+          @if (o.paymentMethod === 'cod') {
+            <!-- Only while the dialog is open: projected content is created even for a closed p-dialog, and the selector loads the boxes. -->
+            @if (pickupOpen()) { <nota-payment-box-select /> }
+          } @else {
+            <p class="op__muted" data-test="pickup-wallet">{{ 'orders.page.walletBoxNote' | translate }}</p>
+          }
+        }
+        <ng-container notaDialogFooter>
+          <button type="button" notaButton (click)="pickupOpen.set(false)">{{ 'orders.close' | translate }}</button>
+          <button type="button" notaButton="primary" data-action="submit-pickup" [disabled]="busy()" (click)="submitPickup()">{{ 'orders.actions.pickup' | translate }}</button>
+        </ng-container>
+      </nota-dialog-shell>
+    </p-dialog>
+
     <p-dialog [visible]="deliverOpen()" (visibleChange)="$event ? null : deliverOpen.set(false)" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
       <nota-dialog-shell [title]="'orders.actions.deliver' | translate" [closeLabel]="'orders.close' | translate" (closed)="deliverOpen.set(false)">
         @if (order(); as o) {
@@ -218,10 +272,15 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
             </table>
             @if (allReturned()) { <p class="op__alert" data-test="use-refuse">{{ 'orders.page.useRefuse' | translate }}</p> }
           }
-          <p class="op__collect" data-test="amount-to-collect">{{ 'orders.page.amountToCollect' | translate }}: <b class="nota-num">{{ collectEstimate() | notaMoney }}</b></p>
-          <nota-form-field [label]="'orders.page.collectedOverride' | translate" forId="collected">
-            <input id="collected" class="nota-input nota-num" type="number" min="0" step="0.01" data-test="collected-amount" [ngModel]="collected()" (ngModelChange)="collected.set($event)" />
-          </nota-form-field>
+          @if (o.paymentMethod === 'cod') {
+            <p class="op__collect" data-test="amount-to-collect">{{ 'orders.page.amountToCollect' | translate }}: <b class="nota-num">{{ collectEstimate() | notaMoney }}</b></p>
+            <nota-form-field [label]="'orders.page.collectedOverride' | translate" forId="collected">
+              <input id="collected" class="nota-input nota-num" type="number" min="0" step="0.01" data-test="collected-amount" [ngModel]="collected()" (ngModelChange)="collected.set($event)" />
+            </nota-form-field>
+          } @else {
+            <!-- Online Stage 5A: a wallet order was paid before it left; the courier collects nothing. -->
+            <p class="op__muted" data-test="nothing-to-collect">{{ 'orders.page.nothingToCollect' | translate }}</p>
+          }
         }
         <ng-container notaDialogFooter>
           <button type="button" notaButton (click)="deliverOpen.set(false)">{{ 'orders.close' | translate }}</button>
@@ -273,8 +332,14 @@ export class OrderPageComponent implements OnInit {
 
   protected readonly actions = computed(() => {
     const order = this.order();
-    return order ? allowedOrderActions(order.status, (key) => this.auth.has(key)) : [];
+    return order ? allowedOrderActions(order, (key) => this.auth.has(key)) : [];
   });
+
+  // Online Stage 5A: confirm the transfer, and pick the order up (a cash sale)
+  protected readonly verifyOpen = signal(false);
+  protected readonly reference = signal('');
+  protected readonly pickupOpen = signal(false);
+  private readonly paymentBox = inject(PaymentBoxService);
 
   // reason dialog (reject / cancel / refuse)
   protected readonly reasonFor = signal<'reject' | 'cancel' | 'refuse' | null>(null);
@@ -329,6 +394,11 @@ export class OrderPageComponent implements OnInit {
     return whatsappLink(phone);
   }
 
+  /** The "send confirmation on WhatsApp" link: the shop's template filled with this order's values. */
+  protected confirmLink(order: OrderDetail): string {
+    return whatsappConfirmLink(order.contact.phone, order.whatsappTemplate, { name: order.contact.name, number: order.number, total: order.total, deliveryTime: order.deliveryTime || '' });
+  }
+
   protected async copy(text: string): Promise<void> {
     try {
       await navigator.clipboard.writeText(text);
@@ -361,6 +431,9 @@ export class OrderPageComponent implements OnInit {
     switch (action) {
       case 'confirm': return this.apply(this.service.confirm(order.id));
       case 'prepare': return this.apply(this.service.prepare(order.id));
+      case 'ready': return this.apply(this.service.ready(order.id));
+      case 'verifyPayment': this.reference.set(''); this.verifyOpen.set(true); return;
+      case 'pickup': this.pickupOpen.set(true); return;
       case 'reject': case 'cancel': case 'refuse': this.reason.set(''); this.reasonFor.set(action); return;
       case 'dispatch': this.courierId.set(''); this.dispatchOpen.set(true); this.service.listCouriers().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (list) => this.couriers.set(list), error: () => undefined }); return;
       case 'deliver': this.withReturns.set(false); this.returned.set({}); this.collected.set(null); this.deliverOpen.set(true); return;
@@ -375,7 +448,7 @@ export class OrderPageComponent implements OnInit {
         this.busy.set(false);
         this.order.set(order);
         this.editing.set(false);
-        this.reasonFor.set(null); this.dispatchOpen.set(false); this.deliverOpen.set(false);
+        this.reasonFor.set(null); this.dispatchOpen.set(false); this.deliverOpen.set(false); this.verifyOpen.set(false); this.pickupOpen.set(false);
       },
       error: (response) => {
         this.busy.set(false);
@@ -391,6 +464,19 @@ export class OrderPageComponent implements OnInit {
     if (!order || !action) return;
     const text = this.reason().trim();
     this.apply(action === 'reject' ? this.service.reject(order.id, text) : action === 'cancel' ? this.service.cancel(order.id, text) : this.service.refuse(order.id, text));
+  }
+
+  protected submitVerify(): void {
+    const order = this.order();
+    if (order) this.apply(this.service.verifyPayment(order.id, this.reference()));
+  }
+
+  /** Cash on pickup sends the box only when staff chose another than their default (the server then picks this device's box). */
+  protected submitPickup(): void {
+    const order = this.order();
+    if (!order) return;
+    const boxId = order.paymentMethod === 'cod' ? this.paymentBox.boxId() : undefined;
+    this.apply(this.service.pickup(order.id, boxId ? { boxId } : {}));
   }
 
   protected submitDispatch(): void {
@@ -415,7 +501,7 @@ export class OrderPageComponent implements OnInit {
 
   private startEdit(order: OrderDetail): void {
     this.editLines.set(order.items.map((line) => ({ productId: line.productId, name: line.name, qty: line.qty, unitPrice: line.unitPrice, isNew: false })));
-    this.draft.set({ name: order.contact.name, phone: order.contact.phone, address: order.contact.address, notes: order.contact.notes, zoneId: order.zone.id, deliveryFee: order.deliveryFee });
+    this.draft.set({ name: order.contact.name, phone: order.contact.phone, address: order.contact.address, notes: order.contact.notes, zoneId: order.zone?.id ?? '', deliveryFee: order.deliveryFee });
     this.productQuery.set(''); this.productResults.set([]); this.extraStock.clear();
     this.editing.set(true);
     this.service.zones().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (zones) => this.zones.set(zones), error: () => undefined });
@@ -464,8 +550,9 @@ export class OrderPageComponent implements OnInit {
     const payload: OrderEditPayload = {
       items: this.editLines().map((line) => ({ productId: line.productId, qty: line.qty })),
       contact: { name: draft.name, phone: draft.phone, address: draft.address, notes: draft.notes },
-      ...(draft.zoneId && draft.zoneId !== order.zone.id ? { zoneId: draft.zoneId } : {}),
-      ...(Number(draft.deliveryFee) !== order.deliveryFee ? { deliveryFee: Number(draft.deliveryFee) } : {}),
+      // A pickup order has no zone and no fee: the server refuses both.
+      ...(order.fulfillment !== 'pickup' && draft.zoneId && draft.zoneId !== order.zone?.id ? { zoneId: draft.zoneId } : {}),
+      ...(order.fulfillment !== 'pickup' && Number(draft.deliveryFee) !== order.deliveryFee ? { deliveryFee: Number(draft.deliveryFee) } : {}),
     };
     this.apply(this.service.edit(order.id, payload));
   }
@@ -482,7 +569,7 @@ export class OrderPageComponent implements OnInit {
     if (!order) return null;
     const data: DeliveryNoteData = {
       number: order.number, date: order.createdAt, customerName: order.contact.name, customerPhone: order.contact.phone, address: order.contact.address,
-      zone: order.zone.name, notes: order.contact.notes, courierName: order.courier?.name ?? null,
+      zone: order.zone?.name ?? '', notes: order.contact.notes, courierName: order.courier?.name ?? null,
       items: order.items.map((line) => ({ name: line.name, qty: line.qty, unitPrice: line.unitPrice, total: line.lineTotal })),
       subtotal: order.subtotal, vat: order.vat, deliveryFee: order.deliveryFee, amountToCollect: order.total,
     };

@@ -773,29 +773,33 @@ const createSellingInvoice = async ({ body, res, allowBelowCost = false, session
   return created[0];
 };
 
-const createSelling = asyncHandler(async (req, res) => {
-  const selling = await withTransaction(async (session) => {
-    // Stage 19: the sale goes into a box (request boxId, else this device's drawer, else the main box).
-    const box = await resolveBox({ req, boxId: req.body && req.body.boxId, session });
-    const number = await require("../utils/documentNumber").nextDocumentNumber(PREFIXES.CASH_INVOICE, session);
-    const created = await createSellingInvoice({
-      body: req.body,
-      res,
-      allowBelowCost: canSellBelowCost(req),
-      session,
-      number,
-      boxId: box._id,
-    });
-    await audit(req, { action: "sale.created", entity: "Selling", entityId: created._id, session, strict: true });
-    await postSale({ sale: created, session });
-    if (created.vatRate !== undefined && created.vatRate !== null) await recordVatEvent({ kind: "sale", direction: "output", sourceType: "sale", sourceId: created._id, number: created.number, date: created.sellingDate, net: created.netAmount, vat: created.vatAmount, session });
-    for (const adjustment of created._autoRestockAdjustments || []) {
-      const product = await Product.findById(adjustment.productId).session(session).lean();
-      const amount = roundMoney(Number(adjustment.quantity || 0) * Number(product?.purchasePrice || 0));
-      if (amount > 0) await postInventoryAdjustment({ date: created.sellingDate, source: { type: "auto_restock", id: created._id, number: created.number }, amount, increase: true, session });
-    }
-    return created;
+// Online Stage 5A: the body of the createSelling transaction, moved here unchanged so a website pickup / wallet order can create
+// the same cash sale (box, number, invoice, audit, posting, VAT event, auto-restock) without copying any of it.
+const createCashSaleInTransaction = async (req, res, session) => {
+  // Stage 19: the sale goes into a box (request boxId, else this device's drawer, else the main box).
+  const box = await resolveBox({ req, boxId: req.body && req.body.boxId, session });
+  const number = await require("../utils/documentNumber").nextDocumentNumber(PREFIXES.CASH_INVOICE, session);
+  const created = await createSellingInvoice({
+    body: req.body,
+    res,
+    allowBelowCost: canSellBelowCost(req),
+    session,
+    number,
+    boxId: box._id,
   });
+  await audit(req, { action: "sale.created", entity: "Selling", entityId: created._id, session, strict: true });
+  await postSale({ sale: created, session });
+  if (created.vatRate !== undefined && created.vatRate !== null) await recordVatEvent({ kind: "sale", direction: "output", sourceType: "sale", sourceId: created._id, number: created.number, date: created.sellingDate, net: created.netAmount, vat: created.vatAmount, session });
+  for (const adjustment of created._autoRestockAdjustments || []) {
+    const product = await Product.findById(adjustment.productId).session(session).lean();
+    const amount = roundMoney(Number(adjustment.quantity || 0) * Number(product?.purchasePrice || 0));
+    if (amount > 0) await postInventoryAdjustment({ date: created.sellingDate, source: { type: "auto_restock", id: created._id, number: created.number }, amount, increase: true, session });
+  }
+  return created;
+};
+
+const createSelling = asyncHandler(async (req, res) => {
+  const selling = await withTransaction((session) => createCashSaleInTransaction(req, res, session));
 
   res.status(201).json(toSellingInvoice(selling));
 });
@@ -1137,8 +1141,9 @@ const cancelSelling = asyncHandler(async (req, res) => {
   res.json(toSellingInvoice(updated));
 });
 
-const addSellingRefund = asyncHandler(async (req, res) => {
-  const result = await withTransaction(async (session) => {
+// Online Stage 5A: the body of the addSellingRefund transaction, moved here unchanged (same shape as refundCreditSaleInTransaction),
+// so returning a website order's cash sale uses the existing return (stock, VAT share, box, return log, posting).
+const refundSellingInTransaction = (req, res, outerSession) => (async (session) => {
     const selling = await Selling.findById(req.params.id).session(session);
     if (!selling) { const error = new Error("سجل البيع غير موجود"); error.statusCode = 404; throw error; }
     if (selling.status === "cancelled") {
@@ -1234,7 +1239,10 @@ const addSellingRefund = asyncHandler(async (req, res) => {
     if (vatReturn) await recordVatEvent({ kind: "sale_return", direction: "output", sourceType: "return", sourceId: returnLog._id, number, date: refundDate, net: -roundMoney(finalReturnedAmount - vatReturn.vatAmount), vat: -vatReturn.vatAmount, session });
     await audit(req, { action: "sale.returned", entity: "Selling", entityId: selling._id, details: { number, amount: finalReturnedAmount }, session, strict: true });
     return { selling, returnLog };
-  });
+})(outerSession);
+
+const addSellingRefund = asyncHandler(async (req, res) => {
+  const result = await withTransaction((session) => refundSellingInTransaction(req, res, session));
 
   await result.selling.populate("items.product", "code");
   await result.selling.populate("product", "code");
@@ -1252,6 +1260,8 @@ const addSellingRefund = asyncHandler(async (req, res) => {
 
 module.exports = {
   createSellingInvoice,
+  createCashSaleInTransaction,
+  refundSellingInTransaction,
   createSelling,
   getSellings,
   getSellingById,
