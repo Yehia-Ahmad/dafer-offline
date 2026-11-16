@@ -24,6 +24,10 @@ export function daysToPaymentTerms(days: number | null | undefined): { choice: P
   return { choice: 'custom', custom: days };
 }
 
+import { TranslateService } from '@ngx-translate/core';
+import { LayoutService } from '../../core/layout/layout.service';
+import { MobileTopBarService } from '../mobile/mobile-topbar.service';
+
 /**
  * Stage 18: add / edit a supplier (docs/design/screens/AddSupplier.dc.html). Only the name is required;
  * the other fields (phone, contact person, address, what they supply, tax number, payment terms) are optional.
@@ -42,8 +46,13 @@ export class SupplierFormComponent implements OnInit {
   private readonly service = inject(SuppliersService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  protected readonly layout = inject(LayoutService);
+  private readonly translate = inject(TranslateService);
 
   readonly supplierId = this.route.snapshot.paramMap.get('id');
+  /** Phone only (Online Stage 6B): the top bar says "مورد جديد" / "تعديل مورد". */
+  private readonly bindTopBar = inject(MobileTopBarService).bind(() => this.layout.isMobile()
+    ? { title: this.translate.instant(this.supplierId ? 'suppliers.form.editTitle' : 'suppliers.form.newTitle') } : null);
   readonly saving = signal(false);
   readonly loadError = signal(false);
   readonly saveError = signal('');

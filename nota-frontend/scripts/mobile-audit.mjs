@@ -39,6 +39,31 @@ const routes = [
   '/website/couriers', `/website/couriers/${id('courier')}`, '/website/customers',
   '/users', '/audit',
 ];
+// Elements inside these are meant to scroll sideways (and may extend past the screen): the clip check skips their descendants.
+const SCROLLERS = '.mob-hscroll, .m-chips, .m-scroll';
+// Online Stage 6B: scrollWidth misses content clipped on the left in RTL, so every visible element's rect must lie inside 0..innerWidth.
+async function clipped(page) {
+  return page.evaluate((scrollers) => {
+    const w = window.innerWidth;
+    const bad = [];
+    const label = (el) => {
+      const cls = (typeof el.className === 'string' ? el.className : '').trim().split(/\s+/).filter(Boolean).slice(0, 2).join('.');
+      const text = (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 24);
+      return el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (cls ? '.' + cls : '') + ' "' + text + '"';
+    };
+    for (const el of document.body.querySelectorAll('*')) {
+      if (el.closest(scrollers) && !el.matches(scrollers)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || cs.display === 'none' || cs.opacity === '0') continue;
+      if (el.closest('[aria-hidden="true"], .nota-sr-only, .cdk-visually-hidden, .p-hidden-accessible')) continue;
+      if (r.left < -1 || r.right > w + 1) bad.push(el);
+    }
+    const set = new Set(bad); // only the outermost offenders
+    return bad.filter((el) => !set.has(el.parentElement)).map(label);
+  }, SCROLLERS);
+}
 const fileName = (route) => (route.replace(/^\//, '').replace(/[\/:]/g, '_') || 'root') + '.png';
 
 async function signIn() {
@@ -66,6 +91,7 @@ async function run(browser, size, token) {
     page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text().slice(0, 160)); });
     page.on('pageerror', (error) => errors.push(`pageerror: ${String(error.message).slice(0, 160)}`));
     const problems = [];
+    let clipList = [];
     try {
       await page.goto(`${URL_BASE}${route}`, { waitUntil: 'networkidle', timeout: 30000 });
       await page.waitForTimeout(600);
@@ -75,16 +101,24 @@ async function run(browser, size, token) {
         path: location.pathname,
       }));
       if (size === '390') {
+        clipList = await clipped(page);
+        const clip = clipList;
+        if (clip.length) problems.push(`clipped(${clip.length}): ${clip.slice(0, 4).join(' | ')}`);
         if (info.scrollWidth > info.innerWidth) problems.push(`h-scroll ${info.scrollWidth}>${info.innerWidth}`);
         if (!info.shell && !NO_SHELL.has(route)) problems.push('no phone shell');
         if (errors.length) problems.push(`console: ${errors[0]}`);
       } else if (info.shell) problems.push('phone shell at 1280');
       if (info.path.replace(/^\/admin/, '') !== route && !problems.length) problems.push(`redirected to ${info.path}`);
+      if (size === '390') {
+        await page.screenshot({ path: path.join(dir, fileName(route).replace('.png', '.viewport.png')), fullPage: false });
+        // Full-page shots: the fixed tab bar / floating button would land mid-page, so they are made static (audit only).
+        await page.addStyleTag({ content: '.m-tabs{position:static!important}.m-fab{position:static!important;margin:12px}.m-form .m-actions{position:static!important}' });
+      }
       await page.screenshot({ path: path.join(dir, fileName(route)), fullPage: true });
     } catch (error) {
       problems.push(`error: ${String(error.message).split('\n')[0]}`);
     }
-    results.push({ route, ok: problems.length === 0, problems });
+    results.push({ route, ok: problems.length === 0, problems, clipped: clipList });
     await context.close();
   }
   return results;

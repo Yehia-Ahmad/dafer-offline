@@ -13,6 +13,7 @@ import { ShopProfileService } from '../shop-profile/services/shop-profile.servic
 import { PwaBarComponent } from './pwa-bar.component';
 import { activeTabKey, hidesTabBar, isRootScreen, visibleTabs } from './mobile-tabs';
 import { hasInAppHistory, parentRoute } from './mobile-parent';
+import { MobileTopBarService } from './mobile-topbar.service';
 
 /**
  * Online Stage 6A: the phone layout around the same routes (MobNav + MobTop). Replaces the sidebar frame below 768 px; the pages
@@ -34,7 +35,10 @@ import { hasInAppHistory, parentRoute } from './mobile-parent';
             stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
         </button>
         <div class="m-top__titles">
-          @if (titleKey()) { <span class="m-top__title">{{ titleKey()! | translate }}</span> }
+          @if (topbar.state(); as bar) {
+            <span class="m-top__title" data-testid="m-title">{{ bar.title }}</span>
+            @if (bar.subtitle) { <span class="m-top__subtitle">{{ bar.subtitle }}</span> }
+          } @else if (titleKey()) { <span class="m-top__title" data-testid="m-title">{{ titleKey()! | translate }}</span> }
         </div>
       </header>
     }
@@ -64,6 +68,7 @@ export class MobileShellComponent implements OnInit {
   private readonly catalog = inject(CatalogStateService);
   private readonly shop = inject(ShopProfileService);
   protected readonly orders = inject(OrdersNotifierService);
+  protected readonly topbar = inject(MobileTopBarService);
 
   private readonly url = toSignal(
     this.router.events.pipe(filter((event) => event instanceof NavigationEnd), map(() => this.router.url)),
@@ -102,6 +107,7 @@ export class MobileShellComponent implements OnInit {
 
   /** Online Stage 6B: back goes to the logical parent (list ← detail ← edit) when the page was opened directly (link, notification, reload). */
   protected back(): void {
+    if (this.topbar.handleBack()) return; // the screen closed its own detail view
     if (hasInAppHistory(this.location.getState())) { this.location.back(); return; }
     void this.router.navigateByUrl(parentRoute(this.router.url) ?? '/home');
   }

@@ -1,4 +1,75 @@
 @if (layout.isMobile()) {
+<!-- Online Stage 6B (phone): the title is in the top bar. The whole card opens the statement; edit / delete live in the ⋯ menu (delete asks first, in a red sheet). -->
+@if (selected(); as supplier) {
+  <div class="m-page" style="padding-top:12px">
+    <div style="display:flex;justify-content:flex-end"><button type="button" class="m-more" (click)="menuRow.set(supplier)" [attr.aria-label]="'mobile.b.common.moreActions' | translate" data-testid="m-supplier-menu">⋯</button></div>
+    <app-supplier-statement [supplier]="supplier" [refreshKey]="refreshKey()" (pay)="payOpen.set(true)" />
+    @if (lastPayment) {
+      <div class="m-card" role="status" data-test="last-payment">
+        <b dir="ltr">{{ lastPayment.number }}</b>
+        <div class="m-note" style="padding:4px 0 0">{{ 'mobile.common.desktopPrint' | translate }}</div>
+      </div>
+    }
+  </div>
+  <app-supplier-payment-dialog [(visible)]="payOpen" [supplier]="supplier" (done)="paid($event)" />
+} @else {
+  <form class="m-search" style="margin-top:12px" (ngSubmit)="load()">
+    <input class="m-input" type="search" name="search" [(ngModel)]="search" [attr.aria-label]="'suppliers.searchLabel' | translate" [placeholder]="'suppliers.searchPlaceholder' | translate" data-test="supplier-search" />
+  </form>
+  @if (deleteError()) {
+    <p class="nota-error m-note" role="alert" data-test="delete-error">{{ deleteError() | translate }}</p>
+  }
+  <div class="m-page">
+    @if (loading()) {
+      <div class="m-skel m-skel-row" role="status" [attr.aria-label]="'suppliers.loading' | translate"></div>
+      <div class="m-skel m-skel-row"></div>
+      <div class="m-skel m-skel-row"></div>
+    } @else if (loadError()) {
+      <div class="m-card m-empty">
+        <span class="nota-error">{{ 'suppliers.loadFailed' | translate }}</span>
+        <button type="button" class="m-btn" (click)="load()">{{ 'suppliers.retry' | translate }}</button>
+      </div>
+    } @else {
+      <div class="m-card m-card--flush">
+        @for (row of suppliers(); track row._id) {
+          <div class="m-row m-stretch-host" [attr.data-supplier]="row.name" [class.m-muted]="!row.isActive">
+            <span class="m-avatar">{{ row.name.charAt(0) || '؟' }}</span>
+            <button type="button" class="m-row__open m-stretch" data-action="statement" (click)="select(row)">
+              <span class="m-row__title" style="display:block" dir="auto">{{ row.name }}</span>
+              <span class="m-row__sub" dir="ltr" style="display:block;text-align:start">{{ row.phones.join(' · ') }}</span>
+            </button>
+            <span class="m-row__end">
+              @let shown = display(row) | notaBalance;
+              <span class="nota-num" [class.sp__warn]="shown.warning" data-test="supplier-balance">{{ shown.abs | notaMoney }} {{ 'cashbox.currency' | translate }}</span>
+              <span class="m-row__sub" style="display:block">{{ (shown.side === 'credit' ? 'suppliers.weOwe' : 'suppliers.theyOwe') | translate }}</span>
+            </span>
+            <button type="button" class="m-more" (click)="menuRow.set(row)" [attr.aria-label]="'mobile.b.common.moreActions' | translate" data-testid="m-supplier-menu">⋯</button>
+          </div>
+        } @empty {
+          <div class="m-empty" data-test="empty">{{ 'suppliers.empty' | translate }}</div>
+        }
+      </div>
+    }
+  </div>
+  <a *notaCan="'suppliers.manage'" class="m-fab" routerLink="/suppliers/new" data-action="new-supplier">+ {{ 'suppliers.newSupplier' | translate }}</a>
+}
+<nota-mob-sheet [open]="menuRow() !== null" (openChange)="$event || menuRow.set(null)" [title]="menuRow()?.name ?? ''">
+  @if (menuRow(); as row) {
+    <div class="m-menu">
+      <button type="button" class="m-row" data-action="statement" (click)="select(row); menuRow.set(null)">{{ 'suppliers.statement.open' | translate }}</button>
+      @if (row.ledgerAccountId) {
+        <a class="m-row" [routerLink]="['/accounting/accounts', row.ledgerAccountId, 'ledger']" [queryParams]="{ partyId: row._id }" data-action="ledger" (click)="menuRow.set(null)">{{ 'suppliers.ledger' | translate }}</a>
+      }
+      <button *notaCan="'suppliers.manage'" type="button" class="m-row" data-action="edit" (click)="edit(row); menuRow.set(null)">{{ 'suppliers.edit' | translate }}</button>
+      <button *notaCan="'suppliers.manage'" type="button" class="m-row m-row--danger" data-action="delete" (click)="confirmRow.set(row); menuRow.set(null)">{{ 'suppliers.delete' | translate }}</button>
+    </div>
+  }
+</nota-mob-sheet>
+<nota-mob-confirm [open]="confirmRow() !== null" (openChange)="$event || confirmRow.set(null)"
+  [title]="'suppliers.delete' | translate" [message]="'mobile.b.suppliers.deleteConfirm' | translate: { name: confirmRow()?.name }"
+  [confirmLabel]="'suppliers.delete' | translate" (confirmed)="remove(confirmRow()!)" />
+} @else {
+@if (layout.isMobile()) {
 <!-- Online Stage 6B (phone): the same list, search, statement, payment and delete as cards. Cards instead of the table; every action is the desktop one. -->
 @if (selected(); as supplier) {
   <header class="m-head">
@@ -165,4 +236,5 @@
     <app-supplier-payment-dialog [(visible)]="payOpen" [supplier]="supplier" (done)="paid($event)" />
   }
 </div>
+}
 }

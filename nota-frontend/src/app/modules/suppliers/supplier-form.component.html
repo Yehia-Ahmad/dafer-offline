@@ -1,3 +1,69 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone): the same form and save; the title is in the top bar; fields in cards with section titles; the VAT checkbox is a switch on the same control; sticky إلغاء / حفظ bar. -->
+@if (loadError()) {
+  <p class="nota-error m-note" role="alert" data-test="load-error">{{ 'suppliers.loadFailed' | translate }}</p>
+}
+<form class="m-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+  <div class="m-section-label">{{ 'mobile.b.supplierForm.basics' | translate }}</div>
+  <div class="m-card">
+    <label class="m-field">{{ 'suppliers.form.name' | translate }} *
+      <input id="supplierName" class="m-input" formControlName="name" autocomplete="off" />
+      @if (submitted() && form.controls.name.invalid) { <span class="nota-error">{{ 'suppliers.form.nameRequired' | translate }}</span> }
+    </label>
+    <label class="m-field">{{ 'suppliers.form.contactPerson' | translate }}
+      <input id="supplierContact" class="m-input" formControlName="contactPerson" autocomplete="off" />
+    </label>
+    <label class="m-field">{{ 'suppliers.form.phone' | translate }}
+      <input id="supplierPhone" class="m-input" dir="ltr" formControlName="phone" inputmode="tel" autocomplete="off" />
+    </label>
+    <label class="m-field">{{ 'suppliers.form.address' | translate }}
+      <input id="supplierAddress" class="m-input" formControlName="address" autocomplete="off" />
+    </label>
+  </div>
+  <div class="m-section-label">{{ 'mobile.b.supplierForm.supply' | translate }}</div>
+  <div class="m-card">
+    <label class="m-field">{{ 'suppliers.form.supplies' | translate }}
+      <input id="supplierSupplies" class="m-input" formControlName="supplies" autocomplete="off" />
+    </label>
+    <label class="m-field">{{ 'suppliers.form.taxNumber' | translate }}
+      <input id="supplierTax" class="m-input" dir="ltr" formControlName="taxNumber" autocomplete="off" />
+    </label>
+    <label class="m-switch" data-test="supplier-vat-registered">{{ 'vat.supplier.registered' | translate }}<input type="checkbox" formControlName="vatRegistered" /></label>
+  </div>
+  <div class="m-section-label">{{ 'mobile.b.supplierForm.terms' | translate }}</div>
+  <div class="m-card">
+    <label class="m-field">{{ 'suppliers.form.terms' | translate }}
+      <select id="supplierTerms" class="m-input" formControlName="termsChoice">
+        <option value="none">{{ 'suppliers.form.termsNone' | translate }}</option>
+        <option value="cash">{{ 'suppliers.termsCash' | translate }}</option>
+        <option value="30">{{ 'suppliers.termsDays' | translate: { days: 30 } }}</option>
+        <option value="60">{{ 'suppliers.termsDays' | translate: { days: 60 } }}</option>
+        <option value="custom">{{ 'suppliers.form.termsCustom' | translate }}</option>
+      </select>
+    </label>
+    @if (form.controls.termsChoice.value === 'custom') {
+      <label class="m-field">{{ 'suppliers.form.termsDays' | translate }}
+        <input id="supplierTermsCustom" class="m-input" type="number" inputmode="numeric" min="0" step="1" formControlName="termsCustom" />
+        @if (submitted() && form.controls.termsCustom.value === null) { <span class="nota-error">{{ 'suppliers.form.termsInvalid' | translate }}</span> }
+      </label>
+    }
+  </div>
+  <div class="m-section-label">{{ 'suppliers.form.notes' | translate }}</div>
+  <div class="m-card">
+    <label class="m-field">
+      <textarea id="supplierNotes" class="m-input" rows="3" formControlName="notes"></textarea>
+      <span class="m-note" style="padding:0">{{ 'suppliers.form.balanceHint' | translate }}</span>
+    </label>
+  </div>
+  @if (saveError()) {
+    <p class="nota-error" role="alert" data-test="save-error">{{ saveError() | translate }}</p>
+  }
+  <div class="m-actions">
+    <button type="button" class="m-btn" (click)="cancel()">{{ 'suppliers.form.cancel' | translate }}</button>
+    <button type="submit" class="m-btn m-btn--primary" [disabled]="saving()" data-action="save">{{ 'suppliers.form.save' | translate }}</button>
+  </div>
+</form>
+} @else {
 <!-- Stage 18: AddSupplier.dc.html. Only the name is required. -->
 <div class="sf">
   <nota-page-header [title]="(supplierId ? 'suppliers.form.editTitle' : 'suppliers.form.newTitle') | translate" backLink="/suppliers" [backLabel]="'suppliers.title' | translate" />
@@ -59,3 +125,4 @@
     </div>
   </form>
 </div>
+}

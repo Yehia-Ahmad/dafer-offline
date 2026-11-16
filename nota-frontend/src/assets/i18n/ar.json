@@ -2747,8 +2747,17 @@
       "backToList": "رجوع للموردين",
       "deleteConfirm": "حذف المورد «{{name}}»؟"
     },
+    "common": {
+      "moreActions": "المزيد من الإجراءات"
+    },
+    "supplierForm": {
+      "basics": "البيانات الأساسية",
+      "supply": "التوريد والضريبة",
+      "terms": "شروط الدفع"
+    },
       "_end": 1
     },
+
 
     "common": {
       "apply": "تطبيق",

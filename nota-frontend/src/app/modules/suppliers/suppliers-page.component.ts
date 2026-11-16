@@ -12,7 +12,9 @@ import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-a
 import { PrintDataService } from '../../core/print/print-data.service';
 import { Supplier, SuppliersService } from './suppliers.service';
 import { LayoutService } from '../../core/layout/layout.service';
-import { MobConfirmComponent } from '../mobile/mob-sheet.component';
+import { MobConfirmComponent, MobSheetComponent } from '../mobile/mob-sheet.component';
+import { MobileTopBarService } from '../mobile/mobile-topbar.service';
+import { formatNotaNumber } from '../shared/ui';
 
 /**
  * Stage 18: the suppliers list (docs/design/screens/Suppliers.dc.html). The balance is the ledger party
@@ -22,7 +24,7 @@ import { MobConfirmComponent } from '../mobile/mob-sheet.component';
 @Component({
   selector: 'app-suppliers-page',
   standalone: true,
-  imports: [PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, SupplierStatementComponent, SupplierPaymentDialogComponent, MobConfirmComponent],
+  imports: [PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, SupplierStatementComponent, SupplierPaymentDialogComponent, MobConfirmComponent, MobSheetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './suppliers-page.component.html',
   styleUrl: './suppliers-page.component.scss',
@@ -36,6 +38,8 @@ export class SuppliersPageComponent implements OnInit {
   protected readonly layout = inject(LayoutService);
   /** Phone only (Online Stage 6B): the supplier the delete-confirmation sheet is asking about. */
   protected readonly confirmRow = signal<Supplier | null>(null);
+  /** Phone only: the ⋯ menu sheet of a supplier (statement / ledger / edit / delete). */
+  protected readonly menuRow = signal<Supplier | null>(null);
 
   readonly suppliers = signal<Supplier[]>([]);
   readonly loading = signal(true);
@@ -50,6 +54,15 @@ export class SuppliersPageComponent implements OnInit {
 
   /** What we owe all suppliers (the design's header figure). Only positive balances are debts. */
   readonly totalWeOwe = computed(() => Math.round(this.suppliers().reduce((sum, row) => sum + Math.max(0, row.balance), 0) * 100) / 100);
+
+  /** Phone only (Online Stage 6B): the top bar carries the page title; with a statement open, the supplier's name and back closes the statement. */
+  private readonly topBar = inject(MobileTopBarService);
+  private readonly bindTopBar = this.topBar.bind(() => {
+    if (!this.layout.isMobile()) return null;
+    const supplier = this.selected();
+    if (supplier) return { title: supplier.name, subtitle: this.translate.instant('suppliers.statement.open'), onBack: () => { this.selectedId.set(null); return true; } };
+    return { title: this.translate.instant('suppliers.title'), subtitle: this.translate.instant('suppliers.subtitle', { amount: formatNotaNumber(this.totalWeOwe(), this.translate.currentLang || 'ar', 'money') }) };
+  });
 
   ngOnInit(): void {
     // Stage 22: the balances report links a supplier's name here (?statement=<id>): that supplier's statement opens.

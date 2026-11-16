@@ -2747,8 +2747,17 @@
       "backToList": "Back to suppliers",
       "deleteConfirm": "Delete supplier \"{{name}}\"?"
     },
+    "common": {
+      "moreActions": "More actions"
+    },
+    "supplierForm": {
+      "basics": "Basics",
+      "supply": "Supply and tax",
+      "terms": "Payment terms"
+    },
       "_end": 1
     },
+
 
     "common": {
       "apply": "Apply",

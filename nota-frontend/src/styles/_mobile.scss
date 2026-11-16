@@ -311,3 +311,28 @@ html.dark .m-step.is-done::before { background: var(--brand); }
 .m-scroll { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
 .m-scroll table { display: table; min-width: 100%; }
 .m-scroll th:first-child, .m-scroll td:first-child { position: sticky; inset-inline-start: 0; background: var(--surface); z-index: 1; }
+
+// ---- Online Stage 6B, round 2: switches, whole-card links, menus, money colours -------------------------------------------------------
+.m-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; font-size: 14px; cursor: pointer; }
+.m-switch input { appearance: none; -webkit-appearance: none; flex: none; width: 46px; height: 28px; border-radius: 14px; margin: 0; position: relative;
+  background: var(--border-strong); transition: background 0.15s; cursor: pointer; }
+.m-switch input::after { content: ''; position: absolute; top: 3px; inset-inline-start: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: inset-inline-start 0.15s; }
+.m-switch input:checked { background: var(--brand); }
+.m-switch input:checked::after { inset-inline-start: 21px; }
+// A card whose whole area opens its item: the link stretches over the card; real buttons inside sit above it.
+.m-stretch-host { position: relative; }
+.m-stretch::after { content: ''; position: absolute; inset: 0; }
+.m-stretch-host .m-btn, .m-stretch-host .m-more, .m-stretch-host button, .m-stretch-host .m-above { position: relative; z-index: 1; }
+.m-more { width: 44px; height: 44px; flex: none; border: 0; background: transparent; color: var(--text-muted); font-size: 22px; line-height: 1; cursor: pointer; border-radius: 12px; }
+.m-menu { display: flex; flex-direction: column; }
+.m-menu .m-row { border-bottom: 1px solid var(--line); }
+.m-menu .m-row--danger { color: var(--danger-text); }
+.m-in { color: #15803D; } .m-out { color: #B91C1C; }
+html.dark .m-in { color: #4ADE80; } html.dark .m-out { color: #F87171; }
+.m-section-label { font-size: 12px; font-weight: 700; color: var(--text-muted); margin: 6px 4px 2px; }
+.m-form { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px calc(96px + env(safe-area-inset-bottom, 0px)); }
+.m-form .m-card { display: flex; flex-direction: column; gap: 12px; }
+.m-form .m-actions { position: fixed; inset-inline: 0; bottom: 0; z-index: 30; margin: 0; }
+.m-form .m-actions > :first-child { flex: 1; } .m-form .m-actions > :last-child { flex: 2; }
+
+.m-row__open { background: none; border: 0; padding: 0; text-align: start; font: inherit; color: inherit; flex: 1; min-width: 0; text-decoration: none; display: block; cursor: pointer; }
