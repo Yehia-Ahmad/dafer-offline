@@ -17,11 +17,12 @@ import { AUDIT_ACTIONS, AuditEntry, AuditService } from '../audit.service';
  */
 import { LayoutService } from '../../../core/layout/layout.service';
 import { FilterChip, MobFilterChipsComponent, MobFilterSheetComponent } from '../../mobile/mob-sheet.component';
+import { MobDateInputComponent } from '../../mobile/mob-date-input.component';
 
 @Component({
   selector: 'app-audit-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, FormsModule, TranslatePipe, DatePickerModule, SelectModule, NotaPageHeaderComponent, NotaFormFieldComponent,
+  imports: [MobDateInputComponent, DatePipe, FormsModule, TranslatePipe, DatePickerModule, SelectModule, NotaPageHeaderComponent, NotaFormFieldComponent,
     NotaButtonDirective, NotaNumberPipe, MobFilterChipsComponent, MobFilterSheetComponent],
   templateUrl: './audit-page.component.html',
   styleUrl: './audit-page.component.scss',

@@ -10,6 +10,7 @@ import { PurchasesService } from '../purchases/purchases.service';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaLockBannerComponent, NotaLockedDateDirective } from '../shared/ui';
 import { Supplier } from './suppliers.service';
 import { localDateKey } from '../../core/utilities/local-date';
+import { LayoutService } from '../../core/layout/layout.service';
 
 /**
  * Stage 20: "سداد دفعة لمورد" (docs/design/screens/SupplierPayment.dc.html). Shows what we owe now and after the payment,
@@ -22,6 +23,46 @@ import { localDateKey } from '../../core/utilities/local-date';
   imports: [NotaLockBannerComponent, NotaLockedDateDirective, FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, PaymentBoxSelectComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone), MobSupplierPay: the same payment dialog as a bottom sheet with phone fields. Same amount / box / date / reference / note and the same advance confirmation. -->
+    <p-dialog [visible]="visible()" (visibleChange)="visible.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
+      [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+      <nota-dialog-shell [title]="'supplierPay.title' | translate" [closeLabel]="'purchases.close' | translate" (closed)="cancel()">
+        @if (supplier(); as s) {
+          <p style="margin:0 0 8px;font-weight:800;font-size:16px" dir="auto" data-test="payment-supplier">{{ s.name }}</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+            <div class="m-card" style="padding:10px"><div class="m-row__sub">{{ 'supplierPay.owedNow' | translate }}</div><b class="nota-num" data-test="balance-now">{{ s.balance | notaMoney }}</b></div>
+            <div class="m-card" style="padding:10px"><div class="m-row__sub">{{ 'supplierPay.afterPayment' | translate }}</div><b class="nota-num" [class.m-in]="after() < 0" data-test="balance-after">{{ after() | notaMoney }}</b></div>
+          </div>
+          @if (after() < 0) { <p class="m-note" style="padding:0 0 8px" data-test="advance-note">{{ 'supplierPay.advanceNote' | translate: { amount: (-after() | notaMoney) } }}</p> }
+        }
+        <label class="m-field">{{ 'supplierPay.amount' | translate }} *
+          <input id="spdAmountM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="amountM" data-test="payment-amount" [ngModel]="amount()" (ngModelChange)="amount.set($event)" />
+        </label>
+        <nota-payment-box-select labelKey="supplierPay.fromBox" />
+        <label class="m-field" style="margin-top:12px">{{ 'supplierPay.date' | translate }}
+          <input id="spdDateM" class="m-input nota-num" type="date" notaLockedDate name="dateM" data-test="payment-date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+          <nota-lock-banner [selected]="date()" />
+        </label>
+        <label class="m-field">{{ 'supplierPay.reference' | translate }}
+          <input id="spdRefM" class="m-input" type="text" name="referenceM" maxlength="100" data-test="payment-reference" [ngModel]="reference()" (ngModelChange)="reference.set($event)" />
+        </label>
+        <label class="m-field">{{ 'supplierPay.note' | translate }}
+          <input id="spdNoteM" class="m-input" type="text" name="noteM" maxlength="500" data-test="payment-note" [ngModel]="note()" (ngModelChange)="note.set($event)" />
+        </label>
+        @if (isAdvance()) {
+          <label class="m-switch">{{ 'supplierPay.confirmAdvance' | translate }}<input type="checkbox" name="confirmAdvanceM" data-test="confirm-advance" [ngModel]="confirmAdvance()" (ngModelChange)="confirmAdvance.set($event)" /></label>
+        }
+        <p class="m-note" style="padding:0">{{ 'supplierPay.entryHint' | translate }}</p>
+        @if (error()) { <p class="nota-error" role="alert" data-test="payment-error">{{ error() | translate }}</p> }
+        <ng-container notaDialogFooter>
+          <button type="button" class="m-btn" (click)="cancel()">{{ 'purchases.cancelAction' | translate }}</button>
+          <button type="button" class="m-btn m-btn--primary" data-action="save-payment" [disabled]="!valid() || busy()" (click)="save()">{{ 'supplierPay.save' | translate }}</button>
+        </ng-container>
+      </nota-dialog-shell>
+    </p-dialog>
+} @else {
+
     <p-dialog [visible]="visible()" (visibleChange)="visible.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
       [draggable]="false" [resizable]="false" styleClass="nota-p-dialog spd-dialog">
       <nota-dialog-shell [title]="'supplierPay.title' | translate" [closeLabel]="'purchases.close' | translate" (closed)="cancel()">
@@ -60,6 +101,7 @@ import { localDateKey } from '../../core/utilities/local-date';
         </ng-container>
       </nota-dialog-shell>
     </p-dialog>
+  }
   `,
   styles: `
     .spd__name { margin: 0 0 8px; font-weight: 800; font-size: 16px; }
@@ -78,6 +120,7 @@ import { localDateKey } from '../../core/utilities/local-date';
 export class SupplierPaymentDialogComponent {
   /** Stage 22: a date inside a closed period cannot be submitted (the banner explains, the server refuses too). */
   private readonly lock = inject(LockDateService);
+  protected readonly layout = inject(LayoutService);
   private readonly service = inject(PurchasesService);
   private readonly paymentBox = inject(PaymentBoxService);
 

@@ -69,10 +69,10 @@
         <input id="invoiceIdM" class="m-input" dir="ltr" formControlName="invoiceId" autocomplete="off" />
       </label>
       <div class="m-field">{{ 'returnsPage.fields.dateFrom' | translate }}
-        <p-datepicker inputId="dateFromM" formControlName="dateFrom" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="rt__control" />
+        <nota-mob-date inputId="dateFromM" formControlName="dateFrom" />
       </div>
       <div class="m-field">{{ 'returnsPage.fields.dateTo' | translate }}
-        <p-datepicker inputId="dateToM" formControlName="dateTo" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="rt__control" />
+        <nota-mob-date inputId="dateToM" formControlName="dateTo" />
       </div>
     </form>
   </nota-mob-filter-sheet>
@@ -145,7 +145,7 @@
       } @else {
         <div class="m-card" style="display:flex;flex-direction:column;gap:12px">
           <div class="m-field">{{ 'returnsPage.fields.returnDate' | translate }} *
-            <p-datepicker inputId="rtWizDateM" [(ngModel)]="wizardDate" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="rt__control" [minDate]="lock.minOpenDate()" />
+            <nota-mob-date inputId="rtWizDateM" [(ngModel)]="wizardDate" [min]="lock.minOpenDate()" />
             <nota-lock-banner />
           </div>
           <label class="m-field">{{ 'returnsPage.fields.note' | translate }}

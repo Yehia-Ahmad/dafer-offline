@@ -80,7 +80,7 @@
             @if (paymentForm.get('amount')?.invalid && (paymentForm.get('amount')?.touched || paymentSubmitAttempted)) { <span class="nota-error">{{ 'customerDetailsPage.paymentDialog.amountRequired' | translate }}</span> }
           </div>
           <div class="m-field">{{ 'customerDetailsPage.paymentDialog.paymentDate' | translate }} *
-            <p-datepicker inputId="clDateM" formControlName="paymentDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" styleClass="cl__control" [minDate]="lock.minOpenDate()" />
+            <nota-mob-date inputId="clDateM" formControlName="paymentDate" [min]="lock.minOpenDate()" />
             <nota-lock-banner [selected]="paymentForm.controls.paymentDate.value" />
           </div>
           <label class="m-field">{{ 'customerDetailsPage.paymentDialog.note' | translate }}

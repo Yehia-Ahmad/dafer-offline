@@ -339,3 +339,22 @@ html.dark .m-in { color: #4ADE80; } html.dark .m-out { color: #F87171; }
 
 .m-field { min-width: 0; }
 .m-field input, .m-field select, .m-field textarea { max-width: 100%; }
+
+// ---- Online Stage 6B: a dialog as a full-screen page (MobAddCategory and the other add / edit pages that live in a dialog) --------------------
+@media (max-width: 767.98px) {
+  .p-dialog.nota-p-dialog.nota-p-dialog--full { width: 100vw !important; max-width: 100vw !important; height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; margin: 0 !important; display: flex; flex-direction: column; }
+  .p-dialog.nota-p-dialog--full .p-dialog-content { flex: 1; min-height: 0; padding: 0 !important; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+  .p-dialog-mask:has(> .nota-p-dialog--full) { align-items: stretch !important; }
+}
+.m-fullpage { display: flex; flex-direction: column; flex: 1; min-height: 0; height: 100%; }
+.m-fullpage__body { flex: 1; min-height: 0; overflow-y: auto; }
+.m-fullpage .m-actions { position: static; }
+
+// Online Stage 6B: the product form's own title / back link are replaced by the top bar on the phone (its action buttons stay).
+.m-shell .pf .nota-page-header__text { display: none; }
+// Online Stage 6B: checkboxes of the product form (a 6A CSS-only page) are switches on the phone, bound to the same controls.
+.m-shell .pf input[type='checkbox'] { appearance: none; -webkit-appearance: none; width: 46px; height: 28px; border-radius: 14px; margin: 0 0 0 8px; position: relative; vertical-align: middle;
+  background: var(--border-strong); transition: background 0.15s; cursor: pointer; }
+.m-shell .pf input[type='checkbox']::after { content: ''; position: absolute; top: 3px; inset-inline-start: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: inset-inline-start 0.15s; }
+.m-shell .pf input[type='checkbox']:checked { background: var(--brand); }
+.m-shell .pf input[type='checkbox']:checked::after { inset-inline-start: 21px; }

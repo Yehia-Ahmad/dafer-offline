@@ -30,8 +30,7 @@
       @if (isFieldInvalid('customerPhone')) { <span class="nota-error">{{ 'creditSalePage.form.required' | translate }}</span> }
     </label>
     <div class="m-field">{{ 'creditSalePage.fields.saleDate' | translate }} *
-      <p-datepicker formControlName="sellingDate" [showIcon]="true" [iconDisplay]="'input'" inputId="creditSaleDateM"
-        appendTo="body" styleClass="cs__control" [minDate]="lock.minOpenDate()" />
+      <nota-mob-date inputId="creditSaleDateM" formControlName="sellingDate" [min]="lock.minOpenDate()" />
       <nota-lock-banner />
     </div>
   </div>
@@ -134,7 +133,7 @@
       </div>
       @if ((creditSaleForm.get('downPayment')?.value || 0) > 0) { <nota-payment-box-select /> }
       <div class="m-field">{{ 'creditSalePage.form.dueDate' | translate }} ({{ 'creditSalePage.form.optional' | translate }})
-        <p-datepicker formControlName="dueDate" [showIcon]="true" [iconDisplay]="'input'" inputId="csDueDateM" appendTo="body" [showClear]="true" styleClass="cs__control" />
+        <nota-mob-date inputId="csDueDateM" formControlName="dueDate" />
       </div>
       <label class="m-field">{{ 'creditSalePage.form.notes' | translate }} ({{ 'creditSalePage.form.optional' | translate }})
         <input id="csNotesM" type="text" class="m-input" formControlName="notes" maxlength="1000" />

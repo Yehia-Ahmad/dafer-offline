@@ -17,6 +17,8 @@ import { hasMoneyPrecision } from '../shared/price-precision';
 import { PurchaseProduct } from './purchases.models';
 import { PurchasesService } from './purchases.service';
 import { localDateKey } from '../../core/utilities/local-date';
+import { LayoutService } from '../../core/layout/layout.service';
+import { MobBarComponent } from '../mobile/mob-sheet.component';
 
 interface Line {
   key: number;
@@ -33,9 +35,176 @@ interface Line {
 @Component({
   selector: 'app-purchase-form',
   standalone: true,
-  imports: [NotaLockBannerComponent, NotaLockedDateDirective, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, PaymentBoxSelectComponent],
+  imports: [NotaLockBannerComponent, NotaLockedDateDirective, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, PaymentBoxSelectComponent, MobBarComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone), the 6A POS pattern: supplier card, the invoice lines as cards (quantity and cost), totals, payment mode, and a sticky إلغاء / حفظ bar. Same signals, same purchase-math totals as desktop. -->
+    <nota-mob-bar [title]="'purchases.new.title' | translate" [hideTabs]="true" />
+    <div class="m-form">
+      <div class="m-section-label">{{ 'purchases.new.supplier' | translate }}</div>
+      <section class="m-card">
+        <label class="m-field">{{ 'purchases.new.supplier' | translate }} *
+          <select id="pfSupplierM" class="m-input" name="supplierM" data-test="supplier" [ngModel]="supplierId()" (ngModelChange)="supplierId.set($event)">
+            <option value="">—</option>
+            @for (row of suppliers(); track row._id) { <option [value]="row._id">{{ row.name }}</option> }
+          </select>
+        </label>
+        <label class="m-field">{{ 'purchases.new.supplierInvoiceNo' | translate }}
+          <input id="pfInvoiceNoM" class="m-input" type="text" name="invoiceNoM" maxlength="60" data-test="supplier-invoice-no" [ngModel]="supplierInvoiceNo()" (ngModelChange)="supplierInvoiceNo.set($event)" />
+        </label>
+        <label class="m-field">{{ 'purchases.new.date' | translate }}
+          <input id="pfDateM" class="m-input" type="date" notaLockedDate name="dateM" data-test="date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+          <nota-lock-banner [selected]="date()" />
+        </label>
+        @if (supplier(); as s) {
+          @let shown = balanceBefore() | notaBalance;
+          <p class="m-note" style="padding:0" data-test="balance-before">
+            {{ 'purchases.new.balanceBefore' | translate }}: <b class="nota-num">{{ shown.abs | notaMoney }} {{ 'suppliers.currency' | translate }}</b>
+            {{ (shown.side === 'credit' ? 'suppliers.weOwe' : 'suppliers.theyOwe') | translate }}
+          </p>
+        }
+      </section>
+
+      <div class="m-section-label">{{ 'purchases.new.item' | translate }}</div>
+      <section class="m-card">
+        <div style="display:flex;gap:8px">
+          <input class="m-input" style="flex:1;min-width:0" type="search" name="productSearchM" autocomplete="off" data-test="product-search"
+            [placeholder]="'purchases.new.searchProduct' | translate" [attr.aria-label]="'purchases.new.searchProduct' | translate"
+            [ngModel]="query()" (ngModelChange)="onQuery($event)" />
+          <button *notaCan="['products.manage', 'products.viewCost']" type="button" class="m-btn" data-action="new-product" (click)="toggleNewProduct()">+ {{ 'purchases.new.newProduct' | translate }}</button>
+        </div>
+        @if (results().length) {
+          <div class="m-card m-card--flush" data-test="product-results">
+            @for (p of results(); track p._id) {
+              <button type="button" class="m-row" data-action="add-product" (click)="addProduct(p)">
+                <span class="m-row__body"><span class="m-row__title" style="white-space:normal" dir="auto">{{ p.name }}</span><span class="m-row__sub" dir="ltr" style="text-align:start">{{ p.code }}</span></span>
+                <span class="m-row__end nota-num">{{ 'purchases.new.inStock' | translate: { count: p.inventoryCount } }}</span>
+              </button>
+            }
+          </div>
+        }
+        @if (newProductOpen()) {
+          <div class="m-card" style="background:var(--bg)" data-test="new-product-form">
+            <label class="m-field">{{ 'purchases.new.productName' | translate }} *
+              <input id="npNameM" class="m-input" name="npNameM" data-test="np-name" [ngModel]="np().name" (ngModelChange)="setNp('name', $event)" /></label>
+            <label class="m-field">{{ 'purchases.new.productCode' | translate }} *
+              <input id="npCodeM" class="m-input" name="npCodeM" data-test="np-code" [ngModel]="np().code" (ngModelChange)="setNp('code', $event)" /></label>
+            <label class="m-field">{{ 'purchases.new.productCategory' | translate }} *
+              <select id="npCategoryM" class="m-input" name="npCategoryM" data-test="np-category" [ngModel]="np().categoryId" (ngModelChange)="setNp('categoryId', $event)">
+                <option value="">—</option>
+                @for (c of categories(); track c._id) { <option [value]="c._id">{{ c.name }}</option> }
+              </select></label>
+            <label class="m-field">{{ 'purchases.new.productWholesale' | translate }} *
+              <input id="npWholesaleM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="npWholesaleM" data-test="np-wholesale" [ngModel]="np().wholesalePrice" (ngModelChange)="setNp('wholesalePrice', $event)" /></label>
+            <label class="m-field">{{ 'purchases.new.productRetail' | translate }} *
+              <input id="npRetailM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="npRetailM" data-test="np-retail" [ngModel]="np().retailPrice" (ngModelChange)="setNp('retailPrice', $event)" /></label>
+            @if (newProductError()) { <p class="nota-error" role="alert" data-test="np-error">{{ newProductError() | translate }}</p> }
+            <button type="button" class="m-btn m-btn--primary" data-action="create-product" [disabled]="!newProductValid() || busy()" (click)="createProduct()">{{ 'purchases.new.createProduct' | translate }}</button>
+          </div>
+        }
+
+        @for (row of lines(); track row.key; let i = $index) {
+          <div class="m-card" style="background:var(--bg)" [attr.data-line]="row.product.code">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+              <div style="min-width:0">
+                <div class="m-row__title" style="white-space:normal" dir="auto">{{ row.product.name }}</div>
+                <div class="m-row__sub" dir="ltr" style="text-align:start">{{ row.product.code }}</div>
+              </div>
+              <button type="button" class="m-more" data-action="remove-line" (click)="removeLine(row.key)" [attr.aria-label]="'purchases.new.noLines' | translate">×</button>
+            </div>
+            @if (hints()[i]; as hint) {
+              <div class="m-note" style="padding:4px 0;color:var(--brand)" data-test="new-cost">{{ 'purchases.new.newCost' | translate }} ≈ <span class="nota-num">{{ hint.newCost | notaMoney }}</span></div>
+              @if (hint.aboveRetail) { <div class="m-pill m-pill--warn" style="white-space:normal" role="alert" data-test="cost-warning">{{ 'purchases.new.costAboveRetail' | translate }}</div> }
+            }
+            <div style="display:flex;gap:10px;margin-top:8px">
+              <label class="m-field" style="margin:0;flex:1">{{ 'purchases.new.qty' | translate }}
+                <input class="m-input nota-num" type="number" inputmode="numeric" min="1" step="1" name="qtyM{{ row.key }}" data-test="qty" [ngModel]="row.qty" (ngModelChange)="setLine(row.key, 'qty', $event)" /></label>
+              <label class="m-field" style="margin:0;flex:1">{{ 'purchases.new.unitPrice' | translate }}
+                <input class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="priceM{{ row.key }}" [attr.aria-invalid]="hasMoneyPrecision(row.unitPrice) ? null : true" data-test="unit-price" [ngModel]="row.unitPrice" (ngModelChange)="setLine(row.key, 'unitPrice', $event)" /></label>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px">
+              <span class="m-row__sub nota-num" data-test="stock-after">{{ 'purchases.new.stockAfter' | translate }}: {{ stocks()[i].before }} ← <b>{{ stocks()[i].after }}</b></span>
+              <strong class="nota-num" data-test="line-total">{{ lineTotals()[i] | notaMoney }} {{ 'suppliers.currency' | translate }}</strong>
+            </div>
+          </div>
+        } @empty {
+          <p class="m-empty" style="padding:12px" data-test="no-lines">{{ 'purchases.new.noLines' | translate }}</p>
+        }
+
+        <details [open]="extrasOpen()" (toggle)="extrasOpen.set($any($event.target).open)">
+          <summary class="m-row" style="padding:8px 0" data-test="extras-toggle"><strong>{{ 'purchases.new.extras' | translate }}</strong></summary>
+          <label class="m-field">{{ 'purchases.new.discount' | translate }}
+            <input id="pfDiscountM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="discountM" data-test="discount" [ngModel]="discount()" (ngModelChange)="discount.set($event)" /></label>
+          <label class="m-field">{{ 'purchases.new.otherCosts' | translate }}
+            <input id="pfOtherM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="otherCostsM" data-test="other-costs" [ngModel]="otherCosts()" (ngModelChange)="otherCosts.set($event)" /></label>
+          <p class="m-note" style="padding:0">{{ 'purchases.new.extrasNote' | translate }}</p>
+        </details>
+        @if (vatContext(); as ctx) {
+          <div data-test="vat-block" style="display:flex;flex-direction:column;gap:10px">
+            <label class="m-switch">{{ 'vat.purchase.registered' | translate }}<input type="checkbox" name="vatRegisteredM" data-test="vat-registered" [ngModel]="vatRegistered()" (ngModelChange)="setVatRegistered($event)" /></label>
+            @if (vatRegistered()) {
+              <label class="m-field">{{ 'vat.purchase.amount' | translate: { rate: ctx.rate } }}
+                <input id="pfVatM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="vatAmountM" data-test="vat-amount" [ngModel]="vatAmount()" (ngModelChange)="setVatAmount($event)" />
+                <span class="m-note" style="padding:0">{{ 'vat.purchase.amountHint' | translate }}</span>
+                @if (vatInvalid()) { <span class="nota-error">{{ 'vat.purchase.invalid' | translate }}</span> }
+              </label>
+            }
+            <div class="m-card m-card--flush">
+              <div class="m-row"><span class="m-row__body">{{ 'vat.totals.net' | translate }}</span><b class="nota-num" data-test="net">{{ allocation().total | notaMoney }}</b></div>
+              <div class="m-row"><span class="m-row__body">{{ 'vat.purchase.input' | translate }}</span><b class="nota-num" data-test="vat">{{ vatAmount() | notaMoney }}</b></div>
+            </div>
+          </div>
+        }
+        <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:10px;font-size:18px;font-weight:800">
+          <span>{{ 'purchases.new.total' | translate }}</span><b class="nota-num" data-test="total">{{ grandTotal() | notaMoney }} {{ 'suppliers.currency' | translate }}</b>
+        </div>
+      </section>
+
+      <div class="m-section-label">{{ 'purchases.new.payment' | translate }}</div>
+      <section class="m-card">
+        <div class="m-chips" style="padding:0" role="radiogroup" [attr.aria-label]="'purchases.new.payment' | translate">
+          @for (m of modes; track m) {
+            <button type="button" class="m-chip" role="radio" [attr.aria-checked]="mode() === m" [class.is-active]="mode() === m"
+              [disabled]="m !== 'all_credit' && !canPay()" [attr.data-mode]="m" (click)="setMode(m)">{{ 'purchases.new.modes.' + m | translate }}</button>
+          }
+        </div>
+        @if (!canPay()) { <p class="m-note" style="padding:0" data-test="credit-only">{{ 'purchases.new.creditOnly' | translate }}</p> }
+        @if (mode() === 'part_cash') {
+          <label class="m-field">{{ 'purchases.new.paid' | translate }} *
+            <input id="pfPaidM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="paidM" data-test="paid" [ngModel]="paidInput()" (ngModelChange)="paidInput.set($event)" />
+            @if (paidInvalid()) { <span class="nota-error">{{ 'purchases.errors.paidRange' | translate }}</span> }
+          </label>
+        }
+        @if (paid() > 0) { <nota-payment-box-select labelKey="purchases.new.fromBox" /> }
+        <p class="m-note" style="padding:0" data-test="remaining">{{ 'purchases.new.remaining' | translate }}: <b class="nota-num">{{ remaining() | notaMoney }}</b> {{ 'suppliers.currency' | translate }}</p>
+        @if (supplier()) {
+          @let after = balanceAfter() | notaBalance;
+          <p class="m-note" style="padding:0" data-test="balance-after">{{ 'purchases.new.balanceAfter' | translate }}: <b class="nota-num">{{ after.abs | notaMoney }} {{ 'suppliers.currency' | translate }}</b>
+            {{ (after.side === 'credit' ? 'suppliers.weOwe' : 'suppliers.theyOwe') | translate }}</p>
+        }
+      </section>
+
+      @if (preview().length) {
+        <div class="m-section-label">{{ 'purchases.new.journalTitle' | translate }}</div>
+        <section class="m-card m-card--flush" data-test="journal-preview">
+          @for (row of preview(); track $index) {
+            <div class="m-row"><span class="m-row__body" style="white-space:normal">{{ (row.side === 'debit' ? 'purchases.new.from' : 'purchases.new.to') | translate }} {{ accountName(row.account) }}</span>
+              <span class="nota-num">{{ row.amount | notaMoney }} {{ (row.side === 'debit' ? 'purchases.new.debit' : 'purchases.new.credit') | translate }}</span></div>
+          }
+        </section>
+      }
+
+      @if (priceDecimalsInvalid()) { <p class="nota-error" role="alert" data-test="price-decimals">{{ 'vat.priceDecimals' | translate }}</p> }
+      @if (vatChanged(); as changed) { <p class="nota-error" role="alert" data-test="vat-changed">{{ 'vat.purchaseChanged' | translate: { current: (changed.current | notaMoney), expected: (changed.expected | notaMoney) } }}</p> }
+      @if (error()) { <p class="nota-error" role="alert" data-test="save-error">{{ error() | translate }}</p> }
+      <div class="m-actions">
+        <a class="m-btn" routerLink="/purchases" data-action="back">{{ 'suppliers.form.cancel' | translate }}</a>
+        <button type="button" class="m-btn m-btn--primary" data-action="save-purchase" [disabled]="!valid() || busy()" (click)="save()">{{ (busy() ? 'purchases.new.saving' : 'purchases.new.save') | translate }}</button>
+      </div>
+    </div>
+} @else {
+
     <div class="pf">
       <nota-page-header [title]="'purchases.new.title' | translate" [subtitle]="'purchases.new.subtitle' | translate">
         <div notaPageActions><a notaButton routerLink="/purchases" data-action="back">{{ 'purchases.title' | translate }}</a></div>
@@ -216,6 +385,7 @@ interface Line {
         }
       </div>
     </div>
+  }
   `,
   styles: `
     .pf { display: flex; flex-direction: column; gap: 16px; }
@@ -259,6 +429,7 @@ interface Line {
 export class PurchaseFormComponent implements OnInit {
   /** Stage 22: a date inside a closed period cannot be submitted (the banner explains, the server refuses too). */
   private readonly lock = inject(LockDateService);
+  protected readonly layout = inject(LayoutService);
   private readonly service = inject(PurchasesService);
   private readonly suppliersService = inject(SuppliersService);
   private readonly router = inject(Router);

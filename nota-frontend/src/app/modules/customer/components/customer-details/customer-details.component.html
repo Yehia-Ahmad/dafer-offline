@@ -257,7 +257,7 @@
         <p-inputNumber inputId="cdPayAmount" formControlName="amount" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cd__control" inputStyleClass="cd__num-input" />
       </nota-form-field>
       <nota-form-field [label]="'customerDetailsPage.paymentDialog.paymentDate' | translate" forId="cdPayDate" [required]="true">
-        <p-datepicker inputId="cdPayDate" formControlName="paymentDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" styleClass="cd__control" [minDate]="lock.minOpenDate()" />
+        <nota-mob-date inputId="cdPayDate" formControlName="paymentDate" [min]="lock.minOpenDate()" />
         <nota-lock-banner />
       </nota-form-field>
       <nota-form-field [label]="'customerDetailsPage.paymentDialog.note' | translate" forId="cdPayNote">
@@ -322,7 +322,7 @@
     </div>
     <form [formGroup]="refundForm" (ngSubmit)="saveRefund()" novalidate>
       <div class="m-field">{{ 'customerDetailsPage.refundDialog.refundDate' | translate }} *
-        <p-datepicker inputId="cdRefundDateM" formControlName="refundDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" styleClass="cd__control" [minDate]="lock.minOpenDate()" />
+        <nota-mob-date inputId="cdRefundDateM" formControlName="refundDate" [min]="lock.minOpenDate()" />
         <nota-lock-banner />
       </div>
       <label class="m-field">{{ 'customerDetailsPage.refundDialog.note' | translate }}

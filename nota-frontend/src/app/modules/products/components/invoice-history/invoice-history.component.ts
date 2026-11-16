@@ -4,6 +4,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { ProductsService } from '../../services/products.service';
 import { LayoutService } from '../../../../core/layout/layout.service';
 import { FilterChip, MobFilterChipsComponent, MobFilterSheetComponent, MobSheetComponent } from '../../../mobile/mob-sheet.component';
+import { MobDateInputComponent } from '../../../mobile/mob-date-input.component';
 import { MobDatePipe, formatMobDate } from '../../../mobile/mob-date.pipe';
 import { mobilePillClass } from '../../../mobile/mobile-utils';
 import { FormsModule } from '@angular/forms';
@@ -70,7 +71,7 @@ const DEFAULT_SELLINGS_PAGINATION: SellingsPagination = {
 @Component({
   selector: 'app-invoice-history',
   standalone: true,
-  imports: [ReturnPrintBannerComponent, PrintActionsComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
+  imports: [MobDateInputComponent, ReturnPrintBannerComponent, PrintActionsComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
     CommonModule,
     FormsModule,
     TranslatePipe,

@@ -13,7 +13,21 @@ const head = (rel) => execSync(`git show ${BASE}:${rel}`, { cwd: root, maxBuffer
 const norm = (text) => text.replace(/\r\n/g, '\n');
 
 let bad = 0; let checked = 0;
+// A template that was already phone-aware before 6B (Stage 6A wrapped some pages): its desktop body is the text after the first
+// top-level "} @else {" line; 6B may only change the phone branch of it.
+const elseBody = (text) => {
+  const t = norm(text);
+  const m = /^\} @else \{\n/m.exec(t);
+  return m ? t.slice(m.index + m[0].length).replace(/\n+\}?\s*$/, '') : null;
+};
 function expectBranch(rel, current, original) {
+  if (norm(original).includes('@if (layout.isMobile()) {')) {
+    checked++;
+    const a = elseBody(original); const b = elseBody(current);
+    if (a === null || b === null || a !== b) { bad++; console.log(`DIFFERENT  ${rel}: the desktop (@else) body of this already phone-aware template changed`); }
+    else console.log(`identical  ${rel} (desktop body of a 6A phone-aware template)`);
+    return true;
+  }
   const open = '@if (layout.isMobile()) {';
   if (!current.includes(open)) return false; // not converted
   const body = norm(original).replace(/\n+$/, '');

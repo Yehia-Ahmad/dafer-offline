@@ -38,9 +38,9 @@
 </div>
 <nota-mob-filter-sheet [(open)]="filtersOpen" [title]="'mobile.common.filters' | translate" (apply)="search()" (clear)="reset()">
   <div class="m-field">{{ 'audit.filters.from' | translate }}
-    <p-datepicker inputId="apFromM" name="fromM" [(ngModel)]="dateFrom" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="ap__control" /></div>
+    <nota-mob-date inputId="apFromM" [(ngModel)]="dateFrom" name="fromM" /></div>
   <div class="m-field">{{ 'audit.filters.to' | translate }}
-    <p-datepicker inputId="apToM" name="toM" [(ngModel)]="dateTo" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="ap__control" /></div>
+    <nota-mob-date inputId="apToM" [(ngModel)]="dateTo" name="toM" /></div>
   <div class="m-field">{{ 'audit.filters.user' | translate }}
     <p-select inputId="apUserM" name="userM" [options]="userOptions()" optionLabel="label" optionValue="value" [(ngModel)]="userId"
       [showClear]="true" [placeholder]="'audit.filters.allUsers' | translate" appendTo="body" styleClass="ap__control" /></div>

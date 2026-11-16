@@ -136,12 +136,13 @@ class ReturnsPaginatorIntl extends MatPaginatorIntl {
 
 import { LayoutService } from '../../../../core/layout/layout.service';
 import { FilterChip, MobBarComponent, MobFilterChipsComponent, MobFilterSheetComponent } from '../../../mobile/mob-sheet.component';
+import { MobDateInputComponent } from '../../../mobile/mob-date-input.component';
 import { MobDatePipe, formatMobDate } from '../../../mobile/mob-date.pipe';
 
 @Component({
   selector: 'app-returns',
   standalone: true,
-  imports: [MobBarComponent, MobFilterSheetComponent, MobFilterChipsComponent, MobDatePipe, PrintActionsComponent, ReturnPrintBannerComponent, NotaLockBannerComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
+  imports: [MobDateInputComponent, MobBarComponent, MobFilterSheetComponent, MobFilterChipsComponent, MobDatePipe, PrintActionsComponent, ReturnPrintBannerComponent, NotaLockBannerComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
     CommonModule,
     TranslatePipe,
     ReactiveFormsModule,

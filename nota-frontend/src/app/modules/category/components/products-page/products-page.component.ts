@@ -8,6 +8,7 @@ import {
   ElementRef,
   computed,
   inject,
+  signal,
   OnDestroy,
   OnInit,
   PLATFORM_ID,
@@ -37,6 +38,7 @@ import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { LayoutService } from '../../../../core/layout/layout.service';
 import { initialOf, mobilePillClass } from '../../../mobile/mobile-utils';
+import { MobSheetComponent } from '../../../mobile/mob-sheet.component';
 
 /** Low stock when inventoryCount <= the product's lowStockThreshold, or this default (same as the backend). */
 export const LOW_STOCK_THRESHOLD = 5;
@@ -58,7 +60,7 @@ export function stockThreshold(product: { lowStockThreshold?: unknown } | null |
   selector: 'app-products-page',
   standalone: true,
   imports: [PrintActionsComponent, CommonModule, FormsModule, RouterLink, TranslatePipe, DialogModule, NotaButtonDirective, NotaDialogShellComponent,
-    NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, CategoryToolsComponent, NotaCanDirective],
+    NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, CategoryToolsComponent, NotaCanDirective, MobSheetComponent],
   templateUrl: './products-page.component.html',
   styleUrl: './products-page.component.scss',
 })
@@ -90,6 +92,18 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
   private scrollSentinel?: ElementRef<HTMLElement>;
 
   readonly tools = viewChild(CategoryToolsComponent);
+  /** Phone only (Online Stage 6B): the "إدارة الفئات" sheet. */
+  protected readonly manageOpen = signal(false);
+
+  protected editFromSheet(category: SidebarCategory): void {
+    this.manageOpen.set(false);
+    this.openEditCategory(category);
+  }
+
+  protected newFromSheet(): void {
+    this.manageOpen.set(false);
+    this.openAddCategory();
+  }
   readonly categories = this._catalog.categories;
   readonly lowStockThreshold = LOW_STOCK_THRESHOLD;
   /** "كل الأصناف" count: sum of the categories' productCount, when the API sent them. */

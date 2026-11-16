@@ -58,7 +58,7 @@
     <input id="ihPhoneM" type="tel" inputmode="tel" class="m-input" dir="ltr" [(ngModel)]="filterCustomerPhone" (keyup.enter)="applyFilters(); filtersOpen.set(false)" [placeholder]="'invoiceHistoryPage.filters.placeholders.customerPhone' | translate" />
   </label>
   <div class="m-field">{{ 'invoiceHistoryPage.filters.sellingDate' | translate }}
-    <p-datepicker [(ngModel)]="filterSellingDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" inputId="invoiceHistorySellingDateM" styleClass="ih__control" />
+    <nota-mob-date inputId="invoiceHistorySellingDateM" [(ngModel)]="filterSellingDate" />
   </div>
 </nota-mob-filter-sheet>
 
@@ -150,7 +150,7 @@
   <nota-dialog-shell [title]="'invoiceHistoryPage.returnDialog.title' | translate" [closeLabel]="'actions.cancelButton' | translate" (closed)="closeReturnDialog()">
     <p class="m-muted">{{ 'invoiceHistoryPage.returnDialog.subtitle' | translate }}</p>
     <div class="m-field">{{ 'invoiceHistoryPage.returnDialog.returnDate' | translate }}
-      <p-datepicker inputId="cashReturnDateM" [(ngModel)]="cashReturnDate" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="ih__control" [minDate]="lock.minOpenDate()" />
+      <nota-mob-date inputId="cashReturnDateM" [(ngModel)]="cashReturnDate" [min]="lock.minOpenDate()" />
       <nota-lock-banner [selected]="cashReturnDate" />
     </div>
     <label class="m-field">{{ 'invoiceHistoryPage.returnDialog.note' | translate }}

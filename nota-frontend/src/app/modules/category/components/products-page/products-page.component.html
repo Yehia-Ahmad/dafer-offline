@@ -9,6 +9,7 @@
   </header>
   <div class="m-search"><input class="m-input" type="search" [placeholder]="'mobile.stock.search' | translate" [(ngModel)]="searchTerm" data-testid="m-stock-search" /></div>
   <div class="m-chips" data-testid="m-stock-chips">
+    <button *notaCan="'categories.manage'" type="button" class="m-chip" data-action="manage-categories" (click)="manageOpen.set(true)">{{ 'mobile.b.stock.manageCategories' | translate }}</button>
     <a class="m-chip" [class.is-active]="isAllProducts" [routerLink]="['/products']">{{ 'productsPage.allProducts' | translate }}</a>
     @for (category of categories(); track category.id) {
       <a class="m-chip" [class.is-active]="category.id === categoryId" [routerLink]="['/products']" [queryParams]="{ category: category.id }">{{ category.label }}</a>
@@ -50,6 +51,35 @@
   <button *notaCan="['products.manage', 'products.viewCost']" type="button" class="m-fab" data-action="new-product" (click)="newProduct()" [disabled]="!categories().length">
     + {{ 'mobile.stock.newProduct' | translate }}
   </button>
+  <!-- Online Stage 6B: category management (the same tools and dialogs; the dialogs are hosted by app-category-tools). -->
+  <input #phoneImport type="file" hidden accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" (change)="tools()?.onCategoryImportSelected($event)" />
+  <nota-mob-sheet [(open)]="manageOpen" [title]="'mobile.b.stock.manageCategories' | translate">
+    <div class="m-menu">
+      <button *notaCan="'categories.manage'" type="button" class="m-row" data-action="add-category" (click)="newFromSheet()">+ {{ 'sidebarTitles.add_new_category' | translate }}</button>
+      <button *notaCan="['products.importExport', 'categories.manage']" type="button" class="m-row" data-action="import-categories" (click)="phoneImport.click()" [disabled]="tools()?.isImportingCategories()">{{ 'category.importExport.import' | translate }}</button>
+      <button *notaCan="['products.importExport', 'products.viewCost']" type="button" class="m-row" data-action="export-categories" (click)="tools()?.exportCategories()" [disabled]="tools()?.isExportingCategories()">{{ 'category.importExport.export' | translate }}</button>
+      <button *notaCan="['products.importExport', 'categories.manage']" type="button" class="m-row" data-action="category-template" (click)="tools()?.downloadCategoriesTemplate()" [disabled]="tools()?.isGeneratingCategoryTemplate()">{{ 'category.importExport.template' | translate }}</button>
+      @if (tools()?.hasProducts()) {
+        <button *notaCan="['products.importExport', 'products.viewCost']" type="button" class="m-row" data-action="export-products" (click)="tools()?.exportProductsExcel()" [disabled]="tools()?.isExportingProducts()">{{ 'sidebarTitles.export_products' | translate }}</button>
+      }
+    </div>
+    <div class="m-section-label">{{ 'productsPage.categories' | translate }}</div>
+    <div class="m-card m-card--flush">
+      @for (category of categories(); track category.id) {
+        <button *notaCan="'categories.manage'; else plainCategory" type="button" class="m-row" (click)="editFromSheet(category)" data-test="manage-category">
+          <span class="m-avatar">{{ initial(category.label) }}</span>
+          <span class="m-row__body"><span class="m-row__title" dir="auto">{{ category.label }}</span></span>
+          @if (category.productCount !== undefined) { <span class="m-row__end nota-num">{{ category.productCount | notaNumber }}</span> }
+        </button>
+        <ng-template #plainCategory>
+          <div class="m-row"><span class="m-avatar">{{ initial(category.label) }}</span><span class="m-row__body"><span class="m-row__title" dir="auto">{{ category.label }}</span></span></div>
+        </ng-template>
+      } @empty {
+        <div class="m-empty">{{ 'nav.categories.empty' | translate }}</div>
+      }
+    </div>
+  </nota-mob-sheet>
+  <app-category-tools />
 } @else {
 <div class="pp">
   <nota-page-header [title]="'productsPage.title' | translate">

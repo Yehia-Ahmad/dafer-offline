@@ -1,3 +1,132 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone), MobAddCategory: the same add / edit category form as a full-screen page (the same dialog, full height) with field cards, a switch, and a sticky إلغاء / حفظ bar. The tool buttons live in the stock page's "إدارة الفئات" sheet. -->
+<input #categoryImportInput type="file" hidden
+  accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+  (change)="onCategoryImportSelected($event)" />
+<p-dialog [modal]="true" [(visible)]="visible" [showHeader]="false" styleClass="nota-p-dialog nota-p-dialog--full" appendTo="body">
+  <div class="m-fullpage">
+    <header class="m-top" style="position:static">
+      <button type="button" class="m-top__back" (click)="closeDialog()" [attr.aria-label]="'nav.categories.close' | translate" data-testid="m-cat-back">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+      </button>
+      <div class="m-top__titles"><span class="m-top__title">{{ (editingCategory ? 'category.edit_category_title' : 'category.add_new_category') | translate }}</span></div>
+    </header>
+    <div class="m-fullpage__body">
+      <form class="m-form" style="padding-bottom:16px" [formGroup]="addCategory">
+        <div class="m-card" style="flex-direction:row;align-items:center;gap:14px">
+          <div class="m-avatar" style="width:72px;height:72px;border-radius:16px;overflow:hidden;flex:none">
+            @if (imagePreview) { <img [src]="imagePreview" [alt]="'nav.categories.imageAlt' | translate" style="width:100%;height:100%;object-fit:cover" /> }
+            @else { <span class="m-row__sub" style="text-align:center">{{ 'nav.categories.imagePlaceholder' | translate }}</span> }
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+            <input #fileInput accept="image/*" type="file" hidden (change)="onBasicUploadAuto($event)" />
+            <button type="button" class="m-btn" (click)="fileInput.click()">{{ (imagePreview ? 'category.addProduct.changeImage' : 'category.addProduct.uploadImage') | translate }}</button>
+            <span class="m-note" style="padding:0">{{ 'nav.categories.optional' | translate }}</span>
+          </div>
+        </div>
+        <div class="m-card">
+          <label class="m-field">{{ 'category.name' | translate }} *
+            <input id="category-name" type="text" class="m-input" formControlName="name" [placeholder]="'category.namePlaceholder' | translate" />
+          </label>
+          <label class="m-switch" data-test="category-vat-exempt">{{ 'vat.exempt.categoryLabel' | translate }}<input type="checkbox" formControlName="vatExempt" /></label>
+          <span class="m-note" style="padding:0">{{ 'vat.exempt.categoryHint' | translate }}</span>
+        </div>
+        <div class="m-section-label">{{ 'category.specifications.title' | translate }}</div>
+        <div class="m-card" formArrayName="specifications">
+          <span class="m-note" style="padding:0">{{ 'nav.categories.specificationsHint' | translate }}</span>
+          @for (specification of specifications.controls; track $index) {
+            <div style="display:flex;gap:8px">
+              <input type="text" class="m-input" style="flex:1" [formControlName]="$index" [placeholder]="'category.specifications.rowNamePlaceholder' | translate"
+                [attr.aria-label]="('nav.categories.specificationLabel' | translate) + ' ' + ($index + 1)" />
+              <button type="button" class="m-btn m-btn--danger" style="width:48px;padding:0" (click)="removeSpecification($index)"
+                [attr.aria-label]="'category.specifications.removeButton' | translate">×</button>
+            </div>
+          }
+          <button type="button" class="m-btn" (click)="addSpecification()">{{ 'nav.categories.addSpecification' | translate }}</button>
+        </div>
+        @if (editingCategory?.id) {
+          <app-category-website-fields *notaCan="'website.manage'" [categoryId]="editingCategory.id" [website]="editingCategory.category?.website" />
+          <button *notaCan="['categories.manage', 'products.manage']" type="button" class="m-btn m-btn--danger m-btn--block" data-action="delete-category"
+            (click)="removeFromPage()">{{ 'category.delete_button' | translate }}</button>
+        }
+      </form>
+    </div>
+    <div class="m-actions">
+      <button type="button" class="m-btn" (click)="closeDialog()">{{ 'nav.categories.cancel' | translate }}</button>
+      <button type="button" class="m-btn m-btn--primary" data-action="save-category" (click)="addNewCategory()" [disabled]="addCategory.invalid || isSaving()">
+        {{ (editingCategory ? 'category.updateButton' : 'category.saveButton') | translate }}
+      </button>
+    </div>
+  </div>
+</p-dialog>
+
+<!-- Category import result -->
+<p-dialog [visible]="importResultVisible()" (visibleChange)="onImportResultVisibleChange($event)" [modal]="true"
+  [showHeader]="false" [dismissableMask]="true" styleClass="nota-p-dialog nota-p-dialog--sm" appendTo="body">
+  <nota-dialog-shell [title]="'category.importExport.resultTitle' | translate"
+    [closeLabel]="'nav.categories.close' | translate" (closed)="onImportResultVisibleChange(false)">
+    @if (categoryImportResult(); as result) {
+      <div class="nota-cat-result" aria-live="polite">
+        <div class="nota-cat-result__counts">
+          <div class="nota-cat-result__count">
+            <span>{{ 'category.importExport.importedCount' | translate }}</span>
+            <strong class="nota-num nota-cat-result__ok">{{ result.importedCount }}</strong>
+          </div>
+          <div class="nota-cat-result__count">
+            <span>{{ 'category.importExport.skippedCount' | translate }}</span>
+            <strong class="nota-num nota-cat-result__skip">{{ result.skippedCount }}</strong>
+          </div>
+        </div>
+        @if (result.errors.length) {
+          <section>
+            <h3 class="nota-cat-result__errors-title">{{ 'category.importExport.errors' | translate }}</h3>
+            <ul class="nota-cat-result__errors">
+              @for (error of result.errors; track $index) {
+                <li>{{ formatImportError(error) }}</li>
+              }
+            </ul>
+          </section>
+        } @else {
+          <p class="nota-cat-result__ok">{{ 'category.importExport.noErrors' | translate }}</p>
+        }
+      </div>
+    }
+    <ng-container notaDialogFooter>
+      <button type="button" class="m-btn m-btn--primary" (click)="onImportResultVisibleChange(false)">{{ 'nav.categories.ok' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Error -->
+<p-dialog [visible]="errorVisible()" (visibleChange)="onErrorDialogVisibleChange($event)" [modal]="true"
+  [showHeader]="false" [dismissableMask]="true" styleClass="nota-p-dialog nota-p-dialog--sm" appendTo="body">
+  <nota-dialog-shell [title]="'nav.categories.error' | translate" [closeLabel]="'nav.categories.close' | translate"
+    (closed)="closeErrorDialog()">
+    <p class="nota-cat-message" role="alert">{{ errorMessage() }}</p>
+    <ng-container notaDialogFooter>
+      <button type="button" class="m-btn m-btn--primary" (click)="closeErrorDialog()">{{ 'nav.categories.ok' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Delete category confirmation -->
+<p-dialog [(visible)]="deleteCategoryVisible" [modal]="true" [showHeader]="false"
+  styleClass="nota-p-dialog nota-p-dialog--sm" appendTo="body">
+  <nota-dialog-shell [title]="'category.delete_category_title' | translate" [closeLabel]="'nav.categories.close' | translate"
+    (closed)="closeDeleteCategoryDialog()">
+    <p class="nota-cat-message">
+      {{ 'category.delete_category_message' | translate }}
+      @if (categoryToDelete) { <strong>{{ categoryToDelete.label }}</strong> }
+    </p>
+    <ng-container notaDialogFooter>
+      <button type="button" class="m-btn" (click)="closeDeleteCategoryDialog()">{{ 'category.cancel_button' | translate }}</button>
+      <button type="button" class="m-btn m-btn--danger" data-action="confirm-delete-category" (click)="confirmDeleteCategory()">
+        {{ 'category.delete_button' | translate }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+} @else {
 <!-- Tool buttons (page-header actions). Same handlers as the Stage 8 sidebar tools. -->
 <input #categoryImportInput type="file" hidden
   accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
@@ -178,3 +307,4 @@
     </ng-container>
   </nota-dialog-shell>
 </p-dialog>
+}

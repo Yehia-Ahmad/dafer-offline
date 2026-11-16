@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID } from '@angular/core';
+import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { format as formatDate } from 'date-fns';
@@ -7,6 +7,9 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { CateoryService } from '../../../category/services/cateory.service';
+import { LayoutService } from '../../../../core/layout/layout.service';
+import { MobFilterSheetComponent } from '../../../mobile/mob-sheet.component';
+import { MobDateInputComponent } from '../../../mobile/mob-date-input.component';
 import {
   ProductProfitReportInvoice,
   ProductProfitReportRow,
@@ -62,12 +65,17 @@ type SelectOption = {
     NotaMoneyPipe,
     NotaNumberPipe,
     NotaPageHeaderComponent,
-    NotaCanDirective
+    NotaCanDirective,
+    MobFilterSheetComponent,
+    MobDateInputComponent
   ],
   templateUrl: './product-profit-report.component.html',
   styleUrl: './product-profit-report.component.scss'
 })
 export class ProductProfitReportComponent implements OnInit {
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the filter sheet. Presentation state only. */
+  protected readonly filtersOpen = signal(false);
   private readonly isBrowser: boolean;
   isLoading = false;
   loadError = '';

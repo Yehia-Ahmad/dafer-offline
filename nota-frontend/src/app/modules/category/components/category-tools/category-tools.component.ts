@@ -5,6 +5,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { TranslatePipe } from '@ngx-translate/core';
+import { LayoutService } from '../../../../core/layout/layout.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CategoryImportResult, CategoryPayload, CateoryService } from '../../services/cateory.service';
 import { ProductsService } from '../../../products/services/products.service';
@@ -34,6 +35,7 @@ export class CategoryToolsComponent implements OnInit {
   private _languageService = inject(LanguageService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly _catalog = inject(CatalogStateService);
+  protected readonly layout = inject(LayoutService);
   visible: boolean = false;
   isSaving = signal(false);
   editingCategory: any = null;
@@ -345,6 +347,13 @@ export class CategoryToolsComponent implements OnInit {
       error: () => this.cdr.detectChanges()
     });
     this.cdr.detectChanges();
+  }
+
+  /** Phone (Online Stage 6B): the red delete button of the edit page: closes the page, then asks in the same delete confirmation as the desktop. */
+  removeFromPage(): void {
+    const category = this.editingCategory;
+    this.closeDialog();
+    if (category) this.promptForCategoryDeletion(category);
   }
 
   closeDialog(): void {

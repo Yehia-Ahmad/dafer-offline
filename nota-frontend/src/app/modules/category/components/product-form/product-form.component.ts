@@ -11,6 +11,8 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { format as formatDate } from 'date-fns';
 import { CateoryService } from '../../services/cateory.service';
 import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
+import { LayoutService } from '../../../../core/layout/layout.service';
+import { MobileTopBarService } from '../../../mobile/mobile-topbar.service';
 import { ProductWebsiteSectionComponent } from '../../../website/product-website-section.component';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
@@ -51,6 +53,7 @@ export class ProductFormComponent implements OnInit {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly unsaved = inject(UnsavedWorkService);
   private readonly translateService = inject(TranslateService);
+  private readonly layoutService = inject(LayoutService);
   /** The prices the product had when it was opened: an unchanged legacy price is not re-validated. */
   private loadedPrices: Record<string, unknown> = {};
   /** Stage 15: the edit fields as loaded, to tell whether anything was changed. */
@@ -59,6 +62,9 @@ export class ProductFormComponent implements OnInit {
   private leaving = false;
 
   readonly mode: ProductFormMode = this._activatedRoute.snapshot.params['id'] ? 'edit' : 'new';
+  /** Online Stage 6B: on the phone the top bar carries the page title ("صنف جديد" / "تعديل صنف"); the in-page title is hidden by CSS. The template is unchanged. */
+  private readonly bindTopBar = inject(MobileTopBarService).bind(() => this.layoutService.isMobile()
+    ? { title: this.translateService.instant(this.mode === 'edit' ? 'productForm.editTitle' : 'productForm.newTitle') } : null);
   readonly categories = this._catalog.categories;
   errorVisible = false;
   errorMessage = '';

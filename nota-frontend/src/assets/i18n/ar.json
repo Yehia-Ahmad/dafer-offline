@@ -2755,8 +2755,12 @@
       "supply": "التوريد والضريبة",
       "terms": "شروط الدفع"
     },
+    "stock": {
+      "manageCategories": "إدارة الفئات"
+    },
       "_end": 1
     },
+
 
 
     "common": {

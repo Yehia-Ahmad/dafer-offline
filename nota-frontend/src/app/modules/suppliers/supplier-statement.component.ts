@@ -9,6 +9,8 @@ import { NotaButtonDirective, NotaMoneyPipe } from '../shared/ui';
 import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-actions.component';
 import { PrintDataService } from '../../core/print/print-data.service';
 import { Supplier } from './suppliers.service';
+import { LayoutService } from '../../core/layout/layout.service';
+import { MobDatePipe } from '../mobile/mob-date.pipe';
 
 /** "PO-000012 · EL-8841" (our number first, always); a payment shows its PV number, a line without a number (the opening) shows nothing. */
 export function statementDocument(line: Pick<StatementLine, 'number' | 'supplierInvoiceNo'>): string {
@@ -24,9 +26,65 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
 @Component({
   selector: 'app-supplier-statement',
   standalone: true,
-  imports: [PrintActionsComponent, DatePipe, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe],
+  imports: [PrintActionsComponent, DatePipe, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, MobDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone): the same supplier panel: what we owe, the actions, the statement as cards (money we paid in green, goods bought in red) and the aging. -->
+    <section style="display:flex;flex-direction:column;gap:12px" data-test="supplier-panel">
+      <div class="m-card">
+        <div class="m-row__sub" style="white-space:normal">{{ [supplier().contactPerson, supplier().phones.join(' · '), supplier().address].filter(present).join(' · ') }}</div>
+      </div>
+      <div class="m-dark-card">
+        <div class="m-dark-card__label">{{ (balance() < 0 ? 'suppliers.statement.advance' : 'suppliers.statement.weOweNow') | translate }}</div>
+        <div class="m-dark-card__value nota-num" data-test="panel-balance">{{ absBalance() | notaMoney }} {{ 'cashbox.currency' | translate }}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button *notaCan="'suppliers.pay'" type="button" class="m-btn m-btn--lg" style="flex:1;background:#fff;color:var(--brand);border-color:#fff" data-action="pay" (click)="pay.emit(supplier())">{{ 'suppliers.statement.pay' | translate }}</button>
+          <a *notaCan="'purchases.create'" class="m-btn m-btn--lg" style="flex:1;background:transparent;color:#fff;border-color:rgba(255,255,255,.5)" routerLink="/purchases/new" [queryParams]="{ supplier: supplier()._id }" data-action="new-purchase">{{ 'suppliers.statement.newPurchase' | translate }}</a>
+        </div>
+      </div>
+      <nota-print-actions [items]="printItems()" data-test="statement-print" />
+
+      @if (loading()) {
+        <div class="m-skel" style="height:120px" role="status" [attr.aria-label]="'suppliers.statement.loading' | translate"></div>
+      } @else if (loadError()) {
+        <div class="m-card m-empty"><p class="nota-error" role="alert">{{ 'suppliers.statement.loadFailed' | translate }}</p> <button type="button" class="m-btn" (click)="load()">{{ 'suppliers.retry' | translate }}</button></div>
+      } @else if (statement(); as st) {
+        <div class="m-section-label">{{ 'suppliers.statement.title' | translate }} · {{ 'suppliers.statement.legend' | translate }}</div>
+        <div class="m-card m-card--flush" data-test="statement">
+          @for (line of st.lines; track $index) {
+            <div class="m-row" [attr.data-line]="line.type">
+              <span class="m-row__body">
+                <span class="m-row__title" style="white-space:normal">{{ line.description }}</span>
+                <span class="m-row__sub" style="white-space:normal">{{ line.date | mobDate }}@if (document(line)) { · <span dir="ltr" data-test="document">{{ document(line) }}</span> }@if (line.reference) { · {{ line.reference }} }@if (line.memo) { · <span data-test="memo">{{ line.memo }}</span> }</span>
+                @if (line.type === 'supplier_refund' && line.number) { <nota-print-actions [items]="refundPrintItems(line)" data-test="refund-print" /> }
+              </span>
+              <span class="m-row__end nota-num">
+                @if (line.debit) { <span class="m-in" style="display:block">{{ line.debit | notaMoney }}</span> }
+                @if (line.credit) { <span class="m-out" style="display:block">{{ line.credit | notaMoney }}</span> }
+                <span class="m-row__sub" style="display:block">{{ line.balance | notaMoney }}</span>
+              </span>
+            </div>
+          } @empty {
+            <div class="m-empty" data-test="statement-empty">{{ 'suppliers.statement.empty' | translate }}</div>
+          }
+        </div>
+        <div class="m-card m-card--flush" data-test="statement-totals">
+          <div class="m-row"><span class="m-row__body">{{ 'suppliers.statement.debit' | translate }}</span><span class="nota-num m-in">{{ st.totals.debit | notaMoney }}</span></div>
+          <div class="m-row"><span class="m-row__body">{{ 'suppliers.statement.credit' | translate }}</span><span class="nota-num m-out">{{ st.totals.credit | notaMoney }}</span></div>
+          <div class="m-row"><strong class="m-row__body">{{ 'suppliers.statement.balance' | translate }}</strong><strong class="nota-num">{{ st.totals.balance | notaMoney }}</strong></div>
+        </div>
+        <div class="m-section-label">{{ 'suppliers.statement.aging.title' | translate }}</div>
+        <div class="m-card m-card--flush" data-test="aging">
+          @for (bucket of buckets; track bucket) {
+            <div class="m-row" [attr.data-bucket]="bucket"><span class="m-row__body">{{ 'suppliers.statement.aging.' + bucket | translate }}</span><span class="nota-num">{{ st.aging[bucket] | notaMoney }}</span></div>
+          }
+          @if (st.aging.advance > 0) { <div class="m-row" data-bucket="advance"><span class="m-row__body">{{ 'suppliers.statement.aging.advance' | translate }}</span><span class="nota-num">{{ st.aging.advance | notaMoney }}</span></div> }
+        </div>
+      }
+    </section>
+} @else {
+
     <section class="nota-card ss" data-test="supplier-panel">
       <header class="ss__head">
         <div>
@@ -91,6 +149,7 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
         </dl>
       }
     </section>
+  }
   `,
   styles: `
     .ss { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
@@ -109,6 +168,7 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
 })
 export class SupplierStatementComponent {
   private readonly service = inject(PurchasesService);
+  protected readonly layout = inject(LayoutService);
 
   readonly supplier = input.required<Supplier>();
   /** Bumped by the page after a payment or purchase, so the statement reloads. */

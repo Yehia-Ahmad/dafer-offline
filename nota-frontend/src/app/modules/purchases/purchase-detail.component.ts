@@ -11,6 +11,9 @@ import { NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatus
 import { PurchaseReturnDialogComponent } from './purchase-return-dialog.component';
 import { PurchaseDetail } from './purchases.models';
 import { PurchasesService } from './purchases.service';
+import { LayoutService } from '../../core/layout/layout.service';
+import { MobBarComponent, MobSheetComponent } from '../mobile/mob-sheet.component';
+import { MobDatePipe } from '../mobile/mob-date.pipe';
 
 /**
  * Stage 20: one purchase. Lines with the cost per unit, the returns made, the PV, "مرتجع لمورد", cancel (a reason is
@@ -20,9 +23,87 @@ import { PurchasesService } from './purchases.service';
 @Component({
   selector: 'app-purchase-detail',
   standalone: true,
-  imports: [PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, LockedActionComponent, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, PurchaseReturnDialogComponent],
+  imports: [PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, LockedActionComponent, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, PurchaseReturnDialogComponent, MobBarComponent, MobSheetComponent, MobDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone): the same purchase. The number and supplier are in the top bar; lines as cards; return and cancel (a red sheet asking for the reason) with the same rules. -->
+    @if (purchase(); as p) {
+      <nota-mob-bar [title]="p.number" [subtitle]="p.supplierName || ''" />
+      <div class="m-page" style="padding-top:12px">
+        @if (pv()) { <p class="m-pill m-pill--ok" style="white-space:normal;align-self:flex-start" role="status" data-test="saved-pv">{{ 'purchases.detail.savedWithPv' | translate: { pv: pv() } }}</p> }
+        <section class="m-card m-card--flush">
+          <div class="m-row"><span class="m-row__body">{{ 'purchases.columns.status' | translate }}</span><span [class]="p.status === 'posted' ? 'm-pill m-pill--ok' : 'm-pill m-pill--warn'">{{ 'purchases.status.' + p.status | translate }}</span></div>
+          <div class="m-row"><span class="m-row__body">{{ 'purchases.columns.date' | translate }}</span><span>{{ p.date | mobDate }}</span></div>
+          <div class="m-row"><span class="m-row__body">{{ 'purchases.columns.supplierInvoiceNo' | translate }}</span><span dir="ltr">{{ p.supplierInvoiceNo || '—' }}</span></div>
+          <div class="m-row"><span class="m-row__body">{{ 'purchases.columns.total' | translate }}</span><strong class="nota-num" data-test="total">{{ p.total | notaMoney }} {{ 'suppliers.currency' | translate }}</strong></div>
+          <div class="m-row"><span class="m-row__body">{{ 'purchases.columns.paid' | translate }}
+            @if (p.payment) { <span class="m-row__sub" style="white-space:normal">{{ p.payment.number }}@if (p.boxName) { · {{ p.boxName }} }@if (p.payment.status === 'cancelled') { · {{ 'purchases.status.cancelled' | translate }} }</span> }</span>
+            <strong class="nota-num m-in" data-test="paid">{{ p.paidAmount | notaMoney }}</strong></div>
+        </section>
+        @if (p.status === 'cancelled') { <p class="m-pill m-pill--warn" style="white-space:normal" data-test="cancel-reason">{{ 'purchases.detail.cancelledBecause' | translate }}: {{ p.cancelReason }}</p> }
+
+        <div class="m-section-label">{{ 'purchases.new.item' | translate }}</div>
+        <section class="m-card m-card--flush" data-test="items">
+          @for (item of p.items; track item._id) {
+            <div class="m-row" [attr.data-item]="item.code">
+              <span class="m-row__body">
+                <span class="m-row__title" style="white-space:normal" dir="auto">{{ item.name }}</span>
+                <span class="m-row__sub nota-num" style="white-space:normal"><span dir="ltr">{{ item.code }}</span> · {{ item.qty }} × {{ item.unitPrice | notaMoney }} · {{ 'purchases.detail.unitCost' | translate }} {{ item.unitCost | notaMoney }}@if (item.returnedQty) { · {{ 'purchases.detail.returned' | translate }} {{ item.returnedQty }} }</span>
+              </span>
+              <strong class="nota-num">{{ item.lineCost | notaMoney }}</strong>
+            </div>
+          }
+          <div class="m-row"><span class="m-row__body">{{ 'purchases.detail.subtotal' | translate }}</span><span class="nota-num">{{ p.subtotal | notaMoney }}</span></div>
+          @if (p.discountAmount) { <div class="m-row"><span class="m-row__body">{{ 'purchases.new.discount' | translate }}</span><span class="nota-num">− {{ p.discountAmount | notaMoney }}</span></div> }
+          @if (p.otherCosts) { <div class="m-row"><span class="m-row__body">{{ 'purchases.new.otherCosts' | translate }}</span><span class="nota-num">+ {{ p.otherCosts | notaMoney }}</span></div> }
+          @if (p.vatAmount !== undefined && p.vatAmount !== null) {
+            <div class="m-row" data-test="vat-net"><span class="m-row__body">{{ 'vat.totals.net' | translate }}</span><span class="nota-num">{{ (p.netTotal ?? p.total) | notaMoney }}</span></div>
+            <div class="m-row" data-test="vat-input"><span class="m-row__body">{{ 'vat.purchase.input' | translate }}</span><span class="nota-num">{{ p.vatAmount | notaMoney }}</span></div>
+          }
+        </section>
+
+        @if (p.returns.length) {
+          <div class="m-section-label">{{ 'purchases.detail.returns' | translate }}</div>
+          <section class="m-card m-card--flush" data-test="returns">
+            @for (r of p.returns; track r._id) {
+              <div class="m-row"><span class="m-row__body" style="white-space:normal"><strong dir="ltr">{{ r.number }}</strong> · {{ r.date | mobDate }}@if (r.reason) { · {{ r.reason }} }</span><span class="nota-num m-out">{{ r.total | notaMoney }}</span></div>
+            }
+          </section>
+        }
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <nota-print-actions [items]="printItems(p._id)" data-test="purchase-print" />
+          <a *notaCan="'accounting.view'" class="m-btn" [routerLink]="['/accounting/journal']" [queryParams]="{ sourceType: 'purchase', sourceId: p._id, sourceNumber: p.number }" data-action="journal">{{ 'purchases.detail.journal' | translate }}</a>
+          @if (p.status === 'posted') {
+            <button *notaCan="'purchases.create'" type="button" class="m-btn" data-action="return" [disabled]="!hasReturnable(p)" (click)="returnOpen.set(true)">{{ 'purchases.detail.return' | translate }}</button>
+            <button *notaCan="'purchases.cancel'; else lockedM" type="button" class="m-btn m-btn--danger" data-action="cancel" (click)="cancelling.set(true)">{{ 'purchases.detail.cancel' | translate }}</button>
+            <ng-template #lockedM><nota-locked-action [label]="'purchases.detail.cancel' | translate" /></ng-template>
+          }
+        </div>
+        @if (p.status === 'posted' && p.payment) { <p class="m-note" style="padding:0" data-test="pv-note">{{ 'purchases.detail.pvNote' | translate }}</p> }
+        @if (error()) { <p class="nota-error" role="alert" data-test="detail-error">{{ error() | translate }}</p> }
+      </div>
+      <nota-mob-sheet [open]="cancelling()" (openChange)="cancelling.set($event)" [title]="'purchases.detail.cancel' | translate">
+        <div data-test="cancel-form" style="display:flex;flex-direction:column;gap:12px">
+          <label class="m-field">{{ 'purchases.detail.reason' | translate }}
+            <input class="m-input" type="text" name="reasonM" maxlength="500" data-test="cancel-reason-input" [placeholder]="'purchases.detail.reason' | translate" [(ngModel)]="reason" />
+          </label>
+          <div class="m-actions m-actions--sheet" style="padding:0;border:0">
+            <button type="button" class="m-btn" (click)="cancelling.set(false)">{{ 'purchases.cancelAction' | translate }}</button>
+            <button type="button" class="m-btn m-btn--danger" data-action="confirm-cancel" [disabled]="reason.trim().length < 3 || busy()" (click)="cancel()">{{ 'purchases.detail.confirmCancel' | translate }}</button>
+          </div>
+        </div>
+      </nota-mob-sheet>
+      <app-purchase-return-dialog [(visible)]="returnOpen" [purchase]="purchase()" (done)="load()" />
+    } @else if (loadError()) {
+      <div class="m-page" style="padding-top:12px"><div class="m-card m-empty"><p class="nota-error" role="alert">{{ 'purchases.loadFailed' | translate }}</p>
+        <button type="button" class="m-btn" (click)="load()">{{ 'purchases.retry' | translate }}</button></div></div>
+    } @else {
+      <div class="m-page" style="padding-top:12px"><div class="m-skel" style="height:160px" role="status" [attr.aria-label]="'purchases.loading' | translate"></div><div class="m-skel" style="height:120px"></div></div>
+    }
+} @else {
+
     <div class="pd">
       @if (purchase(); as p) {
         <nota-page-header [title]="p.number" [subtitle]="p.supplierName || ''">
@@ -119,6 +200,7 @@ import { PurchasesService } from './purchases.service';
         <p role="status">{{ 'purchases.loading' | translate }}</p>
       }
     </div>
+  }
   `,
   styles: `
     .pd { display: flex; flex-direction: column; gap: 16px; }
@@ -136,6 +218,7 @@ import { PurchasesService } from './purchases.service';
 })
 export class PurchaseDetailComponent implements OnInit {
   private readonly service = inject(PurchasesService);
+  protected readonly layout = inject(LayoutService);
   private readonly printData = inject(PrintDataService);
   /** Stage 23: the A4 purchase invoice (PrPurchaseInvoice). */
   printItems(id: string): PrintActionItem[] {

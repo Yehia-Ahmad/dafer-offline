@@ -10,6 +10,7 @@ import { SuppliersService } from '../suppliers/suppliers.service';
 import { round2 } from './purchase-math';
 import { PurchaseDetail, PurchaseReturnRow } from './purchases.models';
 import { PurchasesService } from './purchases.service';
+import { LayoutService } from '../../core/layout/layout.service';
 
 /** The value of returning `qty` units of a line: qty × the line's unit cost; the last units take the remainder (same as the backend). */
 export function returnValue(item: { qty: number; lineCost: number; returnedQty: number; returnedValue: number }, qty: number): number {
@@ -28,6 +29,47 @@ export function returnValue(item: { qty: number; lineCost: number; returnedQty: 
   imports: [FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, PaymentBoxSelectComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone): the same return dialog (a bottom sheet); the lines are cards. -->
+    <p-dialog [visible]="visible()" (visibleChange)="visible.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
+      [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+      <nota-dialog-shell [title]="'purchases.return.title' | translate" [closeLabel]="'purchases.close' | translate" (closed)="cancel()">
+        @if (purchase(); as p) {
+          <div data-test="return-lines">
+            @for (item of p.items; track item._id) {
+              <div class="m-card" style="margin-bottom:10px" [attr.data-item]="item.code">
+                <div class="m-row__title" style="white-space:normal" dir="auto">{{ item.name }}</div>
+                <div class="m-row__sub nota-num">{{ 'purchases.return.available' | translate }}: {{ item.qty - item.returnedQty }} · {{ 'purchases.return.value' | translate }}: {{ valueOf(item._id) | notaMoney }}</div>
+                <input class="m-input nota-num" style="margin-top:8px" type="number" inputmode="numeric" min="0" step="1" [max]="item.qty - item.returnedQty" [name]="'rq' + item._id" data-test="return-qty"
+                  [disabled]="item.qty - item.returnedQty === 0" [attr.aria-label]="'purchases.return.qty' | translate" [ngModel]="qtys()[item._id] ?? null" (ngModelChange)="setQty(item._id, $event)" />
+              </div>
+            }
+          </div>
+          <label class="m-field">{{ 'purchases.return.reason' | translate }}
+            <input id="prdReasonM" class="m-input" type="text" name="reasonM" maxlength="500" data-test="return-reason" [ngModel]="reason()" (ngModelChange)="reason.set($event)" />
+          </label>
+          <p style="margin:12px 0" data-test="return-total">{{ 'purchases.return.total' | translate }}: <b class="nota-num" style="font-size:18px">{{ grossTotal() | notaMoney }}</b></p>
+          @if (p.vatAmount) {
+            <p class="m-note" style="padding:0" data-test="return-vat">{{ 'vat.purchase.returnVat' | translate: { net: (total() | notaMoney), vat: (vatShare() | notaMoney) } }}</p>
+          }
+          @if (canRefund()) {
+            <label class="m-field">{{ 'purchases.return.refund' | translate }}
+              <input id="prdRefundM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="refundM" data-test="refund" [ngModel]="refund()" (ngModelChange)="refund.set($event)" />
+              @if (refundInvalid()) { <span class="nota-error">{{ 'purchases.errors.refundRange' | translate: { max: (refundCap() | notaMoney) } }}</span> }
+            </label>
+            <p class="m-note" style="padding:0" data-test="refund-cap">{{ 'purchases.return.refundCap' | translate: { max: (refundCap() | notaMoney) } }}</p>
+            @if ((refund() ?? 0) > 0) { <nota-payment-box-select labelKey="purchases.return.refundBox" /> }
+          }
+        }
+        @if (error()) { <p class="nota-error" role="alert" data-test="return-error">{{ error() | translate }}</p> }
+        <ng-container notaDialogFooter>
+          <button type="button" class="m-btn" (click)="cancel()">{{ 'purchases.cancelAction' | translate }}</button>
+          <button type="button" class="m-btn m-btn--primary" data-action="do-return" [disabled]="!valid() || busy()" (click)="save()">{{ 'purchases.return.submit' | translate }}</button>
+        </ng-container>
+      </nota-dialog-shell>
+    </p-dialog>
+} @else {
+
     <p-dialog [visible]="visible()" (visibleChange)="visible.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
       [draggable]="false" [resizable]="false" styleClass="nota-p-dialog prd-dialog">
       <nota-dialog-shell [title]="'purchases.return.title' | translate" [closeLabel]="'purchases.close' | translate" (closed)="cancel()">
@@ -73,6 +115,7 @@ export function returnValue(item: { qty: number; lineCost: number; returnedQty: 
         </ng-container>
       </nota-dialog-shell>
     </p-dialog>
+  }
   `,
   styles: `
     .prd__qty { width: 90px; }
@@ -82,6 +125,7 @@ export function returnValue(item: { qty: number; lineCost: number; returnedQty: 
 })
 export class PurchaseReturnDialogComponent {
   private readonly service = inject(PurchasesService);
+  protected readonly layout = inject(LayoutService);
   private readonly auth = inject(AuthService);
   private readonly suppliers = inject(SuppliersService);
   private readonly paymentBox = inject(PaymentBoxService);

@@ -2755,8 +2755,12 @@
       "supply": "Supply and tax",
       "terms": "Payment terms"
     },
+    "stock": {
+      "manageCategories": "Manage categories"
+    },
       "_end": 1
     },
+
 
 
     "common": {
