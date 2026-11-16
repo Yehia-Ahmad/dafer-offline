@@ -24,7 +24,8 @@
             @if (showCustomerSuggestionPanel && customerOptions.length > 0) {
               <ul class="nota-ac__panel" role="listbox">
                 @for (customer of customerOptions; track customer.id) {
-                  <li class="nota-ac__item" role="option" (mousedown)="onCustomerOptionSelect(customer)">{{ customer.displayLabel }}</li>
+                  <li class="nota-ac__item" role="option" (mousedown)="onCustomerOptionSelect(customer)">{{ customer.displayLabel }}
+                    @if (customer.isCourier) { <span class="nota-pill nota-pill--info" data-test="courier-badge">{{ 'customerPage.s10.courier' | translate }}</span> }</li>
                 }
               </ul>
             }

@@ -553,6 +553,12 @@ const deleteCustomer = asyncHandler(async (req, res) => {
   await withTransaction(async (session) => {
     const customer = await Customer.findById(req.params.id).session(session);
     if (!customer) { const error = new Error("العميل غير موجود"); error.statusCode = 404; throw error; }
+    if (customer.isCourier) {
+      const error = new Error("ده حساب مندوب توصيل. أوقف المندوب من صفحة المناديب بدل حذف الحساب");
+      error.statusCode = 409;
+      error.responseData = { code: "CUSTOMER_IS_COURIER" };
+      throw error;
+    }
     if (await CreditSale.exists({ customer: customer._id }).session(session)) {
       const error = new Error("لا يمكن حذف العميل لوجود فواتير مرتبطة به");
       error.statusCode = 409;

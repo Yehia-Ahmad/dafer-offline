@@ -88,11 +88,11 @@ const moveOrder = async (id, from, status, { req, set = {}, note, session }) => 
 const lockReservations = (session) => Counter.collection.updateOne({ _id: "WEB_RESERVATION_LOCK" }, { $inc: { seq: 1 } }, { upsert: true, session });
 
 /** Every line must fit in `inventoryCount - reserved by other orders`; the problems of ALL lines come back together. */
-const assertAvailable = async (lines, { orderId, session }) => {
+const assertAvailable = async (lines, { orderId, session, before = null }) => {
   const ids = lines.map((line) => String(line.productId));
   const [products, reserved] = await Promise.all([
     Product.find({ _id: { $in: ids } }).select("inventoryCount isArchived name").session(session).lean(),
-    reservedByProduct(ids, { session, excludeOrderId: orderId }),
+    reservedByProduct(ids, { session, excludeOrderId: orderId, before }),
   ]);
   const byId = new Map(products.map((product) => [String(product._id), product]));
   const problems = [];
@@ -112,7 +112,7 @@ const confirm = (req, id) => withTransaction(async (session) => {
   const order = await loadOrder(id, session);
   if (order.status !== "new") throw httpError(409, "INVALID_STATUS", "حالة الطلب اتغيرت. حدّث الصفحة", { status: order.status });
   await assertAvailable(order.items, { orderId: order._id, session });
-  const updated = await moveOrder(order._id, ["new"], "confirmed", { req, session });
+  const updated = await moveOrder(order._id, ["new"], "confirmed", { req, set: { confirmedAt: new Date() }, session });
   await audit(req, { action: "order.confirmed", entity: "WebOrder", entityId: order._id, details: { number: order.number }, session, strict: true });
   return updated;
 });
@@ -258,6 +258,7 @@ const creditSaleItem = (creditSale, productId) => creditSale.items.find((item) =
 /** Sends the order out: the credit sale on the courier's customer account is created by the existing credit-sale function. */
 const dispatch = (req, id, body) => withTransaction(async (session) => {
   const input = body && typeof body === "object" ? body : {};
+  await lockReservations(session); // two dispatches / confirms / edits competing for the same stock conflict here
   const courier = await loadCourier(input.courierId, session);
   const order = await loadOrder(id, session);
   if (!["confirmed", "preparing"].includes(order.status)) throw httpError(409, "INVALID_STATUS", "حالة الطلب اتغيرت. حدّث الصفحة", { status: order.status });
@@ -265,13 +266,10 @@ const dispatch = (req, id, body) => withTransaction(async (session) => {
   // The status guard comes first: a second parallel dispatch conflicts here, then answers 409 and creates nothing.
   await moveOrder(order._id, ["confirmed", "preparing"], "out_for_delivery", { req, set: { courierId: courier._id }, note: courier.name, session });
 
-  // Every line's problem at once (the credit sale itself would name only the first). The credit sale stays the final guard.
-  const products = await Product.find({ _id: { $in: order.items.map((line) => line.productId) } }).select("inventoryCount name").session(session).lean();
-  const stock = new Map(products.map((product) => [String(product._id), product]));
-  const problems = order.items
-    .filter((line) => Number((stock.get(String(line.productId)) || {}).inventoryCount || 0) < line.qty)
-    .map((line) => ({ productId: String(line.productId), name: line.name, reason: "quantity_exceeds_stock", requested: line.qty, available: Number((stock.get(String(line.productId)) || {}).inventoryCount || 0) }));
-  if (problems.length) throw httpError(409, "ORDER_ITEMS_INVALID", "المخزون مش كفاية لبعض الأصناف", { lines: problems });
+  // Every line against stock minus what orders confirmed BEFORE this one still reserve (first come, first served: the POS may have
+  // sold reserved stock, and the later order is the one that waits). All line problems come back at once, before the credit
+  // sale, which stays the final guard.
+  await assertAvailable(order.items, { orderId: order._id, session, before: { at: order.confirmedAt || order.createdAt, id: order._id } });
 
   const res = makeRes();
   const creditSale = await callHandler(() => createCreditSaleInTransaction(handlerReq(req, {

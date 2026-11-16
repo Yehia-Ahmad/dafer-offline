@@ -60,6 +60,8 @@ const webOrderSchema = new mongoose.Schema(
     paymentIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
     returnIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
     collectedAmount: { type: Number },
+    // When the shop confirmed it: the queue position for stock at dispatch (the earlier confirmation keeps its stock).
+    confirmedAt: { type: Date },
     reason: { type: String },
     // The same client key twice must give the same order. A hash of the request body tells a retry from a different request.
     idempotencyKey: { type: String, required: true, unique: true },

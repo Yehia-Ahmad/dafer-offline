@@ -10,6 +10,8 @@ export interface Customer {
   /** Stage 21: shown on the invoice for B2B customers. */
   taxNumber?: string;
   isIndebted?: boolean;
+  /** Online Stage 4: the customer account of a delivery courier (labelled "مندوب"). */
+  isCourier?: boolean;
   /** Stage 18: open invoices + the opening balance still to collect. */
   outstanding?: number;
   /** Stage 18: a negative opening (we owe the customer). */

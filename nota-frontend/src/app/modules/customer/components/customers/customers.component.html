@@ -42,7 +42,8 @@
             @for (customer of visibleCustomers; track customer._id ?? $index; let i = $index) {
               <tr>
                 <td class="nota-num">{{ i + 1 | notaNumber }}</td>
-                <td><button type="button" class="cu__name" dir="auto" (click)="openCustomerDetails(customer)">{{ customer.name }}</button></td>
+                <td><button type="button" class="cu__name" dir="auto" (click)="openCustomerDetails(customer)">{{ customer.name }}</button>
+                  @if (customer.isCourier) { <span class="nota-pill nota-pill--info" data-test="courier-badge">{{ 'customerPage.s10.courier' | translate }}</span> }</td>
                 <td class="nota-num" dir="ltr">{{ customer.phone }}</td>
                 <td><span class="nota-pill" [class.nota-pill--due]="customer.isIndebted" [class.nota-pill--ok]="!customer.isIndebted">
                   {{ (customer.isIndebted ? 'customerPage.s10.owes' : 'customerPage.s10.settled') | translate }}</span>

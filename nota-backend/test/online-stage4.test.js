@@ -471,3 +471,45 @@ it("the summary counts new orders only; the list filters by status, search, cour
   assert.equal(detail.items[0].inventoryCount, 19); assert.equal(detail.creditSale.shippingFees, 30);
   assert.ok(!("idempotencyKey" in detail) && !("trackingTokenHash" in detail) && !("requestHash" in detail));
 });
+
+it("dispatch queue: the order confirmed first keeps its stock when the POS sold some; the later one is refused (all lines at once)", async () => {
+  await startLedger(); await openSite();
+  const a = await seedProduct({ code: "Q1", stock: 10 }); const b = await seedProduct({ code: "Q2", name: "ثاني", stock: 10, categoryId: a.category });
+  const zone = await seedZone(); const courier = await newCourier();
+  const first = await place([{ productId: a.id, qty: 4 }, { productId: b.id, qty: 1 }], zone.id);
+  const second = await place([{ productId: a.id, qty: 4 }, { productId: b.id, qty: 1 }], zone.id);
+  ok(await act(first.id, "confirm")); ok(await act(second.id, "confirm"));
+  assert.ok((await WebOrder.findById(first.id).lean()).confirmedAt <= (await WebOrder.findById(second.id).lean()).confirmedAt);
+  // the POS sells reserved stock: product A 10 → 7 (confirm refused nothing: reservations never block the POS)
+  assert.equal((await staff("POST", "/api/sellings", { customerName: "نقدي", customerPhone: "01017171718", sellingDate: new Date().toISOString().slice(0, 10), items: [{ productId: a.id, quantity: 3, price: 100 }] })).status, 201);
+  const before = await CreditSale.countDocuments({});
+  const refused = await act(second.id, "dispatch", { courierId: courier.id });
+  assert.equal(refused.status, 409); assert.equal(refused.json.code, "ORDER_ITEMS_INVALID");
+  assert.deepEqual(refused.json.lines.map((line) => [line.productId, line.requested, line.available]), [[a.id, 4, 3]], "7 in stock - 4 reserved by the earlier order; B (1) still fits");
+  assert.equal(await CreditSale.countDocuments({}), before); assert.equal((await WebOrder.findById(second.id).lean()).status, "confirmed");
+  // the earlier order still can
+  const sent = ok(await act(first.id, "dispatch", { courierId: courier.id }));
+  assert.equal(sent.status, "out_for_delivery"); assert.equal(await stockOf(a.id), 3);
+  // and now the later one really lacks stock
+  assert.equal((await act(second.id, "dispatch", { courierId: courier.id })).status, 409);
+});
+
+it("a courier's customer account cannot be deleted (CUSTOMER_IS_COURIER); every other customer route behaves as before", async () => {
+  await startLedger();
+  const courier = await newCourier("سعد");
+  const refused = await staff("DELETE", `/api/customers/${courier.customerId}`);
+  assert.equal(refused.status, 409); assert.equal(refused.json.code, "CUSTOMER_IS_COURIER"); assert.match(refused.json.message, /مندوب/);
+  assert.ok(await require("../src/models/customer.model").exists({ _id: courier.customerId }));
+  // an ordinary customer: still deleted; one with invoices: still refused with its own code
+  const plain = ok(await staff("POST", "/api/customers", { name: "عادي", phone: "01077777777" }), 201);
+  ok(await staff("DELETE", `/api/customers/${plain._id || plain.customer?._id}`));
+  const withInvoice = ok(await staff("POST", "/api/customers", { name: "بفواتير", phone: "01066666666" }), 201);
+  const product = await seedProduct({ code: "D1", stock: 5 });
+  ok(await staff("POST", "/api/credit-sales", { customerId: withInvoice._id || withInvoice.customer?._id, sellingDate: new Date().toISOString().slice(0, 10), items: [{ productId: product.id, quantity: 1, price: 100 }] }), 201);
+  assert.equal((await staff("DELETE", `/api/customers/${withInvoice._id || withInvoice.customer?._id}`)).json.code, "CUSTOMER_HAS_INVOICES");
+  // the courier's customer is still listed (with its label flag), viewable and editable
+  const listed = ok(await staff("GET", "/api/customers")).find((row) => row._id === courier.customerId);
+  assert.equal(listed.isCourier, true);
+  assert.equal((await staff("GET", `/api/customers/${courier.customerId}`)).status, 200);
+  assert.equal((await staff("PUT", `/api/customers/${courier.customerId}`, { name: "مندوب – سعد (جديد)", phone: courier.phone })).status, 200);
+});

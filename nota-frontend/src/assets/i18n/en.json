@@ -528,6 +528,7 @@
             "balance": "Balance",
             "since": "Customer since",
             "owes": "Owes",
+            "courier": "Courier",
             "settled": "Settled",
             "phoneUnique": "Must not repeat another customer's phone",
             "errorTitle": "Something went wrong",

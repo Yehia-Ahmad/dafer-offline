@@ -59,6 +59,8 @@ type CustomerSearchResult = {
   name: string;
   phone: string;
   displayLabel: string;
+  /** Online Stage 4: a courier's account: labelled, and listed after the real customers. */
+  isCourier: boolean;
 };
 
 type CreditLineItemState = {
@@ -921,9 +923,11 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
       list = [response];
     }
 
-    return list
+    const options = list
       .map((candidate) => this.mapCustomer(candidate))
       .filter((item): item is CustomerSearchResult => item !== null);
+    // Courier accounts last (Array.sort is stable: the order inside each group is the server's).
+    return options.sort((a, b) => Number(a.isCourier) - Number(b.isCourier));
   }
 
   private mapProduct(candidate: any): ProductSearchResult | null {
@@ -973,7 +977,8 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
       id: String(id),
       name,
       phone,
-      displayLabel
+      displayLabel,
+      isCourier: candidate.isCourier === true
     };
   }
 
