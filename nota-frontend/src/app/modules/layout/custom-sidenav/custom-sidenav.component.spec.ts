@@ -13,6 +13,8 @@ import { fakeUser } from '../../../core/auth/testing/auth-fixtures';
 import { LanguageService } from '../../shared/services/translation.service';
 import { ThemeService } from '../../shared/services/theme.service';
 import { signInAs } from '../../../core/auth/testing/sign-in';
+import { OrdersNotifierService } from '../../../core/orders-notifier/orders-notifier.service';
+import { signal } from '@angular/core';
 
 describe('CustomSidenavComponent (Nota sidebar)', () => {
   let component: CustomSidenavComponent;
@@ -22,7 +24,8 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [CustomSidenavComponent, TranslateModule.forRoot()],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), provideNoopAnimations()]
+      // The new-orders poller (its own spec) is stubbed: its pending request/interval would keep whenStable() waiting.
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), provideNoopAnimations(), { provide: OrdersNotifierService, useValue: { newCount: signal<number | null>(null) } }]
     })
     .compileComponents();
 
@@ -36,7 +39,7 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
   it('renders the menu from the config with grouped links', () => {
     const hrefs = Array.from(el().querySelectorAll('a.nota-nav__link')).map((a) => a.getAttribute('href'));
     // Stage 14 (owner): users and audit under الإدارة. Online Stage 3: the website group (website.manage) before it.
-    expect(hrefs).toEqual(['/home', '/selling', '/credit-sales', '/invoice-history', '/returns', '/customers', '/products', '/purchases', '/suppliers', '/cashbox', '/expenses', '/accounting/vat', '/products/profit-report', '/website/settings', '/website/delivery-zones', '/users', '/audit', '/shop-profile']);
+    expect(hrefs).toEqual(['/home', '/selling', '/credit-sales', '/invoice-history', '/returns', '/customers', '/products', '/purchases', '/suppliers', '/cashbox', '/expenses', '/accounting/vat', '/products/profit-report', '/orders', '/website/couriers', '/website/customers', '/website/settings', '/website/delivery-zones', '/users', '/audit', '/shop-profile']);
     // Stage 11: no category list or tools in the sidebar any more.
     expect(el().querySelector('app-sidebar-categories')).toBeNull();
     // Backups are the server's job: no backup link.
@@ -75,7 +78,7 @@ describe('CustomSidenavComponent (Nota sidebar)', () => {
     signInAs('cashier');
     fixture.detectChanges();
     const hrefs = Array.from(el().querySelectorAll('a.nota-nav__link')).map((a) => a.getAttribute('href'));
-    expect(hrefs).toEqual(['/home', '/selling', '/credit-sales', '/invoice-history', '/returns', '/customers', '/products', '/expenses']);
+    expect(hrefs).toEqual(['/home', '/selling', '/credit-sales', '/invoice-history', '/returns', '/customers', '/products', '/expenses', '/orders', '/website/couriers']);
     expect(el().textContent).not.toContain('nav.groups.admin');
   });
 

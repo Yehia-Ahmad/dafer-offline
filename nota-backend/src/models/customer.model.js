@@ -18,6 +18,9 @@ const customerSchema = new mongoose.Schema(
     },
     // Stage 21: shown on the invoice for B2B customers.
     taxNumber: { type: String, trim: true, maxlength: [50, "يجب ألا يزيد الرقم الضريبي عن 50 حرف"] },
+    // Online Stage 4: the customer account of a delivery courier (created with the courier), so lists can label or filter it.
+    isCourier: { type: Boolean, default: false },
+    courierId: { type: mongoose.Schema.Types.ObjectId, ref: "Courier" },
   },
   { timestamps: true }
 );

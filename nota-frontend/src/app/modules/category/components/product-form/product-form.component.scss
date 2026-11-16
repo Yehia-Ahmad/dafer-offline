@@ -12,6 +12,7 @@
 .pf__stack { display: flex; flex-direction: column; gap: 12px; }
 .pf__check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
 .pf__num { font-variant-numeric: tabular-nums; }
+.pf__reserved { margin: 0; font-size: 13px; color: var(--info-text); }
 // LTR values (codes) keep the page's reading side: right in Arabic, as in the design.
 .pf__ltr { text-align: left; }
 :host-context(html[dir='rtl']) .pf__ltr { text-align: right; }

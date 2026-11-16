@@ -15,6 +15,7 @@ const { normalizeStorePhone } = require("../utils/storePhone");
 const { priceWebOrder } = require("../store/orderPricing");
 const catalog = require("../store/catalog");
 const wl = require("../store/whitelist");
+const { withAvailableStock } = require("../store/reservations");
 
 const MAX_LINES = 50;
 const MAX_QTY = 99;
@@ -104,7 +105,8 @@ const createStoreOrderController = ({ secret }) => {
       .select("name code retailPrice discountPercentage inventoryCount vatExempt")
       .session(session)
       .lean();
-    const byId = new Map(products.map((product) => [String(product._id), product]));
+    // Online Stage 4: the placement check uses inventoryCount - reserved by confirmed/preparing orders.
+    const byId = new Map((await withAvailableStock(products, { session })).map((product) => [String(product._id), product]));
 
     const problems = [];
     const lines = [];

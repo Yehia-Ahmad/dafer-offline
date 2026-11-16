@@ -35,6 +35,8 @@
 .pp__name { font-weight: 500; &.is-out { text-decoration: line-through; color: var(--text-muted); } }
 .pp__strong { font-weight: 700; }
 .pp__muted-cell { color: var(--text-muted); }
+// Online Stage 4: stock held for confirmed/preparing website orders.
+.pp__reserved { display: block; margin-top: 4px; font-size: 12px; color: var(--info-text); }
 .pp__edit { min-height: 36px; padding: 0 12px; font-size: 13px; }
 .pp__empty { text-align: center; color: var(--text-muted); padding: 24px; }
 .pp__sentinel { display: flex; min-height: 48px; align-items: center; justify-content: center; padding: 12px 16px; border-top: 1px solid var(--line); }

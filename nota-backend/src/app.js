@@ -100,6 +100,8 @@ app.use("/api/suppliers", supplierRoutes);
 app.use("/api/purchases", purchaseRoutes);
 app.use("/api/supplier-payments", supplierPaymentRoutes);
 app.use("/api/website", websiteRoutes); // Online Stage 3: website.manage
+app.use("/api/orders", require("./routes/orders.routes")); // Online Stage 4: orders.view / orders.manage / orders.dispatch
+app.use("/api/couriers", require("./routes/couriers.routes")); // Online Stage 4: couriers
 
 app.use(notFound);
 app.use(errorHandler);

@@ -47,6 +47,8 @@ const EXPECTED_CATALOG = [
   "reports.financial", "accounting.close",
   // Online Stage 3
   "website.manage",
+  // Online Stage 4
+  "orders.view", "orders.manage", "orders.dispatch",
 ];
 
 test("catalog: exactly the Stage 13 keys, each with an Arabic and English label and a group", () => {
@@ -64,7 +66,7 @@ test("role templates match the spec", () => {
   assert.deepEqual(sorted(ROLE_TEMPLATES.cashier), sorted([
     "sales.create", "sales.view", "credit.create", "credit.view", "credit.collect",
     "returns.create", "customers.view", "products.view", "dashboard.view",
-    "shift.operate", "expenses.create",
+    "shift.operate", "expenses.create", "orders.view", "orders.manage", "orders.dispatch",
   ]));
   assert.deepEqual(sorted(ROLE_TEMPLATES.storekeeper), sorted([
     "products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view",
@@ -254,6 +256,26 @@ const EXPECTED_ROUTES = {
   "GET /api/website/products/:id": "website.manage",
   "PUT /api/website/products/:id": "website.manage",
   "PUT /api/website/categories/:id": "website.manage",
+  // Online Stage 4: website customers, orders, couriers
+  "GET /api/website/customers": "website.manage",
+  "PUT /api/website/customers/:id": "website.manage",
+  "POST /api/website/customers/:id/reset-password": "website.manage",
+  "GET /api/orders": "orders.view",
+  "GET /api/orders/summary": "orders.view",
+  "GET /api/orders/delivery-zones": "orders.manage",
+  "GET /api/orders/:id": "orders.view",
+  "PUT /api/orders/:id": "orders.manage",
+  "POST /api/orders/:id/confirm": "orders.manage",
+  "POST /api/orders/:id/prepare": "orders.manage",
+  "POST /api/orders/:id/reject": "orders.manage",
+  "POST /api/orders/:id/cancel": "orders.manage",
+  "POST /api/orders/:id/dispatch": "orders.dispatch + credit.create",
+  "POST /api/orders/:id/deliver": "orders.dispatch + credit.collect",
+  "POST /api/orders/:id/refuse": "orders.dispatch + returns.create",
+  "GET /api/couriers": "orders.view | website.manage",
+  "POST /api/couriers": "website.manage + customers.manage",
+  "GET /api/couriers/:id": "orders.view | website.manage",
+  "PUT /api/couriers/:id": "website.manage + customers.manage",
   // Online Stage 3: the public API of the customer website. STORE = no token needed (a guest may call it),
   // STORE:customer = needs a customer token (never a staff token). POST /orders accepts a guest or a customer.
   "GET /api/store/settings": "STORE",

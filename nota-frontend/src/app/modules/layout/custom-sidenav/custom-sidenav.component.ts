@@ -12,6 +12,7 @@ import { SidebarStateService } from '../nav/sidebar-state.service';
 import { CatalogStateService } from '../nav/catalog-state.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { DeviceService } from '../../../core/device/device.service';
+import { OrdersNotifierService } from '../../../core/orders-notifier/orders-notifier.service';
 import { UnsavedWorkService } from '../../../core/unsaved-work/unsaved-work.service';
 import { ChangePasswordDialogComponent } from '../../auth/change-password-dialog/change-password-dialog.component';
 
@@ -37,6 +38,8 @@ export class CustomSidenavComponent implements OnInit {
   private readonly _catalog = inject(CatalogStateService);
   protected readonly auth = inject(AuthService);
   protected readonly device = inject(DeviceService);
+  /** Online Stage 4: the new-orders badge (the service polls while the user holds orders.view). */
+  protected readonly orders = inject(OrdersNotifierService);
 
   readonly language = this._languageService.selectedLanguage;
   readonly brandName = computed(() => brandName(this._languageService.selectedLanguage()));

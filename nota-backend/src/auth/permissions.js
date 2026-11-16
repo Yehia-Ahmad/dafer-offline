@@ -64,6 +64,11 @@ const PERMISSIONS = {
 
   // Online Stage 3: the customer website (settings, delivery zones, which products/categories show on it).
   "website.manage": { group: "website", ar: "إدارة الموقع", en: "Manage website" },
+
+  // Online Stage 4: website orders. Dispatch, delivery and refusal also need the permission of the document they create.
+  "orders.view": { group: "website", ar: "عرض طلبات الموقع", en: "View website orders" },
+  "orders.manage": { group: "website", ar: "إدارة طلبات الموقع (تأكيد وتعديل ورفض وإلغاء)", en: "Manage website orders (confirm, edit, reject, cancel)" },
+  "orders.dispatch": { group: "website", ar: "تسليم الطلبات للمندوب وتسجيل التسليم والمرتجع", en: "Dispatch orders, record delivery and refusals" },
 };
 
 const PERMISSION_GROUPS = {
@@ -125,6 +130,9 @@ const ROLE_TEMPLATES = Object.freeze({
     "dashboard.view",
     "shift.operate",
     "expenses.create",
+    "orders.view",
+    "orders.manage",
+    "orders.dispatch",
   ]),
   storekeeper: Object.freeze(["products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view", "purchases.view", "purchases.create"]),
   accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view", "purchases.view", "suppliers.pay", "cashbox.view", "expenses.create", "expenses.manage", "vat.file", "reports.financial"]),

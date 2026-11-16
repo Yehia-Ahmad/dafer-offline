@@ -14,7 +14,7 @@ describe('nav menu config', () => {
       ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
       ['accounting', ['vat', 'profit']],
-      ['website', ['website-settings', 'delivery-zones']],
+      ['website', ['orders', 'couriers', 'website-customers', 'website-settings', 'delivery-zones']],
       ['admin', ['users', 'audit', 'shop']],
     ]);
   });
@@ -26,7 +26,7 @@ describe('nav menu config', () => {
       ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
       ['accounting', ['vat', 'profit']],
-      ['website', ['website-settings', 'delivery-zones']],
+      ['website', ['orders', 'couriers', 'website-customers', 'website-settings', 'delivery-zones']],
       ['admin', ['audit', 'shop']],
     ]);
   });
@@ -37,6 +37,8 @@ describe('nav menu config', () => {
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
       ['inventory', ['products']],
       ['treasury', ['expenses']],
+      // Online Stage 4: the cashier template handles website orders (orders.view); couriers read-only.
+      ['website', ['orders', 'couriers']],
     ]);
   });
 
@@ -122,14 +124,23 @@ describe('nav menu config', () => {
     }
   });
 
-  it('Online Stage 3: the website group needs website.manage; cashier, storekeeper and accountant never see it', () => {
+  it('Online Stage 3/4: settings, zones and website customers need website.manage; orders need orders.view (the badge item); storekeeper and accountant never see the group', () => {
     const website = NAV_GROUPS.find((g) => g.key === 'website')!;
-    expect(website.items.map((i) => i.route)).toEqual(['/website/settings', '/website/delivery-zones']);
-    for (const item of website.items) {
+    expect(website.items.map((i) => i.route)).toEqual(['/orders', '/website/couriers', '/website/customers', '/website/settings', '/website/delivery-zones']);
+    for (const item of website.items.filter((i) => ['website-customers', 'website-settings', 'delivery-zones'].includes(i.key))) {
       expect(item.visible(ctxFor([]))).toBeFalse();
       expect(item.visible(ctxFor(['website.manage']))).toBeTrue();
+      expect(item.visible(ctxFor(['orders.view']))).toBeFalse();
     }
-    for (const role of ['cashier', 'storekeeper', 'accountant'] as const) {
+    const orders = website.items.find((i) => i.key === 'orders')!;
+    expect(orders.badge).toBe('newOrders');
+    expect(orders.visible(ctxFor(['orders.view']))).toBeTrue();
+    expect(orders.visible(ctxFor(['website.manage']))).toBeFalse();
+    const couriers = website.items.find((i) => i.key === 'couriers')!;
+    expect(couriers.visible(ctxFor(['orders.view']))).toBeTrue();
+    expect(couriers.visible(ctxFor(['website.manage']))).toBeTrue();
+    expect(couriers.visible(ctxFor([]))).toBeFalse();
+    for (const role of ['storekeeper', 'accountant'] as const) {
       expect(visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS[role])).some((g) => g.key === 'website')).toBeFalse();
     }
   });

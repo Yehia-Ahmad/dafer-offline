@@ -89,6 +89,10 @@ export class TransferDialogComponent {
   /** Active boxes with their balances (cashbox.view). */
   readonly boxes = input<CashBox[]>([]);
   readonly done = output<TransferRow>();
+  /** Online Stage 4 ("hand in cash" of a courier): opens with these filled in. Unset = the dialog opens empty, as before. */
+  readonly presetFromId = input('');
+  readonly presetToId = input('');
+  readonly presetAmount = input<number | null>(null);
 
   readonly fromId = signal('');
   readonly toId = signal('');
@@ -107,7 +111,15 @@ export class TransferDialogComponent {
   readonly sameBox = computed(() => Boolean(this.fromId()) && this.fromId() === this.toId());
   constructor() {
     // Stage 22 review: re-read the lock date each time the dialog opens (another device may have closed a period).
-    effect(() => { if (this.visible()) untracked(() => this.lock.refresh()); });
+    effect(() => {
+      if (!this.visible()) return;
+      untracked(() => {
+        this.lock.refresh();
+        if (this.presetFromId() || this.presetToId() || this.presetAmount() !== null) {
+          this.fromId.set(this.presetFromId()); this.toId.set(this.presetToId()); this.amount.set(this.presetAmount());
+        }
+      });
+    });
   }
 
   readonly valid = computed(() => Boolean(this.from() && this.to()) && !this.sameBox() && this.amountValue() > 0 && !this.insufficient() && !this.lock.isLocked(this.date()));

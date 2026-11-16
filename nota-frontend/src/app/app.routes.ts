@@ -215,6 +215,32 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/website/delivery-zones/delivery-zones.component').then(m => m.DeliveryZonesComponent)
     },
     {
+        // Online Stage 4: website orders, couriers and the website's customers.
+        path: 'orders',
+        canActivate: [permissionGuard(ROUTE_RULES.orders)],
+        loadComponent: () => import('./modules/orders/orders-list/orders-list.component').then(m => m.OrdersListComponent)
+    },
+    {
+        path: 'orders/:id',
+        canActivate: [permissionGuard(ROUTE_RULES.orders)],
+        loadComponent: () => import('./modules/orders/order-page/order-page.component').then(m => m.OrderPageComponent)
+    },
+    {
+        path: 'website/couriers',
+        canActivate: [permissionGuard(ROUTE_RULES.couriers)],
+        loadComponent: () => import('./modules/couriers/couriers-page.component').then(m => m.CouriersPageComponent)
+    },
+    {
+        path: 'website/couriers/:id',
+        canActivate: [permissionGuard(ROUTE_RULES.couriers)],
+        loadComponent: () => import('./modules/couriers/courier-page.component').then(m => m.CourierPageComponent)
+    },
+    {
+        path: 'website/customers',
+        canActivate: [permissionGuard(ROUTE_RULES.websiteCustomers)],
+        loadComponent: () => import('./modules/website/website-customers/website-customers.component').then(m => m.WebsiteCustomersComponent)
+    },
+    {
         path: 'users',
         canDeactivate: [unsavedWorkGuard],
         canActivate: [permissionGuard(ROUTE_RULES.users)],

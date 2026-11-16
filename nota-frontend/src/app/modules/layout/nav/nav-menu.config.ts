@@ -23,6 +23,8 @@ export interface NavItem {
    * Without it the item is active on its route only (routerLinkActive, exact: false).
    */
   activePaths?: readonly string[];
+  /** Online Stage 4: a count badge next to the label (the number of new website orders). */
+  badge?: 'newOrders';
 }
 
 export interface NavGroup {
@@ -115,6 +117,10 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     key: 'website',
     labelKey: 'nav.groups.website',
     items: [
+      // Online Stage 4: the orders item carries the new-orders badge (OrdersNotifierService).
+      { key: 'orders', labelKey: 'nav.items.orders', route: '/orders', icon: NAV_ICONS.invoices, visible: allowed(ROUTE_RULES.orders), activePaths: ['/orders/'], badge: 'newOrders' },
+      { key: 'couriers', labelKey: 'nav.items.couriers', route: '/website/couriers', icon: NAV_ICONS.delivery, visible: allowed(ROUTE_RULES.couriers), activePaths: ['/website/couriers/'] },
+      { key: 'website-customers', labelKey: 'nav.items.websiteCustomers', route: '/website/customers', icon: NAV_ICONS.customers, visible: allowed(ROUTE_RULES.websiteCustomers) },
       { key: 'website-settings', labelKey: 'nav.items.websiteSettings', route: '/website/settings', icon: NAV_ICONS.website, visible: allowed(ROUTE_RULES.websiteSettings) },
       { key: 'delivery-zones', labelKey: 'nav.items.deliveryZones', route: '/website/delivery-zones', icon: NAV_ICONS.delivery, visible: allowed(ROUTE_RULES.deliveryZones) },
     ],

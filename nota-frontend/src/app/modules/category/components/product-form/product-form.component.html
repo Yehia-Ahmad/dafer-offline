@@ -182,6 +182,9 @@
             <nota-form-field [label]="'category.editProduct.inventoryCount' | translate" forId="inventoryCount">
               <input id="inventoryCount" type="text" inputmode="numeric" class="nota-input pf__num" [(ngModel)]="product.inventoryCount" [ngModelOptions]="{ standalone: true }" />
             </nota-form-field>
+            @if (product?.reservedForWebOrders > 0) {
+              <p class="pf__reserved" data-test="reserved-for-web">{{ 'productsPage.reservedForWeb' | translate: { count: product.reservedForWebOrders } }}</p>
+            }
             <nota-form-field [label]="'category.editProduct.newInventory' | translate" forId="newInventory">
               <input id="newInventory" type="number" min="0" step="1" class="nota-input pf__num" [(ngModel)]="newInventory" [ngModelOptions]="{ standalone: true }" />
             </nota-form-field>

@@ -42,6 +42,9 @@
               [attr.title]="state.collapsed() ? (item.labelKey | translate) : null">
               <nota-nav-icon [path]="item.icon" />
               <span class="nota-nav__label">{{ item.labelKey | translate }}</span>
+              @if (item.badge === 'newOrders' && (orders.newCount() ?? 0) > 0) {
+                <span class="nota-nav__badge nota-num" data-test="orders-badge" [attr.aria-label]="orders.newCount() + ' ' + ('orders.newBadge' | translate)">{{ orders.newCount() }}</span>
+              }
             </a>
           } @else {
             <a class="nota-nav__link" [routerLink]="item.route" routerLinkActive="is-active" ariaCurrentWhenActive="page"
@@ -49,6 +52,9 @@
               [attr.title]="state.collapsed() ? (item.labelKey | translate) : null">
               <nota-nav-icon [path]="item.icon" />
               <span class="nota-nav__label">{{ item.labelKey | translate }}</span>
+              @if (item.badge === 'newOrders' && (orders.newCount() ?? 0) > 0) {
+                <span class="nota-nav__badge nota-num" data-test="orders-badge" [attr.aria-label]="orders.newCount() + ' ' + ('orders.newBadge' | translate)">{{ orders.newCount() }}</span>
+              }
             </a>
           }
         }

@@ -16,6 +16,7 @@ const { getLockedThrough } = require("../accounting/period");
 const { businessDay } = require("../utils/clock");
 const { audit } = require("../auth/audit");
 const { hasPermission } = require("../auth/middleware");
+const { reservedByProduct } = require("../store/reservations");
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -441,6 +442,16 @@ const buildProductProfitRows = async ({ products, startDate, endDate }) => {
   return rows;
 };
 
+// Online Stage 4: "محجوز لطلبات الموقع: N". Only products with N > 0 get the field, so nothing else about the response changes.
+const withReservedForWebOrders = async (products) => {
+  const reserved = await reservedByProduct(products.map((product) => product._id));
+  if (!reserved.size) return products;
+  return products.map((product) => {
+    const qty = reserved.get(String(product._id));
+    return qty ? Object.assign(product.toJSON(), { reservedForWebOrders: qty }) : product;
+  });
+};
+
 const getProducts = asyncHandler(async (req, res) => {
   const { categoryId } = req.query;
   // Stage 12 (optional): name/code contains, case-insensitive.
@@ -491,7 +502,7 @@ const getProducts = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: products,
+    data: await withReservedForWebOrders(products),
     pagination: {
       page,
       limit,
@@ -546,7 +557,7 @@ const getProductById = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("المنتج غير موجود");
   }
-  res.json(product);
+  res.json((await withReservedForWebOrders([product]))[0]);
 });
 
 const exportProductsExcel = asyncHandler(async (req, res) => {

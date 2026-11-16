@@ -1470,7 +1470,9 @@ const updateCreditSale = asyncHandler(async (req, res) => {
   res.json(toCreditSaleInvoice(updated));
 });
 
-const addCreditSalePaymentInTransaction = async (req, res, session) => {
+// Online Stage 4: `options.box` is a box the caller already resolved (a courier's box, which a cashier may not pick by hand).
+// Without it the box is resolved from the request exactly as before.
+const addCreditSalePaymentInTransaction = async (req, res, session, options = {}) => {
   const creditSale = await CreditSale.findById(req.params.id).session(session);
 
   if (!creditSale) {
@@ -1609,7 +1611,7 @@ const addCreditSalePaymentInTransaction = async (req, res, session) => {
     updatedInvoices.find((invoice) => invoice._id.toString() === creditSale._id.toString()) ??
     toCreditSaleInvoice(creditSale);
 
-  const paymentBox = await resolveBox({ req, boxId: req.body.boxId, session });
+  const paymentBox = options.box || await resolveBox({ req, boxId: req.body.boxId, session });
   await Receipt.create([{
     _id: receiptId,
     number: receiptNumber,
@@ -1650,8 +1652,9 @@ const assertNotWrittenOff = (invoice) => {
   error.statusCode = 409; error.responseData = { code: "WRITTEN_OFF" }; throw error;
 };
 
-const addCreditSaleRefund = asyncHandler(async (req, res) => {
-  const updatedCreditSale = await withTransaction(async (session) => {
+// Online Stage 4: the body of POST /credit-sales/:id/refund as a named function (moved, not changed; same indentation on
+// purpose so the diff stays a pure move), so a website order's refusal runs the very same return in its own transaction.
+const refundCreditSaleInTransaction = (req, res, outerSession) => (async (session) => {
     const creditSale = await CreditSale.findById(req.params.id).session(session);
     if (!creditSale) { const error = new Error("سجل البيع الآجل غير موجود"); error.statusCode = 404; throw error; }
     if (creditSale.status === "cancelled") {
@@ -1794,7 +1797,10 @@ const addCreditSaleRefund = asyncHandler(async (req, res) => {
     if (vatReturn) await recordVatEvent({ kind: "sale_return", direction: "output", sourceType: "return", sourceId: returnLog._id, number, date: refundDate, net: -roundMoney(finalReturnedAmount - vatReturn.vatAmount), vat: -vatReturn.vatAmount, session });
     await audit(req, { action: "credit.returned", entity: "CreditSale", entityId: creditSale._id, details: { number, amount: finalReturnedAmount }, session, strict: true });
     return creditSale;
-  });
+})(outerSession);
+
+const addCreditSaleRefund = asyncHandler(async (req, res) => {
+  const updatedCreditSale = await withTransaction((session) => refundCreditSaleInTransaction(req, res, session));
 
   res.status(201).json(toCreditSaleInvoice(updatedCreditSale));
 });
@@ -1860,4 +1866,7 @@ module.exports = {
   cancelCreditSale,
   calculateCreditAmounts,
   applyCreditAmountsToInvoice,
+  createCreditSaleInTransaction,
+  addCreditSalePaymentInTransaction,
+  refundCreditSaleInTransaction,
 };

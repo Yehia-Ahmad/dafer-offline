@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
+import { OrdersNotifierService } from './core/orders-notifier/orders-notifier.service';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -24,6 +25,8 @@ describe('App', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideNoopAnimations(),
+        // Online Stage 4: the new-orders poller has its own spec; its pending request would keep whenStable() waiting here.
+        { provide: OrdersNotifierService, useValue: { newCount: signal<number | null>(null) } },
       ],
     }).compileComponents();
   });

@@ -278,13 +278,15 @@ for (const includes of [true, false]) {
     const price = (id) => order.items.find((item) => String(item.productId) === id).unitPrice;
     const sale = ok(await staff("POST", "/api/sellings", {
       customerName: "نقدي", customerPhone: "01017171718", sellingDate: new Date().toISOString().slice(0, 10),
+      // Online Stage 4 (decision 9): the delivery fee is part of the sale's VAT base, so the comparison sale carries it as shippingFees.
+      shippingFees: order.deliveryFee,
       items: lines.map((line) => ({ productId: line.productId, quantity: line.qty, price: price(line.productId) })),
     }), 201);
     const saved = await Selling.findById(sale._id).lean();
     assert.equal(order.vat, saved.vatAmount, "invoice VAT");
     assert.equal(order.vatRate, saved.vatRate); assert.equal(order.vatIncluded, saved.vatIncluded);
     assert.deepEqual(order.items.map((item) => item.vat), saved.items.map((item) => item.vatAmount), "VAT per line");
-    assert.equal(Math.round((order.total - order.deliveryFee) * 100), Math.round(saved.totalPrice * 100), "goods total after VAT");
+    assert.equal(Math.round(order.total * 100), Math.round(saved.totalPrice * 100), "order total = sale total (delivery fee included)");
     assert.equal(order.vatIncluded, includes);
     // the product page shows VAT the way the shop sets it
     const product = ok(await store("GET", `/api/store/products/${a.id}`));

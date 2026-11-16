@@ -130,11 +130,16 @@ const publicOrderItem = (item) => ({
 
 const publicZoneSnapshot = (zone) => ({ name: zone.name, fee: money(zone.fee) });
 
+/** Online Stage 4: a refused order shows like a cancelled one to the customer. */
+const publicStatus = (status) => (status === "refused" ? "cancelled" : status);
+/** The customer sees status changes only: staff edits, notes and names stay in the admin history. */
+const publicHistory = (history) => (history || []).filter((row) => !row.type || row.type === "status").map((row) => ({ status: publicStatus(row.status), at: row.at }));
+
 /** The placement response (also the idempotent replay). `trackingToken` is only here, never in the other order views. */
 const publicPlacedOrder = (order, trackingToken) => ({
   id: idOf(order._id),
   number: order.number,
-  status: order.status,
+  status: publicStatus(order.status),
   paymentMethod: order.paymentMethod,
   subtotal: money(order.subtotal),
   vat: money(order.vat),
@@ -148,7 +153,7 @@ const publicPlacedOrder = (order, trackingToken) => ({
 const publicOwnOrder = (order) => ({
   id: idOf(order._id),
   number: order.number,
-  status: order.status,
+  status: publicStatus(order.status),
   paymentMethod: order.paymentMethod,
   items: (order.items || []).map(publicOrderItem),
   subtotal: money(order.subtotal),
@@ -162,14 +167,14 @@ const publicOwnOrder = (order) => ({
     address: order.contact.address,
     notes: order.contact.notes || "",
   },
-  statusHistory: (order.statusHistory || []).map((row) => ({ status: row.status, at: row.at })),
+  statusHistory: publicHistory(order.statusHistory),
   createdAt: order.createdAt,
 });
 
 /** A guest's tracking view: status, items, totals, zone. No contact data. */
 const publicTracking = (order) => ({
   number: order.number,
-  status: order.status,
+  status: publicStatus(order.status),
   paymentMethod: order.paymentMethod,
   items: (order.items || []).map(publicOrderItem),
   subtotal: money(order.subtotal),

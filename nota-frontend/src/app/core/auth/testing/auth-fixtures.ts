@@ -18,6 +18,8 @@ export const ALL_PERMISSIONS = [
   'vat.file',
   // Online Stage 3
   'website.manage',
+  // Online Stage 4
+  'orders.view', 'orders.manage', 'orders.dispatch',
 ] as const;
 
 const VIEW = ['sales.view', 'credit.view', 'returns.view', 'customers.view', 'products.view', 'dashboard.view'];
@@ -25,7 +27,7 @@ const VIEW = ['sales.view', 'credit.view', 'returns.view', 'customers.view', 'pr
 export const ROLE_PERMISSIONS: Record<Exclude<RoleKey, 'custom'>, string[]> = {
   owner: [...ALL_PERMISSIONS],
   manager: ALL_PERMISSIONS.filter((key) => key !== 'users.manage' && key !== 'backup.manage' && key !== 'owner.drawings'),
-  cashier: ['sales.create', 'sales.view', 'credit.create', 'credit.view', 'credit.collect', 'returns.create', 'customers.view', 'products.view', 'dashboard.view', 'shift.operate', 'expenses.create'],
+  cashier: ['sales.create', 'sales.view', 'credit.create', 'credit.view', 'credit.collect', 'returns.create', 'customers.view', 'products.view', 'dashboard.view', 'shift.operate', 'expenses.create', 'orders.view', 'orders.manage', 'orders.dispatch'],
   storekeeper: ['products.view', 'products.manage', 'categories.manage', 'products.importExport', 'products.viewCost', 'suppliers.view', 'purchases.view', 'purchases.create'],
   accountant: [...VIEW, 'reports.profit', 'products.viewCost', 'credit.collect', 'audit.view', 'suppliers.view', 'purchases.view', 'suppliers.pay', 'cashbox.view', 'expenses.create', 'expenses.manage', 'vat.file'],
 };

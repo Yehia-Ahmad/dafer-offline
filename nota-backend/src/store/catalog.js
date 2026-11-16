@@ -7,6 +7,7 @@ const Category = require("../models/category.model");
 const ShopProfile = require("../models/shopProfile.model");
 const WebsiteSettings = require("../models/websiteSettings.model");
 const { loadVatSettings, vatContext, today } = require("../accounting/vat");
+const { withAvailableStock } = require("./reservations");
 
 const isId = (value) => typeof value === "string" && mongoose.Types.ObjectId.isValid(value) && String(new mongoose.Types.ObjectId(value)) === value.toLowerCase();
 
@@ -84,7 +85,8 @@ const findVisibleProducts = async ({ categoryId, q, sort, skip, limit }) => {
     ]).collation({ locale: "ar", strength: 2 }),
     Product.countDocuments(match),
   ]);
-  return { rows, total };
+  // Online Stage 4: the website sells inventoryCount - reserved (confirmed/preparing orders).
+  return { rows: await withAvailableStock(rows), total };
 };
 
 /** One visible product by id (lean row with finalPrice) or null. */
@@ -97,7 +99,7 @@ const findVisibleProduct = async (id) => {
     { $addFields: { finalPrice: FINAL_PRICE } },
     { $project: PRODUCT_PROJECTION },
   ]);
-  return row || null;
+  return row ? (await withAvailableStock([row]))[0] : null;
 };
 
 const categoryNames = async (rows) => {

@@ -93,7 +93,11 @@
                 <td class="nota-num pp__code" dir="ltr">{{ product?.code || '—' }}</td>
                 <td class="pp__name" [class.is-out]="isOutOfStock(product?.inventoryCount)">{{ product?.name }}</td>
                 <td><span [class]="'nota-pill nota-num nota-pill--' + stockVariant(product)"
-                  [title]="'productsPage.thresholdTitle' | translate: { count: (threshold(product) | notaNumber) }">{{ product?.inventoryCount | notaNumber }}</span></td>
+                  [title]="'productsPage.thresholdTitle' | translate: { count: (threshold(product) | notaNumber) }">{{ product?.inventoryCount | notaNumber }}</span>
+                  @if (reservedForWeb(product); as reserved) {
+                    <small class="pp__reserved" data-test="reserved-for-web">{{ 'productsPage.reservedForWeb' | translate: { count: (reserved | notaNumber) } }}</small>
+                  }
+                </td>
                 <td *notaCan="'products.viewCost'" class="nota-num pp__muted-cell">{{ product?.['purchasePrice'] | notaMoney }}</td>
                 <td class="nota-num pp__strong">{{ product?.['retailPrice'] | notaMoney }}</td>
                 <td class="nota-num">{{ product?.['wholesalePrice'] | notaMoney }}</td>

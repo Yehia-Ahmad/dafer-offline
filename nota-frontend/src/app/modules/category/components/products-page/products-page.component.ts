@@ -199,6 +199,12 @@ export class ProductsPageComponent implements OnInit, OnDestroy {
     return stockThreshold(product);
   }
 
+  /** Online Stage 4: stock reserved for confirmed/preparing website orders (the server sends it only when above 0). */
+  reservedForWeb(product: { [key: string]: unknown } | null | undefined): number {
+    const value = Number(product?.['reservedForWebOrders']);
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  }
+
   isOutOfStock(inventoryCount: unknown): boolean {
     const parsedValue = Number(inventoryCount);
     return Number.isFinite(parsedValue) && parsedValue === 0;

@@ -1,6 +1,10 @@
 const mongoose = require("mongoose");
 
-const ORDER_STATUSES = ["new", "confirmed", "preparing", "out_for_delivery", "delivered", "cancelled", "rejected"];
+const ORDER_STATUSES = ["new", "confirmed", "preparing", "out_for_delivery", "delivered", "cancelled", "rejected", "refused"];
+// Online Stage 4: statuses whose quantities are reserved (computed from WebOrder, never stored on the product).
+const RESERVING_STATUSES = ["confirmed", "preparing"];
+// An order can be edited until it leaves with the courier.
+const EDITABLE_STATUSES = ["new", "confirmed", "preparing"];
 const PAYMENT_METHODS = ["cod"];
 
 const itemSchema = new mongoose.Schema(
@@ -45,10 +49,18 @@ const webOrderSchema = new mongoose.Schema(
       notes: { type: String },
     },
     storeCustomer: { type: mongoose.Schema.Types.ObjectId, ref: "StoreCustomer", index: true },
+    // Public views only read { status, at }. Stage 4 adds who (name), the reason/note and, for an edit, what changed.
     statusHistory: {
-      type: [{ _id: false, status: String, at: Date, by: String }],
+      type: [{ _id: false, status: String, at: Date, by: String, byName: String, type: { type: String }, note: String, details: mongoose.Schema.Types.Mixed }],
       default: [],
     },
+    // Online Stage 4: what the order created, and who carries it.
+    courierId: { type: mongoose.Schema.Types.ObjectId, ref: "Courier", index: true },
+    creditSaleId: { type: mongoose.Schema.Types.ObjectId, ref: "CreditSale" },
+    paymentIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+    returnIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+    collectedAmount: { type: Number },
+    reason: { type: String },
     // The same client key twice must give the same order. A hash of the request body tells a retry from a different request.
     idempotencyKey: { type: String, required: true, unique: true },
     requestHash: { type: String, required: true },
@@ -58,6 +70,12 @@ const webOrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Reservation lookups (confirmed/preparing quantities per product) and the admin list filters.
+webOrderSchema.index({ status: 1, "items.productId": 1 });
+webOrderSchema.index({ status: 1, createdAt: -1 });
+
 module.exports = mongoose.model("WebOrder", webOrderSchema);
 module.exports.ORDER_STATUSES = ORDER_STATUSES;
+module.exports.RESERVING_STATUSES = RESERVING_STATUSES;
+module.exports.EDITABLE_STATUSES = EDITABLE_STATUSES;
 module.exports.PAYMENT_METHODS = PAYMENT_METHODS;
