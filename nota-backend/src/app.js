@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
-const morgan = require("morgan");
+const { createAccessLog } = require("./utils/accessLog");
+const { createHealthHandler } = require("./utils/health");
 
 const categoryRoutes = require("./routes/category.routes");
 const creditSaleRoutes = require("./routes/creditSale.routes");
@@ -31,6 +32,9 @@ const { requireJwtSecret, sessionsValidAfter } = require("./auth/config");
 const { costStrip, requireAuth } = require("./auth/middleware");
 
 const app = express();
+// Behind nginx on the same machine: take the client IP from X-Forwarded-For, only from a loopback peer.
+// Without this every request looks like 127.0.0.1 and the login lockout would hit everyone at once.
+if (process.env.NOTA_TRUST_PROXY === "1") app.set("trust proxy", "loopback");
 // Fail closed: without a usable NOTA_JWT_SECRET the app must not start (throws here, at load).
 const jwtSecret = requireJwtSecret();
 
@@ -41,7 +45,10 @@ const corsOrigins = String(process.env.CORS_ORIGINS || "")
   .filter(Boolean);
 app.use(cors({ origin: corsOrigins }));
 app.use(express.json({ limit: "10mb" }));
-app.use(morgan("dev"));
+app.use(createAccessLog());
+
+// Health check for nginx/systemd/deploy scripts: outside /api, no auth, no data besides ok/version/db.
+app.get("/health", createHealthHandler());
 
 app.get("/", (req, res) => {
   res.json({ message: "Warehouse API is running" });

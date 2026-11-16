@@ -1,0 +1,15 @@
+# Temporary HTTP-only site used by setup-server.sh until the certificate exists. No ssl, no certificate files:
+# it is valid on a brand new server. certbot (webroot) answers the ACME challenge from /var/www/html.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name @@DOMAIN@@;
+    root /var/www/html;
+    default_type text/plain;
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+    location / {
+        return 200 "Nota is being set up.\n";
+    }
+}

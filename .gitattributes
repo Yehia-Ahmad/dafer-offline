@@ -1,0 +1,2 @@
+# Server files are uploaded as-is to Linux: they must keep LF line endings even when core.autocrlf=true on Windows.
+deploy/** text eol=lf

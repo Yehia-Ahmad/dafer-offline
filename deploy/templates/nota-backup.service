@@ -1,0 +1,8 @@
+[Unit]
+Description=Nota daily backup
+After=mongod.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/nota/bin/backup.sh
+Nice=10

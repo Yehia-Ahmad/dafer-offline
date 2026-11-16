@@ -1,0 +1,23 @@
+[Unit]
+Description=Nota backend
+After=network-online.target mongod.service
+Wants=network-online.target mongod.service
+# Keep retrying if MongoDB is not PRIMARY yet right after a boot.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=nota
+Group=nota
+WorkingDirectory=/opt/nota/current/backend
+EnvironmentFile=/etc/nota/backend.env
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

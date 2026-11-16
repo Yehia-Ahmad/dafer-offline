@@ -1,0 +1,87 @@
+# Nota: nginx site for @@DOMAIN@@ (rendered by setup-server.sh; placeholders: @@DOMAIN@@ @@PORT@@).
+# Layout is ready for later stages: the admin app is served by `location /` from /opt/nota/current/frontend.
+# A customer website or PWA can later take `/` (and the admin app move to e.g. /admin/) or get its own
+# `server` block / domain, without touching the /api/ and /health proxy rules below.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name @@DOMAIN@@;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    # Ubuntu 24.04 ships nginx 1.24: http2 is a listen parameter there (the `http2 on;` directive needs 1.25.1+).
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name @@DOMAIN@@;
+
+    ssl_certificate     /etc/letsencrypt/live/@@DOMAIN@@/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/@@DOMAIN@@/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    server_tokens off;
+    client_max_body_size 1m;
+
+    include /etc/nginx/snippets/nota-security-headers.conf;
+
+    gzip on;
+    gzip_vary on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/javascript application/javascript application/json image/svg+xml font/ttf;
+
+    root /opt/nota/current/frontend;
+    index index.html;
+
+    # The API. 100m covers the category Excel import (backend limit 100 MB); JSON bodies are limited to 10mb by the app.
+    location /api/ {
+        client_max_body_size 100m;
+        include /etc/nginx/snippets/nota-proxy-api.conf;
+        proxy_pass http://127.0.0.1:@@PORT@@;
+    }
+
+    # Login: 10 POSTs per minute per IP, burst 5, then 429 (zone nota_login, see conf.d/nota-ratelimit.conf).
+    # The app's own lockout (5 wrong passwords per username + IP) still applies on top.
+    location = /api/auth/login {
+        limit_req zone=nota_login burst=5 nodelay;
+        limit_req_status 429;
+        limit_req_log_level warn;
+        include /etc/nginx/snippets/nota-proxy-api.conf;
+        proxy_pass http://127.0.0.1:@@PORT@@;
+    }
+
+    location = /health {
+        proxy_pass http://127.0.0.1:@@PORT@@/health;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Never cache the entry page: a new release must be picked up at once.
+    location = /index.html {
+        add_header Cache-Control "no-store" always;
+        include /etc/nginx/snippets/nota-security-headers.conf;
+    }
+
+    # Hashed build files (main-AB12CD34.js, styles-AB12CD34.css) never change: cache for a year.
+    location ~ "^/.+-[A-Z0-9]{8}\.(js|css)$" {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        include /etc/nginx/snippets/nota-security-headers.conf;
+        try_files $uri =404;
+    }
+
+    # Single page app: unknown paths go to index.html.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

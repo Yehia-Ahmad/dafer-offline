@@ -20,9 +20,13 @@ const startServer = async () => {
   // (one owner, unique usernames) exist before the first login.
   await ensureIndexes();
 
-  app.listen(PORT, () => {
-    console.log(`Server started on port ${PORT}`);
-  });
+  // NOTA_LISTEN_HOST (production: 127.0.0.1) limits the listener to one address; unset = all interfaces.
+  const host = process.env.NOTA_LISTEN_HOST;
+  const onListening = () => {
+    console.log(`Server started on ${host || "all interfaces"}:${PORT}`);
+  };
+  if (host) app.listen(PORT, host, onListening);
+  else app.listen(PORT, onListening);
 };
 
 startServer().catch((error) => {
