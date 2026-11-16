@@ -6,6 +6,8 @@ import { DialogModule } from 'primeng/dialog';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent } from '../../shared/ui';
 import { DeliveryZone, DeliveryZonePayload, WEBSITE_LIMITS } from '../website.models';
 import { WebsiteService } from '../website.service';
+import { LayoutService } from '../../../core/layout/layout.service';
+import { MobSheetComponent } from '../../mobile/mob-sheet.component';
 
 /**
  * Online Stage 3: /website/delivery-zones. List + add/edit dialog (name, fee, estimated time, active, order).
@@ -13,13 +15,16 @@ import { WebsiteService } from '../website.service';
  */
 @Component({
   selector: 'app-delivery-zones',
-  imports: [TranslatePipe, ReactiveFormsModule, DialogModule, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent],
+  imports: [TranslatePipe, ReactiveFormsModule, DialogModule, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, MobSheetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './delivery-zones.component.html',
   styleUrl: './delivery-zones.component.scss',
 })
 export class DeliveryZonesComponent implements OnInit {
   private readonly service = inject(WebsiteService);
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the zone whose ⋯ menu is open. */
+  protected readonly menuZone = signal<DeliveryZone | null>(null);
   private readonly formBuilder = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
 

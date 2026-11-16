@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { UnsavedWorkService } from '../../core/unsaved-work/unsaved-work.service';
+import { LayoutService } from '../../core/layout/layout.service';
 import { NotaButtonDirective } from '../shared/ui';
 import { ProductVisibilityMode, ProductWebsite, VisibilityChoice, WEBSITE_LIMITS } from './website.models';
 import { WebsiteService } from './website.service';
@@ -18,14 +19,22 @@ import { WebsiteService } from './website.service';
   imports: [FormsModule, TranslatePipe, NotaButtonDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="nota-card pws" data-test="product-website">
+    <section class="nota-card pws" [class.m-card]="layout.isMobile()" data-test="product-website">
       <h2 class="pws__title">{{ 'website.product.title' | translate }}</h2>
       <!-- Online Stage 5A: the control follows the website's mode. "marked": tick to show. "all": tick to hide. -->
       @if (mode() === 'all') {
-        <label class="pws__check"><input type="checkbox" data-field="website-hidden" [ngModel]="choice() === 'hide'" (ngModelChange)="setHidden($event)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.product.hide' | translate }}</label>
+        @if (layout.isMobile()) {
+          <label class="m-switch"><span>{{ 'website.product.hide' | translate }}</span><input type="checkbox" data-field="website-hidden" [ngModel]="choice() === 'hide'" (ngModelChange)="setHidden($event)" [ngModelOptions]="{ standalone: true }" /></label>
+        } @else {
+          <label class="pws__check"><input type="checkbox" data-field="website-hidden" [ngModel]="choice() === 'hide'" (ngModelChange)="setHidden($event)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.product.hide' | translate }}</label>
+        }
         <p class="nota-hint">{{ 'website.product.hideHint' | translate }}</p>
       } @else {
-        <label class="pws__check"><input type="checkbox" data-field="website-visible" [ngModel]="choice() === 'show'" (ngModelChange)="setShown($event)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.product.visible' | translate }}</label>
+        @if (layout.isMobile()) {
+          <label class="m-switch"><span>{{ 'website.product.visible' | translate }}</span><input type="checkbox" data-field="website-visible" [ngModel]="choice() === 'show'" (ngModelChange)="setShown($event)" [ngModelOptions]="{ standalone: true }" /></label>
+        } @else {
+          <label class="pws__check"><input type="checkbox" data-field="website-visible" [ngModel]="choice() === 'show'" (ngModelChange)="setShown($event)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.product.visible' | translate }}</label>
+        }
         <p class="nota-hint">{{ 'website.product.visibleHint' | translate }}</p>
       }
 
@@ -81,6 +90,7 @@ import { WebsiteService } from './website.service';
   `],
 })
 export class ProductWebsiteSectionComponent {
+  protected readonly layout = inject(LayoutService);
   private readonly service = inject(WebsiteService);
   private readonly destroyRef = inject(DestroyRef);
 

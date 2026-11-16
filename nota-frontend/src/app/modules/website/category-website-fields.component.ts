@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, effect, inject, input, 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
+import { LayoutService } from '../../core/layout/layout.service';
 import { NotaButtonDirective } from '../shared/ui';
 import { CategoryWebsite, ProductVisibilityMode, VisibilityChoice } from './website.models';
 import { WebsiteService } from './website.service';
@@ -19,10 +20,18 @@ import { WebsiteService } from './website.service';
       <span class="cwf__title">{{ 'website.category.title' | translate }}</span>
       <!-- Online Stage 5A: follows the website's mode. "marked": tick to show. "all": tick to hide. -->
       @if (mode() === 'all') {
-        <label class="cwf__check"><input type="checkbox" data-field="category-website-hidden" [ngModel]="choice() === 'hide'" (ngModelChange)="choice.set($event ? 'hide' : null)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.category.hide' | translate }}</label>
+        @if (layout.isMobile()) {
+          <label class="m-switch"><span>{{ 'website.category.hide' | translate }}</span><input type="checkbox" data-field="category-website-hidden" [ngModel]="choice() === 'hide'" (ngModelChange)="choice.set($event ? 'hide' : null)" [ngModelOptions]="{ standalone: true }" /></label>
+        } @else {
+          <label class="cwf__check"><input type="checkbox" data-field="category-website-hidden" [ngModel]="choice() === 'hide'" (ngModelChange)="choice.set($event ? 'hide' : null)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.category.hide' | translate }}</label>
+        }
         <span class="nota-hint">{{ 'website.category.hideHint' | translate }}</span>
       } @else {
-        <label class="cwf__check"><input type="checkbox" data-field="category-website-visible" [ngModel]="choice() === 'show'" (ngModelChange)="choice.set($event ? 'show' : null)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.category.visible' | translate }}</label>
+        @if (layout.isMobile()) {
+          <label class="m-switch"><span>{{ 'website.category.visible' | translate }}</span><input type="checkbox" data-field="category-website-visible" [ngModel]="choice() === 'show'" (ngModelChange)="choice.set($event ? 'show' : null)" [ngModelOptions]="{ standalone: true }" /></label>
+        } @else {
+          <label class="cwf__check"><input type="checkbox" data-field="category-website-visible" [ngModel]="choice() === 'show'" (ngModelChange)="choice.set($event ? 'show' : null)" [ngModelOptions]="{ standalone: true }" /> {{ 'website.category.visible' | translate }}</label>
+        }
         <span class="nota-hint">{{ 'website.category.visibleHint' | translate }}</span>
       }
       <label class="nota-label" for="cwf-order">{{ 'website.category.order' | translate }}</label>
@@ -51,6 +60,7 @@ import { WebsiteService } from './website.service';
   `],
 })
 export class CategoryWebsiteFieldsComponent {
+  protected readonly layout = inject(LayoutService);
   private readonly service = inject(WebsiteService);
   private readonly destroyRef = inject(DestroyRef);
 

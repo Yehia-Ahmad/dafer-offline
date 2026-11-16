@@ -11,6 +11,8 @@ import { CashboxService } from '../cashbox/cashbox.service';
 import { TransferDialogComponent } from '../cashbox/transfer-dialog.component';
 import { Courier } from '../orders/orders.models';
 import { OrdersService } from '../orders/orders.service';
+import { LayoutService } from '../../core/layout/layout.service';
+import { MobSheetComponent } from '../mobile/mob-sheet.component';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent } from '../shared/ui';
 
 /**
@@ -19,9 +21,60 @@ import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, 
  */
 @Component({
   selector: 'app-couriers-page',
-  imports: [TranslatePipe, FormsModule, RouterLink, DialogModule, NotaCanDirective, TransferDialogComponent, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent],
+  imports: [TranslatePipe, FormsModule, RouterLink, DialogModule, NotaCanDirective, TransferDialogComponent, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, MobSheetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone): the same couriers. The whole card opens the courier; "تسليم الفلوس" sits on the card; edit and (de)activate in the ⋯ menu; "+ مندوب" adds. -->
+    @if (loadError()) { <div class="m-card m-empty" style="margin:12px 14px" role="alert"><span class="nota-error">{{ 'couriers.loadFailed' | translate }}</span> <button type="button" class="m-btn" (click)="load()">{{ 'couriers.retry' | translate }}</button></div> }
+    @if (errorMessage() && !dialogOpen()) { <div class="nota-error m-note" role="alert" data-test="courier-error">{{ errorMessage() }}</div> }
+    <div class="m-page" style="padding-top:12px">
+      @if (loading()) { <div class="m-skel m-skel-row" style="margin:0" role="status"></div> }
+      <div class="m-card m-card--flush">
+        @for (courier of couriers(); track courier.id) {
+          <div class="m-row m-stretch-host" style="flex-wrap:wrap" data-test="courier-row" [class.m-muted]="!courier.isActive">
+            <span class="m-avatar">{{ courier.name.charAt(0) || '؟' }}</span>
+            <a class="m-row__open m-stretch" [routerLink]="['/website/couriers', courier.id]">
+              <span class="m-row__title" style="display:block" dir="auto">{{ courier.name }}</span>
+              <span class="m-row__sub nota-num" dir="ltr" style="display:block;text-align:start">{{ courier.phone }}</span>
+              <span class="m-row__sub nota-num" style="display:block;white-space:normal">{{ 'couriers.columns.box' | translate }} <span data-test="box-balance">{{ courier.boxBalance | notaMoney }}</span> · {{ 'couriers.columns.owed' | translate }} <span data-test="amount-owed">{{ courier.amountOwed | notaMoney }}</span> · {{ 'couriers.columns.open' | translate }} {{ courier.openOrders }}</span>
+            </a>
+            <span [class]="courier.isActive ? 'm-pill m-pill--ok' : 'm-pill m-pill--muted'">{{ (courier.isActive ? 'couriers.active' : 'couriers.inactive') | translate }}</span>
+            <button *notaCan="['website.manage', 'customers.manage']" type="button" class="m-more" (click)="menuCourier.set(courier)" [attr.aria-label]="'mobile.b.common.moreActions' | translate" data-testid="m-courier-menu">⋯</button>
+            <button type="button" class="m-btn" style="width:100%" data-action="hand-in" *notaCan="'cashbox.manage'" [disabled]="courier.boxBalance <= 0" (click)="handIn(courier)">{{ 'couriers.handIn' | translate }}</button>
+          </div>
+        } @empty {
+          @if (!loading()) { <div class="m-empty">{{ 'couriers.empty' | translate }}</div> }
+        }
+      </div>
+    </div>
+    <button type="button" class="m-fab" data-action="add-courier" *notaCan="['website.manage', 'customers.manage']" (click)="openAdd()">+ {{ 'couriers.add' | translate }}</button>
+    <nota-mob-sheet [open]="menuCourier() !== null" (openChange)="$event || menuCourier.set(null)" [title]="menuCourier()?.name ?? ''">
+      @if (menuCourier(); as courier) {
+        <div class="m-menu">
+          <button type="button" class="m-row" data-action="edit-courier" (click)="menuCourier.set(null); openEdit(courier)">{{ 'couriers.edit' | translate }}</button>
+          @if (courier.isActive) { <button type="button" class="m-row m-row--danger" data-action="deactivate-courier" (click)="menuCourier.set(null); setActive(courier, false)">{{ 'couriers.deactivate' | translate }}</button> }
+          @else { <button type="button" class="m-row" data-action="activate-courier" (click)="menuCourier.set(null); setActive(courier, true)">{{ 'couriers.activate' | translate }}</button> }
+        </div>
+      }
+    </nota-mob-sheet>
+
+    <p-dialog [visible]="dialogOpen()" (visibleChange)="$event ? null : dialogOpen.set(false)" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+      <nota-dialog-shell [title]="(editing() ? 'couriers.edit' : 'couriers.add') | translate" [closeLabel]="'couriers.close' | translate" (closed)="dialogOpen.set(false)">
+        <label class="m-field">{{ 'couriers.columns.name' | translate }} *<input id="cNameM" class="m-input" name="nameM" data-test="courier-name" maxlength="120" [ngModel]="name()" (ngModelChange)="name.set($event)" /></label>
+        <label class="m-field">{{ 'couriers.columns.phone' | translate }} *<input id="cPhoneM" class="m-input nota-num" type="tel" inputmode="tel" dir="ltr" name="phoneM" data-test="courier-phone" maxlength="30" [ngModel]="phone()" (ngModelChange)="phone.set($event)" /></label>
+        @if (!editing()) { <p class="m-note" style="padding:0">{{ 'couriers.createHint' | translate }}</p> }
+        @if (errorMessage()) { <p class="nota-error" role="alert" data-test="courier-form-error">{{ errorMessage() }}</p> }
+        <ng-container notaDialogFooter>
+          <button type="button" class="m-btn" (click)="dialogOpen.set(false)">{{ 'couriers.close' | translate }}</button>
+          <button type="button" class="m-btn m-btn--primary" data-action="save-courier" [disabled]="saving() || !name().trim() || phone().trim().length < 5" (click)="save()">{{ 'couriers.save' | translate }}</button>
+        </ng-container>
+      </nota-dialog-shell>
+    </p-dialog>
+
+    <app-transfer-dialog [(visible)]="transferOpen" [boxes]="boxes()" [presetFromId]="handInFrom()" [presetToId]="handInTo()" [presetAmount]="handInAmount()" (done)="load()" />
+} @else {
+
     <div class="cp">
       <nota-page-header [title]="'couriers.title' | translate" [subtitle]="'couriers.subtitle' | translate">
         <div notaPageActions>
@@ -89,6 +142,7 @@ import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, 
     </p-dialog>
 
     <app-transfer-dialog [(visible)]="transferOpen" [boxes]="boxes()" [presetFromId]="handInFrom()" [presetToId]="handInTo()" [presetAmount]="handInAmount()" (done)="load()" />
+  }
   `,
   styles: `
     :host { display: block; }
@@ -106,6 +160,9 @@ import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, 
 })
 export class CouriersPageComponent implements OnInit {
   private readonly service = inject(OrdersService);
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the courier whose ⋯ menu is open. */
+  protected readonly menuCourier = signal<Courier | null>(null);
   private readonly cashbox = inject(CashboxService);
   private readonly auth = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);

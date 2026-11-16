@@ -227,3 +227,39 @@ The PWA and phone notifications (Stage 6), English, card payment, automatic orde
 
 ### Not in this stage
 Barcode scanning with the camera, an offline queue, printer setup on the phone, the remaining screens in the phone design (6B), the invoice number in the POS header (it exists only after saving), a second phone / credit limit on customers (not in the backend).
+
+## Stage 6B — every remaining admin screen on the phone
+
+### Decisions (made in the brief)
+1. **Same pattern as 6A.** Each remaining admin screen gets a phone layout as a template block inside the existing component (`@if (layout.isMobile()) { … } @else { <desktop markup, byte for byte> }`), over the same services, forms, guards, permissions, validations and totals. No backend change. Desktop (768 px and up) is unchanged.
+2. **Phone rules** (set by review, applied to every group): the top bar shows the page title (no in-page title or breadcrumb); the whole list card opens the item, edit and delete live in the ⋯ menu and delete asks in a red confirm sheet; money as `٢٥ ج.م`; Arabic dates (`mobDate`) and the native date/month input on the phone; a native text number input (`nota-mob-number`, Arabic and English digits, same min/max/decimals) in place of the PrimeNG number inputs; a sheet that submits stays open while saving and closes only on success, with errors inside it and the values kept; forms are full pages with a fixed إلغاء / حفظ bar, switches instead of checkboxes and the tab bar hidden; tables become cards, except the financial reports, which scroll inside their card with a sticky first column.
+3. **Built and reviewed in groups:** A shared pieces, B sales, C stock, D cash, E accounting, F website and admin.
+
+### What was built
+- **Shared (`modules/mobile`).** `MobSheetComponent`, `MobFilterSheetComponent` + `MobFilterChipsComponent`, `MobConfirmComponent`, `MobBarComponent` (form bar), `MobileTopBarService` (title, subtitle, back, hide tabs; cleared on every navigation), `mobile-parent` (back goes to the logical parent when the page was opened directly), `mobDate` pipe, `nota-mob-date`, `nota-mob-number`. About 200 `m-*` rules appended to `styles/_mobile.scss`, all under the phone query.
+- **Screens.** B: customer details, credit sales list and new credit sale, invoice history (+ detail sheet), returns. C: products list with the category tools, profit report, purchases (list, form, detail, return sheet), suppliers (list, form, payment, statement). D: cash box list, box detail with the shift panel and dialogs, expenses. E: accounts + account dialog, ledger, journal, journal entry, manual entry, opening wizard, closing, VAT, financial reports. F: website settings (sections as chips, preview in a sheet), delivery zones, couriers and the courier page, website customers (deactivate and reset password as short sheets), the order page's edit mode (steppers, add-product sheet, remove, save), users (cards, ⋯ menu, full-page form with permission groups as switches), shop profile (cards, VAT and closing as switches/chips, invoice preview as a sheet), the product and category website sections, the VAT and closing dialogs' field styling, and a login/no-access check.
+- **Tooling (not in the build).** `scripts/mobile-audit.mjs` (every route at 390 and 1280: page-level horizontal scroll, clipping outside 0…innerWidth with `.mob-hscroll, .m-chips, .m-scroll` exempt, edge-hugging under 8 px as a warning, console errors, tab bar present/absent, viewport and full-page shots), `scripts/mobile-audit-seed.mjs` (seeds through the public API only), `scripts/mobile-shot.mjs`, `scripts/verify-desktop-markup.mjs` (proves the `@else` branch of every converted template equals the pre-6B template; collapses the small inline phone branches of three files). `playwright-core` is a devDependency of `nota-frontend`; `mobile-audit/` is git-ignored.
+- **Specs.** `mobile-parent`, `mob-sheet`, `mob-topbar-date`, `mob-date-input`, `mob-number-input`, `sheets-submit`, and `group-b/c/d/e/f-phone` (actions per permission, filter sheets, manual-entry totals and the balanced-only post rule, credit-sale and purchase totals equal to the desktop ones, category delete rule, sheets that stay open on error, website sections as switches).
+
+### Decisions taken while building (not in the brief)
+- **No `Mob*.dc.html` design files exist in the repo** (only the desktop designs), so each phone screen follows the 6A spec and patterns, with the desktop design for content. Review the screenshots before treating the visuals as final.
+- **Category delete** on the phone follows the desktop rule: `CategoryToolsComponent` got an `openCategoryId` input, so the phone list can open the same delete flow.
+- **Order edit mode:** the 6A header condition `!layout.isMobile() || editing()` became `!layout.isMobile()`, because the phone now has its own edit layout. The desktop result is the same.
+- **Print:** prints that need the desktop print settings say so on the phone; nothing about printing changed.
+- **The 1280 reference is the pre-6B code (`ae9deb30`) served against the same audit data**, not a screenshot from an earlier run.
+
+### Design fields the phone design asks for that the backend does not have
+None added. No Mob design file exists to compare against; the two known cases are from 6A (a second phone and a credit limit on customers).
+
+### Design texts that contradict Nota's rules
+None found, for the same reason. Where a phone text was written it follows the code (credit-sale and return hints, the shift close text, the website customer one-time password).
+
+### Verification
+Admin `ng test` 934 of 934; admin production build (`--configuration admin`) passes (the `exceljs` ESM warning was already there); `scripts/verify-desktop-markup.mjs` 48 templates, 0 differing; the audit ran 85 route/size checks with 0 failing and 1 warning (below); at 1280, 41 of 43 routes are pixel-identical to the pre-6B reference and the other two (`/audit`, `/users`) differ only by the sign-in rows the audit run itself created. Backend `npm test` 492 of 492 (nothing skipped); storefront `ng test` 53 of 53.
+
+### Noticed, not done
+- `/selling` (6A) has an edge-hugging warning at 390 (the POS header and chips start at the screen edge). Not part of 6B.
+- `categories/:id` is a redirect to `/products?category=<id>`, not a page.
+- The nav config is missing a line break before `],` after the website-settings and shop items (cosmetic).
+- `docs/stages/ONLINE_STAGE_6B.md` is untracked in git.
+- Printing a shift or a statement from a phone still depends on the desktop print settings.

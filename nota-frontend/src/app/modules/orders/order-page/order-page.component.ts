@@ -21,6 +21,7 @@ import { whatsappConfirmLink } from '../order-whatsapp';
 import { Courier, OrderDetail, OrderEditPayload, OrderHistoryEntry } from '../orders.models';
 import { OrdersService } from '../orders.service';
 import { ORDER_STATUS_VARIANT } from '../orders-list/orders-list.component';
+import { MobBarComponent, MobSheetComponent } from '../../mobile/mob-sheet.component';
 
 interface EditLine { productId: string; name: string; qty: number; unitPrice: number | null; isNew: boolean }
 interface EditDraft { name: string; phone: string; address: string; notes: string; zoneId: string; deliveryFee: number | string }
@@ -31,11 +32,11 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
  */
 @Component({
   selector: 'app-order-page',
-  imports: [TranslatePipe, FormsModule, DatePipe, DialogModule, PaymentBoxSelectComponent, PrintActionsComponent, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent],
+  imports: [TranslatePipe, FormsModule, DatePipe, DialogModule, PaymentBoxSelectComponent, PrintActionsComponent, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, MobBarComponent, MobSheetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="op">
-      @if (!layout.isMobile() || editing()) {
+      @if (!layout.isMobile()) {
       <nota-page-header [title]="('orders.page.title' | translate) + ' ' + (order()?.number || '')" [subtitle]="order() ? (order()!.createdAt | date: 'medium') : ''" backLink="/orders" [backLabel]="'orders.title' | translate">
         <div notaPageActions>
           @if (order(); as o) {
@@ -150,6 +151,56 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
               }
             </div>
           }
+        } @else if (layout.isMobile() && editing()) {
+        <!--6B-PHONE-START-->
+          <nota-mob-bar [title]="('orders.actions.edit' | translate) + ' ' + o.number" [hideTabs]="true" [back]="editBack" />
+          <div class="m-form" style="padding-bottom:120px" data-testid="m-order-edit">
+            <div class="m-section-label">{{ 'orders.page.contact' | translate }}</div>
+            <section class="m-card" data-test="order-contact">
+              <label class="m-field">{{ 'orders.page.name' | translate }}<input id="eNameM" class="m-input" name="nameM" [ngModel]="draft().name" (ngModelChange)="patchDraft({ name: $event })" /></label>
+              <label class="m-field">{{ 'orders.page.phone' | translate }}<input id="ePhoneM" class="m-input" type="tel" inputmode="tel" dir="ltr" name="phoneM" [ngModel]="draft().phone" (ngModelChange)="patchDraft({ phone: $event })" /></label>
+              <label class="m-field">{{ 'orders.page.address' | translate }}<input id="eAddressM" class="m-input" name="addressM" [ngModel]="draft().address" (ngModelChange)="patchDraft({ address: $event })" /></label>
+              <label class="m-field">{{ 'orders.page.notes' | translate }}<input id="eNotesM" class="m-input" name="notesM" [ngModel]="draft().notes" (ngModelChange)="patchDraft({ notes: $event })" /></label>
+              @if (o.fulfillment !== 'pickup') {
+                <label class="m-field">{{ 'orders.page.zone' | translate }}
+                  <select id="eZoneM" class="m-input" name="zoneM" data-test="edit-zone" [ngModel]="draft().zoneId" (ngModelChange)="patchDraft({ zoneId: $event })">
+                    @for (zone of zones(); track zone.id) { <option [value]="zone.id">{{ zone.name }} — {{ zone.fee }}</option> }
+                  </select></label>
+                <label class="m-field">{{ 'orders.page.deliveryFee' | translate }}<input id="eFeeM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="feeM" data-test="edit-fee" [ngModel]="draft().deliveryFee" (ngModelChange)="patchDraft({ deliveryFee: $event })" /></label>
+              }
+            </section>
+            <div class="m-section-label">{{ 'orders.page.lines' | translate }}</div>
+            @for (line of editLines(); track line.productId) {
+              <section class="m-card" data-test="edit-line">
+                <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+                  <div style="min-width:0"><div class="m-row__title" style="white-space:normal" dir="auto">{{ line.name }}</div>
+                    <div class="m-row__sub nota-num">{{ line.unitPrice === null ? '—' : (line.unitPrice | notaMoney) }} · {{ 'orders.page.stock' | translate }} {{ stockOf(line.productId) }} · {{ 'orders.page.reserved' | translate }} {{ reservedOf(line.productId) }}</div></div>
+                  <button type="button" class="m-btn m-btn--danger" style="min-height:40px;padding:0 12px" data-action="remove-line" (click)="removeLine(line.productId)">{{ 'orders.page.remove' | translate }}</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:10px">
+                  <button type="button" class="m-btn" style="width:44px;padding:0" [attr.data-test]="'edit-dec-' + line.productId" (click)="setQty(line.productId, (line.qty || 1) - 1)">−</button>
+                  <input class="m-input nota-num" style="text-align:center;min-width:0" type="number" inputmode="numeric" min="1" step="1" [attr.data-test]="'edit-qty-' + line.productId" [ngModel]="line.qty" (ngModelChange)="setQty(line.productId, $event)" />
+                  <button type="button" class="m-btn" style="width:44px;padding:0" [attr.data-test]="'edit-inc-' + line.productId" (click)="setQty(line.productId, (line.qty || 0) + 1)">+</button>
+                </div>
+              </section>
+            }
+            <button type="button" class="m-btn m-btn--block" data-testid="m-add-product" (click)="addSheet.set(true)">+ {{ 'orders.page.addProduct' | translate }}</button>
+            <div class="m-actions">
+              <button type="button" class="m-btn" data-action="cancel-edit" (click)="editing.set(false)">{{ 'orders.page.cancelEdit' | translate }}</button>
+              <button type="button" class="m-btn m-btn--primary" data-action="save-edit" [disabled]="busy()" (click)="saveEdit()">{{ 'orders.page.saveEdit' | translate }}</button>
+            </div>
+          </div>
+          <nota-mob-sheet [(open)]="addSheet" [title]="'orders.page.addProduct' | translate">
+            <input class="m-input" type="search" data-test="add-product-search" [placeholder]="'orders.page.addProduct' | translate" [ngModel]="productQuery()" (ngModelChange)="searchProducts($event)" />
+            @if (productResults().length) {
+              <div class="m-card m-card--flush" style="margin-top:8px" data-test="product-results">
+                @for (product of productResults(); track product._id) {
+                  <button type="button" class="m-row" (click)="addProduct(product); addSheet.set(false)"><span class="m-row__body"><span class="m-row__title" style="white-space:normal" dir="auto">{{ product.name }}</span></span><span class="nota-num">{{ product.retailPrice | notaMoney }}</span></button>
+                }
+              </div>
+            }
+          </nota-mob-sheet>
+        <!--6B-PHONE-END-->
         } @else {
         <div class="op__actions" data-test="order-actions">
           @for (action of actions(); track action) {
@@ -428,6 +479,9 @@ export class OrderPageComponent implements OnInit {
   private readonly translate = inject(TranslateService);
 
   protected readonly layout = inject(LayoutService);
+  /** Phone edit mode (Online Stage 6B): the add-product sheet, and the top bar's back (leaves edit mode like "إلغاء"). */
+  protected readonly addSheet = signal(false);
+  protected readonly editBack = (): boolean => { this.editing.set(false); return true; };
   protected readonly order = signal<OrderDetail | null>(null);
   protected readonly loadError = signal(false);
   protected readonly errorMessage = signal('');

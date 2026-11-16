@@ -2769,8 +2769,12 @@
     "entry": {
       "deleteConfirm": "Delete this draft? It cannot be restored."
     },
+    "websiteCustomers": {
+      "deactivateConfirm": "Deactivate \"{{name}}\"? They will not be able to sign in."
+    },
       "_end": 1
     },
+
 
 
 

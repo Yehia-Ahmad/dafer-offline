@@ -13,6 +13,8 @@ import {
   WebsiteSettingsPayload,
 } from '../website.models';
 import { WebsiteService } from '../website.service';
+import { LayoutService } from '../../../core/layout/layout.service';
+import { MobBarComponent, MobSheetComponent } from '../../mobile/mob-sheet.component';
 
 type Outcome = { kind: 'saved' } | { kind: 'error'; message: string };
 
@@ -33,12 +35,15 @@ interface WalletBox { _id: string; name: string; type: string }
  */
 @Component({
   selector: 'app-website-settings',
-  imports: [TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent, NotaStatusPillComponent, DeliveryZonesComponent],
+  imports: [TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent, NotaStatusPillComponent, DeliveryZonesComponent, MobBarComponent, MobSheetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './website-settings.component.html',
   styleUrl: './website-settings.component.scss',
 })
 export class WebsiteSettingsComponent implements OnInit {
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the quick-preview sheet. */
+  protected readonly previewOpen = signal(false);
   private readonly service = inject(WebsiteService);
   private readonly productsService = inject(ProductsService);
   private readonly cashbox = inject(CashboxService);

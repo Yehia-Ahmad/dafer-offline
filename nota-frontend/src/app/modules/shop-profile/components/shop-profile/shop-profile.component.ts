@@ -11,18 +11,23 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { ShopProfileService } from '../../services/shop-profile.service';
 import { AUTO_LOCK_CHOICES, DEFAULT_AUTO_LOCK_MINUTES, normalizeAutoLock } from '../../../../core/auth/idle-lock.service';
 import { UnsavedWorkService } from '../../../../core/unsaved-work/unsaved-work.service';
+import { LayoutService } from '../../../../core/layout/layout.service';
+import { MobBarComponent, MobSheetComponent } from '../../../mobile/mob-sheet.component';
 
 type Outcome = { kind: 'saved' } | { kind: 'error'; message: string };
 
 /** The shop's own details (name, address, phones, logo, tax number, ...), printed on invoices. Stage 11: ShopProfile.dc.html + live preview. */
 @Component({
   selector: 'app-shop-profile',
-  imports: [DatePipe, TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent],
+  imports: [DatePipe, TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent, MobBarComponent, MobSheetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './shop-profile.component.html',
   styleUrl: './shop-profile.component.scss',
 })
 export class ShopProfileComponent implements OnInit {
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the invoice preview sheet. */
+  protected readonly previewOpen = signal(false);
   private readonly shopProfileService = inject(ShopProfileService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);

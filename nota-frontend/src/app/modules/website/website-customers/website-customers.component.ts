@@ -7,6 +7,9 @@ import { DialogModule } from 'primeng/dialog';
 import { WebsiteCustomer } from '../../orders/orders.models';
 import { OrdersService } from '../../orders/orders.service';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaPageHeaderComponent } from '../../shared/ui';
+import { LayoutService } from '../../../core/layout/layout.service';
+import { MobConfirmComponent, MobSheetComponent } from '../../mobile/mob-sheet.component';
+import { MobDatePipe } from '../../mobile/mob-date.pipe';
 
 /**
  * Online Stage 4: /website/customers. Search by name or phone, orders count, deactivate/activate, and reset password:
@@ -14,9 +17,72 @@ import { NotaButtonDirective, NotaDialogShellComponent, NotaPageHeaderComponent 
  */
 @Component({
   selector: 'app-website-customers',
-  imports: [TranslatePipe, FormsModule, DatePipe, DialogModule, NotaButtonDirective, NotaDialogShellComponent, NotaPageHeaderComponent],
+  imports: [TranslatePipe, FormsModule, DatePipe, DialogModule, NotaButtonDirective, NotaDialogShellComponent, NotaPageHeaderComponent, MobSheetComponent, MobConfirmComponent, MobDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone): the same website customers. Search, cards (the whole card opens a ⋯ menu: reset password, deactivate / activate); deactivating asks in a red sheet; the one-time password is shown in a sheet. -->
+    <div class="m-search" style="margin-top:12px;display:flex;gap:8px">
+      <input class="m-input" style="flex:1;min-width:0" type="search" data-test="customer-search" [placeholder]="'websiteCustomers.search' | translate" [ngModel]="q()" (ngModelChange)="q.set($event)" (keyup.enter)="reload()" />
+      <button type="button" class="m-btn" data-action="search" (click)="reload()">{{ 'websiteCustomers.searchAction' | translate }}</button>
+    </div>
+    @if (loadError()) { <p class="nota-error m-note" role="alert">{{ 'websiteCustomers.loadFailed' | translate }}</p> }
+    @if (errorMessage()) { <p class="nota-error m-note" role="alert">{{ errorMessage() }}</p> }
+    <div class="m-page">
+      @if (loading()) { <div class="m-skel m-skel-row" style="margin:0" role="status"></div> }
+      <div class="m-card m-card--flush">
+        @for (customer of rows(); track customer.id) {
+          <div class="m-row m-stretch-host" data-test="customer-row" [class.m-muted]="!customer.isActive">
+            <span class="m-avatar">{{ customer.name.charAt(0) || '؟' }}</span>
+            <button type="button" class="m-row__open m-stretch" (click)="menuCustomer.set(customer)">
+              <span class="m-row__title" style="display:block" dir="auto">{{ customer.name }}</span>
+              <span class="m-row__sub nota-num" dir="ltr" style="display:block;text-align:start">{{ customer.phone }}</span>
+              <span class="m-row__sub" style="display:block">{{ 'websiteCustomers.columns.orders' | translate }}: {{ customer.ordersCount }} · {{ customer.createdAt | mobDate }}</span>
+            </button>
+            <span [class]="customer.isActive ? 'm-pill m-pill--ok' : 'm-pill m-pill--muted'">{{ (customer.isActive ? 'websiteCustomers.active' : 'websiteCustomers.inactive') | translate }}</span>
+          </div>
+        } @empty {
+          @if (!loading()) { <div class="m-empty">{{ 'websiteCustomers.empty' | translate }}</div> }
+        }
+      </div>
+      @if (totalPages() > 1) {
+        <div class="m-actions" style="position:static;border:0;padding:0">
+          <button type="button" class="m-btn" [disabled]="page() <= 1" (click)="go(page() - 1)">‹</button>
+          <span class="m-row__sub nota-num" style="align-self:center;text-align:center;flex:1.4">{{ page() }} / {{ totalPages() }}</span>
+          <button type="button" class="m-btn" [disabled]="page() >= totalPages()" (click)="go(page() + 1)">›</button>
+        </div>
+      }
+    </div>
+    <nota-mob-sheet [open]="menuCustomer() !== null" (openChange)="$event || menuCustomer.set(null)" [title]="menuCustomer()?.name ?? ''">
+      @if (menuCustomer(); as customer) {
+        <div class="m-menu">
+          <button type="button" class="m-row" data-action="reset-password" (click)="menuCustomer.set(null); askReset(customer)">{{ 'websiteCustomers.resetPassword' | translate }}</button>
+          @if (customer.isActive) { <button type="button" class="m-row m-row--danger" data-action="toggle-active" (click)="menuCustomer.set(null); confirmDeactivate.set(customer)">{{ 'websiteCustomers.deactivate' | translate }}</button> }
+          @else { <button type="button" class="m-row" data-action="toggle-active" (click)="menuCustomer.set(null); toggle(customer)">{{ 'websiteCustomers.activate' | translate }}</button> }
+        </div>
+      }
+    </nota-mob-sheet>
+    <nota-mob-confirm [open]="confirmDeactivate() !== null" (openChange)="$event || confirmDeactivate.set(null)" [title]="'websiteCustomers.deactivate' | translate"
+      [message]="'mobile.b.websiteCustomers.deactivateConfirm' | translate: { name: confirmDeactivate()?.name }" [confirmLabel]="'websiteCustomers.deactivate' | translate" (confirmed)="toggle(confirmDeactivate()!)" />
+
+    <p-dialog [visible]="resetting() !== null" (visibleChange)="$event ? null : closeReset()" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+      <nota-dialog-shell [title]="'websiteCustomers.resetPassword' | translate" [closeLabel]="'websiteCustomers.close' | translate" (closed)="closeReset()">
+        @if (temporaryPassword(); as password) {
+          <p>{{ 'websiteCustomers.passwordShownOnce' | translate }}</p>
+          <p class="m-card nota-num" style="text-align:center;font-size:26px;font-weight:800;letter-spacing:2px" dir="ltr" data-test="temporary-password">{{ password }}</p>
+        } @else {
+          <p>{{ 'websiteCustomers.resetConfirm' | translate: { name: resetting()?.name } }}</p>
+        }
+        <ng-container notaDialogFooter>
+          <button type="button" class="m-btn" (click)="closeReset()">{{ 'websiteCustomers.close' | translate }}</button>
+          @if (!temporaryPassword()) {
+            <button type="button" class="m-btn m-btn--danger" data-action="confirm-reset" [disabled]="busy()" (click)="confirmReset()">{{ 'websiteCustomers.resetPassword' | translate }}</button>
+          }
+        </ng-container>
+      </nota-dialog-shell>
+    </p-dialog>
+} @else {
+
     <div class="wc">
       <nota-page-header [title]="'websiteCustomers.title' | translate" [subtitle]="'websiteCustomers.subtitle' | translate" />
       <div class="wc__filters">
@@ -76,6 +142,7 @@ import { NotaButtonDirective, NotaDialogShellComponent, NotaPageHeaderComponent 
         </ng-container>
       </nota-dialog-shell>
     </p-dialog>
+  }
   `,
   styles: `
     :host { display: block; }
@@ -92,6 +159,10 @@ import { NotaButtonDirective, NotaDialogShellComponent, NotaPageHeaderComponent 
 })
 export class WebsiteCustomersComponent implements OnInit {
   private readonly service = inject(OrdersService);
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the ⋯ menu and the red deactivate confirmation. */
+  protected readonly menuCustomer = signal<WebsiteCustomer | null>(null);
+  protected readonly confirmDeactivate = signal<WebsiteCustomer | null>(null);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly rows = signal<WebsiteCustomer[]>([]);

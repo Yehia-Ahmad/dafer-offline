@@ -10,6 +10,7 @@ import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent }
 import { passwordProblemKey } from '../../auth/auth-form.util';
 import { CreateUserPayload, UpdateUserPayload, UsersService } from '../users.service';
 import { sameKeys } from '../user-rules';
+import { LayoutService } from '../../../core/layout/layout.service';
 
 type EditableRole = Exclude<RoleKey, 'owner'>;
 type FieldKey = 'name' | 'username' | 'password' | 'confirm' | 'role' | 'permissions' | 'maxDiscount' | 'general';
@@ -42,6 +43,7 @@ interface PermissionGroupView {
   styleUrl: './user-form-dialog.component.scss',
 })
 export class UserFormDialogComponent {
+  protected readonly layout = inject(LayoutService);
   private readonly auth = inject(AuthService);
   private readonly users = inject(UsersService);
   private readonly translate = inject(TranslateService);

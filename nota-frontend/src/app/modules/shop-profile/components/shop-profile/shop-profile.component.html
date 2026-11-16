@@ -1,3 +1,211 @@
+@if (layout.isMobile()) {
+<!-- Shop profile (docs/design/screens/ShopProfile.dc.html). Stage 11: same GET / PUT shop-profile. -->
+<div class="sp">
+  <nota-mob-bar [title]="'shopProfilePage.title' | translate" [hideTabs]="true" />
+  <div style="display:flex;justify-content:flex-end;padding:12px 14px 0"><button type="button" class="m-btn" data-testid="m-preview" (click)="previewOpen.set(true)">{{ 'mobile.common.preview' | translate }}</button></div>
+
+  @if (loading()) {
+    <p class="sp__muted" role="status">{{ 'shopProfilePage.loading' | translate }}</p>
+  } @else {
+    @if (loadError()) {
+      <div class="sp__alert sp__alert--error" role="alert">{{ 'shopProfilePage.messages.loadFailed' | translate }}</div>
+    }
+
+    <div class="sp__layout">
+      <form class="m-form sp__form" style="padding-bottom:120px" [formGroup]="form" (ngSubmit)="save()" novalidate>
+        <div class="m-card">
+        <div class="sp__logo">
+          <div class="sp__logo-box">
+            @if (logo(); as src) {
+              <img [src]="src" [alt]="'shopProfilePage.fields.logo' | translate" />
+            } @else {
+              <span>{{ 'shopProfilePage.logo.none' | translate }}</span>
+            }
+          </div>
+          <div class="sp__logo-actions">
+            <div class="sp__row">
+              <label class="m-btn sp__file">
+                {{ (logo() ? 'shopProfilePage.logo.change' : 'shopProfilePage.logo.upload') | translate }}
+                <input type="file" accept="image/*" hidden (change)="onLogoSelected($event)" />
+              </label>
+              @if (logo()) {
+                <button type="button" (click)="removeLogo()" class="m-btn m-btn--danger">{{ 'shopProfilePage.logo.remove' | translate }}</button>
+              }
+            </div>
+            <span class="nota-hint">{{ 'shopProfilePage.logo.hint' | translate }}</span>
+            @if (logoError(); as key) {
+              <span class="nota-error" role="alert">{{ key | translate }}</span>
+            }
+          </div>
+        </div>
+
+        <nota-form-field [label]="'shopProfilePage.fields.name' | translate" forId="sp-name" [required]="true"
+          [error]="showError('name') ? ('shopProfilePage.validation.nameRequired' | translate) : null">
+          <input id="sp-name" type="text" class="nota-input" formControlName="name" [maxLength]="limits.name" />
+        </nota-form-field>
+
+        <nota-form-field [label]="'shopProfilePage.fields.address' | translate" forId="sp-address">
+          <textarea id="sp-address" rows="2" class="nota-textarea" formControlName="address" [maxLength]="limits.address"></textarea>
+        </nota-form-field>
+
+        <div class="sp__phones">
+          <span class="nota-label">{{ 'shopProfilePage.fields.phones' | translate }}</span>
+          <div class="sp__phone-grid">
+            @for (phone of phones.controls; track $index; let i = $index) {
+              <div class="sp__phone">
+                <input type="tel" dir="ltr" class="nota-input sp__num sp__ltr" [formControl]="phone" [maxLength]="limits.phone"
+                  [attr.aria-label]="('shopProfilePage.fields.phone' | translate) + ' ' + (i + 1)" />
+                <button type="button" (click)="removePhone(i)"
+                  [attr.aria-label]="('shopProfilePage.actions.removePhone' | translate) + ' ' + (i + 1)"
+                  [title]="'shopProfilePage.actions.removePhone' | translate" class="m-btn m-btn--danger">×</button>
+              </div>
+            }
+          </div>
+          @if (phones.length < limits.phones) {
+            <button type="button" class="m-btn sp__add" (click)="addPhone()">+ {{ 'shopProfilePage.actions.addPhone' | translate }}</button>
+          }
+        </div>
+
+        <div class="sp__grid">
+          <nota-form-field [label]="'shopProfilePage.fields.taxNumber' | translate" forId="sp-tax">
+            <input id="sp-tax" type="text" dir="ltr" class="nota-input sp__num sp__ltr" formControlName="taxNumber" [maxLength]="limits.taxNumber" />
+          </nota-form-field>
+          <nota-form-field [label]="'shopProfilePage.fields.commercialRegister' | translate" forId="sp-cr">
+            <input id="sp-cr" type="text" dir="ltr" class="nota-input sp__num sp__ltr" formControlName="commercialRegister" [maxLength]="limits.commercialRegister" />
+          </nota-form-field>
+        </div>
+
+        <nota-form-field [label]="'shopProfilePage.fields.invoiceFooter' | translate" forId="sp-footer" [hint]="'shopProfilePage.hints.invoiceFooter' | translate">
+          <textarea id="sp-footer" rows="2" class="nota-textarea" formControlName="invoiceFooter" [maxLength]="limits.invoiceFooter"></textarea>
+        </nota-form-field>
+
+        </div>
+
+        <!-- Stage 15: الأمان — auto-lock after idle minutes (every device). -->
+        <section class="m-card sp__security" data-test="security-card" aria-labelledby="sp-security-title">
+          <div class="sp__security-head">
+            <span class="sp__security-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+              </svg>
+            </span>
+            <h2 id="sp-security-title" class="m-card__title sp__security-title">{{ 'session.security.title' | translate }}</h2>
+          </div>
+          <nota-form-field [label]="'session.security.autoLock' | translate" forId="sp-autolock" [hint]="'session.security.autoLockHint' | translate">
+            <select id="sp-autolock" class="nota-input sp__select" formControlName="autoLockMinutes">
+              @for (minutes of autoLockChoices; track minutes) {
+                <option [ngValue]="minutes">
+                  {{ (minutes === 0 ? 'session.security.off' : 'session.security.minutes') | translate: { count: minutes } }}
+                </option>
+              }
+            </select>
+          </nota-form-field>
+        </section>
+
+        <!-- Stage 21: الضريبة — optional per shop. -->
+        <section class="m-card sp__vat" data-test="vat-card" aria-labelledby="sp-vat-title">
+          <div class="sp__security-head">
+            <span class="sp__security-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 5L5 19"></path><circle cx="7" cy="7" r="2.5"></circle><circle cx="17" cy="17" r="2.5"></circle>
+              </svg>
+            </span>
+            <h2 id="sp-vat-title" class="m-card__title sp__security-title">{{ 'vat.settings.title' | translate }}</h2>
+          </div>
+          <label class="m-switch">{{ 'vat.settings.enabled' | translate }}<input type="checkbox" formControlName="vatEnabled" data-field="vat-enabled" /></label>
+          <p class="nota-hint">{{ 'vat.settings.enabledHint' | translate }}</p>
+          @if (vatNeedsTaxNumber()) {
+            <p class="sp__vat-warn" role="alert" data-test="vat-tax-required">{{ 'vat.settings.taxNumberRequired' | translate }}</p>
+          }
+          @if (preview().vatEnabled) {
+            <div class="sp__grid">
+              <nota-form-field [label]="'vat.settings.rate' | translate" forId="sp-vat-rate" [hint]="'vat.settings.rateHint' | translate" [error]="vatRateInvalid() && form.controls.vatRate.touched ? ('vat.settings.rateInvalid' | translate) : ''">
+                <input id="sp-vat-rate" type="text" inputmode="decimal" dir="ltr" class="nota-input sp__num sp__ltr" formControlName="vatRate" data-field="vat-rate" />
+              </nota-form-field>
+            </div>
+            <fieldset class="sp__vat-mode">
+              <legend>{{ 'vat.settings.pricing' | translate }}</legend>
+              <label class="sp__check"><input type="radio" [value]="true" formControlName="vatIncludes" data-field="vat-includes" /> {{ 'vat.settings.pricesInclude' | translate }}</label>
+              <label class="sp__check"><input type="radio" [value]="false" formControlName="vatIncludes" data-field="vat-excludes" /> {{ 'vat.settings.pricesExclude' | translate }}</label>
+            </fieldset>
+            @if (vatStartDate()) {
+              <p class="nota-hint" data-test="vat-start">{{ 'vat.settings.startDate' | translate }}: <span class="nota-num">{{ vatStartDate() | date: 'yyyy-MM-dd' }}</span></p>
+            }
+          }
+        </section>
+
+        @if (isOwner()) {
+          <section class="m-card sp__closing" data-test="closing-card" aria-labelledby="sp-closing-title">
+            <h2 id="sp-closing-title" class="m-card__title sp__security-title">{{ 'closing.settings.title' | translate }}</h2>
+            <p class="nota-hint">{{ 'closing.settings.hint' | translate }}</p>
+            <fieldset class="sp__vat-mode">
+              <legend>{{ 'closing.settings.frequency' | translate }}</legend>
+              <label class="sp__check"><input type="radio" value="monthly" formControlName="closingFrequency" data-field="closing-monthly" /> {{ 'closing.frequency.monthly' | translate }}</label>
+              <label class="sp__check"><input type="radio" value="yearly" formControlName="closingFrequency" data-field="closing-yearly" /> {{ 'closing.frequency.yearly' | translate }}</label>
+            </fieldset>
+            <nota-form-field [label]="'closing.settings.startMonth' | translate" forId="sp-closing-month" [hint]="'closing.settings.startMonthHint' | translate">
+              <select id="sp-closing-month" class="nota-select" formControlName="closingStartMonth" data-field="closing-month">
+                @for (month of months; track month) { <option [ngValue]="month">{{ month }}</option> }
+              </select>
+            </nota-form-field>
+          </section>
+        }
+
+                  @if (outcome(); as result) {
+            <p class="sp__status" style="margin:0;padding:0 4px" role="status" [class.is-error]="result.kind === 'error'">
+              @if (result.kind === 'saved') {
+                {{ 'shopProfilePage.messages.saved' | translate }}
+              } @else if (result.message) {
+                {{ result.message }}
+              } @else {
+                {{ 'shopProfilePage.messages.saveFailed' | translate }}
+              }
+            </p>
+          }
+
+        <div class="m-actions">
+          <button type="button" data-action="cancel" (click)="cancel()" [disabled]="saving()" class="m-btn">{{ 'shopProfilePage.s11.cancel' | translate }}</button>
+          <button type="submit" data-action="save" [disabled]="saving()" class="m-btn m-btn--primary">
+            {{ (saving() ? 'shopProfilePage.actions.saving' : 'shopProfilePage.actions.save') | translate }}
+          </button>
+        </div>
+      </form>
+
+      <nota-mob-sheet [(open)]="previewOpen" [title]="'shopProfilePage.s11.previewTitle' | translate"><div>
+        <div class="sp__paper" data-test="invoice-preview">
+          <div class="sp__paper-head">
+            @if (logo(); as src) {
+              <img class="sp__paper-logo" [src]="src" alt="" />
+            }
+            <strong class="sp__paper-name">{{ preview().name?.trim() || ('invoicePrint.salesTitle' | translate) }}</strong>
+            @if (preview().address?.trim()) {
+              <span>{{ preview().address.trim() }}</span>
+            }
+            @if (previewPhones()) {
+              <span class="nota-num" dir="ltr">{{ previewPhones() }}</span>
+            }
+            @if (preview().taxNumber?.trim()) {
+              <span>{{ 'invoicePrint.taxNumber' | translate }}: <span class="nota-num">{{ preview().taxNumber.trim() }}</span></span>
+            }
+            @if (preview().commercialRegister?.trim()) {
+              <span>{{ 'invoicePrint.commercialRegister' | translate }}: <span class="nota-num">{{ preview().commercialRegister.trim() }}</span></span>
+            }
+          </div>
+          <div class="sp__paper-line"><span>{{ 'invoicePrint.salesTitle' | translate }}</span><span class="nota-num">#125</span></div>
+          <div class="sp__paper-line"><span>{{ 'shopProfilePage.s11.sampleItem' | translate }} × 3</span><span class="nota-num">180</span></div>
+          <div class="sp__paper-line"><span>{{ 'shopProfilePage.s11.sampleItem2' | translate }} × 1</span><span class="nota-num">150</span></div>
+          <div class="sp__paper-total"><span>{{ 'shopProfilePage.s11.total' | translate }}</span><span class="nota-num">330</span></div>
+          @if (preview().invoiceFooter?.trim()) {
+            <span class="sp__paper-footer">{{ preview().invoiceFooter.trim() }}</span>
+          }
+          <span class="sp__paper-note">{{ 'invoicePrint.systemNote' | translate: { appName: appName() } }}</span>
+        </div>
+        <span class="nota-hint">{{ 'shopProfilePage.s11.previewHint' | translate }}</span>
+      </div></nota-mob-sheet>
+    </div>
+  }
+</div>
+} @else {
 <!-- Shop profile (docs/design/screens/ShopProfile.dc.html). Stage 11: same GET / PUT shop-profile. -->
 <div class="sp">
   <nota-page-header [title]="'shopProfilePage.title' | translate" [subtitle]="'shopProfilePage.subtitle' | translate" />
@@ -200,3 +408,4 @@
     </div>
   }
 </div>
+}

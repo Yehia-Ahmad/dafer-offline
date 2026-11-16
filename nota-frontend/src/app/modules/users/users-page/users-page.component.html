@@ -1,3 +1,82 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone): the same users. The whole card opens the edit page (permissions); reset password and disable / enable live in the ⋯ menu; both ask first (the existing dialogs, as short sheets). -->
+<div class="m-page" style="padding-top:12px">
+  @if (loading()) { <div class="m-skel m-skel-row" style="margin:0" role="status"></div> }
+  @else if (loadError()) { <div class="m-card m-empty"><span class="nota-error">{{ loadError() }}</span> <button type="button" class="m-btn" (click)="load()">{{ 'auth.retry' | translate }}</button></div> }
+  @else {
+    <div class="m-card m-card--flush">
+      @for (row of rows(); track row.user._id) {
+        <div class="m-row m-stretch-host" [attr.data-user]="row.user.username" [class.m-muted]="!row.user.isActive">
+          <span class="m-avatar" aria-hidden="true">{{ row.user.name.charAt(0) }}</span>
+          @if (row.actions.edit) {
+            <button type="button" class="m-row__open m-stretch" data-action="edit" (click)="openEdit(row.user)">
+              <span class="m-row__title" style="display:block" dir="auto">{{ row.user.name }}@if (isMe(row.user)) { <small class="m-muted"> ({{ 'users.you' | translate }})</small> }</span>
+              <span class="m-row__sub nota-num" dir="ltr" style="display:block;text-align:start">{{ row.user.username }}</span>
+              <span class="m-row__sub" style="display:block">{{ roleLabel(row.user) }}@if (isCustomized(row.user) && row.user.role !== 'custom') { · <span data-testid="customized-badge">{{ 'users.customized' | translate }}</span> } · {{ row.user.lastLoginAt ? (row.user.lastLoginAt | mobDate: true) : ('users.neverLoggedIn' | translate) }}</span>
+            </button>
+          } @else {
+            <span class="m-row__open">
+              <span class="m-row__title" style="display:block" dir="auto">{{ row.user.name }}@if (isMe(row.user)) { <small class="m-muted"> ({{ 'users.you' | translate }})</small> }</span>
+              <span class="m-row__sub nota-num" dir="ltr" style="display:block;text-align:start">{{ row.user.username }}</span>
+              <span class="m-row__sub" style="display:block">{{ roleLabel(row.user) }}</span>
+            </span>
+          }
+          <span [class]="row.user.isActive ? 'm-pill m-pill--ok' : 'm-pill m-pill--warn'">{{ (row.user.isActive ? 'users.status.active' : 'users.status.disabled') | translate }}</span>
+          @if (row.actions.resetPassword || row.actions.toggleStatus) { <button type="button" class="m-more" (click)="menuRow.set(row)" [attr.aria-label]="'mobile.b.common.moreActions' | translate" data-testid="m-user-menu">⋯</button> }
+        </div>
+      } @empty { <div class="m-empty">{{ 'users.empty' | translate }}</div> }
+    </div>
+  }
+</div>
+<button type="button" class="m-fab" data-action="new-user" (click)="openCreate()" [disabled]="loading() || !catalog()">+ {{ 'users.newUser' | translate }}</button>
+<nota-mob-sheet [open]="menuRow() !== null" (openChange)="$event || menuRow.set(null)" [title]="menuRow()?.user?.name ?? ''">
+  @if (menuRow(); as row) {
+    <div class="m-menu">
+      @if (row.actions.resetPassword) { <button type="button" class="m-row" data-action="reset" (click)="menuRow.set(null); askReset(row.user)">{{ 'users.actions.resetPassword' | translate }}</button> }
+      @if (row.actions.toggleStatus) { <button type="button" class="m-row" [class.m-row--danger]="row.user.isActive" data-action="toggle-status" [disabled]="statusBusy()" (click)="menuRow.set(null); askStatus(row.user)">{{ (row.user.isActive ? 'users.actions.disable' : 'users.actions.enable') | translate }}</button> }
+    </div>
+  }
+</nota-mob-sheet>
+
+<nota-user-form-dialog [(open)]="formOpen" [user]="editing()" [catalog]="catalog()" (saved)="onSaved($event)" />
+
+<!-- Disable: logs the user out everywhere -->
+<p-dialog [visible]="!!statusTarget()" (visibleChange)="$event || statusTarget.set(null)" [modal]="true" [showHeader]="false"
+  [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog nota-p-dialog--sm">
+  <nota-dialog-shell [title]="'users.disableDialog.title' | translate" [closeLabel]="'auth.close' | translate" (closed)="statusTarget.set(null)">
+    <p>{{ 'users.disableDialog.text' | translate: { name: statusTarget()?.name ?? '' } }}</p>
+    <p class="up__warn" data-testid="logout-note">{{ 'users.logoutEverywhere' | translate }}</p>
+    <ng-container notaDialogFooter>
+      <button type="button" (click)="statusTarget.set(null)" [disabled]="statusBusy()" class="m-btn">{{ 'auth.cancel' | translate }}</button>
+      <button type="button" data-action="confirm-disable" (click)="confirmDisable()" [disabled]="statusBusy()" class="m-btn m-btn--danger">{{ 'users.actions.disable' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Reset password: logs the user out everywhere -->
+<p-dialog [visible]="!!resetTarget()" (visibleChange)="$event || closeReset()" [modal]="true" [showHeader]="false"
+  [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog nota-p-dialog--sm">
+  <nota-dialog-shell [title]="'users.resetDialog.title' | translate: { name: resetTarget()?.name ?? '' }" [closeLabel]="'auth.close' | translate" (closed)="closeReset()">
+    <form class="up__reset" (ngSubmit)="confirmReset()" novalidate>
+      <nota-form-field [label]="'auth.fields.newPassword' | translate" forId="upResetPass" [required]="true" [hint]="'auth.validation.passwordHint' | translate">
+        <input id="upResetPass" name="password" type="password" class="nota-input" autocomplete="new-password"
+          [ngModel]="resetPassword()" (ngModelChange)="resetPassword.set($event)" />
+      </nota-form-field>
+      <nota-form-field [label]="'auth.fields.confirm' | translate" forId="upResetConfirm" [required]="true">
+        <input id="upResetConfirm" name="confirm" type="password" class="nota-input" autocomplete="new-password"
+          [ngModel]="resetConfirm()" (ngModelChange)="resetConfirm.set($event)" />
+      </nota-form-field>
+      <p class="up__warn">{{ 'users.logoutEverywhere' | translate }}</p>
+      @if (resetError()) { <p class="nota-error" role="alert">{{ resetError() }}</p> }
+      <button type="submit" hidden></button>
+    </form>
+    <ng-container notaDialogFooter>
+      <button type="button" (click)="closeReset()" [disabled]="resetBusy()" class="m-btn">{{ 'auth.cancel' | translate }}</button>
+      <button type="button" data-action="confirm-reset" (click)="confirmReset()" [disabled]="resetBusy()" class="m-btn m-btn--primary">{{ 'users.actions.resetPassword' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+} @else {
 <!-- Stage 14: users and permissions (Users.dc.html, AddUser.dc.html). The backend enforces every rule. -->
 <div class="up">
   <nota-page-header [title]="'users.title' | translate" [subtitle]="'users.subtitle' | translate">
@@ -115,3 +194,4 @@
     </ng-container>
   </nota-dialog-shell>
 </p-dialog>
+}

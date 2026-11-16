@@ -358,3 +358,11 @@ html.dark .m-in { color: #4ADE80; } html.dark .m-out { color: #F87171; }
 .m-shell .pf input[type='checkbox']::after { content: ''; position: absolute; top: 3px; inset-inline-start: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: inset-inline-start 0.15s; }
 .m-shell .pf input[type='checkbox']:checked { background: var(--brand); }
 .m-shell .pf input[type='checkbox']:checked::after { inset-inline-start: 21px; }
+
+// ---- Online Stage 6B, group F: the website settings page on the phone ---------------------------------------------------------------------
+.m-shell .ws__layout { display: block; }
+.m-shell .ws__grid { grid-template-columns: minmax(0, 1fr); }
+.m-shell .ws__banner { flex-direction: column; align-items: stretch; }
+.m-shell .ws__banner-actions { flex-direction: row; justify-content: flex-end; }
+.m-shell .ws__highlight { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.m-shell .pf__side > .nota-hint { padding-inline: 14px; }

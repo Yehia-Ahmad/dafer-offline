@@ -2769,8 +2769,12 @@
     "entry": {
       "deleteConfirm": "حذف المسودة؟ مش هتقدر ترجعها."
     },
+    "websiteCustomers": {
+      "deactivateConfirm": "إيقاف حساب «{{name}}»؟ مش هيقدر يسجّل دخول."
+    },
       "_end": 1
     },
+
 
 
 

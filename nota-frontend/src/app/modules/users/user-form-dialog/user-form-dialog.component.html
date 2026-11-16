@@ -1,3 +1,106 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone), MobAddUser: the same add / edit user dialog as a full-screen page. The permission groups are collapsible cards with a switch per permission (same checked / disabled / refused rules). -->
+<p-dialog [visible]="open()" (visibleChange)="open.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
+  [draggable]="false" [resizable]="false" styleClass="nota-p-dialog nota-p-dialog--full">
+  <div class="m-fullpage">
+    <header class="m-top" style="position:static">
+      <button type="button" class="m-top__back" (click)="close()" [attr.aria-label]="'auth.close' | translate">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+      </button>
+      <div class="m-top__titles"><span class="m-top__title">{{ (isNew() ? 'users.form.newTitle' : 'users.form.editTitle') | translate }}</span></div>
+    </header>
+    <div class="m-fullpage__body">
+      @if (confirming()) {
+        <div class="m-form"><div class="m-card" role="alertdialog" aria-live="assertive" data-testid="logout-confirm">
+          <strong>{{ 'users.form.confirmAccessTitle' | translate: { name: name() } }}</strong>
+          <p class="m-pill m-pill--warn" style="white-space:normal">{{ 'users.logoutEverywhere' | translate }}</p>
+        </div></div>
+      } @else {
+        <form class="m-form" style="padding-bottom:16px" (ngSubmit)="submit()" novalidate>
+          <div class="m-card">
+            <nota-form-field [label]="'auth.fields.name' | translate" forId="ufNameM" [required]="true" [error]="errors().name">
+              <input id="ufNameM" name="nameM" type="text" class="nota-input" [ngModel]="name()" (ngModelChange)="name.set($event)" />
+            </nota-form-field>
+            @if (isNew()) {
+              <nota-form-field [label]="'auth.fields.username' | translate" forId="ufUserM" [required]="true" [hint]="'auth.validation.usernameHint' | translate" [error]="errors().username">
+                <input id="ufUserM" name="usernameM" type="text" class="nota-input" dir="ltr" autocomplete="off" autocapitalize="off" spellcheck="false" [ngModel]="username()" (ngModelChange)="username.set($event)" />
+              </nota-form-field>
+              <nota-form-field [label]="'auth.fields.password' | translate" forId="ufPassM" [required]="true" [hint]="'auth.validation.passwordHint' | translate" [error]="errors().password">
+                <input id="ufPassM" name="passwordM" type="password" class="nota-input" autocomplete="new-password" [ngModel]="password()" (ngModelChange)="password.set($event)" />
+              </nota-form-field>
+              <nota-form-field [label]="'auth.fields.confirm' | translate" forId="ufConfirmM" [required]="true" [error]="errors().confirm">
+                <input id="ufConfirmM" name="confirmM" type="password" class="nota-input" autocomplete="new-password" [ngModel]="confirm()" (ngModelChange)="confirm.set($event)" />
+              </nota-form-field>
+            } @else {
+              <nota-form-field [label]="'auth.fields.username' | translate" [hint]="'users.form.usernameFixed' | translate"><span class="uf__readonly" dir="ltr">{{ username() }}</span></nota-form-field>
+            }
+          </div>
+
+          <div class="m-section-label">{{ 'users.form.role' | translate }}</div>
+          <div class="m-card" [style.border-color]="errors().role ? 'var(--danger)' : null">
+            @if (isOwnerRow()) { <p class="m-note" style="padding:0">{{ 'users.form.ownerFixed' | translate }}</p> }
+            @else {
+              <div class="m-chips" style="padding:0;flex-wrap:wrap" role="radiogroup">
+                @for (option of roles; track option) {
+                  <label class="m-chip" [class.is-active]="role() === option">
+                    <input type="radio" name="roleM" [value]="option" [checked]="role() === option" (change)="chooseRole(option)" [attr.data-role]="option" style="position:absolute;opacity:0;width:1px;height:1px" />{{ roleLabel(option) }}
+                  </label>
+                }
+              </div>
+              @if (role()) { <span class="m-note" style="padding:0">{{ 'users.form.roleHints.' + role() | translate }}</span> }
+              <span class="m-note" style="padding:0">{{ 'users.form.roleTemplateHint' | translate }}</span>
+            }
+            @if (errors().role) { <p class="nota-error" role="alert">{{ errors().role }}</p> }
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap" [attr.aria-label]="'users.form.permissions' | translate">
+            <div class="m-section-label" style="margin:0">{{ 'users.form.permissions' | translate }}</div>
+            @if (edited() && !isOwnerRow()) {
+              <span style="display:flex;gap:8px;align-items:center"><span class="m-pill m-pill--warn" data-testid="edited-badge">{{ 'users.customized' | translate }}</span>
+                <button type="button" class="m-btn" style="min-height:36px;padding:0 10px" data-action="revert-template" (click)="revertToTemplate()">{{ 'users.form.revert' | translate }}</button></span>
+            }
+          </div>
+          @if (hasUnheld() && !isOwnerRow()) { <p class="m-note" style="padding:0" data-testid="unheld-note">{{ 'users.form.unheldNote' | translate }}</p> }
+          @for (group of groups(); track group.key) {
+            <details class="m-card m-card--flush">
+              <summary class="m-row" style="cursor:pointer"><strong class="m-row__body">{{ group.label }}</strong><span class="m-row__sub nota-num">{{ group.items.length }}</span></summary>
+              @for (item of group.items; track item.key) {
+                <label class="m-switch" style="padding:6px 14px;border-top:1px solid var(--line)" [style.opacity]="!item.held || isOwnerRow() ? 0.55 : 1" [style.color]="refusedKeys().includes(item.key) ? 'var(--danger-text)' : null">
+                  <span>{{ item.label }}</span>
+                  <input type="checkbox" [attr.data-perm]="item.key" [checked]="isChecked(item.key)" [disabled]="!item.held || isOwnerRow()" (change)="toggle(item.key, $any($event.target).checked)" />
+                </label>
+              }
+            </details>
+          }
+          @if (errors().permissions) { <p class="nota-error" role="alert" data-testid="permissions-error">{{ errors().permissions }}</p> }
+
+          @if (showMaxDiscount()) {
+            <div class="m-card" data-testid="max-discount">
+              <nota-form-field [label]="'session.discount.limitLabel' | translate" forId="ufMaxDiscountM" [hint]="'session.discount.limitHint' | translate" [error]="errors().maxDiscount">
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input id="ufMaxDiscountM" name="maxDiscountM" type="text" inputmode="decimal" class="nota-input" dir="ltr" [placeholder]="'session.discount.noLimit' | translate" [ngModel]="maxDiscount()" (ngModelChange)="maxDiscount.set($event)" />
+                  <span aria-hidden="true">٪</span>
+                </div>
+              </nota-form-field>
+            </div>
+          }
+          @if (errors().general) { <p class="nota-error" role="alert">{{ errors().general }}</p> }
+          <button type="submit" hidden></button>
+        </form>
+      }
+    </div>
+    <div class="m-actions">
+      @if (confirming()) {
+        <button type="button" class="m-btn" (click)="confirming.set(false)" [disabled]="saving()">{{ 'auth.back' | translate }}</button>
+        <button type="button" class="m-btn m-btn--primary" data-action="confirm-save" (click)="submit()" [disabled]="saving()">{{ 'users.form.confirmSave' | translate }}</button>
+      } @else {
+        <button type="button" class="m-btn" (click)="close()" [disabled]="saving()">{{ 'auth.cancel' | translate }}</button>
+        <button type="button" class="m-btn m-btn--primary" data-action="save-user" (click)="submit()" [disabled]="saving()">{{ (isNew() ? 'users.form.create' : 'users.form.save') | translate }}</button>
+      }
+    </div>
+  </div>
+</p-dialog>
+} @else {
 <p-dialog [visible]="open()" (visibleChange)="open.set($event)" [modal]="true" [showHeader]="false" [closable]="false"
   [draggable]="false" [resizable]="false" styleClass="nota-p-dialog uf-dialog">
   <nota-dialog-shell [title]="(isNew() ? 'users.form.newTitle' : 'users.form.editTitle') | translate" [closeLabel]="'auth.close' | translate" (closed)="close()">
@@ -119,3 +222,4 @@
     </ng-container>
   </nota-dialog-shell>
 </p-dialog>
+}

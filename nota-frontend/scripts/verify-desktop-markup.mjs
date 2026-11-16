@@ -39,8 +39,41 @@ function expectBranch(rel, current, original) {
   return true;
 }
 
+const inlineChecked = new Set();
+// Templates whose phone parts are small inline branches (a switch in place of a checkbox, a marked phone block) rather than one
+// whole-template wrapper: collapse every phone branch to its desktop (@else) side, then compare with the original ignoring
+// indentation. Desktop-only bindings that are false on desktop ([class.m-card]) are removed first.
+const collapsePhone = (text) => {
+  let t = norm(text)
+    .replace(/\} @else if \(layout\.isMobile\(\) && editing\(\)\) \{\s*<!--6B-PHONE-START-->[\s\S]*?<!--6B-PHONE-END-->\s*(?=\} @else \{)/g, '')
+    .replace(/<!--6B-PHONE-START-->[\s\S]*?<!--6B-PHONE-END-->/g, '')
+    .replace(/ \[class\.m-card\]="layout\.isMobile\(\)"/g, '')
+    .replace('@if (!layout.isMobile()) {', '@if (!layout.isMobile() || editing()) {');
+  const open = '@if (layout.isMobile()) {';
+  for (let at = t.indexOf(open); at >= 0; at = t.indexOf(open)) {
+    const braceEnd = (from) => { let d = 0; for (let i = from; i < t.length; i++) { if (t[i] === '{') d++; else if (t[i] === '}') { d--; if (d === 0) return i; } } return -1; };
+    const a = braceEnd(at + open.length - 1);
+    const rest = t.slice(a + 1);
+    const m = /^\s*@else \{/.exec(rest);
+    if (!m) { t = t.slice(0, at) + t.slice(a + 1); continue; }
+    const bStart = a + 1 + m[0].length - 1;
+    const b = braceEnd(bStart);
+    t = t.slice(0, at) + t.slice(bStart + 1, b) + t.slice(b + 1);
+  }
+  return t.replace(/\s+/g, ' ').trim();
+};
+const grabTemplate = (text) => { const m = /template:\s*`([\s\S]*?)`\s*,?\s*\n?\s*(?:styles|styleUrl|\}\))/.exec(norm(text)); return m ? m[1] : null; };
+for (const rel of ['nota-frontend/src/app/modules/website/category-website-fields.component.ts', 'nota-frontend/src/app/modules/website/product-website-section.component.ts', 'nota-frontend/src/app/modules/orders/order-page/order-page.component.ts']) {
+  inlineChecked.add(rel);
+  if (!changed.includes(rel)) continue;
+  checked++;
+  const a = grabTemplate(head(rel)); const b = grabTemplate(fs.readFileSync(path.join(root, rel), 'utf8'));
+  if (a === null || b === null || a.replace(/\s+/g, ' ').trim() !== collapsePhone(b)) { bad++; console.log(`DIFFERENT  ${rel}: desktop side of the inline phone branches != HEAD template`); }
+  else console.log(`identical  ${rel} (phone branches collapsed)`);
+}
+
 for (const rel of changed) {
-  if (!fs.existsSync(path.join(root, rel))) continue;
+  if (inlineChecked.has(rel) || !fs.existsSync(path.join(root, rel))) continue;
   const current = fs.readFileSync(path.join(root, rel), 'utf8');
   if (rel.endsWith('.html') && rel.includes('nota-frontend/src/app/')) {
     expectBranch(rel, current, head(rel));

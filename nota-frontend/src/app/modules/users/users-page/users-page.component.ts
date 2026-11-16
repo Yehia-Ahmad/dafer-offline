@@ -15,6 +15,9 @@ import { passwordProblemKey } from '../../auth/auth-form.util';
 import { UserFormDialogComponent, mapUserError } from '../user-form-dialog/user-form-dialog.component';
 import { UsersService } from '../users.service';
 import { RowActions, rowActions } from '../user-rules';
+import { LayoutService } from '../../../core/layout/layout.service';
+import { MobSheetComponent } from '../../mobile/mob-sheet.component';
+import { MobDatePipe } from '../../mobile/mob-date.pipe';
 
 /**
  * Stage 14: /users (users.manage), Users.dc.html as a table. Edit, reset password (not on your own
@@ -25,11 +28,14 @@ import { RowActions, rowActions } from '../user-rules';
   selector: 'app-users-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DatePipe, FormsModule, TranslatePipe, DialogModule, NotaPageHeaderComponent, NotaButtonDirective, NotaDialogShellComponent,
-    NotaFormFieldComponent, UserFormDialogComponent],
+    NotaFormFieldComponent, UserFormDialogComponent, MobSheetComponent, MobDatePipe],
   templateUrl: './users-page.component.html',
   styleUrl: './users-page.component.scss',
 })
 export class UsersPageComponent {
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the user whose ⋯ menu is open. */
+  protected readonly menuRow = signal<ReturnType<UsersPageComponent['rows']>[number] | null>(null);
   private readonly auth = inject(AuthService);
   private readonly usersService = inject(UsersService);
   private readonly translate = inject(TranslateService);

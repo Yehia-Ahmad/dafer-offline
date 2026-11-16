@@ -15,6 +15,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { VatReturnsService } from './vat-returns.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { MobSheetComponent } from '../mobile/mob-sheet.component';
+import { MobNumberInputComponent } from '../mobile/mob-number-input.component';
 import { MobDatePipe } from '../mobile/mob-date.pipe';
 import { VAT_LINE_GROUPS, VatLine, VatLineGroup, VatReturnDetail, VatReturnList, VatReturnRow, VatReturnStatus } from './vat.models';
 
@@ -31,7 +32,7 @@ const KNOWN_ERRORS = ['OUT_OF_ORDER', 'ALREADY_FILED', 'PERIOD_NOT_ENDED', 'EXCE
 @Component({
   selector: 'app-vat-returns',
   standalone: true,
-  imports: [PrintActionsComponent, DatePipe, FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaKpiCardComponent, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, PaymentBoxSelectComponent, MobSheetComponent, MobDatePipe],
+  imports: [PrintActionsComponent, DatePipe, FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaKpiCardComponent, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, PaymentBoxSelectComponent, MobSheetComponent, MobNumberInputComponent, MobDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 @if (layout.isMobile()) {
@@ -144,16 +145,14 @@ const KNOWN_ERRORS = ['OUT_OF_ORDER', 'ALREADY_FILED', 'PERIOD_NOT_ENDED', 'EXCE
       <nota-dialog-shell [title]="'vat.pay.title' | translate: { period: detail()?.period }" [closeLabel]="'vat.close' | translate" (closed)="payOpen.set(false)">
         @if (detail(); as d) {
           <p class="vr__note" data-test="pay-remaining">{{ 'vat.pay.remaining' | translate }}: <b class="nota-num">{{ d.remaining | notaMoney }}</b></p>
-          <nota-form-field [label]="'vat.pay.amount' | translate" forId="vrPayAmount" [required]="true" [error]="payInvalid() ? ('vat.pay.invalid' | translate) : null">
-            <input id="vrPayAmount" class="nota-input nota-num" type="number" min="0" step="0.01" name="payAmount" data-test="pay-amount" [ngModel]="payAmount()" (ngModelChange)="payAmount.set($event)" />
-          </nota-form-field>
+          <label class="m-field">{{ 'vat.pay.amount' | translate }} *
+            <nota-mob-number inputId="vrPayAmount" data-test="pay-amount" [min]="0" [decimals]="2" [ngModel]="payAmount()" (ngModelChange)="payAmount.set($event)" [ngModelOptions]="{ standalone: true }" /></label>
+          @if (payInvalid()) { <p class="nota-error" role="alert">{{ 'vat.pay.invalid' | translate }}</p> }
           <nota-payment-box-select labelKey="vat.pay.fromBox" />
-          <nota-form-field [label]="'vat.pay.reference' | translate" forId="vrPayRef">
-            <input id="vrPayRef" class="nota-input" type="text" name="payRef" maxlength="100" data-test="pay-reference" [ngModel]="payReference()" (ngModelChange)="payReference.set($event)" />
-          </nota-form-field>
-          <nota-form-field [label]="'vat.pay.note' | translate" forId="vrPayNote">
-            <input id="vrPayNote" class="nota-input" type="text" name="payNote" maxlength="500" data-test="pay-note" [ngModel]="payNote()" (ngModelChange)="payNote.set($event)" />
-          </nota-form-field>
+          <label class="m-field">{{ 'vat.pay.reference' | translate }}
+            <input id="vrPayRef" class="m-input" type="text" name="payRef" maxlength="100" data-test="pay-reference" [ngModel]="payReference()" (ngModelChange)="payReference.set($event)" /></label>
+          <label class="m-field">{{ 'vat.pay.note' | translate }}
+            <input id="vrPayNote" class="m-input" type="text" name="payNote" maxlength="500" data-test="pay-note" [ngModel]="payNote()" (ngModelChange)="payNote.set($event)" /></label>
         }
         @if (error()) { <p class="nota-error" role="alert" data-test="dialog-error">{{ error() | translate }}</p> }
         <ng-container notaDialogFooter>
@@ -167,9 +166,8 @@ const KNOWN_ERRORS = ['OUT_OF_ORDER', 'ALREADY_FILED', 'PERIOD_NOT_ENDED', 'EXCE
     <p-dialog [visible]="unfileOpen()" (visibleChange)="unfileOpen.set($event)" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
       <nota-dialog-shell [title]="'vat.unfile.title' | translate: { period: detail()?.period }" [closeLabel]="'vat.close' | translate" (closed)="unfileOpen.set(false)">
         <p class="vr__note">{{ 'vat.unfile.note' | translate }}</p>
-        <nota-form-field [label]="'vat.unfile.reason' | translate" forId="vrUnfileReason" [required]="true">
-          <textarea id="vrUnfileReason" class="nota-textarea" rows="2" name="unfileReason" maxlength="500" data-test="unfile-reason" [ngModel]="unfileReason()" (ngModelChange)="unfileReason.set($event)"></textarea>
-        </nota-form-field>
+        <label class="m-field">{{ 'vat.unfile.reason' | translate }} *
+          <textarea id="vrUnfileReason" class="m-input" rows="2" name="unfileReason" maxlength="500" data-test="unfile-reason" [ngModel]="unfileReason()" (ngModelChange)="unfileReason.set($event)"></textarea></label>
         @if (error()) { <p class="nota-error" role="alert" data-test="dialog-error">{{ error() | translate }}</p> }
         <ng-container notaDialogFooter>
           <button type="button" class="m-btn" (click)="unfileOpen.set(false)">{{ 'vat.cancel' | translate }}</button>
