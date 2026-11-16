@@ -18,6 +18,7 @@ email="${2:-}"
 [[ "$email" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]] || die "bad email: $email"
 
 PORT=5000
+STOREFRONT_PORT=4000
 DB_NAME=nota
 MONGO_ADMIN_FILE="$NOTA_ETC/mongo-admin.env"
 KEYFILE=/etc/mongodb-keyfile
@@ -40,9 +41,9 @@ fi
 [ "${ID:-}" = "ubuntu" ] && [ "${VERSION_ID:-}" = "24.04" ] || die "this script is for Ubuntu 24.04 (found ${PRETTY_NAME:-unknown})"
 
 for f in nota-lib.sh backup.sh restore.sh update.sh nota-owner.sh \
-  templates/nota-backend.service templates/nota-backup.service templates/nota-backup.timer \
+  templates/nota-backend.service templates/nota-storefront.service templates/nota-backup.service templates/nota-backup.timer \
   templates/nginx-nota.conf.template templates/nginx-nota-http.conf.template \
-  templates/nginx-security-headers.conf templates/nginx-proxy-api.conf templates/nginx-ratelimit.conf \
+  templates/nginx-security-headers.conf templates/nginx-proxy-api.conf templates/nginx-proxy-storefront.conf templates/nginx-ratelimit.conf \
   templates/backup.env.example; do
   [ -f "$SCRIPT_DIR/$f" ] || die "missing $SCRIPT_DIR/$f: upload the whole deploy/ folder"
 done
@@ -227,6 +228,19 @@ env_set MONGO_URI "mongodb://nota_app:${app_pass}@127.0.0.1:27017/${DB_NAME}?rep
 [ -n "$(env_get NOTA_STORE_JWT_SECRET "$NOTA_BACKEND_ENV")" ] || env_set NOTA_STORE_JWT_SECRET "$(rand_hex 48)" "$NOTA_BACKEND_ENV"
 PORT="$(backend_port)"
 
+# Online Stage 5B: the storefront's environment. It calls the backend on loopback and never needs a secret. Existing values
+# (e.g. a changed port) are kept; the public URL and the allowed host follow the domain given to this script.
+umask 077
+touch "$NOTA_STOREFRONT_ENV"
+chown root:nota "$NOTA_STOREFRONT_ENV"
+chmod 640 "$NOTA_STOREFRONT_ENV"
+umask 022
+env_set NODE_ENV production "$NOTA_STOREFRONT_ENV"
+[ -n "$(env_get NOTA_STOREFRONT_PORT "$NOTA_STOREFRONT_ENV")" ] || env_set NOTA_STOREFRONT_PORT "$STOREFRONT_PORT" "$NOTA_STOREFRONT_ENV"
+env_set NOTA_API_INTERNAL "http://127.0.0.1:$PORT" "$NOTA_STOREFRONT_ENV"
+env_set NOTA_PUBLIC_URL "https://$domain" "$NOTA_STOREFRONT_ENV"
+STOREFRONT_PORT="$(storefront_port)"
+
 if [ ! -f "$NOTA_BACKUP_ENV" ]; then
   install -o root -g root -m 600 "$SCRIPT_DIR/templates/backup.env.example" "$NOTA_BACKUP_ENV"
 fi
@@ -234,11 +248,12 @@ fi
 # --- 8. systemd ------------------------------------------------------------------------------------------------------
 log "setup: systemd units"
 install -m 644 "$SCRIPT_DIR/templates/nota-backend.service" /etc/systemd/system/nota-backend.service
+install -m 644 "$SCRIPT_DIR/templates/nota-storefront.service" /etc/systemd/system/nota-storefront.service
 install -m 644 "$SCRIPT_DIR/templates/nota-backup.service" /etc/systemd/system/nota-backup.service
 install -m 644 "$SCRIPT_DIR/templates/nota-backup.timer" /etc/systemd/system/nota-backup.timer
 systemctl daemon-reload
-# The backend is enabled now but started by the first update.sh (there is no release yet).
-systemctl enable nota-backend
+# The backend and the storefront are enabled now but started by the first update.sh (there is no release yet).
+systemctl enable nota-backend nota-storefront
 systemctl enable --now nota-backup.timer
 
 # --- 9. nginx and HTTPS ----------------------------------------------------------------------------------------------
@@ -251,9 +266,10 @@ log "setup: nginx"
 install -d -m 755 /var/www/html /etc/nginx/snippets /etc/nginx/conf.d
 install -m 644 "$SCRIPT_DIR/templates/nginx-security-headers.conf" /etc/nginx/snippets/nota-security-headers.conf
 install -m 644 "$SCRIPT_DIR/templates/nginx-proxy-api.conf" /etc/nginx/snippets/nota-proxy-api.conf
+install -m 644 "$SCRIPT_DIR/templates/nginx-proxy-storefront.conf" /etc/nginx/snippets/nota-proxy-storefront.conf
 install -m 644 "$SCRIPT_DIR/templates/nginx-ratelimit.conf" /etc/nginx/conf.d/nota-ratelimit.conf
 rm -f /etc/nginx/sites-enabled/default
-render() { sed -e "s/@@DOMAIN@@/$domain/g" -e "s/@@PORT@@/$PORT/g" "$1"; }
+render() { sed -e "s/@@DOMAIN@@/$domain/g" -e "s/@@PORT@@/$PORT/g" -e "s/@@STOREFRONT_PORT@@/$STOREFRONT_PORT/g" "$1"; }
 cert_ready() { [ -s "$CERT_DIR/fullchain.pem" ] && [ -s "$CERT_DIR/privkey.pem" ]; }
 
 # apply_site TEMPLATE: install it as the nota site, `nginx -t`, reload. On a failed test the previous site is put back.
@@ -332,6 +348,6 @@ Next steps:
   2. Upload it:  scp release\\release-<version>-<commit>.tar.gz root@$domain:/root/
   3. On the server:  $NOTA_ROOT/bin/update.sh /root/release-<version>-<commit>.tar.gz
   4. Create the owner:  nota-owner create --username <name> --name "<Full name>"
-  5. Open https://$domain
+  5. Open https://$domain (the shop's website) and https://$domain/admin/ (the admin app, where you sign in)
   6. Set up SSH keys and off-server backups: docs/deploy/NEW_SERVER_AR.md and BACKUP_RESTORE_AR.md
 EOF

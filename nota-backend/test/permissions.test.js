@@ -297,6 +297,7 @@ const EXPECTED_ROUTES = {
   "POST /api/store/auth/register": "STORE",
   "POST /api/store/auth/login": "STORE",
   "POST /api/store/orders": "STORE",
+  "POST /api/store/orders/quote": "STORE",
   "GET /api/store/orders/track/:token": "STORE",
   "GET /api/store/me": "STORE:customer",
   "PUT /api/store/me": "STORE:customer",

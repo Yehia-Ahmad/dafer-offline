@@ -1,0 +1,25 @@
+[Unit]
+Description=Nota storefront (customer website, server-side rendered)
+# It renders pages from the backend's public API, so it starts after the backend (it still starts alone: it answers 503 until the backend is up).
+After=network-online.target nota-backend.service
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=nota
+Group=nota
+WorkingDirectory=/opt/nota/current/storefront
+EnvironmentFile=/etc/nota/storefront.env
+ExecStart=/usr/bin/node server/server.mjs
+Restart=always
+RestartSec=3
+# SIGTERM makes the server finish the requests in flight and leave; wait for it before SIGKILL.
+TimeoutStopSec=20
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Shop website checkout</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:#0E4D45}a:hover{color:#142321}
+.num{font-variant-numeric:tabular-nums}
+.wrap{width:100%;max-width:1240px;margin:0 auto;padding:0 24px}
+.card{background:#FFFFFF;border:1px solid #E6E2D9;border-radius:16px}
+.in{font-family:inherit;font-size:15px;padding:12px 14px;border:1px solid #CFCAC0;border-radius:10px;background:#FFFFFF;color:#142321;width:100%}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#3B4A47}
+.opt{display:flex;flex-direction:row;align-items:center;gap:12px;padding:14px 16px;border:1px solid #CFCAC0;border-radius:12px;background:#FFFFFF;cursor:pointer;font-size:15px}
+.opt input{width:20px;height:20px;margin:0}
+.h2{margin:0;font-size:18px;font-weight:800;display:flex;flex-direction:row;align-items:center;gap:10px}
+.st{width:28px;height:28px;border-radius:999px;color:#FFFFFF;font-size:14px;display:flex;align-items:center;justify-content:center}
+.row{display:flex;flex-direction:row;justify-content:space-between;align-items:center;gap:10px}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #F5F3EE; color: #142321; font-family: 'Alexandria', system-ui, sans-serif; display: flex; flex-direction: column">
+  <header style="background: #FFFFFF; border-bottom: 1px solid #E6E2D9">
+    <div class="wrap row" style="padding-top: 14px; padding-bottom: 14px; flex-wrap: wrap">
+      <a href="WebHome.dc.html" style="display: flex; flex-direction: row; align-items: center; gap: 10px; text-decoration: none; color: #142321">
+        <span style="width: 40px; height: 40px; border-radius: 12px; background: {{brand}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800">ن</span>
+        <span style="font-size: 17px; font-weight: 800">النور للأدوات الكهربائية</span>
+      </a>
+      <a href="WebHome.dc.html" style="font-size: 14px; padding: 10px 0">كمّل تسوّق</a>
+    </div>
+  </header>
+
+  <main class="wrap" style="display: flex; flex-direction: column; gap: 20px; padding-top: 28px; padding-bottom: 64px">
+    <h1 style="margin: 0; font-size: 30px; font-weight: 800">إتمام الطلب</h1>
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+      <form style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+        <section class="card" style="padding: 22px; display: flex; flex-direction: column; gap: 16px">
+          <h2 class="h2"><span class="st" style="background: {{brand}}">١</span>بياناتك</h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px">
+            <label class="lb">الاسم *<input type="text" class="in" value="محمود سعيد"></label>
+            <label class="lb">رقم الموبايل (واتساب) *<input type="tel" class="in num" value="0101 555 7788" style="direction: ltr; text-align: right"></label>
+          </div>
+        </section>
+
+        <section class="card" style="padding: 22px; display: flex; flex-direction: column; gap: 16px">
+          <h2 class="h2"><span class="st" style="background: {{brand}}">٢</span>هتستلم إزاي؟</h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px">
+            <label class="opt" style="border: 2px solid {{brand}}; background: #F3F8F6"><input type="radio" name="ship" checked="checked"><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 700">توصيل للبيت</span><span style="font-size: 12px; color: #4A5856">حسب المنطقة</span></span></label>
+            <label class="opt"><input type="radio" name="ship"><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 700">استلام من المحل</span><span style="font-size: 12px; color: #4A5856">مجانًا · ١٢ شارع الجيش</span></span></label>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px">
+            <label class="lb">المنطقة *
+              <select class="in"><option>حي الجامعة · ٣٠ ج.م</option><option>توريل · ٣٥ ج.م</option><option>المشاية · ٢٥ ج.م</option><option>طلخا · ٥٠ ج.م</option></select>
+            </label>
+            <label class="lb">الشارع ورقم العمارة *<input type="text" class="in" value="ش جيهان، عمارة ٧ الدور التالت"></label>
+          </div>
+          <label class="lb">علامة مميزة<input type="text" class="in" value="جنب صيدلية الشفاء"></label>
+        </section>
+
+        <section class="card" style="padding: 22px; display: flex; flex-direction: column; gap: 16px">
+          <h2 class="h2"><span class="st" style="background: {{brand}}">٣</span>هتدفع إزاي؟</h2>
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <label class="opt" style="border: 2px solid {{brand}}; background: #F3F8F6"><input type="radio" name="pay" checked="checked"><span style="font-weight: 700">كاش عند الاستلام</span></label>
+            <label class="opt"><input type="radio" name="pay"><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 700">انستاباي</span><span style="font-size: 12px; color: #4A5856">هتحوّل وتبعت صورة التحويل على واتساب</span></span></label>
+            <label class="opt"><input type="radio" name="pay"><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 700">فودافون كاش</span><span style="font-size: 12px; color: #4A5856">هتحوّل وتبعت صورة التحويل على واتساب</span></span></label>
+          </div>
+          <label class="lb">ملاحظات للمحل<textarea class="in" rows="2" placeholder="اختياري" style="resize: vertical"></textarea></label>
+        </section>
+      </form>
+
+      <aside class="card" style="flex: 1 1 340px; min-width: 0; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 800">طلبك</h2>
+        <div class="row" style="padding-bottom: 12px; border-bottom: 1px solid #EEEAE2">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px">
+            <span style="width: 56px; height: 56px; border-radius: 10px; background: #EEEAE2"></span>
+            <span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 700">لمبة LED ١٨ وات</span><span class="num" style="font-size: 12px; color: #4A5856">٣ × ٦٠</span></span>
+          </div>
+          <span class="num" style="font-size: 15px; font-weight: 700">١٨٠</span>
+        </div>
+        <div class="row" style="padding-bottom: 12px; border-bottom: 1px solid #EEEAE2">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px">
+            <span style="width: 56px; height: 56px; border-radius: 10px; background: #EEEAE2"></span>
+            <span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 700">مشترك ٥ مخارج</span><span class="num" style="font-size: 12px; color: #4A5856">٢ × ١٥٠</span></span>
+          </div>
+          <span class="num" style="font-size: 15px; font-weight: 700">٣٠٠</span>
+        </div>
+        <div class="row" style="padding-bottom: 12px; border-bottom: 1px solid #EEEAE2">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 12px">
+            <span style="width: 56px; height: 56px; border-radius: 10px; background: #EEEAE2"></span>
+            <span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 700">كشاف ليد ٥٠ وات</span><span class="num" style="font-size: 12px; color: #4A5856">١ × ٢١٠</span></span>
+          </div>
+          <span class="num" style="font-size: 15px; font-weight: 700">٢١٠</span>
+        </div>
+        <div class="row" style="font-size: 14px; color: #3B4A47"><span>المنتجات</span><span class="num">٦٩٠ ج.م</span></div>
+        <div class="row" style="font-size: 14px; color: #3B4A47"><span>التوصيل (حي الجامعة)</span><span class="num">٣٠ ج.م</span></div>
+        <div class="row" style="font-size: 20px; font-weight: 800; padding-top: 12px; border-top: 1px solid #E2DED5"><span>الإجمالي</span><span class="num">٧٢٠ ج.م</span></div>
+        <button type="submit" style="min-height: 54px; border-radius: 12px; border: none; background: {{brand}}; color: #FFFFFF; font-family: inherit; font-size: 17px; font-weight: 700; cursor: pointer">أكّد الطلب</button>
+        <span style="font-size: 13px; line-height: 1.7; color: #4A5856; text-align: center">المحل هيكلمك أو يبعتلك على واتساب يأكد الطلب قبل ما يبعته</span>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"brand":{"editor":"color","default":"#0E4D45","options":["#0E4D45","#7C2D12","#3F3F46","#14532D"]},"$preview":{"width":1440,"height":1250}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { brand: this.props.brand ?? '#0E4D45' };
+  }
+}
+</script>
+</body>
+</html>

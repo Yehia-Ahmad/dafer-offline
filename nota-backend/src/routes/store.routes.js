@@ -52,6 +52,7 @@ const createStoreRouter = ({ secret }) => {
   router.post("/auth/login", pub, account.login);
 
   router.post("/orders", optional, orders.placeOrder);
+  router.post("/orders/quote", optional, orders.quoteOrder); // Online Stage 5B: prices an order, creates nothing
   router.get("/orders/track/:token", pub, orders.trackOrder);
 
   router.get("/me", customer, account.getMe);

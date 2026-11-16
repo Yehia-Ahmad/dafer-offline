@@ -56,9 +56,11 @@ const readContact = (input, { addressRequired = true } = {}) => {
   return { name, phone, address, notes: str(body.notes, 500) };
 };
 
-const readOrderRequest = (body, customer) => {
+// quote (Online Stage 5B): the same body as placing, but no idempotency key and no contact are needed (the price depends on
+// the items, the fulfillment, the zone and the payment method only). A saved address id is still checked.
+const readOrderRequest = (body, customer, { quote = false } = {}) => {
   const input = body && typeof body === "object" ? body : {};
-  if (typeof input.idempotencyKey !== "string" || !UUID.test(input.idempotencyKey)) throw fail("INVALID_IDEMPOTENCY_KEY", "مفتاح الطلب غير صالح");
+  if (!quote && (typeof input.idempotencyKey !== "string" || !UUID.test(input.idempotencyKey))) throw fail("INVALID_IDEMPOTENCY_KEY", "مفتاح الطلب غير صالح");
   const items = readItems(input.items);
   // Online Stage 5A: how the customer gets the order and how they pay. Absent = delivery / cash on delivery (the Stage 3 request).
   const fulfillment = input.fulfillment === undefined ? "delivery" : input.fulfillment;
@@ -67,6 +69,12 @@ const readOrderRequest = (body, customer) => {
   if (!WebOrder.PAYMENT_METHODS.includes(paymentMethod)) throw fail("INVALID_PAYMENT_METHOD", "طريقة الدفع غير صالحة");
   const zoneId = fulfillment === "pickup" ? null : (typeof input.zoneId === "string" && mongoose.Types.ObjectId.isValid(input.zoneId) ? input.zoneId : null);
   if (fulfillment === "delivery" && !zoneId) throw fail("INVALID_ZONE", "اختار منطقة التوصيل");
+  if (quote) {
+    if (input.addressId !== undefined && input.addressId !== null && input.addressId !== "" && !(customer && mongoose.Types.ObjectId.isValid(input.addressId) && customer.addresses.id(input.addressId))) {
+      throw fail("INVALID_ADDRESS", "العنوان المحفوظ غير موجود");
+    }
+    return { items, zoneId, fulfillment, paymentMethod };
+  }
   let contact;
   if (input.addressId !== undefined && input.addressId !== null && input.addressId !== "") {
     const saved = customer && mongoose.Types.ObjectId.isValid(input.addressId) ? customer.addresses.id(input.addressId) : null;
@@ -99,10 +107,9 @@ const createStoreOrderController = ({ secret }) => {
     return existing;
   };
 
-  const buildOrder = async (request, customer, session) => {
-    const existing = await findExisting(request, customer, session);
-    if (existing) return { order: existing, created: false };
-
+  // Everything that decides whether an order can be placed and what it costs; shared by placing and the quote (Online Stage 5B).
+  // Writes nothing.
+  const validateAndPrice = async (request, session) => {
     const scope = await catalog.storeScope({ session });
     const { settings, rules } = scope;
     if (!settings || !settings.enabled) throw httpError(503, "STORE_CLOSED", "الموقع مقفول حاليًا");
@@ -153,6 +160,14 @@ const createStoreOrderController = ({ secret }) => {
       error.responseData.minOrderAmount = Number(settings.minOrderAmount);
       throw error;
     }
+    return { zone, pickup, priced };
+  };
+
+  const buildOrder = async (request, customer, session) => {
+    const existing = await findExisting(request, customer, session);
+    if (existing) return { order: existing, created: false };
+
+    const { zone, pickup, priced } = await validateAndPrice(request, session);
 
     const number = await nextDocumentNumber(PREFIXES.WEB_ORDER, session);
     const at = new Date();
@@ -196,6 +211,13 @@ const createStoreOrderController = ({ secret }) => {
     res.status(result.created ? 201 : 200).json(placed(result.order, request.idempotencyKey));
   });
 
+  // Online Stage 5B: price an order without creating anything (no key lookup, no document number, no transaction).
+  const quoteOrder = asyncHandler(async (req, res) => {
+    const request = readOrderRequest(req.body, req.storeCustomer || null, { quote: true });
+    const { zone, priced } = await validateAndPrice(request, null);
+    res.json(wl.publicQuote({ priced, fulfillment: request.fulfillment, paymentMethod: request.paymentMethod, zone }));
+  });
+
   const trackOrder = asyncHandler(async (req, res) => {
     const token = typeof req.params.token === "string" ? req.params.token : "";
     if (!token || token.length > 100) throw httpError(404, "NOT_FOUND", "غير موجود");
@@ -237,7 +259,7 @@ const createStoreOrderController = ({ secret }) => {
     res.json(wl.publicOwnOrder(order));
   });
 
-  return { placeOrder, trackOrder, listMyOrders, getMyOrder, cancelMyOrder };
+  return { placeOrder, quoteOrder, trackOrder, listMyOrders, getMyOrder, cancelMyOrder };
 };
 
 module.exports = { createStoreOrderController, trackingTokenFor };

@@ -228,6 +228,18 @@ const publicPlacedOrder = (order, trackingToken) => ({
   trackingToken,
 });
 
+/** Online Stage 5B: the priced preview of an order (POST /orders/quote). Nothing is stored; no number, no id, no token. */
+const publicQuote = ({ priced, fulfillment, paymentMethod, zone }) => ({
+  fulfillment,
+  paymentMethod,
+  items: priced.items.map(publicOrderItem),
+  subtotal: money(priced.subtotal),
+  vat: money(priced.vat),
+  deliveryFee: money(priced.deliveryFee),
+  total: money(priced.total),
+  zone: zone ? publicZoneSnapshot(zone) : null,
+});
+
 /** A signed-in customer's own order. */
 const publicOwnOrder = (order) => ({
   id: idOf(order._id),
@@ -292,6 +304,7 @@ module.exports = {
   publicOwnOrder,
   publicPlacedOrder,
   publicProduct,
+  publicQuote,
   publicSettings,
   publicShop,
   publicTracking,

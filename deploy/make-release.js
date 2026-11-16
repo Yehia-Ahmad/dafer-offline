@@ -2,7 +2,9 @@
 // Builds a Nota release on the developer PC (Windows, macOS or Linux):
 //   node deploy/make-release.js [--allow-dirty] [--skip-build]
 // Output: release/release-<version>-<commit>.tar.gz (release/ is git-ignored), containing
-//   release.json, backend/ (no node_modules, tests, .env), frontend/ (the production build).
+//   release.json, backend/ (no node_modules, tests, .env), frontend/admin/ (the admin app, built with baseHref /admin/),
+//   storefront/ (the server-side rendered customer website: server/ + browser/; the server bundle includes its own
+//   dependencies, so there is no node_modules and no npm ci for it).
 // Refuses to run when the git tree has uncommitted changes (--allow-dirty for testing only).
 // Needs: git, node/npm, and `tar` (built into Windows 10/11).
 "use strict";
@@ -14,6 +16,7 @@ const { spawnSync } = require("node:child_process");
 const repoRoot = path.resolve(__dirname, "..");
 const backendDir = path.join(repoRoot, "nota-backend");
 const frontendDir = path.join(repoRoot, "nota-frontend");
+const storefrontDir = path.join(repoRoot, "nota-storefront");
 const outDir = path.join(repoRoot, "release");
 
 const args = new Set(process.argv.slice(2));
@@ -73,21 +76,41 @@ const main = () => {
   if (!/^[A-Za-z0-9._-]+$/.test(version)) fail(`nota-backend/package.json has no usable version: "${version}"`);
   const name = `release-${version}-${commit}`;
 
+  // The admin app has its own build configuration (baseHref /admin/) and its own output folder, so the plain production build
+  // (offline / online-at-root) in dist/nota is never overwritten. Online Stage 5B.
+  const adminOut = path.join("dist", "nota-admin");
   if (!skipBuild) {
-    console.log("make-release: building the frontend (production)...");
-    const build = spawnSync("npx", ["ng", "build", "--configuration", "production"], { cwd: frontendDir, stdio: "inherit", shell: process.platform === "win32" });
-    if (build.status !== 0) fail("frontend build failed");
+    console.log("make-release: building the admin app (configuration admin, baseHref /admin/)...");
+    const admin = spawnSync("npx", ["ng", "build", "--configuration", "admin", "--output-path", adminOut], { cwd: frontendDir, stdio: "inherit", shell: process.platform === "win32" });
+    if (admin.status !== 0) fail("admin app build failed");
+    console.log("make-release: building the storefront (npm ci + ng build)...");
+    if (!fs.existsSync(path.join(storefrontDir, "node_modules"))) {
+      const install = spawnSync("npm", ["ci", "--no-audit", "--no-fund"], { cwd: storefrontDir, stdio: "inherit", shell: process.platform === "win32" });
+      if (install.status !== 0) fail("storefront npm ci failed");
+    }
+    const storefront = spawnSync("npx", ["ng", "build"], { cwd: storefrontDir, stdio: "inherit", shell: process.platform === "win32" });
+    if (storefront.status !== 0) fail("storefront build failed");
   }
 
-  const builtRoot = path.join(frontendDir, "dist", "nota");
+  const builtRoot = path.join(frontendDir, adminOut);
   const builtDir = fs.existsSync(path.join(builtRoot, "browser", "index.html")) ? path.join(builtRoot, "browser") : builtRoot;
-  if (!fs.existsSync(path.join(builtDir, "index.html"))) fail(`no index.html in ${builtDir}; build the frontend first`);
+  if (!fs.existsSync(path.join(builtDir, "index.html"))) fail(`no index.html in ${builtDir}; build the admin app first`);
+  const adminIndex = fs.readFileSync(path.join(builtDir, "index.html"), "utf8");
+  if (!/<base href="\/admin\/"/.test(adminIndex)) fail("the admin build does not have <base href=\"/admin/\">: it was not built with --configuration admin");
+
+  const storefrontBuilt = path.join(storefrontDir, "dist", "nota-storefront");
+  if (!fs.existsSync(path.join(storefrontBuilt, "server", "server.mjs")) || !fs.existsSync(path.join(storefrontBuilt, "browser"))) {
+    fail("no storefront build in nota-storefront/dist/nota-storefront; build the storefront first");
+  }
 
   fs.mkdirSync(outDir, { recursive: true });
   const staging = fs.mkdtempSync(path.join(outDir, ".staging-"));
   try {
     copyBackend(path.join(staging, "backend"));
-    fs.cpSync(builtDir, path.join(staging, "frontend"), { recursive: true });
+    fs.cpSync(builtDir, path.join(staging, "frontend", "admin"), { recursive: true });
+    fs.mkdirSync(path.join(staging, "storefront"), { recursive: true });
+    fs.cpSync(path.join(storefrontBuilt, "server"), path.join(staging, "storefront", "server"), { recursive: true });
+    fs.cpSync(path.join(storefrontBuilt, "browser"), path.join(staging, "storefront", "browser"), { recursive: true });
     fs.writeFileSync(
       path.join(staging, "release.json"),
       `${JSON.stringify({ version, commit, date: now.toISOString(), dirty: Boolean(dirty) }, null, 2)}\n`
@@ -99,7 +122,7 @@ const main = () => {
     // (not ".") so release.json is a plain path inside the archive.
     const tarResult = run(
       "tar",
-      ["-czf", path.basename(tarball), "-C", path.basename(staging), "release.json", "backend", "frontend"],
+      ["-czf", path.basename(tarball), "-C", path.basename(staging), "release.json", "backend", "frontend", "storefront"],
       { cwd: outDir }
     );
     if (tarResult.status !== 0) fail(`tar failed: ${tarResult.stderr.trim()}`);

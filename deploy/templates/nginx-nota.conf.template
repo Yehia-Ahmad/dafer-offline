@@ -1,7 +1,6 @@
-# Nota: nginx site for @@DOMAIN@@ (rendered by setup-server.sh; placeholders: @@DOMAIN@@ @@PORT@@).
-# Layout is ready for later stages: the admin app is served by `location /` from /opt/nota/current/frontend.
-# A customer website or PWA can later take `/` (and the admin app move to e.g. /admin/) or get its own
-# `server` block / domain, without touching the /api/ and /health proxy rules below.
+# Nota: nginx site for @@DOMAIN@@ (rendered by setup-server.sh; placeholders: @@DOMAIN@@ @@PORT@@ @@STOREFRONT_PORT@@).
+# /api/ and /health -> the backend; /admin/ -> the admin app (static files, built with baseHref /admin/);
+# everything else -> the storefront (the server-side rendered customer website, 127.0.0.1:@@STOREFRONT_PORT@@).
 
 server {
     listen 80;
@@ -32,6 +31,9 @@ server {
     server_tokens off;
     client_max_body_size 1m;
 
+    # Customer tracking tokens are in /order/<token> and /api/store/orders/track/<token>: they never reach this log (see conf.d/nota-ratelimit.conf).
+    access_log /var/log/nginx/nota-access.log nota_masked;
+
     include /etc/nginx/snippets/nota-security-headers.conf;
 
     gzip on;
@@ -40,6 +42,7 @@ server {
     gzip_min_length 1024;
     gzip_types text/plain text/css text/javascript application/javascript application/json image/svg+xml font/ttf;
 
+    # Only the admin app is served from disk (<root>/admin/); the storefront is proxied.
     root /opt/nota/current/frontend;
     index index.html;
 
@@ -77,6 +80,16 @@ server {
         proxy_pass http://127.0.0.1:@@PORT@@;
     }
 
+    # Online Stage 5B: pricing the cart (nothing is created). 60 POSTs per minute per IP, burst 20, then 429 (zone nota_store_quote).
+    location = /api/store/orders/quote {
+        client_max_body_size 64k;
+        limit_req zone=nota_store_quote burst=20 nodelay;
+        limit_req_status 429;
+        limit_req_log_level warn;
+        include /etc/nginx/snippets/nota-proxy-api.conf;
+        proxy_pass http://127.0.0.1:@@PORT@@;
+    }
+
     # Customer sign-in and registration: 10 POSTs per minute per IP each, burst 5, then 429 (zone nota_store_auth).
     # The app's own lockout (5 failures per phone + IP) still applies on top.
     location = /api/store/auth/login {
@@ -103,21 +116,42 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Never cache the entry page: a new release must be picked up at once.
-    location = /index.html {
+    # The admin app lives at /admin/ (built with baseHref /admin/); its files are in <root>/admin/.
+    location = /admin {
+        return 301 /admin/;
+    }
+
+    # Never cache the admin entry page: a new release must be picked up at once.
+    location = /admin/index.html {
         add_header Cache-Control "no-store" always;
         include /etc/nginx/snippets/nota-security-headers.conf;
     }
 
-    # Hashed build files (main-AB12CD34.js, styles-AB12CD34.css) never change: cache for a year.
-    location ~ "^/.+-[A-Z0-9]{8}\.(js|css)$" {
+    # Hashed admin build files (main-AB12CD34.js, styles-AB12CD34.css) never change: cache for a year.
+    location ~ "^/admin/.+-[A-Z0-9]{8}\.(js|css)$" {
         add_header Cache-Control "public, max-age=31536000, immutable" always;
         include /etc/nginx/snippets/nota-security-headers.conf;
         try_files $uri =404;
     }
 
-    # Single page app: unknown paths go to index.html.
+    # Admin single page app: unknown paths under /admin/ go to the admin index.html.
+    location /admin/ {
+        try_files $uri $uri/ /admin/index.html;
+    }
+
+    # The storefront's hashed build files (main-AB12CD34.js, styles-AB12CD34.css, fonts) never change: cache for a year.
+    # (Listed after the admin rule, so /admin/... never reaches this one.)
+    location ~ "^/.+-[A-Z0-9]{8}\.(js|css|woff2)$" {
+        include /etc/nginx/snippets/nota-proxy-storefront.conf;
+        proxy_pass http://127.0.0.1:@@STOREFRONT_PORT@@;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        include /etc/nginx/snippets/nota-security-headers.conf;
+    }
+
+    # Everything else is the storefront: home, categories, products, cart, checkout, account, /sitemap.xml, /robots.txt.
     location / {
-        try_files $uri $uri/ /index.html;
+        include /etc/nginx/snippets/nota-proxy-storefront.conf;
+        proxy_pass http://127.0.0.1:@@STOREFRONT_PORT@@;
     }
 }

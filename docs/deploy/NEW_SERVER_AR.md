@@ -20,9 +20,9 @@ PS> scp -r deploy root@<IP>:/root/deploy
 PS> ssh root@<IP>
 # bash /root/deploy/setup-server.sh shop.example.com you@example.com
 ```
-- السكربت يثبّت: MongoDB 8 و Node 24 و nginx و certbot و ufw و fail2ban، ويضبط المنطقة الزمنية `Africa/Cairo`، والتحديثات الأمنية التلقائية.
+- السكربت يثبّت: MongoDB 8 و Node 24 و nginx و certbot و ufw و fail2ban، ويضبط المنطقة الزمنية `Africa/Cairo`، والتحديثات الأمنية التلقائية، ويجهّز خدمتين: `nota-backend` (الـ API) و`nota-storefront` (موقع العملاء).
 - يجهّز MongoDB على `127.0.0.1` فقط، بنظام replica set باسم `rs0` وبمصادقة، ويولّد كل كلمات السر والمفاتيح على السيرفر. **لا تُطبع أي كلمة سر** على الشاشة.
-- الأسرار محفوظة في `/etc/nota/backend.env` و `/etc/nota/mongo-admin.env` (للـ root فقط). لا تنسخها في أي مكان ولا ترفعها على git.
+- الأسرار محفوظة في `/etc/nota/backend.env` و `/etc/nota/mongo-admin.env` (للـ root فقط). لا تنسخها في أي مكان ولا ترفعها على git. إعدادات موقع العملاء في `/etc/nota/storefront.env` (المنفذ والعنوان الداخلي للـ API وعنوان الموقع العام؛ لا يحتوي أي سر).
 - يمكن إعادة تشغيل السكربت بأمان لو توقف في منتصفه (لن يغيّر الأسرار الموجودة).
 - في النهاية يطبع الخطوات التالية.
 
@@ -66,17 +66,24 @@ PS> scp release\release-<النسخة>-<الكوميت>.tar.gz root@<IP>:/root/
 ## 7) التأكد أن كل شيء يعمل
 ```
 # systemctl status nota-backend nginx mongod --no-pager
+# systemctl status nota-storefront --no-pager
 # curl -s http://127.0.0.1:5000/health          # {"ok":true,"version":"...","db":"up"}
-# curl -sI https://shop.example.com | head -5    # HTTP/2 200
+# curl -s http://127.0.0.1:4000/health          # {"ok":true,"service":"nota-storefront"}  (موقع العملاء)
+# curl -sI https://shop.example.com | head -5    # HTTP/2 200 (موقع العملاء)
+# curl -sI https://shop.example.com/admin/ | head -5    # HTTP/2 200 (تطبيق الإدارة)
 # systemctl list-timers nota-backup.timer certbot.timer
 # ufw status
 # journalctl -u nota-backend -n 50 --no-pager
+# journalctl -u nota-storefront -n 50 --no-pager
 ```
-ثم افتح `https://shop.example.com` في المتصفح وسجّل الدخول بحساب المالك.
+- **موقع العملاء** على `https://shop.example.com` (الصفحة الرئيسية، المنتجات، السلة، الطلب).
+- **تطبيق الإدارة** على `https://shop.example.com/admin/` — سجّل الدخول من هنا بحساب المالك. (كان على الجذر `/` قبل إضافة موقع العملاء؛ حدّث أي رابط محفوظ في المتصفح.)
+- لو الموقع مقفول من إعدادات الموقع، الصفحة الرئيسية تعرض صفحة «المتجر مقفول» برمز 503 (هذا طبيعي)، وتطبيق الإدارة يعمل كالمعتاد.
 اضبط بعدها النسخ الاحتياطي خارج السيرفر: `BACKUP_RESTORE_AR.md`.
 
 ## ملاحظات
 - المسارات: الإصدارات في `/opt/nota/releases`، والنسخة الحالية `/opt/nota/current`، والإعدادات `/etc/nota`، والنسخ الاحتياطية `/var/backups/nota`، وملف مفتاح MongoDB في `/etc/mongodb-keyfile`.
-- سجل الخدمة: `journalctl -u nota-backend`.
+- سجل الخدمتين: `journalctl -u nota-backend` و `journalctl -u nota-storefront`.
+- توزيع الطلبات في nginx: `/api/` و `/health` ← الـ backend، `/admin/` ← ملفات تطبيق الإدارة، وأي شيء آخر ← موقع العملاء (`127.0.0.1:4000`). سجل nginx (`/var/log/nginx/nota-access.log`) يُخفي رمز تتبّع الطلب في `/order/…` فلا يظهر فيه.
 - شهادة HTTPS: يبدأ nginx بإعداد HTTP فقط (مع مسار `/.well-known/acme-challenge/`)، ثم يطلب certbot الشهادة (webroot)، وبعدها فقط يُركَّب إعداد HTTPS. إعادة تشغيل `setup-server.sh` بعد وجود الشهادة آمنة. التجديد التلقائي عبر `certbot.timer`.
-- تسجيل الدخول محدود في nginx بـ 10 محاولات في الدقيقة لكل IP (بعدها خطأ 429)، فوق قفل التطبيق نفسه (5 محاولات خاطئة لكل مستخدم + IP). لا يوجد تحديد معدل لباقي الطلبات حالياً.
+- تسجيل الدخول محدود في nginx بـ 10 محاولات في الدقيقة لكل IP (بعدها خطأ 429)، فوق قفل التطبيق نفسه (5 محاولات خاطئة لكل مستخدم + IP). تقديم الطلب من الموقع محدود بـ 10 طلبات في الدقيقة لكل IP، وتسجيل العميل/دخوله 10 في الدقيقة، وحساب سعر السلة (`/api/store/orders/quote`) 60 في الدقيقة (لأنه يُستدعى مع كل تغيير في السلة). لا يوجد تحديد معدل لباقي الطلبات حالياً.
