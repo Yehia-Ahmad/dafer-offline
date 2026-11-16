@@ -32,6 +32,7 @@ import { LockedActionComponent } from '../../../../core/auth/locked-action.compo
 import { LayoutService } from '../../../../core/layout/layout.service';
 import { MobSheetComponent } from '../../../mobile/mob-sheet.component';
 import { MobDateInputComponent } from '../../../mobile/mob-date-input.component';
+import { MobNumberInputComponent } from '../../../mobile/mob-number-input.component';
 import { MobDatePipe } from '../../../mobile/mob-date.pipe';
 import { mobilePillClass } from '../../../mobile/mobile-utils';
 
@@ -50,7 +51,7 @@ const PAGE_SIZE = 10;
 @Component({
   selector: 'app-credit-sales-list',
   standalone: true,
-  imports: [MobDateInputComponent, PrintActionsComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, CommonModule, FormsModule, ReactiveFormsModule, RouterLink, TranslatePipe, DatePickerModule, InputNumberModule,
+  imports: [MobDateInputComponent, MobNumberInputComponent, PrintActionsComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, CommonModule, FormsModule, ReactiveFormsModule, RouterLink, TranslatePipe, DatePickerModule, InputNumberModule,
     NotaButtonDirective, NotaFormFieldComponent, NotaLockBannerComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, MobSheetComponent, MobDatePipe],
   templateUrl: './credit-sales-list.component.html',
   styleUrl: './credit-sales-list.component.scss'
@@ -227,6 +228,7 @@ export class CreditSalesListComponent implements OnInit {
         this.isSavingPayment = false;
         this.resetPaymentForm();
         this.paymentSaved = true;
+        this.detailOpen.set(false); // phone (Online Stage 6B): the invoice sheet closes only on success
         this.load(this.pagination.page);
       },
       error: (error: any) => {

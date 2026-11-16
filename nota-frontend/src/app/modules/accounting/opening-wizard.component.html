@@ -1,3 +1,216 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone): the same opening-balance wizard (cash, stock, customers, suppliers, review). Steps as segments, rows as cards, a sticky back / next bar; finalising asks in a red sheet. Same state and the same validation. -->
+<nota-mob-bar [title]="'openingWizard.title' | translate" [hideTabs]="true" />
+@if (loading) {
+  <div class="m-page" style="padding-top:12px"><div class="m-skel" style="height:140px" role="status"></div></div>
+} @else if (loadError) {
+  <div class="m-page" style="padding-top:12px"><div class="m-card m-empty" role="alert"><span class="nota-error">{{ 'openingWizard.loadFailed' | translate }}</span>
+    <button type="button" class="m-btn" (click)="load()">{{ 'openingWizard.retry' | translate }}</button></div></div>
+} @else if (state) {
+  <div class="m-page" style="padding-top:12px;padding-bottom:110px">
+    @if (readOnly) { <p class="m-pill m-pill--muted" style="white-space:normal" role="status" data-test="finalized-banner">{{ 'openingWizard.finalizedNote' | translate }}</p> }
+    @else if (!state.setupMode) { <p class="m-pill m-pill--muted" style="white-space:normal" role="status" data-test="carried-note">{{ 'openingWizard.notSetupNote' | translate }}</p> }
+
+    <div class="m-steps" data-test="steps">
+      @for (n of steps; track n) {
+        <button type="button" class="m-step" style="background:none;border:0;font:inherit" [class.is-done]="step >= n" [attr.aria-current]="step === n ? 'step' : null" [attr.data-step]="n" (click)="goTo(n)">{{ 'openingWizard.steps.' + n | translate }}</button>
+      }
+    </div>
+
+    @switch (step) {
+      @case (1) {
+        <div class="m-card" data-test="step-cash" style="display:flex;flex-direction:column;gap:12px">
+          <div class="m-card__title">{{ 'openingWizard.cash.title' | translate }}</div>
+          <label class="m-field">{{ 'openingWizard.cash.mainCash' | translate }}
+            <input id="owCashM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="cashM" [(ngModel)]="cash" [disabled]="readOnly" data-field="cash" />
+            @if (!cashValid) { <span class="nota-error">{{ 'openingWizard.errors.amount' | translate }}</span> }</label>
+          <label class="m-field">{{ 'openingWizard.cash.fixedAssets' | translate }}
+            <input id="owFixedM" class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" name="fixedM" [(ngModel)]="fixedAssets" [disabled]="readOnly" data-field="fixedAssets" />
+            <span class="m-note" style="padding:0">{{ 'openingWizard.cash.fixedAssetsHint' | translate }}</span></label>
+        </div>
+        <div class="m-section-label">{{ 'openingWizard.cash.banksTitle' | translate }}</div>
+        @for (row of banks; track $index; let i = $index) {
+          <div class="m-card" style="display:flex;flex-direction:column;gap:10px" [attr.data-bank]="i">
+            @if (row.accountId) { <strong><span dir="ltr" class="m-row__sub" style="margin-inline-end:6px">{{ row.code }}</span>{{ row.name }}</strong> }
+            @else {
+              <input class="m-input" type="text" [name]="'bankNameM' + i" [(ngModel)]="row.name" [attr.aria-label]="'openingWizard.cash.bankName' | translate" [placeholder]="'openingWizard.cash.bankName' | translate" [disabled]="readOnly" data-field="bank-name" />
+              <select class="m-input" [name]="'bankTypeM' + i" [(ngModel)]="row.type" [attr.aria-label]="'openingWizard.cash.bankType' | translate" [disabled]="readOnly" data-field="bank-type">
+                <option value="bank">{{ 'openingWizard.cash.bank' | translate }}</option><option value="wallet">{{ 'openingWizard.cash.wallet' | translate }}</option>
+              </select>
+            }
+            <div style="display:flex;gap:8px">
+              <input class="m-input nota-num" style="flex:1;min-width:0" type="number" inputmode="decimal" min="0" step="0.01" [name]="'bankAmountM' + i" [(ngModel)]="row.amount" [attr.aria-label]="'openingWizard.amount' | translate" [disabled]="readOnly" data-field="bank-amount" />
+              @if (!readOnly) { <button type="button" class="m-btn m-btn--danger" style="width:48px;padding:0" [attr.aria-label]="'openingWizard.remove' | translate" (click)="removeBank(row)">×</button> }
+            </div>
+            @if (bankError(row); as error) { <span class="nota-error">{{ error | translate }}</span> }
+          </div>
+        }
+        @if (!readOnly) {
+          <div style="display:flex;gap:8px">
+            <button type="button" class="m-btn" style="flex:1" data-action="add-bank" (click)="addBank('bank')">+ {{ 'openingWizard.cash.addBank' | translate }}</button>
+            <button type="button" class="m-btn" style="flex:1" data-action="add-wallet" (click)="addBank('wallet')">+ {{ 'openingWizard.cash.addWallet' | translate }}</button>
+          </div>
+        }
+      }
+
+      @case (2) {
+        <div class="m-card" data-test="step-inventory" style="display:flex;flex-direction:column;gap:10px">
+          <div class="m-card__title">{{ 'openingWizard.inventory.title' | translate }}</div>
+          @if (inventoryEditable) {
+            <p class="m-note" style="padding:0" data-test="inventory-setup-note">{{ 'openingWizard.inventory.setupNote' | translate }}</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <a class="m-btn" routerLink="/products/new" data-action="add-products">+ {{ 'openingWizard.inventory.addProducts' | translate }}</a>
+              <a class="m-btn" routerLink="/products" data-action="import-excel">{{ 'openingWizard.inventory.importExcel' | translate }}</a>
+              <button type="button" class="m-btn" data-action="reload-products" (click)="reloadInventory()">{{ 'openingWizard.inventory.reload' | translate }}</button>
+            </div>
+            @if (inventoryError) { <p class="nota-error" role="alert" data-test="inventory-error">{{ inventoryError | translate }}</p> }
+          } @else { <p class="m-note" style="padding:0" data-test="inventory-readonly">{{ 'openingWizard.inventory.readOnlyNote' | translate }}</p> }
+        </div>
+        @if (inventoryEditable) {
+          @if (inventoryLoading) { <div class="m-skel" style="height:100px" role="status"></div> }
+          @else {
+            <div data-test="inventory-table" style="display:flex;flex-direction:column;gap:10px">
+              @for (row of inventoryRows; track row.id) {
+                <div class="m-card" [attr.data-product]="row.code">
+                  <div class="m-row__title" style="white-space:normal">{{ row.name }} <span class="m-row__sub" dir="ltr">{{ row.code }}</span></div>
+                  <div style="display:flex;gap:10px;margin-top:8px">
+                    <label class="m-field" style="margin:0;flex:1">{{ 'openingWizard.inventory.quantity' | translate }}
+                      <input class="m-input nota-num" type="number" inputmode="numeric" min="0" step="1" [name]="'qtyM' + row.id" [(ngModel)]="row.quantity" data-field="qty" /></label>
+                    <label class="m-field" style="margin:0;flex:1">{{ 'openingWizard.inventory.price' | translate }}
+                      <input class="m-input nota-num" type="number" inputmode="decimal" min="0" step="0.01" [name]="'priceM' + row.id" [(ngModel)]="row.price" data-field="price" /></label>
+                  </div>
+                  <div class="m-row__sub nota-num" style="margin-top:6px">{{ 'openingWizard.inventory.value' | translate }}: <strong>{{ inventoryValue(row) | notaMoney }}</strong></div>
+                </div>
+              } @empty { <div class="m-card m-empty" data-test="inventory-empty">{{ 'openingWizard.inventory.empty' | translate }}</div> }
+            </div>
+          }
+        }
+        <p class="m-card" data-test="inventory-total" style="margin:0">{{ 'openingWizard.inventory.total' | translate }}: <strong class="nota-num">{{ inventoryTotal | notaMoney }}</strong></p>
+      }
+
+      @case (3) {
+        <div class="m-card" data-test="step-customers" style="display:flex;flex-direction:column;gap:10px">
+          <div class="m-card__title">{{ 'openingWizard.customers.title' | translate }}</div>
+          <p class="m-note" style="padding:0">{{ 'openingWizard.customers.hint' | translate }}</p>
+          <p class="m-note" style="padding:0" data-test="opening-date">{{ 'openingWizard.openingDate' | translate }}: <strong>{{ state.ledgerStartAt | mobDate }}</strong></p>
+        </div>
+        @for (row of customers; track row.id) {
+          <div class="m-card" style="display:flex;flex-direction:column;gap:8px" [attr.data-customer]="row.name">
+            <div style="display:flex;justify-content:space-between;gap:8px"><strong dir="auto">{{ row.name }}</strong><span class="m-row__sub" dir="ltr">{{ row.phone }}</span></div>
+            <div style="display:flex;gap:8px">
+              <input class="m-input nota-num" style="flex:1;min-width:0" type="number" inputmode="decimal" step="0.01" [name]="'custAmountM' + row.id" [(ngModel)]="row.amount" [attr.aria-label]="'openingWizard.amount' | translate" [disabled]="readOnly" data-field="customer-amount" />
+              @if (!readOnly) { <button type="button" class="m-btn m-btn--danger" style="width:48px;padding:0" [attr.aria-label]="'openingWizard.remove' | translate" (click)="removeCustomer(row)">×</button> }
+            </div>
+            @if (row.collected) { <span class="m-note" style="padding:0">{{ 'openingWizard.customers.collected' | translate: { amount: money(row.collected) } }}</span> }
+            @if (partyAmountError(row); as error) { <span class="nota-error">{{ error | translate }}</span> }
+            @if (carriedOf(row) && amountOf(row.amount)) { <span class="m-pill m-pill--warn" style="white-space:normal" role="status" data-test="carried-warning">{{ 'openingWizard.customers.carriedWarning' | translate: { amount: money(carriedOf(row)) } }}</span> }
+          </div>
+        } @empty { <div class="m-card m-empty" data-test="customers-empty">{{ 'openingWizard.customers.empty' | translate }}</div> }
+        @if (carriedRows.length) {
+          <div class="m-section-label" data-test="carried-customers">{{ 'openingWizard.customers.carriedTitle' | translate }}</div>
+          <div class="m-card m-card--flush">
+            @for (row of carriedRows; track row.customerId) {
+              <div class="m-row" [attr.data-carried]="row.name"><span class="m-row__body"><span class="m-row__title" dir="auto">{{ row.name }}</span><span class="m-row__sub" dir="ltr" style="text-align:start">{{ row.phone }} · {{ 'openingWizard.customers.carriedLabel' | translate }}</span></span><span class="nota-num">{{ row.amount | notaMoney }}</span></div>
+            }
+          </div>
+        }
+        @if (!readOnly) {
+          <div class="m-card" style="display:flex;flex-direction:column;gap:10px">
+            <select class="m-input" name="pickCustomerM" [(ngModel)]="pickCustomerId" [attr.aria-label]="'openingWizard.customers.pick' | translate" data-field="pick-customer">
+              <option value="">{{ 'openingWizard.customers.pick' | translate }}</option>
+              @for (option of availableCustomerOptions; track option._id) { <option [value]="option._id">{{ option.name }} · {{ option.phone }}</option> }
+            </select>
+            <button type="button" class="m-btn" data-action="add-customer" [disabled]="!pickCustomerId" (click)="addCustomerRow()">+ {{ 'openingWizard.customers.add' | translate }}</button>
+            <input class="m-input" type="text" name="newCustNameM" [(ngModel)]="newCustomer.name" [placeholder]="'openingWizard.customers.newName' | translate" [attr.aria-label]="'openingWizard.customers.newName' | translate" data-field="new-customer-name" />
+            <input class="m-input" dir="ltr" type="tel" inputmode="tel" name="newCustPhoneM" [(ngModel)]="newCustomer.phone" [placeholder]="'openingWizard.customers.newPhone' | translate" [attr.aria-label]="'openingWizard.customers.newPhone' | translate" data-field="new-customer-phone" />
+            <button type="button" class="m-btn" data-action="create-customer" (click)="createCustomerRow()">+ {{ 'openingWizard.customers.create' | translate }}</button>
+          </div>
+        }
+        @if (partyError) { <p class="nota-error" role="alert" data-test="party-error">{{ partyError | translate }}</p> }
+      }
+
+      @case (4) {
+        <div class="m-card" data-test="step-suppliers" style="display:flex;flex-direction:column;gap:10px">
+          <div class="m-card__title">{{ 'openingWizard.suppliers.title' | translate }}</div>
+          <p class="m-note" style="padding:0">{{ 'openingWizard.suppliers.hint' | translate }}</p>
+        </div>
+        @for (row of suppliers; track row.id) {
+          <div class="m-card" style="display:flex;flex-direction:column;gap:8px" [attr.data-supplier]="row.name">
+            <strong dir="auto">{{ row.name }}</strong>
+            <div style="display:flex;gap:8px">
+              <input class="m-input nota-num" style="flex:1;min-width:0" type="number" inputmode="decimal" step="0.01" [name]="'supAmountM' + row.id" [(ngModel)]="row.amount" [attr.aria-label]="'openingWizard.amount' | translate" [disabled]="readOnly" data-field="supplier-amount" />
+              @if (!readOnly) { <button type="button" class="m-btn m-btn--danger" style="width:48px;padding:0" [attr.aria-label]="'openingWizard.remove' | translate" (click)="removeSupplier(row)">×</button> }
+            </div>
+            @if (partyAmountError(row); as error) { <span class="nota-error">{{ error | translate }}</span> }
+          </div>
+        } @empty { <div class="m-card m-empty" data-test="suppliers-empty">{{ 'openingWizard.suppliers.empty' | translate }}</div> }
+        @if (!readOnly) {
+          <div class="m-card" style="display:flex;flex-direction:column;gap:10px">
+            <select class="m-input" name="pickSupplierM" [(ngModel)]="pickSupplierId" [attr.aria-label]="'openingWizard.suppliers.pick' | translate" data-field="pick-supplier">
+              <option value="">{{ 'openingWizard.suppliers.pick' | translate }}</option>
+              @for (option of availableSupplierOptions; track option._id) { <option [value]="option._id">{{ option.name }}</option> }
+            </select>
+            <button type="button" class="m-btn" data-action="add-supplier" [disabled]="!pickSupplierId" (click)="addSupplierRow()">+ {{ 'openingWizard.suppliers.add' | translate }}</button>
+            <input class="m-input" type="text" name="newSupNameM" [(ngModel)]="newSupplier.name" [placeholder]="'openingWizard.suppliers.newName' | translate" [attr.aria-label]="'openingWizard.suppliers.newName' | translate" data-field="new-supplier-name" />
+            <input class="m-input" dir="ltr" type="tel" inputmode="tel" name="newSupPhoneM" [(ngModel)]="newSupplier.phone" [placeholder]="'openingWizard.suppliers.newPhone' | translate" [attr.aria-label]="'openingWizard.suppliers.newPhone' | translate" data-field="new-supplier-phone" />
+            <button type="button" class="m-btn" data-action="create-supplier" (click)="createSupplierRow()">+ {{ 'openingWizard.suppliers.create' | translate }}</button>
+          </div>
+        }
+        @if (partyError) { <p class="nota-error" role="alert" data-test="party-error">{{ partyError | translate }}</p> }
+      }
+
+      @case (5) {
+        <div data-test="step-review" style="display:flex;flex-direction:column;gap:12px">
+          <div class="m-section-label">{{ 'openingWizard.review.haveTitle' | translate }}</div>
+          <div class="m-card m-card--flush" data-test="review-have">
+            <div class="m-row"><span class="m-row__body">{{ 'openingWizard.review.cash' | translate }}</span><span class="nota-num">{{ review.cash | notaMoney }}</span></div>
+            @for (bank of banks; track $index) { @if (bank.amount) { <div class="m-row"><span class="m-row__body">{{ bank.name }}</span><span class="nota-num">{{ bank.amount | notaMoney }}</span></div> } }
+            <div class="m-row"><span class="m-row__body">@if (inventoryEditable) { {{ 'openingWizard.review.inventory' | translate: { count: stockLines } }} } @else { {{ 'openingWizard.review.inventoryCarried' | translate }} }</span><span class="nota-num">{{ review.inventory | notaMoney }}</span></div>
+            <div class="m-row"><span class="m-row__body">{{ 'openingWizard.review.customers' | translate: { count: customerCount } }}</span><span class="nota-num">{{ review.customers | notaMoney }}</span></div>
+            @for (row of carriedRows; track row.customerId) { <div class="m-row" data-test="review-carried"><span class="m-row__body">{{ row.name }} · {{ 'openingWizard.customers.carriedLabel' | translate }}</span><span class="nota-num">{{ row.amount | notaMoney }}</span></div> }
+            @if (review.fixedAssets) { <div class="m-row"><span class="m-row__body">{{ 'openingWizard.review.fixedAssets' | translate }}</span><span class="nota-num">{{ review.fixedAssets | notaMoney }}</span></div> }
+            @if (review.supplierAdvances) { <div class="m-row"><span class="m-row__body">{{ 'openingWizard.review.supplierAdvances' | translate }}</span><span class="nota-num">{{ review.supplierAdvances | notaMoney }}</span></div> }
+            <div class="m-row"><strong class="m-row__body">{{ 'openingWizard.review.total' | translate }}</strong><strong class="nota-num" data-test="total-assets">{{ review.assets | notaMoney }}</strong></div>
+          </div>
+          <div class="m-section-label">{{ 'openingWizard.review.oweTitle' | translate }}</div>
+          <div class="m-card m-card--flush" data-test="review-owe">
+            <div class="m-row"><span class="m-row__body">{{ 'openingWizard.review.suppliers' | translate: { count: supplierCount } }}</span><span class="nota-num">{{ review.suppliers | notaMoney }}</span></div>
+            @if (review.customerCredits) { <div class="m-row"><span class="m-row__body">{{ 'openingWizard.review.customerCredits' | translate }}</span><span class="nota-num">{{ review.customerCredits | notaMoney }}</span></div> }
+            <div class="m-row"><strong class="m-row__body">{{ 'openingWizard.review.total' | translate }}</strong><strong class="nota-num" data-test="total-liabilities">{{ review.liabilities | notaMoney }}</strong></div>
+          </div>
+          <div class="m-dark-card" data-test="capital">
+            <div class="m-dark-card__label">{{ 'openingWizard.review.capital' | translate }}</div>
+            <div class="m-dark-card__value nota-num" data-test="capital-value">{{ review.capital | notaMoney }} {{ 'openingWizard.currency' | translate }}</div>
+            <div class="m-dark-card__label nota-num" data-test="capital-formula">= {{ 'openingWizard.review.have' | translate }} {{ review.assets | notaMoney }} − {{ 'openingWizard.review.owe' | translate }} {{ review.liabilities | notaMoney }}</div>
+          </div>
+          <p class="m-note" style="padding:0">{{ 'openingWizard.review.note' | translate }}</p>
+          @if (!readOnly) { <label class="m-switch m-card">{{ 'openingWizard.review.confirm' | translate }}<input type="checkbox" name="confirmM" [(ngModel)]="confirmed" data-field="confirm" /></label> }
+          @if (saveError) { <p class="nota-error" role="alert" data-test="save-error">{{ saveError | translate: saveErrorParams }}</p> }
+          @if (savedNumber && !dirty) { <p class="m-pill m-pill--ok" style="white-space:normal" role="status" data-test="saved-ok">{{ 'openingWizard.review.saved' | translate: { number: savedNumber } }}</p> }
+        </div>
+      }
+    }
+  </div>
+  <div class="m-actions" style="position:fixed;inset-inline:0;bottom:0;z-index:30;flex-wrap:wrap">
+    <button type="button" class="m-btn" [disabled]="step === 1" (click)="back()" data-action="back">{{ 'openingWizard.back' | translate }}</button>
+    @if (step < 5) {
+      <button type="button" class="m-btn m-btn--primary" [disabled]="!stepValid(step)" (click)="next()" data-action="next">{{ 'openingWizard.next' | translate }}</button>
+    } @else if (!readOnly) {
+      <button type="button" class="m-btn m-btn--primary" [disabled]="!canSave" (click)="save()" data-action="save">{{ 'openingWizard.review.save' | translate }}</button>
+      <button type="button" class="m-btn m-btn--danger" style="flex:1 1 100%" [disabled]="!canFinalize" (click)="askFinalize()" data-action="finalize">{{ 'openingWizard.review.finalize' | translate }}</button>
+    }
+  </div>
+  <nota-mob-sheet [open]="finalizeAsk" (openChange)="$event || cancelFinalize()" [title]="'openingWizard.review.finalizeTitle' | translate">
+    <div data-test="finalize-confirm" role="alertdialog">
+      <p class="m-confirm__text">{{ 'openingWizard.review.finalizeText' | translate }}</p>
+      <div class="m-actions m-actions--sheet" style="padding:0;border:0">
+        <button type="button" class="m-btn" (click)="cancelFinalize()" data-action="finalize-cancel">{{ 'openingWizard.review.cancel' | translate }}</button>
+        <button type="button" class="m-btn m-btn--danger" [disabled]="finalizing" (click)="finalize()" data-action="finalize-confirm">{{ 'openingWizard.review.finalizeConfirm' | translate }}</button>
+      </div>
+    </div>
+  </nota-mob-sheet>
+}
+} @else {
 <!-- Stage 18: the opening-balance wizard (docs/design/screens/Opening.dc.html). الخزائن → المخزون → العملاء → الموردين → المراجعة -->
 <div class="ow">
   <nota-page-header [title]="'openingWizard.title' | translate" [subtitle]="'openingWizard.subtitle' | translate" />
@@ -261,3 +474,4 @@
     </div>
   }
 </div>
+}

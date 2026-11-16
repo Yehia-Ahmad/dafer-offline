@@ -168,6 +168,7 @@ export class ExpensesPageComponent implements OnInit {
       next: () => {
         this.saving.set(false);
         this.amount.set(null); this.note.set(''); this.vatAmount.set(null);
+        this.addOpen.set(false); // phone (Online Stage 6B): the add sheet closes only on success
         this.payment.load(true);
         this.load();
       },

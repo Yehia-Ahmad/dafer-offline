@@ -6,8 +6,13 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../../environments/environment';
 import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-actions.component';
 import { PrintDataService } from '../../core/print/print-data.service';
-@Component({ selector: 'app-journal-detail', standalone: true, imports: [CommonModule, RouterLink, TranslateModule, PrintActionsComponent], templateUrl: './journal-detail.component.html', styleUrl: './journal-detail.component.scss' })
+import { LayoutService } from '../../core/layout/layout.service';
+import { MobBarComponent } from '../mobile/mob-sheet.component';
+import { MobDatePipe } from '../mobile/mob-date.pipe';
+import { NotaMoneyPipe } from '../shared/ui';
+@Component({ selector: 'app-journal-detail', standalone: true, imports: [CommonModule, RouterLink, TranslateModule, PrintActionsComponent, MobBarComponent, MobDatePipe, NotaMoneyPipe], templateUrl: './journal-detail.component.html', styleUrl: './journal-detail.component.scss' })
 export class JournalDetailComponent {
+  protected readonly layout = inject(LayoutService);
   private printData = inject(PrintDataService);
   /** Stage 23: the A4 journal entry (PrJournalEntry; accounting.view, like the screen). */
   printItems(): PrintActionItem[] { return this.entry?._id ? [{ key: 'journal', load: () => this.printData.journalEntry(this.entry._id) }] : []; }

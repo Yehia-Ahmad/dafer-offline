@@ -18,6 +18,7 @@
 </div>
 <div class="m-page">
   @if (loadError) { <p class="nota-error" role="alert">{{ loadError }}</p> }
+  @if (paymentSaved && !detailOpen()) { <p class="m-pill m-pill--ok" style="align-self:flex-start" role="status">{{ 'creditSalePage.list.paymentSaved' | translate }}</p> }
   @if (isLoading) {
     <div class="m-skel m-skel-row" role="status" [attr.aria-label]="'actions.loading' | translate"></div>
     <div class="m-skel m-skel-row"></div>
@@ -76,7 +77,7 @@
         <form *notaCan="'credit.collect'; else collectLocked" [formGroup]="paymentForm" class="m-card" style="display:flex;flex-direction:column;gap:12px" (ngSubmit)="savePayment()" novalidate>
           <div class="m-card__title">{{ 'creditSalePage.list.panelTitle' | translate }}</div>
           <div class="m-field">{{ 'customerDetailsPage.paymentDialog.amount' | translate }} *
-            <p-inputNumber inputId="clAmountM" formControlName="amount" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cl__control" inputStyleClass="cl__num-input" inputmode="decimal" />
+            <nota-mob-number inputId="clAmountM" formControlName="amount" [min]="0" />
             @if (paymentForm.get('amount')?.invalid && (paymentForm.get('amount')?.touched || paymentSubmitAttempted)) { <span class="nota-error">{{ 'customerDetailsPage.paymentDialog.amountRequired' | translate }}</span> }
           </div>
           <div class="m-field">{{ 'customerDetailsPage.paymentDialog.paymentDate' | translate }} *

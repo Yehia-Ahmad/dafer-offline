@@ -1,3 +1,45 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone): the same account ledger. The account is in the top bar; opening and closing balance cards; each line as a card with its running balance; date range / party in a sheet. -->
+@if (account) { <nota-mob-bar [title]="(account.code ? account.code + ' ' : '') + accountName" /> }
+<div class="m-chips" style="padding-top:12px"><button type="button" class="m-chip" (click)="filtersOpen.set(true)" data-testid="m-ledger-filters">{{ 'mobile.common.filters' | translate }}@if (from || to || partyId) { · ✓ }</button></div>
+<div class="m-page">
+  @if (excludeClosing) { <p class="m-note" style="padding:0" data-test="closing-excluded">{{ 'accounting.closingExcluded' | translate }}</p> }
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="m-card" style="padding:12px"><div class="m-row__sub">{{ 'accounting.opening' | translate }}</div>
+      <ng-container *ngIf="shown({ balance: openingBalance, side: openingSide, absBalance: openingAbs }) | notaBalance as opened"><strong class="nota-num" [class.m-out]="opened.warning" data-test="opening-balance">{{ opened.abs | notaMoney }} {{ 'accounting.side.' + opened.side | translate }}</strong></ng-container></div>
+    <div class="m-card" style="padding:12px"><div class="m-row__sub">{{ 'accounting.balance' | translate }}</div>
+      <ng-container *ngIf="shown({ balance: balance, side: side, absBalance: absBalance }) | notaBalance as closing"><strong class="nota-num" [class.m-out]="closing.warning" data-test="closing-balance">{{ closing.abs | notaMoney }} {{ 'accounting.side.' + closing.side | translate }}</strong>
+        <small class="m-note" style="padding:0;display:block" *ngIf="closing.warning">{{ 'accounting.oppositeHint' | translate }}</small></ng-container></div>
+  </div>
+  <div class="m-skel m-skel-row" style="margin:0" *ngIf="loading" role="status"></div>
+  <div class="m-card m-card--flush" *ngIf="!loading">
+    @for (line of lines; track $index) {
+      <div class="m-row" data-test="ledger-row">
+        <span class="m-row__body">
+          <span class="m-row__title nota-num" style="white-space:normal"><a [routerLink]="['/accounting/journal', line.entryId]" dir="ltr" style="color:var(--brand-strong-text)">{{ line.number }}</a> · {{ line.date | mobDate }}</span>
+          <span class="m-row__sub" style="white-space:normal">
+            @if (sourceLink(line); as target) { <a [routerLink]="target" dir="ltr" style="color:inherit">{{ line.source?.number }}</a> } @else { <span dir="ltr">{{ line.source?.number }}</span> }
+            @if (line.partyName) { · {{ line.partyName }} }</span>
+        </span>
+        <span class="m-row__end nota-num">
+          @if (line.debit) { <span class="m-in" style="display:block">{{ line.debit | notaMoney }}</span> }
+          @if (line.credit) { <span class="m-out" style="display:block">{{ line.credit | notaMoney }}</span> }
+          <ng-container *ngIf="shown(line) | notaBalance as running"><span class="m-row__sub" style="display:block" [class.m-out]="running.warning" data-test="line-balance">{{ running.abs | notaMoney }} {{ 'accounting.side.' + running.side | translate }}</span></ng-container>
+        </span>
+      </div>
+    } @empty {
+      <div class="m-empty">{{ 'accounting.empty' | translate }}</div>
+    }
+  </div>
+</div>
+<nota-mob-filter-sheet [(open)]="filtersOpen" [title]="'mobile.common.filters' | translate" (apply)="load()" (clear)="clearFilters()">
+  <div class="m-field">{{ 'accounting.from' | translate }}<nota-mob-date inputId="lgFromM" [(ngModel)]="from" name="fromM" /></div>
+  <div class="m-field">{{ 'accounting.to' | translate }}<nota-mob-date inputId="lgToM" [(ngModel)]="to" name="toM" /></div>
+  <label class="m-field" *ngIf="account?.systemKey === 'CUSTOMERS' || account?.systemKey === 'SUPPLIERS'">{{ 'accounting.party' | translate }}
+    <select class="m-input" name="partyM" [(ngModel)]="partyId"><option value="">{{ 'accounting.all' | translate }}</option><option *ngFor="let party of parties" [value]="party._id">{{ party.name }} · {{ party.phone || party.phones?.[0] }}</option></select>
+  </label>
+</nota-mob-filter-sheet>
+} @else {
 <section class="accounting-page">
   <header class="page-head"><a routerLink="/accounting/accounts">← {{ 'accounting.accounts.title' | translate }}</a><h1><span dir="ltr">{{ account?.code }}</span> {{ accountName }}</h1></header>
   <form class="filters card" (ngSubmit)="load()">
@@ -10,3 +52,4 @@
   <div class="summary"><span>{{ 'accounting.opening' | translate }} <ng-container *ngIf="shown({ balance: openingBalance, side: openingSide, absBalance: openingAbs }) | notaBalance as opened"><strong [class.warn]="opened.warning" data-test="opening-balance">{{ opened.text }} {{ 'accounting.side.' + opened.side | translate }}</strong></ng-container></span><span>{{ 'accounting.balance' | translate }} <ng-container *ngIf="shown({ balance: balance, side: side, absBalance: absBalance }) | notaBalance as closing"><strong [class.warn]="closing.warning" data-test="closing-balance">{{ closing.text }} {{ 'accounting.side.' + closing.side | translate }}</strong><small class="hint" *ngIf="closing.warning">{{ 'accounting.oppositeHint' | translate }}</small></ng-container></span></div>
   <div class="card table-wrap"><table><thead><tr><th>{{ 'accounting.date' | translate }}</th><th>{{ 'accounting.number' | translate }}</th><th>{{ 'accounting.source' | translate }}</th><th>{{ 'accounting.party' | translate }}</th><th>{{ 'accounting.debit' | translate }}</th><th>{{ 'accounting.credit' | translate }}</th><th>{{ 'accounting.balance' | translate }}</th></tr></thead><tbody><tr *ngFor="let line of lines"><td>{{ line.date | date:'mediumDate' }}</td><td><a [routerLink]="['/accounting/journal', line.entryId]" dir="ltr">{{ line.number }}</a></td><td dir="ltr"><a *ngIf="sourceLink(line); else sourceText" [routerLink]="sourceLink(line)">{{ line.source?.number }}</a><ng-template #sourceText>{{ line.source?.number }}</ng-template></td><td>{{ line.partyName }}</td><td>{{ line.debit | number:'1.2-2' }}</td><td>{{ line.credit | number:'1.2-2' }}</td><td><ng-container *ngIf="shown(line) | notaBalance as running"><span [class.warn]="running.warning" data-test="line-balance">{{ running.text }} {{ 'accounting.side.' + running.side | translate }}</span></ng-container></td></tr></tbody></table></div>
 </section>
+}

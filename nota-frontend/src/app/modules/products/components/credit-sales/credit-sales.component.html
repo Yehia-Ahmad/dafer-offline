@@ -112,13 +112,13 @@
       </div>
       <ng-template #csDiscountLockedM><nota-locked-action data-testid="discount-locked" note="auth.locked.discount" /></ng-template>
       <div *notaCan="'sales.discount'; else csDiscountLockedM" class="m-field">{{ 'creditSalePage.fields.discountAmount' | translate }}
-        <p-inputNumber inputId="csDiscountM" formControlName="discountAmount" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cs__control" inputStyleClass="cs__num-input" inputmode="decimal" />
+        <nota-mob-number inputId="csDiscountM" formControlName="discountAmount" [min]="0" />
         <span class="m-note" style="padding:0">{{ 'creditSalePage.fields.discountPercentage' | translate }}: {{ discountPercentage | notaNumber }}%</span>
         @if (discountOverLimit) { <span class="nota-error">{{ 'session.discount.overLimit' | translate: { limit: (maxDiscountPercent() | notaNumber) } }}</span> }
         @if (maxDiscountPercent() !== null) { <span class="m-note" style="padding:0" data-testid="discount-limit">{{ 'session.discount.limitHintShort' | translate: { limit: (maxDiscountPercent() | notaNumber) } }}</span> }
       </div>
       <div class="m-field">{{ 'creditSalePage.fields.shippingFees' | translate }}
-        <p-inputNumber inputId="csShippingM" formControlName="shippingFees" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cs__control" inputStyleClass="cs__num-input" inputmode="decimal" />
+        <nota-mob-number inputId="csShippingM" formControlName="shippingFees" [min]="0" />
       </div>
       <div class="m-card m-card--flush">
         @if (vatView; as vat) {
@@ -128,7 +128,7 @@
         <div class="m-row"><span class="m-row__body">{{ (vatView ? 'vat.totals.total' : 'creditSalePage.form.netTotal') | translate }}</span><strong class="nota-num">{{ totalReceivable | notaMoney }}</strong></div>
       </div>
       <div class="m-field">{{ 'creditSalePage.fields.downPayment' | translate }}
-        <p-inputNumber inputId="csDownPaymentM" formControlName="downPayment" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cs__control" inputStyleClass="cs__num-input" inputmode="decimal" />
+        <nota-mob-number inputId="csDownPaymentM" formControlName="downPayment" [min]="0" />
         @if (isDownPaymentExceeded()) { <span class="nota-error">{{ 'creditSalePage.messages.downPaymentExceeded' | translate }}</span> }
       </div>
       @if ((creditSaleForm.get('downPayment')?.value || 0) > 0) { <nota-payment-box-select /> }

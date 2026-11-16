@@ -6,6 +6,8 @@ import { Dialog } from 'primeng/dialog';
 import { LanguageService } from '../../shared/services/translation.service';
 import { NotaButtonDirective, NotaDialogShellComponent } from '../../shared/ui';
 import { AccountAdminService, AccountUsage, AdminAccount, NextCode } from './account-admin.service';
+import { LayoutService } from '../../../core/layout/layout.service';
+import { MobConfirmComponent } from '../../mobile/mob-sheet.component';
 
 /** A row of the accounts tree as the dialog needs it. */
 export interface TreeAccount { _id: string; code: string; nameAr: string; nameEn: string; isGroup: boolean; isActive?: boolean; parentId?: string | null; type?: string }
@@ -22,9 +24,84 @@ const BOX_BRANCHES = ['111', '112'];
  */
 @Component({
   selector: 'app-account-dialog',
-  imports: [FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent],
+  imports: [FormsModule, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, MobConfirmComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone), MobAddAccount: the same add / edit account dialog as a full-screen page with field cards and a sticky إلغاء / حفظ bar; delete asks in a red sheet. -->
+    <p-dialog [visible]="true" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog nota-p-dialog--full" (onHide)="closed.emit()">
+      <div class="m-fullpage">
+        <header class="m-top" style="position:static">
+          <button type="button" class="m-top__back" (click)="closed.emit()" [attr.aria-label]="'accountsAdmin.close' | translate">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+          </button>
+          <div class="m-top__titles"><span class="m-top__title">{{ (account() ? 'accountsAdmin.editTitle' : 'accountsAdmin.addTitle') | translate }}</span></div>
+        </header>
+        <div class="m-fullpage__body">
+          <form class="m-form" style="padding-bottom:16px" (ngSubmit)="save()" #form="ngForm" data-test="account-form">
+            <div class="m-card">
+              @if (!account()) {
+                <label class="m-field">{{ 'accountsAdmin.parent' | translate }} *
+                  <select class="m-input" name="parentM" data-field="parent" [ngModel]="parentId()" (ngModelChange)="pickParent($event)">
+                    <option value="">{{ 'accountsAdmin.pickParent' | translate }}</option>
+                    @for (parent of parents(); track parent._id) { <option [value]="parent._id">{{ parent.code }} · {{ name(parent) }}</option> }
+                  </select></label>
+                <div class="m-field">{{ 'accountsAdmin.code' | translate }}
+                  <output class="m-input nota-num" dir="ltr" data-test="auto-code" style="display:flex;align-items:center">{{ next()?.code || ('accountsAdmin.codeAuto' | translate) }}</output></div>
+                @if (next(); as n) { <p class="m-note" style="padding:0" data-test="inherited-type">{{ 'accountsAdmin.typeInherited' | translate: { type: ('accountsAdmin.types.' + n.type | translate) } }}</p> }
+              } @else {
+                <div class="m-field">{{ 'accountsAdmin.code' | translate }}
+                  @if (usage()?.canEditStructure) {
+                    <input class="m-input nota-num" dir="ltr" name="codeM" data-field="code" maxlength="8" [ngModel]="code()" (ngModelChange)="code.set($event)" />
+                  } @else { <output class="m-input nota-num" dir="ltr" data-test="fixed-code" style="display:flex;align-items:center">{{ account()?.code }}</output> }
+                </div>
+                @if (usage(); as u) {
+                  @if (!u.canEditStructure) { <p class="m-note" style="padding:0" data-test="structure-locked">{{ (account()?.isSystem ? 'accountsAdmin.structureSystem' : u.isBox ? 'accountsAdmin.structureBox' : 'accountsAdmin.structureLines') | translate }}</p> }
+                  @else {
+                    <label class="m-field">{{ 'accountsAdmin.parent' | translate }}
+                      <select class="m-input" name="editParentM" data-field="parent" [ngModel]="parentId()" (ngModelChange)="parentId.set($event)">
+                        @for (parent of parents(); track parent._id) { <option [value]="parent._id">{{ parent.code }} · {{ name(parent) }}</option> }
+                      </select></label>
+                  }
+                }
+                <p class="m-note" style="padding:0" data-test="fixed-type">{{ 'accountsAdmin.typeFixed' | translate: { type: ('accountsAdmin.types.' + account()?.type | translate) } }}</p>
+              }
+            </div>
+            <div class="m-card">
+              <label class="m-field">{{ 'accountsAdmin.nameAr' | translate }} *
+                <input class="m-input" name="nameArM" data-field="nameAr" maxlength="120" required [ngModel]="nameAr()" (ngModelChange)="nameAr.set($event)" /></label>
+              <label class="m-field">{{ 'accountsAdmin.nameEn' | translate }}
+                <input class="m-input" name="nameEnM" data-field="nameEn" maxlength="120" dir="ltr" [ngModel]="nameEn()" (ngModelChange)="nameEn.set($event)" /></label>
+              @if (!account()) {
+                <label class="m-switch">{{ 'accountsAdmin.isGroup' | translate }}<input type="checkbox" name="isGroupM" data-field="isGroup" [ngModel]="isGroup()" (ngModelChange)="isGroup.set($event)" /></label>
+                @if (next()?.type === 'expense' && next()?.parent?.code === '520') { <p class="m-note" style="padding:0" data-test="category-hint">{{ 'accountsAdmin.expenseCategoryHint' | translate }}</p> }
+              }
+            </div>
+            @if (account(); as acc) {
+              @if (usage(); as u) {
+                <div class="m-card" data-test="account-state">
+                  <span class="m-pill" [class.m-pill--ok]="acc.isActive" [class.m-pill--muted]="!acc.isActive" style="align-self:flex-start">{{ (acc.isActive ? 'accountsAdmin.active' : 'accountsAdmin.inactive') | translate }}</span>
+                  @if (u.canDeactivate) { <button type="button" class="m-btn" data-action="deactivate" [disabled]="busy()" (click)="deactivate()">{{ 'accountsAdmin.deactivate' | translate }}</button> }
+                  @else if (acc.isActive) { <small class="m-note" style="padding:0" data-test="deactivate-blocked">{{ 'accountsAdmin.cannotDeactivate' | translate }}: {{ blockedText(u.deactivateBlockedBy) }}</small> }
+                  @if (u.canReactivate) { <button type="button" class="m-btn" data-action="reactivate" [disabled]="busy()" (click)="reactivate()">{{ 'accountsAdmin.reactivate' | translate }}</button> }
+                  @if (u.canDelete) { <button type="button" class="m-btn m-btn--danger" data-action="delete" [disabled]="busy()" (click)="confirmDelete.set(true)">{{ 'accountsAdmin.delete' | translate }}</button> }
+                  @if (u.balance !== 0) { <p class="m-note nota-num" style="padding:0" data-test="balance-note">{{ 'accountsAdmin.balanceNote' | translate: { amount: u.balance } }}</p> }
+                </div>
+              }
+            }
+            @if (error()) { <p class="nota-error" role="alert" data-test="dialog-error">{{ error() | translate }}</p> }
+          </form>
+        </div>
+        <div class="m-actions">
+          <button type="button" class="m-btn" (click)="closed.emit()">{{ 'accountsAdmin.cancel' | translate }}</button>
+          <button type="button" class="m-btn m-btn--primary" data-action="save" [disabled]="!canSave() || busy()" (click)="save()">{{ 'accountsAdmin.save' | translate }}</button>
+        </div>
+      </div>
+    </p-dialog>
+    <nota-mob-confirm [(open)]="confirmDelete" [title]="'accountsAdmin.delete' | translate" [message]="'mobile.b.accounts.deleteConfirm' | translate: { name: account() ? name(account()!) : '' }"
+      [confirmLabel]="'accountsAdmin.delete' | translate" (confirmed)="remove()" />
+} @else {
+
     <p-dialog [visible]="true" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog" (onHide)="closed.emit()">
       <nota-dialog-shell [title]="(account() ? 'accountsAdmin.editTitle' : 'accountsAdmin.addTitle') | translate" [closeLabel]="'accountsAdmin.close' | translate" (closed)="closed.emit()">
         <form class="ad" (ngSubmit)="save()" #form="ngForm" data-test="account-form">
@@ -85,6 +162,7 @@ const BOX_BRANCHES = ['111', '112'];
         </ng-container>
       </nota-dialog-shell>
     </p-dialog>
+  }
   `,
   styles: `
     .ad { display: flex; flex-direction: column; gap: 12px; min-width: min(480px, 86vw); }
@@ -98,6 +176,9 @@ const BOX_BRANCHES = ['111', '112'];
 })
 export class AccountDialogComponent implements OnInit {
   private readonly service = inject(AccountAdminService);
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the red delete confirmation. */
+  protected readonly confirmDelete = signal(false);
   private readonly language = inject(LanguageService);
 
   /** Edit mode: the account. Absent: add mode. */

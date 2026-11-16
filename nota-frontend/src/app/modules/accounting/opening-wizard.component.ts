@@ -9,6 +9,9 @@ import { LanguageService } from '../shared/services/translation.service';
 import { CustomersService } from '../customer/services/customers.service';
 import { SuppliersService } from '../suppliers/suppliers.service';
 import { OpeningProduct, OpeningSavePayload, OpeningService, OpeningState } from './opening.service';
+import { LayoutService } from '../../core/layout/layout.service';
+import { MobBarComponent, MobSheetComponent } from '../mobile/mob-sheet.component';
+import { MobDatePipe } from '../mobile/mob-date.pipe';
 
 export type WizardStep = 1 | 2 | 3 | 4 | 5;
 export const WIZARD_STEPS: readonly WizardStep[] = [1, 2, 3, 4, 5];
@@ -76,12 +79,13 @@ export function computeReview(input: ReviewInput): ReviewTotals {
 @Component({
   selector: 'app-opening-wizard',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink, TranslatePipe, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
+  imports: [DatePipe, FormsModule, RouterLink, TranslatePipe, NotaButtonDirective, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, MobBarComponent, MobSheetComponent, MobDatePipe],
   templateUrl: './opening-wizard.component.html',
   styleUrl: './opening-wizard.component.scss',
 })
 export class OpeningWizardComponent implements OnInit {
   private readonly opening = inject(OpeningService);
+  protected readonly layout = inject(LayoutService);
   private readonly customersService = inject(CustomersService);
   private readonly suppliersService = inject(SuppliersService);
   private readonly translate = inject(TranslateService);

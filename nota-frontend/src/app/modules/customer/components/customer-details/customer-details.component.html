@@ -254,7 +254,7 @@
       }
       <nota-form-field [label]="'customerDetailsPage.paymentDialog.amount' | translate" forId="cdPayAmount" [required]="true"
         [error]="paymentForm.get('amount')?.invalid && (paymentForm.get('amount')?.touched || paymentSubmitAttempted) ? ('customerDetailsPage.paymentDialog.amountRequired' | translate) : null">
-        <p-inputNumber inputId="cdPayAmount" formControlName="amount" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cd__control" inputStyleClass="cd__num-input" />
+        <nota-mob-number inputId="cdPayAmount" formControlName="amount" [min]="0" />
       </nota-form-field>
       <nota-form-field [label]="'customerDetailsPage.paymentDialog.paymentDate' | translate" forId="cdPayDate" [required]="true">
         <nota-mob-date inputId="cdPayDate" formControlName="paymentDate" [min]="lock.minOpenDate()" />

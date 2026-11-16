@@ -36,6 +36,7 @@ import { ProductsService } from '../../services/products.service';
 import { LayoutService } from '../../../../core/layout/layout.service';
 import { MobSheetComponent } from '../../../mobile/mob-sheet.component';
 import { MobDateInputComponent } from '../../../mobile/mob-date-input.component';
+import { MobNumberInputComponent } from '../../../mobile/mob-number-input.component';
 import { MobDatePipe } from '../../../mobile/mob-date.pipe';
 import { MobileTopBarService } from '../../../mobile/mobile-topbar.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
@@ -84,7 +85,7 @@ type CreditLineItemState = {
 @Component({
   selector: 'app-credit-sales',
   standalone: true,
-  imports: [MobDateInputComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
+  imports: [MobDateInputComponent, MobNumberInputComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
     CommonModule,
     ReactiveFormsModule,
     TranslatePipe,

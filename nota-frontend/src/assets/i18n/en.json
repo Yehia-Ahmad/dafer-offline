@@ -2762,8 +2762,17 @@
       "newExpense": "New expense",
       "newBox": "New box"
     },
+    "accounts": {
+      "openLedger": "Open ledger",
+      "deleteConfirm": "Delete account \"{{name}}\"?"
+    },
+    "entry": {
+      "deleteConfirm": "Delete this draft? It cannot be restored."
+    },
       "_end": 1
     },
+
+
 
 
 

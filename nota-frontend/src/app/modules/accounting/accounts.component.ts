@@ -5,16 +5,24 @@ import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../../environments/environment';
-import { NotaBalancePipe } from '../shared/ui';
+import { NotaBalancePipe, NotaMoneyPipe } from '../shared/ui';
 import { localDateKey } from '../../core/utilities/local-date';
 import { AuthService } from '../../core/auth/auth.service';
 import { NotaCanDirective } from '../../core/auth/nota-can.directive';
 import { AdminAccount } from './account-admin/account-admin.service';
 import { AccountDialogComponent, TreeAccount } from './account-admin/account-dialog.component';
+import { LayoutService } from '../../core/layout/layout.service';
+import { MobSheetComponent } from '../mobile/mob-sheet.component';
+import { MobDateInputComponent } from '../mobile/mob-date-input.component';
 
-@Component({ selector: 'app-accounting-accounts', standalone: true, imports: [CommonModule, FormsModule, RouterLink, TranslateModule, NotaBalancePipe, NotaCanDirective, AccountDialogComponent], templateUrl: './accounts.component.html', styleUrl: './accounts.component.scss' })
+@Component({ selector: 'app-accounting-accounts', standalone: true, imports: [CommonModule, FormsModule, RouterLink, TranslateModule, NotaBalancePipe, NotaMoneyPipe, NotaCanDirective, AccountDialogComponent, MobSheetComponent, MobDateInputComponent], templateUrl: './accounts.component.html', styleUrl: './accounts.component.scss' })
 export class AccountsComponent {
   private http = inject(HttpClient); private router = inject(Router); private translate = inject(TranslateService); private cdr = inject(ChangeDetectorRef);
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the row whose ⋯ menu is open. */
+  menuRow: any = null;
+  activateAndClose(): void { const row = this.menuRow; this.menuRow = null; if (row) { this.router.navigate(['/accounting/accounts', row._id, 'ledger']); } }
+  editAndClose(): void { const row = this.menuRow; this.menuRow = null; if (row) this.openEdit(row); }
   accounts: any[] = []; loading = true; error = ''; asOf = localDateKey(); expanded = new Set<string>();
   // Stage 22: stopped accounts are hidden unless asked for; "+ حساب" and the edit action open the account dialog.
   private auth = inject(AuthService); showInactive = false; dialogOpen = false; editing: AdminAccount | null = null;

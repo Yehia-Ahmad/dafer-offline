@@ -11,6 +11,7 @@ import { Subscription } from 'rxjs';
 import { LayoutService } from '../../../../core/layout/layout.service';
 import { MobBarComponent, MobSheetComponent } from '../../../mobile/mob-sheet.component';
 import { MobDateInputComponent } from '../../../mobile/mob-date-input.component';
+import { MobNumberInputComponent } from '../../../mobile/mob-number-input.component';
 import { MobDatePipe } from '../../../mobile/mob-date.pipe';
 import { mobilePillClass } from '../../../mobile/mobile-utils';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, NotaLockBannerComponent } from '../../../shared/ui';
@@ -71,7 +72,7 @@ interface CustomerStatement {
 @Component({
   selector: 'app-customer-details',
   standalone: true,
-  imports: [MobDateInputComponent, ReturnPrintBannerComponent, PrintActionsComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink, CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
+  imports: [MobDateInputComponent, MobNumberInputComponent, ReturnPrintBannerComponent, PrintActionsComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink, CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
     NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, MobBarComponent, MobSheetComponent, MobDatePipe],
   templateUrl: './customer-details.component.html',
   styleUrl: './customer-details.component.scss'

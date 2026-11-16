@@ -89,6 +89,7 @@ import { MobDatePipe } from '../mobile/mob-date.pipe';
           <label class="m-field">{{ 'purchases.detail.reason' | translate }}
             <input class="m-input" type="text" name="reasonM" maxlength="500" data-test="cancel-reason-input" [placeholder]="'purchases.detail.reason' | translate" [(ngModel)]="reason" />
           </label>
+          @if (error()) { <p class="nota-error" role="alert" data-test="cancel-error">{{ error() | translate }}</p> }
           <div class="m-actions m-actions--sheet" style="padding:0;border:0">
             <button type="button" class="m-btn" (click)="cancelling.set(false)">{{ 'purchases.cancelAction' | translate }}</button>
             <button type="button" class="m-btn m-btn--danger" data-action="confirm-cancel" [disabled]="reason.trim().length < 3 || busy()" (click)="cancel()">{{ 'purchases.detail.confirmCancel' | translate }}</button>

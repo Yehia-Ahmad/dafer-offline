@@ -2762,8 +2762,17 @@
       "newExpense": "مصروف جديد",
       "newBox": "خزنة جديدة"
     },
+    "accounts": {
+      "openLedger": "دفتر الأستاذ",
+      "deleteConfirm": "حذف الحساب «{{name}}»؟"
+    },
+    "entry": {
+      "deleteConfirm": "حذف المسودة؟ مش هتقدر ترجعها."
+    },
       "_end": 1
     },
+
+
 
 
 

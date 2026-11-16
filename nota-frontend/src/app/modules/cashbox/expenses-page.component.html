@@ -6,7 +6,6 @@
 </div>
 <div class="m-chips" *notaCan="'expenses.manage'"><button type="button" class="m-chip" data-action="manage-categories" (click)="manageOpen.set(true)">{{ 'cashbox.expenses.manageCategories' | translate }}</button></div>
 <nota-mob-filter-chips [chips]="activeChips()" (remove)="removeChip($event)" />
-@if (formError()) { <p class="nota-error m-note" role="alert" data-test="expense-error">{{ formError() | translate }}</p> }
 <div class="m-page">
   @if (loading() && !data()) {
     <div class="m-skel m-skel-row" style="margin:0" role="status" [attr.aria-label]="'cashbox.loading' | translate"></div>
@@ -68,7 +67,7 @@
 </nota-mob-filter-sheet>
 
 <nota-mob-sheet [(open)]="addOpen" [title]="'mobile.b.cash.newExpense' | translate">
-  <form (ngSubmit)="save(); addOpen.set(false)" novalidate>
+  <form (ngSubmit)="save()" novalidate>
     <label class="m-field">{{ 'cashbox.expenses.category' | translate }} *
       <select id="exCategoryM" class="m-input" name="categoryM" data-test="expense-category" [ngModel]="category()" (ngModelChange)="category.set($event)">
         <option value="">—</option>
@@ -93,6 +92,7 @@
     <label class="m-field">{{ 'cashbox.expenses.note' | translate }}
       <input id="exNoteM" class="m-input" type="text" name="noteM" data-test="expense-note" [ngModel]="note()" (ngModelChange)="note.set($event)" />
     </label>
+    @if (formError()) { <p class="nota-error" role="alert" data-test="expense-error">{{ formError() | translate }}</p> }
     <button type="submit" class="m-btn m-btn--primary m-btn--lg m-btn--block" [disabled]="!canSave()" data-action="save-expense">{{ 'cashbox.expenses.record' | translate }}</button>
   </form>
 </nota-mob-sheet>

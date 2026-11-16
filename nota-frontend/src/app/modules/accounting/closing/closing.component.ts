@@ -11,6 +11,8 @@ import { LanguageService } from '../../shared/services/translation.service';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaPageHeaderComponent, NotaStatusPillComponent } from '../../shared/ui';
 import { formatNotaNumber } from '../../shared/ui/nota-number';
 import { ChecklistItem, ChecklistKey, ClosingHistoryRow, ClosingService, ClosingState } from './closing.service';
+import { LayoutService } from '../../../core/layout/layout.service';
+import { MobDatePipe } from '../../mobile/mob-date.pipe';
 
 /** Where a blocking item is fixed. */
 const FIX_LINKS: Partial<Record<ChecklistKey, string>> = { openShifts: '/cashbox', manualDrafts: '/accounting/manual-entry', vatUnfiled: '/accounting/vat', openingNotFinalized: '/accounting/opening' };
@@ -22,9 +24,107 @@ const FIX_LINKS: Partial<Record<ChecklistKey, string>> = { openShifts: '/cashbox
  */
 @Component({
   selector: 'app-closing',
-  imports: [DatePipe, FormsModule, RouterLink, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaPageHeaderComponent, NotaStatusPillComponent],
+  imports: [DatePipe, FormsModule, RouterLink, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaPageHeaderComponent, NotaStatusPillComponent, MobDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone): the same period closing. Lock date, the next period and its checklist as cards, the history as cards; closing and reopening ask in short sheets with the destructive action in red. -->
+    @if (loadError()) { <p class="nota-error m-note" role="alert" data-test="load-error">{{ 'closing.loadFailed' | translate }}</p> }
+    @if (state(); as s) {
+      <div class="m-page" style="padding-top:12px">
+        <section class="m-dark-card" data-test="lock">
+          <div class="m-dark-card__label">{{ 'closing.lockedThrough' | translate }}</div>
+          @if (s.lockedThrough) { <div class="m-dark-card__value nota-num" dir="ltr" style="text-align:start" data-test="locked-through">{{ s.lockedThrough }}</div> }
+          @else { <div class="m-dark-card__value" style="font-size:20px" data-test="not-locked">{{ 'closing.nothingClosed' | translate }}</div> }
+          <div class="m-dark-card__label">{{ 'closing.settingsLine' | translate: { frequency: ('closing.frequency.' + s.settings.frequency | translate), month: s.settings.fiscalYearStartMonth } }}</div>
+        </section>
+
+        <div class="m-section-label">{{ 'closing.next' | translate }}</div>
+        <section class="m-card" data-test="next" style="display:flex;flex-direction:column;gap:12px">
+          @if (s.next; as period) {
+            <div data-test="next-period"><strong dir="ltr" class="nota-num" style="font-size:18px">{{ period.label }}</strong>
+              <div class="m-row__sub nota-num" dir="ltr" style="text-align:start">{{ period.start }} → {{ period.end }}</div>
+              @if (period.yearEnd) { <span class="m-pill m-pill--ok">{{ 'closing.yearEnd' | translate }}</span> }</div>
+            @if (!period.ended) { <p class="m-pill m-pill--muted" style="white-space:normal" data-test="not-ended">{{ 'closing.notEnded' | translate: { date: period.endsAfter } }}</p> }
+            @if (period.yearEnd) { <p class="m-note" style="padding:0" data-test="year-end-note">{{ 'closing.yearEndNote' | translate }}</p> }
+            @if (s.checklist; as list) {
+              <div class="m-card__title" style="margin:0">{{ 'closing.checklist' | translate }}</div>
+              <div data-test="checklist" style="display:flex;flex-direction:column;gap:8px">
+                @for (item of list.blocking; track item.key) {
+                  <div class="m-card" [style.background]="item.ok ? 'var(--brand-soft)' : 'var(--danger-soft)'" style="padding:10px 12px;display:flex;gap:10px" [attr.data-check]="item.key" [attr.data-ok]="item.ok">
+                    <span aria-hidden="true" style="font-weight:800">{{ item.ok ? '✓' : '✕' }}</span>
+                    <div style="min-width:0">
+                      <strong>{{ 'closing.checks.' + item.key | translate }}</strong>
+                      @if (!item.ok) {
+                        <p class="m-note" style="padding:0">{{ 'closing.fix.' + item.key | translate }}@if (fixLink(item.key); as link) { <a [routerLink]="link" style="color:var(--brand-strong-text)"> {{ 'closing.open' | translate }}</a> }</p>
+                        @for (line of details(item); track $index) { <div class="m-row__sub" style="white-space:normal">{{ line }}</div> }
+                      }
+                    </div>
+                  </div>
+                }
+                @for (warning of list.warnings; track warning.key) {
+                  <div class="m-card" style="padding:10px 12px;display:flex;gap:10px;background:var(--bg)" [attr.data-warning]="warning.key"><span aria-hidden="true">ℹ</span>
+                    <strong style="font-weight:600">{{ 'closing.warnings.' + warning.key | translate: { count: warning.count, total: money(warning.total) } }}</strong></div>
+                }
+              </div>
+            }
+            @if (canClose()) {
+              <button type="button" class="m-btn m-btn--primary m-btn--lg m-btn--block" data-action="close" [disabled]="!period.canClose || busy()" (click)="askClose()">{{ 'closing.close' | translate: { label: ltr(period.label) } }}</button>
+            } @else { <p class="m-note" style="padding:0" data-test="no-close-permission">{{ 'closing.noPermission' | translate }}</p> }
+          } @else { <p class="m-empty" style="padding:12px" data-test="nothing-to-close">{{ 'closing.nothingToClose' | translate }}</p> }
+        </section>
+        @if (error()) { <p class="nota-error" role="alert" data-test="action-error">{{ error() | translate }}</p> }
+
+        <div class="m-section-label" data-test="history">{{ 'closing.history' | translate }}</div>
+        <section class="m-card m-card--flush">
+          @for (row of s.history; track row._id) {
+            <div class="m-row" style="flex-wrap:wrap" [attr.data-close]="row.label">
+              <span class="m-row__body">
+                <span class="m-row__title nota-num" dir="ltr" style="text-align:start"><strong>{{ row.label }}</strong></span>
+                <span class="m-row__sub nota-num" dir="ltr" style="text-align:start;white-space:normal">{{ row.periodStart }} → {{ row.periodEnd }}</span>
+                <span class="m-row__sub" style="white-space:normal">{{ row.closedByName || '—' }} · {{ row.closedAt | mobDate: true }}</span>
+                @if (row.reopenedAt) { <span class="m-row__sub" style="white-space:normal" data-test="reopen-info">{{ 'closing.reopenedBy' | translate: { name: row.reopenedByName || '—', date: (row.reopenedAt | mobDate: true), reason: row.reopenReason } }}</span> }
+                @if (row.entryId) { <a [routerLink]="['/accounting/journal', row.entryId]" data-link="closing-entry" dir="ltr" style="color:var(--brand-strong-text);text-align:start;display:block">{{ row.entryNumber }}</a> }
+                @if (row.reversalEntryId) { <a [routerLink]="['/accounting/journal', row.reversalEntryId]" data-link="reversal-entry" style="color:var(--brand-strong-text)">{{ 'closing.reversal' | translate }}</a> }
+              </span>
+              <span [class]="row.status === 'closed' ? 'm-pill m-pill--ok' : 'm-pill m-pill--muted'">{{ 'closing.state.' + row.status | translate }}</span>
+              @if (isOwner() && row._id === s.latestClosedId) { <button type="button" class="m-btn m-btn--danger" style="width:100%" data-action="reopen" (click)="askReopen(row)">{{ 'closing.reopen' | translate }}</button> }
+            </div>
+          } @empty { <div class="m-empty">{{ 'closing.noHistory' | translate }}</div> }
+        </section>
+      </div>
+    } @else if (!loadError()) {
+      <div class="m-page" style="padding-top:12px"><div class="m-skel" style="height:120px" role="status"></div><div class="m-skel" style="height:160px"></div></div>
+    }
+
+    <p-dialog [visible]="confirmOpen()" (visibleChange)="confirmOpen.set($event)" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+      <nota-dialog-shell [title]="'closing.confirmTitle' | translate: { label: ltr(state()?.next?.label) }" [closeLabel]="'closing.cancel' | translate" (closed)="confirmOpen.set(false)">
+        <p data-test="confirm-text">{{ 'closing.confirmText' | translate: { end: state()?.next?.end } }}</p>
+        @if (state()?.next?.yearEnd) { <p class="m-pill m-pill--muted" style="white-space:normal" data-test="confirm-year-end">{{ 'closing.confirmYearEnd' | translate }}</p> }
+        @if (!sure()) { <p class="m-note" style="padding:0">{{ 'closing.confirmHint' | translate }}</p> }
+        <ng-container notaDialogFooter>
+          <button type="button" class="m-btn" (click)="confirmOpen.set(false)">{{ 'closing.cancel' | translate }}</button>
+          @if (!sure()) { <button type="button" class="m-btn m-btn--primary" data-action="confirm-1" (click)="sure.set(true)">{{ 'closing.sure' | translate }}</button> }
+          @else { <button type="button" class="m-btn m-btn--danger" data-action="confirm-2" [disabled]="busy()" (click)="close()">{{ 'closing.confirmClose' | translate }}</button> }
+        </ng-container>
+      </nota-dialog-shell>
+    </p-dialog>
+
+    <p-dialog [visible]="reopenOpen()" (visibleChange)="reopenOpen.set($event)" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+      <nota-dialog-shell [title]="'closing.reopenTitle' | translate: { label: ltr(reopening()?.label) }" [closeLabel]="'closing.cancel' | translate" (closed)="reopenOpen.set(false)">
+        <p>{{ 'closing.reopenText' | translate }}</p>
+        @if (reopening()?.entryNumber) { <p class="m-pill m-pill--muted" style="white-space:normal" data-test="reopen-reverses">{{ 'closing.reopenReverses' | translate: { number: reopening()?.entryNumber } }}</p> }
+        <label class="m-field">{{ 'closing.reason' | translate }} *
+          <textarea class="m-input" rows="3" maxlength="500" data-field="reopen-reason" [ngModel]="reason()" (ngModelChange)="reason.set($event)"></textarea></label>
+        @if (reopenError()) { <p class="nota-error" role="alert" data-test="reopen-error">{{ reopenError() | translate }}</p> }
+        <ng-container notaDialogFooter>
+          <button type="button" class="m-btn" (click)="reopenOpen.set(false)">{{ 'closing.cancel' | translate }}</button>
+          <button type="button" class="m-btn m-btn--danger" data-action="confirm-reopen" [disabled]="reason().trim().length < 3 || busy()" (click)="reopen()">{{ 'closing.reopen' | translate }}</button>
+        </ng-container>
+      </nota-dialog-shell>
+    </p-dialog>
+} @else {
+
     <div class="cl">
       <nota-page-header [title]="'closing.title' | translate" [subtitle]="'closing.subtitle' | translate" />
 
@@ -135,6 +235,7 @@ const FIX_LINKS: Partial<Record<ChecklistKey, string>> = { openShifts: '/cashbox
         </ng-container>
       </nota-dialog-shell>
     </p-dialog>
+  }
   `,
   styles: `
     .cl { display: flex; flex-direction: column; gap: 16px; }
@@ -157,6 +258,7 @@ const FIX_LINKS: Partial<Record<ChecklistKey, string>> = { openShifts: '/cashbox
 })
 export class ClosingComponent implements OnInit {
   private readonly service = inject(ClosingService);
+  protected readonly layout = inject(LayoutService);
   private readonly auth = inject(AuthService);
   private readonly lock = inject(LockDateService);
   private readonly language = inject(LanguageService);

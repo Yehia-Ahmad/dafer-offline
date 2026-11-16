@@ -1,1 +1,37 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone): the same journal entry. The number is in the top bar; a header card, the lines as cards, the totals, print. -->
+@if (entry) {
+  <nota-mob-bar [title]="entry.number" [subtitle]="(entry.date | mobDate: true) + ' · ' + (entry.createdByName || '—')" />
+  <div class="m-page" style="padding-top:12px">
+    <section class="m-card m-card--flush">
+      <div class="m-row"><span class="m-row__body">{{ 'accounting.type' | translate }}</span><span class="m-pill m-pill--muted" [attr.data-type]="entry.type">{{ 'accounting.entryTypes.' + entry.type | translate }}</span></div>
+      <div class="m-row"><span class="m-row__body">{{ 'accounting.source' | translate }}</span>
+        @if (sourceLink(); as target) { <a [routerLink]="target" dir="ltr" style="color:var(--brand-strong-text)">{{ entry.source?.number || entry.source?.type }}</a> } @else { <strong dir="ltr">{{ entry.source?.number || entry.source?.type }}</strong> }</div>
+      <div class="m-row"><span class="m-row__body">{{ 'accounting.memo' | translate }}</span><span style="white-space:normal">{{ entry.memo || '—' }}</span></div>
+      @if (entry.reversalOf) { <div class="m-row"><span class="m-row__body">{{ 'accounting.reversalOf' | translate }}</span><a [routerLink]="['/accounting/journal', entry.reversalOf]" style="color:var(--brand-strong-text)">{{ 'accounting.journal.title' | translate }}</a></div> }
+      @if (entry.reversedBy) { <div class="m-row"><span class="m-row__body">{{ 'accounting.reversedBy' | translate }}</span><a [routerLink]="['/accounting/journal', entry.reversedBy]" style="color:var(--brand-strong-text)">{{ 'accounting.journal.title' | translate }}</a></div> }
+    </section>
+    <div class="m-section-label">{{ 'accounting.account' | translate }}</div>
+    <section class="m-card m-card--flush">
+      @for (line of entry.lines; track $index) {
+        <div class="m-row" data-test="entry-line">
+          <span class="m-row__body">
+            <span class="m-row__title" style="white-space:normal"><span dir="ltr" class="m-row__sub" style="display:inline-block;margin-inline-end:6px">{{ line.accountCode }}</span>{{ name(line) }}</span>
+            @if (line.partyName || line.description) { <span class="m-row__sub" style="white-space:normal">{{ line.partyName || '' }}@if (line.partyName && line.description) { · }{{ line.description || '' }}</span> }
+          </span>
+          <span class="m-row__end nota-num">
+            @if (line.debit) { <span class="m-in" style="display:block">{{ line.debit | notaMoney }}</span> }
+            @if (line.credit) { <span class="m-out" style="display:block">{{ line.credit | notaMoney }}</span> }
+          </span>
+        </div>
+      }
+      <div class="m-row"><strong class="m-row__body">{{ 'accounting.total' | translate }}</strong><span class="m-row__end nota-num"><strong class="m-in" style="display:block">{{ entry.totalDebit | notaMoney }}</strong><strong class="m-out" style="display:block">{{ entry.totalCredit | notaMoney }}</strong></span></div>
+    </section>
+    <div class="m-row" style="padding:0;border:0"><nota-print-actions [items]="printItems()" data-test="journal-print" /></div>
+  </div>
+} @else {
+  <div class="m-page" style="padding-top:12px"><div class="m-skel" style="height:120px" role="status"></div><div class="m-skel" style="height:160px"></div></div>
+}
+} @else {
 <section class="accounting-page" *ngIf="entry"><header class="page-head"><a routerLink="/accounting/journal">← {{ 'accounting.journal.title' | translate }}</a><div class="title"><h1 dir="ltr">{{ entry.number }}</h1><span class="pill" [attr.data-type]="entry.type">{{ 'accounting.entryTypes.' + entry.type | translate }}</span></div><p>{{ entry.date | date:'medium' }} · {{ entry.createdByName || '—' }}</p><nota-print-actions [items]="printItems()" data-test="journal-print" /></header><div class="card meta"><div><small>{{ 'accounting.source' | translate }}</small><a *ngIf="sourceLink(); else plainSource" [routerLink]="sourceLink()" dir="ltr">{{ entry.source?.number || entry.source?.type }}</a><ng-template #plainSource><strong dir="ltr">{{ entry.source?.number || entry.source?.type }}</strong></ng-template></div><div><small>{{ 'accounting.memo' | translate }}</small><strong>{{ entry.memo || '—' }}</strong></div><div *ngIf="entry.reversalOf"><small>{{ 'accounting.reversalOf' | translate }}</small><a [routerLink]="['/accounting/journal', entry.reversalOf]">{{ entry.reversalOf }}</a></div><div *ngIf="entry.reversedBy"><small>{{ 'accounting.reversedBy' | translate }}</small><a [routerLink]="['/accounting/journal', entry.reversedBy]">{{ entry.reversedBy }}</a></div></div><div class="card table-wrap"><table><thead><tr><th>{{ 'accounting.account' | translate }}</th><th>{{ 'accounting.party' | translate }}</th><th>{{ 'accounting.description' | translate }}</th><th>{{ 'accounting.debit' | translate }}</th><th>{{ 'accounting.credit' | translate }}</th></tr></thead><tbody><tr *ngFor="let line of entry.lines"><td><span dir="ltr">{{ line.accountCode }}</span> {{ name(line) }}</td><td>{{ line.partyName || '—' }}</td><td>{{ line.description }}</td><td>{{ line.debit | number:'1.2-2' }}</td><td>{{ line.credit | number:'1.2-2' }}</td></tr></tbody><tfoot><tr><th colspan="3">{{ 'accounting.total' | translate }}</th><th>{{ entry.totalDebit | number:'1.2-2' }}</th><th>{{ entry.totalCredit | number:'1.2-2' }}</th></tr></tfoot></table></div></section>
+}

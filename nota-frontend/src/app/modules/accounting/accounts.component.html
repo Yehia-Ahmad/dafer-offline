@@ -1,3 +1,40 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone): the same chart of accounts as a collapsible list of cards. Tap a group to open / close it, tap an account for its ledger; edit lives in the ⋯ menu. -->
+<div class="m-search" style="margin-top:12px;display:flex;gap:10px;align-items:center">
+  <nota-mob-date style="flex:1" inputId="accAsOfM" [(ngModel)]="asOf" (ngModelChange)="load()" name="asOfM" [ariaLabel]="'accounting.asOf' | translate" />
+  <label class="m-switch" style="flex:none;gap:8px"><span style="font-size:13px">{{ 'accountsAdmin.showInactive' | translate }}</span><input type="checkbox" data-test="show-inactive" [(ngModel)]="showInactive" name="showInactiveM" (change)="refresh()"></label>
+</div>
+<div class="m-chips" *notaCan="'accounting.manage'"><a class="m-chip" routerLink="/accounting/manual-entry" data-action="new-entry">+ {{ 'accountsAdmin.manualEntry' | translate }}</a></div>
+<div class="m-page">
+  <div class="m-skel m-skel-row" style="margin:0" *ngIf="loading" role="status"></div>
+  <div class="m-card m-empty nota-error" *ngIf="error" role="alert">{{ error }}</div>
+  <div class="m-card m-card--flush" *ngIf="!loading && !error">
+    @for (row of rows; track $index) {
+      <div class="m-row m-stretch-host" [style.padding-inline-start.px]="14 + row.level * 18" [class.m-muted]="row.isActive === false">
+        <span class="m-row__sub" style="width:14px;flex:none" aria-hidden="true">@if (row.isGroup || row.systemKey === 'CUSTOMERS') { {{ expanded.has(row._id) ? '▾' : '▸' }} }</span>
+        <button type="button" class="m-row__open m-stretch" (click)="activate(row)">
+          <span class="m-row__title" style="display:block;white-space:normal" [style.font-weight]="row.isGroup ? 800 : 600"><span class="m-row__sub" dir="ltr" style="margin-inline-end:8px;display:inline-block" *ngIf="row.code">{{ row.code }}</span>{{ name(row) }}@if (row.isActive === false) { <small class="m-muted" data-test="inactive-tag"> · {{ 'accountsAdmin.inactive' | translate }}</small> }</span>
+        </button>
+        @let shown = row | notaBalance;
+        <span class="m-row__end">
+          <strong class="nota-num" [class.m-out]="shown.warning" [attr.data-side]="shown.side" data-test="balance">{{ shown.abs | notaMoney }}</strong>
+          <span class="m-row__sub" style="display:block">{{ 'accounting.side.' + shown.side | translate }}</span>
+        </span>
+        @if (!row.customer && canManage) { <button type="button" class="m-more" (click)="menuRow = row" [attr.aria-label]="'mobile.b.common.moreActions' | translate" data-testid="m-account-menu">⋯</button> }
+      </div>
+    }
+  </div>
+</div>
+<button *notaCan="'accounting.manage'" type="button" class="m-fab" data-action="new-account" (click)="openAdd()">+ {{ 'accountsAdmin.add' | translate }}</button>
+<nota-mob-sheet [open]="menuRow !== null" (openChange)="$event || (menuRow = null)" [title]="menuRow ? name(menuRow) : ''">
+  <div class="m-menu">
+    <button type="button" class="m-row" (click)="activateAndClose()">{{ 'mobile.b.accounts.openLedger' | translate }}</button>
+    <button type="button" class="m-row" data-action="edit-account" (click)="editAndClose()">{{ 'accountsAdmin.edit' | translate }}</button>
+  </div>
+</nota-mob-sheet>
+<app-account-dialog *ngIf="dialogOpen" [account]="editing" [chart]="chart" (saved)="saved($event)" (closed)="closeDialog()" />
+} @else {
 <section class="accounting-page"><header class="page-head"><div><p class="eyebrow">{{ 'accounting.section' | translate }}</p><h1>{{ 'accounting.accounts.title' | translate }}</h1></div><div class="head-actions"><label>{{ 'accounting.asOf' | translate }}<input type="date" [(ngModel)]="asOf" (change)="load()"></label><label class="toggle"><input type="checkbox" data-test="show-inactive" [(ngModel)]="showInactive" (change)="refresh()"> {{ 'accountsAdmin.showInactive' | translate }}</label><button *notaCan="'accounting.manage'" class="btn" type="button" data-action="new-account" (click)="openAdd()">+ {{ 'accountsAdmin.add' | translate }}</button><a *notaCan="'accounting.manage'" class="btn" routerLink="/accounting/manual-entry" data-action="new-entry">+ {{ 'accountsAdmin.manualEntry' | translate }}</a></div></header>
 <div class="state" *ngIf="loading" role="status">{{ 'common.loading' | translate }}</div><div class="state error" *ngIf="error" role="alert">{{ error }}</div>
 <div class="card tree" *ngIf="!loading && !error"><div class="tree-head"><span>{{ 'accounting.account' | translate }}</span><span>{{ 'accounting.balance' | translate }}</span></div><div class="tree-row" role="button" tabindex="0" *ngFor="let row of rows" (click)="activate(row)" (keydown.enter)="activate(row)" [style.--level]="row.level" [class.group]="row.isGroup" [class.party]="row.customer" [class.inactive]="row.isActive === false"><span class="account-name"><span class="chevron" [class.open]="expanded.has(row._id)" *ngIf="row.isGroup || row.systemKey === 'CUSTOMERS'">›</span><span class="code" dir="ltr">{{ row.code }}</span><span>{{ name(row) }}</span><small class="stopped" *ngIf="row.isActive === false" data-test="inactive-tag">{{ 'accountsAdmin.inactive' | translate }}</small><button *ngIf="!row.customer && canManage" class="row-edit" type="button" data-action="edit-account" [attr.aria-label]="'accountsAdmin.edit' | translate" (click)="$event.stopPropagation(); openEdit(row)">✎</button></span><span class="balance" *ngIf="row | notaBalance as shown"><strong class="money" [class.warn]="shown.warning" [attr.data-side]="shown.side" data-test="balance">{{ shown.text }} {{ 'accounting.side.' + shown.side | translate }}</strong><small class="hint" *ngIf="shown.warning" data-test="opposite-hint">{{ 'accounting.oppositeHint' | translate }}</small></span></div></div><app-account-dialog *ngIf="dialogOpen" [account]="editing" [chart]="chart" (saved)="saved($event)" (closed)="closeDialog()" /></section>
+}

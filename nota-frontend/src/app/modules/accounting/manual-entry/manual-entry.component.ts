@@ -10,6 +10,9 @@ import { localDateKey } from '../../../core/utilities/local-date';
 import { LanguageService } from '../../shared/services/translation.service';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaLockBannerComponent, NotaLockedDateDirective, NotaPageHeaderComponent, NotaStatusPillComponent } from '../../shared/ui';
 import { formatNotaNumber } from '../../shared/ui/nota-number';
+import { LayoutService } from '../../../core/layout/layout.service';
+import { MobBarComponent, MobConfirmComponent } from '../../mobile/mob-sheet.component';
+import { MobDatePipe } from '../../mobile/mob-date.pipe';
 import { ManualAccountOption, ManualEntry, ManualEntryPayload, ManualEntryService, PartyKind, PartyOption } from './manual-entry.service';
 
 /** A line as the form edits it: amounts as text, so a half-typed number is not lost. */
@@ -29,9 +32,118 @@ const amountOf = (text: string) => { const value = Number(text); return Number.i
  */
 @Component({
   selector: 'app-manual-entry',
-  imports: [DatePipe, FormsModule, RouterLink, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaLockBannerComponent, NotaLockedDateDirective, NotaPageHeaderComponent, NotaStatusPillComponent],
+  imports: [DatePipe, FormsModule, RouterLink, TranslatePipe, Dialog, NotaButtonDirective, NotaDialogShellComponent, NotaLockBannerComponent, NotaLockedDateDirective, NotaPageHeaderComponent, NotaStatusPillComponent, MobBarComponent, MobConfirmComponent, MobDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+@if (layout.isMobile()) {
+    <!-- Online Stage 6B (phone), MobEntry: the same manual entry. The lines are cards (account, party, description, debit / credit); a sticky footer shows total debit, total credit and the difference; "ترحيل القيد" stays disabled until it is balanced (the same canPost() as desktop). -->
+    <nota-mob-bar [title]="'manual.title' | translate" [hideTabs]="true" />
+    @if (loadError()) { <p class="nota-error m-note" role="alert" data-test="load-error">{{ 'manual.loadFailed' | translate }}</p> }
+    <div class="m-form" style="padding-bottom:230px" data-test="form">
+      <div class="m-card">
+        <div class="m-field">{{ 'manual.number' | translate }}
+          <output class="m-input nota-num" data-test="number" dir="ltr" style="display:flex;align-items:center;color:var(--text-muted)">{{ entry()?.number || ('manual.numberOnPost' | translate) }}</output></div>
+        <label class="m-field">{{ 'manual.date' | translate }} *
+          <input class="m-input nota-num" type="date" notaLockedDate data-test="date" [max]="today" [disabled]="readOnly()" [ngModel]="date()" (ngModelChange)="date.set($event)" /></label>
+        <label class="m-field">{{ 'manual.memo' | translate }} *
+          <input class="m-input" type="text" maxlength="500" data-test="memo" [disabled]="readOnly()" [ngModel]="memo()" (ngModelChange)="memo.set($event)" [placeholder]="'manual.memoHint' | translate" /></label>
+        @if (!readOnly()) { <nota-lock-banner [selected]="date()" /> }
+      </div>
+
+      <div class="m-section-label">{{ 'manual.account' | translate }}</div>
+      <div data-test="lines" style="display:flex;flex-direction:column;gap:12px">
+        @for (row of lines(); track row.key; let index = $index) {
+          <div class="m-card" [style.border-color]="badLine() === index + 1 ? 'var(--danger)' : null" [attr.data-line]="index + 1">
+            <div style="display:flex;justify-content:space-between;align-items:center"><span class="m-row__sub nota-num">#{{ index + 1 }}</span>
+              @if (!readOnly() && lines().length > 2) { <button type="button" class="m-more" data-action="remove-line" [attr.aria-label]="'manual.removeLine' | translate" (click)="removeLine(row.key)">×</button> }</div>
+            <select class="m-input" data-field="account" [disabled]="readOnly()" [ngModel]="row.accountId" (ngModelChange)="patch(row.key, { accountId: $event, partyId: '' })">
+              <option value="">{{ 'manual.pickAccount' | translate }}</option>
+              @for (option of options(); track option._id) {
+                <option [value]="option._id" [disabled]="!!option.blocked" [attr.data-blocked]="option.blocked?.code">{{ option.code }} · {{ accountName(option) }}@if (option.blocked) { — {{ option.blocked.message }} }</option>
+              }
+            </select>
+            @if (partyKind(row); as kind) {
+              <select class="m-input" data-field="party" [disabled]="readOnly()" [ngModel]="row.partyId" (ngModelChange)="patch(row.key, { partyId: $event })">
+                <option value="">{{ (kind === 'customer' ? 'manual.pickCustomer' : 'manual.pickSupplier') | translate }}</option>
+                @for (party of parties(kind); track party._id) { <option [value]="party._id">{{ party.name }}</option> }
+              </select>
+            }
+            @if (lineError(row, index); as problem) { <p class="nota-error" role="alert" data-test="line-error">{{ problem | translate }}</p> }
+            <input class="m-input" type="text" maxlength="200" data-field="description" [placeholder]="'manual.description' | translate" [attr.aria-label]="'manual.description' | translate" [disabled]="readOnly()" [ngModel]="row.description" (ngModelChange)="patch(row.key, { description: $event })" />
+            <div style="display:flex;gap:10px">
+              <label class="m-field" style="margin:0;flex:1">{{ 'accounting.debit' | translate }}
+                <input class="m-input nota-num" type="number" min="0" step="0.01" inputmode="decimal" data-field="debit" [disabled]="readOnly()" [ngModel]="row.debit" (ngModelChange)="patch(row.key, { debit: $event === null ? '' : String($event), credit: $event ? '' : row.credit })" /></label>
+              <label class="m-field" style="margin:0;flex:1">{{ 'accounting.credit' | translate }}
+                <input class="m-input nota-num" type="number" min="0" step="0.01" inputmode="decimal" data-field="credit" [disabled]="readOnly()" [ngModel]="row.credit" (ngModelChange)="patch(row.key, { credit: $event === null ? '' : String($event), debit: $event ? '' : row.debit })" /></label>
+            </div>
+          </div>
+        }
+      </div>
+      @if (!readOnly()) { <button type="button" class="m-btn m-btn--block" data-action="add-line" (click)="addLine()">+ {{ 'manual.addLine' | translate }}</button> }
+      @if (error()) { <p class="nota-error" role="alert" data-test="action-error">{{ error() | translate }}</p> }
+      @if (!readOnly()) { <p class="m-note" style="padding:0">{{ 'manual.afterPost' | translate }}</p> }
+
+      @if (entry(); as posted) {
+        @if (posted.status === 'posted') {
+          <div class="m-card" data-test="posted">
+            <div style="display:flex;justify-content:space-between;align-items:center"><strong dir="ltr" class="nota-num">{{ posted.number }}</strong>
+              <span [class]="posted.reversal ? 'm-pill m-pill--muted' : 'm-pill m-pill--ok'">{{ (posted.reversal ? 'manual.status.reversed' : 'manual.status.posted') | translate }}</span></div>
+            @if (posted.entryId) { <a class="m-btn" [routerLink]="['/accounting/journal', posted.entryId]" data-link="entry">{{ 'accounting.viewEntry' | translate }}</a> }
+            @if (posted.allocations?.length) { <p class="m-note" style="padding:0" data-test="allocations">{{ 'manual.allocated' | translate: { amount: money(allocatedTotal()), count: posted.allocations?.length } }}</p> }
+            @if (posted.reversal; as reversal) {
+              <p class="m-note" style="padding:0" data-test="reversal">{{ 'manual.reversedBy' | translate: { number: reversal.number, date: (reversal.date | mobDate), reason: reversal.reason } }}</p>
+              @if (reversal.entryId) { <a class="m-btn" [routerLink]="['/accounting/journal', reversal.entryId]" data-link="reversal">{{ 'accounting.viewEntry' | translate }}</a> }
+            } @else {
+              <button type="button" class="m-btn m-btn--danger" data-action="reverse" (click)="openReverse()">{{ 'manual.reverse' | translate }}</button>
+            }
+          </div>
+        }
+      } @else {
+        <div class="m-section-label" data-test="drafts">{{ 'manual.drafts' | translate }}</div>
+        <div class="m-card m-card--flush">
+          @for (draft of drafts(); track draft._id) {
+            <div class="m-row m-stretch-host" [attr.data-draft]="draft._id">
+              <a class="m-row__open m-stretch" [routerLink]="['/accounting/manual-entry', draft._id]"><span class="m-row__title" style="display:block;white-space:normal">{{ draft.memo || ('manual.noMemo' | translate) }}</span><span class="m-row__sub nota-num" style="display:block">{{ draft.date | mobDate }}</span></a>
+              <span class="m-row__end nota-num">{{ money(draft.totalDebit) }}</span>
+            </div>
+          } @empty { <div class="m-empty" data-test="no-drafts">{{ 'manual.noDrafts' | translate }}</div> }
+        </div>
+      }
+
+      @if (!readOnly()) {
+        <div class="m-actions" style="flex-direction:column;gap:8px" data-test="entry-footer">
+          <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px" role="status" data-test="balanced">
+            <span>{{ 'accounting.debit' | translate }} <strong class="nota-num m-in" data-total="debit">{{ money(totals().debit) }}</strong></span>
+            <span>{{ 'accounting.credit' | translate }} <strong class="nota-num m-out" data-total="credit">{{ money(totals().credit) }}</strong></span>
+          </div>
+          <div [class]="balanced() ? 'm-pill m-pill--ok' : 'm-pill m-pill--warn'" style="text-align:center;white-space:normal" data-test="balance-state">{{ balanced() ? ('manual.balanced' | translate) : ('manual.unbalanced' | translate: { diff: money(totals().diff) }) }}</div>
+          <div style="display:flex;gap:10px">
+            <button type="button" class="m-btn" style="flex:1" data-action="save-draft" [disabled]="busy()" (click)="saveDraft()">{{ 'manual.saveDraft' | translate }}</button>
+            <button type="button" class="m-btn m-btn--primary" style="flex:2;min-height:52px" data-action="post" [disabled]="!canPost() || busy()" (click)="post()">{{ 'manual.post' | translate }}</button>
+          </div>
+          @if (entry()?.status === 'draft') { <button type="button" class="m-btn m-btn--danger" data-action="delete-draft" [disabled]="busy()" (click)="confirmDeleteOpen.set(true)">{{ 'manual.deleteDraft' | translate }}</button> }
+        </div>
+      }
+    </div>
+    <nota-mob-confirm [(open)]="confirmDeleteOpen" [title]="'manual.deleteDraft' | translate" [message]="'mobile.b.entry.deleteConfirm' | translate" [confirmLabel]="'manual.deleteDraft' | translate" (confirmed)="deleteDraft()" />
+
+    <p-dialog [visible]="reverseOpen()" (visibleChange)="reverseOpen.set($event)" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
+      <nota-dialog-shell [title]="'manual.reverse' | translate" [closeLabel]="'manual.close' | translate" (closed)="reverseOpen.set(false)">
+        <p class="m-muted">{{ 'manual.reverseHint' | translate }}</p>
+        <label class="m-field">{{ 'manual.reason' | translate }} *
+          <textarea class="m-input" rows="3" maxlength="500" data-field="reason" [ngModel]="reason()" (ngModelChange)="reason.set($event)"></textarea></label>
+        <label class="m-field">{{ 'manual.reverseDate' | translate }}
+          <input class="m-input nota-num" type="date" notaLockedDate data-field="reverse-date" [max]="today" [ngModel]="reverseDate()" (ngModelChange)="reverseDate.set($event)" /></label>
+        <nota-lock-banner [selected]="reverseDate()" />
+        @if (reverseError()) { <p class="nota-error" role="alert" data-test="reverse-error">{{ reverseError() | translate }}</p> }
+        <ng-container notaDialogFooter>
+          <button type="button" class="m-btn" (click)="reverseOpen.set(false)">{{ 'manual.cancel' | translate }}</button>
+          <button type="button" class="m-btn m-btn--danger" data-action="confirm-reverse" [disabled]="reason().trim().length < 3 || busy() || lock.isLocked(reverseDate())" (click)="reverse()">{{ 'manual.reverse' | translate }}</button>
+        </ng-container>
+      </nota-dialog-shell>
+    </p-dialog>
+} @else {
+
     <div class="me">
       <nota-page-header [title]="'manual.title' | translate" [subtitle]="'manual.subtitle' | translate" [backLink]="'/accounting/accounts'" [backLabel]="'manual.back' | translate" />
 
@@ -147,6 +259,7 @@ const amountOf = (text: string) => { const value = Number(text); return Number.i
         </ng-container>
       </nota-dialog-shell>
     </p-dialog>
+  }
   `,
   styles: `
     .me { display: flex; flex-direction: column; gap: 16px; }
@@ -174,6 +287,9 @@ export class ManualEntryComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly language = inject(LanguageService);
   protected readonly lock = inject(LockDateService);
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the red confirmation before a draft is deleted. */
+  protected readonly confirmDeleteOpen = signal(false);
 
   readonly today = localDateKey();
   protected readonly String = String;

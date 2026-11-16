@@ -66,7 +66,7 @@ await step('expense category + expense', async () => {
   await call('POST', '/expenses', { accountId: c.id ?? idOf(c), amount: 5, date: today, note: 'audit' });
 });
 await step('courier', async () => { const c = await call('POST', '/couriers', { name: 'مندوب تجريبي', phone: '01000000003' }); ids.courier = c.id ?? idOf(c); });
-await step('accounts', async () => { ids.accounts = list(await call('GET', '/accounting/accounts')).map(idOf); ids.account = ids.accounts[0]; });
+await step('accounts', async () => { ids.accounts = list(await call('GET', '/accounting/accounts')).map(idOf); ids.account = ids.accounts[0]; const main = list(await call('GET', '/cashbox/boxes'))[0]; if (main?.accountId) ids.account = main.accountId; /* the main drawer's account has movements */ });
 await step('journal', async () => { ids.journal = idOf(list(await call('GET', '/accounting/journal'))[0]); });
 await step('manual entry (draft)', async () => {
   const accounts = list(await call('GET', '/accounting/manual-entries/accounts'));
@@ -84,6 +84,21 @@ await step('website order', async () => {
     idempotencyKey: key, items: [{ productId: ids.product, qty: 1 }], zoneId: zone.id ?? idOf(zone), fulfillment: 'delivery', paymentMethod: 'cod',
     contact: { name: 'زبون الموقع', phone: '01012345678', address: 'عنوان تجريبي' } }) }).then(async (r) => { if (!r.ok) throw new Error('store order ' + r.status + ' ' + (await r.text()).slice(0, 200)); });
   ids.order = idOf(list(await call('GET', '/orders'))[0]);
+});
+
+// Online Stage 6B: two drawers with shifts, so the shift panel and the open-shift dialog can be captured.
+//   "درج مغلق": a shift that was opened and closed with a 1 pound shortage (the closed summary, and an open-shift button);
+//   "درج مفتوح": a shift that is still open (the live panel and the closing form).
+await step('shifts', async () => {
+  const closedBox = await call('POST', '/cashbox/boxes', { name: 'درج مغلق', type: 'cash', openingAmount: 5, shiftsEnabled: true });
+  const openBox = await call('POST', '/cashbox/boxes', { name: 'درج مفتوح', type: 'cash', openingAmount: 5, shiftsEnabled: true });
+  ids.boxShiftClosed = closedBox.id ?? idOf(closedBox);
+  ids.boxShiftOpen = openBox.id ?? idOf(openBox);
+  const first = await call('POST', '/shifts', { boxId: ids.boxShiftClosed, openingFloat: 5 });
+  ids.shiftClosed = first.id ?? idOf(first.shift ?? first);
+  await call('POST', '/shifts/' + ids.shiftClosed + '/close', { counted: 4, differenceNote: 'عجز تجريبي' });
+  const second = await call('POST', '/shifts', { boxId: ids.boxShiftOpen, openingFloat: 5 });
+  ids.shiftOpen = second.id ?? idOf(second.shift ?? second);
 });
 
 fs.mkdirSync(OUT, { recursive: true });

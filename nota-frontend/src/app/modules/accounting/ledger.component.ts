@@ -5,9 +5,18 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../../environments/environment';
-import { NotaBalancePipe } from '../shared/ui';
-@Component({ selector: 'app-account-ledger', standalone: true, imports: [CommonModule, FormsModule, RouterLink, TranslateModule, NotaBalancePipe], templateUrl: './ledger.component.html', styleUrl: './ledger.component.scss' })
+import { NotaBalancePipe, NotaMoneyPipe } from '../shared/ui';
+import { signal } from '@angular/core';
+import { LayoutService } from '../../core/layout/layout.service';
+import { MobBarComponent, MobFilterSheetComponent } from '../mobile/mob-sheet.component';
+import { MobDatePipe } from '../mobile/mob-date.pipe';
+import { MobDateInputComponent } from '../mobile/mob-date-input.component';
+@Component({ selector: 'app-account-ledger', standalone: true, imports: [CommonModule, FormsModule, RouterLink, TranslateModule, NotaBalancePipe, NotaMoneyPipe, MobBarComponent, MobFilterSheetComponent, MobDatePipe, MobDateInputComponent], templateUrl: './ledger.component.html', styleUrl: './ledger.component.scss' })
 export class LedgerComponent {
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the filter sheet. */
+  protected readonly filtersOpen = signal(false);
+  protected clearFilters(): void { this.from = ''; this.to = ''; this.partyId = ''; this.load(); }
   private http = inject(HttpClient); private route = inject(ActivatedRoute); private translate = inject(TranslateService); private cdr = inject(ChangeDetectorRef); account: any; parties: any[] = []; lines: any[] = []; openingBalance = 0; balance = 0; side: 'debit' | 'credit' = 'debit'; absBalance = 0; openingSide: 'debit' | 'credit' = 'debit'; openingAbs = 0; from = ''; to = ''; partyId = ''; loading = true;
   /** Stage 22: the income statement's links pass excludeClosing, so the ledger leaves out the year-end closing entry like the statement does. */
   excludeClosing = false;
