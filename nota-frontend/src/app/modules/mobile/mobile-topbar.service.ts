@@ -7,6 +7,8 @@ export interface TopBarState {
   subtitle?: string | null;
   /** Called first when back is pressed; return true when the screen handled it (for example a statement opened inside a list). */
   onBack?: () => boolean;
+  /** A screen with its own bottom action bar (a form, a wizard): the tab bar is hidden and the action bar takes its place. */
+  hideTabs?: boolean;
 }
 
 /**

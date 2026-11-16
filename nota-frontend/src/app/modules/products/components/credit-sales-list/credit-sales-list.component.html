@@ -1,3 +1,123 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone): the same list, search, status filter, paging and payment form. The whole card opens the invoice (a sheet with the figures, the same payment form and the previous payments). -->
+<div class="m-page" style="padding-top:12px">
+  <div class="m-card" style="display:flex;justify-content:space-between;gap:8px;text-align:center">
+    <div style="flex:1"><div class="m-row__sub">{{ 'creditSalePage.list.kpiCount' | translate }}</div><strong class="nota-num">{{ pagination.totalItems | notaNumber }}</strong></div>
+    <div style="flex:1"><div class="m-row__sub">{{ 'creditSalePage.list.kpiRemaining' | translate }}</div><strong class="nota-num cl__due">{{ pageRemaining | notaMoney }} {{ 'cashbox.currency' | translate }}</strong></div>
+    <div style="flex:1"><div class="m-row__sub">{{ 'creditSalePage.list.kpiOverdue' | translate }}</div><strong class="nota-num">{{ pageOverdue | notaNumber }}</strong></div>
+  </div>
+  <input type="search" class="m-input" [(ngModel)]="query" (keyup.enter)="search()" [placeholder]="'creditSalePage.list.searchPlaceholder' | translate"
+    [attr.aria-label]="'creditSalePage.list.searchPlaceholder' | translate" data-testid="m-credit-search" />
+</div>
+<div class="m-chips" role="group" [attr.aria-label]="'creditSalePage.list.statusLabel' | translate">
+  @for (filter of statusFilters; track filter) {
+    <button type="button" class="m-chip" [class.is-active]="status === filter" [attr.aria-pressed]="status === filter" (click)="setStatus(filter)">
+      {{ ('creditSalePage.list.filter.' + (filter || 'all')) | translate }}
+    </button>
+  }
+</div>
+<div class="m-page">
+  @if (loadError) { <p class="nota-error" role="alert">{{ loadError }}</p> }
+  @if (isLoading) {
+    <div class="m-skel m-skel-row" role="status" [attr.aria-label]="'actions.loading' | translate"></div>
+    <div class="m-skel m-skel-row"></div>
+    <div class="m-skel m-skel-row"></div>
+  } @else {
+    <div class="m-card m-card--flush">
+      @for (row of rows; track row.id) {
+        <div class="m-row m-stretch-host" data-test="credit-row">
+          <button type="button" class="m-row__open m-stretch" (click)="select(row); detailOpen.set(true)">
+            <span class="m-row__title" style="display:block" dir="auto">{{ row.customerName || '—' }}</span>
+            <span class="m-row__sub nota-num" style="display:block"><span dir="ltr">{{ row.number || shortRef(row.invoiceId) }}</span> · {{ row.sellingDate | mobDate }}</span>
+            @if (row.dueDate) { <span class="m-row__sub" style="display:block">{{ 'creditSalePage.list.due' | translate }} {{ row.dueDate | mobDate }}</span> }
+          </button>
+          <span class="m-row__end">
+            <span class="nota-num" style="display:block">{{ row.remainingAmount | notaMoney }} {{ 'cashbox.currency' | translate }}</span>
+            <span [class]="mobPill(row)">{{ statusKey(row) | translate }}</span>
+          </span>
+        </div>
+      } @empty {
+        <div class="m-empty">{{ 'creditSalePage.list.empty' | translate }}</div>
+      }
+    </div>
+    <div class="m-actions" style="position:static;border:0;padding:0">
+      <button type="button" class="m-btn" (click)="goToPage(pagination.page - 1)" [disabled]="isLoading || !pagination.hasPrevPage">{{ 'invoiceHistoryPage.s10.prev' | translate }}</button>
+      <span class="m-row__sub nota-num" style="align-self:center;text-align:center;flex:1.4">{{ pagination.page | notaNumber }} / {{ (pagination.totalPages || 1) | notaNumber }}</span>
+      <button type="button" class="m-btn" (click)="goToPage(pagination.page + 1)" [disabled]="isLoading || !pagination.hasNextPage">{{ 'invoiceHistoryPage.s10.next' | translate }}</button>
+    </div>
+  }
+</div>
+<a *notaCan="'credit.create'" class="m-fab" routerLink="/credit-sales/new">+ {{ 'creditSalePage.list.new' | translate }}</a>
+
+<nota-mob-sheet [(open)]="detailOpen" [title]="selected ? ((selected.number || shortRef(selected.invoiceId)) + ' · ' + (selected.customerName || '')) : ''">
+  @if (selected; as invoice) {
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span [class]="mobPill(invoice)">{{ statusKey(invoice) | translate }}</span>
+        @if (invoice.createdByName) { <span class="m-row__sub" data-testid="created-by">{{ 'auth.createdBy' | translate: { name: invoice.createdByName } }}</span> }
+      </div>
+      @if (invoice.status === 'cancelled' && invoice.cancellationReason) {
+        <p class="nota-error" data-testid="credit-cancellation-reason">{{ 'invoiceHistoryPage.cancel.reason' | translate }}: {{ invoice.cancellationReason }}</p>
+      }
+      <div class="m-card m-card--flush">
+        @if (invoice.vat; as vat) {
+          <div class="m-row" data-test="vat-net"><span class="m-row__body">{{ 'vat.totals.net' | translate }}</span><strong class="nota-num">{{ vat.netAmount | notaMoney }}</strong></div>
+          <div class="m-row" data-test="vat-amount"><span class="m-row__body">{{ 'vat.totals.vat' | translate: { rate: vat.rate } }}</span><strong class="nota-num">{{ vat.vatAmount | notaMoney }}</strong></div>
+        }
+        <div class="m-row"><span class="m-row__body">{{ 'invoiceHistoryPage.cancel.originalTotal' | translate }}</span><strong class="nota-num">{{ invoice.totalPrice | notaMoney }}</strong></div>
+        <div class="m-row"><span class="m-row__body">{{ 'invoiceHistoryPage.s10.refundedAmount' | translate }}</span><strong class="nota-num">{{ invoice.refundedAmount | notaMoney }}</strong></div>
+        <div class="m-row"><span class="m-row__body">{{ 'invoiceHistoryPage.cancel.netTotal' | translate }}</span><strong class="nota-num">{{ invoice.netTotal | notaMoney }}</strong></div>
+        <div class="m-row"><span class="m-row__body">{{ 'creditSalePage.list.paid' | translate }}</span><strong class="nota-num m-in">{{ invoice.paidAmount | notaMoney }}</strong></div>
+        <div class="m-row"><span class="m-row__body">{{ 'creditSalePage.list.remaining' | translate }}</span><strong class="nota-num m-out">{{ invoice.remainingAmount | notaMoney }}</strong></div>
+      </div>
+
+      @if (canPay(invoice)) {
+        <ng-template #collectLocked><nota-locked-action data-testid="collect-locked" /></ng-template>
+        <form *notaCan="'credit.collect'; else collectLocked" [formGroup]="paymentForm" class="m-card" style="display:flex;flex-direction:column;gap:12px" (ngSubmit)="savePayment()" novalidate>
+          <div class="m-card__title">{{ 'creditSalePage.list.panelTitle' | translate }}</div>
+          <div class="m-field">{{ 'customerDetailsPage.paymentDialog.amount' | translate }} *
+            <p-inputNumber inputId="clAmountM" formControlName="amount" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cl__control" inputStyleClass="cl__num-input" inputmode="decimal" />
+            @if (paymentForm.get('amount')?.invalid && (paymentForm.get('amount')?.touched || paymentSubmitAttempted)) { <span class="nota-error">{{ 'customerDetailsPage.paymentDialog.amountRequired' | translate }}</span> }
+          </div>
+          <div class="m-field">{{ 'customerDetailsPage.paymentDialog.paymentDate' | translate }} *
+            <p-datepicker inputId="clDateM" formControlName="paymentDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" styleClass="cl__control" [minDate]="lock.minOpenDate()" />
+            <nota-lock-banner [selected]="paymentForm.controls.paymentDate.value" />
+          </div>
+          <label class="m-field">{{ 'customerDetailsPage.paymentDialog.note' | translate }}
+            <input id="clNoteM" type="text" class="m-input" formControlName="note" [placeholder]="'customerDetailsPage.paymentDialog.notePlaceholder' | translate" />
+          </label>
+          <nota-payment-box-select />
+          @if (paymentError) { <p class="nota-error" role="alert">{{ paymentError }}</p> }
+          <button type="submit" class="m-btn m-btn--primary m-btn--lg m-btn--block" [disabled]="isSavingPayment || payment.needsShift() || lock.isLocked(paymentForm.controls.paymentDate.value)">
+            {{ (isSavingPayment ? 'customerDetailsPage.paymentDialog.saving' : 'customerDetailsPage.paymentDialog.save') | translate }}
+          </button>
+        </form>
+      } @else {
+        <p class="m-muted">{{ 'creditSalePage.list.nothingDue' | translate }}</p>
+      }
+      @if (paymentSaved) { <p class="m-pill m-pill--ok" role="status" style="align-self:flex-start">{{ 'creditSalePage.list.paymentSaved' | translate }}</p> }
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <nota-print-actions [items]="printItems(invoice)" />
+        @if (invoice.customerId) {
+          <a class="m-btn" [routerLink]="['/customers', invoice.customerId]">{{ 'creditSalePage.list.customerPage' | translate }}</a>
+        }
+      </div>
+
+      <div>
+        <div class="m-card__title">{{ 'creditSalePage.list.previousPayments' | translate }}</div>
+        <div class="m-card m-card--flush">
+          @for (payment of invoice.payments; track payment.id) {
+            <div class="m-row"><span class="m-row__body nota-num">{{ payment.paymentDate | mobDate }}</span><strong class="nota-num m-in">{{ payment.amount | notaMoney }}</strong></div>
+          } @empty {
+            <div class="m-empty">{{ 'customerDetailsPage.s10.noPayments' | translate }}</div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</nota-mob-sheet>
+} @else {
 <!-- Credit sales list (docs/design/screens/CreditSales.dc.html). Stage 10. -->
 <div class="cl">
   <nota-page-header [title]="'creditSalePage.title' | translate" [subtitle]="'creditSalePage.list.subtitle' | translate">
@@ -155,3 +275,4 @@
     </aside>
   </div>
 </div>
+}

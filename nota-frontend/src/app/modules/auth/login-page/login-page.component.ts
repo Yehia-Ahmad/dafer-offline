@@ -14,6 +14,8 @@ import { authErrorText } from '../auth-form.util';
 
 export type LoginView = 'loading' | 'unreachable' | 'login' | 'noOwner';
 
+import { LayoutService } from '../../../core/layout/layout.service';
+
 /**
  * Stage 14 (Login.dc.html): sign in. The owner account is created on the server
  * (`npm run create-owner`), never from this screen; until it exists the page says so.
@@ -33,6 +35,7 @@ export class LoginPageComponent implements AfterViewInit {
   private readonly translate = inject(TranslateService);
   private readonly languageService = inject(LanguageService);
   private readonly themeService = inject(ThemeService);
+  protected readonly layout = inject(LayoutService);
 
   readonly language = this.languageService.selectedLanguage;
   readonly brand = computed(() => brandName(this.language()));

@@ -13,6 +13,7 @@ import {
   PLATFORM_ID,
   ViewEncapsulation,
   QueryList,
+  signal,
   ViewChildren
 } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -32,6 +33,10 @@ import {
   CreditSalesService
 } from '../../services/credit-sales.service';
 import { ProductsService } from '../../services/products.service';
+import { LayoutService } from '../../../../core/layout/layout.service';
+import { MobSheetComponent } from '../../../mobile/mob-sheet.component';
+import { MobDatePipe } from '../../../mobile/mob-date.pipe';
+import { MobileTopBarService } from '../../../mobile/mobile-topbar.service';
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
 import { PaymentBoxService } from '../../../cashbox/payment-box.service';
@@ -90,7 +95,9 @@ type CreditLineItemState = {
     NotaFormFieldComponent,
     NotaMoneyPipe,
     NotaNumberPipe,
-    NotaPageHeaderComponent
+    NotaPageHeaderComponent,
+    MobSheetComponent,
+    MobDatePipe
   ],
   templateUrl: './credit-sales.component.html',
   styleUrl: './credit-sales.component.scss',
@@ -100,6 +107,13 @@ type CreditLineItemState = {
 export class CreditSalesComponent implements OnInit, OnDestroy {
   /** Stage 22: locked days are disabled in the date picker. */
   protected readonly lock = inject(LockDateService);
+  protected readonly layout = inject(LayoutService);
+  private readonly translateService = inject(TranslateService);
+  /** Online Stage 6B (phone only): the top bar title, the product-search sheet and the totals sheet. Presentation state only. */
+  private readonly bindTopBar = inject(MobileTopBarService).bind(() => this.layout.isMobile()
+    ? { title: this.translateService.instant('creditSalePage.form.title') } : null);
+  protected readonly phoneSearchOpen = signal(false);
+  protected readonly phoneTotalsOpen = signal(false);
   /** Product search boxes of the lines without a product (F2 focuses the first one). */
   @ViewChildren('lineSearch') private lineSearchInputs?: QueryList<ElementRef<HTMLInputElement>>;
   direction: 'rtl' | 'ltr' = 'ltr';
@@ -229,6 +243,42 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
       if (this.isSaving || this.reviewDialogVisible || this.successDialogVisible || this.errorDialogVisible) return;
       this.openReviewDialog();
     }
+  }
+
+  // ---------- Online Stage 6B: phone helpers (they call the same line / search methods the desktop template uses) ----------
+
+  /** The line without a product that the phone's search sheet fills. */
+  protected phoneDraftIndex(): number {
+    return this.lineItemStates.findIndex((state) => !state.selectedProduct);
+  }
+
+  protected phoneDraftState(): CreditLineItemState | null {
+    const index = this.phoneDraftIndex();
+    return index < 0 ? null : this.lineItemStates[index];
+  }
+
+  protected openPhoneSearch(): void {
+    if (this.phoneDraftIndex() < 0) this.addLineItem();
+    this.phoneSearchOpen.set(true);
+  }
+
+  protected onPhoneSearch(event: Event): void {
+    const index = this.phoneDraftIndex();
+    if (index >= 0) this.onSearchInputChange(index, event);
+  }
+
+  protected pickPhoneProduct(product: ProductSearchResult): void {
+    const index = this.phoneDraftIndex();
+    if (index >= 0) this.onNativeOptionSelect(index, product);
+    this.phoneSearchOpen.set(false);
+  }
+
+  /** The − / + buttons: the same quantity control the desktop number box edits. */
+  protected stepLine(index: number, delta: number): void {
+    const control = this.lineItemControls[index]?.get('quantity');
+    if (!control) return;
+    control.setValue(Math.max(1, (Number(control.value) || 0) + delta));
+    control.markAsDirty();
   }
 
   /** "+ Add item": a new empty line, its search box focused. */

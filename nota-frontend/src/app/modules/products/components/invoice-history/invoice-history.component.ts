@@ -1,7 +1,11 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { ProductsService } from '../../services/products.service';
+import { LayoutService } from '../../../../core/layout/layout.service';
+import { FilterChip, MobFilterChipsComponent, MobFilterSheetComponent, MobSheetComponent } from '../../../mobile/mob-sheet.component';
+import { MobDatePipe, formatMobDate } from '../../../mobile/mob-date.pipe';
+import { mobilePillClass } from '../../../mobile/mobile-utils';
 import { FormsModule } from '@angular/forms';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { DatePickerModule } from 'primeng/datepicker';
@@ -80,12 +84,20 @@ const DEFAULT_SELLINGS_PAGINATION: SellingsPagination = {
     NotaLockBannerComponent,
     NotaMoneyPipe,
     NotaNumberPipe,
-    NotaPageHeaderComponent
+    NotaPageHeaderComponent,
+    MobSheetComponent,
+    MobFilterSheetComponent,
+    MobFilterChipsComponent,
+    MobDatePipe
   ],
   templateUrl: './invoice-history.component.html',
   styleUrl: './invoice-history.component.scss'
 })
 export class InvoiceHistoryComponent implements OnInit {
+  protected readonly layout = inject(LayoutService);
+  /** Online Stage 6B (phone only): the invoice sheet and the filter sheet. Presentation state only. */
+  protected readonly detailOpen = signal(false);
+  protected readonly filtersOpen = signal(false);
   /** Stage 10: the invoice shown in the detail panel (frontend only). */
   selectedSelling: InvoiceHistoryRow | null = null;
   private isBrowser: boolean;
@@ -197,6 +209,37 @@ export class InvoiceHistoryComponent implements OnInit {
   /** Total of the invoices on the shown page (labelled as such in the footer). */
   get pageTotal(): number {
     return this.sellings.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
+  }
+
+  // ---------- Online Stage 6B: phone helpers (same filter fields, same calls) ----------
+
+  protected mobPill(selling: InvoiceHistoryRow): string {
+    return mobilePillClass(this.statusPill(selling).split('--').pop() ?? '');
+  }
+
+  protected activeChips(): FilterChip[] {
+    const chips: FilterChip[] = [];
+    const label = (options: { label: string; value: string }[], value: string) => options.find((option) => option.value === value)?.label ?? value;
+    if (this.filterCategoryId) chips.push({ key: 'category', label: label(this.categoryOptions as any, this.filterCategoryId) });
+    if (this.filterProductId) chips.push({ key: 'product', label: label(this.productOptions as any, this.filterProductId) });
+    if (this.filterCustomerName.trim()) chips.push({ key: 'name', label: this.filterCustomerName.trim() });
+    if (this.filterCustomerPhone.trim()) chips.push({ key: 'phone', label: this.filterCustomerPhone.trim() });
+    if (this.filterSellingDate) chips.push({ key: 'date', label: formatMobDate(this.filterSellingDate, this._translate.currentLang || 'ar') });
+    return chips;
+  }
+
+  protected removeChip(key: string): void {
+    if (key === 'category') { this.filterCategoryId = '' as any; this.filterProductId = '' as any; }
+    if (key === 'product') this.filterProductId = '' as any;
+    if (key === 'name') this.filterCustomerName = '';
+    if (key === 'phone') this.filterCustomerPhone = '';
+    if (key === 'date') this.filterSellingDate = null;
+    this.applyFilters();
+  }
+
+  /** The − / + buttons of a return line: the same quantity the desktop number box edits (0 … available). */
+  protected stepReturn(item: CashReturnItem, delta: number): void {
+    item.quantity = Math.min(item.availableQuantity, Math.max(0, (Number(item.quantity) || 0) + delta));
   }
 
   statusPill(selling: InvoiceHistoryRow): string {

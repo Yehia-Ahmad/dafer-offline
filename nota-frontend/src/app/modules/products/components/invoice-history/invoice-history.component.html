@@ -1,3 +1,194 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone): the same filters, list, paging, return and cancel. Cards instead of the table; the whole card opens the invoice (a sheet with the lines, totals and actions); filters in a bottom sheet with removable chips. -->
+@if (lastReturnInvoiceId) { <div class="m-page" style="padding-top:12px"><nota-return-print-banner [invoiceId]="lastReturnInvoiceId" /></div> }
+<div class="m-search" style="margin-top:12px;display:flex;gap:8px">
+  <input id="ihNumberM" type="search" class="m-input" dir="ltr" style="flex:1;min-width:0" [(ngModel)]="filterNumber" (keyup.enter)="applyFilters()" placeholder="INV-000001" [attr.aria-label]="'invoiceHistoryPage.cancel.number' | translate" data-testid="m-invoice-search" />
+  <button type="button" class="m-btn" (click)="filtersOpen.set(true)" data-testid="m-invoice-filters">{{ 'mobile.common.filters' | translate }}</button>
+</div>
+<nota-mob-filter-chips [chips]="activeChips()" (remove)="removeChip($event)" />
+<div class="m-page">
+  @if (loadError) { <p class="nota-error" role="alert">{{ loadError }}</p> }
+  @if (isLoading) {
+    <div class="m-skel m-skel-row" role="status" [attr.aria-label]="'actions.loading' | translate"></div>
+    <div class="m-skel m-skel-row"></div>
+    <div class="m-skel m-skel-row"></div>
+  } @else {
+    <div class="m-card m-card--flush">
+      @for (selling of sellings; track selling.id) {
+        <div class="m-row m-stretch-host" data-test="invoice-row">
+          <button type="button" class="m-row__open m-stretch" (click)="selectSelling(selling); detailOpen.set(true)">
+            <span class="m-row__title" style="display:block" dir="auto">{{ selling.customerName || '-' }}</span>
+            <span class="m-row__sub nota-num" style="display:block"><span dir="ltr">{{ selling.invoiceNumber || '-' }}</span> · {{ selling.sellingDate | mobDate }}</span>
+          </button>
+          <span class="m-row__end">
+            <span class="nota-num" style="display:block">{{ selling.totalPrice ?? 0 | notaMoney }} {{ 'cashbox.currency' | translate }}</span>
+            <span [class]="mobPill(selling)">{{ (selling.status === 'cancelled' ? 'invoiceHistoryPage.cancel.cancelled' : 'invoiceHistoryPage.s10.refund.' + (selling.refundStatus || 'none')) | translate }}</span>
+          </span>
+        </div>
+      } @empty {
+        <div class="m-empty">{{ 'invoiceHistoryPage.messages.empty' | translate }}</div>
+      }
+    </div>
+    <div class="m-note" style="text-align:center">
+      {{ 'invoiceHistoryPage.s10.range' | translate: { from: (pageRange.from | notaNumber), to: (pageRange.to | notaNumber), total: (pagination.totalItems | notaNumber) } }}
+      · {{ 'invoiceHistoryPage.s10.pageTotal' | translate }} {{ pageTotal | notaMoney }}
+    </div>
+    <div class="m-actions" style="position:static;border:0;padding:0">
+      <button type="button" class="m-btn" (click)="goToPage(pagination.page - 1)" [disabled]="isLoading || !pagination.hasPrevPage">{{ 'invoiceHistoryPage.s10.prev' | translate }}</button>
+      <span class="m-row__sub nota-num" style="align-self:center;text-align:center;flex:1.4">{{ pagination.page | notaNumber }} / {{ (pagination.totalPages || 1) | notaNumber }}</span>
+      <button type="button" class="m-btn" (click)="goToPage(pagination.page + 1)" [disabled]="isLoading || !pagination.hasNextPage">{{ 'invoiceHistoryPage.s10.next' | translate }}</button>
+    </div>
+  }
+</div>
+
+<nota-mob-filter-sheet [(open)]="filtersOpen" [title]="'mobile.common.filters' | translate" (apply)="applyFilters()" (clear)="resetFilters()">
+  <div class="m-field">{{ 'invoiceHistoryPage.filters.categoryId' | translate }}
+    <p-select inputId="ihCategoryM" [options]="categoryOptions" optionLabel="label" optionValue="value" appendTo="body"
+      [(ngModel)]="filterCategoryId" (ngModelChange)="onCategoryFilterChange($event)"
+      [placeholder]="'invoiceHistoryPage.filters.placeholders.categoryId' | translate" [loading]="isCategoriesLoading" styleClass="ih__control" />
+  </div>
+  <div class="m-field">{{ 'invoiceHistoryPage.filters.productId' | translate }}
+    <p-select inputId="ihProductM" [options]="productOptions" optionLabel="label" optionValue="value" appendTo="body" [(ngModel)]="filterProductId"
+      [placeholder]="'invoiceHistoryPage.filters.placeholders.productId' | translate" [loading]="isProductsLoading" [disabled]="!filterCategoryId" styleClass="ih__control" />
+  </div>
+  <label class="m-field">{{ 'invoiceHistoryPage.filters.customerName' | translate }}
+    <input id="ihNameM" type="text" class="m-input" [(ngModel)]="filterCustomerName" (keyup.enter)="applyFilters(); filtersOpen.set(false)" [placeholder]="'invoiceHistoryPage.filters.placeholders.customerName' | translate" />
+  </label>
+  <label class="m-field">{{ 'invoiceHistoryPage.filters.customerPhone' | translate }}
+    <input id="ihPhoneM" type="tel" inputmode="tel" class="m-input" dir="ltr" [(ngModel)]="filterCustomerPhone" (keyup.enter)="applyFilters(); filtersOpen.set(false)" [placeholder]="'invoiceHistoryPage.filters.placeholders.customerPhone' | translate" />
+  </label>
+  <div class="m-field">{{ 'invoiceHistoryPage.filters.sellingDate' | translate }}
+    <p-datepicker [(ngModel)]="filterSellingDate" [showIcon]="true" [iconDisplay]="'input'" appendTo="body" inputId="invoiceHistorySellingDateM" styleClass="ih__control" />
+  </div>
+</nota-mob-filter-sheet>
+
+<nota-mob-sheet [(open)]="detailOpen" [title]="selectedSelling?.invoiceNumber ?? ''">
+  @if (selectedSelling; as selling) {
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
+        <span class="m-row__sub nota-num">{{ selling.sellingDate | mobDate: true }}</span>
+        <span [class]="mobPill(selling)">{{ ('invoiceHistoryPage.s10.refund.' + (selling.refundStatus || 'none')) | translate }}</span>
+      </div>
+      @if (selling.createdByName) { <span class="m-row__sub" data-testid="created-by">{{ 'auth.createdBy' | translate: { name: selling.createdByName } }}</span> }
+      <div class="m-card" style="padding:10px 14px">
+        <strong dir="auto">{{ selling.customerName || '-' }}</strong>
+        <div class="m-row__sub" dir="ltr">{{ selling.customerPhone || '-' }}</div>
+      </div>
+      <div class="m-card m-card--flush">
+        @for (item of selling.items; track item.id) {
+          <div class="m-row">
+            <span class="m-row__body">
+              <span class="m-row__title" style="white-space:normal" dir="auto">{{ item.productName || '-' }}</span>
+              <span class="m-row__sub nota-num" style="white-space:normal">× {{ item.quantity ?? 0 | notaNumber }} @ {{ item.unitPrice ?? 0 | notaMoney }} · <span dir="ltr">{{ item.productCode || '-' }}</span>
+                @if (item.vatExempt && selling.vat) { · <span data-test="exempt-badge">{{ 'vat.exempt.badge' | translate }}</span> }</span>
+            </span>
+            <strong class="nota-num">{{ item.totalPrice ?? 0 | notaMoney }}</strong>
+          </div>
+        }
+        @for (refund of selling.refunds ?? []; track refund.id) {
+          @for (line of refund.items; track $index) {
+            <div class="m-row"><span class="m-row__body m-out">{{ 'invoiceHistoryPage.s10.returned' | translate }}: <span dir="auto">{{ line.productName }}</span> × {{ line.quantity ?? 0 | notaNumber }}</span>
+              <span class="m-row__sub">{{ refund.refundDate | mobDate }}</span></div>
+          }
+        }
+      </div>
+      <div class="m-card m-card--flush">
+        <div class="m-row"><span class="m-row__body">{{ 'invoiceHistoryPage.s10.subtotal' | translate }}</span><span class="nota-num">{{ selling.subtotal ?? 0 | notaMoney }}</span></div>
+        <div class="m-row"><span class="m-row__body">{{ 'invoiceHistoryPage.tableHeaders.discountAmount' | translate }} ({{ selling.discountPercentage ?? 0 | notaNumber }}%)</span><span class="nota-num">− {{ selling.discountAmount ?? 0 | notaMoney }}</span></div>
+        <div class="m-row"><span class="m-row__body">{{ 'invoiceHistoryPage.tableHeaders.shippingFees' | translate }}</span><span class="nota-num">{{ selling.shippingFees ?? 0 | notaMoney }}</span></div>
+        @if (selling.refundedAmount) {
+          <div class="m-row"><span class="m-row__body">{{ 'invoiceHistoryPage.s10.refundedAmount' | translate }}</span><span class="nota-num m-out">− {{ selling.refundedAmount | notaMoney }}</span></div>
+        }
+        @if (selling.vat; as vat) {
+          <div class="m-row" data-test="vat-net"><span class="m-row__body">{{ 'vat.totals.net' | translate }}</span><span class="nota-num">{{ vat.netAmount | notaMoney }}</span></div>
+          <div class="m-row" data-test="vat-amount"><span class="m-row__body">{{ 'vat.totals.vat' | translate: { rate: vat.rate } }}</span><span class="nota-num">{{ vat.vatAmount | notaMoney }}</span></div>
+        }
+        <div class="m-row"><span class="m-row__body">{{ 'invoiceHistoryPage.cancel.originalTotal' | translate }}</span><span class="nota-num">{{ selling.totalPrice ?? 0 | notaMoney }}</span></div>
+        <div class="m-row"><strong class="m-row__body">{{ 'invoiceHistoryPage.cancel.netTotal' | translate }}</strong><strong class="nota-num">{{ selling.netTotal ?? selling.totalPrice ?? 0 | notaMoney }} {{ 'cashbox.currency' | translate }}</strong></div>
+      </div>
+      @if (selling.status === 'cancelled') { <p class="m-pill m-pill--warn" style="white-space:normal">{{ 'invoiceHistoryPage.cancel.reason' | translate }}: {{ selling.cancellationReason }}</p> }
+      @if (selling.status === 'cancelled' && selling.cancelRefundBoxName) { <p class="m-note" data-line="cancelRefundBox">{{ 'invoiceHistoryPage.cancel.refundBox' | translate: { box: selling.cancelRefundBoxName, amount: (selling.cancelRefundAmount ?? 0 | notaMoney) } }}</p> }
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <a *notaCan="'accounting.view'" class="m-btn" [routerLink]="['/accounting/journal']" [queryParams]="{ sourceType: 'sale', sourceId: selling.id }" (click)="detailOpen.set(false)">{{ 'accounting.viewEntry' | translate }}</a>
+        <nota-print-actions [items]="printItems(selling)" />
+        <button *notaCan="'returns.create'" type="button" class="m-btn" (click)="detailOpen.set(false); openReturnDialog(selling)"
+          [disabled]="!canReturnSelling(selling) || isDeletingSelling(selling.id) || isReturningSelling(selling.id)">
+          {{ (isReturningSelling(selling.id) ? 'actions.loading' : 'invoiceHistoryPage.actions.createReturn') | translate }}
+        </button>
+        <button *notaCan="'sales.delete'; else ihDeleteLockedM" type="button" class="m-btn m-btn--danger" (click)="detailOpen.set(false); openDeleteDialog(selling)"
+          [disabled]="isDeletingSelling(selling.id) || isReturningSelling(selling.id)">
+          {{ (isDeletingSelling(selling.id) ? 'actions.loading' : 'invoiceHistoryPage.cancel.action') | translate }}
+        </button>
+        <ng-template #ihDeleteLockedM><nota-locked-action data-testid="delete-locked" note="auth.locked.delete" /></ng-template>
+      </div>
+      <p *notaCan="'sales.delete'" class="m-note" style="padding:0">{{ 'invoiceHistoryPage.cancel.summary' | translate }}</p>
+    </div>
+  }
+</nota-mob-sheet>
+
+<!-- Cancel invoice: the same dialog (a short bottom sheet), the destructive action in red. -->
+<p-dialog [(visible)]="deleteDialogVisible" [modal]="true" [showHeader]="false" [closable]="!isDeletingSelectedSelling" [dismissableMask]="!isDeletingSelectedSelling"
+  [draggable]="false" [resizable]="false" styleClass="nota-p-dialog" (onHide)="closeDeleteDialog()">
+  <nota-dialog-shell [title]="'invoiceHistoryPage.cancel.action' | translate" [closeLabel]="'actions.cancelButton' | translate" (closed)="closeDeleteDialog()">
+    <p data-testid="cash-cancel-summary">{{ 'invoiceHistoryPage.cancel.cashSummary' | translate: { amount: (cashCancelRefundAmount | notaMoney) } }}</p>
+    <label class="m-field">{{ 'invoiceHistoryPage.cancel.reason' | translate }}
+      <textarea id="cashCancelReasonM" class="m-input" rows="3" [(ngModel)]="cancelReason" maxlength="500"></textarea>
+    </label>
+    @if (cashCancelRefundAmount > 0) { <nota-payment-box-select labelKey="cashbox.refundFrom" /> }
+    <ng-container notaDialogFooter>
+      <button type="button" class="m-btn" (click)="closeDeleteDialog()" [disabled]="isDeletingSelectedSelling">{{ 'actions.cancelButton' | translate }}</button>
+      <button type="button" class="m-btn m-btn--danger" (click)="deleteSelling()" [disabled]="isDeletingSelectedSelling || cancelReason.trim().length < 3">
+        {{ (isDeletingSelectedSelling ? 'actions.loading' : 'invoiceHistoryPage.cancel.action') | translate }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+
+<!-- Cash return: the same dialog; the lines are cards with − / + steppers. -->
+<p-dialog [(visible)]="returnDialogVisible" [modal]="true" [showHeader]="false" [closable]="!isReturningSelectedSelling" [dismissableMask]="!isReturningSelectedSelling"
+  [draggable]="false" [resizable]="false" styleClass="nota-p-dialog" (onHide)="closeReturnDialog()">
+  <nota-dialog-shell [title]="'invoiceHistoryPage.returnDialog.title' | translate" [closeLabel]="'actions.cancelButton' | translate" (closed)="closeReturnDialog()">
+    <p class="m-muted">{{ 'invoiceHistoryPage.returnDialog.subtitle' | translate }}</p>
+    <div class="m-field">{{ 'invoiceHistoryPage.returnDialog.returnDate' | translate }}
+      <p-datepicker inputId="cashReturnDateM" [(ngModel)]="cashReturnDate" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="ih__control" [minDate]="lock.minOpenDate()" />
+      <nota-lock-banner [selected]="cashReturnDate" />
+    </div>
+    <label class="m-field">{{ 'invoiceHistoryPage.returnDialog.note' | translate }}
+      <input id="cashReturnNoteM" type="text" class="m-input" [(ngModel)]="cashReturnNote" [placeholder]="'invoiceHistoryPage.returnDialog.notePlaceholder' | translate" />
+    </label>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+      <strong>{{ 'invoiceHistoryPage.returnDialog.items' | translate }}</strong>
+      <span style="display:flex;gap:6px">
+        <button type="button" class="m-btn" style="min-height:40px;padding:0 10px" (click)="fillCashReturnWithAllItems()">{{ 'invoiceHistoryPage.returnDialog.returnAll' | translate }}</button>
+        <button type="button" class="m-btn" style="min-height:40px;padding:0 10px" (click)="clearCashReturnQuantities()">{{ 'invoiceHistoryPage.returnDialog.clear' | translate }}</button>
+      </span>
+    </div>
+    @for (item of cashReturnItems; track $index) {
+      <div class="m-card" style="margin-bottom:10px">
+        <div class="m-row__title" style="white-space:normal" dir="auto">{{ item.productName || '-' }} <small class="m-muted" dir="ltr">{{ item.productCode || '-' }}</small></div>
+        <div class="m-row__sub">{{ 'invoiceHistoryPage.returnDialog.available' | translate }}: <span class="nota-num">{{ item.availableQuantity | notaNumber }}</span></div>
+        <div style="display:flex;align-items:center;gap:6px;margin:8px 0">
+          <button type="button" class="m-btn" style="width:44px;padding:0" (click)="stepReturn(item, -1)">−</button>
+          <input type="number" inputmode="numeric" class="m-input" style="text-align:center;min-width:0" [(ngModel)]="item.quantity" [min]="0" [max]="item.availableQuantity"
+            [attr.aria-label]="'invoiceHistoryPage.tableHeaders.quantity' | translate" />
+          <button type="button" class="m-btn" style="width:44px;padding:0" (click)="stepReturn(item, 1)">+</button>
+        </div>
+        <input type="text" class="m-input" [(ngModel)]="item.returnReason" [placeholder]="'invoiceHistoryPage.returnDialog.reason' | translate"
+          [attr.aria-label]="'invoiceHistoryPage.returnDialog.reason' | translate" />
+      </div>
+    }
+    <nota-payment-box-select labelKey="cashbox.refundFrom" />
+    @if (returnError) { <p class="nota-error" role="alert">{{ returnError }}</p> }
+    @if (!hasCashReturnSelection()) { <p class="m-muted">{{ 'invoiceHistoryPage.returnDialog.selectionRequired' | translate }}</p> }
+    <ng-container notaDialogFooter>
+      <button type="button" class="m-btn" (click)="closeReturnDialog()" [disabled]="isReturningSelectedSelling">{{ 'actions.cancelButton' | translate }}</button>
+      <button type="button" class="m-btn m-btn--primary" (click)="createCashReturn()" [disabled]="isReturningSelectedSelling || !hasCashReturnSelection() || lock.isLocked(cashReturnDate)">
+        {{ (isReturningSelectedSelling ? 'actions.loading' : 'invoiceHistoryPage.actions.createReturn') | translate }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+} @else {
 <!-- Invoice history (docs/design/screens/Invoices.dc.html). Stage 10: layout only; requests unchanged. Cash invoices. -->
 <div class="ih">
   <nota-page-header [title]="'home.cards.invoiceHistory.title' | translate" [subtitle]="'invoiceHistoryPage.s10.subtitle' | translate" />
@@ -230,3 +421,4 @@
     </ng-container>
   </nota-dialog-shell>
 </p-dialog>
+}

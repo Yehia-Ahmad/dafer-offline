@@ -81,7 +81,7 @@ export class MobileShellComponent implements OnInit {
   });
   protected readonly active = computed(() => activeTabKey(this.url(), this.tabs()));
   protected readonly root = computed(() => isRootScreen(this.url(), this.tabs()) || !this.auth.signedIn());
-  protected readonly noTabs = computed(() => hidesTabBar(this.url()) || !this.auth.signedIn());
+  protected readonly noTabs = computed(() => hidesTabBar(this.url()) || this.topbar.state()?.hideTabs === true || !this.auth.signedIn());
 
   /** Inner screens: the sidebar label of the item whose route (or sub-route) this is. */
   protected readonly titleKey = computed(() => {

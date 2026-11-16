@@ -336,3 +336,6 @@ html.dark .m-in { color: #4ADE80; } html.dark .m-out { color: #F87171; }
 .m-form .m-actions > :first-child { flex: 1; } .m-form .m-actions > :last-child { flex: 2; }
 
 .m-row__open { background: none; border: 0; padding: 0; text-align: start; font: inherit; color: inherit; flex: 1; min-width: 0; text-decoration: none; display: block; cursor: pointer; }
+
+.m-field { min-width: 0; }
+.m-field input, .m-field select, .m-field textarea { max-width: 100%; }

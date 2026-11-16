@@ -1,3 +1,209 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone), the 6A POS pattern: customer card, the invoice lines as cards (product search in a sheet), and the totals / discount / down payment in a bottom sheet. Same form, same service, same totals as desktop. -->
+<form [formGroup]="creditSaleForm" class="m-form" novalidate>
+  <div class="m-section-label">{{ 'creditSalePage.fields.customerInformation' | translate }}</div>
+  <div class="m-card">
+    <div class="m-field">{{ 'creditSalePage.fields.searchCustomer' | translate }}
+      <input id="csCustomerSearchM" type="search" class="m-input" autocomplete="off" [value]="customerSearchInputValue"
+        [placeholder]="'creditSalePage.placeholders.searchCustomer' | translate"
+        (input)="onCustomerSearchInputChange($event)" (focus)="onCustomerSearchInputFocus()" (blur)="onCustomerSearchInputBlur()" />
+      @if (customerSearchError) { <span class="nota-error">{{ customerSearchError }}</span> }
+      @if (isSearchingCustomers) { <span class="m-note" role="status" style="padding:0">{{ 'creditSalePage.actions.searching' | translate }}</span> }
+      @if (showCustomerSuggestionPanel && customerOptions.length > 0) {
+        <div class="m-card m-card--flush" role="listbox">
+          @for (customer of customerOptions; track customer.id) {
+            <button type="button" class="m-row" role="option" (mousedown)="onCustomerOptionSelect(customer)" (click)="onCustomerOptionSelect(customer)">
+              <span class="m-row__body"><span class="m-row__title" dir="auto">{{ customer.displayLabel }}</span></span>
+              @if (customer.isCourier) { <span class="m-pill m-pill--muted" data-test="courier-badge">{{ 'customerPage.s10.courier' | translate }}</span> }
+            </button>
+          }
+        </div>
+      }
+    </div>
+    <button type="button" class="m-btn" (click)="startNewCustomer()">{{ 'creditSalePage.form.newCustomer' | translate }}</button>
+    <label class="m-field">{{ 'creditSalePage.fields.customerName' | translate }} *
+      <input id="csCustomerNameM" type="text" class="m-input" formControlName="customerName" (input)="clearSelectedCustomerIfEdited()" />
+      @if (isFieldInvalid('customerName')) { <span class="nota-error">{{ 'creditSalePage.form.required' | translate }}</span> }
+    </label>
+    <label class="m-field">{{ 'creditSalePage.fields.customerPhone' | translate }} *
+      <input id="csCustomerPhoneM" type="tel" inputmode="tel" class="m-input" dir="ltr" formControlName="customerPhone" (input)="clearSelectedCustomerIfEdited()" />
+      @if (isFieldInvalid('customerPhone')) { <span class="nota-error">{{ 'creditSalePage.form.required' | translate }}</span> }
+    </label>
+    <div class="m-field">{{ 'creditSalePage.fields.saleDate' | translate }} *
+      <p-datepicker formControlName="sellingDate" [showIcon]="true" [iconDisplay]="'input'" inputId="creditSaleDateM"
+        appendTo="body" styleClass="cs__control" [minDate]="lock.minOpenDate()" />
+      <nota-lock-banner />
+    </div>
+  </div>
+
+  <div class="m-section-label">{{ 'creditSalePage.fields.creditItems' | translate }}</div>
+  <div formArrayName="items" style="display:flex;flex-direction:column;gap:12px">
+    @for (itemGroup of lineItemControls; track trackLineItem($index); let index = $index) {
+      @let state = getLineItemState(index);
+      @if (state.selectedProduct) {
+        <div class="m-card" [formGroupName]="index" data-test="credit-line">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+            <div style="min-width:0">
+              <div class="m-row__title" style="white-space:normal" dir="auto">{{ state.selectedProduct.name }}</div>
+              <div class="m-row__sub" style="white-space:normal">
+                @if (state.selectedProduct.code) { <span dir="ltr">{{ state.selectedProduct.code }}</span> }
+                @if (state.selectedProduct.categoryName) { · {{ state.selectedProduct.categoryName }} }
+              </div>
+            </div>
+            <button type="button" class="m-more" (click)="removeLineItem(index)"
+              [attr.aria-label]="(lineItemControls.length === 1 ? 'creditSalePage.actions.clearItem' : 'creditSalePage.actions.removeItem') | translate">×</button>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-end;margin-top:10px">
+            <div class="m-field" style="margin:0;flex:1">{{ 'creditSalePage.fields.quantity' | translate }}
+              <span style="display:flex;align-items:center;gap:6px">
+                <button type="button" class="m-btn" style="width:44px;padding:0" (click)="stepLine(index, -1)" [attr.aria-label]="'−'">−</button>
+                <input type="number" inputmode="numeric" min="1" class="m-input" style="text-align:center;min-width:0" formControlName="quantity" [attr.aria-label]="'creditSalePage.fields.quantity' | translate" />
+                <button type="button" class="m-btn" style="width:44px;padding:0" (click)="stepLine(index, 1)" [attr.aria-label]="'+'">+</button>
+              </span>
+            </div>
+            <label class="m-field" style="margin:0;flex:1">{{ 'creditSalePage.fields.unitPrice' | translate }}
+              <input type="number" inputmode="decimal" min="0" step="0.01" class="m-input" formControlName="price" [attr.aria-label]="'creditSalePage.fields.unitPrice' | translate" />
+            </label>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px">
+            <span class="m-row__sub">{{ 'creditSalePage.fields.lineTotal' | translate }}
+              @if (isExemptLine(index)) { <span class="m-pill m-pill--muted" data-test="exempt-badge">{{ 'vat.exempt.badge' | translate }}</span> }</span>
+            <strong class="nota-num">{{ getLineTotal(index) | notaMoney }} {{ 'cashbox.currency' | translate }}</strong>
+          </div>
+        </div>
+      }
+    }
+  </div>
+  <button type="button" class="m-btn m-btn--block" (click)="openPhoneSearch()" data-testid="m-add-item">+ {{ 'creditSalePage.actions.addItem' | translate }}</button>
+  @if (submitAttempted && (creditSaleForm.invalid || itemsSubtotal <= 0)) {
+    <p class="nota-error" role="alert">{{ 'creditSalePage.messages.completeRequired' | translate }}</p>
+  }
+  @if (saveError && !errorDialogVisible) {
+    <p class="nota-error" role="alert">{{ saveError }}</p>
+  }
+
+  <div class="m-actions">
+    <button type="button" class="m-btn" (click)="phoneTotalsOpen.set(true)" data-testid="m-invoice-button" style="flex-direction:column;gap:0;line-height:1.3">
+      <span class="m-row__sub">{{ 'creditSalePage.form.summary' | translate }}</span>
+      <strong class="nota-num">{{ totalReceivable | notaMoney }} {{ 'cashbox.currency' | translate }}</strong>
+    </button>
+    <button type="button" class="m-btn m-btn--primary" [disabled]="discountOverLimit" (click)="openReviewDialog()">{{ 'creditSalePage.actions.reviewCreditSale' | translate }}</button>
+  </div>
+
+  <nota-mob-sheet [(open)]="phoneSearchOpen" [title]="'creditSalePage.fields.searchProduct' | translate">
+    <input type="search" class="m-input" autocomplete="off" autofocus [value]="phoneDraftState()?.searchInputValue ?? ''"
+      [placeholder]="'creditSalePage.form.addItemPlaceholder' | translate" (input)="onPhoneSearch($event)" data-testid="m-product-search" />
+    @if (phoneDraftState(); as draft) {
+      @if (draft.isSearching) { <div class="m-note" role="status">{{ 'creditSalePage.actions.searching' | translate }}</div> }
+      @if (draft.searchError) { <p class="nota-error" role="alert">{{ draft.searchError }}</p> }
+      <div class="m-card m-card--flush" style="margin-top:8px" role="listbox">
+        @for (item of draft.productOptions; track item.id) {
+          <button type="button" class="m-row" role="option" (click)="pickPhoneProduct(item)" data-test="m-product-option">
+            <span class="m-row__body"><span class="m-row__title" style="white-space:normal" dir="auto">{{ item.displayLabel }}</span></span>
+          </button>
+        }
+      </div>
+    }
+  </nota-mob-sheet>
+
+  <nota-mob-sheet [(open)]="phoneTotalsOpen" [title]="'creditSalePage.form.summary' | translate">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="m-card m-card--flush">
+        <div class="m-row"><span class="m-row__body">{{ 'creditSalePage.fields.subtotal' | translate }}</span><strong class="nota-num">{{ itemsSubtotal | notaMoney }}</strong></div>
+      </div>
+      <ng-template #csDiscountLockedM><nota-locked-action data-testid="discount-locked" note="auth.locked.discount" /></ng-template>
+      <div *notaCan="'sales.discount'; else csDiscountLockedM" class="m-field">{{ 'creditSalePage.fields.discountAmount' | translate }}
+        <p-inputNumber inputId="csDiscountM" formControlName="discountAmount" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cs__control" inputStyleClass="cs__num-input" inputmode="decimal" />
+        <span class="m-note" style="padding:0">{{ 'creditSalePage.fields.discountPercentage' | translate }}: {{ discountPercentage | notaNumber }}%</span>
+        @if (discountOverLimit) { <span class="nota-error">{{ 'session.discount.overLimit' | translate: { limit: (maxDiscountPercent() | notaNumber) } }}</span> }
+        @if (maxDiscountPercent() !== null) { <span class="m-note" style="padding:0" data-testid="discount-limit">{{ 'session.discount.limitHintShort' | translate: { limit: (maxDiscountPercent() | notaNumber) } }}</span> }
+      </div>
+      <div class="m-field">{{ 'creditSalePage.fields.shippingFees' | translate }}
+        <p-inputNumber inputId="csShippingM" formControlName="shippingFees" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cs__control" inputStyleClass="cs__num-input" inputmode="decimal" />
+      </div>
+      <div class="m-card m-card--flush">
+        @if (vatView; as vat) {
+          <div class="m-row" data-test="vat-net"><span class="m-row__body">{{ 'vat.totals.net' | translate }}</span><strong class="nota-num">{{ vat.netAmount | notaMoney }}</strong></div>
+          <div class="m-row" data-test="vat-amount"><span class="m-row__body">{{ 'vat.totals.vat' | translate: { rate: vat.rate } }}</span><strong class="nota-num">{{ vat.vatAmount | notaMoney }}</strong></div>
+        }
+        <div class="m-row"><span class="m-row__body">{{ (vatView ? 'vat.totals.total' : 'creditSalePage.form.netTotal') | translate }}</span><strong class="nota-num">{{ totalReceivable | notaMoney }}</strong></div>
+      </div>
+      <div class="m-field">{{ 'creditSalePage.fields.downPayment' | translate }}
+        <p-inputNumber inputId="csDownPaymentM" formControlName="downPayment" [min]="0" [mode]="'decimal'" [useGrouping]="false" styleClass="cs__control" inputStyleClass="cs__num-input" inputmode="decimal" />
+        @if (isDownPaymentExceeded()) { <span class="nota-error">{{ 'creditSalePage.messages.downPaymentExceeded' | translate }}</span> }
+      </div>
+      @if ((creditSaleForm.get('downPayment')?.value || 0) > 0) { <nota-payment-box-select /> }
+      <div class="m-field">{{ 'creditSalePage.form.dueDate' | translate }} ({{ 'creditSalePage.form.optional' | translate }})
+        <p-datepicker formControlName="dueDate" [showIcon]="true" [iconDisplay]="'input'" inputId="csDueDateM" appendTo="body" [showClear]="true" styleClass="cs__control" />
+      </div>
+      <label class="m-field">{{ 'creditSalePage.form.notes' | translate }} ({{ 'creditSalePage.form.optional' | translate }})
+        <input id="csNotesM" type="text" class="m-input" formControlName="notes" maxlength="1000" />
+      </label>
+      <div class="m-card m-card--flush">
+        <div class="m-row"><span class="m-row__body">{{ 'creditSalePage.fields.financedAmount' | translate }}</span><strong class="nota-num m-out">{{ financedAmount | notaMoney }}</strong></div>
+        <div class="m-row"><span class="m-row__body">{{ 'creditSalePage.fields.productsCount' | translate }}</span><strong class="nota-num">{{ productsCount | notaNumber }}</strong></div>
+        <div class="m-row"><span class="m-row__body">{{ 'creditSalePage.fields.totalQuantity' | translate }}</span><strong class="nota-num">{{ totalQuantity | notaNumber }}</strong></div>
+      </div>
+      <button type="button" class="m-btn m-btn--primary m-btn--lg m-btn--block" [disabled]="discountOverLimit" (click)="phoneTotalsOpen.set(false); openReviewDialog()">{{ 'creditSalePage.actions.reviewCreditSale' | translate }}</button>
+      <button type="button" class="m-btn m-btn--block" (click)="phoneTotalsOpen.set(false); resetDraft()">{{ 'creditSalePage.actions.resetDraft' | translate }}</button>
+    </div>
+  </nota-mob-sheet>
+</form>
+
+<!-- The same review / success / error dialogs (bottom sheets on the phone). -->
+<p-dialog [(visible)]="reviewDialogVisible" [modal]="true" [showHeader]="false" [draggable]="false" [resizable]="false"
+  styleClass="nota-p-dialog">
+  <nota-dialog-shell [title]="'creditSalePage.dialog.title' | translate" [closeLabel]="'creditSalePage.dialog.close' | translate"
+    (closed)="closeReviewDialog()">
+    @if (totalChangedNotice) {
+      <p class="cs__msg" role="alert" data-test="total-changed">{{ 'vat.totalChanged.message' | translate: { current: (totalChangedNotice.current | notaMoney), expected: (totalChangedNotice.expected | notaMoney) } }}</p>
+    }
+    <p class="cs__dialog-text">{{ 'creditSalePage.dialog.subtitle' | translate }}</p>
+    <dl class="cs__review">
+      <div><dt>{{ 'creditSalePage.fields.customerName' | translate }}</dt><dd>{{ creditSaleForm.get('customerName')?.value }}</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.customerPhone' | translate }}</dt><dd dir="ltr">{{ creditSaleForm.get('customerPhone')?.value || '-' }}</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.saleDate' | translate }}</dt><dd>{{ creditSaleForm.get('sellingDate')?.value | mobDate }}</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.subtotal' | translate }}</dt><dd class="nota-num">{{ itemsSubtotal | notaMoney }}</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.discountPercentage' | translate }}</dt><dd class="nota-num">{{ discountPercentage | notaNumber }}%</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.shippingFees' | translate }}</dt><dd class="nota-num">{{ shippingFees | notaMoney }}</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.totalReceivable' | translate }}</dt><dd class="nota-num">{{ totalReceivable | notaMoney }}</dd></div>
+      <div><dt>{{ 'creditSalePage.fields.downPayment' | translate }}</dt><dd class="nota-num">{{ creditSaleForm.get('downPayment')?.value || 0 | notaMoney }}</dd></div>
+      <div class="cs__remaining"><dt>{{ 'creditSalePage.fields.financedAmount' | translate }}</dt><dd class="nota-num">{{ financedAmount | notaMoney }}</dd></div>
+      @if (creditSaleForm.get('dueDate')?.value) {
+        <div><dt>{{ 'creditSalePage.form.dueDate' | translate }}</dt><dd>{{ creditSaleForm.get('dueDate')?.value | mobDate }}</dd></div>
+      }
+      @if (creditSaleForm.get('notes')?.value?.trim()) {
+        <div><dt>{{ 'creditSalePage.form.notes' | translate }}</dt><dd>{{ creditSaleForm.get('notes')?.value }}</dd></div>
+      }
+    </dl>
+    <ng-container notaDialogFooter>
+      <button type="button" class="m-btn" (click)="closeReviewDialog()">{{ 'creditSalePage.dialog.close' | translate }}</button>
+      <button type="button" class="m-btn m-btn--primary" [disabled]="isSaving" (click)="saveCreditSale()">
+        {{ (isSaving ? 'creditSalePage.actions.savingCreditSale' : 'creditSalePage.actions.createCreditSale') | translate }}
+      </button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+<p-dialog [(visible)]="successDialogVisible" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false"
+  [resizable]="false" styleClass="nota-p-dialog">
+  <nota-dialog-shell [title]="'creditSalePage.messages.createdSuccess' | translate" [closeLabel]="'creditSalePage.form.ok' | translate"
+    (closed)="closeSuccessPopup()">
+    <ng-container notaDialogFooter>
+      <button type="button" class="m-btn m-btn--primary" (click)="closeSuccessPopup()">{{ 'creditSalePage.form.ok' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+<p-dialog [(visible)]="errorDialogVisible" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false"
+  [resizable]="false" styleClass="nota-p-dialog">
+  <nota-dialog-shell [title]="'creditSalePage.messages.createFailed' | translate" [closeLabel]="'creditSalePage.form.ok' | translate"
+    (closed)="closeErrorPopup()">
+    <p class="cs__dialog-text cs__msg" role="alert">{{ saveError || ('creditSalePage.messages.createFailed' | translate) }}</p>
+    <ng-container notaDialogFooter>
+      <button type="button" class="m-btn m-btn--primary" (click)="closeErrorPopup()">{{ 'creditSalePage.form.ok' | translate }}</button>
+    </ng-container>
+  </nota-dialog-shell>
+</p-dialog>
+} @else {
 <!-- New credit invoice (docs/design/screens/NewCreditSale.dc.html). Stage 9: layout only; payload and validation unchanged. -->
 <div class="cs">
   <nota-page-header [title]="'creditSalePage.form.title' | translate" [subtitle]="'creditSalePage.subtitle' | translate"
@@ -252,3 +458,4 @@
     </ng-container>
   </nota-dialog-shell>
 </p-dialog>
+}

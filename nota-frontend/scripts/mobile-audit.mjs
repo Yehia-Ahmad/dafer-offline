@@ -12,7 +12,8 @@ import { chromium } from 'playwright-core';
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > -1 ? process.argv[i + 1] : fallback; };
 const LABEL = arg('label', 'final');
 const ONLY = arg('only', '');
-const ROUTE_FILTER = arg('route', ''); // substring filter for quick runs while building
+const FAIL_ON_EDGE = process.argv.includes('--fail-on-edge'); // edge-hugging is a warning unless asked
+const ROUTE_FILTER = arg('route', ''); // comma-separated substrings (a route is audited when it contains any of them), for quick runs while building
 const URL_BASE = (process.env.AUDIT_URL || 'http://localhost:4200').replace(/\/$/, '');
 const API = (process.env.AUDIT_API || 'http://localhost:5000').replace(/\/$/, '');
 const USER = process.env.AUDIT_USER || 'owner';
@@ -64,6 +65,35 @@ async function clipped(page) {
     return bad.filter((el) => !set.has(el.parentElement)).map(label);
   }, SCROLLERS);
 }
+// Online Stage 6B: text, buttons, inputs and selects closer than 8 px to the left / right screen edge (outside full-bleed shell parts) are
+// reported as warnings. Text is measured with a Range, so it is the glyphs' own box, not the card around them.
+const FULL_BLEED = '.m-top, .m-tabs, .m-actions, .m-sheet, .m-sheet__scrim, .m-pwa, .p-dialog, .p-dialog-mask, .p-overlay, .m-fab, .m-form .m-actions';
+async function edgeHug(page) {
+  return page.evaluate(([scrollers, bleed]) => {
+    const w = window.innerWidth; const out = new Map();
+    const label = (el) => {
+      const cls = (typeof el.className === 'string' ? el.className : '').trim().split(/\s+/).filter(Boolean).slice(0, 2).join('.');
+      return el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (cls ? '.' + cls : '') + ' "' + (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 20) + '"';
+    };
+    const visible = (el) => { const cs = getComputedStyle(el); return cs.visibility !== 'hidden' && cs.display !== 'none' && cs.opacity !== '0'; };
+    const skip = (el) => el.closest(bleed) || el.closest(scrollers) || el.closest('[aria-hidden="true"], .nota-sr-only, .cdk-visually-hidden, .p-hidden-accessible');
+    const hug = (r) => r.width >= 1 && r.height >= 1 && (r.left < 8 || r.right > w - 8) && r.left > -1 && r.right < w + 1; // beyond the screen = the clip check's job
+    for (const el of document.body.querySelectorAll('button, a, input, select, textarea')) {
+      if (skip(el) || !visible(el)) continue;
+      const r = el.getBoundingClientRect();
+      if (hug(r)) out.set(el, label(el));
+    }
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode; const parent = node.parentElement;
+      if (!parent || !node.textContent.trim() || skip(parent) || !visible(parent) || ['SCRIPT', 'STYLE'].includes(parent.tagName)) continue;
+      const range = document.createRange(); range.selectNodeContents(node);
+      const r = range.getBoundingClientRect();
+      if (hug(r)) out.set(parent, label(parent));
+    }
+    return [...new Set(out.values())];
+  }, [SCROLLERS, FULL_BLEED]);
+}
 const fileName = (route) => (route.replace(/^\//, '').replace(/[\/:]/g, '_') || 'root') + '.png';
 
 async function signIn() {
@@ -81,7 +111,7 @@ async function run(browser, size, token) {
   const dir = path.join(ROOT, `${LABEL}-${size}`);
   fs.mkdirSync(dir, { recursive: true });
   const results = [];
-  for (const route of routes.filter((r) => !ROUTE_FILTER || r.includes(ROUTE_FILTER))) {
+  for (const route of routes.filter((r) => !ROUTE_FILTER || ROUTE_FILTER.split(",").some((f) => r.includes(f)))) {
     const context = await browser.newContext({ viewport: { width, height }, locale: 'ar-EG', deviceScaleFactor: 1, ...(size === '390' ? { hasTouch: true, isMobile: true } : {}) });
     // The session token lives in sessionStorage ('nota.session'); set it before the app starts (login page excepted).
     // The device name is stored too, so the one-time 'name this device' question does not cover the screens.
@@ -92,6 +122,7 @@ async function run(browser, size, token) {
     page.on('pageerror', (error) => errors.push(`pageerror: ${String(error.message).slice(0, 160)}`));
     const problems = [];
     let clipList = [];
+    let edgeList = [];
     try {
       await page.goto(`${URL_BASE}${route}`, { waitUntil: 'networkidle', timeout: 30000 });
       await page.waitForTimeout(600);
@@ -102,6 +133,7 @@ async function run(browser, size, token) {
       }));
       if (size === '390') {
         clipList = await clipped(page);
+        edgeList = await edgeHug(page);
         const clip = clipList;
         if (clip.length) problems.push(`clipped(${clip.length}): ${clip.slice(0, 4).join(' | ')}`);
         if (info.scrollWidth > info.innerWidth) problems.push(`h-scroll ${info.scrollWidth}>${info.innerWidth}`);
@@ -118,7 +150,8 @@ async function run(browser, size, token) {
     } catch (error) {
       problems.push(`error: ${String(error.message).split('\n')[0]}`);
     }
-    results.push({ route, ok: problems.length === 0, problems, clipped: clipList });
+    if (edgeList.length) problems.push(`edge(${edgeList.length}): ${edgeList.slice(0, 3).join(' | ')}`);
+    results.push({ route, ok: problems.filter((p) => !p.startsWith('edge(')).length === 0 && !(FAIL_ON_EDGE && edgeList.length), problems, clipped: clipList, edge: edgeList });
     await context.close();
   }
   return results;
@@ -137,7 +170,7 @@ try {
 let failed = 0;
 for (const size of Object.keys(all)) {
   console.log(`\n=== ${size} ===`);
-  for (const r of all[size]) { if (!r.ok) failed++; console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.route.padEnd(52)} ${r.problems.join('; ')}`); }
+  for (const r of all[size]) { if (!r.ok) failed++; console.log(`${r.ok ? (r.edge?.length ? 'WARN' : 'PASS') : 'FAIL'}  ${r.route.padEnd(52)} ${r.problems.join('; ')}`); }
 }
 fs.writeFileSync(path.join(ROOT, `${LABEL}-results.json`), JSON.stringify(all, null, 2));
 console.log(`\n${failed} failing route/size combinations`);

@@ -9,7 +9,8 @@ import {
   Injectable,
   inject,
   OnInit,
-  PLATFORM_ID
+  PLATFORM_ID,
+  signal
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
@@ -133,10 +134,14 @@ class ReturnsPaginatorIntl extends MatPaginatorIntl {
   }
 }
 
+import { LayoutService } from '../../../../core/layout/layout.service';
+import { FilterChip, MobBarComponent, MobFilterChipsComponent, MobFilterSheetComponent } from '../../../mobile/mob-sheet.component';
+import { MobDatePipe, formatMobDate } from '../../../mobile/mob-date.pipe';
+
 @Component({
   selector: 'app-returns',
   standalone: true,
-  imports: [PrintActionsComponent, ReturnPrintBannerComponent, NotaLockBannerComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
+  imports: [MobBarComponent, MobFilterSheetComponent, MobFilterChipsComponent, MobDatePipe, PrintActionsComponent, ReturnPrintBannerComponent, NotaLockBannerComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink,
     CommonModule,
     TranslatePipe,
     ReactiveFormsModule,
@@ -179,6 +184,45 @@ export class ReturnsComponent implements OnInit {
 
   // ---------- New-return wizard (Stage 10) ----------
   view: 'log' | 'wizard' = 'log';
+  protected readonly layout = inject(LayoutService);
+  /** Online Stage 6B (phone only): the filter sheet. Presentation state only. */
+  protected readonly filtersOpen = signal(false);
+  /** The top bar's back button inside the wizard: step back, or back to the log (the same calls as the wizard's own buttons). */
+  protected readonly wizardBack = (): boolean => {
+    if (this.wizardSaving) return true;
+    if (this.wizardStep === 3) this.goToWizardStep(2);
+    else if (this.wizardStep === 2) this.goToWizardStep(1);
+    else this.closeWizard();
+    return true;
+  };
+
+  protected activeChips(): FilterChip[] {
+    const value = this.filtersForm.getRawValue();
+    const chips: FilterChip[] = [];
+    const lang = this.translate.currentLang || 'ar';
+    if (value.returnType) chips.push({ key: 'returnType', label: this.returnTypeOptions.find((option) => option.value === value.returnType)?.label ?? String(value.returnType) });
+    if (String(value.customerName ?? '').trim()) chips.push({ key: 'customerName', label: String(value.customerName).trim() });
+    if (String(value.customerPhone ?? '').trim()) chips.push({ key: 'customerPhone', label: String(value.customerPhone).trim() });
+    if (String(value.productCode ?? '').trim()) chips.push({ key: 'productCode', label: String(value.productCode).trim() });
+    if (String(value.invoiceId ?? '').trim()) chips.push({ key: 'invoiceId', label: String(value.invoiceId).trim() });
+    if (value.dateFrom) chips.push({ key: 'dateFrom', label: formatMobDate(value.dateFrom as Date, lang) });
+    if (value.dateTo) chips.push({ key: 'dateTo', label: formatMobDate(value.dateTo as Date, lang) });
+    return chips;
+  }
+
+  protected removeChip(key: string): void {
+    this.filtersForm.get(key)?.setValue(key === 'dateFrom' || key === 'dateTo' ? null : '');
+    this.search();
+  }
+
+  protected phonePages(): number {
+    return Math.max(1, Math.ceil(this.pagination.totalItems / Math.max(1, this.pagination.limit)));
+  }
+
+  /** The prev / next buttons: the same page change the paginator makes. */
+  protected phonePage(delta: number): void {
+    this.onPageChange({ pageIndex: this.pagination.page - 1 + delta, pageSize: this.pagination.limit, length: this.pagination.totalItems } as PageEvent);
+  }
   wizardStep: 1 | 2 | 3 = 1;
   wizardType: ReturnType = 'cash';
   wizardQuery = '';

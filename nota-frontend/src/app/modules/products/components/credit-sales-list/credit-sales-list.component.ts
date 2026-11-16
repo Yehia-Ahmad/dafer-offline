@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectorRef, Component, DestroyRef, OnInit, PLATFORM_ID, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -29,6 +29,10 @@ import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
 import { PaymentBoxService } from '../../../cashbox/payment-box.service';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
+import { LayoutService } from '../../../../core/layout/layout.service';
+import { MobSheetComponent } from '../../../mobile/mob-sheet.component';
+import { MobDatePipe } from '../../../mobile/mob-date.pipe';
+import { mobilePillClass } from '../../../mobile/mobile-utils';
 
 /** Status pills map to the API `status` values. */
 export type CreditListStatusFilter = '' | CreditSaleStatus;
@@ -46,11 +50,14 @@ const PAGE_SIZE = 10;
   selector: 'app-credit-sales-list',
   standalone: true,
   imports: [PrintActionsComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, CommonModule, FormsModule, ReactiveFormsModule, RouterLink, TranslatePipe, DatePickerModule, InputNumberModule,
-    NotaButtonDirective, NotaFormFieldComponent, NotaLockBannerComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
+    NotaButtonDirective, NotaFormFieldComponent, NotaLockBannerComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, MobSheetComponent, MobDatePipe],
   templateUrl: './credit-sales-list.component.html',
   styleUrl: './credit-sales-list.component.scss'
 })
 export class CreditSalesListComponent implements OnInit {
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the invoice sheet (figures, payment form, previous payments) opened by tapping a card. */
+  protected readonly detailOpen = signal(false);
   private readonly creditSalesService = inject(CreditSalesService);
   /** Stage 19: the box the payment goes into. */
   readonly payment = inject(PaymentBoxService);
@@ -181,6 +188,10 @@ export class CreditSalesListComponent implements OnInit {
 
   statusKey(row: CreditSaleView): string {
     return this.isOverdue(row) ? 'creditSalePage.list.status.overdue' : `creditSalePage.list.status.${row.status}`;
+  }
+
+  protected mobPill(row: CreditSaleView): string {
+    return mobilePillClass(this.statusPill(row).split('--').pop() ?? '');
   }
 
   shortRef(id: string): string {

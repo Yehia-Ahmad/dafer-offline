@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, HostListener, input, model, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, OnChanges, OnDestroy, effect, inject, input, model, output, untracked } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
+import { MobileTopBarService, TopBarState } from './mobile-topbar.service';
 
 /** One removable chip above a list (Online Stage 6B): the active filters. */
 export interface FilterChip {
@@ -106,4 +107,37 @@ export class MobConfirmComponent {
   readonly confirmLabel = input('');
   readonly destructive = input(true);
   readonly confirmed = output<void>();
+}
+
+/**
+ * Template-driven top bar for a phone screen whose title depends on a plain field (a wizard step, a detail view):
+ * `<nota-mob-bar [title]="..." [hideTabs]="true" [back]="goBack" />`. It sets the shell's top bar while it is on screen and clears it on destroy.
+ */
+@Component({
+  selector: 'nota-mob-bar',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: '',
+})
+export class MobBarComponent implements OnChanges, OnDestroy {
+  private readonly bar = inject(MobileTopBarService);
+  readonly title = input.required<string>();
+  readonly subtitle = input<string | null>(null);
+  readonly hideTabs = input(false);
+  /** Called first when back is pressed; return true when handled. */
+  readonly back = input<(() => boolean) | null>(null);
+  private mine: TopBarState | null = null;
+
+  constructor() {
+    effect(() => {
+      const next: TopBarState = { title: this.title(), subtitle: this.subtitle(), hideTabs: this.hideTabs(), onBack: this.back() ?? undefined };
+      this.mine = next;
+      untracked(() => this.bar.state.set(next));
+    });
+  }
+
+  ngOnChanges(): void { /* the effect above follows the inputs */ }
+
+  ngOnDestroy(): void {
+    if (this.bar.state() === this.mine) this.bar.state.set(null);
+  }
 }

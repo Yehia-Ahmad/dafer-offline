@@ -1,6 +1,6 @@
 import { LockDateService } from '../../../../core/accounting-lock/lock-date.service';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectorRef, Component, Inject, OnDestroy, OnInit, PLATFORM_ID, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, Inject, OnDestroy, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -8,6 +8,10 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { Dialog } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { Subscription } from 'rxjs';
+import { LayoutService } from '../../../../core/layout/layout.service';
+import { MobBarComponent, MobSheetComponent } from '../../../mobile/mob-sheet.component';
+import { MobDatePipe } from '../../../mobile/mob-date.pipe';
+import { mobilePillClass } from '../../../mobile/mobile-utils';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, NotaLockBannerComponent } from '../../../shared/ui';
 import {
   creditSaleStatusPill,
@@ -67,13 +71,16 @@ interface CustomerStatement {
   selector: 'app-customer-details',
   standalone: true,
   imports: [ReturnPrintBannerComponent, PrintActionsComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink, CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
-    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent],
+    NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, MobBarComponent, MobSheetComponent, MobDatePipe],
   templateUrl: './customer-details.component.html',
   styleUrl: './customer-details.component.scss'
 })
 export class CustomerDetailsComponent implements OnInit, OnDestroy {
   /** Stage 22: locked days are disabled in the date picker. */
   protected readonly lock = inject(LockDateService);
+  protected readonly layout = inject(LayoutService);
+  /** Online Stage 6B (phone only): the ⋯ menu sheet of an invoice card. Presentation state only. */
+  protected readonly menuEntry = signal<CustomerHistoryView | null>(null);
   /** Stage 10 tabs (frontend only). */
   activeTab: CustomerTab = 'statement';
   statement: CustomerStatement = { rows: [], totalDebit: 0, totalCredit: 0, balance: 0 };
@@ -250,6 +257,20 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
 
   retryStatement(): void {
     if (this.currentCustomerId) this.loadStatement(this.currentCustomerId);
+  }
+
+  protected mobStatusPill(entry: CustomerHistoryView): string {
+    return mobilePillClass(this.statusPill(entry).split('--').pop() ?? '');
+  }
+
+  /** The − / + buttons of a credit-return line: the same quantity control the desktop number box edits (0 … available). */
+  protected stepRefund(index: number, delta: number): void {
+    const group = this.refundItems.at(index);
+    const quantity = group?.get('quantity');
+    if (!quantity) return;
+    const available = Number(group.get('availableQuantity')?.value) || 0;
+    quantity.setValue(Math.min(available, Math.max(0, (Number(quantity.value) || 0) + delta)));
+    quantity.markAsDirty();
   }
 
   statusPill(entry: CustomerHistoryView): string {
