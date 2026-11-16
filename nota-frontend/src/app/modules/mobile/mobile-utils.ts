@@ -66,3 +66,11 @@ export function invoiceHintKey(order: { status: string; fulfillment?: string }):
   if (!open) return null;
   return order.fulfillment === 'pickup' ? 'mobile.order.invoiceHintPickup' : 'mobile.order.invoiceHintDelivery';
 }
+
+/** Arabic count form for "أصناف": 1 → صنف واحد, 2 → صنفين, 3–10 → <n> أصناف, 11+ → <n> صنف (the translation key under mobile.home). */
+export function itemsCountKey(count: number): string {
+  if (count === 1) return 'mobile.home.itemsOne';
+  if (count === 2) return 'mobile.home.itemsTwo';
+  if (count >= 3 && count <= 10) return 'mobile.home.itemsFew';
+  return 'mobile.home.itemsMany';
+}

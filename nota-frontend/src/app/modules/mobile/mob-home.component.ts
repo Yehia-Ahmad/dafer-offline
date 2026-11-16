@@ -14,7 +14,7 @@ import { allowedOrderActions } from '../orders/order-actions';
 import { OrderListRow } from '../orders/orders.models';
 import { OrdersService } from '../orders/orders.service';
 import { PushToggleComponent } from './push-toggle.component';
-import { timeAgo } from './mobile-utils';
+import { itemsCountKey, timeAgo } from './mobile-utils';
 
 /** A new website order on the home screen: the list row plus the number of lines (from the order itself). */
 interface HomeOrder { row: OrderListRow; items: number | null }
@@ -74,7 +74,7 @@ export const HOME_ORDERS_LIMIT = 3;
               </div>
               <div class="m-row__sub" style="margin:4px 0">
                 {{ order.row.customerName }}
-                @if (order.items !== null) { · {{ 'mobile.home.itemsCount' | translate: { count: (order.items | notaNumber) } }} }
+                @if (order.items !== null) { · {{ itemsKey(order.items) | translate: { count: (order.items | notaNumber) } }} }
                 · {{ 'orders.fulfillment.' + order.row.fulfillment | translate }}
               </div>
               <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
@@ -136,6 +136,8 @@ export class MobHomeComponent implements OnInit {
     this.dashboard.getMobileSummary().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (value) => this.mobile.set(value), error: () => undefined });
     if (this.auth.has('orders.view')) this.loadOrders();
   }
+
+  protected itemsKey = itemsCountKey;
 
   protected ago(iso: string): string {
     return timeAgo(iso, this.language.selectedLanguage());

@@ -2778,7 +2778,10 @@
       "inDrawer": "In the drawer",
       "newOrders": "New website orders",
       "all": "All",
-      "itemsCount": "{{count}} items",
+      "itemsOne": "1 item",
+      "itemsTwo": "2 items",
+      "itemsFew": "{{count}} items",
+      "itemsMany": "{{count}} items",
       "details": "Details",
       "noNewOrders": "No new orders"
     },

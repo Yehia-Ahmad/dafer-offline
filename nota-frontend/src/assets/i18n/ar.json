@@ -2778,7 +2778,10 @@
       "inDrawer": "في الخزنة",
       "newOrders": "طلبات جديدة من الموقع",
       "all": "الكل",
-      "itemsCount": "{{count}} أصناف",
+      "itemsOne": "صنف واحد",
+      "itemsTwo": "صنفين",
+      "itemsFew": "{{count}} أصناف",
+      "itemsMany": "{{count}} صنف",
       "details": "التفاصيل",
       "noNewOrders": "مفيش طلبات جديدة"
     },
