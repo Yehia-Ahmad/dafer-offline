@@ -1,3 +1,68 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone): box cards, the same actions (transfer, new box, drawing, open shift) and the shift panel. The dialogs below are the same ones (bottom sheets on the phone). -->
+<header class="m-head">
+  <div class="m-head__title">{{ 'cashbox.title' | translate }}</div>
+</header>
+<div class="m-chips">
+  <button *notaCan="'cashbox.manage'" type="button" class="m-chip" data-action="transfer" (click)="transferOpen.set(true)">{{ 'cashbox.transferButton' | translate }}</button>
+  <button *notaCan="'owner.drawings'" type="button" class="m-chip" data-action="drawing" (click)="drawingOpen.set(true)">{{ 'cashbox.drawingButton' | translate }}</button>
+</div>
+<div class="m-page">
+  @if (lastDrawing(); as drawing) {
+    <div class="m-card" role="status" data-testid="last-drawing">
+      <b dir="ltr">{{ drawing.number }}</b>
+      <div class="m-note" style="padding:4px 0 0">{{ 'mobile.common.desktopPrint' | translate }}</div>
+    </div>
+  }
+  @if (loading()) {
+    <div class="m-skel m-skel-row" role="status" [attr.aria-label]="'cashbox.loading' | translate"></div>
+    <div class="m-skel m-skel-row"></div>
+  } @else if (loadError()) {
+    <div class="m-card m-empty"><p class="nota-error" role="alert">{{ 'cashbox.loadFailed' | translate }}</p>
+      <button type="button" class="m-btn" (click)="load()">{{ 'cashbox.retry' | translate }}</button></div>
+  } @else {
+    <div class="m-card m-card--flush" data-test="box-cards">
+      @for (box of boxes(); track box._id) {
+        <div class="m-row" style="flex-wrap:wrap" [class.m-muted]="!box.isActive" [attr.data-box]="box.name">
+          <a class="m-row" style="padding:0;border:0;flex:1;min-width:0" [routerLink]="['/cashbox', box._id]" data-action="box-detail">
+            <span class="m-avatar">{{ box.name.charAt(0) || '؟' }}</span>
+            <span class="m-row__body">
+              <span class="m-row__title" style="display:block" dir="auto">{{ box.name }}</span>
+              <span class="m-row__sub" style="display:block">{{ 'cashbox.types.' + box.type | translate }}
+                @if (note(box); as key) { · {{ key | translate: { user: box.openShift?.userName, device: box.deviceName } }} }
+              </span>
+            </span>
+            <span class="m-row__end nota-num" data-test="box-balance">{{ box.balance ?? 0 | notaMoney }}</span>
+          </a>
+          @if (!box.isActive) { <span class="m-pill m-pill--muted">{{ 'cashbox.cards.inactive' | translate }}</span> }
+          @if (mayOpenShift(box) || (box.openShift && mayUseShift(box))) {
+            <div style="display:flex;gap:8px;width:100%">
+              @if (mayOpenShift(box)) {
+                <button type="button" class="m-btn" style="flex:1" data-action="open-shift" (click)="startOpenShift(box)">{{ 'cashbox.shift.openButton' | translate }}</button>
+              }
+              @if (box.openShift && mayUseShift(box)) {
+                <button type="button" class="m-btn" style="flex:1" data-action="show-shift" (click)="showShift(box)">{{ 'cashbox.shift.button' | translate }}</button>
+              }
+            </div>
+          }
+        </div>
+      } @empty {
+        <div class="m-empty" data-test="empty">{{ 'cashbox.empty' | translate }}</div>
+      }
+    </div>
+    @if (shownShift(); as box) {
+      <app-shift-panel [shiftId]="box.openShift!._id" [depositOptions]="depositOptions()" (closed)="shiftChanged()" />
+    }
+  }
+</div>
+<button *notaCan="'cashbox.manage'" type="button" class="m-fab" data-action="new-box" (click)="openAdd()">+ {{ 'cashbox.newBox' | translate }}</button>
+<app-add-box-dialog [(visible)]="addOpen" (created)="load()" />
+<app-transfer-dialog [(visible)]="transferOpen" [boxes]="activeBoxes()" (done)="load()" />
+<app-drawing-dialog [(visible)]="drawingOpen" [boxes]="activeBoxes()" (done)="drawingDone($event)" />
+@if (openShiftBox(); as box) {
+  <app-open-shift-dialog [(visible)]="openShiftOpen" [boxId]="box._id" [boxName]="box.name" (opened)="shiftChanged()" />
+}
+} @else {
 <!-- Stage 19: الخزائن والوردية (CashBox.dc.html). -->
 <div class="cb">
   <nota-page-header [title]="'cashbox.title' | translate">
@@ -60,4 +125,5 @@
 <app-drawing-dialog [(visible)]="drawingOpen" [boxes]="activeBoxes()" (done)="drawingDone($event)" />
 @if (openShiftBox(); as box) {
   <app-open-shift-dialog [(visible)]="openShiftOpen" [boxId]="box._id" [boxName]="box.name" (opened)="shiftChanged()" />
+}
 }

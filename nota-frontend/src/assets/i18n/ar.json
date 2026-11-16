@@ -2742,6 +2742,29 @@
     }
   },
   "mobile": {
+    "b": {
+    "suppliers": {
+      "backToList": "رجوع للموردين",
+      "deleteConfirm": "حذف المورد «{{name}}»؟"
+    },
+      "_end": 1
+    },
+
+    "common": {
+      "apply": "تطبيق",
+      "clear": "مسح",
+      "cancel": "إلغاء",
+      "close": "إغلاق",
+      "save": "حفظ",
+      "filters": "فلاتر",
+      "removeFilter": "إزالة الفلتر",
+      "desktopPrint": "الطباعة من الكمبيوتر",
+      "empty": "مفيش بيانات",
+      "loading": "جاري التحميل…",
+      "preview": "معاينة",
+      "delete": "حذف",
+      "confirm": "تأكيد"
+    },
     "tabs": {
       "pos": "البيع",
       "orders": "الطلبات",

@@ -1,0 +1,110 @@
+// Dev script (not part of the build). Phone audit of every admin route, at 390x844 and 1280x800.
+//   node scripts/mobile-audit.mjs [--label final] [--only 390|1280] [--baseline-diff baseline]
+// Needs: a running local backend with seed data (scripts/mobile-audit-seed.mjs wrote mobile-audit/ids.json) and the admin app
+// served (ng serve) at AUDIT_URL. Uses the installed Chrome (channel 'chrome'): no browser download.
+// 390:  fails on horizontal page scroll, any console error, or a missing phone shell (tab bar); full-page screenshot per route.
+// 1280: fails if the phone shell appears; one screenshot per route (desktop regressions stay visible).
+// Screenshots: mobile-audit/<label>-390/*.png and mobile-audit/<label>-1280/*.png (git-ignored).
+import fs from 'node:fs';
+import path from 'node:path';
+import { chromium } from 'playwright-core';
+
+const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > -1 ? process.argv[i + 1] : fallback; };
+const LABEL = arg('label', 'final');
+const ONLY = arg('only', '');
+const ROUTE_FILTER = arg('route', ''); // substring filter for quick runs while building
+const URL_BASE = (process.env.AUDIT_URL || 'http://localhost:4200').replace(/\/$/, '');
+const API = (process.env.AUDIT_API || 'http://localhost:5000').replace(/\/$/, '');
+const USER = process.env.AUDIT_USER || 'owner';
+const PASS = process.env.AUDIT_PASS || '';
+const ROOT = path.resolve('mobile-audit');
+const ids = JSON.parse(fs.readFileSync(path.join(ROOT, 'ids.json'), 'utf8')).ids;
+const FAKE = '000000000000000000000000';
+const id = (key) => ids[key] || FAKE;
+
+// Routes with no tab bar by design (no app frame): login, no-access, ui-kit.
+const NO_SHELL = new Set(['/login', '/no-access']);
+const routes = [
+  '/login', '/no-access', '/home', '/more',
+  '/customers', `/customers/${id('customer')}`,
+  '/selling', '/credit-sales', '/credit-sales/new', '/invoice-history', '/returns',
+  '/products', '/products/new', `/products/edit/${id('product')}`, '/products/profit-report',
+  '/accounting/accounts', '/accounting/opening', '/accounting/vat', '/accounting/reports',
+  '/accounting/manual-entry', `/accounting/manual-entry/${id('manualEntry')}`, '/accounting/closing',
+  '/accounting/journal', `/accounting/journal/${id('journal')}`, `/accounting/accounts/${id('account')}/ledger`,
+  '/suppliers', '/suppliers/new', `/suppliers/edit/${id('supplier')}`,
+  '/purchases', '/purchases/new', `/purchases/${id('purchase')}`,
+  '/cashbox', `/cashbox/${id('box')}`, '/expenses',
+  '/shop-profile', '/website/settings', '/orders', `/orders/${id('order')}`,
+  '/website/couriers', `/website/couriers/${id('courier')}`, '/website/customers',
+  '/users', '/audit',
+];
+const fileName = (route) => (route.replace(/^\//, '').replace(/[\/:]/g, '_') || 'root') + '.png';
+
+async function signIn() {
+  const response = await fetch(`${API}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Nota-Device-Id': 'mobile-audit-device', 'X-Nota-Device-Name': 'mobile-audit' },
+    body: JSON.stringify({ username: USER, password: PASS }),
+  });
+  if (!response.ok) throw new Error(`sign-in failed: ${response.status}`);
+  return (await response.json()).token;
+}
+
+async function run(browser, size, token) {
+  const [width, height] = size === '390' ? [390, 844] : [1280, 800];
+  const dir = path.join(ROOT, `${LABEL}-${size}`);
+  fs.mkdirSync(dir, { recursive: true });
+  const results = [];
+  for (const route of routes.filter((r) => !ROUTE_FILTER || r.includes(ROUTE_FILTER))) {
+    const context = await browser.newContext({ viewport: { width, height }, locale: 'ar-EG', deviceScaleFactor: 1, ...(size === '390' ? { hasTouch: true, isMobile: true } : {}) });
+    // The session token lives in sessionStorage ('nota.session'); set it before the app starts (login page excepted).
+    // The device name is stored too, so the one-time 'name this device' question does not cover the screens.
+    await context.addInitScript(({ t, login }) => { try { localStorage.setItem('nota.deviceId', 'mobile-audit-device'); localStorage.setItem('nota.deviceName', 'mobile-audit'); if (!login) sessionStorage.setItem('nota.session', t); } catch { /* ignore */ } }, { t: token, login: route === '/login' });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text().slice(0, 160)); });
+    page.on('pageerror', (error) => errors.push(`pageerror: ${String(error.message).slice(0, 160)}`));
+    const problems = [];
+    try {
+      await page.goto(`${URL_BASE}${route}`, { waitUntil: 'networkidle', timeout: 30000 });
+      await page.waitForTimeout(600);
+      const info = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth,
+        shell: !!document.querySelector('nota-mobile-shell, .m-tabbar, nav.m-tabs'),
+        path: location.pathname,
+      }));
+      if (size === '390') {
+        if (info.scrollWidth > info.innerWidth) problems.push(`h-scroll ${info.scrollWidth}>${info.innerWidth}`);
+        if (!info.shell && !NO_SHELL.has(route)) problems.push('no phone shell');
+        if (errors.length) problems.push(`console: ${errors[0]}`);
+      } else if (info.shell) problems.push('phone shell at 1280');
+      if (info.path.replace(/^\/admin/, '') !== route && !problems.length) problems.push(`redirected to ${info.path}`);
+      await page.screenshot({ path: path.join(dir, fileName(route)), fullPage: true });
+    } catch (error) {
+      problems.push(`error: ${String(error.message).split('\n')[0]}`);
+    }
+    results.push({ route, ok: problems.length === 0, problems });
+    await context.close();
+  }
+  return results;
+}
+
+const token = await signIn();
+const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const all = {};
+try {
+  for (const size of ['390', '1280']) {
+    if (ONLY && ONLY !== size) continue;
+    all[size] = await run(browser, size, token);
+  }
+} finally { await browser.close(); }
+
+let failed = 0;
+for (const size of Object.keys(all)) {
+  console.log(`\n=== ${size} ===`);
+  for (const r of all[size]) { if (!r.ok) failed++; console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.route.padEnd(52)} ${r.problems.join('; ')}`); }
+}
+fs.writeFileSync(path.join(ROOT, `${LABEL}-results.json`), JSON.stringify(all, null, 2));
+console.log(`\n${failed} failing route/size combinations`);
+process.exitCode = failed ? 1 : 0;

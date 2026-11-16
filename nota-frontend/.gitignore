@@ -8,3 +8,6 @@ release-offline/
 vendor/
 release/
 .codex
+
+# Online Stage 6B: phone audit output (screenshots, ids, results)
+mobile-audit/

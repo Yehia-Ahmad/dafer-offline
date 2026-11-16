@@ -15,15 +15,21 @@ import { AUDIT_ACTIONS, AuditEntry, AuditService } from '../audit.service';
  * Stage 14: /audit (audit.view). Time, user, action, entity, a short details summary; filters on
  * date range, user and action; paginated, newest first. No design board: the existing table pattern.
  */
+import { LayoutService } from '../../../core/layout/layout.service';
+import { FilterChip, MobFilterChipsComponent, MobFilterSheetComponent } from '../../mobile/mob-sheet.component';
+
 @Component({
   selector: 'app-audit-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DatePipe, FormsModule, TranslatePipe, DatePickerModule, SelectModule, NotaPageHeaderComponent, NotaFormFieldComponent,
-    NotaButtonDirective, NotaNumberPipe],
+    NotaButtonDirective, NotaNumberPipe, MobFilterChipsComponent, MobFilterSheetComponent],
   templateUrl: './audit-page.component.html',
   styleUrl: './audit-page.component.scss',
 })
 export class AuditPageComponent {
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the filter sheet and the active-filter chips over the same filter fields. */
+  protected readonly filtersOpen = signal(false);
   private readonly audit = inject(AuditService);
   private readonly auth = inject(AuthService);
   private readonly usersService = inject(UsersService);
@@ -59,6 +65,23 @@ export class AuditPageComponent {
         error: () => undefined,
       });
     }
+    this.load(1);
+  }
+
+  protected activeChips(): FilterChip[] {
+    const chips: FilterChip[] = [];
+    if (this.dateFrom) chips.push({ key: 'from', label: formatDate(this.dateFrom, 'yyyy-MM-dd', 'en') });
+    if (this.dateTo) chips.push({ key: 'to', label: formatDate(this.dateTo, 'yyyy-MM-dd', 'en') });
+    if (this.userId) chips.push({ key: 'user', label: this.userOptions().find((o) => o.value === this.userId)?.label ?? this.userId });
+    if (this.action) chips.push({ key: 'action', label: this.actionLabel(this.action) });
+    return chips;
+  }
+
+  protected removeChip(key: string): void {
+    if (key === 'from') this.dateFrom = null;
+    if (key === 'to') this.dateTo = null;
+    if (key === 'user') this.userId = null;
+    if (key === 'action') this.action = null;
     this.load(1);
   }
 

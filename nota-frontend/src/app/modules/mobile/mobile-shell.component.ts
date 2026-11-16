@@ -12,6 +12,7 @@ import { NAV_GROUPS } from '../layout/nav/nav-menu.config';
 import { ShopProfileService } from '../shop-profile/services/shop-profile.service';
 import { PwaBarComponent } from './pwa-bar.component';
 import { activeTabKey, hidesTabBar, isRootScreen, visibleTabs } from './mobile-tabs';
+import { hasInAppHistory, parentRoute } from './mobile-parent';
 
 /**
  * Online Stage 6A: the phone layout around the same routes (MobNav + MobTop). Replaces the sidebar frame below 768 px; the pages
@@ -99,7 +100,9 @@ export class MobileShellComponent implements OnInit {
     if (this.auth.signedIn() && !this.shop.profile()) this.shop.refresh();
   }
 
+  /** Online Stage 6B: back goes to the logical parent (list ← detail ← edit) when the page was opened directly (link, notification, reload). */
   protected back(): void {
-    this.location.back();
+    if (hasInAppHistory(this.location.getState())) { this.location.back(); return; }
+    void this.router.navigateByUrl(parentRoute(this.router.url) ?? '/home');
   }
 }

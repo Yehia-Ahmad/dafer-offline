@@ -15,6 +15,8 @@ import { OpenShiftDialogComponent } from './open-shift-dialog.component';
 import { DepositOption, ShiftPanelComponent } from './shift-panel.component';
 import { TransferDialogComponent } from './transfer-dialog.component';
 
+import { LayoutService } from '../../core/layout/layout.service';
+
 /**
  * Stage 19: الخزائن والوردية (CashBox.dc.html). A card per box (name, type, balance, open shift), "+ خزنة جديدة" and
  * "تحويل بين الخزائن" (cashbox.manage), "سحب المالك" (owner.drawings), and the shift panel of the selected open shift.
@@ -32,6 +34,7 @@ import { TransferDialogComponent } from './transfer-dialog.component';
   styleUrl: './cashbox-page.component.scss',
 })
 export class CashboxPageComponent implements OnInit {
+  protected readonly layout = inject(LayoutService);
   private readonly cashbox = inject(CashboxService);
   private readonly printData = inject(PrintDataService);
   private readonly translate = inject(TranslateService);

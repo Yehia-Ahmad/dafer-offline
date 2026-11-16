@@ -1,3 +1,54 @@
+@if (layout.isMobile()) {
+<!-- Online Stage 6B (phone): filters in a bottom sheet (تطبيق / مسح) with removable chips, entries as cards. Same service, filters and paging. -->
+<header class="m-head">
+  <div>
+    <div class="m-head__title">{{ 'audit.title' | translate }}</div>
+    <div class="m-head__sub">{{ 'audit.subtitle' | translate }}</div>
+  </div>
+  <button type="button" class="m-btn" (click)="filtersOpen.set(true)" data-testid="m-audit-filters">{{ 'mobile.common.filters' | translate }}</button>
+</header>
+<nota-mob-filter-chips [chips]="activeChips()" (remove)="removeChip($event)" />
+<div class="m-page" aria-live="polite">
+  @if (loading()) {
+    <div class="m-skel m-skel-row" role="status" [attr.aria-label]="'auth.loading' | translate"></div>
+    <div class="m-skel m-skel-row"></div>
+    <div class="m-skel m-skel-row"></div>
+  } @else if (error()) {
+    <div class="m-card m-empty"><p class="nota-error" role="alert">{{ error() }}</p>
+      <button type="button" class="m-btn" (click)="load(page())">{{ 'auth.retry' | translate }}</button></div>
+  } @else if (entries().length === 0) {
+    <div class="m-card m-empty">{{ 'audit.empty' | translate }}</div>
+  } @else {
+    @for (entry of entries(); track entry._id) {
+      <article class="m-card" data-test="audit-entry">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+          <span [class]="(entry.action.endsWith('failed') || entry.action === 'auth.locked' || entry.action.endsWith('deleted')) ? 'm-pill m-pill--warn' : 'm-pill m-pill--muted'">{{ actionLabel(entry.action) }}</span>
+          <span class="m-row__sub nota-num" dir="ltr">{{ entry.at | date: 'yyyy-MM-dd HH:mm' }}</span>
+        </div>
+        <div class="m-row__title" style="margin-top:8px" dir="auto">{{ entry.userName || '—' }} · {{ entityLabel(entry.entity) }}</div>
+        @if (detailsSummary(entry)) { <div class="m-row__sub" style="white-space:normal;margin-top:4px" dir="auto">{{ detailsSummary(entry) }}</div> }
+      </article>
+    }
+    <nav class="m-actions" style="position:static;border:0;padding:4px 0" [attr.aria-label]="'audit.pager.label' | translate">
+      <button type="button" class="m-btn" data-action="prev-page" [disabled]="page() <= 1" (click)="load(page() - 1)">{{ 'audit.pager.prev' | translate }}</button>
+      <span class="m-row__sub nota-num" style="align-self:center;text-align:center;flex:1.4">{{ page() | notaNumber }} / {{ totalPages() | notaNumber }}</span>
+      <button type="button" class="m-btn" data-action="next-page" [disabled]="page() >= totalPages()" (click)="load(page() + 1)">{{ 'audit.pager.next' | translate }}</button>
+    </nav>
+  }
+</div>
+<nota-mob-filter-sheet [(open)]="filtersOpen" [title]="'mobile.common.filters' | translate" (apply)="search()" (clear)="reset()">
+  <div class="m-field">{{ 'audit.filters.from' | translate }}
+    <p-datepicker inputId="apFromM" name="fromM" [(ngModel)]="dateFrom" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="ap__control" /></div>
+  <div class="m-field">{{ 'audit.filters.to' | translate }}
+    <p-datepicker inputId="apToM" name="toM" [(ngModel)]="dateTo" [showIcon]="true" iconDisplay="input" appendTo="body" styleClass="ap__control" /></div>
+  <div class="m-field">{{ 'audit.filters.user' | translate }}
+    <p-select inputId="apUserM" name="userM" [options]="userOptions()" optionLabel="label" optionValue="value" [(ngModel)]="userId"
+      [showClear]="true" [placeholder]="'audit.filters.allUsers' | translate" appendTo="body" styleClass="ap__control" /></div>
+  <div class="m-field">{{ 'audit.filters.action' | translate }}
+    <p-select inputId="apActionM" name="actionM" [options]="actionOptions()" optionLabel="label" optionValue="value" [(ngModel)]="action"
+      [showClear]="true" [filter]="true" filterBy="label" [placeholder]="'audit.filters.allActions' | translate" appendTo="body" styleClass="ap__control" /></div>
+</nota-mob-filter-sheet>
+} @else {
 <!-- Stage 14: audit log (audit.view). No design board; the existing table pattern. -->
 <div class="ap">
   <nota-page-header [title]="'audit.title' | translate" [subtitle]="'audit.subtitle' | translate" />
@@ -63,3 +114,4 @@
     }
   </section>
 </div>
+}

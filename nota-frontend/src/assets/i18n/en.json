@@ -2742,6 +2742,29 @@
     }
   },
   "mobile": {
+    "b": {
+    "suppliers": {
+      "backToList": "Back to suppliers",
+      "deleteConfirm": "Delete supplier \"{{name}}\"?"
+    },
+      "_end": 1
+    },
+
+    "common": {
+      "apply": "Apply",
+      "clear": "Clear",
+      "cancel": "Cancel",
+      "close": "Close",
+      "save": "Save",
+      "filters": "Filters",
+      "removeFilter": "Remove filter",
+      "desktopPrint": "Print from a computer",
+      "empty": "Nothing here yet",
+      "loading": "Loading…",
+      "preview": "Preview",
+      "delete": "Delete",
+      "confirm": "Confirm"
+    },
     "tabs": {
       "pos": "Sell",
       "orders": "Orders",

@@ -11,6 +11,8 @@ import { TranslateService } from '@ngx-translate/core';
 import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-actions.component';
 import { PrintDataService } from '../../core/print/print-data.service';
 import { Supplier, SuppliersService } from './suppliers.service';
+import { LayoutService } from '../../core/layout/layout.service';
+import { MobConfirmComponent } from '../mobile/mob-sheet.component';
 
 /**
  * Stage 18: the suppliers list (docs/design/screens/Suppliers.dc.html). The balance is the ledger party
@@ -20,7 +22,7 @@ import { Supplier, SuppliersService } from './suppliers.service';
 @Component({
   selector: 'app-suppliers-page',
   standalone: true,
-  imports: [PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, SupplierStatementComponent, SupplierPaymentDialogComponent],
+  imports: [PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, SupplierStatementComponent, SupplierPaymentDialogComponent, MobConfirmComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './suppliers-page.component.html',
   styleUrl: './suppliers-page.component.scss',
@@ -31,6 +33,9 @@ export class SuppliersPageComponent implements OnInit {
   private readonly translate = inject(TranslateService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  protected readonly layout = inject(LayoutService);
+  /** Phone only (Online Stage 6B): the supplier the delete-confirmation sheet is asking about. */
+  protected readonly confirmRow = signal<Supplier | null>(null);
 
   readonly suppliers = signal<Supplier[]>([]);
   readonly loading = signal(true);
