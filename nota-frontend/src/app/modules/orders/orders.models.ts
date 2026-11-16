@@ -26,7 +26,7 @@ export interface OrderListRow {
   /** A wallet order whose transfer is not confirmed yet and that is still open. */
   needsTransfer: boolean;
   total: number;
-  /** Number of pieces in the order (Stage 6A). Optional: an older backend does not send it. */
+  /** Number of lines (distinct products) in the order (Stage 6A). Optional: an older backend does not send it. */
   itemsCount?: number;
   courierId: string | null;
   courierName: string | null;

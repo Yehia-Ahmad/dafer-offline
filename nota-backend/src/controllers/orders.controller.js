@@ -39,8 +39,8 @@ const listView = (order, courierNames) => ({
   paymentStatus: paymentStatusOf(order),
   needsTransfer: needsTransfer(order),
   total: order.total,
-  // Online Stage 6A (read-only): the number of pieces, from the order's own lines.
-  itemsCount: (order.items || []).reduce((sum, line) => sum + (Number(line.qty) || 0), 0),
+  // Online Stage 6A (read-only): the number of lines (distinct products, "أصناف"), not the sum of quantities.
+  itemsCount: (order.items || []).length,
   courierId: order.courierId ? String(order.courierId) : null,
   courierName: order.courierId ? courierNames.get(String(order.courierId)) || null : null,
 });

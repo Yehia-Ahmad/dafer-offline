@@ -64,11 +64,11 @@ async function startLedger() {
   await JournalEntry.deleteMany({}); await Account.deleteMany({}); await forgetBoxes(); await Counter.deleteMany({ _id: { $in: ["JE", "OB"] } }); await Meta.deleteMany({});
   await Meta.create({ _id: "schema", version: 4 }); await runMigrations();
 }
-async function seedProduct() {
+async function seedProduct(code = "P1") {
   const category = ok(await staff("POST", "/api/categories", { name: `فئة ${++categorySeq}`, image: PNG_URI }), 201);
   const categoryId = category._id || category.id || category.category?._id;
   ok(await staff("PUT", `/api/website/categories/${categoryId}`, { visibility: "show", sortOrder: 1 }));
-  const created = ok(await staff("POST", "/api/products", { name: "منتج", code: "P1", categoryId, inventoryCount: 50, purchasePrice: 50, wholesalePrice: 60, retailPrice: 100, image: PNG_URI }), 201);
+  const created = ok(await staff("POST", "/api/products", { name: `منتج ${code}`, code, categoryId, inventoryCount: 50, purchasePrice: 50, wholesalePrice: 60, retailPrice: 100, image: PNG_URI }), 201);
   const id = created._id || created.product?._id;
   ok(await staff("PUT", `/api/website/products/${id}`, { visibility: "show", description: "وصف", images: [PNG_URI] }));
   return id;
@@ -152,11 +152,15 @@ it("push endpoints: only https on the known push services (no IPs, localhost, lo
   assert.equal(await PushSubscription.countDocuments({}), accepted.length, "only the accepted endpoints were stored");
 });
 
-it("order list rows carry itemsCount (pieces, read-only)", async () => {
+it("order list rows carry itemsCount: the number of lines (distinct products), not the sum of quantities", async () => {
   const { productId, zoneId } = await shop();
-  ok(await placeRaw(productId, zoneId), 201); // qty 2
-  const list = ok(await staff("GET", "/api/orders?status=new"));
-  assert.equal(list.data[0].itemsCount, 2);
+  const second = await seedProduct("P2");
+  const third = await seedProduct("P3");
+  const three = ok(await placeRaw(productId, zoneId, { items: [{ productId, qty: 3 }, { productId: second, qty: 2 }, { productId: third, qty: 1 }] }), 201);
+  const one = ok(await placeRaw(productId, zoneId), 201); // one line, quantity 2
+  const list = ok(await staff("GET", "/api/orders?status=new")).data;
+  assert.equal(list.find((row) => row.id === three.id).itemsCount, 3, "3 lines (quantities 3, 2, 1), not 6");
+  assert.equal(list.find((row) => row.id === one.id).itemsCount, 1, "1 line of quantity 2, not 2");
 });
 
 it("public key: disabled without VAPID keys, served with them", async () => {
