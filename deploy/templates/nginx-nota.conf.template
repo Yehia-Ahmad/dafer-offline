@@ -47,7 +47,9 @@ server {
     index index.html;
 
     # The API. 100m covers the category Excel import (backend limit 100 MB); JSON bodies are limited to 10mb by the app.
-    location /api/ {
+    # `^~` stops the regex search: without it a regex location (the storefront's hashed-file rule below) would win over this
+    # plain prefix. The exact-match (`=`) locations further down still win over it.
+    location ^~ /api/ {
         client_max_body_size 100m;
         include /etc/nginx/snippets/nota-proxy-api.conf;
         proxy_pass http://127.0.0.1:@@PORT@@;
@@ -64,7 +66,8 @@ server {
     }
 
     # Online Stage 3: the customer website's public API. Small bodies only (the backend limits them too).
-    location /api/store/ {
+    # `^~` here too: nginx uses the LONGEST matching prefix, and only that one's `^~` skips the regex locations.
+    location ^~ /api/store/ {
         client_max_body_size 64k;
         include /etc/nginx/snippets/nota-proxy-api.conf;
         proxy_pass http://127.0.0.1:@@PORT@@;
@@ -127,21 +130,24 @@ server {
         include /etc/nginx/snippets/nota-security-headers.conf;
     }
 
-    # Hashed admin build files (main-AB12CD34.js, styles-AB12CD34.css) never change: cache for a year.
-    location ~ "^/admin/.+-[A-Z0-9]{8}\.(js|css)$" {
-        add_header Cache-Control "public, max-age=31536000, immutable" always;
-        include /etc/nginx/snippets/nota-security-headers.conf;
-        try_files $uri =404;
-    }
-
     # Admin single page app: unknown paths under /admin/ go to the admin index.html.
-    location /admin/ {
+    # `^~` stops the regex search, so nothing under /admin/ can reach the storefront's hashed-file rule below (it would proxy the
+    # admin's fonts and icons to the storefront). The hashed-file cache rule is nested inside, so it only ever sees /admin/ paths.
+    location ^~ /admin/ {
         try_files $uri $uri/ /admin/index.html;
+
+        # Every hashed file the admin build emits (main-AB12CD34.js, styles-AB12CD34.css, media/fa-solid-900-AB12CD34.woff2, ...)
+        # never changes: cache for a year. A missing one is a 404, never the index.html fallback.
+        location ~ "^/admin/.+-[A-Z0-9]{8}\.(js|css|woff2|woff|ttf|eot|svg|png)$" {
+            add_header Cache-Control "public, max-age=31536000, immutable" always;
+            include /etc/nginx/snippets/nota-security-headers.conf;
+            try_files $uri =404;
+        }
     }
 
-    # The storefront's hashed build files (main-AB12CD34.js, styles-AB12CD34.css, fonts) never change: cache for a year.
-    # (Listed after the admin rule, so /admin/... never reaches this one.)
-    location ~ "^/.+-[A-Z0-9]{8}\.(js|css|woff2)$" {
+    # The storefront's hashed build files (main-AB12CD34.js, styles-AB12CD34.css, fonts, images) never change: cache for a year.
+    # Only paths outside /api/ and /admin/ get here (both are `^~` prefixes above).
+    location ~ "^/.+-[A-Z0-9]{8}\.(js|css|woff2|woff|ttf|eot|svg|png)$" {
         include /etc/nginx/snippets/nota-proxy-storefront.conf;
         proxy_pass http://127.0.0.1:@@STOREFRONT_PORT@@;
         proxy_hide_header Cache-Control;

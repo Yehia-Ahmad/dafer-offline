@@ -222,3 +222,28 @@ it("nginx: the quote and the order each have a POST-only rate limit zone on thei
   assert.match(site, /location = \/api\/store\/orders\/quote\s*\{[^}]*limit_req zone=nota_store_quote burst=20 nodelay;[^}]*proxy_pass/s);
   assert.match(site, /location = \/api\/store\/orders\s*\{[^}]*limit_req zone=nota_store_order burst=5 nodelay;/s);
 });
+
+// Regex locations win over plain prefix locations, so a storefront hashed-file regex would catch /admin/media/<font>-<HASH>.woff2.
+// `^~` on the admin and API prefixes stops the regex search (checked with a real nginx 1.24 by the reviewer).
+it("nginx: /admin/ and /api/ are ^~ prefixes, the admin hashed-file rule is nested inside, and both rules cover the same asset types", () => {
+  const site = fs.readFileSync(path.join(__dirname, "..", "..", "deploy", "templates", "nginx-nota.conf.template"), "utf8");
+  const TYPES = "js|css|woff2|woff|ttf|eot|svg|png";
+  assert.match(site, /location \^~ \/api\/ \{/);
+  assert.match(site, /location \^~ \/api\/store\/ \{/);
+  assert.doesNotMatch(site, /location \/api\/(store\/)? \{/, "no plain /api/ prefix is left for a regex to beat");
+  assert.doesNotMatch(site, /location \/admin\/ \{/, "no plain /admin/ prefix is left for a regex to beat");
+  // the admin block, with its nested regex location, and no other top-level admin regex
+  const admin = /location \^~ \/admin\/ \{([\s\S]*?\n    \})/.exec(site);
+  assert.ok(admin, "location ^~ /admin/ exists");
+  assert.match(admin[1], /try_files \$uri \$uri\/ \/admin\/index\.html;/);
+  assert.ok(admin[1].includes(`location ~ "^/admin/.+-[A-Z0-9]{8}\\.(${TYPES})$" {`), "nested admin hashed-file rule with every asset type");
+  assert.match(admin[1], /immutable[\s\S]*try_files \$uri =404;/);
+  assert.doesNotMatch(site.replace(admin[0], ""), /\^\/admin\//, "the admin regex is only inside the ^~ block");
+  // the storefront rule has the same types and is the only other hashed-file regex
+  assert.ok(site.includes(`location ~ "^/.+-[A-Z0-9]{8}\\.(${TYPES})$" {`), "storefront hashed-file rule with every asset type");
+  // the entry page stays no-store and the exact locations are untouched
+  assert.match(site, /location = \/admin\/index\.html \{\s*add_header Cache-Control "no-store" always;/);
+  for (const exact of ["/api/auth/login", "/api/store/orders", "/api/store/orders/quote", "/api/store/auth/login", "/api/store/auth/register", "/health"]) {
+    assert.ok(site.includes(`location = ${exact} {`), `exact location ${exact}`);
+  }
+});
