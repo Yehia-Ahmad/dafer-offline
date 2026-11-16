@@ -23,6 +23,10 @@ MONGO_ADMIN_FILE="$NOTA_ETC/mongo-admin.env"
 KEYFILE=/etc/mongodb-keyfile
 CERT_DIR="/etc/letsencrypt/live/$domain"
 export DEBIAN_FRONTEND=noninteractive
+# Ubuntu 24.04 needrestart would ask which services to restart during apt: "a" = restart automatically, never ask.
+export NEEDRESTART_MODE=a
+# Never stop at a conffile prompt either: keep the existing config file, take the default for new ones.
+APT_OPTS=(-y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold")
 
 # A nota nginx site left from an earlier run must not point at a certificate that is gone: apt may restart nginx below.
 # (It is rebuilt in step 9, HTTP-only first.)
@@ -48,8 +52,8 @@ rand_hex() { openssl rand -hex "$1"; }
 # --- 1. packages ------------------------------------------------------------------------------------------------
 log "setup: apt update/upgrade and base packages"
 apt-get update -y
-apt-get upgrade -y
-apt-get install -y curl gnupg ca-certificates openssl unzip nginx certbot ufw fail2ban unattended-upgrades
+apt-get "${APT_OPTS[@]}" upgrade
+apt-get "${APT_OPTS[@]}" install curl gnupg ca-certificates openssl unzip nginx certbot ufw fail2ban unattended-upgrades
 
 # rclone from the official installer (the Ubuntu package is old). Skipped when already installed; update later with
 # the same command: curl https://rclone.org/install.sh | bash
@@ -82,7 +86,7 @@ if ! command -v node >/dev/null 2>&1 || [ "$(node -p 'process.versions.node.spli
   curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor --yes -o /usr/share/keyrings/nodesource.gpg
   echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" >/etc/apt/sources.list.d/nodesource.list
   apt-get update -y
-  apt-get install -y nodejs
+  apt-get "${APT_OPTS[@]}" install nodejs
 fi
 
 if ! command -v mongod >/dev/null 2>&1; then
@@ -90,7 +94,7 @@ if ! command -v mongod >/dev/null 2>&1; then
   curl -fsSL https://pgp.mongodb.com/server-8.0.asc | gpg --dearmor --yes -o /usr/share/keyrings/mongodb-server-8.0.gpg
   echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" >/etc/apt/sources.list.d/mongodb-org-8.0.list
   apt-get update -y
-  apt-get install -y mongodb-org
+  apt-get "${APT_OPTS[@]}" install mongodb-org
 fi
 
 log "setup: unattended security upgrades"

@@ -1,11 +1,13 @@
 require("dotenv").config();
 
+const mongoose = require("mongoose");
 const app = require("./app");
 const connectDB = require("./config/db");
 const { ensureIndexes } = connectDB;
 // Registered here explicitly so ensureIndexes() always covers the auth models.
 require("./models/user.model");
 require("./models/auditLog.model");
+const { createGracefulShutdown, registerShutdownSignals } = require("./utils/gracefulShutdown");
 const { assertTransactionsSupported } = require("./utils/transaction");
 const { runMigrations } = require("./migrations");
 
@@ -25,8 +27,10 @@ const startServer = async () => {
   const onListening = () => {
     console.log(`Server started on ${host || "all interfaces"}:${PORT}`);
   };
-  if (host) app.listen(PORT, host, onListening);
-  else app.listen(PORT, onListening);
+  const server = host ? app.listen(PORT, host, onListening) : app.listen(PORT, onListening);
+
+  // systemd stop/restart sends SIGTERM: finish in-flight requests (10 s), disconnect MongoDB, exit 0.
+  registerShutdownSignals(createGracefulShutdown({ server, disconnect: () => mongoose.disconnect() }));
 };
 
 startServer().catch((error) => {

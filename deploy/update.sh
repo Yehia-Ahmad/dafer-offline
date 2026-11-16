@@ -74,9 +74,13 @@ else
   log "ERROR: /health did not answer within ${HEALTH_SECONDS}s. Rolling back."
   log "update: last lines of the backend log:"
   journalctl -u nota-backend -n 20 --no-pager >&2 || true
-  # 5. Roll back: old code, then the data from before the update (migrations may have changed it).
+  # 5. Roll back. Order matters: with Restart=always systemd restarts a crashing backend every few seconds, and
+  #    the old code must never start on data the new migrations already changed. So:
+  #    a) stop the service  b) switch back to the old code  c) restore the pre-update data
+  #    d) start the service and wait for /health (c and d are restore.sh --rollback, which also works when the
+  #    service is already stopped).
+  systemctl stop nota-backend || true
   if [ -z "$previous" ]; then
-    systemctl stop nota-backend || true
     die "first install failed and there is no previous release to go back to; the backend is stopped. Fix the problem and run update.sh again."
   fi
   switch_to "$previous"

@@ -40,7 +40,7 @@ if [ "$rollback" -eq 0 ]; then
   log "restore: safety backup is $safety"
 fi
 
-log "restore: stopping nota-backend"
+log "restore: stopping nota-backend (no-op when it is already stopped, as in the update.sh rollback)"
 systemctl stop nota-backend
 
 log "restore: restoring (--drop)"

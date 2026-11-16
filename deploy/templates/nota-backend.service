@@ -14,6 +14,8 @@ EnvironmentFile=/etc/nota/backend.env
 ExecStart=/usr/bin/node src/server.js
 Restart=always
 RestartSec=3
+# SIGTERM starts the app's graceful shutdown (in-flight requests get up to 10 s); wait for it before SIGKILL.
+TimeoutStopSec=20
 NoNewPrivileges=true
 ProtectSystem=full
 ProtectHome=true
