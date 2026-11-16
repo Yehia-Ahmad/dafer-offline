@@ -49,6 +49,7 @@ import { VatSettingsService } from '../../../shop-profile/services/vat-settings.
 import { SaleVat, computeSaleVat } from '../../../shared/vat/vat-math';
 import { hasMoneyPrecision, twoDecimalsValidator } from '../../../shared/price-precision';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
+import { HelpButtonComponent } from '../../../../help/components/help-button.component';
 
 type PriceType = 'wholesalePrice' | 'retailPrice' | 'custom';
 
@@ -131,7 +132,7 @@ type InvoiceItemState = {
 @Component({
   selector: 'app-selling',
   standalone: true,
-  imports: [PrintActionsComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
+  imports: [HelpButtonComponent, PrintActionsComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
     CommonModule,
     FormsModule,
     ReactiveFormsModule,

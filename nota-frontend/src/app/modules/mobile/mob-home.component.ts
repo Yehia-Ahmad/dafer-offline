@@ -15,6 +15,7 @@ import { OrderListRow } from '../orders/orders.models';
 import { OrdersService } from '../orders/orders.service';
 import { PushToggleComponent } from './push-toggle.component';
 import { itemsCountKey, timeAgo } from './mobile-utils';
+import { HelpButtonComponent } from '../../help/components/help-button.component';
 
 /** A new website order on the home screen: the list row plus the number of lines (from the order itself). */
 interface HomeOrder { row: OrderListRow; items: number | null }
@@ -32,19 +33,22 @@ export const HOME_ORDERS_LIMIT = 3;
 @Component({
   selector: 'nota-mob-home',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslatePipe, NotaMoneyPipe, NotaNumberPipe, PushToggleComponent],
+  imports: [RouterLink, TranslatePipe, NotaMoneyPipe, NotaNumberPipe, PushToggleComponent, HelpButtonComponent],
   template: `
     <header class="m-head" data-testid="m-home-head">
       <div>
         <div class="m-head__title">{{ greetingKey() | translate }}، {{ firstName() }}</div>
         <div class="m-head__sub">{{ shopName() }}</div>
       </div>
+      <div style="display:flex;align-items:center;gap:8px">
+      <nota-help-button variant="phone" />
       @if (auth.has('orders.view')) {
         <a class="m-btn" routerLink="/orders" [attr.aria-label]="'mobile.home.bell' | translate" data-testid="m-bell" style="position:relative;min-width:44px;padding:0 12px">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0" /></svg>
           @if ((notifier.newCount() ?? 0) > 0) { <span class="m-badge">{{ notifier.newCount() }}</span> }
         </a>
       }
+      </div>
     </header>
 
     <div class="m-page">

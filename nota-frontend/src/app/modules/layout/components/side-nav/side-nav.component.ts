@@ -1,6 +1,9 @@
 import { Location } from '@angular/common';
 import { Component, HostListener, inject } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
+import { HelpButtonComponent } from '../../../../help/components/help-button.component';
+import { HelpPanelComponent } from '../../../../help/components/help-panel.component';
+import { HelpPanelService } from '../../../../help/help-panel.service';
 import { CustomSidenavComponent } from '../../custom-sidenav/custom-sidenav.component';
 import { SidebarStateService } from '../../nav/sidebar-state.service';
 
@@ -12,11 +15,13 @@ import { SidebarStateService } from '../../nav/sidebar-state.service';
 @Component({
   selector: 'app-side-nav',
   standalone: true,
-  imports: [CustomSidenavComponent, TranslatePipe],
+  imports: [CustomSidenavComponent, TranslatePipe, HelpButtonComponent, HelpPanelComponent],
   templateUrl: './side-nav.component.html',
 })
 export class SideNavComponent {
   protected readonly state = inject(SidebarStateService);
+  /** Online Stage Help: the "؟" side panel (its component and the content load only when it is first opened). */
+  protected readonly help = inject(HelpPanelService);
   private readonly _location = inject(Location);
 
   goBack() {

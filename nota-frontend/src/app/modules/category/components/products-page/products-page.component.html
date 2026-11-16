@@ -6,6 +6,7 @@
       <div class="m-head__title">{{ 'mobile.tabs.stock' | translate }}</div>
       @if (allCount() !== null) { <div class="m-head__sub nota-num">{{ 'mobile.stock.count' | translate: { count: (allCount() | notaNumber) } }}</div> }
     </div>
+    <nota-help-button variant="phone" />
   </header>
   <div class="m-search"><input class="m-input" type="search" [placeholder]="'mobile.stock.search' | translate" [(ngModel)]="searchTerm" data-testid="m-stock-search" /></div>
   <div class="m-chips" data-testid="m-stock-chips">

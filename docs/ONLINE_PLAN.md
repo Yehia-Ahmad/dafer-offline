@@ -263,3 +263,32 @@ Admin `ng test` 934 of 934; admin production build (`--configuration admin`) pas
 - The nav config is missing a line break before `],` after the website-settings and shop items (cosmetic).
 - `docs/stages/ONLINE_STAGE_6B.md` is untracked in git.
 - Printing a shift or a statement from a phone still depends on the desktop print settings.
+
+## Help center (المساعدة)
+
+A help page inside the admin app that explains every page, dialog, action, status, blocking rule and accounting effect in Egyptian Arabic, for a shop owner or cashier with no technical or accounting background. Frontend only: no backend or storefront change. Brief: `docs/stages/ONLINE_STAGE_HELP.md`.
+
+### Decisions (made in the brief)
+1. **Route `/help` and `/help/:section`**, any signed-in user (`authGuard`), the sidebar ("المساعدة") and the phone's المزيد page. On the phone the sections are a card list and a section is a full page.
+2. **Contextual "؟"**: opens the current page's section without leaving it (desktop side panel, phone full page). Every route maps to a section.
+3. **Search** over titles, keywords and text with Arabic normalization (أ/إ/آ/ٱ → ا، ة → ه، ى → ي، tashkeel U+064B–065F and U+0670 and tatweel removed, Arabic-Indic and Eastern digits → ASCII). Results show the section and the matching paragraph with the matches highlighted.
+4. **Permissions**: by default only the sections whose rule the user passes; "عرض كل الأقسام" shows the rest marked "محتاج صلاحية: <label>" (labels from the catalog).
+5. **Arabic only** for now; the English UI shows the Arabic help (`lang="ar" dir="rtl"`) with a one-line note (`help.englishNote`).
+
+### What was built
+- **Content** `nota-frontend/src/app/help/content/ar/*.ts`: 31 sections, one TS object each (`HelpSection { id, title, summary, kind: page|guide, routes, permissions, keywords, related, blocks }`), listed in reading order by `content/ar/index.ts`. Block types: heading (with the ten fixed parts of a page section), paragraph, steps, bullets, tip, warning, behind (ورا الكواليس, with an optional example entry), fields, actions, statuses, blockers (ليه مش قادر؟), faq, table. Every rule, message, status label and accounting line was taken from the code (controllers, services, `accounting/posting.js`, the i18n files) at the time of writing.
+- **Safe rendering**: text carries a tiny inline markup (`**bold**`, `[[/route|label]]`, `[[#section|label]]`) parsed by `inline-parse.ts` into tokens; templates render tokens with interpolation and `routerLink` only, never `innerHTML` (a spec renders `<img onerror>` / `<script>` text and checks no element is created).
+- **Lazy**: all content and the search index are one lazy chunk (`help-data.ts`, ~640 kB raw / ~56 kB transfer), loaded by `HelpContentService` on first use; `/help` pages are `loadComponent` routes; the desktop panel is inside `@defer`. Admin build initial total 963.75 kB → 974.53 kB raw (231.14 → 236.31 kB transfer).
+- **"؟" placement**: desktop, in the shell top bar (`side-nav.component.html`), so every framed page has it from one place (many pages have no `nota-page-header`); phone, in the shell's `m-top` for inner screens and in the headers of the five root screens (home, POS, orders, stock, المزيد). Route → section: `help-route-match.ts` (segment match, `:param` = any segment, most literal segments wins). The sidebar link sits in the sidebar footer (not in `NAV_GROUPS`, so the nav specs and the landing order are unchanged); المزيد has an "المساعدة" row; `mobile-parent` sends `/help/x` back to `/help`.
+- **Permission catalog copy**: `scripts/export-help.mjs` writes `src/app/help/generated/permission-catalog.ts` from `nota-backend/src/auth/permissions.js` (the browser specs cannot read the backend). The permissions section's table is generated from it, with a plain-words line per key in `content/ar/users.ts` (`PERMISSION_HELP`).
+- **Review export**: `node scripts/export-help.mjs` writes `docs/help/HELP_AR.md` (the whole help in section order) with the same `helpToMarkdown` the spec uses (bundled with esbuild); `--check` writes nothing and exits 1 when the catalog copy or the Markdown is stale.
+- **Specs** (`src/app/help/*.spec.ts`): route coverage (walks `app.routes.ts`; excludes `login`, `no-access`, `ui-kit`, redirects), no stale or doubly-claimed routes, every page section has its parts, every catalog permission explained, every `related` id and in-content link resolves, normalization and search, the Markdown is up to date (imported as text through the karma `loader: { ".md": "text" }` in `angular.json` and `src/typings.d.ts`), and the screens (permission filter, show-all, desktop panel, phone full page, English note, safe rendering).
+
+### Decisions taken while building (not in the brief)
+- **"؟" in the shell bars, not in each page header** (see above). The desktop markup of the converted 6A/6B templates is unchanged (the phone-aware templates touched here, `orders-list` and the POS, are identical to HEAD with their phone branches removed; `scripts/verify-desktop-markup.mjs` cannot parse these two 6A templates and reports them as differing).
+- **Reserved stock is not described as a POS blocker**: by design the POS, credit sales and purchases do not read reservations (Stage 4 decision 6); the help says so.
+- **The audit page keeps its app label "سجل العمليات"** (the brief says "سجل المراجعة").
+- **"Sign out everywhere"** is described as what exists (disable / reset / role change sign the user out on every device; changing your own password ends the other sessions); there is no separate button.
+
+### Not in this stage
+English content, screenshots or videos inside the help, in-page anchors per field.

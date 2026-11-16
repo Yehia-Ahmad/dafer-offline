@@ -259,6 +259,17 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/audit/audit-page/audit-page.component').then(m => m.AuditPageComponent)
     },
     {
+        // Online Stage Help: the help center (any signed-in user; each section shows by its own permission rule).
+        path: 'help',
+        canActivate: [authGuard],
+        loadComponent: () => import('./help/pages/help-page.component').then(m => m.HelpPageComponent)
+    },
+    {
+        path: 'help/:section',
+        canActivate: [authGuard],
+        loadComponent: () => import('./help/pages/help-section-page.component').then(m => m.HelpSectionPageComponent)
+    },
+    {
         // Design-system preview; not linked from the menu, static content only.
         path: 'ui-kit',
         data: { frame: false },

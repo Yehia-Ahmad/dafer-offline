@@ -2872,5 +2872,22 @@
       "darkMode": "Dark mode",
       "lightMode": "Light mode"
     }
+  },
+  "help": {
+    "title": "Help",
+    "subtitle": "How to use every part of Nota, step by step.",
+    "pageHelp": "Help for this page",
+    "searchPlaceholder": "Search the help… (Arabic words work best)",
+    "showAll": "Show all sections",
+    "needsPermission": "Needs permission: {{permission}}",
+    "noResults": "No results. Try another word.",
+    "loading": "Loading…",
+    "missing": "This section does not exist.",
+    "allSections": "All help sections",
+    "openPage": "Open in the help page",
+    "close": "Close",
+    "whoUses": "Who uses it:",
+    "related": "Related sections",
+    "englishNote": "The help is available in Arabic only for now."
   }
 }

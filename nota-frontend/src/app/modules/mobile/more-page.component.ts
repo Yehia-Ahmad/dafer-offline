@@ -11,6 +11,7 @@ import { NAV_GROUPS, NavGroup, visibleNavGroups } from '../layout/nav/nav-menu.c
 import { ShopProfileService } from '../shop-profile/services/shop-profile.service';
 import { ThemeService } from '../shared/services/theme.service';
 import { PushToggleComponent } from './push-toggle.component';
+import { HelpButtonComponent } from '../../help/components/help-button.component';
 
 /** The order of the groups on the phone (the design lists الموقع right after المبيعات). */
 export const MORE_GROUP_ORDER = ['sales', 'website', 'inventory', 'treasury', 'accounting', 'admin'] as const;
@@ -26,9 +27,9 @@ export function moreGroups(has: (key: string) => boolean): NavGroup[] {
 @Component({
   selector: 'nota-more-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslatePipe, NavIconComponent, PushToggleComponent, ChangePasswordDialogComponent],
+  imports: [RouterLink, TranslatePipe, NavIconComponent, PushToggleComponent, ChangePasswordDialogComponent, HelpButtonComponent],
   template: `
-    <header class="m-head"><div><div class="m-head__title">{{ 'mobile.tabs.more' | translate }}</div></div></header>
+    <header class="m-head"><div><div class="m-head__title">{{ 'mobile.tabs.more' | translate }}</div></div><nota-help-button variant="phone" /></header>
     <div class="m-page">
       <section class="m-card" data-testid="user-card">
         <div class="m-row" style="padding:0;border:0">
@@ -66,6 +67,10 @@ export function moreGroups(has: (key: string) => boolean): NavGroup[] {
         <button type="button" class="m-row" (click)="changePasswordOpen = true" data-action="change-password">
           <div class="m-row__body"><div class="m-row__title">{{ 'auth.changePassword.open' | translate }}</div></div>
         </button>
+        <!-- Online Stage Help: the help center. -->
+        <a class="m-row" routerLink="/help" data-action="help">
+          <div class="m-row__body"><div class="m-row__title">{{ 'help.title' | translate }}</div></div>
+        </a>
       </section>
     </div>
     <nota-change-password-dialog [(open)]="changePasswordOpen" />

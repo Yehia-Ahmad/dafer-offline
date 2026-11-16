@@ -10,6 +10,7 @@ import { NavIconComponent } from '../layout/nav/nav-icon.component';
 import { CatalogStateService } from '../layout/nav/catalog-state.service';
 import { NAV_GROUPS } from '../layout/nav/nav-menu.config';
 import { ShopProfileService } from '../shop-profile/services/shop-profile.service';
+import { HelpButtonComponent } from '../../help/components/help-button.component';
 import { PwaBarComponent } from './pwa-bar.component';
 import { activeTabKey, hidesTabBar, isRootScreen, visibleTabs } from './mobile-tabs';
 import { hasInAppHistory, parentRoute } from './mobile-parent';
@@ -24,7 +25,7 @@ import { MobileTopBarService } from './mobile-topbar.service';
 @Component({
   selector: 'nota-mobile-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslatePipe, NavIconComponent, PwaBarComponent],
+  imports: [RouterLink, TranslatePipe, NavIconComponent, PwaBarComponent, HelpButtonComponent],
   host: { class: 'm-shell', '[class.m-shell--no-tabs]': 'noTabs()' },
   template: `
     <nota-pwa-bar />
@@ -40,6 +41,8 @@ import { MobileTopBarService } from './mobile-topbar.service';
             @if (bar.subtitle) { <span class="m-top__subtitle">{{ bar.subtitle }}</span> }
           } @else if (titleKey()) { <span class="m-top__title" data-testid="m-title">{{ titleKey()! | translate }}</span> }
         </div>
+        <!-- Online Stage Help: this page's help section as a full page (not on the help pages themselves). -->
+        @if (!onHelp()) { <nota-help-button variant="phone" class="m-top__help" /> }
       </header>
     }
     <main class="m-content"><ng-content /></main>
@@ -81,6 +84,7 @@ export class MobileShellComponent implements OnInit {
   });
   protected readonly active = computed(() => activeTabKey(this.url(), this.tabs()));
   protected readonly root = computed(() => isRootScreen(this.url(), this.tabs()) || !this.auth.signedIn());
+  protected readonly onHelp = computed(() => /^\/help(\/|$|\?|#)/.test(this.url()));
   protected readonly noTabs = computed(() => hidesTabBar(this.url()) || this.topbar.state()?.hideTabs === true || !this.auth.signedIn());
 
   /** Inner screens: the sidebar label of the item whose route (or sub-route) this is. */

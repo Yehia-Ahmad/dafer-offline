@@ -42,6 +42,11 @@
   padding-inline: 12px 16px;
 }
 
+// Online Stage Help: the page's "؟" sits at the other end of the top bar.
+.nota-shell__help {
+  margin-inline-start: auto;
+}
+
 [dir='rtl'] .nota-shell__back-icon {
   transform: scaleX(-1);
 }

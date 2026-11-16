@@ -135,6 +135,9 @@
               "zone.js/testing"
             ],
             "tsConfig": "tsconfig.spec.json",
+            "loader": {
+              ".md": "text"
+            },
             "inlineStyleLanguage": "scss",
             "assets": [
               {

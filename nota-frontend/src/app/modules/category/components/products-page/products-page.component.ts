@@ -39,6 +39,7 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { LayoutService } from '../../../../core/layout/layout.service';
 import { initialOf, mobilePillClass } from '../../../mobile/mobile-utils';
 import { MobSheetComponent } from '../../../mobile/mob-sheet.component';
+import { HelpButtonComponent } from '../../../../help/components/help-button.component';
 
 /** Low stock when inventoryCount <= the product's lowStockThreshold, or this default (same as the backend). */
 export const LOW_STOCK_THRESHOLD = 5;
@@ -59,7 +60,7 @@ export function stockThreshold(product: { lowStockThreshold?: unknown } | null |
 @Component({
   selector: 'app-products-page',
   standalone: true,
-  imports: [PrintActionsComponent, CommonModule, FormsModule, RouterLink, TranslatePipe, DialogModule, NotaButtonDirective, NotaDialogShellComponent,
+  imports: [HelpButtonComponent, PrintActionsComponent, CommonModule, FormsModule, RouterLink, TranslatePipe, DialogModule, NotaButtonDirective, NotaDialogShellComponent,
     NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, CategoryToolsComponent, NotaCanDirective, MobSheetComponent],
   templateUrl: './products-page.component.html',
   styleUrl: './products-page.component.scss',

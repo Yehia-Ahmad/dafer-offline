@@ -24,9 +24,14 @@
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
         <span>{{ 'nav.back' | translate }}</span>
       </button>
+      <!-- Online Stage Help: this page's help section in a side panel. -->
+      <nota-help-button class="nota-shell__help" />
     </div>
     <div class="nota-shell__content">
       <ng-content></ng-content>
     </div>
   </div>
 </div>
+@defer (when help.sectionId()) {
+  <nota-help-panel />
+}

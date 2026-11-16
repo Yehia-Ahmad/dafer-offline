@@ -13,6 +13,7 @@ import { LanguageService } from '../../shared/services/translation.service';
 import { initialOf, mobilePillClass, timeAgo } from '../../mobile/mobile-utils';
 import { Courier, Fulfillment, ORDER_STATUSES, OrderListRow, OrderStatus, PaymentMethod } from '../orders.models';
 import { OrdersService } from '../orders.service';
+import { HelpButtonComponent } from '../../../help/components/help-button.component';
 
 export const ORDER_STATUS_VARIANT: Record<OrderStatus, NotaPillVariant> = {
   new: 'due',
@@ -30,12 +31,12 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, NotaPillVariant> = {
 /** Online Stage 4: /orders. Tabs by status with counts, search, date range, courier filter. */
 @Component({
   selector: 'app-orders-list',
-  imports: [TranslatePipe, FormsModule, RouterLink, DatePipe, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent],
+  imports: [HelpButtonComponent, TranslatePipe, FormsModule, RouterLink, DatePipe, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (layout.isMobile()) {
       <!-- Online Stage 6A, MobOrders: status chips with counts and order cards (same list, filters and API as below). -->
-      <header class="m-head"><div><div class="m-head__title">{{ 'orders.title' | translate }}</div></div></header>
+      <header class="m-head"><div><div class="m-head__title">{{ 'orders.title' | translate }}</div></div><nota-help-button variant="phone" /></header>
       <div class="m-chips" role="tablist" data-testid="m-order-chips">
         <button type="button" role="tab" class="m-chip" data-tab="all" [class.is-active]="status() === ''" (click)="setStatus('')">
           {{ 'orders.tabs.all' | translate }} <span class="m-chip__count">{{ total() }}</span>

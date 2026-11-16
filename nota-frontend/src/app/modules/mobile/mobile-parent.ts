@@ -15,6 +15,8 @@ const RULES: readonly { test: RegExp; parent: string }[] = [
   { test: /^\/accounting\/accounts\/[^/]+\/ledger$/, parent: '/accounting/accounts' },
   { test: /^\/accounting\/journal\/[^/]+$/, parent: '/accounting/journal' },
   { test: /^\/accounting\/manual-entry(\/[^/]+)?$/, parent: '/accounting/journal' },
+  // Online Stage Help: a help section opened directly goes back to the help list.
+  { test: /^\/help\/[^/]+$/, parent: '/help' },
 ];
 
 /** Root tabs (the tab bar's own screens): nothing above them. */
