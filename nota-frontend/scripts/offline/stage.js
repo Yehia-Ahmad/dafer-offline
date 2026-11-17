@@ -221,7 +221,12 @@ async function stageBackend() {
     fingerprint: stagedFingerprint,
   });
   if (stagedFingerprint) log(`production public key: ${stagedFingerprint.slice(0, 16)}... (${chosenKey ? 'from NOTA_RELEASE_PUBLIC_KEY_FILE' : 'from nota-backend/src/license/keys.js'})`);
-  stagedKeyBody = stagedKeyLiteral ? stagedKeyLiteral[1].split('\n').filter((line) => line && !line.startsWith('-----')).join('') : '';
+  stagedKeyBody = stagedKeyLiteral
+  ? stagedKeyLiteral[1]
+      .replace(/-----BEGIN PUBLIC KEY-----/g, '')
+      .replace(/-----END PUBLIC KEY-----/g, '')
+      .replace(/\s+/g, '')
+  : '';
   if (verification) {
     protect.markNonReleasable(STAGE, 'built with the verification key, not a production key (NOTA_ALLOW_PLACEHOLDER_KEY=1)');
     log('WARNING: NOTA_ALLOW_PLACEHOLDER_KEY=1: this is a VERIFICATION stage (it carries the verification key, so the smoke test can license it). It is marked NON-RELEASABLE (offline-stage/NON_RELEASABLE.json) and cannot become an installer.');

@@ -1,32 +1,50 @@
-// Stage 24: the public keys a license is checked against. COMPILED IN: no env var, setting or file can replace them.
+
+// Stage 24: public keys used to verify Nota licenses.
+// Compiled into the backend: do not load production verification keys from
+// environment variables, settings, or external files.
 //
-// PRODUCTION: the vendor's key. Until the vendor generates theirs (tools/license-gen/README.md) this is a marked
-// placeholder that verifies nothing, and the Windows build refuses to run while the marker is still here.
+// PRODUCTION: This public key matches the vendor's existing private.pem.
+// Keep private.pem offline and never ship it with the application.
 //
-// TEST: accepted only when build-flags.js says TEST_BUILD. That file is "true" in the source tree (dev and test runs)
-// and `npm run offline:stage` rewrites the staged copy to "false" and deletes test-key.js, so a shipped backend has
-// only the production key (a staging test checks both).
+// TEST: The test key is accepted only when build-flags.js sets TEST_BUILD=true.
+// The offline staging process must set TEST_BUILD=false and remove test-key.js.
 
 const PLACEHOLDER_MARKER = "NOTA_PLACEHOLDER_REPLACE_WITH_PRODUCTION_PUBLIC_KEY";
 
 const PRODUCTION_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
-${PLACEHOLDER_MARKER}
+MCowBQYDK2VwAyEA+l/q3oNkhxlxHgjsSFvu4Ksq8S5AYNKQCE2MUSfXuek=
 -----END PUBLIC KEY-----`;
 
-// Captured at load (see index.js): later code cannot replace crypto.createPublicKey under the license check.
+// Capture the crypto function at module load time, as in the original design.
 const { createPublicKey } = require("crypto");
 const { TEST_BUILD } = require("./build-flags");
 
-/** Public keys that may verify a license in this build. A placeholder or unparsable key is skipped (fails closed). */
+/** Public keys accepted by this build. Invalid or placeholder keys are skipped. */
 const acceptedPublicKeys = () => {
   const pems = [PRODUCTION_PUBLIC_KEY_PEM];
-  if (TEST_BUILD === true) pems.push(require("./test-key").TEST_PUBLIC_KEY_PEM);
+
+  if (TEST_BUILD === true) {
+    pems.push(require("./test-key").TEST_PUBLIC_KEY_PEM);
+  }
+
   const keys = [];
+
   for (const pem of pems) {
     if (pem.includes(PLACEHOLDER_MARKER)) continue;
-    try { keys.push(createPublicKey(pem)); } catch { /* skip */ }
+
+    try {
+      keys.push(createPublicKey(pem));
+    } catch {
+      // Invalid key: fail closed by excluding it.
+    }
   }
+
   return keys;
 };
 
-module.exports = { PLACEHOLDER_MARKER, PRODUCTION_PUBLIC_KEY_PEM, acceptedPublicKeys, isTestBuild: () => TEST_BUILD === true };
+module.exports = {
+  PLACEHOLDER_MARKER,
+  PRODUCTION_PUBLIC_KEY_PEM,
+  acceptedPublicKeys,
+  isTestBuild: () => TEST_BUILD === true,
+};
