@@ -25,6 +25,9 @@ import { Subscription } from 'rxjs';
 import { format as formatDate } from 'date-fns';
 import { CustomersService } from '../../../customer/services/customers.service';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { CustomerPhoneCheck } from '../../../shared/customer-phone/customer-phone-check';
+import { CustomerPhoneDialogComponent } from '../../../shared/customer-phone/customer-phone-dialog.component';
+import { CustomerPhoneService } from '../../../shared/customer-phone/customer-phone.service';
 import { UnsavedWorkService } from '../../../../core/unsaved-work/unsaved-work.service';
 import { isOverDiscountLimit } from '../../../../core/auth/discount-limit';
 import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, NotaLockBannerComponent } from '../../../shared/ui';
@@ -85,7 +88,7 @@ type CreditLineItemState = {
 @Component({
   selector: 'app-credit-sales',
   standalone: true,
-  imports: [MobDateInputComponent, MobNumberInputComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
+  imports: [CustomerPhoneDialogComponent, MobDateInputComponent, MobNumberInputComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
     CommonModule,
     ReactiveFormsModule,
     TranslatePipe,
@@ -149,7 +152,15 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
   private latestRequestedCustomerQuery = '';
   private lineItemSequence = 0;
   /** Stage 15: "أقصى خصم: X٪" for this user, or null (no limit). */
-  readonly maxDiscountPercent = inject(AuthService).maxDiscountPercent;
+  private readonly auth = inject(AuthService);
+  readonly maxDiscountPercent = this.auth.maxDiscountPercent;
+  /** Online Fixes 1: a typed phone that already belongs to a customer (name differs): ask, never rename silently. Not used when a customer was picked. */
+  readonly phoneCheck = new CustomerPhoneCheck(
+    inject(CustomerPhoneService),
+    () => this.auth.has('customers.manage'),
+    (name) => this.creditSaleForm.patchValue({ customerName: name }),
+    () => { if (typeof document !== 'undefined') (document.getElementById('csCustomerPhone') ?? document.getElementById('csCustomerPhoneM'))?.focus(); },
+  );
   /** Stage 19: the box the down payment goes into. */
   readonly payment = inject(PaymentBoxService);
   /** Stage 21: the shop's VAT settings (null/off = the form shows and sends exactly what it always did). */
@@ -356,6 +367,7 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
   }
 
   resetDraft(): void {
+    this.phoneCheck.reset();
     while (this.lineItems.length > 0) {
       this.lineItems.removeAt(0);
     }
@@ -447,6 +459,12 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
       customerName: customer.name,
       customerPhone: customer.phone
     });
+  }
+
+  /** Online Fixes 1: the phone field lost focus on a typed (not picked) customer. */
+  onCustomerPhoneBlur(): void {
+    if (String(this.creditSaleForm.get('customerId')?.value || '').trim()) return;
+    this.phoneCheck.check(String(this.creditSaleForm.get('customerPhone')?.value || ''), String(this.creditSaleForm.get('customerName')?.value || ''));
   }
 
   clearSelectedCustomerIfEdited(): void {
@@ -782,6 +800,7 @@ export class CreditSalesComponent implements OnInit, OnDestroy {
     } else {
       payload.customerName = normalizedCustomerName;
       payload.customerPhone = normalizedCustomerPhone;
+      if (this.phoneCheck.renameFlagFor(normalizedCustomerPhone, normalizedCustomerName)) payload.renameCustomer = true;
     }
 
     // Stage 10: optional fields, appended only when filled (both empty → the body is exactly as before).

@@ -69,7 +69,7 @@ describe('OrderPageComponent on the phone (Online Stage 6A)', () => {
     component.order.set(order('confirmed')); fixture.detectChanges();
     expect(bar()).toEqual(['prepare', 'dispatch', 'edit', 'reject', 'cancel']);
     component.order.set(order('out_for_delivery')); fixture.detectChanges();
-    expect(bar()).toEqual(['deliver', 'refuse']);
+    expect(bar()).toEqual(['deliver', 'refuse', 'changeCourier']);
     for (const status of ['delivered', 'cancelled', 'rejected', 'refused'] as OrderStatus[]) {
       component.order.set(order(status)); fixture.detectChanges();
       expect(bar()).withContext(status).toEqual([]);

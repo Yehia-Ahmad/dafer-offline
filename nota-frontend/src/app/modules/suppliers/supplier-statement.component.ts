@@ -3,9 +3,9 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, ou
 import { RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { NotaCanDirective } from '../../core/auth/nota-can.directive';
-import { StatementLine, SupplierStatement } from '../purchases/purchases.models';
+import { StatementLine, SupplierPaymentRow, SupplierStatement } from '../purchases/purchases.models';
 import { PurchasesService } from '../purchases/purchases.service';
-import { NotaButtonDirective, NotaMoneyPipe } from '../shared/ui';
+import { NotaButtonDirective, NotaCancelReasonDialogComponent, NotaMoneyPipe, correctionErrorText } from '../shared/ui';
 import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-actions.component';
 import { PrintDataService } from '../../core/print/print-data.service';
 import { Supplier } from './suppliers.service';
@@ -26,7 +26,7 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
 @Component({
   selector: 'app-supplier-statement',
   standalone: true,
-  imports: [PrintActionsComponent, DatePipe, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, MobDatePipe],
+  imports: [NotaCancelReasonDialogComponent, PrintActionsComponent, DatePipe, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, MobDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 @if (layout.isMobile()) {
@@ -43,6 +43,7 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
           <a *notaCan="'purchases.create'" class="m-btn m-btn--lg" style="flex:1;background:transparent;color:#fff;border-color:rgba(255,255,255,.5)" routerLink="/purchases/new" [queryParams]="{ supplier: supplier()._id }" data-action="new-purchase">{{ 'suppliers.statement.newPurchase' | translate }}</a>
         </div>
       </div>
+      <button *notaCan="'suppliers.pay'" type="button" class="m-btn" data-action="refund" (click)="refund.emit(supplier())">{{ 'supplierRefund.open' | translate }}</button>
       <nota-print-actions [items]="printItems()" data-test="statement-print" />
 
       @if (loading()) {
@@ -74,6 +75,23 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
           <div class="m-row"><span class="m-row__body">{{ 'suppliers.statement.credit' | translate }}</span><span class="nota-num m-out">{{ st.totals.credit | notaMoney }}</span></div>
           <div class="m-row"><strong class="m-row__body">{{ 'suppliers.statement.balance' | translate }}</strong><strong class="nota-num">{{ st.totals.balance | notaMoney }}</strong></div>
         </div>
+        @if (payments().length) {
+          <div class="m-section-label">{{ 'suppliers.payments.title' | translate }}</div>
+          <div class="m-card m-card--flush" data-test="payments">
+            @for (payment of payments(); track payment._id) {
+              <div class="m-row" data-test="payment-row" [class.m-muted]="payment.status === 'cancelled'">
+                <span class="m-row__body">
+                  <span class="m-row__title nota-num" dir="ltr" style="text-align:start">{{ payment.number }}</span>
+                  <span class="m-row__sub" style="white-space:normal">{{ payment.date | mobDate }}@if (payment.boxName) { · {{ payment.boxName }} }@if (payment.status === 'cancelled') { · {{ 'suppliers.payments.cancelled' | translate }}@if (payment.cancelReason) { : {{ payment.cancelReason }} } }</span>
+                </span>
+                <strong class="nota-num m-in">{{ payment.amount | notaMoney }}</strong>
+                @if (payment.status === 'posted') {
+                  <button *notaCan="'suppliers.pay'" type="button" class="m-btn m-btn--danger" data-action="cancel-payment" (click)="startCancel(payment)">{{ 'suppliers.payments.cancel' | translate }}</button>
+                }
+              </div>
+            }
+          </div>
+        }
         <div class="m-section-label">{{ 'suppliers.statement.aging.title' | translate }}</div>
         <div class="m-card m-card--flush" data-test="aging">
           @for (bucket of buckets; track bucket) {
@@ -99,6 +117,7 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
       <div class="ss__actions">
         <button *notaCan="'suppliers.pay'" type="button" notaButton="primary" data-action="pay" (click)="pay.emit(supplier())">{{ 'suppliers.statement.pay' | translate }}</button>
         <a *notaCan="'purchases.create'" notaButton routerLink="/purchases/new" [queryParams]="{ supplier: supplier()._id }" data-action="new-purchase">{{ 'suppliers.statement.newPurchase' | translate }}</a>
+        <button *notaCan="'suppliers.pay'" type="button" notaButton data-action="refund" (click)="refund.emit(supplier())">{{ 'supplierRefund.open' | translate }}</button>
         <nota-print-actions [items]="printItems()" data-test="statement-print" />
       </div>
 
@@ -140,6 +159,31 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
             </tfoot>
           </table>
         </div>
+        @if (payments().length) {
+          <h3 class="ss__h">{{ 'suppliers.payments.title' | translate }}</h3>
+          <div class="nota-table-wrap">
+            <table class="nota-table" data-test="payments">
+              <thead><tr>
+                <th>{{ 'suppliers.statement.date' | translate }}</th>
+                <th>{{ 'suppliers.statement.document' | translate }}</th>
+                <th>{{ 'supplierPay.fromBox' | translate }}</th>
+                <th class="nota-num">{{ 'supplierPay.amount' | translate }}</th>
+                <th></th>
+              </tr></thead>
+              <tbody>
+                @for (payment of payments(); track payment._id) {
+                  <tr data-test="payment-row" [class.ss__cancelled]="payment.status === 'cancelled'">
+                    <td class="nota-num">{{ payment.date | date: 'yyyy-MM-dd' }}</td>
+                    <td dir="ltr" class="ss__doc">{{ payment.number }}</td>
+                    <td>{{ payment.boxName || '—' }}</td>
+                    <td class="nota-num">{{ payment.amount | notaMoney }}</td>
+                    <td>@if (payment.status === 'cancelled') { <span class="nota-pill nota-pill--overdue" [attr.title]="payment.cancelReason">{{ 'suppliers.payments.cancelled' | translate }}</span> } @else { <button *notaCan="'suppliers.pay'" type="button" notaButton="danger" data-action="cancel-payment" (click)="startCancel(payment)">{{ 'suppliers.payments.cancel' | translate }}</button> }</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
         <h3 class="ss__h">{{ 'suppliers.statement.aging.title' | translate }}</h3>
         <dl class="ss__aging" data-test="aging">
           @for (bucket of buckets; track bucket) {
@@ -150,6 +194,9 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
       }
     </section>
   }
+  <!-- Online Fixes 1: cancel a payment voucher (a reversal; the box must still be active). -->
+  <nota-cancel-reason-dialog [open]="!!cancelTarget()" [title]="'suppliers.payments.cancelTitle' | translate: { number: cancelTarget()?.number }" [text]="'suppliers.payments.cancelText' | translate"
+    [confirmLabel]="'suppliers.payments.confirm' | translate" [busy]="cancelBusy()" [error]="cancelError()" (confirmed)="confirmCancel($event)" (closed)="closeCancel()" />
   `,
   styles: `
     .ss { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
@@ -164,6 +211,7 @@ export function statementDocument(line: Pick<StatementLine, 'number' | 'supplier
     .ss__aging { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
     .ss__aging div { padding: 10px; border: 1px solid var(--border); border-radius: 12px; } .ss__aging dt { font-size: 12px; color: var(--text-muted); } .ss__aging dd { margin: 4px 0 0; font-weight: 800; }
     tfoot td { font-weight: 800; }
+    .ss__cancelled { opacity: .6; }
   `,
 })
 export class SupplierStatementComponent {
@@ -174,10 +222,18 @@ export class SupplierStatementComponent {
   /** Bumped by the page after a payment or purchase, so the statement reloads. */
   readonly refreshKey = input(0);
   readonly pay = output<Supplier>();
+  /** Online Fixes 1: "استرداد من المورد" (the page opens the refund dialog) and "a voucher was cancelled" (the page reloads the balances). */
+  readonly refund = output<Supplier>();
+  readonly changed = output<void>();
 
   readonly statement = signal<SupplierStatement | null>(null);
   readonly loading = signal(true);
   readonly loadError = signal(false);
+  /** Online Fixes 1: the supplier's payment vouchers, each with "إلغاء السند" (POST /supplier-payments/:id/cancel, suppliers.pay). */
+  readonly payments = signal<SupplierPaymentRow[]>([]);
+  readonly cancelTarget = signal<SupplierPaymentRow | null>(null);
+  readonly cancelBusy = signal(false);
+  readonly cancelError = signal('');
   private readonly printData = inject(PrintDataService);
   private readonly translate = inject(TranslateService);
   /** Stage 23: the A5 SR voucher of a supplier refund row of the statement. */
@@ -207,9 +263,32 @@ export class SupplierStatementComponent {
     });
   }
 
+  startCancel(payment: SupplierPaymentRow): void {
+    this.cancelError.set('');
+    this.cancelTarget.set(payment);
+  }
+
+  closeCancel(): void {
+    this.cancelTarget.set(null);
+    this.cancelBusy.set(false);
+    this.cancelError.set('');
+  }
+
+  confirmCancel(reason: string): void {
+    const payment = this.cancelTarget();
+    if (!payment) return;
+    this.cancelBusy.set(true);
+    this.cancelError.set('');
+    this.service.cancelPayment(payment._id, reason).subscribe({
+      next: () => { this.closeCancel(); this.changed.emit(); this.load(); },
+      error: (response) => { this.cancelBusy.set(false); this.cancelError.set(correctionErrorText(response, this.translate)); },
+    });
+  }
+
   load(): void {
     this.loading.set(true);
     this.loadError.set(false);
+    this.service.payments(this.supplier()._id).subscribe({ next: (result) => this.payments.set(result.data ?? []), error: () => this.payments.set([]) });
     this.service.statement(this.supplier()._id).subscribe({
       next: (statement) => { this.statement.set(statement); this.loading.set(false); },
       error: () => { this.loadError.set(true); this.loading.set(false); },

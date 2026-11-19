@@ -14,7 +14,8 @@ const { PREFIXES, nextDocumentNumber, normalizeNumberSearch } = require("../util
 const { withTransaction } = require("../utils/transaction");
 const { assertOpenDate } = require("../accounting/period");
 const { postSale, postReturn, postInventoryAdjustment, postInvoiceEdit, postInvoiceCancel } = require("../accounting/posting");
-const { resolveBox, usableBoxOf } = require("../cashbox/boxes");
+const { resolveBox, usableBoxOf, httpError } = require("../cashbox/boxes");
+const { hasPermission } = require("../auth/permissions");
 const { priceNewInvoice, repriceEditedInvoice, recordVatEvent, periodFor, today, assertExpectedAmount } = require("../accounting/vat");
 const { computeReturnVat, computeReturnBreakdown, round2: vatRound2 } = require("../utils/vat");
 const { vatInvoiceView, vatItemView, netInvoiceProfit } = require("../utils/vatView");
@@ -523,7 +524,16 @@ const normalizeRefundSelections = (selling, body, res) => {
   return [...selections.values()];
 };
 
-const ensureCustomerExistsForSelling = async ({ customerName, customerPhone, session }) => {
+// Online Fixes 1: a sale never changes the name of a customer that already owns the phone. The existing customer is used as is and
+// the invoice carries the stored name. It renames only when the request says so (`renameCustomer: true`) and the user may manage
+// customers (assertRenameAllowed checks that before anything is written). An unknown phone creates the customer.
+const assertRenameAllowed = (req) => {
+  if (!req || !req.body || req.body.renameCustomer !== true) return false;
+  if (!hasPermission(req.user, "customers.manage")) throw httpError(403, "FORBIDDEN", "تغيير اسم العميل محتاج صلاحية إدارة العملاء");
+  return true;
+};
+
+const ensureCustomerExistsForSelling = async ({ customerName, customerPhone, renameCustomer = false, session }) => {
   if (
     typeof customerName !== "string" ||
     !customerName.trim() ||
@@ -533,20 +543,20 @@ const ensureCustomerExistsForSelling = async ({ customerName, customerPhone, ses
     return null;
   }
 
-  const existingCustomer = await Customer.findOne({
-    name: customerName,
-    phone: customerPhone,
-  }).session(session || null);
+  const existingCustomer = await Customer.findOne({ phone: customerPhone }).session(session || null);
 
   if (existingCustomer) {
+    if (renameCustomer && existingCustomer.name !== customerName) {
+      existingCustomer.name = customerName;
+      await existingCustomer.save({ session });
+    }
     return existingCustomer;
   }
 
   return Customer.findOneAndUpdate(
     { phone: customerPhone },
     {
-      $set: { name: customerName },
-      $setOnInsert: { phone: customerPhone },
+      $setOnInsert: { name: customerName, phone: customerPhone },
     },
     {
       new: true,
@@ -732,20 +742,25 @@ const WALK_IN_NAME = "عميل الموقع";
 
 // walkIn / sourceRef come from the order service only (never from a request body): a walk-in sale has no customer, and sourceRef is the
 // order it came from ("طلب موقع W-000001"), a plain reference that pricing and posting never read.
-const createSellingInvoice = async ({ body, res, allowBelowCost = false, session, number, boxId, walkIn = false, sourceRef }) => {
+const createSellingInvoice = async ({ body, res, allowBelowCost = false, session, number, boxId, walkIn = false, sourceRef, renameCustomer = false }) => {
   const { customerName, customerPhone } = body;
-  const normalizedCustomerName = walkIn ? WALK_IN_NAME : normalizeRequiredString(customerName, "اسم العميل", res);
+  let normalizedCustomerName = walkIn ? WALK_IN_NAME : normalizeRequiredString(customerName, "اسم العميل", res);
   const normalizedCustomerPhone = walkIn ? undefined : normalizeRequiredString(customerPhone, "رقم هاتف العميل", res);
   const normalizedSellingDate = normalizeSellingDate(body.sellingDate, res);
   await assertOpenDate(normalizedSellingDate, { session }); // Stage 22: a sale cannot be dated in a closed period
   const items = normalizeSellingItems(body, res);
   const invoicePricing = resolveInvoicePricing(body, {}, res);
 
-  if (!walkIn) await ensureCustomerExistsForSelling({
-    customerName: normalizedCustomerName,
-    customerPhone: normalizedCustomerPhone,
-    session,
-  });
+  if (!walkIn) {
+    const customer = await ensureCustomerExistsForSelling({
+      customerName: normalizedCustomerName,
+      customerPhone: normalizedCustomerPhone,
+      renameCustomer,
+      session,
+    });
+    // The invoice carries the customer's stored name (an existing phone is never renamed by a sale unless asked and allowed).
+    if (customer && customer.name) normalizedCustomerName = customer.name;
+  }
 
   const productsById = await applyInventoryForInvoiceChange({
     currentItems: [],
@@ -783,6 +798,8 @@ const createSellingInvoice = async ({ body, res, allowBelowCost = false, session
 // Online Stage 5A: the body of the createSelling transaction, moved here unchanged so a website pickup / wallet order can create
 // the same cash sale (box, number, invoice, audit, posting, VAT event, auto-restock) without copying any of it.
 const createCashSaleInTransaction = async (req, res, session) => {
+  // Online Fixes 1: the rename flag is refused (403) before anything is written; a website order's walk-in sale never carries it.
+  const renameCustomer = req.walkIn === true ? false : assertRenameAllowed(req);
   // Stage 19: the sale goes into a box (request boxId, else this device's drawer, else the main box).
   const box = await resolveBox({ req, boxId: req.body && req.body.boxId, session });
   const number = await require("../utils/documentNumber").nextDocumentNumber(PREFIXES.CASH_INVOICE, session);
@@ -795,6 +812,7 @@ const createCashSaleInTransaction = async (req, res, session) => {
     boxId: box._id,
     walkIn: req.walkIn === true,
     sourceRef: req.sourceRef,
+    renameCustomer,
   });
   await audit(req, { action: "sale.created", entity: "Selling", entityId: created._id, session, strict: true });
   await postSale({ sale: created, session });
@@ -963,7 +981,8 @@ const updateSellingInTransaction = async (req, res, session) => {
   }
 
   const oldSelling = selling.toObject();
-  const normalizedCustomerName =
+  const renameCustomer = assertRenameAllowed(req); // Online Fixes 1: refused (403) before anything is written
+  let normalizedCustomerName =
     req.body.customerName !== undefined
       ? normalizeRequiredString(req.body.customerName, "اسم العميل", res)
       : selling.customerName;
@@ -1035,11 +1054,13 @@ const updateSellingInTransaction = async (req, res, session) => {
     });
   }
 
-  await ensureCustomerExistsForSelling({
+  const ownerOfPhone = await ensureCustomerExistsForSelling({
     customerName: normalizedCustomerName,
     customerPhone: normalizedCustomerPhone,
+    renameCustomer,
     session,
   });
+  if (ownerOfPhone && ownerOfPhone.name) normalizedCustomerName = ownerOfPhone.name;
 
   if (shouldUpdateItems) {
     persistedItems = buildPersistedItems(nextItems, productsById);
@@ -1267,7 +1288,22 @@ const addSellingRefund = asyncHandler(async (req, res) => {
   });
 });
 
+// Online Fixes 1: for the sale screens. GET /api/sellings/customer-by-phone?phone= (sales.create or credit.create).
+// Answers { exists, name } for an exact phone (after trim) and nothing else about the customer.
+const customerByPhone = asyncHandler(async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const phone = typeof req.query.phone === "string" ? req.query.phone.trim() : "";
+  if (!phone || phone.length > 30) {
+    res.status(400);
+    throw new Error("رقم الهاتف مطلوب");
+  }
+  const customer = await Customer.findOne({ phone }).select("name").lean();
+  res.json(customer ? { exists: true, name: customer.name } : { exists: false });
+});
+
 module.exports = {
+  customerByPhone,
+  assertRenameAllowed,
   createSellingInvoice,
   createCashSaleInTransaction,
   refundSellingInTransaction,

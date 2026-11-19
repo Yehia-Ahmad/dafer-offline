@@ -6,7 +6,7 @@ import { PrintDataService } from '../../core/print/print-data.service';
 import { DrawingRow } from './cashbox.models';
 import { AuthService } from '../../core/auth/auth.service';
 import { NotaCanDirective } from '../../core/auth/nota-can.directive';
-import { NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent } from '../shared/ui';
+import { NotaButtonDirective, NotaCancelReasonDialogComponent, NotaMoneyPipe, NotaPageHeaderComponent, correctionErrorText } from '../shared/ui';
 import { AddBoxDialogComponent } from './add-box-dialog.component';
 import { CashBox } from './cashbox.models';
 import { CashboxService } from './cashbox.service';
@@ -26,7 +26,7 @@ import { LayoutService } from '../../core/layout/layout.service';
   selector: 'app-cashbox-page',
   standalone: true,
   imports: [
-    PrintActionsComponent, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent,
+    NotaCancelReasonDialogComponent, PrintActionsComponent, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent,
     AddBoxDialogComponent, TransferDialogComponent, DrawingDialogComponent, OpenShiftDialogComponent, ShiftPanelComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -117,6 +117,33 @@ export class CashboxPageComponent implements OnInit {
   startOpenShift(box: CashBox): void {
     this.openShiftBox.set(box);
     this.openShiftOpen.set(true);
+  }
+
+  // ---- Online Fixes 1: stop / restart a box.
+  readonly toggleBox = signal<CashBox | null>(null);
+  readonly toggleBusy = signal(false);
+  readonly toggleError = signal('');
+
+  startToggleBox(box: CashBox): void {
+    this.toggleError.set('');
+    this.toggleBox.set(box);
+  }
+
+  closeToggleBox(): void {
+    this.toggleBox.set(null);
+    this.toggleBusy.set(false);
+    this.toggleError.set('');
+  }
+
+  confirmToggleBox(): void {
+    const box = this.toggleBox();
+    if (!box) return;
+    this.toggleBusy.set(true);
+    this.toggleError.set('');
+    this.cashbox.updateBox(box._id, { isActive: !box.isActive }).subscribe({
+      next: () => { this.closeToggleBox(); this.load(); },
+      error: (response) => { this.toggleBusy.set(false); this.toggleError.set(correctionErrorText(response, this.translate)); },
+    });
   }
 
   openAdd(): void {

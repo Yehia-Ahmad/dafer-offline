@@ -49,6 +49,9 @@ import { VatSettingsService } from '../../../shop-profile/services/vat-settings.
 import { SaleVat, computeSaleVat } from '../../../shared/vat/vat-math';
 import { hasMoneyPrecision, twoDecimalsValidator } from '../../../shared/price-precision';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
+import { CustomerPhoneCheck } from '../../../shared/customer-phone/customer-phone-check';
+import { CustomerPhoneDialogComponent } from '../../../shared/customer-phone/customer-phone-dialog.component';
+import { CustomerPhoneService } from '../../../shared/customer-phone/customer-phone.service';
 import { HelpButtonComponent } from '../../../../help/components/help-button.component';
 
 type PriceType = 'wholesalePrice' | 'retailPrice' | 'custom';
@@ -87,6 +90,8 @@ type SellingPayload = {
   discountPercentage: number;
   shippingFees: number;
   confirmInsufficientInventory: boolean;
+  /** Online Fixes 1: only when the cashier chose to rename the existing customer of this phone (needs customers.manage). */
+  renameCustomer?: boolean;
   /** Stage 21 review: the total the cashier saw. The server answers 409 TOTAL_CHANGED when its VAT settings now give another total. */
   expectedTotal?: number;
   /** Stage 19: only when the user chose a box other than the default. */
@@ -132,7 +137,7 @@ type InvoiceItemState = {
 @Component({
   selector: 'app-selling',
   standalone: true,
-  imports: [HelpButtonComponent, PrintActionsComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
+  imports: [CustomerPhoneDialogComponent, HelpButtonComponent, PrintActionsComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent,
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
@@ -161,9 +166,22 @@ export class SellingComponent implements OnInit, OnDestroy {
   readonly categories = inject(CatalogStateService).categories;
   private readonly _cateoryService = inject(CateoryService);
   private readonly _auth = inject(AuthService);
+  /** Online Fixes 1: a phone that already belongs to a customer (name differs): ask, never rename silently. */
+  readonly phoneCheck = new CustomerPhoneCheck(
+    inject(CustomerPhoneService),
+    () => this._auth.has('customers.manage'),
+    (name) => this.sellingForm.patchValue({ customerName: name }),
+    () => { if (typeof document !== 'undefined') document.getElementById('posCustomerPhone')?.focus(); },
+  );
   /** Online Stage 6A: the phone layout; the invoice panel is a bottom sheet there (open / closed). */
   readonly layout = inject(LayoutService);
   sheetOpen = false;
+  /** Online Fixes 1: the cashier finished typing the phone. */
+  onCustomerPhoneBlur(): void {
+    const raw = this.sellingForm.getRawValue();
+    this.phoneCheck.check(String(raw.customerPhone || ''), String(raw.customerName || ''));
+  }
+
   get cashierName(): string { return this._auth.user()?.name ?? ''; }
   /** Stage 19: "طريقة الدفع" — the box this sale goes into. */
   readonly payment = inject(PaymentBoxService);
@@ -700,6 +718,7 @@ export class SellingComponent implements OnInit, OnDestroy {
       discountPercentage: this.discountPercentageInfo,
       shippingFees: this.toNonNegativeNumber(raw.shippingFees),
       confirmInsufficientInventory: false,
+      ...(this.phoneCheck.renameFlagFor(String(raw.customerPhone || ''), String(raw.customerName || '')) ? { renameCustomer: true } : {}),
       expectedTotal: this.invoiceGrandTotal,
       items: items.map((item: any) => ({
         productId: String(item.productId || ''),
@@ -981,7 +1000,7 @@ export class SellingComponent implements OnInit, OnDestroy {
       productId: [null, Validators.required],
       productName: [{ value: '', disabled: true }],
       categoryName: [{ value: '', disabled: true }],
-      priceType: ['wholesalePrice', Validators.required],
+      priceType: ['retailPrice', Validators.required], // Online Fixes 1: a new line uses the retail price (قطاعي) by default
       price: [{ value: null, disabled: true }, [Validators.required, Validators.min(0.01), twoDecimalsValidator]],
       quantity: [1, [Validators.required, Validators.min(1)]],
       lineTotal: [{ value: 0, disabled: true }]
@@ -1118,13 +1137,13 @@ export class SellingComponent implements OnInit, OnDestroy {
       productId: null,
       productName: '',
       categoryName: '',
-      priceType: 'wholesalePrice',
+      priceType: 'retailPrice',
       price: null,
       quantity: 1,
       lineTotal: 0
     });
 
-    this.applyPriceTypeToItem(itemGroup, 'wholesalePrice');
+    this.applyPriceTypeToItem(itemGroup, 'retailPrice');
     this.updateInvoiceTotals();
   }
 
@@ -1154,6 +1173,7 @@ export class SellingComponent implements OnInit, OnDestroy {
       totalInvoicePrice: 0
     });
 
+    this.phoneCheck.reset();
     this.addInvoiceItem(false);
     this.updateInvoiceTotals();
   }

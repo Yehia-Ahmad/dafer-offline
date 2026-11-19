@@ -206,6 +206,23 @@
             <div class="m-empty">{{ 'customerDetailsPage.s10.noPayments' | translate }}</div>
           }
         </div>
+        @if (payouts.length) {
+          <div class="m-card__title" style="padding:14px 2px 6px">{{ 'customerDetailsPage.payouts.title' | translate }}</div>
+          <div class="m-card m-card--flush" data-test="payouts">
+            @for (payout of payouts; track payout._id) {
+              <div class="m-row" data-test="payout-row" [class.m-muted]="payout.status === 'cancelled'">
+                <span class="m-row__body">
+                  <span class="m-row__title nota-num" dir="ltr" style="text-align:start">{{ payout.number }}</span>
+                  <span class="m-row__sub" style="white-space:normal">{{ payout.date | mobDate }}@if (payout.note) { · {{ payout.note }} }@if (payout.status === 'cancelled') { · {{ 'customerDetailsPage.payouts.cancelled' | translate }}@if (payout.cancelReason) { : {{ payout.cancelReason }} } }</span>
+                </span>
+                <strong class="nota-num m-out">{{ payout.amount | notaMoney }}</strong>
+                @if (payout.status === 'posted') {
+                  <button *notaCan="'credit.collect'" type="button" class="m-btn m-btn--danger" data-action="cancel-payout" (click)="startPayoutCancel(payout)">{{ 'customerDetailsPage.payouts.cancel' | translate }}</button>
+                }
+              </div>
+            }
+          </div>
+        }
       }
 
       @case ('returns') {
@@ -682,6 +699,27 @@
               </tbody>
             </table>
           </div>
+          @if (payouts.length) {
+            <h3 class="cd__subtitle">{{ 'customerDetailsPage.payouts.title' | translate }}</h3>
+            <div class="nota-table-wrap" data-test="payouts">
+              <table class="nota-table">
+                <thead><tr>
+                  <th>{{ 'customerDetailsPage.history.paymentDate' | translate }}</th>
+                  <th>{{ 'customerDetailsPage.s10.invoice' | translate }}</th>
+                  <th class="num">{{ 'customerDetailsPage.s10.amount' | translate }}</th>
+                  <th>{{ 'customerDetailsPage.paymentDialog.note' | translate }}</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  @for (payout of payouts; track payout._id) {
+                    <tr data-test="payout-row" [class.cd__cancelled]="payout.status === 'cancelled'"><td class="nota-num">{{ formatDate(payout.date) }}</td><td class="nota-num" dir="ltr">{{ payout.number }}</td>
+                      <td class="num">{{ payout.amount | notaMoney }}</td><td>{{ payout.note || '—' }}@if (payout.status === 'cancelled') { <span class="nota-pill nota-pill--overdue" [attr.title]="payout.cancelReason">{{ 'customerDetailsPage.payouts.cancelled' | translate }}</span> }</td>
+                      <td>@if (payout.status === 'posted') {<button *notaCan="'credit.collect'" type="button" notaButton="danger" data-action="cancel-payout" (click)="startPayoutCancel(payout)">{{ 'customerDetailsPage.payouts.cancel' | translate }}</button>}</td></tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
         }
 
         @case ('returns') {
@@ -864,3 +902,8 @@
   </nota-dialog-shell>
 </p-dialog>
 }
+
+<!-- Online Fixes 1: cancel a payout (a reversal; the box must still be active). -->
+<nota-cancel-reason-dialog [open]="!!payoutCancel.target" [title]="'customerDetailsPage.payouts.cancelTitle' | translate: { number: payoutCancel.target?.number }" [text]="'customerDetailsPage.payouts.cancelText' | translate"
+  [confirmLabel]="'customerDetailsPage.payouts.confirm' | translate" [busy]="payoutCancel.busy" [error]="payoutCancel.error"
+  (confirmed)="confirmPayoutCancel($event)" (closed)="closePayoutCancel()" />

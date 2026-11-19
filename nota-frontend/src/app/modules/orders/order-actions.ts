@@ -1,6 +1,6 @@
 import { Fulfillment, OrderDetail, OrderStatus, PaymentMethod, PaymentStatus, isWalletMethod } from './orders.models';
 
-export type OrderAction = 'confirm' | 'edit' | 'reject' | 'prepare' | 'ready' | 'verifyPayment' | 'cancel' | 'dispatch' | 'pickup' | 'deliver' | 'refuse';
+export type OrderAction = 'confirm' | 'edit' | 'reject' | 'prepare' | 'ready' | 'verifyPayment' | 'cancel' | 'dispatch' | 'pickup' | 'deliver' | 'refuse' | 'changeCourier';
 
 /** What the action table needs to know about an order (an order placed before Stage 5A is a delivery order paid on delivery). */
 export type OrderActionContext = Pick<OrderDetail, 'status'> & Partial<{ fulfillment: Fulfillment; paymentMethod: PaymentMethod; payment: { status: PaymentStatus } }>;
@@ -21,6 +21,8 @@ const FROM: Record<OrderAction, { from: readonly OrderStatus[]; fulfillment?: Fu
   pickup: { from: ['ready_for_pickup'], fulfillment: 'pickup' },
   deliver: { from: ['out_for_delivery'], fulfillment: 'delivery' },
   refuse: { from: ['out_for_delivery'], fulfillment: 'delivery' },
+  // Online Fixes 1: swap the courier of an order that is out for delivery (not delivered yet).
+  changeCourier: { from: ['out_for_delivery'], fulfillment: 'delivery' },
 };
 const CANCEL_PICKUP: readonly OrderStatus[] = ['confirmed', 'preparing', 'ready_for_pickup'];
 
@@ -35,10 +37,12 @@ const keysOf = (action: OrderAction, wallet: boolean): readonly string[] => {
     case 'pickup': return ['orders.dispatch', 'sales.create'];
     case 'deliver': return wallet ? ['orders.dispatch'] : ['orders.dispatch', 'credit.collect'];
     case 'refuse': return ['orders.dispatch', 'returns.create'];
+    // Cash on delivery returns the courier's credit sale and makes a new one (credit.create + returns.create); a wallet order only changes the courier.
+    case 'changeCourier': return wallet ? ['orders.dispatch'] : ['orders.dispatch', 'credit.create', 'returns.create'];
   }
 };
 
-export const ORDER_ACTION_ORDER: readonly OrderAction[] = ['verifyPayment', 'confirm', 'prepare', 'ready', 'pickup', 'dispatch', 'deliver', 'refuse', 'edit', 'reject', 'cancel'];
+export const ORDER_ACTION_ORDER: readonly OrderAction[] = ['verifyPayment', 'confirm', 'prepare', 'ready', 'pickup', 'dispatch', 'deliver', 'refuse', 'changeCourier', 'edit', 'reject', 'cancel'];
 
 /**
  * The actions a user may offer for an order: allowed by its status, its fulfillment and payment, AND by the user's permissions.

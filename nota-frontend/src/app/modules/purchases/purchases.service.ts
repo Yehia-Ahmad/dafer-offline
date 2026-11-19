@@ -4,7 +4,7 @@ import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   Purchase, PurchaseCreated, PurchaseDetail, PurchaseFilters, PurchasePage, PurchasePayload, PurchaseProduct,
-  PurchaseReturnPayload, PurchaseReturnRow, SupplierPaymentPayload, SupplierStatement,
+  PurchaseReturnPayload, PurchaseReturnRow, SupplierPaymentPayload, SupplierPaymentRow, SupplierRefundPayload, SupplierStatement,
 } from './purchases.models';
 
 /**
@@ -42,6 +42,16 @@ export class PurchasesService {
 
   pay(supplierId: string, payload: SupplierPaymentPayload): Observable<{ _id: string; number: string; balanceAfter: number; amount?: number; date?: string; reference?: string | null; note?: string | null }> {
     return this.http.post<{ _id: string; number: string; balanceAfter: number }>(`${this.api}suppliers/${encodeURIComponent(supplierId)}/payments`, payload);
+  }
+
+  /** Online Fixes 1: the supplier's payment vouchers, newest first (suppliers.view). */
+  payments(supplierId: string): Observable<{ data: SupplierPaymentRow[] }> {
+    return this.http.get<{ data: SupplierPaymentRow[] }>(`${this.api}suppliers/${encodeURIComponent(supplierId)}/payments`);
+  }
+
+  /** Online Fixes 1: POST /suppliers/:id/refunds (suppliers.pay): money the supplier gives back without a return (capped at what they owe us). */
+  refund(supplierId: string, payload: SupplierRefundPayload): Observable<{ _id: string; number: string; amount: number }> {
+    return this.http.post<{ _id: string; number: string; amount: number }>(`${this.api}suppliers/${encodeURIComponent(supplierId)}/refunds`, payload);
   }
 
   cancelPayment(id: string, reason: string): Observable<{ _id: string; status: string }> {

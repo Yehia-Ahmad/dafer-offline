@@ -1,3 +1,4 @@
+import { BACKEND_AUDIT_ACTIONS } from '../../help/generated/audit-actions';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
@@ -30,16 +31,8 @@ export interface AuditPage {
   pagination: { page: number; limit: number; totalItems: number; totalPages: number };
 }
 
-/** Every action the backend records (nota-backend Stage 13, "Audit log"). */
-export const AUDIT_ACTIONS = [
-  'auth.login', 'auth.login_failed', 'auth.locked', 'auth.setup_owner', 'auth.recover', 'auth.recover_failed', 'auth.password_changed',
-  'user.created', 'user.updated', 'user.status_changed', 'user.password_reset',
-  'sale.created', 'sale.updated', 'sale.returned', 'sale.cancelled',
-  'credit.created', 'credit.updated', 'credit.payment', 'credit.returned', 'credit.cancelled',
-  'product.archived', 'product.deleted', 'product.restored', 'product.sync_purchase_price',
-  'category.import', 'category.deleted', 'customer.deleted', 'shop.updated',
-  'backup.created', 'backup.restored', 'backup.restore_failed', 'system.migration',
-] as const;
+/** Every action the backend records: generated from the backend's audit calls (scripts/export-help.mjs), each with an Arabic and English label in audit.actions. */
+export const AUDIT_ACTIONS: readonly string[] = BACKEND_AUDIT_ACTIONS;
 
 /** Stage 14: GET /api/audit (audit.view): newest first, paginated. Empty filters are not sent. */
 @Injectable({ providedIn: 'root' })

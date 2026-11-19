@@ -14,7 +14,7 @@ import { MobDateInputComponent } from '../../../mobile/mob-date-input.component'
 import { MobNumberInputComponent } from '../../../mobile/mob-number-input.component';
 import { MobDatePipe } from '../../../mobile/mob-date.pipe';
 import { mobilePillClass } from '../../../mobile/mobile-utils';
-import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, NotaLockBannerComponent } from '../../../shared/ui';
+import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, NotaLockBannerComponent, NotaCancelReasonDialogComponent, correctionErrorText } from '../../../shared/ui';
 import {
   creditSaleStatusPill,
   CreditSaleView,
@@ -36,7 +36,7 @@ import {
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 import { CashboxService } from '../../../cashbox/cashbox.service';
-import { CustomerCredit } from '../../../cashbox/cashbox.models';
+import { CustomerCredit, CustomerPayoutRow } from '../../../cashbox/cashbox.models';
 import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
 import { PaymentBoxService } from '../../../cashbox/payment-box.service';
 
@@ -72,7 +72,7 @@ interface CustomerStatement {
 @Component({
   selector: 'app-customer-details',
   standalone: true,
-  imports: [MobDateInputComponent, MobNumberInputComponent, ReturnPrintBannerComponent, PrintActionsComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink, CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
+  imports: [NotaCancelReasonDialogComponent, MobDateInputComponent, MobNumberInputComponent, ReturnPrintBannerComponent, PrintActionsComponent, NotaLockBannerComponent, LockedActionComponent, NotaCanDirective, PaymentBoxSelectComponent, RouterLink, CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe, DatePickerModule, Dialog, InputNumberModule,
     NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent, NotaMoneyPipe, NotaNumberPipe, NotaPageHeaderComponent, MobBarComponent, MobSheetComponent, MobDatePipe],
   templateUrl: './customer-details.component.html',
   styleUrl: './customer-details.component.scss'
@@ -132,6 +132,46 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   credit: CustomerCredit | null = null;
   payout = { open: false, amount: null as number | null, note: '', saving: false, error: '' };
   applyCredit = { open: false, amount: null as number | null, saving: false, error: '' };
+
+  // ---- Online Fixes 1: the payouts list with 'إلغاء الصرف' (POST /customers/:id/payouts/:payoutId/cancel, credit.collect).
+  payouts: CustomerPayoutRow[] = [];
+  payoutCancel = { target: null as CustomerPayoutRow | null, busy: false, error: '' };
+
+  private loadPayouts(): void {
+    if (!this.currentCustomerId) return;
+    this.cashbox.customerCredit(this.currentCustomerId).subscribe({
+      next: (result) => { this.payouts = result.payouts ?? []; this.cdr.detectChanges(); },
+      error: () => undefined,
+    });
+  }
+
+  startPayoutCancel(row: CustomerPayoutRow): void {
+    this.payoutCancel = { target: row, busy: false, error: '' };
+  }
+
+  closePayoutCancel(): void {
+    this.payoutCancel = { target: null, busy: false, error: '' };
+  }
+
+  confirmPayoutCancel(reason: string): void {
+    const row = this.payoutCancel.target;
+    if (!row || !this.currentCustomerId) return;
+    const customerId = this.currentCustomerId;
+    this.payoutCancel = { ...this.payoutCancel, busy: true, error: '' };
+    this.cashbox.cancelPayout(customerId, row._id, reason).subscribe({
+      next: () => {
+        this.closePayoutCancel();
+        this.payment.load(true);
+        this.loadStatement(customerId);
+        this.loadPayouts();
+        this.cdr.detectChanges();
+      },
+      error: (error: unknown) => {
+        this.payoutCancel = { ...this.payoutCancel, busy: false, error: correctionErrorText(error, this.translate) };
+        this.cdr.detectChanges();
+      },
+    });
+  }
 
   openPayout(): void {
     this.payout = { open: true, amount: this.credit?.credit ?? null, note: '', saving: false, error: '' };
@@ -251,6 +291,8 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
 
   setTab(tab: CustomerTab): void {
     this.activeTab = tab;
+    // Online Fixes 1: the payouts list (with its cancel) is read when the payments tab opens, not with every statement.
+    if (tab === 'payments') this.loadPayouts();
   }
 
   applyStatementFilters(): void {

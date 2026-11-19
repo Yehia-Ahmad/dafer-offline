@@ -16,7 +16,8 @@ describe('order actions by status and permission (Online Stage 4)', () => {
       // Online Stage 5A: the pickup-only statuses offer nothing for a delivery order
       ready_for_pickup: [],
       picked_up: [],
-      out_for_delivery: ['deliver', 'refuse'],
+      // Online Fixes 1: "تغيير المندوب" on an order that is out for delivery
+      out_for_delivery: ['deliver', 'refuse', 'changeCourier'],
       delivered: [],
       cancelled: [],
       rejected: [],
@@ -41,7 +42,7 @@ describe('order actions by status and permission (Online Stage 4)', () => {
     const cashier = has(ROLE_PERMISSIONS.cashier);
     expect(allowedOrderActions('new', cashier)).toEqual(['confirm', 'edit', 'reject']);
     expect(allowedOrderActions('confirmed', cashier)).toContain('dispatch');
-    expect(allowedOrderActions('out_for_delivery', cashier)).toEqual(['deliver', 'refuse']);
+    expect(allowedOrderActions('out_for_delivery', cashier)).toEqual(['deliver', 'refuse', 'changeCourier']);
     expect(canReturnLines(cashier)).toBeTrue();
     expect(allowedOrderActions('new', has(ROLE_PERMISSIONS.accountant))).toEqual([]);
   });
@@ -76,7 +77,7 @@ describe('order actions by fulfillment and payment (Online Stage 5A)', () => {
     expect(allowedOrderActions(delivery('confirmed', 'instapay', true), everything)).toEqual(['prepare', 'dispatch', 'edit', 'reject', 'cancel']);
     expect(allowedOrderActions(pickup('ready_for_pickup', 'vodafone_cash'), everything)).toEqual(['verifyPayment', 'cancel']);
     expect(allowedOrderActions(pickup('ready_for_pickup', 'vodafone_cash', true), everything)).toEqual(['pickup', 'cancel']);
-    expect(allowedOrderActions(delivery('out_for_delivery', 'instapay', true), everything)).toEqual(['deliver', 'refuse']);
+    expect(allowedOrderActions(delivery('out_for_delivery', 'instapay', true), everything)).toEqual(['deliver', 'refuse', 'changeCourier']);
     // verifying is not offered for cash orders, nor after delivery
     expect(allowedOrderActions(delivery('confirmed'), everything)).not.toContain('verifyPayment');
     expect(allowedOrderActions(delivery('out_for_delivery', 'instapay', false), everything)).not.toContain('verifyPayment');
@@ -88,7 +89,7 @@ describe('order actions by fulfillment and payment (Online Stage 5A)', () => {
     expect(allowedOrderActions(delivery('confirmed', 'instapay', true), has([...base, 'sales.create']))).toContain('dispatch');
     expect(allowedOrderActions(delivery('confirmed', 'instapay', true), has([...base, 'credit.create']))).not.toContain('dispatch');
     expect(allowedOrderActions(delivery('confirmed'), has([...base, 'sales.create']))).not.toContain('dispatch');
-    expect(allowedOrderActions(delivery('out_for_delivery', 'instapay', true), has(base))).toEqual(['deliver']);
+    expect(allowedOrderActions(delivery('out_for_delivery', 'instapay', true), has(base))).toEqual(['deliver', 'changeCourier']); // Online Fixes 1: a wallet order only needs orders.dispatch to change courier
     expect(allowedOrderActions(delivery('out_for_delivery'), has(base))).toEqual([]);
     expect(allowedOrderActions(pickup('ready_for_pickup'), has(base))).toEqual(['cancel']);
     expect(allowedOrderActions(pickup('ready_for_pickup'), has([...base, 'sales.create']))).toEqual(['pickup', 'cancel']);
@@ -156,5 +157,30 @@ describe('amount to collect with returned lines (Online Stage 4)', () => {
     expect(returnsEverything(o, { a: 2 })).toBeFalse();
     expect(returnsEverything(o, { a: 2, b: 1 })).toBeTrue();
     expect(returnsEverything(o, { a: 5, b: 5 })).toBeTrue();
+  });
+});
+
+describe('تغيير المندوب (Online Fixes 1)', () => {
+  const has = (list: readonly string[]) => (key: string) => list.includes(key);
+  const cod = { status: 'out_for_delivery' as OrderStatus, fulfillment: 'delivery' as const, paymentMethod: 'cod' as PaymentMethod };
+  const wallet = { status: 'out_for_delivery' as OrderStatus, fulfillment: 'delivery' as const, paymentMethod: 'instapay' as PaymentMethod, payment: { status: 'verified' as PaymentStatus } };
+
+  it('cash on delivery needs orders.dispatch + credit.create + returns.create (it returns one credit sale and makes another)', () => {
+    expect(allowedOrderActions(cod, has(['orders.dispatch', 'credit.create', 'returns.create']))).toContain('changeCourier');
+    expect(allowedOrderActions(cod, has(['orders.dispatch', 'credit.create']))).not.toContain('changeCourier');
+    expect(allowedOrderActions(cod, has(['orders.dispatch', 'returns.create']))).not.toContain('changeCourier');
+    expect(allowedOrderActions(cod, has(['credit.create', 'returns.create']))).not.toContain('changeCourier');
+  });
+
+  it('a wallet order only needs orders.dispatch (the courier collects nothing; no documents)', () => {
+    expect(allowedOrderActions(wallet, has(['orders.dispatch']))).toContain('changeCourier');
+    expect(allowedOrderActions(wallet, has([]))).not.toContain('changeCourier');
+  });
+
+  it('only while out for delivery, and never for a pickup order', () => {
+    for (const status of ['new', 'confirmed', 'preparing', 'delivered', 'cancelled', 'refused'] as OrderStatus[]) {
+      expect(allowedOrderActions({ ...cod, status }, has(ALL_PERMISSIONS))).withContext(status).not.toContain('changeCourier');
+    }
+    expect(allowedOrderActions({ status: 'out_for_delivery', fulfillment: 'pickup' }, has(ALL_PERMISSIONS))).not.toContain('changeCourier');
   });
 });

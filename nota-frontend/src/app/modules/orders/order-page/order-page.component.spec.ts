@@ -64,7 +64,7 @@ describe('OrderPageComponent (Online Stage 4)', () => {
     component.order.set(order('preparing')); fixture.detectChanges();
     expect(actions()).toEqual(['dispatch', 'edit', 'cancel']);
     component.order.set(order('out_for_delivery')); fixture.detectChanges();
-    expect(actions()).toEqual(['deliver', 'refuse']);
+    expect(actions()).toEqual(['deliver', 'refuse', 'changeCourier']);
     for (const status of ['delivered', 'cancelled', 'rejected', 'refused'] as OrderStatus[]) {
       component.order.set(order(status)); fixture.detectChanges();
       expect(actions()).withContext(status).toEqual([]);
@@ -135,6 +135,59 @@ describe('OrderPageComponent (Online Stage 4)', () => {
     expect(request.request.body).toEqual({ courierId: 'c1' });
     request.flush(order('out_for_delivery', { courier: { id: 'c1', name: 'أحمد', phone: '0100' }, creditSale: { id: 's1', number: 'CR-000001', totalPrice: 280, paidAmount: 0, remainingAmount: 280, status: 'pending', shippingFees: 30 } }));
     expect(component.order().courier.name).toBe('أحمد');
+  });
+
+  describe('تغيير المندوب (Online Fixes 1)', () => {
+    const couriers = { data: [
+      { id: 'c1', name: 'أحمد', phone: '0100', isActive: true, boxId: 'b1', customerId: 'u1', boxBalance: 0, amountOwed: 280, openOrders: 1 },
+      { id: 'c2', name: 'محمود', phone: '0101', isActive: true, boxId: 'b2', customerId: 'u2', boxBalance: 0, amountOwed: 0, openOrders: 0 },
+      { id: 'c3', name: 'موقوف', phone: '0102', isActive: false, boxId: 'b3', customerId: 'u3', boxBalance: 0, amountOwed: 0, openOrders: 0 },
+    ] };
+    const outWith = (extra = {}) => order('out_for_delivery', { courier: { id: 'c1', name: 'أحمد', phone: '0100' }, creditSale: { id: 's1', number: 'CR-000001', totalPrice: 280, paidAmount: 0, remainingAmount: 280, status: 'pending', shippingFees: 30 }, ...extra });
+
+    it('is offered on an order out for delivery; the dialog lists the active couriers except the current one and posts to change-courier', async () => {
+      await open('cashier', outWith());
+      expect(actions()).toContain('changeCourier');
+      component.run('changeCourier');
+      http.expectOne(`${environment.api_base_url}couriers`).flush(couriers);
+      fixture.detectChanges();
+      expect(component.dispatchMode()).toBe('changeCourier');
+      expect(component.courierChoices().map((c: any) => c.id)).toEqual(['c2']);
+      component.submitDispatch(); // nothing chosen: nothing sent
+      component.courierId.set('c2');
+      component.submitDispatch();
+      const request = http.expectOne((r) => r.url === `${url}/change-courier` && r.method === 'POST');
+      expect(request.request.body).toEqual({ courierId: 'c2' });
+      request.flush(outWith({ courier: { id: 'c2', name: 'محمود', phone: '0101' }, statusHistory: [
+        { status: 'new', at: '2026-11-05T10:00:00Z', by: 'customer', byName: null, type: 'status', note: null, details: null },
+        { status: 'out_for_delivery', at: '2026-11-05T12:00:00Z', by: 'u1', byName: 'منى', type: 'courier_change', note: 'غيّر المندوب من أحمد لـ محمود', details: null },
+      ] }));
+      expect(component.order().courier.name).toBe('محمود');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-test="order-history"]').textContent).toContain('غيّر المندوب من أحمد لـ محمود');
+    });
+
+    it('dispatch still lists every active courier (the mode is reset)', async () => {
+      await open('cashier', order('confirmed'));
+      component.run('dispatch');
+      http.expectOne(`${environment.api_base_url}couriers`).flush(couriers);
+      expect(component.dispatchMode()).toBe('dispatch');
+      expect(component.courierChoices().map((c: any) => c.id)).toEqual(['c1', 'c2']);
+    });
+
+    it('a refusal keeps the dialog and shows the server message; a cash-on-delivery order needs credit.create and returns.create', async () => {
+      await open(['orders.view', 'orders.dispatch', 'credit.create'], outWith());
+      expect(actions()).not.toContain('changeCourier');
+      TestBed.resetTestingModule();
+      await open(['orders.view', 'orders.dispatch', 'credit.create', 'returns.create'], outWith());
+      component.run('changeCourier');
+      http.expectOne(`${environment.api_base_url}couriers`).flush(couriers);
+      component.courierId.set('c2');
+      component.submitDispatch();
+      http.expectOne((r) => r.url === `${url}/change-courier`).flush({ code: 'HAS_PAYMENTS', message: 'اتسجل تحصيل على فاتورة المندوب' }, { status: 409, statusText: 'Conflict' });
+      http.expectOne((r) => r.url === url && r.method === 'GET').flush(outWith());
+      expect(component.errorMessage()).toContain('تحصيل');
+    });
   });
 
   it('delivered with returns: choose lines and quantities, see the amount to collect, post the returns without a typed amount', async () => {
@@ -320,7 +373,7 @@ describe('OrderPageComponent (Online Stage 4)', () => {
 
   it('a wallet order delivers without collecting anything (no amount to collect, no typed amount)', async () => {
     await open('cashier', order('out_for_delivery', wallet(true)));
-    expect(actions()).toEqual(['deliver', 'refuse']);
+    expect(actions()).toEqual(['deliver', 'refuse', 'changeCourier']);
     component.run('deliver');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[data-test="amount-to-collect"]')).toBeNull();

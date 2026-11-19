@@ -116,6 +116,29 @@ export interface SupplierPaymentPayload {
   confirmAdvance?: boolean;
 }
 
+/** Online Fixes 1: a supplier payment voucher (PV) as GET /suppliers/:id/payments lists it (cancelled ones included). */
+export interface SupplierPaymentRow {
+  _id: string;
+  number: string;
+  date: string;
+  amount: number;
+  boxId?: string;
+  boxName?: string | null;
+  reference?: string | null;
+  note?: string | null;
+  purchaseId?: string | null;
+  status: 'posted' | 'cancelled';
+  cancelReason?: string;
+}
+
+/** Online Fixes 1: a refund from a supplier without a return (POST /suppliers/:id/refunds, suppliers.pay): Dr box / Cr supplier. */
+export interface SupplierRefundPayload {
+  amount: number;
+  boxId?: string;
+  date?: string;
+  note?: string;
+}
+
 export type StatementLineType = 'opening_balance' | 'purchase' | 'purchase_cancel' | 'payment' | 'payment_cancel' | 'purchase_return' | 'supplier_refund' | 'manual' | 'manual_reversal';
 
 export interface StatementLine {

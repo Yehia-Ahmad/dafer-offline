@@ -15,6 +15,7 @@ const { withTransaction } = require("../utils/transaction");
 const { assertOpenDate } = require("../accounting/period");
 const { postSale, postReceipt, postReturn, postInvoiceEdit, postInvoiceCancel, postEntry, accountMap, line, boxAccount } = require("../accounting/posting");
 const { resolveBox } = require("../cashbox/boxes");
+const { assertRenameAllowed } = require("./selling.controller");
 const { audit } = require("../auth/audit");
 const Receipt = require("../models/receipt.model");
 const PartyOpening = require("../models/partyOpening.model");
@@ -384,6 +385,7 @@ const ensureCustomerExistsForCreditSale = async ({
   customerId,
   customerName,
   customerPhone,
+  renameCustomer = false,
   res,
   session,
 }) => {
@@ -411,20 +413,22 @@ const ensureCustomerExistsForCreditSale = async ({
 
   const normalizedCustomerName = normalizeRequiredString(customerName, "اسم العميل", res);
   const normalizedCustomerPhone = normalizeRequiredString(customerPhone, "رقم هاتف العميل", res);
-  const existingCustomer = await Customer.findOne({
-    name: normalizedCustomerName,
-    phone: normalizedCustomerPhone,
-  }).session(session || null);
+  // Online Fixes 1: a phone that already belongs to a customer is used as is (never renamed by a sale) unless the request asked for the
+  // rename and the user may manage customers (assertRenameAllowed refused the flag earlier otherwise).
+  const existingCustomer = await Customer.findOne({ phone: normalizedCustomerPhone }).session(session || null);
 
   if (existingCustomer) {
+    if (renameCustomer && existingCustomer.name !== normalizedCustomerName) {
+      existingCustomer.name = normalizedCustomerName;
+      await existingCustomer.save({ session });
+    }
     return existingCustomer;
   }
 
   return Customer.findOneAndUpdate(
     { phone: normalizedCustomerPhone },
     {
-      $set: { name: normalizedCustomerName },
-      $setOnInsert: { phone: normalizedCustomerPhone },
+      $setOnInsert: { name: normalizedCustomerName, phone: normalizedCustomerPhone },
     },
     {
       new: true,
@@ -991,11 +995,13 @@ const buildNextCreditSaleItemsAfterRefund = (creditSale, refundSelections) => {
 
 const createCreditSaleInTransaction = async (req, res, session) => {
   validateCreateOnlyFields(req.body, res);
+  const renameCustomer = assertRenameAllowed(req); // Online Fixes 1: the flag is refused (403) before anything is written
 
   const customer = await ensureCustomerExistsForCreditSale({
     customerId: req.body.customerId,
     customerName: req.body.customerName,
     customerPhone: req.body.customerPhone,
+    renameCustomer,
     res,
     session,
   });

@@ -219,6 +219,20 @@ export interface CustomerCredit {
   openItems: number;
   unapplied: number;
   applicable: number;
+  /** GET /customers/:id/credit also lists the payouts (صرف لعميل), cancelled ones included. */
+  payouts?: CustomerPayoutRow[];
+}
+
+/** Online Fixes 1: one payout of a customer's credit (CP-…). */
+export interface CustomerPayoutRow {
+  _id: string;
+  number: string;
+  date: string;
+  amount: number;
+  boxId?: string;
+  note?: string;
+  status: 'posted' | 'cancelled';
+  cancelReason?: string;
 }
 
 /** Error codes the cash endpoints send in `error.code`. */

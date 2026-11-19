@@ -192,6 +192,7 @@ const EXPECTED_ROUTES = {
   "GET /api/sellings/:id": "sales.view",
   "PUT /api/sellings/:id": "sales.edit",
   "POST /api/sellings/:id/cancel": "sales.delete",
+  "GET /api/sellings/customer-by-phone": "sales.create | credit.create",
   "GET /api/shop-profile": "AUTHENTICATED",
   // Stage 19
   "GET /api/cashbox/payment-boxes": "AUTHENTICATED",
@@ -281,6 +282,7 @@ const EXPECTED_ROUTES = {
   "POST /api/orders/:id/dispatch": "orders.dispatch",
   "POST /api/orders/:id/deliver": "orders.dispatch",
   "POST /api/orders/:id/refuse": "orders.dispatch + returns.create",
+  "POST /api/orders/:id/change-courier": "orders.dispatch",
   "GET /api/couriers": "orders.view | website.manage",
   "POST /api/couriers": "website.manage + customers.manage",
   "GET /api/couriers/:id": "orders.view | website.manage",

@@ -40,6 +40,11 @@
               }
             </div>
           }
+          @if (!box.isMain) {
+            <div style="display:flex;gap:8px;width:100%">
+              <button *notaCan="'cashbox.manage'" type="button" class="m-btn" style="flex:1" data-action="toggle-box" (click)="startToggleBox(box)">{{ (box.isActive ? 'cashbox.deactivate' : 'cashbox.activate') | translate }}</button>
+            </div>
+          }
         </div>
       } @empty {
         <div class="m-empty" data-test="empty">{{ 'cashbox.empty' | translate }}</div>
@@ -105,6 +110,11 @@
               }
             </div>
           }
+          @if (!box.isMain) {
+            <div style="display:flex;gap:8px;width:100%">
+              <button *notaCan="'cashbox.manage'" type="button" class="m-btn" style="flex:1" data-action="toggle-box" (click)="startToggleBox(box)">{{ (box.isActive ? 'cashbox.deactivate' : 'cashbox.activate') | translate }}</button>
+            </div>
+          }
         </div>
       } @empty {
         <div class="m-empty" data-test="empty">{{ 'cashbox.empty' | translate }}</div>
@@ -167,6 +177,9 @@
             @if (box.openShift && mayUseShift(box)) {
               <button type="button" notaButton data-action="show-shift" (click)="showShift(box)">{{ 'cashbox.shift.button' | translate }}</button>
             }
+            @if (!box.isMain) {
+              <button *notaCan="'cashbox.manage'" type="button" notaButton data-action="toggle-box" (click)="startToggleBox(box)">{{ (box.isActive ? 'cashbox.deactivate' : 'cashbox.activate') | translate }}</button>
+            }
           </div>
         </article>
       } @empty {
@@ -188,3 +201,10 @@
 }
 }
 }
+
+<!-- Online Fixes 1: stop / restart a cash box. The server refuses the main box, a box with an open shift and a box that still holds money. No accounting entry. -->
+<nota-cancel-reason-dialog [open]="!!toggleBox()" [requireReason]="false" [busy]="toggleBusy()" [error]="toggleError()"
+  [title]="(toggleBox()?.isActive ? 'cashbox.deactivateTitle' : 'cashbox.activateTitle') | translate: { name: toggleBox()?.name }"
+  [text]="(toggleBox()?.isActive ? 'cashbox.deactivateText' : 'cashbox.activateText') | translate"
+  [confirmLabel]="(toggleBox()?.isActive ? 'cashbox.deactivate' : 'cashbox.activate') | translate"
+  (confirmed)="confirmToggleBox()" (closed)="closeToggleBox()" />

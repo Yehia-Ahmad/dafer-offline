@@ -351,6 +351,23 @@ const createOrderCashSale = async (req, order, boxId, session) => {
   }), walkIn: true, sourceRef: `طلب موقع ${order.number}` }, res, session), res);
 };
 
+/**
+ * The credit sale of a cash-on-delivery order on a courier's customer account: the order's snapshot lines and prices, the delivery fee as
+ * shippingFees and the order total as the expected total (so the invoice total IS the order total, or nothing is created: 409 TOTAL_CHANGED).
+ * Used by dispatch and by changeCourier (the same existing creation path, a pure move out of dispatch).
+ */
+const createCourierCreditSale = (req, order, courier, session) => {
+  const res = makeRes();
+  return callHandler(() => createCreditSaleInTransaction(handlerReq(req, {
+    customerId: String(courier.customerId),
+    sellingDate: today(),
+    items: order.items.map((line) => ({ productId: String(line.productId), quantity: line.qty, price: line.unitPrice })),
+    shippingFees: order.deliveryFee,
+    notes: `طلب موقع ${order.number}`,
+    expectedTotal: order.total,
+  }), res, session), res);
+};
+
 /** Every line against stock minus what orders confirmed BEFORE this one still reserve (see dispatch). */
 const assertAvailableInQueue = (order, session) => assertAvailable(order.items, { orderId: order._id, session, before: { at: order.confirmedAt || order.createdAt, id: order._id } });
 
@@ -387,15 +404,7 @@ const dispatch = (req, id, body) => withTransaction(async (session) => {
     return updated;
   }
 
-  const res = makeRes();
-  const creditSale = await callHandler(() => createCreditSaleInTransaction(handlerReq(req, {
-    customerId: String(courier.customerId),
-    sellingDate: today(),
-    items: order.items.map((line) => ({ productId: String(line.productId), quantity: line.qty, price: line.unitPrice })),
-    shippingFees: order.deliveryFee,
-    notes: `طلب موقع ${order.number}`,
-    expectedTotal: order.total,
-  }), res, session), res);
+  const creditSale = await createCourierCreditSale(req, order, courier, session);
 
   const updated = await WebOrder.findByIdAndUpdate(order._id, { $set: { creditSaleId: creditSale._id } }, { new: true, session });
   await audit(req, { action: "order.dispatched", entity: "WebOrder", entityId: order._id, details: { number: order.number, courier: courier.name, invoice: creditSale.number }, session, strict: true });
@@ -545,4 +554,61 @@ const refuse = (req, id, body) => withTransaction(async (session) => {
   return updated;
 });
 
-module.exports = { confirm, reject, prepare, cancel, markReady, verifyPayment, edit, dispatch, pickup, deliver, refuse, loadOrder, isId, fulfillmentOf };
+/**
+ * Online Fixes 1: "تغيير المندوب" on an order that is out for delivery (not yet delivered), delivery orders only. ONE transaction.
+ *  - cash on delivery (a credit sale on the courier): a FULL return of the current credit sale through the existing return path (the same
+ *    call "refused" makes, so the same shipping rule, stock, VAT share and posting), then a new credit sale on the new courier through the
+ *    existing creation path with the order's snapshot lines, prices and delivery fee. The old courier's balance goes back to what it was
+ *    before the order; the new courier owes the order total; stock ends where it was. Needs credit.create and returns.create as well.
+ *  - wallet (a cash sale, the courier collects nothing): only the courier and the history change; no accounting.
+ * The first write is a conditional update on the current courier, so two parallel calls change it once (the second sees the new courier).
+ * The old links are kept in `courierChanges`.
+ */
+const changeCourier = (req, id, body) => withTransaction(async (session) => {
+  const input = body && typeof body === "object" ? body : {};
+  const courier = await loadCourier(input.courierId, session);
+  const order = await loadOrder(id, session);
+  wrongFulfillment(order, "delivery");
+  if (order.status !== "out_for_delivery") throw httpError(409, "INVALID_STATUS", "حالة الطلب اتغيرت. حدّث الصفحة", { status: order.status });
+  if (!order.courierId) throw httpError(409, "ORDER_NOT_DISPATCHED", "الطلب مالوش مندوب");
+  if (String(order.courierId) === String(courier._id)) throw httpError(409, "SAME_COURIER", "ده نفس المندوب الحالي");
+  const wallet = isWallet(order);
+  if (!wallet) {
+    assertPermission(req, "credit.create", "مش مسموحلك تعمل فاتورة آجلة");
+    assertPermission(req, "returns.create", "مش مسموحلك تسجّل مرتجع");
+  }
+  const from = await Courier.findById(order.courierId).select("name").session(session).lean();
+  const fromName = (from && from.name) || "—";
+  const note = `غيّر المندوب من ${fromName} لـ ${courier.name}`;
+
+  // The status/courier guard comes first: a second parallel change conflicts here, then answers 409 and creates nothing.
+  const guarded = await WebOrder.findOneAndUpdate(
+    { _id: order._id, status: "out_for_delivery", courierId: order.courierId, ...fulfillmentFilter("delivery") },
+    { $set: { courierId: courier._id }, $push: { statusHistory: historyEntry(req, "out_for_delivery", { type: "courier_change", note, details: { fromCourierId: String(order.courierId), toCourierId: String(courier._id), from: fromName, to: courier.name } }) } },
+    { new: true, session }
+  );
+  if (!guarded) throw httpError(409, "INVALID_STATUS", "حالة الطلب اتغيرت. حدّث الصفحة");
+
+  const change = { at: new Date(), by: actorOf(req).id || "system", byName: actorOf(req).name, fromCourierId: order.courierId, toCourierId: courier._id };
+  let newSale = null;
+  if (!wallet) {
+    const oldSale = await CreditSale.findById(order.creditSaleId).session(session);
+    if (!oldSale) throw httpError(409, "ORDER_NOT_DISPATCHED", "فاتورة الطلب غير موجودة");
+    // Someone already collected on, or returned from, the courier's invoice from the customer page: the balance could not go back to
+    // what it was, so the swap is refused instead of guessing.
+    if (oldSale.status === "cancelled" || oldSale.status === "returned" || (oldSale.refunds || []).length) throw httpError(409, "HAS_RETURNS", "فاتورة المندوب عليها مرتجع أو اتلغت. مينفعش تغيير المندوب");
+    if (roundMoney(oldSale.paidAmount || 0) > EPSILON) throw httpError(409, "HAS_PAYMENTS", "اتسجل تحصيل على فاتورة المندوب. مينفعش تغيير المندوب");
+    const res = makeRes();
+    await callHandler(() => refundCreditSaleInTransaction(handlerReq(req, { refundAll: true, note: `تغيير مندوب طلب موقع ${order.number}: ${note}` }, { id: String(oldSale._id) }), res, session), res);
+    const refunded = await CreditSale.findById(oldSale._id).select("refunds").session(session).lean();
+    newSale = await createCourierCreditSale(req, order, courier, session);
+    change.previousCreditSaleId = oldSale._id;
+    change.previousReturnIds = returnLogIds(refunded);
+    change.creditSaleId = newSale._id;
+  }
+  const updated = await WebOrder.findByIdAndUpdate(order._id, { $set: newSale ? { creditSaleId: newSale._id } : {}, $push: { courierChanges: change } }, { new: true, session });
+  await audit(req, { action: "order.courier_changed", entity: "WebOrder", entityId: order._id, details: { number: order.number, from: fromName, to: courier.name, ...(newSale ? { invoice: newSale.number } : {}) }, session, strict: true });
+  return updated;
+});
+
+module.exports = { confirm, reject, prepare, cancel, markReady, verifyPayment, edit, dispatch, pickup, deliver, refuse, changeCourier, loadOrder, isId, fulfillmentOf };

@@ -52,6 +52,8 @@ describe('HomeComponent (Stage 12 dashboard)', () => {
   // Stage 19: the owner may see the boxes, so the dashboard also asks for the cash total (tested in stage19-integration.spec.ts).
   afterEach(() => {
     http.match((request) => request.url === `${environment.api_base_url}cashbox/boxes`).forEach((request) => request.flush({ data: [], cashTotal: 0 }));
+    // Online Fixes 1: the owner also sees the opening banner (the real owner has accounting.manage)
+    http.match((request) => request.url.endsWith('accounting/opening')).forEach((request) => request.flush({ status: 'finalized' }));
     http.verify();
   });
 

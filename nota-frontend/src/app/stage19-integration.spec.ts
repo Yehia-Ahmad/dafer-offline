@@ -217,6 +217,69 @@ describe('Stage 19 — customer credit buttons', () => {
     expect(component.statement.rows.map((row) => [row.kind, row.description, row.debit])).toEqual([['opening_balance', 'رصيد أول المدة', 0], ['payout', 'صرف رصيد دائن', 200]]);
     expect(el(fixture).textContent).toContain('صرف رصيد دائن');
   });
+
+  describe('Online Fixes 1: the payouts list and "إلغاء الصرف"', () => {
+    const PAYOUTS = [
+      { _id: 'po1', number: 'CP-000001', date: '2026-11-06T08:00:00.000Z', amount: 200, status: 'posted' },
+      { _id: 'po2', number: 'CP-000002', date: '2026-11-05T08:00:00.000Z', amount: 50, status: 'cancelled', cancelReason: 'غلط' },
+    ];
+    const openPayments = async (signIn: () => void = () => signInAs('owner')) => {
+      const fixture = await open(signIn, statement(CREDIT));
+      // The payouts are read when the payments tab opens (not with every statement).
+      http.expectNone(`${base}customers/cu1/credit`);
+      component.setTab('payments');
+      http.expectOne(`${base}customers/cu1/credit`).flush({ ...CREDIT, payouts: PAYOUTS });
+      await settle(fixture);
+      return fixture;
+    };
+    const dialogButton = () => document.body.querySelector<HTMLElement>('[data-action="confirm-correction"]')!;
+
+    it('lists the payouts with their status; only a posted one has a cancel button (credit.collect)', async () => {
+      const fixture = await openPayments();
+      const rows = Array.from(el(fixture).querySelectorAll('[data-test="payout-row"]'));
+      expect(rows.length).toBe(2);
+      expect(rows[0].textContent).toContain('CP-000001');
+      expect(rows[0].querySelector('[data-action="cancel-payout"]')).not.toBeNull();
+      expect(rows[1].querySelector('[data-action="cancel-payout"]')).toBeNull();
+      expect(rows[1].textContent).toContain('customerDetailsPage.payouts.cancelled');
+    });
+
+    it('without credit.collect there is no cancel button', async () => {
+      const fixture = await openPayments(() => signInWith(['customers.view']));
+      expect(el(fixture).querySelectorAll('[data-test="payout-row"]').length).toBe(2);
+      expect(el(fixture).querySelector('[data-action="cancel-payout"]')).toBeNull();
+    });
+
+    it('cancelling asks for a reason (3 characters), posts it to the payout cancel route, then reloads the statement and the list', async () => {
+      const fixture = await openPayments();
+      (el(fixture).querySelector('[data-action="cancel-payout"]') as HTMLElement).click();
+      await settle(fixture);
+      expect(component.payoutCancel.target?._id).toBe('po1');
+      expect(dialogButton().hasAttribute('disabled') || (dialogButton() as HTMLButtonElement).disabled).toBeTrue();
+      component.confirmPayoutCancel('غلط في المبلغ');
+      const request = http.expectOne(`${base}customers/cu1/payouts/po1/cancel`);
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({ reason: 'غلط في المبلغ' });
+      request.flush({ payout: { _id: 'po1', status: 'cancelled' }, credit: CREDIT });
+      http.match((r) => r.url.endsWith('cashbox/payment-boxes')).forEach((r) => r.flush(MAIN_ONLY_BOXES));
+      http.expectOne(`${base}customers/cu1/statement`).flush(statement(CREDIT));
+      http.expectOne(`${base}customers/cu1/credit`).flush({ ...CREDIT, payouts: [{ ...PAYOUTS[0], status: 'cancelled', cancelReason: 'غلط في المبلغ' }, PAYOUTS[1]] });
+      await settle(fixture);
+      expect(component.payoutCancel.target).toBeNull();
+      expect(el(fixture).querySelector('[data-action="cancel-payout"]')).toBeNull();
+    });
+
+    it('a refusal (the box is stopped) shows the server reason and keeps the dialog open', async () => {
+      const fixture = await openPayments();
+      component.startPayoutCancel(PAYOUTS[0] as never);
+      component.confirmPayoutCancel('سبب');
+      http.expectOne(`${base}customers/cu1/payouts/po1/cancel`).flush({ code: 'BOX_INACTIVE', message: 'الخزنة دي مقفولة' }, { status: 409, statusText: 'Conflict' });
+      await settle(fixture);
+      expect(component.payoutCancel.target).not.toBeNull();
+      expect(component.payoutCancel.busy).toBeFalse();
+      expect(component.payoutCancel.error).toBe('الخزنة دي مقفولة'); // no translations in this spec: the server message is the fallback
+    });
+  });
 });
 
 describe('Stage 19 — the POS payment box', () => {

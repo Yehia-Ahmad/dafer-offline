@@ -412,6 +412,8 @@ describe('BoxDetailComponent (Stage 19)', () => {
     expect(rows[2].querySelector('a[href^="/accounting/journal"]')).not.toBeNull();
     expect(el.querySelector('[data-test="detail-balance"]')!.textContent).toContain('7,550');
     expect(el.querySelectorAll('[data-test="shifts"] tbody tr').length).toBe(2);
+    // Online Fixes 1: the transfers and owner drawings lists of the box (empty here)
+    http.match((request) => request.url.includes('cashbox/transfers') || request.url.endsWith('cashbox/drawings')).forEach((request) => request.flush({ data: [] }));
     http.verify();
   });
 
@@ -425,6 +427,123 @@ describe('BoxDetailComponent (Stage 19)', () => {
     http.expectOne(`${base}cashbox/boxes`).flush({ data: [WALLET], cashTotal: 0 });
     await settle(fixture);
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-test="line-balance"]')!.classList).toContain('bd__warn');
+    // Online Fixes 1: the transfers and owner drawings lists of the box (empty here)
+    http.match((request) => request.url.includes('cashbox/transfers') || request.url.endsWith('cashbox/drawings')).forEach((request) => request.flush({ data: [] }));
     http.verify();
+  });
+});
+
+describe('Online Fixes 1: stop / restart a box and cancel a transfer or an owner drawing', () => {
+  const dialogButton = () => document.body.querySelector<HTMLButtonElement>('[data-action="confirm-correction"]')!;
+
+  it('the box list offers «إيقاف الخزنة» on every box but the main one, and PUTs isActive after the confirm', async () => {
+    const ctx = await render(CashboxPageComponent);
+    ctx.fixture.detectChanges();
+    ctx.http.expectOne(`${base}cashbox/boxes`).flush({ data: [MAIN, WALLET], cashTotal: 0 });
+    await settle(ctx.fixture);
+    const el = ctx.fixture.nativeElement as HTMLElement;
+    const buttons = Array.from(el.querySelectorAll<HTMLElement>('[data-action="toggle-box"]'));
+    expect(buttons.length).toBe(1); // the wallet only
+    buttons[0].click();
+    await settle(ctx.fixture);
+    expect(ctx.fixture.componentInstance.toggleBox()?._id).toBe('b-w1');
+    ctx.fixture.componentInstance.confirmToggleBox();
+    const request = ctx.http.expectOne(`${base}cashbox/boxes/b-w1`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ isActive: false });
+    request.flush({ ...WALLET, isActive: false });
+    ctx.http.expectOne(`${base}cashbox/boxes`).flush({ data: [MAIN, { ...WALLET, isActive: false }], cashTotal: 0 });
+    await settle(ctx.fixture);
+    expect(ctx.fixture.componentInstance.toggleBox()).toBeNull();
+  });
+
+  it('a refusal (the box still holds money) keeps the dialog with the server reason', async () => {
+    const ctx = await render(CashboxPageComponent);
+    ctx.fixture.detectChanges();
+    ctx.http.expectOne(`${base}cashbox/boxes`).flush({ data: [MAIN, WALLET], cashTotal: 0 });
+    await settle(ctx.fixture);
+    ctx.fixture.componentInstance.startToggleBox(WALLET);
+    ctx.fixture.componentInstance.confirmToggleBox();
+    ctx.http.expectOne(`${base}cashbox/boxes/b-w1`).flush({ code: 'BOX_NOT_EMPTY', message: 'الخزنة فيها رصيد' }, { status: 409, statusText: 'Conflict' });
+    await settle(ctx.fixture);
+    expect(ctx.fixture.componentInstance.toggleBox()).not.toBeNull();
+    expect(ctx.fixture.componentInstance.toggleError()).not.toBe('');
+  });
+
+  const transferRow = (id: string, number: string, kind: string, status: string) => ({
+    _id: id, number, fromBoxId: 'b-main', toBoxId: 'b-w1', fromBoxName: 'الرئيسية', toBoxName: 'فودافون كاش', amount: 100, date: '2026-11-06T08:00:00.000Z', kind, status,
+  });
+
+  const openDetail = async (signIn: () => void = () => signInAs('owner')) => {
+    const ctx = await render(BoxDetailComponent, signIn, { snapshot: { paramMap: convertToParamMap({ id: 'b-w1' }) } });
+    ctx.fixture.detectChanges();
+    ctx.http.expectOne(`${base}cashbox/boxes/b-w1`).flush({ ...WALLET, shifts: [] });
+    ctx.http.expectOne(`${base}cashbox/boxes/b-w1/ledger`).flush({ openingBalance: 0, balance: 2300, side: 'debit', absBalance: 2300, lines: [] });
+    ctx.http.expectOne(`${base}cashbox/boxes`).flush({ data: [WALLET], cashTotal: 0 });
+    ctx.http.expectOne((request) => request.url === `${base}cashbox/transfers`).flush({ data: [
+      transferRow('t1', 'TR-000001', 'transfer', 'posted'),
+      transferRow('t2', 'TR-000002', 'transfer', 'cancelled'),
+      transferRow('t3', 'TR-000003', 'shift_deposit', 'posted'),
+    ] });
+    const drawings = ctx.http.match(`${base}cashbox/drawings`);
+    drawings.forEach((request) => request.flush({ data: [
+      { _id: 'w1', number: 'DR-000001', boxId: 'b-w1', boxName: 'فودافون كاش', amount: 30, date: '2026-11-06T08:00:00.000Z', status: 'posted' },
+      { _id: 'w2', number: 'DR-000002', boxId: 'b-other', boxName: 'تانية', amount: 20, date: '2026-11-06T08:00:00.000Z', status: 'posted' },
+    ] }));
+    await settle(ctx.fixture);
+    return { ...ctx, drawingsAsked: drawings.length };
+  };
+
+  it('lists the transfers and the drawings of this box; only a posted plain transfer or a posted drawing has a cancel button', async () => {
+    const ctx = await openDetail();
+    const el = ctx.fixture.nativeElement as HTMLElement;
+    expect(ctx.drawingsAsked).toBe(1);
+    expect(ctx.fixture.componentInstance.drawings().map((row) => row.number)).toEqual(['DR-000001']); // the other box's drawing is filtered out
+    expect(el.querySelectorAll('[data-action="cancel-transfer"]').length).toBe(1); // not the cancelled one, not the shift deposit
+    expect(el.querySelectorAll('[data-action="cancel-drawing"]').length).toBe(1);
+  });
+
+  it('cancelling a transfer asks for a reason, posts it, reloads the lists', async () => {
+    const ctx = await openDetail();
+    (ctx.fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-action="cancel-transfer"]')!.click();
+    await settle(ctx.fixture);
+    expect(dialogButton().disabled).toBeTrue();
+    ctx.fixture.componentInstance.confirmCancel('تحويل غلط');
+    const request = ctx.http.expectOne(`${base}cashbox/transfers/t1/cancel`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ reason: 'تحويل غلط' });
+    request.flush({ _id: 't1', status: 'cancelled' });
+    ctx.http.expectOne(`${base}cashbox/boxes/b-w1`).flush({ ...WALLET, shifts: [] });
+    ctx.http.expectOne((r) => r.url === `${base}cashbox/transfers`).flush({ data: [] });
+    ctx.http.match(`${base}cashbox/drawings`).forEach((r) => r.flush({ data: [] }));
+    ctx.http.expectOne(`${base}cashbox/boxes/b-w1/ledger`).flush({ openingBalance: 0, balance: 0, side: 'debit', absBalance: 0, lines: [] });
+    ctx.http.expectOne(`${base}cashbox/boxes`).flush({ data: [WALLET], cashTotal: 0 });
+    await settle(ctx.fixture);
+    expect(ctx.fixture.componentInstance.cancelTarget()).toBeNull();
+  });
+
+  it('cancelling an owner drawing posts to the drawing cancel route; a refusal keeps the dialog open', async () => {
+    const ctx = await openDetail();
+    ctx.fixture.componentInstance.startCancel('drawing', ctx.fixture.componentInstance.drawings()[0]);
+    ctx.fixture.componentInstance.confirmCancel('سحب غلط');
+    const request = ctx.http.expectOne(`${base}cashbox/drawings/w1/cancel`);
+    expect(request.request.body).toEqual({ reason: 'سحب غلط' });
+    request.flush({ code: 'BOX_INACTIVE', message: 'الخزنة موقوفة' }, { status: 409, statusText: 'Conflict' });
+    await settle(ctx.fixture);
+    expect(ctx.fixture.componentInstance.cancelTarget()).not.toBeNull();
+    expect(ctx.fixture.componentInstance.cancelBusy()).toBeFalse();
+    expect(ctx.fixture.componentInstance.cancelError()).not.toBe('');
+  });
+
+  it('without cashbox.manage or owner.drawings there are no cancel buttons, and the drawings are not even requested', async () => {
+    const ctx = await render(BoxDetailComponent, () => signInWith(['cashbox.view']), { snapshot: { paramMap: convertToParamMap({ id: 'b-w1' }) } });
+    ctx.fixture.detectChanges();
+    ctx.http.expectOne(`${base}cashbox/boxes/b-w1`).flush({ ...WALLET, shifts: [] });
+    ctx.http.expectNone(`${base}cashbox/drawings`);
+    ctx.http.expectOne(`${base}cashbox/boxes/b-w1/ledger`).flush({ openingBalance: 0, balance: 0, side: 'debit', absBalance: 0, lines: [] });
+    ctx.http.expectOne(`${base}cashbox/boxes`).flush({ data: [WALLET], cashTotal: 0 });
+    ctx.http.expectOne((request) => request.url === `${base}cashbox/transfers`).flush({ data: [transferRow('t1', 'TR-000001', 'transfer', 'posted')] });
+    await settle(ctx.fixture);
+    expect((ctx.fixture.nativeElement as HTMLElement).querySelector('[data-action="cancel-transfer"]')).toBeNull();
   });
 });

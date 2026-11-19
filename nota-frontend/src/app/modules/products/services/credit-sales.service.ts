@@ -27,6 +27,8 @@ export interface CreateCreditSalePayload {
   customerId?: string;
   customerName?: string;
   customerPhone?: string;
+  /** Online Fixes 1: only when the cashier chose to rename the existing customer of this phone (needs customers.manage). */
+  renameCustomer?: boolean;
   sellingDate: string;
   dueDate?: string;
   notes?: string;

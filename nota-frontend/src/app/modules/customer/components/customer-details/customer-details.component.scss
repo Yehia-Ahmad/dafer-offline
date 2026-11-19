@@ -26,6 +26,9 @@
   &.is-on { color: var(--brand-strong-text); border-bottom-color: var(--brand); font-weight: 700; } }
 .cd__legend { margin: 0; font-size: 13px; color: var(--text-muted); }
 .cd__empty { text-align: center; color: var(--text-muted); padding: 24px; }
+// Online Fixes 1: the payouts list under the payments.
+.cd__subtitle { font-size: 16px; font-weight: 800; margin: 22px 0 10px; }
+.cd__cancelled { opacity: .6; }
 .cd__total td { font-weight: 800; background: var(--surface-2); }
 .cd__msg { margin: 0; font-size: 13px; font-weight: 500; color: var(--danger); }
 .cd__invoices { display: flex; flex-direction: column; gap: 14px; }

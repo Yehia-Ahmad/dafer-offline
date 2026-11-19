@@ -3,9 +3,11 @@
 
 export interface HelpPermissionCatalog {
   keys: readonly string[];
-  permissions: Readonly<Record<string, { group: string; ar: string }>>;
+  permissions: Readonly<Record<string, { group: string; ar: string; en: string }>>;
   groups: Readonly<Record<string, string>>;
   roles: Readonly<Record<string, string>>;
+  groupsEn: Readonly<Record<string, string>>;
+  rolesEn: Readonly<Record<string, string>>;
   templates: Readonly<Record<string, readonly string[]>>;
   dependencies: Readonly<Record<string, readonly string[]>>;
 }
@@ -65,199 +67,248 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
   "permissions": {
     "sales.create": {
       "group": "sales",
-      "ar": "إنشاء فاتورة نقدية"
+      "ar": "إنشاء فاتورة نقدية",
+      "en": "Create cash sales"
     },
     "sales.view": {
       "group": "sales",
-      "ar": "عرض الفواتير النقدية"
+      "ar": "عرض الفواتير النقدية",
+      "en": "View cash sales"
     },
     "sales.edit": {
       "group": "sales",
-      "ar": "تعديل الفواتير النقدية"
+      "ar": "تعديل الفواتير النقدية",
+      "en": "Edit cash sales"
     },
     "sales.delete": {
       "group": "sales",
-      "ar": "إلغاء فاتورة كاش"
+      "ar": "إلغاء فاتورة كاش",
+      "en": "Cancel cash invoice"
     },
     "sales.discount": {
       "group": "sales",
-      "ar": "منح خصم على الفاتورة (نقدي وآجل)"
+      "ar": "منح خصم على الفاتورة (نقدي وآجل)",
+      "en": "Give invoice discounts (cash and credit)"
     },
     "sales.priceBelowCost": {
       "group": "sales",
-      "ar": "البيع بأقل من سعر الشراء (نقدي وآجل)"
+      "ar": "البيع بأقل من سعر الشراء (نقدي وآجل)",
+      "en": "Sell below purchase price (cash and credit)"
     },
     "credit.create": {
       "group": "credit",
-      "ar": "إنشاء فاتورة آجلة"
+      "ar": "إنشاء فاتورة آجلة",
+      "en": "Create credit sales"
     },
     "credit.view": {
       "group": "credit",
-      "ar": "عرض الفواتير الآجلة"
+      "ar": "عرض الفواتير الآجلة",
+      "en": "View credit sales"
     },
     "credit.edit": {
       "group": "credit",
-      "ar": "تعديل الفواتير الآجلة"
+      "ar": "تعديل الفواتير الآجلة",
+      "en": "Edit credit sales"
     },
     "credit.delete": {
       "group": "credit",
-      "ar": "إلغاء فاتورة آجل"
+      "ar": "إلغاء فاتورة آجل",
+      "en": "Cancel credit invoice"
     },
     "credit.collect": {
       "group": "credit",
-      "ar": "تحصيل الدفعات"
+      "ar": "تحصيل الدفعات",
+      "en": "Collect payments"
     },
     "returns.create": {
       "group": "returns",
-      "ar": "تسجيل مرتجع"
+      "ar": "تسجيل مرتجع",
+      "en": "Create returns"
     },
     "returns.view": {
       "group": "returns",
-      "ar": "عرض المرتجعات"
+      "ar": "عرض المرتجعات",
+      "en": "View returns"
     },
     "customers.view": {
       "group": "customers",
-      "ar": "عرض العملاء"
+      "ar": "عرض العملاء",
+      "en": "View customers"
     },
     "customers.manage": {
       "group": "customers",
-      "ar": "إدارة العملاء"
+      "ar": "إدارة العملاء",
+      "en": "Manage customers"
     },
     "suppliers.view": {
       "group": "suppliers",
-      "ar": "عرض الموردين"
+      "ar": "عرض الموردين",
+      "en": "View suppliers"
     },
     "suppliers.manage": {
       "group": "suppliers",
-      "ar": "إدارة الموردين"
+      "ar": "إدارة الموردين",
+      "en": "Manage suppliers"
     },
     "suppliers.pay": {
       "group": "suppliers",
-      "ar": "سداد الموردين واسترداد منهم"
+      "ar": "سداد الموردين واسترداد منهم",
+      "en": "Pay suppliers and take refunds"
     },
     "purchases.view": {
       "group": "suppliers",
-      "ar": "عرض فواتير الشراء"
+      "ar": "عرض فواتير الشراء",
+      "en": "View purchases"
     },
     "purchases.create": {
       "group": "suppliers",
-      "ar": "تسجيل فاتورة شراء ومرتجع"
+      "ar": "تسجيل فاتورة شراء ومرتجع",
+      "en": "Record purchases and purchase returns"
     },
     "purchases.cancel": {
       "group": "suppliers",
-      "ar": "إلغاء فاتورة شراء"
+      "ar": "إلغاء فاتورة شراء",
+      "en": "Cancel purchases"
     },
     "products.view": {
       "group": "products",
-      "ar": "عرض المنتجات والفئات"
+      "ar": "عرض المنتجات والفئات",
+      "en": "View products and categories"
     },
     "products.manage": {
       "group": "products",
-      "ar": "إدارة المنتجات"
+      "ar": "إدارة المنتجات",
+      "en": "Manage products"
     },
     "products.viewCost": {
       "group": "products",
-      "ar": "عرض سعر الشراء والربح"
+      "ar": "عرض سعر الشراء والربح",
+      "en": "View purchase price and profit"
     },
     "products.syncPrice": {
       "group": "products",
-      "ar": "مزامنة سعر الشراء مع الفواتير"
+      "ar": "مزامنة سعر الشراء مع الفواتير",
+      "en": "Sync purchase price to invoices"
     },
     "products.importExport": {
       "group": "products",
-      "ar": "استيراد وتصدير Excel"
+      "ar": "استيراد وتصدير Excel",
+      "en": "Excel import and export"
     },
     "categories.manage": {
       "group": "products",
-      "ar": "إدارة الفئات"
+      "ar": "إدارة الفئات",
+      "en": "Manage categories"
     },
     "reports.profit": {
       "group": "reports",
-      "ar": "تقارير الأرباح"
+      "ar": "تقارير الأرباح",
+      "en": "Profit reports"
     },
     "dashboard.view": {
       "group": "reports",
-      "ar": "عرض لوحة التحكم"
+      "ar": "عرض لوحة التحكم",
+      "en": "View the dashboard"
     },
     "shop.manage": {
       "group": "admin",
-      "ar": "إدارة بيانات المتجر"
+      "ar": "إدارة بيانات المتجر",
+      "en": "Manage shop profile"
     },
     "users.manage": {
       "group": "admin",
-      "ar": "إدارة المستخدمين والصلاحيات"
+      "ar": "إدارة المستخدمين والصلاحيات",
+      "en": "Manage users and permissions"
     },
     "audit.view": {
       "group": "admin",
-      "ar": "عرض سجل العمليات"
+      "ar": "عرض سجل العمليات",
+      "en": "View the audit log"
     },
     "backup.manage": {
       "group": "admin",
-      "ar": "النسخ الاحتياطي والاستعادة"
+      "ar": "النسخ الاحتياطي والاستعادة",
+      "en": "Backup and restore"
     },
     "accounting.view": {
       "group": "accounting",
-      "ar": "عرض الحسابات"
+      "ar": "عرض الحسابات",
+      "en": "View accounting"
     },
     "accounting.manage": {
       "group": "accounting",
-      "ar": "إدارة الحسابات"
+      "ar": "إدارة الحسابات",
+      "en": "Manage accounting"
     },
     "reports.financial": {
       "group": "accounting",
-      "ar": "التقارير المالية"
+      "ar": "التقارير المالية",
+      "en": "Financial reports"
     },
     "accounting.close": {
       "group": "accounting",
-      "ar": "إقفال الفترات المحاسبية"
+      "ar": "إقفال الفترات المحاسبية",
+      "en": "Close accounting periods"
     },
     "vat.file": {
       "group": "accounting",
-      "ar": "تقديم الإقرار الضريبي وسداد الضريبة"
+      "ar": "تقديم الإقرار الضريبي وسداد الضريبة",
+      "en": "File the VAT return and pay VAT"
     },
     "cashbox.view": {
       "group": "cashbox",
-      "ar": "عرض الخزائن وأرصدتها"
+      "ar": "عرض الخزائن وأرصدتها",
+      "en": "View cash boxes and balances"
     },
     "cashbox.manage": {
       "group": "cashbox",
-      "ar": "إدارة الخزائن والتحويلات"
+      "ar": "إدارة الخزائن والتحويلات",
+      "en": "Manage cash boxes and transfers"
     },
     "shift.operate": {
       "group": "cashbox",
-      "ar": "فتح وإغلاق ورديتك"
+      "ar": "فتح وإغلاق ورديتك",
+      "en": "Open and close your own shift"
     },
     "shift.manage": {
       "group": "cashbox",
-      "ar": "عرض كل الورديات وإغلاق وردية غيرك"
+      "ar": "عرض كل الورديات وإغلاق وردية غيرك",
+      "en": "See all shifts and close anyone's"
     },
     "expenses.create": {
       "group": "cashbox",
-      "ar": "تسجيل مصروف"
+      "ar": "تسجيل مصروف",
+      "en": "Record expenses"
     },
     "expenses.manage": {
       "group": "cashbox",
-      "ar": "إلغاء المصروفات وإدارة البنود"
+      "ar": "إلغاء المصروفات وإدارة البنود",
+      "en": "Cancel expenses and manage categories"
     },
     "owner.drawings": {
       "group": "cashbox",
-      "ar": "سحب المالك"
+      "ar": "سحب المالك",
+      "en": "Owner drawings"
     },
     "website.manage": {
       "group": "website",
-      "ar": "إدارة الموقع"
+      "ar": "إدارة الموقع",
+      "en": "Manage website"
     },
     "orders.view": {
       "group": "website",
-      "ar": "عرض طلبات الموقع"
+      "ar": "عرض طلبات الموقع",
+      "en": "View website orders"
     },
     "orders.manage": {
       "group": "website",
-      "ar": "إدارة طلبات الموقع (تأكيد وتعديل ورفض وإلغاء)"
+      "ar": "إدارة طلبات الموقع (تأكيد وتعديل ورفض وإلغاء)",
+      "en": "Manage website orders (confirm, edit, reject, cancel)"
     },
     "orders.dispatch": {
       "group": "website",
-      "ar": "تسليم الطلبات للمندوب وتسجيل التسليم والمرتجع"
+      "ar": "تسليم الطلبات للمندوب وتسجيل التسليم والمرتجع",
+      "en": "Dispatch orders, record delivery and refusals"
     }
   },
   "groups": {
@@ -280,6 +331,27 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
     "storekeeper": "أمين مخزن",
     "accountant": "محاسب",
     "custom": "مخصص"
+  },
+  "groupsEn": {
+    "sales": "Cash sales",
+    "credit": "Credit sales",
+    "returns": "Returns",
+    "customers": "Customers",
+    "suppliers": "Suppliers",
+    "products": "Products and inventory",
+    "reports": "Reports",
+    "admin": "Administration",
+    "accounting": "Accounting",
+    "cashbox": "Cash",
+    "website": "Website"
+  },
+  "rolesEn": {
+    "owner": "Owner",
+    "manager": "Manager",
+    "cashier": "Cashier",
+    "storekeeper": "Storekeeper",
+    "accountant": "Accountant",
+    "custom": "Custom"
   },
   "templates": {
     "owner": [

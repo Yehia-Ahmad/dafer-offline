@@ -94,12 +94,16 @@ describe('Stage 20 — the dashboard shows what we owe suppliers (suppliers.view
     expect(kpi.labelKey).toBe('dashboard.kpis.suppliersDue');
     expect(kpi.value).toContain('14,650');
     expect(kpi.noteParams?.['count']).toBeDefined();
+    // Online Fixes 1: the owner also sees the opening banner (the real owner has accounting.manage)
+    http.match((request) => request.url.endsWith('accounting/opening')).forEach((request) => request.flush({ status: 'finalized' }));
     http.verify();
   });
 
   it('is absent when the backend leaves it out (no suppliers.view)', async () => {
     const { fixture, http } = await open(summary(), ['dashboard.view']);
     expect(fixture.componentInstance.kpis().map((row) => row.key)).not.toContain('suppliersDue');
+    // Online Fixes 1: the owner also sees the opening banner (the real owner has accounting.manage)
+    http.match((request) => request.url.endsWith('accounting/opening')).forEach((request) => request.flush({ status: 'finalized' }));
     http.verify();
   });
 });

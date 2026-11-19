@@ -245,7 +245,7 @@ Barcode scanning with the camera, an offline queue, printer setup on the phone, 
 - **No `Mob*.dc.html` design files exist in the repo** (only the desktop designs), so each phone screen follows the 6A spec and patterns, with the desktop design for content. Review the screenshots before treating the visuals as final.
 - **Category delete** on the phone follows the desktop rule: `CategoryToolsComponent` got an `openCategoryId` input, so the phone list can open the same delete flow.
 - **Order edit mode:** the 6A header condition `!layout.isMobile() || editing()` became `!layout.isMobile()`, because the phone now has its own edit layout. The desktop result is the same.
-- **Print:** prints that need the desktop print settings say so on the phone; nothing about printing changed.
+- **Print:** printing is the browser print everywhere (a shift report, a statement, a voucher); it does not use the desktop print settings. Where a phone has no print button the screen says «الطباعة من الكمبيوتر»: after saving an owner drawing, on the customer statement, and after a supplier payment. Nothing about printing changed.
 - **The 1280 reference is the pre-6B code (`ae9deb30`) served against the same audit data**, not a screenshot from an earlier run.
 
 ### Design fields the phone design asks for that the backend does not have
@@ -262,7 +262,7 @@ Admin `ng test` 934 of 934; admin production build (`--configuration admin`) pas
 - `categories/:id` is a redirect to `/products?category=<id>`, not a page.
 - The nav config is missing a line break before `],` after the website-settings and shop items (cosmetic).
 - `docs/stages/ONLINE_STAGE_6B.md` is untracked in git.
-- Printing a shift or a statement from a phone still depends on the desktop print settings.
+- Printing from a phone is the browser print; where there is no print button on the phone (after saving an owner drawing, on the customer statement, after a supplier payment) the screen says «الطباعة من الكمبيوتر».
 
 ## Help center (المساعدة)
 
@@ -292,3 +292,13 @@ A help page inside the admin app that explains every page, dialog, action, statu
 
 ### Not in this stage
 English content, screenshots or videos inside the help, in-page anchors per field.
+
+## Fixes 1
+
+Five fixes found while writing the help center. Backend change is additive; money, stock and accounting only go through the existing in-transaction functions.
+
+1. **POS default price is retail (قطاعي).** The new credit sale already defaulted to retail.
+2. **A sale never renames a customer by itself.** A phone that already belongs to a customer keeps the stored name, and the invoice carries the stored name. Renaming needs `renameCustomer: true` in the request and `customers.manage` (otherwise 403 before any write). `GET /api/sellings/customer-by-phone?phone=` (`sales.create` or `credit.create`) answers only `{exists, name}`. POS and the new credit sale show «نفس العميل» (default) / «غيّر اسمه لـ …» (only with `customers.manage`) / «الرقم غلط»; an empty name field is filled silently. Website walk-in orders are unchanged.
+3. **«تغيير المندوب»** on a delivery order that is out for delivery (`POST /api/orders/:id/change-courier`, `orders.dispatch`; cash on delivery also `credit.create` + `returns.create`). One transaction: the current credit sale is fully returned through the existing refund path and a new one is created on the new courier through the existing creation path (same total check). The first write is a conditional update, so two parallel calls change it once. Refused if the old invoice has a payment or a return. A wallet order only changes the courier. Recorded in `courierChanges[]`, the order history and the audit (`order.courier_changed`). Reports show gross sales and sales returns both higher by the order total; the net is unchanged.
+4. **Screens for corrections the backend already had:** cancel a customer payout, a supplier payment (also from the purchase), a transfer and an owner drawing (from the box page); deactivate / reactivate a cash box and a supplier; a supplier refund without a return. All use one red confirm dialog (a reason of 3 to 500 characters where the endpoint takes one). **Not built:** cancelling a customer payment (تحصيل): the backend has no endpoint for it and it would need new posting and allocation-undo logic.
+5. **Consistency:** role descriptions in the user form come from the backend role templates; every backend audit action code has an Arabic and English label and is in the audit filter (a spec fails on a missing label); `auth-fixtures.ts` is derived from the generated permission catalog; unused i18n keys removed.

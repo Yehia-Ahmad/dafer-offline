@@ -213,4 +213,5 @@ module.exports = {
   pickup: action(service.pickup),
   deliver: action(service.deliver),
   refuse: action(service.refuse),
+  changeCourier: action(service.changeCourier),
 };

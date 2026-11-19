@@ -92,15 +92,8 @@ describe('UserFormDialogComponent (Stage 14)', () => {
   });
 
   describe('Stage 17: accounting.view requires products.viewCost', () => {
-    const ACCOUNTING_CATALOG = {
-      ...FAKE_CATALOG,
-      permissions: [
-        ...FAKE_CATALOG.permissions,
-        { key: 'accounting.view', group: 'accounting', ar: 'عرض الحسابات', en: 'View accounting' },
-        { key: 'accounting.manage', group: 'accounting', ar: 'إدارة الحسابات', en: 'Manage accounting' },
-      ],
-      groups: { ...FAKE_CATALOG.groups, accounting: { ar: 'الحسابات', en: 'Accounting' } },
-    };
+    // Online Fixes 1: the fixture catalog is the real backend catalog now, so it already has the accounting permissions and group.
+    const ACCOUNTING_CATALOG = FAKE_CATALOG;
     const asOwnerWithAccounting = () => signInWith([...ROLE_PERMISSIONS.owner, 'accounting.view', 'accounting.manage']);
 
     it('ticking accounting.view auto-ticks products.viewCost; unticking viewCost unticks accounting.view', async () => {

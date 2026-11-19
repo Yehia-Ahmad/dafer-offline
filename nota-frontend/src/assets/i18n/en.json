@@ -350,8 +350,6 @@
             "selectionRequired": "Choose at least one item quantity to return."
         },
         "messages": {
-            "deleteConfirm": "Do you want to delete this invoice?",
-            "deleteInventoryWarning": "This deletes only the invoice row. Use Return Items to restore inventory.",
             "deleteFailed": "Failed to delete invoice.",
             "empty": "No invoices found.",
             "invoiceWindowBlocked": "Allow pop-ups to open and save the invoice.",
@@ -509,16 +507,11 @@
             "cancelEdit": "Cancel Edit",
             "viewDetails": "View Details",
             "edit": "Change",
-            "delete": "Delete",
-            "deleteWithRestore": "Delete and Restore Products",
-            "deleteWithoutRestore": "Delete Customer Only"
+            "delete": "Delete"
         },
         "messages": {
             "deleteTitle": "Delete Customer",
-            "deleteConfirm": "Do you want to delete this customer?",
-            "restoreCreditInvoicesTitle": "Restore Credit Invoices?",
-            "restoreCreditInvoicesConfirm": "This customer only has fully paid credit invoices. Choose whether to restore the invoice products to inventory before deleting the customer data.",
-            "relatedCreditInvoices": "Related credit invoices"
+            "deleteConfirm": "Do you want to delete this customer?"
         },
         "s10": {
             "allCustomers": "All customers",
@@ -537,6 +530,14 @@
         }
     },
     "customerDetailsPage": {
+      "payouts": {
+        "title": "Credit payouts",
+        "cancel": "Cancel payout",
+        "cancelled": "Cancelled",
+        "cancelTitle": "Cancel payout {{number}}",
+        "cancelText": "The payout stays in the record, the money goes back into the cash box by a reversing entry, and the customer's credit is restored.",
+        "confirm": "Cancel payout"
+      },
         "title": "Customer Details",
         "subtitle": "Review customer profile and all credit-sale invoices.",
         "labels": {
@@ -594,9 +595,7 @@
             "deleteInvoice": "Cancel Invoice"
         },
         "deleteDialog": {
-            "title": "Cancel Credit Invoice",
-            "confirm": "Do you want to delete this credit invoice?",
-            "inventoryWarning": "This deletes only the invoice row. Use Return Items to restore inventory."
+            "title": "Cancel Credit Invoice"
         },
         "paymentDialog": {
             "title": "Record Payment",
@@ -1171,13 +1170,6 @@
             "usernameFixed": "The username can't be changed",
             "role": "Role",
             "ownerFixed": "The owner's role and permissions are fixed: everything.",
-            "roleHints": {
-                "cashier": "Selling, collecting and returns",
-                "storekeeper": "Products, categories and Excel",
-                "accountant": "Reports, profit and the audit log",
-                "manager": "Everything except users and backup",
-                "custom": "Pick the permissions yourself"
-            },
             "roleTemplateHint": "Choosing a role fills in its permissions; you can then change them one by one.",
             "permissions": "Permissions",
             "revert": "Back to the role's permissions",
@@ -1223,6 +1215,74 @@
             "status": "Page {{page}} of {{pages}} · {{total}} entries"
         },
         "actions": {
+          "account.created": "Account created",
+          "account.deactivated": "Account deactivated",
+          "account.deleted": "Account deleted",
+          "account.reactivated": "Account reactivated",
+          "account.updated": "Account updated",
+          "auth.unlock_failed": "Failed unlock attempt",
+          "cashbox.created": "Cash box created",
+          "cashbox.deactivated": "Cash box stopped",
+          "cashbox.deleted": "Cash box deleted",
+          "cashbox.updated": "Cash box updated",
+          "category.vat_exempt": "Category VAT exemption changed",
+          "courier.created": "Courier created",
+          "courier.deactivated": "Courier stopped",
+          "courier.updated": "Courier updated",
+          "credit.applied": "Credit applied to open invoices",
+          "credit.payout": "Customer credit paid out",
+          "credit.payout.cancelled": "Credit payout cancelled",
+          "document.print_cancelled": "Document print cancelled",
+          "document.printed": "Document printed",
+          "drawing.cancelled": "Owner drawing cancelled",
+          "drawing.created": "Owner drawing",
+          "expense.cancelled": "Expense cancelled",
+          "expense.category.created": "Expense category created",
+          "expense.category.updated": "Expense category updated",
+          "expense.created": "Expense recorded",
+          "manual_entry.posted": "Manual entry posted",
+          "manual_entry.reversed": "Manual entry reversed",
+          "opening.finalized": "Opening balances finalized",
+          "opening.saved": "Opening balances saved",
+          "order.cancelled": "Website order cancelled",
+          "order.confirmed": "Website order confirmed",
+          "order.courier_changed": "Website order courier changed",
+          "order.delivered": "Website order delivered",
+          "order.dispatched": "Website order sent with a courier",
+          "order.edited": "Website order edited",
+          "order.payment_verified": "Website order transfer confirmed",
+          "order.picked_up": "Website order picked up",
+          "order.preparing": "Website order preparing",
+          "order.ready_for_pickup": "Website order ready for pickup",
+          "order.refused": "Website order refused by the customer",
+          "order.rejected": "Website order rejected",
+          "period.closed": "Period closed",
+          "period.reopened": "Period reopened",
+          "purchase.cancelled": "Purchase cancelled",
+          "purchase.created": "Purchase recorded",
+          "purchase.returned": "Purchase return",
+          "shift.closed": "Shift closed",
+          "shift.opened": "Shift opened",
+          "supplier.created": "Supplier created",
+          "supplier.deleted": "Supplier deleted",
+          "supplier.payment.cancelled": "Supplier payment cancelled",
+          "supplier.payment.created": "Supplier payment",
+          "supplier.refund.created": "Supplier refund",
+          "supplier.updated": "Supplier updated",
+          "transfer.cancelled": "Transfer cancelled",
+          "transfer.created": "Transfer between cash boxes",
+          "vat.filed": "VAT return filed",
+          "vat.paid": "VAT paid",
+          "vat.unfiled": "VAT return unfiled",
+          "website.category.updated": "Category website settings updated",
+          "website.customer.activated": "Website customer activated",
+          "website.customer.deactivated": "Website customer deactivated",
+          "website.customer.password_reset": "Website customer password reset",
+          "website.product.updated": "Product website settings updated",
+          "website.settings.updated": "Website settings updated",
+          "website.zone.created": "Delivery zone created",
+          "website.zone.deleted": "Delivery zone deleted",
+          "website.zone.updated": "Delivery zone updated",
             "auth.login": "Sign in",
             "auth.login_failed": "Failed sign-in",
             "auth.locked": "Sign-in locked after failures",
@@ -1472,6 +1532,21 @@
         }
     },
     "suppliers": {
+      "inactive": "Stopped",
+      "deactivate": "Stop supplier",
+      "activate": "Reactivate supplier",
+      "deactivateTitle": "Stop {{name}}?",
+      "activateTitle": "Reactivate {{name}}?",
+      "deactivateText": "A stopped supplier cannot get new purchase invoices, but you can still pay them and take refunds from them. No accounting entry is made.",
+      "activateText": "The supplier will appear in purchase invoices again.",
+      "payments": {
+        "title": "Payment vouchers",
+        "cancelled": "Cancelled",
+        "cancel": "Cancel voucher",
+        "cancelTitle": "Cancel payment voucher {{number}}",
+        "cancelText": "The voucher stays in the record, the money goes back into the cash box by a reversing entry, and the amount counts as owed to the supplier again.",
+        "confirm": "Cancel voucher"
+      },
         "title": "Suppliers",
         "subtitle": "Total we owe suppliers: {{amount}} EGP",
         "newSupplier": "New supplier",
@@ -1552,6 +1627,12 @@
         "currency": "EGP"
     },
     "cashbox": {
+      "deactivate": "Stop cash box",
+      "activate": "Reactivate cash box",
+      "deactivateTitle": "Stop cash box {{name}}?",
+      "activateTitle": "Reactivate cash box {{name}}?",
+      "deactivateText": "A stopped cash box takes no sales, payments or transfers. It must hold no money and have no open shift; its device link is removed. No accounting entry is made.",
+      "activateText": "The cash box works again. Its device link was removed when it was stopped.",
         "title": "Cash boxes & shifts",
         "currency": "EGP",
         "loading": "Loading…",
@@ -1689,6 +1770,20 @@
             "failed": "Could not record the drawing."
         },
         "detail": {
+          "movements": {
+            "title": "Transfers and owner drawings",
+            "transfer": "Transfer",
+            "deposit": "Shift deposit",
+            "drawing": "Owner drawing",
+            "between": "Between",
+            "cancelled": "Cancelled",
+            "cancel": "Cancel",
+            "confirm": "Cancel",
+            "cancelTransferTitle": "Cancel transfer {{number}}",
+            "cancelTransferText": "The transfer stays in the record and the money goes back by a reversing entry. Not possible if the receiving cash box already spent it.",
+            "cancelDrawingTitle": "Cancel owner drawing {{number}}",
+            "cancelDrawingText": "The drawing stays in the record and the money goes back into the cash box by a reversing entry."
+          },
             "ledger": "Box movements",
             "date": "Date",
             "entry": "Entry",
@@ -1865,6 +1960,9 @@
             "costAboveRetail": "The new cost is above the selling price — review the selling price"
         },
         "detail": {
+          "cancelPv": "Cancel payment voucher",
+          "cancelPvTitle": "Cancel payment voucher {{number}}",
+          "cancelPvText": "The voucher stays in the record, the money goes back into the cash box by a reversing entry, and the invoice stays as it is.",
             "journal": "View entry",
             "savedWithPv": "Saved. Payment voucher {{pv}} was created.",
             "cancelledBecause": "Cancelled because",
@@ -1876,7 +1974,7 @@
             "cancel": "Cancel invoice",
             "reason": "Reason (required)",
             "confirmCancel": "Confirm cancel",
-            "pvNote": "Cancelling the invoice does not cancel its payment voucher: the supplier will show an advance. Cancel the voucher separately if the money came back."
+            "pvNote": "Cancelling the invoice does not cancel its payment voucher: the supplier will show an advance. If the money came back, press “Cancel payment voucher” on this page."
         },
         "return": {
             "title": "Return to supplier",
@@ -2623,6 +2721,7 @@
       "courier": "Courier"
     },
     "actions": {
+      "changeCourier": "Change courier",
       "ready": "Ready for pickup",
       "pickup": "Picked up",
       "verifyPayment": "Confirm transfer received",
@@ -2637,6 +2736,8 @@
       "refuse": "Customer refused"
     },
     "page": {
+      "courierChanged": "Courier changed",
+      "changeCourierNote": "The credit sale on the current courier gets a full return and a new credit sale is made on the new courier with the same lines and prices. Stock stays as it is.",
       "title": "Order",
       "contact": "Customer details",
       "copy": "Copy",
@@ -2889,5 +2990,41 @@
     "whoUses": "Who uses it:",
     "related": "Related sections",
     "englishNote": "The help is available in Arabic only for now."
+  },
+  "corrections": {
+    "close": "Close",
+    "back": "Back",
+    "reason": "Reason",
+    "errors": {
+      "GENERIC": "Something went wrong. Try again.",
+      "ALREADY_CANCELLED": "This was already cancelled. Refresh the page.",
+      "BOX_INACTIVE": "This cash box is stopped. Reactivate it first.",
+      "NO_OPEN_SHIFT": "There is no open shift on this cash box.",
+      "BOX_NOT_ALLOWED": "This cash box is not available to you.",
+      "BOX_NOT_EMPTY": "The cash box still holds money. Move it out first.",
+      "BOX_HAS_OPEN_SHIFT": "A shift is open on this cash box. Close it first.",
+      "MAIN_BOX": "The main cash box cannot be stopped.",
+      "SHIFT_DEPOSIT": "A shift deposit cannot be cancelled on its own: it is part of the shift report.",
+      "REFUND_EXCEEDS_DUE": "The amount is more than the supplier owes us.",
+      "FORBIDDEN": "You do not have permission for this."
+    }
+  },
+  "customerPhone": {
+    "title": "This phone is already registered",
+    "text": "This phone is registered under {{name}}.",
+    "same": "Same customer",
+    "rename": "Rename to {{name}}",
+    "wrong": "Wrong number"
+  },
+  "supplierRefund": {
+    "open": "Refund from supplier",
+    "title": "Refund from a supplier",
+    "theyOweUs": "The supplier owes us {{amount}} (the most that can come back).",
+    "nothingDue": "The supplier owes us nothing, so there is nothing to refund.",
+    "amount": "Amount",
+    "toBox": "Received into box",
+    "entryHint": "An SR refund voucher and an entry are made: Dr the cash box / Cr the supplier.",
+    "save": "Save the refund",
+    "failed": "Could not save the refund."
   }
 }

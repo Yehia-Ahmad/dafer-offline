@@ -4,8 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { NotaCanDirective } from '../../core/auth/nota-can.directive';
-import { NotaBalancePipe, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent } from '../shared/ui';
+import { NotaBalancePipe, NotaButtonDirective, NotaCancelReasonDialogComponent, NotaMoneyPipe, NotaPageHeaderComponent, correctionErrorText } from '../shared/ui';
 import { SupplierPaymentDialogComponent } from './supplier-payment-dialog.component';
+import { SupplierRefundDialogComponent } from './supplier-refund-dialog.component';
 import { SupplierStatementComponent } from './supplier-statement.component';
 import { TranslateService } from '@ngx-translate/core';
 import { PrintActionItem, PrintActionsComponent } from '../../core/print/print-actions.component';
@@ -24,7 +25,7 @@ import { formatNotaNumber } from '../shared/ui';
 @Component({
   selector: 'app-suppliers-page',
   standalone: true,
-  imports: [PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, SupplierStatementComponent, SupplierPaymentDialogComponent, MobConfirmComponent, MobSheetComponent],
+  imports: [NotaCancelReasonDialogComponent, SupplierRefundDialogComponent, PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaMoneyPipe, NotaBalancePipe, NotaPageHeaderComponent, SupplierStatementComponent, SupplierPaymentDialogComponent, MobConfirmComponent, MobSheetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './suppliers-page.component.html',
   styleUrl: './suppliers-page.component.scss',
@@ -48,6 +49,11 @@ export class SuppliersPageComponent implements OnInit {
   /** Stage 20: the supplier whose statement panel is open, and the payment dialog. */
   readonly selectedId = signal<string | null>(null);
   readonly payOpen = signal(false);
+  /** Online Fixes 1: "استرداد من المورد" and the stop / restart confirmation. */
+  readonly refundOpen = signal(false);
+  readonly activeRow = signal<Supplier | null>(null);
+  readonly activeBusy = signal(false);
+  readonly activeError = signal('');
   readonly refreshKey = signal(0);
   readonly selected = computed(() => this.suppliers().find((row) => row._id === this.selectedId()) ?? null);
   search = '';
@@ -116,6 +122,28 @@ export class SuppliersPageComponent implements OnInit {
   terms(row: Supplier): string | null {
     if (row.paymentTermsDays === undefined || row.paymentTermsDays === null) return null;
     return row.paymentTermsDays === 0 ? 'cash' : String(row.paymentTermsDays);
+  }
+
+  startToggleActive(row: Supplier): void {
+    this.activeError.set('');
+    this.activeRow.set(row);
+  }
+
+  closeToggleActive(): void {
+    this.activeRow.set(null);
+    this.activeBusy.set(false);
+    this.activeError.set('');
+  }
+
+  confirmToggleActive(): void {
+    const row = this.activeRow();
+    if (!row) return;
+    this.activeBusy.set(true);
+    this.activeError.set('');
+    this.service.update(row._id, { isActive: !row.isActive }).subscribe({
+      next: () => { this.closeToggleActive(); this.load(); },
+      error: (response) => { this.activeBusy.set(false); this.activeError.set(correctionErrorText(response, this.translate)); },
+    });
   }
 
   edit(row: Supplier): void {

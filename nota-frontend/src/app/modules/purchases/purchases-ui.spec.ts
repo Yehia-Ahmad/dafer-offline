@@ -498,3 +498,52 @@ describe('PurchaseFormComponent: no cost warning without a usable retail price (
     http.verify();
   });
 });
+
+describe('Online Fixes 1: «إلغاء سند الصرف» on the purchase', () => {
+  const open = async (signIn?: () => ReturnType<typeof signInWith>, detail: PurchaseDetail = PURCHASE) => {
+    const ctx = await setup(PurchaseDetailComponent, { route: { id: 'po1' }, ...(signIn ? { signIn } : {}) });
+    ctx.fixture.detectChanges();
+    ctx.http.expectOne(`${base}purchases/po1`).flush(detail);
+    flushPaymentBoxes(ctx.http);
+    await settle(ctx.fixture);
+    return ctx;
+  };
+  const button = (fixture: ComponentFixture<unknown>) => (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-action="cancel-pv"]');
+
+  it('a posted PV has the button; the dialog needs a reason and the PV cancel route gets it, then the purchase reloads', async () => {
+    const { fixture, http, component } = await open();
+    expect(button(fixture)).not.toBeNull();
+    button(fixture)!.click();
+    await settle(fixture);
+    expect(component.pvOpen()).toBeTrue();
+    expect(document.body.querySelector<HTMLButtonElement>('[data-action="confirm-correction"]')!.disabled).toBeTrue();
+    component.cancelPv('دفعة غلط');
+    const request = http.expectOne(`${base}supplier-payments/pv1/cancel`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ reason: 'دفعة غلط' });
+    request.flush({ _id: 'pv1', status: 'cancelled' });
+    http.expectOne(`${base}purchases/po1`).flush({ ...PURCHASE, payment: { ...PURCHASE.payment!, status: 'cancelled' } });
+    await settle(fixture);
+    expect(component.pvOpen()).toBeFalse();
+    expect(button(fixture)).toBeNull(); // a cancelled voucher has no button
+  });
+
+  it('a refusal (the box is stopped) keeps the dialog open with the reason', async () => {
+    const { fixture, http, component } = await open();
+    component.pvOpen.set(true);
+    component.cancelPv('سبب');
+    http.expectOne(`${base}supplier-payments/pv1/cancel`).flush({ code: 'BOX_INACTIVE', message: 'الخزنة موقوفة' }, { status: 409, statusText: 'Conflict' });
+    await settle(fixture);
+    expect(component.pvOpen()).toBeTrue();
+    expect(component.pvBusy()).toBeFalse();
+    expect(component.pvError()).not.toBe('');
+  });
+
+  it('no button without suppliers.pay, and none on a purchase with no PV', async () => {
+    const a = await open(() => signInWith(['purchases.view']));
+    expect(button(a.fixture)).toBeNull();
+    TestBed.resetTestingModule();
+    const b = await open(undefined, { ...PURCHASE, payment: null, pvId: undefined, paidAmount: 0 } as PurchaseDetail);
+    expect(button(b.fixture)).toBeNull();
+  });
+});

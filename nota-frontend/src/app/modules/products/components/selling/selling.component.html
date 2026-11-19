@@ -102,7 +102,7 @@
           </nota-form-field>
 
           <nota-form-field [label]="'sellingPage.fields.customerPhone' | translate" forId="posCustomerPhone">
-            <input id="posCustomerPhone" type="text" class="nota-input" dir="ltr" formControlName="customerPhone" />
+            <input id="posCustomerPhone" type="text" class="nota-input" dir="ltr" formControlName="customerPhone" (blur)="onCustomerPhoneBlur()" />
           </nota-form-field>
 
           <nota-form-field class="pos__span" [label]="'sellingPage.fields.sellingDate' | translate" forId="sellingDate" [required]="true">
@@ -328,3 +328,7 @@
     </ng-container>
   </nota-dialog-shell>
 </p-dialog>
+
+<!-- Online Fixes 1: this phone already belongs to a customer (the typed name differs). -->
+<nota-customer-phone-dialog [open]="phoneCheck.dialogOpen()" [storedName]="phoneCheck.storedName()" [typedName]="phoneCheck.typedName()" [canRename]="phoneCheck.canRename"
+  (same)="phoneCheck.chooseSame()" (rename)="phoneCheck.chooseRename()" (wrong)="phoneCheck.chooseWrong()" />

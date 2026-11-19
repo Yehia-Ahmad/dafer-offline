@@ -107,6 +107,8 @@ describe('Stage 21 — the dashboard', () => {
     expect(fixture.componentInstance.kpis().map((kpi) => kpi.key)).not.toContain('vatDue');
     expect(fixture.componentInstance.kpis().find((kpi) => kpi.key === 'sales')!.tagKey).toBeUndefined();
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-test="vat-tag"]')).toBeNull();
+    // Online Fixes 1: the owner also sees the opening banner (the real owner has accounting.manage)
+    http.match((request) => request.url.endsWith('accounting/opening')).forEach((request) => request.flush({ status: 'finalized' }));
     http.verify();
   });
 
@@ -121,6 +123,8 @@ describe('Stage 21 — the dashboard', () => {
     expect(due.value).toContain('35');
     expect(due.link).toBe('/accounting/vat');
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-kpi="vatDue"] [data-action="vat-link"]')).toBeTruthy();
+    // Online Fixes 1: the owner also sees the opening banner (the real owner has accounting.manage)
+    http.match((request) => request.url.endsWith('accounting/opening')).forEach((request) => request.flush({ status: 'finalized' }));
     http.verify();
   });
 
@@ -128,6 +132,8 @@ describe('Stage 21 — the dashboard', () => {
     const { fixture, http } = await open(summary({ vat: { enabled: true, rate: 14, pricesIncludeVat: true } }), ['dashboard.view']);
     expect(fixture.componentInstance.kpis().map((kpi) => kpi.key)).not.toContain('vatDue');
     expect(fixture.componentInstance.kpis().find((kpi) => kpi.key === 'sales')!.tagKey).toBe('vat.dashboard.includesVat');
+    // Online Fixes 1: the owner also sees the opening banner (the real owner has accounting.manage)
+    http.match((request) => request.url.endsWith('accounting/opening')).forEach((request) => request.flush({ status: 'finalized' }));
     http.verify();
   });
 });

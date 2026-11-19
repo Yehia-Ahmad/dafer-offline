@@ -88,9 +88,10 @@ describe('SellingComponent POS layout (Stage 9)', () => {
     fixture.detectChanges();
 
     expect(component.invoiceItems.length).toBe(2);
-    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p1', price: 60, quantity: 2, lineTotal: 120 }));
-    expect(component.getInvoiceItem(1).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p2', price: 45, quantity: 1 }));
-    expect(component.invoiceGrandTotal).toBe(165);
+    // Online Fixes 1: a new line uses the retail price (قطاعي) by default
+    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p1', priceType: 'retailPrice', price: 75, quantity: 2, lineTotal: 150 }));
+    expect(component.getInvoiceItem(1).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p2', price: 55, quantity: 1 }));
+    expect(component.invoiceGrandTotal).toBe(205);
   });
 
   it('Stage 11: a missing price never becomes 0 — wholesale null falls back to retail, retail null to wholesale', () => {
@@ -106,11 +107,26 @@ describe('SellingComponent POS layout (Stage 9)', () => {
     tiles[0].click();
     tiles[1].click();
     fixture.detectChanges();
-    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p7', priceType: 'wholesalePrice', price: 80 }));
-    expect(component.getInvoiceItem(1).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p8', price: 50 }));
+    expect(component.getInvoiceItem(0).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p7', priceType: 'retailPrice', price: 80 }));
+    // retail null → the wholesale price, never 0
+    expect(component.getInvoiceItem(1).getRawValue()).toEqual(jasmine.objectContaining({ productId: 'p8', priceType: 'retailPrice', price: 50 }));
 
-    component.getInvoiceItem(1).get('priceType')!.setValue('retailPrice');
-    expect(component.getInvoiceItem(1).getRawValue().price).toBe(50);
+    // wholesale null → the retail price
+    component.getInvoiceItem(0).get('priceType')!.setValue('wholesalePrice');
+    expect(component.getInvoiceItem(0).getRawValue().price).toBe(80);
+  });
+
+  it('Online Fixes 1: every line added uses the retail price by default; the cashier can still switch to wholesale', () => {
+    typeInSearch('LED');
+    http.expectOne((r) => r.url === `${base}products/search`).flush(products);
+    fixture.detectChanges();
+    el().querySelectorAll<HTMLButtonElement>('.pos__tile')[0].click();
+    expect(component.getInvoiceItem(0).get('priceType')!.value).toBe('retailPrice');
+    expect(component.getInvoiceItem(0).getRawValue().price).toBe(75);
+    component.addInvoiceItem(false);
+    expect(component.getInvoiceItem(1).get('priceType')!.value).toBe('retailPrice');
+    component.getInvoiceItem(0).get('priceType')!.setValue('wholesalePrice');
+    expect(component.getInvoiceItem(0).getRawValue().price).toBe(60);
   });
 
   it('− never goes below 1; + adds 1', () => {

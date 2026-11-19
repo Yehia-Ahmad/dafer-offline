@@ -350,8 +350,6 @@
       "selectionRequired": "اختر كمية لصنف واحد على الأقل."
     },
     "messages": {
-      "deleteConfirm": "هل تريد حذف هذه الفاتورة؟",
-      "deleteInventoryWarning": "سيتم حذف سجل الفاتورة فقط. استخدم إرجاع الأصناف لإعادة الكميات إلى المخزون.",
       "deleteFailed": "فشل حذف الفاتورة.",
       "empty": "لا توجد فواتير.",
       "invoiceWindowBlocked": "يرجى السماح بالنوافذ المنبثقة لفتح الفاتورة وحفظها.",
@@ -509,16 +507,11 @@
       "cancelEdit": "إلغاء التعديل",
       "viewDetails": "التفاصيل",
       "edit": "تغيير",
-      "delete": "حذف",
-      "deleteWithRestore": "حذف واسترجاع المنتجات",
-      "deleteWithoutRestore": "حذف بيانات العميل فقط"
+      "delete": "حذف"
     },
     "messages": {
       "deleteTitle": "حذف العميل",
-      "deleteConfirm": "هل تريد حذف هذا العميل؟",
-      "restoreCreditInvoicesTitle": "استرجاع فواتير الآجل؟",
-      "restoreCreditInvoicesConfirm": "هذا العميل لديه فواتير بيع آجل مدفوعة بالكامل فقط. اختر هل تريد استرجاع منتجات الفواتير إلى المخزون قبل حذف بيانات العميل.",
-      "relatedCreditInvoices": "فواتير الآجل المرتبطة"
+      "deleteConfirm": "هل تريد حذف هذا العميل؟"
     },
     "s10": {
       "allCustomers": "كل العملاء",
@@ -537,6 +530,14 @@
     }
   },
   "customerDetailsPage": {
+    "payouts": {
+      "title": "صرف الأرصدة الدائنة",
+      "cancel": "إلغاء الصرف",
+      "cancelled": "ملغي",
+      "cancelTitle": "إلغاء الصرف {{number}}",
+      "cancelText": "الصرف هيفضل في السجل، والفلوس هترجع للخزنة بقيد عكسي، ورصيد العميل الدائن هيرجع زي ما كان.",
+      "confirm": "إلغاء الصرف"
+    },
     "title": "تفاصيل العميل",
     "subtitle": "مراجعة بيانات العميل وجميع فواتير البيع الآجل الخاصة به.",
     "labels": {
@@ -594,9 +595,7 @@
       "deleteInvoice": "إلغاء الفاتورة"
     },
     "deleteDialog": {
-      "title": "إلغاء فاتورة آجل",
-      "confirm": "هل تريد حذف فاتورة البيع الآجل هذه؟",
-      "inventoryWarning": "سيتم حذف سجل الفاتورة فقط. استخدم إرجاع الأصناف لإعادة الكميات إلى المخزون."
+      "title": "إلغاء فاتورة آجل"
     },
     "paymentDialog": {
       "title": "تسجيل دفعة",
@@ -1171,13 +1170,6 @@
       "usernameFixed": "اسم المستخدم مبيتغيرش",
       "role": "الدور",
       "ownerFixed": "دور المالك وصلاحياته ثابتة: كل حاجة.",
-      "roleHints": {
-        "cashier": "بيع وتحصيل ومرتجعات",
-        "storekeeper": "أصناف وفئات وExcel",
-        "accountant": "تقارير وأرباح وسجل العمليات",
-        "manager": "كل حاجة ما عدا المستخدمين والنسخ",
-        "custom": "تختار الصلاحيات بنفسك"
-      },
       "roleTemplateHint": "اختيار الدور يملا الصلاحيات، وبعدين تقدر تعدّل عليها واحدة واحدة.",
       "permissions": "الصلاحيات",
       "revert": "رجوع لصلاحيات الدور",
@@ -1223,6 +1215,74 @@
       "status": "صفحة {{page}} من {{pages}} · {{total}} عملية"
     },
     "actions": {
+      "account.created": "إضافة حساب",
+      "account.deactivated": "إيقاف حساب",
+      "account.deleted": "مسح حساب",
+      "account.reactivated": "إعادة تشغيل حساب",
+      "account.updated": "تعديل حساب",
+      "auth.unlock_failed": "محاولة فاشلة لفتح شاشة القفل",
+      "cashbox.created": "إضافة خزنة",
+      "cashbox.deactivated": "إيقاف خزنة",
+      "cashbox.deleted": "مسح خزنة",
+      "cashbox.updated": "تعديل خزنة",
+      "category.vat_exempt": "تغيير إعفاء فئة من الضريبة",
+      "courier.created": "إضافة مندوب",
+      "courier.deactivated": "إيقاف مندوب",
+      "courier.updated": "تعديل مندوب",
+      "credit.applied": "خصم رصيد دائن من فواتير مفتوحة",
+      "credit.payout": "صرف رصيد دائن لعميل",
+      "credit.payout.cancelled": "إلغاء صرف رصيد دائن",
+      "document.print_cancelled": "إلغاء طباعة مستند",
+      "document.printed": "طباعة مستند",
+      "drawing.cancelled": "إلغاء سحب المالك",
+      "drawing.created": "سحب المالك",
+      "expense.cancelled": "إلغاء مصروف",
+      "expense.category.created": "إضافة بند مصروف",
+      "expense.category.updated": "تعديل بند مصروف",
+      "expense.created": "تسجيل مصروف",
+      "manual_entry.posted": "ترحيل قيد يدوي",
+      "manual_entry.reversed": "عكس قيد يدوي",
+      "opening.finalized": "اعتماد أرصدة البداية",
+      "opening.saved": "حفظ أرصدة البداية",
+      "order.cancelled": "إلغاء طلب موقع",
+      "order.confirmed": "تأكيد طلب موقع",
+      "order.courier_changed": "تغيير مندوب طلب موقع",
+      "order.delivered": "تسليم طلب موقع",
+      "order.dispatched": "تسليم طلب موقع للمندوب",
+      "order.edited": "تعديل طلب موقع",
+      "order.payment_verified": "تأكيد استلام تحويل طلب موقع",
+      "order.picked_up": "تسليم طلب استلام من المحل للعميل",
+      "order.preparing": "بدء تجهيز طلب موقع",
+      "order.ready_for_pickup": "طلب موقع جاهز للاستلام",
+      "order.refused": "رفض العميل لطلب موقع",
+      "order.rejected": "رفض طلب موقع",
+      "period.closed": "إقفال فترة",
+      "period.reopened": "إعادة فتح فترة",
+      "purchase.cancelled": "إلغاء فاتورة شراء",
+      "purchase.created": "تسجيل فاتورة شراء",
+      "purchase.returned": "مرتجع لمورد",
+      "shift.closed": "إقفال وردية",
+      "shift.opened": "فتح وردية",
+      "supplier.created": "إضافة مورد",
+      "supplier.deleted": "حذف مورد",
+      "supplier.payment.cancelled": "إلغاء سند صرف لمورد",
+      "supplier.payment.created": "سداد دفعة لمورد",
+      "supplier.refund.created": "استرداد من مورد",
+      "supplier.updated": "تعديل مورد",
+      "transfer.cancelled": "إلغاء تحويل بين الخزائن",
+      "transfer.created": "تحويل بين الخزائن",
+      "vat.filed": "تقديم إقرار ضريبي",
+      "vat.paid": "سداد ضريبة",
+      "vat.unfiled": "إلغاء تقديم إقرار ضريبي",
+      "website.category.updated": "تعديل ظهور فئة على الموقع",
+      "website.customer.activated": "تفعيل عميل موقع",
+      "website.customer.deactivated": "إيقاف عميل موقع",
+      "website.customer.password_reset": "إعادة تعيين كلمة مرور عميل موقع",
+      "website.product.updated": "تعديل ظهور صنف على الموقع",
+      "website.settings.updated": "تعديل إعدادات الموقع",
+      "website.zone.created": "إضافة منطقة توصيل",
+      "website.zone.deleted": "حذف منطقة توصيل",
+      "website.zone.updated": "تعديل منطقة توصيل",
       "auth.login": "تسجيل دخول",
       "auth.login_failed": "محاولة دخول فاشلة",
       "auth.locked": "قفل الدخول بعد محاولات فاشلة",
@@ -1472,6 +1532,21 @@
     }
   },
   "suppliers": {
+    "inactive": "موقوف",
+    "deactivate": "إيقاف المورد",
+    "activate": "تفعيل المورد",
+    "deactivateTitle": "إيقاف {{name}}؟",
+    "activateTitle": "تفعيل {{name}}؟",
+    "deactivateText": "المورد الموقوف مينفعش تسجّل له فاتورة شراء جديدة، لكن تقدر تسدد له وتستلم منه استرداد. مفيش أي قيد محاسبي.",
+    "activateText": "المورد هيرجع يظهر في فواتير الشراء.",
+    "payments": {
+      "title": "سندات الصرف",
+      "cancelled": "ملغي",
+      "cancel": "إلغاء السند",
+      "cancelTitle": "إلغاء سند الصرف {{number}}",
+      "cancelText": "السند هيفضل في السجل، والفلوس هترجع للخزنة بقيد عكسي، والمبلغ هيرجع يتحسب على المورد.",
+      "confirm": "إلغاء السند"
+    },
     "title": "الموردين",
     "subtitle": "إجمالي اللي علينا للموردين: {{amount}} ج.م",
     "newSupplier": "مورد جديد",
@@ -1552,6 +1627,12 @@
     "currency": "ج.م"
   },
   "cashbox": {
+    "deactivate": "إيقاف الخزنة",
+    "activate": "تفعيل الخزنة",
+    "deactivateTitle": "إيقاف الخزنة {{name}}؟",
+    "activateTitle": "تفعيل الخزنة {{name}}؟",
+    "deactivateText": "الخزنة الموقوفة مبتاخدش بيع ولا صرف ولا تحويل. لازم رصيدها صفر ومفيش وردية مفتوحة عليها، وبيتفك ربطها بالجهاز. مفيش أي قيد محاسبي.",
+    "activateText": "الخزنة هترجع شغالة. ربطها بالجهاز اتفك وقت الإيقاف.",
     "title": "الخزائن والوردية",
     "currency": "ج.م",
     "loading": "جاري التحميل…",
@@ -1689,6 +1770,20 @@
       "failed": "تعذر تسجيل السحب."
     },
     "detail": {
+      "movements": {
+        "title": "التحويلات وسحب المالك",
+        "transfer": "تحويل",
+        "deposit": "توريد وردية",
+        "drawing": "سحب المالك",
+        "between": "بين",
+        "cancelled": "ملغي",
+        "cancel": "إلغاء",
+        "confirm": "إلغاء",
+        "cancelTransferTitle": "إلغاء التحويل {{number}}",
+        "cancelTransferText": "التحويل هيفضل في السجل، والفلوس هترجع للخزنة اللي طلعت منها بقيد عكسي. مينفعش لو الخزنة اللي اتحوّل لها صرفت الفلوس.",
+        "cancelDrawingTitle": "إلغاء سحب المالك {{number}}",
+        "cancelDrawingText": "السحب هيفضل في السجل، والفلوس هترجع للخزنة بقيد عكسي."
+      },
       "ledger": "حركة الخزنة",
       "date": "التاريخ",
       "entry": "القيد",
@@ -1865,6 +1960,9 @@
       "costAboveRetail": "التكلفة الجديدة أعلى من سعر البيع — راجع سعر البيع"
     },
     "detail": {
+      "cancelPv": "إلغاء سند الصرف",
+      "cancelPvTitle": "إلغاء سند الصرف {{number}}",
+      "cancelPvText": "السند هيفضل في السجل، والفلوس هترجع للخزنة بقيد عكسي، والفاتورة هتفضل زي ما هي على المورد.",
       "journal": "عرض القيد",
       "savedWithPv": "اتحفظت. اتعمل سند صرف {{pv}}.",
       "cancelledBecause": "سبب الإلغاء",
@@ -1876,7 +1974,7 @@
       "cancel": "إلغاء الفاتورة",
       "reason": "السبب (مطلوب)",
       "confirmCancel": "تأكيد الإلغاء",
-      "pvNote": "إلغاء الفاتورة مش بيلغي سند الصرف بتاعها: هيظهر للمورد رصيد مقدم. ألغي السند لوحده لو الفلوس رجعت."
+      "pvNote": "إلغاء الفاتورة مش بيلغي سند الصرف بتاعها: هيظهر للمورد رصيد مقدم. لو الفلوس رجعت اضغط «إلغاء سند الصرف» من نفس الصفحة."
     },
     "return": {
       "title": "مرتجع لمورد",
@@ -2623,6 +2721,7 @@
       "courier": "المندوب"
     },
     "actions": {
+      "changeCourier": "تغيير المندوب",
       "ready": "جاهز للاستلام",
       "pickup": "اتسلّم للعميل",
       "verifyPayment": "تأكيد استلام التحويل",
@@ -2637,6 +2736,8 @@
       "refuse": "العميل رفض الطلب"
     },
     "page": {
+      "courierChanged": "تغيير المندوب",
+      "changeCourierNote": "الفاتورة على المندوب الحالي هيتعمل لها مرتجع كامل، وهتتعمل فاتورة جديدة على المندوب الجديد بنفس الأصناف والأسعار. المخزن بيفضل زي ما هو.",
       "title": "طلب",
       "contact": "بيانات العميل",
       "copy": "نسخ",
@@ -2889,5 +2990,41 @@
     "whoUses": "مين يستخدمها:",
     "related": "أقسام مرتبطة",
     "englishNote": "المساعدة بالعربي بس دلوقتي."
+  },
+  "corrections": {
+    "close": "إغلاق",
+    "back": "رجوع",
+    "reason": "السبب",
+    "errors": {
+      "GENERIC": "حصلت مشكلة. جرّب تاني.",
+      "ALREADY_CANCELLED": "ده اتلغى قبل كده. حدّث الصفحة.",
+      "BOX_INACTIVE": "الخزنة دي موقوفة. فعّلها الأول.",
+      "NO_OPEN_SHIFT": "مفيش وردية مفتوحة على الخزنة دي.",
+      "BOX_NOT_ALLOWED": "الخزنة دي مش متاحة ليك.",
+      "BOX_NOT_EMPTY": "الخزنة فيها رصيد. حوّله الأول.",
+      "BOX_HAS_OPEN_SHIFT": "في وردية مفتوحة على الخزنة دي. اقفلها الأول.",
+      "MAIN_BOX": "الخزنة الرئيسية مينفعش تتوقف.",
+      "SHIFT_DEPOSIT": "توريد الوردية مينفعش يتلغى لوحده. هو جزء من تقرير قفل الوردية.",
+      "REFUND_EXCEEDS_DUE": "المبلغ أكبر من اللي المورد مدينلنا بيه.",
+      "FORBIDDEN": "مش عندك صلاحية للعملية دي."
+    }
+  },
+  "customerPhone": {
+    "title": "الرقم ده متسجل",
+    "text": "الرقم ده متسجل باسم {{name}}.",
+    "same": "نفس العميل",
+    "rename": "غيّر اسمه لـ {{name}}",
+    "wrong": "الرقم غلط"
+  },
+  "supplierRefund": {
+    "open": "استرداد من المورد",
+    "title": "استرداد من مورد",
+    "theyOweUs": "المورد مدينلنا بـ {{amount}} (ده أقصى مبلغ ينفع يرجع).",
+    "nothingDue": "المورد مش مدينلنا بحاجة، فمفيش استرداد.",
+    "amount": "المبلغ",
+    "toBox": "اتسلّم في خزنة",
+    "entryHint": "هيتعمل سند استرداد (SR) وقيد: من ح/ الخزنة إلى ح/ المورد.",
+    "save": "حفظ الاسترداد",
+    "failed": "مقدرناش نحفظ الاسترداد."
   }
 }

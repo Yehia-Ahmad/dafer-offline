@@ -13,7 +13,8 @@ describe('nav menu config', () => {
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
       ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
-      ['accounting', ['vat', 'profit']],
+      // Online Fixes 1: the fixtures are the real backend templates now (the owner holds every accounting permission).
+      ['accounting', ['accounts', 'opening', 'journal', 'vat', 'reports', 'closing', 'profit']],
       ['website', ['orders', 'couriers', 'website-customers', 'website-settings']],
       ['admin', ['users', 'audit', 'shop']],
     ]);
@@ -25,7 +26,8 @@ describe('nav menu config', () => {
       ['sales', ['pos', 'credit', 'invoices', 'returns', 'customers']],
       ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
-      ['accounting', ['vat', 'profit']],
+      // the manager template lacks accounting.manage (no opening wizard)
+      ['accounting', ['accounts', 'journal', 'vat', 'reports', 'closing', 'profit']],
       ['website', ['orders', 'couriers', 'website-customers', 'website-settings']],
       ['admin', ['audit', 'shop']],
     ]);
@@ -54,7 +56,7 @@ describe('nav menu config', () => {
       ['sales', ['credit', 'invoices', 'returns', 'customers']],
       ['inventory', ['products', 'purchases', 'suppliers']],
       ['treasury', ['cash', 'expenses']],
-      ['accounting', ['vat', 'profit']],
+      ['accounting', ['accounts', 'journal', 'vat', 'reports', 'closing', 'profit']],
       ['admin', ['audit']],
     ]);
   });
@@ -120,7 +122,7 @@ describe('nav menu config', () => {
     for (const item of visibleNavGroups(NAV_GROUPS, ctxFor(ROLE_PERMISSIONS.owner)).flatMap((g) => g.items)) {
       expect(!!item.route).withContext(item.key).toBeTrue();
       expect(item.icon).withContext(item.key).toBeTruthy();
-      expect(item.labelKey).withContext(item.key).toMatch(/^nav\.items\./);
+      expect(item.labelKey).withContext(item.key).toMatch(/^(nav\.items\.|closing\.navLabel$)/);
     }
   });
 

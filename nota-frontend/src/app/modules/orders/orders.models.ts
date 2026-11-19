@@ -75,7 +75,7 @@ export interface OrderHistoryEntry {
   at: string;
   by: string;
   byName: string | null;
-  type: 'status' | 'edit' | 'payment';
+  type: 'status' | 'edit' | 'payment' | 'courier_change';
   note: string | null;
   details: Record<string, unknown> | null;
 }

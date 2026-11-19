@@ -47,7 +47,7 @@
                   </label>
                 }
               </div>
-              @if (role()) { <span class="m-note" style="padding:0">{{ 'users.form.roleHints.' + role() | translate }}</span> }
+              @if (role()) { <span class="m-note" style="padding:0">{{ roleHint(role()) }}</span> }
               <span class="m-note" style="padding:0">{{ 'users.form.roleTemplateHint' | translate }}</span>
             }
             @if (errors().role) { <p class="nota-error" role="alert">{{ errors().role }}</p> }
@@ -149,7 +149,7 @@
                     <input type="radio" name="role" [value]="option" [checked]="role() === option" (change)="chooseRole(option)" [attr.data-role]="option" />
                     {{ roleLabel(option) }}
                   </span>
-                  <span class="nota-hint">{{ 'users.form.roleHints.' + option | translate }}</span>
+                  <span class="nota-hint">{{ roleHint(option) }}</span>
                 </label>
               }
             </div>

@@ -147,6 +147,11 @@ export class CashboxService {
     return this.http.post<{ payout: { _id: string; number: string }; credit: CustomerCredit }>(`${this.api}customers/${encodeURIComponent(customerId)}/payouts`, payload);
   }
 
+  /** Online Fixes 1: POST /customers/:id/payouts/:payoutId/cancel { reason } (credit.collect): a reversal; the box must still be active. */
+  cancelPayout(customerId: string, payoutId: string, reason: string): Observable<{ payout: { _id: string; status: string }; credit: CustomerCredit }> {
+    return this.http.post<{ payout: { _id: string; status: string }; credit: CustomerCredit }>(`${this.api}customers/${encodeURIComponent(customerId)}/payouts/${encodeURIComponent(payoutId)}/cancel`, { reason });
+  }
+
   applyCredit(customerId: string, amount: number): Observable<{ applied: number; credit: CustomerCredit }> {
     return this.http.post<{ applied: number; credit: CustomerCredit }>(`${this.api}customers/${encodeURIComponent(customerId)}/apply-credit`, { amount });
   }

@@ -82,6 +82,12 @@ const webOrderSchema = new mongoose.Schema(
     cashSaleId: { type: mongoose.Schema.Types.ObjectId, ref: "Selling" },
     paymentIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
     returnIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+    // Online Fixes 1: "تغيير المندوب" on an order out for delivery. Each change keeps the links the order had before it: the courier it
+    // left, the credit sale made for that courier (null for a wallet order) and the returns made on it.
+    courierChanges: {
+      type: [{ _id: false, at: Date, by: String, byName: String, fromCourierId: mongoose.Schema.Types.ObjectId, toCourierId: mongoose.Schema.Types.ObjectId, previousCreditSaleId: mongoose.Schema.Types.ObjectId, previousReturnIds: { type: [mongoose.Schema.Types.ObjectId], default: [] }, creditSaleId: mongoose.Schema.Types.ObjectId }],
+      default: [],
+    },
     collectedAmount: { type: Number },
     // When the shop confirmed it: the queue position for stock at dispatch (the earlier confirmation keeps its stock).
     confirmedAt: { type: Date },

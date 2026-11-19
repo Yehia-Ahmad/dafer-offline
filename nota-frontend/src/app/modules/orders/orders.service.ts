@@ -46,6 +46,8 @@ export class OrdersService {
   /** Wallet orders: the shop saw the transfer. Posts nothing; the invoice does. */
   verifyPayment(id: string, reference = ''): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/verify-payment`, reference.trim() ? { reference: reference.trim() } : {}); }
   dispatch(id: string, courierId: string): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/dispatch`, { courierId }); }
+  /** Online Fixes 1: POST /api/orders/:id/change-courier (an order out for delivery; cash on delivery returns and re-makes the courier's credit sale). */
+  changeCourier(id: string, courierId: string): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/change-courier`, { courierId }); }
   deliver(id: string, payload: DeliverPayload): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/deliver`, payload); }
   refuse(id: string, reason: string): Observable<OrderDetail> { return this.http.post<OrderDetail>(`${this.orders}/${id}/refuse`, { reason }); }
 

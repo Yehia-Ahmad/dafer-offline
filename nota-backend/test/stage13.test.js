@@ -713,7 +713,8 @@ test("createdBy / updatedBy come from the signed-in user (sale, credit + payment
   is(await Customer.findOne({ phone: "01000000010" }).lean(), cashier);
 
   // An edit by the owner sets updatedBy and keeps createdBy.
-  const edited = await call(on, "PUT", `/api/sellings/${cash.json._id}`, { token: owner.token, body: { customerName: "عميل معدل" } });
+  // Online Fixes 1: the phone already belongs to a customer, so the new name is only applied with renameCustomer (owner = customers.manage).
+  const edited = await call(on, "PUT", `/api/sellings/${cash.json._id}`, { token: owner.token, body: { customerName: "عميل معدل", renameCustomer: true } });
   assert.equal(edited.status, 200, edited.text);
   const editedDoc = await Selling.findById(cash.json._id).lean();
   is(editedDoc, cashier);

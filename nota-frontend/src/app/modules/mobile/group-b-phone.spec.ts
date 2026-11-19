@@ -80,7 +80,7 @@ describe('suppliers on the phone (Online Stage 6B)', () => {
 
   it('offers edit and delete in the ⋯ menu only with suppliers.manage', async () => {
     expect(await menuActions(['suppliers.view'])).toEqual(['statement', 'ledger']);
-    expect(await menuActions(['suppliers.view', 'suppliers.manage'])).toEqual(['statement', 'ledger', 'edit', 'delete']);
+    expect(await menuActions(['suppliers.view', 'suppliers.manage'])).toEqual(['statement', 'ledger', 'edit', 'toggle-active', 'delete']); // Online Fixes 1: stop / restart a supplier
   });
 
   it('asks before deleting (a red confirm sheet) and does not call the API until confirmed', async () => {

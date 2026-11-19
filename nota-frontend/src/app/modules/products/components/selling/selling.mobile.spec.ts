@@ -33,7 +33,7 @@ describe('SellingComponent on the phone (Online Stage 6A)', () => {
   });
   afterEach(() => http.verify());
 
-  /** Opens the POS in the current layout and puts the same cart in it: 2 × LED-18 (60) + 1 × LED-12 (45), discount 10, shipping 5. */
+  /** Opens the POS in the current layout and puts the same cart in it: 2 × LED-18 (retail 75) + 1 × LED-12 (retail 55), discount 10, shipping 5. */
   function posWithCart() {
     const fixture = TestBed.createComponent(SellingComponent);
     fixture.detectChanges();
@@ -63,7 +63,7 @@ describe('SellingComponent on the phone (Online Stage 6A)', () => {
     const desktop = posWithCart();
     const desktopTotal = desktop.el.querySelector('.pos__grand dd')!.textContent!.trim();
     const desktopLines = desktop.component.invoiceItems.length;
-    expect(desktop.component.invoiceGrandTotal).toBe(120 + 45 - 10 + 5);
+    expect(desktop.component.invoiceGrandTotal).toBe(150 + 55 - 10 + 5);
     desktop.fixture.destroy();
 
     isMobile.set(true);
@@ -77,7 +77,7 @@ describe('SellingComponent on the phone (Online Stage 6A)', () => {
     expect(payLabel).toContain('mobile.pos.payAndPrint');
     expect(payLabel).toContain(desktopTotal);
     expect(phone.component.invoiceItems.length).toBe(desktopLines);
-    expect(phone.component.invoiceGrandTotal).toBe(160);
+    expect(phone.component.invoiceGrandTotal).toBe(200);
   });
 
   it('phone: the sheet opens from the bar and closes from its button, the scrim and after a sale', () => {

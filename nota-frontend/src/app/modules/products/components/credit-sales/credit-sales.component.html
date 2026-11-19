@@ -26,7 +26,7 @@
       @if (isFieldInvalid('customerName')) { <span class="nota-error">{{ 'creditSalePage.form.required' | translate }}</span> }
     </label>
     <label class="m-field">{{ 'creditSalePage.fields.customerPhone' | translate }} *
-      <input id="csCustomerPhoneM" type="tel" inputmode="tel" class="m-input" dir="ltr" formControlName="customerPhone" (input)="clearSelectedCustomerIfEdited()" />
+      <input id="csCustomerPhoneM" type="tel" inputmode="tel" class="m-input" dir="ltr" formControlName="customerPhone" (input)="clearSelectedCustomerIfEdited()" (blur)="onCustomerPhoneBlur()" />
       @if (isFieldInvalid('customerPhone')) { <span class="nota-error">{{ 'creditSalePage.form.required' | translate }}</span> }
     </label>
     <div class="m-field">{{ 'creditSalePage.fields.saleDate' | translate }} *
@@ -202,6 +202,9 @@
     </ng-container>
   </nota-dialog-shell>
 </p-dialog>
+<!-- Online Fixes 1: this phone already belongs to a customer (the typed name differs). -->
+<nota-customer-phone-dialog [open]="phoneCheck.dialogOpen()" [storedName]="phoneCheck.storedName()" [typedName]="phoneCheck.typedName()" [canRename]="phoneCheck.canRename"
+  (same)="phoneCheck.chooseSame()" (rename)="phoneCheck.chooseRename()" (wrong)="phoneCheck.chooseWrong()" />
 } @else {
 <!-- New credit invoice (docs/design/screens/NewCreditSale.dc.html). Stage 9: layout only; payload and validation unchanged. -->
 <div class="cs">
@@ -244,7 +247,7 @@
 
         <nota-form-field [label]="'creditSalePage.fields.customerPhone' | translate" forId="csCustomerPhone" [required]="true"
           [error]="isFieldInvalid('customerPhone') ? ('creditSalePage.form.required' | translate) : null">
-          <input id="csCustomerPhone" type="text" class="nota-input" dir="ltr" formControlName="customerPhone" (input)="clearSelectedCustomerIfEdited()" />
+          <input id="csCustomerPhone" type="text" class="nota-input" dir="ltr" formControlName="customerPhone" (input)="clearSelectedCustomerIfEdited()" (blur)="onCustomerPhoneBlur()" />
         </nota-form-field>
 
         <nota-form-field [label]="'creditSalePage.fields.saleDate' | translate" forId="creditSaleDate" [required]="true">
@@ -457,4 +460,7 @@
     </ng-container>
   </nota-dialog-shell>
 </p-dialog>
+<!-- Online Fixes 1: this phone already belongs to a customer (the typed name differs). -->
+<nota-customer-phone-dialog [open]="phoneCheck.dialogOpen()" [storedName]="phoneCheck.storedName()" [typedName]="phoneCheck.typedName()" [canRename]="phoneCheck.canRename"
+  (same)="phoneCheck.chooseSame()" (rename)="phoneCheck.chooseRename()" (wrong)="phoneCheck.chooseWrong()" />
 }

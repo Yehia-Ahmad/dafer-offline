@@ -10,6 +10,7 @@ import { NotaButtonDirective, NotaDialogShellComponent, NotaFormFieldComponent }
 import { passwordProblemKey } from '../../auth/auth-form.util';
 import { CreateUserPayload, UpdateUserPayload, UsersService } from '../users.service';
 import { sameKeys } from '../user-rules';
+import { roleDescription } from '../role-description';
 import { LayoutService } from '../../../core/layout/layout.service';
 
 type EditableRole = Exclude<RoleKey, 'owner'>;
@@ -94,6 +95,9 @@ export class UserFormDialogComponent {
       items: items.map((item) => ({ key: item.key, label: item[lang], held: this.auth.has(item.key) })),
     }));
   });
+
+  /** Online Fixes 1: generated from the backend role templates (what the role really holds), in the UI language. */
+  readonly roleHint = (role: string): string => roleDescription(role, this.language() === 'en' ? 'en' : 'ar');
 
   readonly roleLabel = (role: string): string => {
     const entry = this.catalog()?.roles.find((item) => item.role === role);

@@ -132,8 +132,8 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
               @for (entry of o.statusHistory; track $index) {
                 <div class="m-row">
                   <div class="m-row__body">
-                    <div class="m-row__title">{{ entry.type === 'edit' ? ('orders.page.edited' | translate) : entry.type === 'payment' ? ('orders.page.paymentVerified' | translate) : ('orders.status.' + entry.status | translate) }}</div>
-                    <div class="m-row__sub">{{ entry.at | date: 'short' }}@if (entry.byName || entry.by) { · {{ entry.byName || entry.by }} }</div>
+                    <div class="m-row__title">{{ entry.type === 'edit' ? ('orders.page.edited' | translate) : entry.type === 'payment' ? ('orders.page.paymentVerified' | translate) : entry.type === 'courier_change' ? ('orders.page.courierChanged' | translate) : ('orders.status.' + entry.status | translate) }}</div>
+                    <div class="m-row__sub">{{ entry.at | date: 'short' }}@if (entry.byName || entry.by) { · {{ entry.byName || entry.by }} }@if (entry.type === 'courier_change' && entry.note) { · {{ entry.note }} }</div>
                   </div>
                 </div>
               }
@@ -331,7 +331,7 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
             @for (entry of o.statusHistory; track $index) {
               <li>
                 <span class="nota-num">{{ entry.at | date: 'short' }}</span>
-                <b>{{ entry.type === 'edit' ? ('orders.page.edited' | translate) : entry.type === 'payment' ? ('orders.page.paymentVerified' | translate) : ('orders.status.' + entry.status | translate) }}</b>
+                <b>{{ entry.type === 'edit' ? ('orders.page.edited' | translate) : entry.type === 'payment' ? ('orders.page.paymentVerified' | translate) : entry.type === 'courier_change' ? ('orders.page.courierChanged' | translate) : ('orders.status.' + entry.status | translate) }}</b>
                 @if (entry.byName || entry.by) { <span class="op__muted">{{ entry.byName || entry.by }}</span> }
                 @if (entry.note) { <span>{{ entry.note }}</span> }
                 @if (entry.type === 'edit') { <span class="op__muted">{{ editSummary(entry) }}</span> }
@@ -356,17 +356,18 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
     </p-dialog>
 
     <p-dialog [visible]="dispatchOpen()" (visibleChange)="$event ? null : dispatchOpen.set(false)" [modal]="true" [showHeader]="false" [closable]="false" [draggable]="false" [resizable]="false" styleClass="nota-p-dialog">
-      <nota-dialog-shell [title]="'orders.actions.dispatch' | translate" [closeLabel]="'orders.close' | translate" (closed)="dispatchOpen.set(false)">
+      <nota-dialog-shell [title]="('orders.actions.' + dispatchMode()) | translate" [closeLabel]="'orders.close' | translate" (closed)="dispatchOpen.set(false)">
         <nota-form-field [label]="'orders.page.chooseCourier' | translate" forId="courier" [required]="true">
           <select id="courier" class="nota-select" data-test="dispatch-courier" [ngModel]="courierId()" (ngModelChange)="courierId.set($event)">
             <option value="">—</option>
-            @for (courier of activeCouriers(); track courier.id) { <option [value]="courier.id">{{ courier.name }}</option> }
+            @for (courier of courierChoices(); track courier.id) { <option [value]="courier.id">{{ courier.name }}</option> }
           </select>
         </nota-form-field>
-        @if (!activeCouriers().length) { <p class="op__muted">{{ 'orders.page.noCouriers' | translate }}</p> }
+        @if (!courierChoices().length) { <p class="op__muted">{{ 'orders.page.noCouriers' | translate }}</p> }
+        @if (dispatchMode() === 'changeCourier') { <p class="op__muted" data-test="change-courier-note">{{ 'orders.page.changeCourierNote' | translate }}</p> }
         <ng-container notaDialogFooter>
           <button type="button" notaButton (click)="dispatchOpen.set(false)">{{ 'orders.close' | translate }}</button>
-          <button type="button" notaButton="primary" data-action="submit-dispatch" [disabled]="busy() || !courierId()" (click)="submitDispatch()">{{ 'orders.actions.dispatch' | translate }}</button>
+          <button type="button" notaButton="primary" data-action="submit-dispatch" [disabled]="busy() || !courierId()" (click)="submitDispatch()">{{ ('orders.actions.' + dispatchMode()) | translate }}</button>
         </ng-container>
       </nota-dialog-shell>
     </p-dialog>
@@ -506,6 +507,11 @@ export class OrderPageComponent implements OnInit {
   protected readonly courierId = signal('');
   protected readonly couriers = signal<Courier[]>([]);
   protected readonly activeCouriers = computed(() => this.couriers().filter((courier) => courier.isActive));
+  /** Online Fixes 1: the same courier dialog serves dispatch and 'تغيير المندوب' (active couriers; the current one is left out when changing). */
+  protected readonly dispatchMode = signal<'dispatch' | 'changeCourier'>('dispatch');
+  protected readonly courierChoices = computed(() => this.dispatchMode() === 'changeCourier'
+    ? this.activeCouriers().filter((courier) => courier.id !== this.order()?.courier?.id)
+    : this.activeCouriers());
   // deliver
   protected readonly deliverOpen = signal(false);
   protected readonly withReturns = signal(false);
@@ -538,7 +544,7 @@ export class OrderPageComponent implements OnInit {
   protected invoiceHint(order: OrderDetail): string | null { return invoiceHintKey(order); }
   protected pillClass(status: OrderDetail['status']): string { return mobilePillClass(this.variant(status)); }
   /** The one action the sticky bar highlights: the first allowed action that is not a refusal. */
-  protected primaryAction = computed<OrderAction | null>(() => this.actions().find((action) => action !== 'reject' && action !== 'cancel' && action !== 'refuse' && action !== 'edit') ?? null);
+  protected primaryAction = computed<OrderAction | null>(() => this.actions().find((action) => action !== 'reject' && action !== 'cancel' && action !== 'refuse' && action !== 'changeCourier' && action !== 'edit') ?? null);
 
   protected variant(status: OrderDetail['status']): NotaPillVariant {
     return ORDER_STATUS_VARIANT[status] ?? 'neutral';
@@ -598,7 +604,8 @@ export class OrderPageComponent implements OnInit {
       case 'verifyPayment': this.reference.set(''); this.verifyOpen.set(true); return;
       case 'pickup': this.pickupOpen.set(true); return;
       case 'reject': case 'cancel': case 'refuse': this.reason.set(''); this.reasonFor.set(action); return;
-      case 'dispatch': this.courierId.set(''); this.dispatchOpen.set(true); this.service.listCouriers().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (list) => this.couriers.set(list), error: () => undefined }); return;
+      case 'changeCourier': this.dispatchMode.set('changeCourier'); this.courierId.set(''); this.dispatchOpen.set(true); this.service.listCouriers().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (list) => this.couriers.set(list), error: () => undefined }); return;
+      case 'dispatch': this.dispatchMode.set('dispatch'); this.courierId.set(''); this.dispatchOpen.set(true); this.service.listCouriers().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (list) => this.couriers.set(list), error: () => undefined }); return;
       case 'deliver': this.withReturns.set(false); this.returned.set({}); this.collected.set(null); this.deliverOpen.set(true); return;
       case 'edit': this.startEdit(order); return;
     }
@@ -644,7 +651,8 @@ export class OrderPageComponent implements OnInit {
 
   protected submitDispatch(): void {
     const order = this.order();
-    if (order && this.courierId()) this.apply(this.service.dispatch(order.id, this.courierId()));
+    if (!order || !this.courierId()) return;
+    this.apply(this.dispatchMode() === 'changeCourier' ? this.service.changeCourier(order.id, this.courierId()) : this.service.dispatch(order.id, this.courierId()));
   }
 
   protected setReturned(productId: string, value: number | string, max: number): void {

@@ -7,7 +7,8 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { NotaCanDirective } from '../../core/auth/nota-can.directive';
 import { LockedActionComponent } from '../../core/auth/locked-action.component';
-import { NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent } from '../shared/ui';
+import { NotaButtonDirective, NotaCancelReasonDialogComponent, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, correctionErrorText } from '../shared/ui';
+import { TranslateService } from '@ngx-translate/core';
 import { PurchaseReturnDialogComponent } from './purchase-return-dialog.component';
 import { PurchaseDetail } from './purchases.models';
 import { PurchasesService } from './purchases.service';
@@ -23,7 +24,7 @@ import { MobDatePipe } from '../mobile/mob-date.pipe';
 @Component({
   selector: 'app-purchase-detail',
   standalone: true,
-  imports: [PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, LockedActionComponent, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, PurchaseReturnDialogComponent, MobBarComponent, MobSheetComponent, MobDatePipe],
+  imports: [NotaCancelReasonDialogComponent, PrintActionsComponent, DatePipe, FormsModule, RouterLink, TranslatePipe, NotaCanDirective, LockedActionComponent, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, NotaStatusPillComponent, PurchaseReturnDialogComponent, MobBarComponent, MobSheetComponent, MobDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 @if (layout.isMobile()) {
@@ -81,7 +82,10 @@ import { MobDatePipe } from '../mobile/mob-date.pipe';
             <ng-template #lockedM><nota-locked-action [label]="'purchases.detail.cancel' | translate" /></ng-template>
           }
         </div>
-        @if (p.status === 'posted' && p.payment) { <p class="m-note" style="padding:0" data-test="pv-note">{{ 'purchases.detail.pvNote' | translate }}</p> }
+        @if (p.status === 'posted' && p.payment) {
+          <p class="m-note" style="padding:0" data-test="pv-note">{{ 'purchases.detail.pvNote' | translate }}</p>
+          @if (p.payment.status === 'posted') { <button *notaCan="'suppliers.pay'" type="button" class="m-btn m-btn--danger" data-action="cancel-pv" (click)="pvError.set(''); pvOpen.set(true)">{{ 'purchases.detail.cancelPv' | translate }}</button> }
+        }
         @if (error()) { <p class="nota-error" role="alert" data-test="detail-error">{{ error() | translate }}</p> }
       </div>
       <nota-mob-sheet [open]="cancelling()" (openChange)="cancelling.set($event)" [title]="'purchases.detail.cancel' | translate">
@@ -190,7 +194,10 @@ import { MobDatePipe } from '../mobile/mob-date.pipe';
             </ng-container>
             <ng-template #locked><nota-locked-action [label]="'purchases.detail.cancel' | translate" /></ng-template>
           </section>
-          @if (p.payment && p.status === 'posted') { <p class="pd__meta" data-test="pv-note">{{ 'purchases.detail.pvNote' | translate }}</p> }
+          @if (p.payment && p.status === 'posted') {
+            <p class="pd__meta" data-test="pv-note">{{ 'purchases.detail.pvNote' | translate }}</p>
+            @if (p.payment.status === 'posted') { <div><button *notaCan="'suppliers.pay'" type="button" notaButton="danger" data-action="cancel-pv" (click)="pvError.set(''); pvOpen.set(true)">{{ 'purchases.detail.cancelPv' | translate }}</button></div> }
+          }
         }
         @if (error()) { <p class="nota-error" role="alert" data-test="detail-error">{{ error() | translate }}</p> }
         <app-purchase-return-dialog [(visible)]="returnOpen" [purchase]="purchase()" (done)="load()" />
@@ -202,6 +209,9 @@ import { MobDatePipe } from '../mobile/mob-date.pipe';
       }
     </div>
   }
+  <!-- Online Fixes 1: cancel the payment voucher made with this purchase (a reversal; the box must still be active). -->
+  <nota-cancel-reason-dialog [open]="pvOpen()" [title]="'purchases.detail.cancelPvTitle' | translate: { number: purchase()?.payment?.number }" [text]="'purchases.detail.cancelPvText' | translate"
+    [confirmLabel]="'purchases.detail.cancelPv' | translate" [busy]="pvBusy()" [error]="pvError()" (confirmed)="cancelPv($event)" (closed)="pvOpen.set(false)" />
   `,
   styles: `
     .pd { display: flex; flex-direction: column; gap: 16px; }
@@ -234,6 +244,11 @@ export class PurchaseDetailComponent implements OnInit {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly pv = signal<string | null>(null);
+  /** Online Fixes 1: cancelling the payment voucher (PV) made with the purchase. */
+  readonly pvOpen = signal(false);
+  readonly pvBusy = signal(false);
+  readonly pvError = signal('');
+  private readonly translate = inject(TranslateService);
   reason = '';
 
   ngOnInit(): void {
@@ -246,6 +261,17 @@ export class PurchaseDetailComponent implements OnInit {
     if (!id) return;
     this.loadError.set(false);
     this.service.get(id).subscribe({ next: (row) => this.purchase.set(row), error: () => this.loadError.set(true) });
+  }
+
+  cancelPv(reason: string): void {
+    const payment = this.purchase()?.payment;
+    if (!payment) return;
+    this.pvBusy.set(true);
+    this.pvError.set('');
+    this.service.cancelPayment(payment._id, reason).subscribe({
+      next: () => { this.pvBusy.set(false); this.pvOpen.set(false); this.load(); },
+      error: (response) => { this.pvBusy.set(false); this.pvError.set(correctionErrorText(response, this.translate)); },
+    });
   }
 
   hasReturnable(p: PurchaseDetail): boolean {

@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { TranslatePipe } from '@ngx-translate/core';
+import { Observable } from 'rxjs';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { NotaCanDirective } from '../../core/auth/nota-can.directive';
 import { AuthService } from '../../core/auth/auth.service';
-import { NotaBalancePipe, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent } from '../shared/ui';
-import { BoxDetail, BoxLedger, LedgerLine } from './cashbox.models';
+import { NotaBalancePipe, NotaButtonDirective, NotaCancelReasonDialogComponent, NotaMoneyPipe, NotaPageHeaderComponent, correctionErrorText } from '../shared/ui';
+import { BoxDetail, BoxLedger, DrawingRow, LedgerLine, TransferRow } from './cashbox.models';
 import { CashboxService } from './cashbox.service';
 import { DepositOption, ShiftPanelComponent } from './shift-panel.component';
 import { LayoutService } from '../../core/layout/layout.service';
@@ -22,7 +24,7 @@ const SOURCE_LINKS: Record<string, string> = { sale: '/invoice-history', credit_
 @Component({
   selector: 'app-box-detail',
   standalone: true,
-  imports: [DatePipe, RouterLink, TranslatePipe, NotaBalancePipe, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, ShiftPanelComponent, MobBarComponent, MobDatePipe],
+  imports: [NotaCancelReasonDialogComponent, NotaCanDirective, DatePipe, RouterLink, TranslatePipe, NotaBalancePipe, NotaButtonDirective, NotaMoneyPipe, NotaPageHeaderComponent, ShiftPanelComponent, MobBarComponent, MobDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 @if (layout.isMobile()) {
@@ -76,6 +78,31 @@ const SOURCE_LINKS: Record<string, string> = { sale: '/invoice-history', credit_
               </div>
             } @empty {
               <div class="m-empty">{{ 'cashbox.detail.noShifts' | translate }}</div>
+            }
+          </section>
+        }
+        @if (transfers().length || drawings().length) {
+          <div class="m-section-label">{{ 'cashbox.detail.movements.title' | translate }}</div>
+          <section class="m-card m-card--flush" data-test="movements">
+            @for (row of transfers(); track row._id) {
+              <div class="m-row" data-test="transfer-row" [class.m-muted]="row.status === 'cancelled'">
+                <span class="m-row__body">
+                  <span class="m-row__title" style="white-space:normal"><span dir="ltr">{{ row.number }}</span> · {{ (row.kind === 'shift_deposit' ? 'cashbox.detail.movements.deposit' : 'cashbox.detail.movements.transfer') | translate }}</span>
+                  <span class="m-row__sub" style="white-space:normal">{{ row.date | mobDate }} · {{ row.fromBoxName }} ← → {{ row.toBoxName }}@if (row.status === 'cancelled') { · {{ 'cashbox.detail.movements.cancelled' | translate }}@if (row.cancelReason) { : {{ row.cancelReason }} } }</span>
+                </span>
+                <strong class="nota-num">{{ row.amount | notaMoney }}</strong>
+                @if (row.status === 'posted' && row.kind === 'transfer') { <button *notaCan="'cashbox.manage'" type="button" class="m-btn m-btn--danger" data-action="cancel-transfer" (click)="startCancel('transfer', row)">{{ 'cashbox.detail.movements.cancel' | translate }}</button> }
+              </div>
+            }
+            @for (row of drawings(); track row._id) {
+              <div class="m-row" data-test="drawing-row" [class.m-muted]="row.status === 'cancelled'">
+                <span class="m-row__body">
+                  <span class="m-row__title" style="white-space:normal"><span dir="ltr">{{ row.number }}</span> · {{ 'cashbox.detail.movements.drawing' | translate }}</span>
+                  <span class="m-row__sub" style="white-space:normal">{{ row.date | mobDate }}@if (row.note) { · {{ row.note }} }@if (row.status === 'cancelled') { · {{ 'cashbox.detail.movements.cancelled' | translate }} }</span>
+                </span>
+                <strong class="nota-num m-out">{{ row.amount | notaMoney }}</strong>
+                @if (row.status === 'posted') { <button *notaCan="'owner.drawings'" type="button" class="m-btn m-btn--danger" data-action="cancel-drawing" (click)="startCancel('drawing', row)">{{ 'cashbox.detail.movements.cancel' | translate }}</button> }
+              </div>
             }
           </section>
         }
@@ -160,6 +187,51 @@ const SOURCE_LINKS: Record<string, string> = { sale: '/invoice-history', credit_
             </div>
           </section>
         }
+        @if (transfers().length || drawings().length) {
+          <section class="nota-card" data-test="movements">
+            <h2 class="nota-section-title">{{ 'cashbox.detail.movements.title' | translate }}</h2>
+            <div class="nota-table-wrap">
+              <table class="nota-table">
+                <thead><tr>
+                  <th>{{ 'cashbox.detail.date' | translate }}</th>
+                  <th>{{ 'cashbox.detail.entry' | translate }}</th>
+                  <th>{{ 'cashbox.detail.source' | translate }}</th>
+                  <th>{{ 'cashbox.detail.movements.between' | translate }}</th>
+                  <th class="nota-num">{{ 'cashbox.transfer.amount' | translate }}</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  @for (row of transfers(); track row._id) {
+                    <tr data-test="transfer-row" [class.bd__cancelled]="row.status === 'cancelled'">
+                      <td class="nota-num">{{ row.date | date: 'yyyy-MM-dd' }}</td>
+                      <td dir="ltr">{{ row.number }}</td>
+                      <td>{{ (row.kind === 'shift_deposit' ? 'cashbox.detail.movements.deposit' : 'cashbox.detail.movements.transfer') | translate }}</td>
+                      <td>{{ row.fromBoxName }} ← {{ row.toBoxName }}</td>
+                      <td class="nota-num">{{ row.amount | notaMoney }}</td>
+                      <td>
+                        @if (row.status === 'cancelled') { <span class="nota-pill nota-pill--overdue" [attr.title]="row.cancelReason">{{ 'cashbox.detail.movements.cancelled' | translate }}</span> }
+                        @else if (row.kind === 'transfer') { <button *notaCan="'cashbox.manage'" type="button" notaButton="danger" data-action="cancel-transfer" (click)="startCancel('transfer', row)">{{ 'cashbox.detail.movements.cancel' | translate }}</button> }
+                      </td>
+                    </tr>
+                  }
+                  @for (row of drawings(); track row._id) {
+                    <tr data-test="drawing-row" [class.bd__cancelled]="row.status === 'cancelled'">
+                      <td class="nota-num">{{ row.date | date: 'yyyy-MM-dd' }}</td>
+                      <td dir="ltr">{{ row.number }}</td>
+                      <td>{{ 'cashbox.detail.movements.drawing' | translate }}</td>
+                      <td>{{ row.note || '—' }}</td>
+                      <td class="nota-num">{{ row.amount | notaMoney }}</td>
+                      <td>
+                        @if (row.status === 'cancelled') { <span class="nota-pill nota-pill--overdue">{{ 'cashbox.detail.movements.cancelled' | translate }}</span> }
+                        @else { <button *notaCan="'owner.drawings'" type="button" notaButton="danger" data-action="cancel-drawing" (click)="startCancel('drawing', row)">{{ 'cashbox.detail.movements.cancel' | translate }}</button> }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+        }
       } @else if (loadFailed()) {
         <p class="nota-error" role="alert">{{ 'cashbox.loadFailed' | translate }}</p>
         <button type="button" notaButton (click)="load()">{{ 'cashbox.retry' | translate }}</button>
@@ -168,6 +240,9 @@ const SOURCE_LINKS: Record<string, string> = { sale: '/invoice-history', credit_
       }
     </div>
   }
+  <!-- Online Fixes 1: cancel a transfer or an owner drawing (a reversal with a reason). -->
+  <nota-cancel-reason-dialog [open]="!!cancelTarget()" [title]="cancelTitle() | translate: { number: cancelTarget()?.row?.number }" [text]="cancelText() | translate"
+    [confirmLabel]="'cashbox.detail.movements.confirm' | translate" [busy]="cancelBusy()" [error]="cancelError()" (confirmed)="confirmCancel($event)" (closed)="closeCancel()" />
   `,
   styles: `
     :host { display: block; }
@@ -175,6 +250,7 @@ const SOURCE_LINKS: Record<string, string> = { sale: '/invoice-history', credit_
     .bd__balance { font-size: 26px; font-weight: 800; }
     .bd__warn { color: var(--danger); font-weight: 700; }
     .bd__type { display: block; font-size: 12px; color: var(--text-muted); }
+    .bd__cancelled { opacity: .6; }
     .bd__empty { padding: 24px 16px; text-align: center; color: var(--text-muted); display: table-cell; }
   `,
 })
@@ -189,6 +265,15 @@ export class BoxDetailComponent implements OnInit {
   readonly loadFailed = signal(false);
   readonly shiftId = signal<string | null>(null);
   readonly depositOptions = signal<DepositOption[]>([]);
+  /** Online Fixes 1: this box's transfers (cashbox.view) and owner drawings (owner.drawings), each with a cancel. */
+  readonly transfers = signal<TransferRow[]>([]);
+  readonly drawings = signal<DrawingRow[]>([]);
+  readonly cancelTarget = signal<{ kind: 'transfer'; row: TransferRow } | { kind: 'drawing'; row: DrawingRow } | null>(null);
+  readonly cancelBusy = signal(false);
+  readonly cancelError = signal('');
+  private readonly translate = inject(TranslateService);
+  readonly cancelTitle = computed(() => (this.cancelTarget()?.kind === 'drawing' ? 'cashbox.detail.movements.cancelDrawingTitle' : 'cashbox.detail.movements.cancelTransferTitle'));
+  readonly cancelText = computed(() => (this.cancelTarget()?.kind === 'drawing' ? 'cashbox.detail.movements.cancelDrawingText' : 'cashbox.detail.movements.cancelTransferText'));
   readonly mayShift = computed(() => this.auth.hasAny('shift.operate', 'shift.manage'));
 
   ngOnInit(): void {
@@ -206,10 +291,35 @@ export class BoxDetailComponent implements OnInit {
       },
       error: () => this.loadFailed.set(true),
     });
+    this.cashbox.transfers(id).subscribe({ next: (result) => this.transfers.set(result.data ?? []), error: () => this.transfers.set([]) });
+    if (this.auth.has('owner.drawings')) this.cashbox.drawings().subscribe({ next: (result) => this.drawings.set((result.data ?? []).filter((row) => row.boxId === id)), error: () => this.drawings.set([]) });
     this.cashbox.boxLedger(id).subscribe({ next: (ledger) => this.ledger.set(ledger), error: () => this.ledger.set(null) });
     this.cashbox.boxes().subscribe({
       next: (response) => this.depositOptions.set(response.data.filter((candidate) => candidate.isActive).map((candidate) => ({ _id: candidate._id, name: candidate.name }))),
       error: () => this.depositOptions.set([]),
+    });
+  }
+
+  startCancel(kind: 'transfer' | 'drawing', row: TransferRow | DrawingRow): void {
+    this.cancelError.set('');
+    this.cancelTarget.set(kind === 'transfer' ? { kind, row: row as TransferRow } : { kind, row: row as DrawingRow });
+  }
+
+  closeCancel(): void {
+    this.cancelTarget.set(null);
+    this.cancelBusy.set(false);
+    this.cancelError.set('');
+  }
+
+  confirmCancel(reason: string): void {
+    const target = this.cancelTarget();
+    if (!target) return;
+    this.cancelBusy.set(true);
+    this.cancelError.set('');
+    const request: Observable<unknown> = target.kind === 'transfer' ? this.cashbox.cancelTransfer(target.row._id, reason) : this.cashbox.cancelDrawing(target.row._id, reason);
+    request.subscribe({
+      next: () => { this.closeCancel(); this.load(); },
+      error: (response) => { this.cancelBusy.set(false); this.cancelError.set(correctionErrorText(response, this.translate)); },
     });
   }
 

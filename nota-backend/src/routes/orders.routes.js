@@ -24,5 +24,7 @@ router.post("/:id/dispatch", requirePermission("orders.dispatch"), c.dispatch);
 router.post("/:id/pickup", requirePermission("orders.dispatch", "sales.create"), c.pickup);
 router.post("/:id/deliver", requirePermission("orders.dispatch"), c.deliver);
 router.post("/:id/refuse", requirePermission("orders.dispatch", "returns.create"), c.refuse);
+// Online Fixes 1: change the courier of an order that is out for delivery (cash on delivery also needs credit.create + returns.create, checked in the service).
+router.post("/:id/change-courier", requirePermission("orders.dispatch"), c.changeCourier);
 
 module.exports = router;

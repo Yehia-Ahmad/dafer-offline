@@ -56,7 +56,7 @@ export class AuditPageComponent {
   readonly userOptions = computed(() => this.knownUsers().map((user) => ({ label: user.name, value: user.id })));
   readonly actionOptions = computed(() => {
     this.language(); // labels follow the language
-    return AUDIT_ACTIONS.map((action) => ({ label: this.actionLabel(action), value: action }));
+    return AUDIT_ACTIONS.map((action) => ({ label: this.actionLabel(action), value: action })).sort((a, b) => a.label.localeCompare(b.label, 'ar'));
   });
 
   constructor() {

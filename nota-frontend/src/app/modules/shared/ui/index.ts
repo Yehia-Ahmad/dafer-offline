@@ -10,3 +10,5 @@ export * from './dialog-shell.component';
 export * from './nota-number';
 export * from './balance-display.pipe';
 export * from './lock-banner.component';
+export * from './cancel-reason-dialog.component';
+export * from './correction-error';
