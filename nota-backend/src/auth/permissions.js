@@ -15,6 +15,8 @@ const PERMISSIONS = {
   "credit.edit": { group: "credit", ar: "تعديل الفواتير الآجلة", en: "Edit credit sales" },
   "credit.delete": { group: "credit", ar: "إلغاء فاتورة آجل", en: "Cancel credit invoice" },
   "credit.collect": { group: "credit", ar: "تحصيل الدفعات", en: "Collect payments" },
+  // Fixes 1: cancelling a collected payment hands the money back out of the box; owner and manager only (a cashier could collect, cancel and pocket it).
+  "credit.payment.cancel": { group: "credit", ar: "إلغاء تحصيل من عميل", en: "Cancel a customer payment" },
 
   "returns.create": { group: "returns", ar: "تسجيل مرتجع", en: "Create returns" },
   "returns.view": { group: "returns", ar: "عرض المرتجعات", en: "View returns" },

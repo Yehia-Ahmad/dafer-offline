@@ -23,6 +23,12 @@ const receiptSchema = new mongoose.Schema({
   // Stage 19: the box the money went into (the main box on old receipts).
   boxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox", index: true },
   allocations: { type: [allocationSchema], default: [] },
+  // Fixes 1: a cancelled payment keeps its number and its row; a reversal entry and a flag on its payment rows undo it (absent = posted).
+  status: { type: String, enum: ["posted", "cancelled"], default: "posted", index: true },
+  cancelReason: { type: String, trim: true, maxlength: 500 },
+  cancelledAt: Date,
+  cancelledBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  cancelledByName: { type: String, trim: true },
 }, { timestamps: true });
 
 receiptSchema.plugin(auditFieldsPlugin);

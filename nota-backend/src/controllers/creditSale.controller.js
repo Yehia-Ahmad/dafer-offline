@@ -33,6 +33,7 @@ const CREDIT_SALE_STATUSES = new Set([
   "cancelled",
 ]);
 const OPEN_CREDIT_SALE_STATUSES = ["pending", "partially_paid"];
+const { activePayments } = require("../utils/activePayments");
 const MONEY_EPSILON = 1e-9;
 
 const getFirstDefined = (...values) => values.find((value) => value !== undefined);
@@ -594,7 +595,7 @@ const getRefundStatus = (refunds = [], originalTotalQuantity = 0) => {
 };
 
 const getTotalPaymentsAmount = (payments = []) =>
-  roundMoney(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
+  roundMoney(activePayments(payments).reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
 
 const getTotalReleasedPaidAmount = (returnedPaidAmount = 0, reallocatedPaidAmount = 0) =>
   roundMoney(Number(returnedPaidAmount || 0) + Number(reallocatedPaidAmount || 0));
@@ -1823,7 +1824,7 @@ const cancelCreditSale = asyncHandler(async (req, res) => {
     if (invoice.status === "cancelled") throw conflict("ALREADY_CANCELLED", "الفاتورة ملغية بالفعل");
     assertNotWrittenOff(invoice);
     if ((invoice.refunds || []).length) throw conflict("HAS_RETURNS", "اعمل مرتجع بدل الإلغاء");
-    const payments = invoice.payments || [];
+    const payments = activePayments(invoice.payments);
     if (payments.some((payment) => payment.source !== "down_payment")) throw conflict("HAS_PAYMENTS", "اعمل مرتجع بدل الإلغاء");
     for (const item of invoice.items || []) {
       const quantity = Number(item.quantity || 0);

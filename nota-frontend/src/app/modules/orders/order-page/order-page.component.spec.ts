@@ -167,6 +167,23 @@ describe('OrderPageComponent (Online Stage 4)', () => {
       expect(fixture.nativeElement.querySelector('[data-test="order-history"]').textContent).toContain('غيّر المندوب من أحمد لـ محمود');
     });
 
+    it('when the only active courier is the current one the dialog says «مفيش مندوب تاني متاح», not the no-couriers text', async () => {
+      await open('cashier', outWith());
+      component.run('changeCourier');
+      http.expectOne(`${environment.api_base_url}couriers`).flush({ data: [couriers.data[0], couriers.data[2]] }); // the current courier and an inactive one
+      fixture.detectChanges();
+      expect(component.courierChoices().length).toBe(0);
+      expect(document.body.querySelector('[data-test="no-couriers"]')!.textContent).toContain('orders.page.noOtherCourier');
+    });
+
+    it('with no couriers at all the old text stays', async () => {
+      await open('cashier', order('confirmed'));
+      component.run('dispatch');
+      http.expectOne(`${environment.api_base_url}couriers`).flush({ data: [] });
+      fixture.detectChanges();
+      expect(document.body.querySelector('[data-test="no-couriers"]')!.textContent).toContain('orders.page.noCouriers');
+    });
+
     it('dispatch still lists every active courier (the mode is reset)', async () => {
       await open('cashier', order('confirmed'));
       component.run('dispatch');

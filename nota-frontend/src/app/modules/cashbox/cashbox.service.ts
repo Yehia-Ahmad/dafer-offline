@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
-  BoxDetail, BoxLedger, BoxType, BoxesResponse, CashBox, CustomerCredit, DevicesResponse, DrawingRow,
+  BoxDetail, BoxLedger, BoxType, BoxesResponse, CashBox, CustomerCredit, CustomerReceiptRow, DevicesResponse, DrawingRow,
   PaymentBoxesResponse, ShiftReport, ShiftSummary, TransferRow,
 } from './cashbox.models';
 
@@ -150,6 +150,16 @@ export class CashboxService {
   /** Online Fixes 1: POST /customers/:id/payouts/:payoutId/cancel { reason } (credit.collect): a reversal; the box must still be active. */
   cancelPayout(customerId: string, payoutId: string, reason: string): Observable<{ payout: { _id: string; status: string }; credit: CustomerCredit }> {
     return this.http.post<{ payout: { _id: string; status: string }; credit: CustomerCredit }>(`${this.api}customers/${encodeURIComponent(customerId)}/payouts/${encodeURIComponent(payoutId)}/cancel`, { reason });
+  }
+
+  /** Fixes 1: GET /customers/:id/receipts (customers.view or credit.collect): the customer's payments, cancelled ones included. */
+  customerReceipts(customerId: string): Observable<{ data: CustomerReceiptRow[] }> {
+    return this.http.get<{ data: CustomerReceiptRow[] }>(`${this.api}customers/${encodeURIComponent(customerId)}/receipts`);
+  }
+
+  /** Fixes 1: POST /customers/:id/receipts/:receiptId/cancel { reason } (credit.payment.cancel: owner and manager): a reversal dated today. */
+  cancelReceipt(customerId: string, receiptId: string, reason: string): Observable<{ receipt: { _id: string; status: string } }> {
+    return this.http.post<{ receipt: { _id: string; status: string } }>(`${this.api}customers/${encodeURIComponent(customerId)}/receipts/${encodeURIComponent(receiptId)}/cancel`, { reason });
   }
 
   applyCredit(customerId: string, amount: number): Observable<{ applied: number; credit: CustomerCredit }> {

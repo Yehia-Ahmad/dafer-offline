@@ -2,6 +2,9 @@ const Customer = require("../models/customer.model");
 const CreditSale = require("../models/creditSale.model");
 const CustomerPayout = require("../models/customerPayout.model");
 const PartyOpening = require("../models/partyOpening.model");
+const Receipt = require("../models/receipt.model");
+const CashBox = require("../models/cashBox.model");
+const WebOrder = require("../models/webOrder.model");
 const { postEntry, line, accountMap, boxAccount } = require("../accounting/posting");
 const { nextDocumentNumber, PREFIXES } = require("../utils/documentNumber");
 const { roundMoney } = require("../utils/invoicePricing");
@@ -95,6 +98,103 @@ const cancelPayout = async (req, res) => {
   res.json({ payout: payoutView(result.payout), credit: await customerCreditOf(result.customer._id) });
 };
 
+// GET /api/customers/:id/receipts (customers.view or credit.collect): the customer's payments, newest first, cancelled ones included.
+const listReceipts = async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const customer = await loadCustomer(req.params.id);
+  const receipts = await Receipt.find({ customer: customer._id }).sort({ paymentDate: -1, createdAt: -1 }).lean();
+  const boxIds = [...new Set(receipts.map((row) => String(row.boxId || "")).filter(Boolean))];
+  const sales = await CreditSale.find({ _id: { $in: receipts.flatMap((row) => row.allocations.map((a) => a.creditSale).filter(Boolean)) } }).select("number").lean();
+  const names = new Map((await CashBox.find({ _id: { $in: boxIds } }).select("name").lean()).map((box) => [String(box._id), box.name]));
+  const numbers = new Map(sales.map((sale) => [String(sale._id), sale.number]));
+  res.json({ data: receipts.map((row) => ({
+    _id: row._id, number: row.number, kind: row.kind, amount: row.amount, paymentDate: row.paymentDate, note: row.note || "",
+    status: row.status || "posted", cancelReason: row.cancelReason || null, cancelledAt: row.cancelledAt || null,
+    boxId: row.boxId || null, boxName: row.boxId ? names.get(String(row.boxId)) || null : null,
+    allocations: row.allocations.map((a) => ({ amount: a.amount, invoiceNumber: a.creditSale ? numbers.get(String(a.creditSale)) || null : null, opening: Boolean(a.opening) })),
+  })) });
+};
+
+// POST /api/customers/:id/receipts/:receiptId/cancel { reason } (credit.payment.cancel: owner and manager)
+// Cancel a collected payment. Dated now (the old statement lines and closed periods never change); one transaction:
+//   1. first write = a conditional flip of the receipt to "cancelled", so two parallel cancels cancel it once;
+//   2. refusals (nothing is undone if one fires: the transaction rolls back the flip);
+//   3. the receipt's payment rows on invoices and on the opening are FLAGGED cancelledAt (never deleted) and each invoice is recomputed
+//      with the existing calculateCreditAmounts / applyCreditAmountsToInvoice;
+//   4. the reversal of the receipt's journal entry through the existing reverseSourceEntries: Dr CUSTOMERS (party) / Cr the box.
+const cancelReceipt = async (req, res) => {
+  const reason = requiredReason(req.body && req.body.reason);
+  const result = await withTransaction(async (session) => {
+    const customer = await loadCustomer(req.params.id, session);
+    if (!isId(req.params.receiptId)) throw httpError(404, "RECEIPT_NOT_FOUND", "الإيصال غير موجود");
+    const now = new Date();
+    await assertOpenDate(now, { session });
+    await touchCustomer(customer, session);
+    const found = await Receipt.findOne({ _id: req.params.receiptId, customer: customer._id }).session(session);
+    if (!found) throw httpError(404, "RECEIPT_NOT_FOUND", "الإيصال غير موجود");
+    if (found.kind !== "payment") throw httpError(409, "USE_INVOICE_CANCEL", "ده مقدم فاتورة. لو عايز ترجّعه الغي الفاتورة (رد المقدم)");
+    const receipt = await Receipt.findOneAndUpdate(
+      { _id: found._id, status: { $ne: "cancelled" } },
+      { $set: { status: "cancelled", cancelReason: reason, cancelledAt: now, cancelledBy: req.user?._id, cancelledByName: req.user?.name } },
+      { new: true, session }
+    );
+    if (!receipt) throw httpError(409, "ALREADY_CANCELLED", "الإيصال ده اتلغى قبل كده");
+
+    if (await WebOrder.exists({ paymentIds: receipt._id }).session(session)) {
+      throw httpError(409, "RECEIPT_OF_WEB_ORDER", "ده تحصيل طلب موقع على المندوب. مينفعش يتلغى من هنا؛ حسابه مربوط بالطلب");
+    }
+
+    // The box: still active, still holding the money, and (a drawer) a shift open to count the cash that leaves it.
+    const box = receipt.boxId ? await CashBox.findById(receipt.boxId).session(session) : await boxes.ensureMainBox(session);
+    if (!box) throw httpError(409, "BOX_INACTIVE", "الخزنة دي مقفولة");
+    await boxes.assertBoxActive(box._id, session);
+    await boxes.lockAndTouch([box._id], session);
+    if (box.shiftsEnabled && !(await boxes.openShiftOf(box._id, session))) {
+      throw httpError(409, "NO_OPEN_SHIFT", "مفيش وردية مفتوحة على الخزنة دي. افتح وردية الأول عشان الفلوس هتخرج من الدرج", { boxId: box._id, boxName: box.name });
+    }
+    const balance = await boxes.boxBalance(box, session);
+    if (roundMoney(balance - receipt.amount) < 0) throw httpError(409, "INSUFFICIENT_BALANCE", "رصيد الخزنة مش كفاية لإلغاء التحصيل", { boxId: box._id, balance, required: receipt.amount });
+
+    const invoices = await CreditSale.find({ "payments.receipt": receipt._id }).session(session);
+    const openings = await PartyOpening.find({ "payments.receipt": receipt._id }).session(session);
+    if (!invoices.length && !openings.length) throw httpError(409, "NOTHING_TO_UNDO", "الدفعة دي مش مسجلة على أي فاتورة، مينفعش تتلغى");
+    for (const invoice of invoices) {
+      if (invoice.status === "cancelled" || invoice.status === "returned") throw httpError(409, "INVOICE_CLOSED", "الفاتورة " + (invoice.number || "") + " اتلغت أو اترجعت بالكامل");
+      if ((invoice.payments || []).some((payment) => payment.source === "manual_entry")) throw httpError(409, "WRITTEN_OFF", "الفاتورة " + (invoice.number || "") + " اتعدمت ديونها بقيد يدوي. اعكس القيد الأول");
+      if (roundMoney(Number(invoice.returnedPaidAmount || 0) + Number(invoice.reallocatedPaidAmount || 0)) > EPSILON) {
+        throw httpError(409, "PAYMENT_USED_BY_RETURN", "مرتجع الفاتورة " + (invoice.number || "") + " رجّع جزء من المبلغ المدفوع (للعميل كرصيد دائن أو على فواتير تانية)، فمينفعش نلغي الدفعة دلوقتي. لو الدفعة غلط: اصرف الرصيد الدائن للعميل من كارته، أو اخصمه من فواتيره، بدل إلغاء الدفعة", { invoice: invoice.number || null });
+      }
+    }
+
+    const restored = [];
+    for (const invoice of invoices) {
+      let released = 0;
+      for (const payment of invoice.payments) {
+        if (String(payment.receipt) === String(receipt._id) && !payment.cancelledAt) { payment.cancelledAt = now; released = roundMoney(released + payment.amount); }
+      }
+      const amounts = calculateCreditAmounts(roundMoney(Number(invoice.totalPrice || 0) - Number(invoice.refundedAmount || 0)), invoice.payments, invoice.returnedPaidAmount, invoice.reallocatedPaidAmount);
+      if (!amounts) throw httpError(409, "INVALID_INVOICE_AMOUNTS", "تعذر حساب مبالغ الفاتورة " + (invoice.number || ""));
+      applyCreditAmountsToInvoice(invoice, amounts);
+      await invoice.save({ session });
+      restored.push({ kind: "invoice", number: invoice.number || null, amount: released });
+    }
+    for (const opening of openings) {
+      let released = 0;
+      for (const payment of opening.payments) {
+        if (String(payment.receipt) === String(receipt._id) && !payment.cancelledAt) { payment.cancelledAt = now; released = roundMoney(released + payment.amount); }
+      }
+      await opening.save({ session });
+      restored.push({ kind: "opening", number: opening.number || null, amount: released });
+    }
+
+    const reversals = await boxes.reverseSourceEntries("receipt", receipt._id, { date: now, memo: "Customer payment cancelled: " + reason, session });
+    if (!reversals.length) throw httpError(409, "PRE_LEDGER_RECEIPT", "الدفعة دي من قبل بداية الدفاتر ومالهاش قيد يتعكس");
+    await audit(req, { action: "credit.payment.cancelled", entity: "Customer", entityId: customer._id, details: { number: receipt.number, amount: receipt.amount, reason, box: box.name }, session, strict: true });
+    return { receipt, restored, customer, boxName: box.name };
+  });
+  res.json({ receipt: { _id: result.receipt._id, number: result.receipt.number, amount: result.receipt.amount, status: result.receipt.status, cancelReason: result.receipt.cancelReason, cancelledAt: result.receipt.cancelledAt }, restored: result.restored });
+};
+
 // POST /api/customers/:id/apply-credit { amount } (credit.collect)
 const applyCredit = async (req, res) => {
   const amount = positiveAmount(req.body && req.body.amount);
@@ -133,4 +233,4 @@ const applyCredit = async (req, res) => {
   res.json({ applied: amount, allocations: result.allocations, credit: await customerCreditOf(result.customer._id) });
 };
 
-module.exports = { getCredit, createPayout, cancelPayout, applyCredit };
+module.exports = { getCredit, createPayout, cancelPayout, applyCredit, listReceipts, cancelReceipt };

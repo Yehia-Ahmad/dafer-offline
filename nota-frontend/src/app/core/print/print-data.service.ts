@@ -83,7 +83,7 @@ export class PrintDataService {
 
   private async receiptData(customerId: string, number: string): Promise<PaymentReceiptData> {
     const result = await this.get<{
-      receipt: { number: string; amount: number; paymentDate: string; note: string; kind: string; boxName: string | null; createdByName: string | null; createdAt: string; allocations: Array<{ amount: number; invoiceNumber: string | null; opening: boolean }> };
+      receipt: { number: string; amount: number; paymentDate: string; note: string; kind: string; boxName: string | null; createdByName: string | null; createdAt: string; status?: string; cancelledAt?: string | null; cancelReason?: string | null; allocations: Array<{ amount: number; invoiceNumber: string | null; opening: boolean }> };
       customer: { name: string; phone: string } | null;
       balanceBefore: number | null;
       balanceAfter: number | null;
@@ -101,6 +101,7 @@ export class PrintDataService {
       balanceAfter: result.balanceAfter,
       note: result.receipt.note || null,
       downPayment: result.receipt.kind === 'down_payment',
+      ...(result.receipt.status === 'cancelled' ? { cancelled: { reason: result.receipt.cancelReason, at: result.receipt.cancelledAt } } : {}),
     };
   }
 

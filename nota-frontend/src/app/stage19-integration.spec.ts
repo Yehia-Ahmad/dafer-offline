@@ -218,6 +218,71 @@ describe('Stage 19 — customer credit buttons', () => {
     expect(el(fixture).textContent).toContain('صرف رصيد دائن');
   });
 
+  describe('Fixes 1: the payment receipts list and "إلغاء الدفعة" (credit.payment.cancel)', () => {
+    const RECEIPTS = [
+      { _id: 'r1', number: 'RC-000001', kind: 'payment', amount: 100, paymentDate: '2026-11-06T08:00:00.000Z', note: '', status: 'posted', cancelReason: null, cancelledAt: null, boxName: 'الرئيسية', allocations: [{ amount: 100, invoiceNumber: 'CR-000001', opening: false }] },
+      { _id: 'r2', number: 'RC-000002', kind: 'payment', amount: 50, paymentDate: '2026-11-05T08:00:00.000Z', note: '', status: 'cancelled', cancelReason: 'غلط', cancelledAt: '2026-11-06T09:00:00.000Z', boxName: 'الرئيسية', allocations: [] },
+      { _id: 'r3', number: 'RC-000003', kind: 'down_payment', amount: 20, paymentDate: '2026-11-04T08:00:00.000Z', note: '', status: 'posted', cancelReason: null, cancelledAt: null, boxName: 'الرئيسية', allocations: [] },
+    ];
+    const openPayments = async (signIn: () => void = () => signInAs('owner')) => {
+      const fixture = await open(signIn, statement(CREDIT));
+      http.expectNone(`${base}customers/cu1/receipts`); // read when the payments tab opens
+      component.setTab('payments');
+      http.expectOne(`${base}customers/cu1/credit`).flush({ ...CREDIT, payouts: [] });
+      http.expectOne(`${base}customers/cu1/receipts`).flush({ data: RECEIPTS });
+      await settle(fixture);
+      return fixture;
+    };
+    const dialogButton = () => document.body.querySelector<HTMLButtonElement>('[data-action="confirm-correction"]')!;
+
+    it('lists every payment with its status; only a posted payment (not a down payment) has «إلغاء الدفعة», for the owner', async () => {
+      const fixture = await openPayments();
+      const rows = Array.from(el(fixture).querySelectorAll('[data-test="receipt-row"]'));
+      expect(rows.length).toBe(3);
+      expect(rows[0].querySelector('[data-action="cancel-receipt"]')).not.toBeNull();
+      expect(rows[1].querySelector('[data-action="cancel-receipt"]')).toBeNull();
+      expect(rows[1].textContent).toContain('customerDetailsPage.receipts.cancelled');
+      expect(rows[2].querySelector('[data-action="cancel-receipt"]')).toBeNull();
+    });
+
+    it('a cashier or an accountant (who may collect) does not see the button: it needs credit.payment.cancel', async () => {
+      const fixture = await openPayments(() => signInWith(['customers.view', 'credit.collect']));
+      expect(el(fixture).querySelectorAll('[data-test="receipt-row"]').length).toBe(3);
+      expect(el(fixture).querySelector('[data-action="cancel-receipt"]')).toBeNull();
+    });
+
+    it('cancelling asks for a reason, posts it, then reloads the statement, the receipts and the customer', async () => {
+      const fixture = await openPayments();
+      (el(fixture).querySelector('[data-action="cancel-receipt"]') as HTMLElement).click();
+      await settle(fixture);
+      expect(component.receiptCancel.target?._id).toBe('r1');
+      expect(dialogButton().disabled).toBeTrue();
+      component.confirmReceiptCancel('المبلغ اتكتب غلط');
+      const request = http.expectOne(`${base}customers/cu1/receipts/r1/cancel`);
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({ reason: 'المبلغ اتكتب غلط' });
+      request.flush({ receipt: { _id: 'r1', status: 'cancelled' } });
+      http.match((r) => r.url.endsWith('cashbox/payment-boxes')).forEach((r) => r.flush(MAIN_ONLY_BOXES));
+      http.match((r) => r.url === `${base}customers/cu1`).forEach((r) => r.flush({ _id: 'cu1', name: 'م. سامي', phone: '01001234567', createdAt: '2026-09-01T00:00:00.000Z', opening: { amount: -500, remaining: 0 }, creditHistory: [] }));
+      http.match((r) => r.url === `${base}customers/cu1/statement`).forEach((r) => r.flush(statement(CREDIT))); // the page and the customer reload both ask for it
+      http.expectOne(`${base}customers/cu1/receipts`).flush({ data: [{ ...RECEIPTS[0], status: 'cancelled', cancelReason: 'المبلغ اتكتب غلط' }, RECEIPTS[1], RECEIPTS[2]] });
+      await settle(fixture);
+      expect(component.receiptCancel.target).toBeNull();
+      expect(el(fixture).querySelector('[data-action="cancel-receipt"]')).toBeNull();
+    });
+
+    it('a refusal shows the reason and keeps the dialog (the paid money was handed back by a return)', async () => {
+      const fixture = await openPayments();
+      component.startReceiptCancel(RECEIPTS[0] as never);
+      component.confirmReceiptCancel('سبب');
+      http.expectOne(`${base}customers/cu1/receipts/r1/cancel`).flush({ code: 'PAYMENT_USED_BY_RETURN', message: 'مرتجع رجّع جزء من المدفوع' }, { status: 409, statusText: 'Conflict' });
+      await settle(fixture);
+      expect(component.receiptCancel.target).not.toBeNull();
+      expect(component.receiptCancel.busy).toBeFalse();
+      expect(component.receiptCancel.error).toBe('مرتجع رجّع جزء من المدفوع'); // no translations in this spec: the server message
+    });
+  });
+
   describe('Online Fixes 1: the payouts list and "إلغاء الصرف"', () => {
     const PAYOUTS = [
       { _id: 'po1', number: 'CP-000001', date: '2026-11-06T08:00:00.000Z', amount: 200, status: 'posted' },
@@ -229,6 +294,7 @@ describe('Stage 19 — customer credit buttons', () => {
       http.expectNone(`${base}customers/cu1/credit`);
       component.setTab('payments');
       http.expectOne(`${base}customers/cu1/credit`).flush({ ...CREDIT, payouts: PAYOUTS });
+      http.expectOne(`${base}customers/cu1/receipts`).flush({ data: [] });
       await settle(fixture);
       return fixture;
     };

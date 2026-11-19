@@ -11,7 +11,7 @@ const { roundMoney } = require("../utils/invoicePricing");
 const OPEN_CREDIT_SALE_STATUSES = ["pending", "partially_paid"];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const collectedOf = (opening) => roundMoney((opening.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
+const collectedOf = (opening) => roundMoney((opening.payments || []).filter((payment) => !payment.cancelledAt).reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
 /** What is still collectable on a customer opening (a negative opening is a credit, nothing to collect). */
 const openingRemaining = (opening) => (opening && opening.amount > 0 ? roundMoney(Math.max(0, opening.amount - collectedOf(opening))) : 0);
 

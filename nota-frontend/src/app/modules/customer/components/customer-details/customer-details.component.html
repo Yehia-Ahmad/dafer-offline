@@ -194,10 +194,10 @@
       @case ('payments') {
         <div class="m-card m-card--flush">
           @for (payment of allPayments; track $index) {
-            <div class="m-row" data-test="payment-row">
+            <div class="m-row" data-test="payment-row" [class.m-muted]="payment.cancelledAt">
               <span class="m-row__body">
                 <span class="m-row__title nota-num" dir="ltr" style="text-align:start">{{ payment.number || payment.invoiceNumber || shortRef(payment.invoiceId) }}</span>
-                <span class="m-row__sub" style="white-space:normal">{{ payment.paymentDate | mobDate }}@if (payment.note) { · {{ payment.note }} }</span>
+                <span class="m-row__sub" style="white-space:normal">{{ payment.paymentDate | mobDate }}@if (payment.note) { · {{ payment.note }} }@if (payment.cancelledAt) { · {{ 'customerDetailsPage.receipts.cancelled' | translate }} }</span>
                 @if (payment.number) { <nota-print-actions [items]="receiptPrintItems(payment.number)" /> }
               </span>
               <strong class="nota-num m-in">{{ payment.amount | notaMoney }}</strong>
@@ -206,6 +206,24 @@
             <div class="m-empty">{{ 'customerDetailsPage.s10.noPayments' | translate }}</div>
           }
         </div>
+        <!-- Fixes 1: the customer's payments (receipts) with «إلغاء الدفعة». -->
+        @if (receipts.length) {
+          <div class="m-card__title" style="padding:14px 2px 6px">{{ 'customerDetailsPage.receipts.title' | translate }}</div>
+          <div class="m-card m-card--flush" data-test="receipts">
+            @for (receipt of receipts; track receipt._id) {
+              <div class="m-row" data-test="receipt-row" [class.m-muted]="receipt.status === 'cancelled'">
+                <span class="m-row__body">
+                  <span class="m-row__title nota-num" dir="ltr" style="text-align:start">{{ receipt.number }}</span>
+                  <span class="m-row__sub" style="white-space:normal">{{ receipt.paymentDate | mobDate }}@if (receipt.boxName) { · {{ receipt.boxName }} }@if (receipt.status === 'cancelled') { · {{ 'customerDetailsPage.receipts.cancelled' | translate }}@if (receipt.cancelReason) { : {{ receipt.cancelReason }} } }</span>
+                </span>
+                <strong class="nota-num m-in">{{ receipt.amount | notaMoney }}</strong>
+                @if (receipt.status === 'posted' && receipt.kind === 'payment') {
+                  <button *notaCan="'credit.payment.cancel'" type="button" class="m-btn m-btn--danger" data-action="cancel-receipt" (click)="startReceiptCancel(receipt)">{{ 'customerDetailsPage.receipts.cancel' | translate }}</button>
+                }
+              </div>
+            }
+          </div>
+        }
         @if (payouts.length) {
           <div class="m-card__title" style="padding:14px 2px 6px">{{ 'customerDetailsPage.payouts.title' | translate }}</div>
           <div class="m-card m-card--flush" data-test="payouts">
@@ -690,8 +708,8 @@
               </tr></thead>
               <tbody>
                 @for (payment of allPayments; track $index) {
-                  <tr><td class="nota-num">{{ formatDate(payment.paymentDate) }}</td><td class="nota-num" dir="ltr">{{ payment.number || payment.invoiceNumber || shortRef(payment.invoiceId) }}</td>
-                    <td class="num cd__in">{{ payment.amount | notaMoney }}</td><td>{{ payment.note || '—' }}</td>
+                  <tr [class.cd__cancelled]="payment.cancelledAt"><td class="nota-num">{{ formatDate(payment.paymentDate) }}</td><td class="nota-num" dir="ltr">{{ payment.number || payment.invoiceNumber || shortRef(payment.invoiceId) }}</td>
+                    <td class="num cd__in">{{ payment.amount | notaMoney }}</td><td>{{ payment.note || '—' }}@if (payment.cancelledAt) { <span class="nota-pill nota-pill--overdue">{{ 'customerDetailsPage.receipts.cancelled' | translate }}</span> }</td>
                     <td>@if (payment.number) {<nota-print-actions [items]="receiptPrintItems(payment.number)" />}</td></tr>
                 } @empty {
                   <tr><td colspan="5" class="cd__empty">{{ 'customerDetailsPage.s10.noPayments' | translate }}</td></tr>
@@ -699,6 +717,28 @@
               </tbody>
             </table>
           </div>
+          <!-- Fixes 1: the customer's payments (receipts) with «إلغاء الدفعة». -->
+          @if (receipts.length) {
+            <h3 class="cd__subtitle">{{ 'customerDetailsPage.receipts.title' | translate }}</h3>
+            <div class="nota-table-wrap" data-test="receipts">
+              <table class="nota-table">
+                <thead><tr>
+                  <th>{{ 'customerDetailsPage.history.paymentDate' | translate }}</th>
+                  <th>{{ 'customerDetailsPage.s10.invoice' | translate }}</th>
+                  <th class="num">{{ 'customerDetailsPage.s10.amount' | translate }}</th>
+                  <th>{{ 'customerDetailsPage.receipts.box' | translate }}</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  @for (receipt of receipts; track receipt._id) {
+                    <tr data-test="receipt-row" [class.cd__cancelled]="receipt.status === 'cancelled'"><td class="nota-num">{{ formatDate(receipt.paymentDate) }}</td><td class="nota-num" dir="ltr">{{ receipt.number }}</td>
+                      <td class="num">{{ receipt.amount | notaMoney }}</td><td>{{ receipt.boxName || '—' }}@if (receipt.status === 'cancelled') { <span class="nota-pill nota-pill--overdue" [attr.title]="receipt.cancelReason">{{ 'customerDetailsPage.receipts.cancelled' | translate }}</span> }</td>
+                      <td>@if (receipt.status === 'posted' && receipt.kind === 'payment') {<button *notaCan="'credit.payment.cancel'" type="button" notaButton="danger" data-action="cancel-receipt" (click)="startReceiptCancel(receipt)">{{ 'customerDetailsPage.receipts.cancel' | translate }}</button>}</td></tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
           @if (payouts.length) {
             <h3 class="cd__subtitle">{{ 'customerDetailsPage.payouts.title' | translate }}</h3>
             <div class="nota-table-wrap" data-test="payouts">
@@ -903,6 +943,10 @@
 </p-dialog>
 }
 
+<!-- Fixes 1: cancel a customer payment (a reversal dated today; the box must hold the money). -->
+<nota-cancel-reason-dialog [open]="!!receiptCancel.target" [title]="'customerDetailsPage.receipts.cancelTitle' | translate: { number: receiptCancel.target?.number }" [text]="'customerDetailsPage.receipts.cancelText' | translate"
+  [confirmLabel]="'customerDetailsPage.receipts.confirm' | translate" [busy]="receiptCancel.busy" [error]="receiptCancel.error"
+  (confirmed)="confirmReceiptCancel($event)" (closed)="closeReceiptCancel()" />
 <!-- Online Fixes 1: cancel a payout (a reversal; the box must still be active). -->
 <nota-cancel-reason-dialog [open]="!!payoutCancel.target" [title]="'customerDetailsPage.payouts.cancelTitle' | translate: { number: payoutCancel.target?.number }" [text]="'customerDetailsPage.payouts.cancelText' | translate"
   [confirmLabel]="'customerDetailsPage.payouts.confirm' | translate" [busy]="payoutCancel.busy" [error]="payoutCancel.error"

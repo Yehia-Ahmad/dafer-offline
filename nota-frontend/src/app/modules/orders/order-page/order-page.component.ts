@@ -363,7 +363,7 @@ interface EditDraft { name: string; phone: string; address: string; notes: strin
             @for (courier of courierChoices(); track courier.id) { <option [value]="courier.id">{{ courier.name }}</option> }
           </select>
         </nota-form-field>
-        @if (!courierChoices().length) { <p class="op__muted">{{ 'orders.page.noCouriers' | translate }}</p> }
+        @if (!courierChoices().length) { <p class="op__muted" data-test="no-couriers">{{ (dispatchMode() === 'changeCourier' && activeCouriers().length ? 'orders.page.noOtherCourier' : 'orders.page.noCouriers') | translate }}</p> }
         @if (dispatchMode() === 'changeCourier') { <p class="op__muted" data-test="change-courier-note">{{ 'orders.page.changeCourierNote' | translate }}</p> }
         <ng-container notaDialogFooter>
           <button type="button" notaButton (click)="dispatchOpen.set(false)">{{ 'orders.close' | translate }}</button>

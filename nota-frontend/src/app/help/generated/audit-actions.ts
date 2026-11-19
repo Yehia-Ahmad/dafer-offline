@@ -26,6 +26,7 @@ export const BACKEND_AUDIT_ACTIONS: readonly string[] = [
   "credit.cancelled",
   "credit.created",
   "credit.payment",
+  "credit.payment.cancelled",
   "credit.payout",
   "credit.payout.cancelled",
   "credit.returned",

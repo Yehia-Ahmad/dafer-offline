@@ -530,6 +530,15 @@
         }
     },
     "customerDetailsPage": {
+      "receipts": {
+        "title": "Payment receipts",
+        "cancelled": "Cancelled",
+        "cancel": "Cancel payment",
+        "box": "Cash box",
+        "cancelTitle": "Cancel payment {{number}}",
+        "cancelText": "The payment stays in the record as “cancelled”, the money leaves the box through a reversal dated today, and the invoices it paid become open again. The box must hold the amount, and a drawer needs an open shift.",
+        "confirm": "Cancel payment"
+      },
       "payouts": {
         "title": "Credit payouts",
         "cancel": "Cancel payout",
@@ -1301,6 +1310,7 @@
             "credit.created": "Credit invoice created",
             "credit.updated": "Credit invoice edited",
             "credit.payment": "Payment collected",
+            "credit.payment.cancelled": "Customer payment cancelled",
             "credit.returned": "Credit invoice returned",
             "credit.cancelled": "Credit invoice cancelled",
             "product.archived": "Product archived",
@@ -2082,22 +2092,22 @@
         },
         "returns": {
             "title": "VAT return",
-            "subtitle": "Output VAT − input VAT = what you pay, or a credit carried to next month.",
+            "subtitle": "Output VAT − input VAT = what you pay; when input VAT is larger the difference is in your favour and carries to next month.",
             "loadFailed": "Could not load the VAT returns",
             "off": "VAT is not enabled for this shop. Turn it on in the shop profile.",
             "period": "Month",
             "output": "Sales VAT (output)",
             "input": "Purchases VAT (input)",
-            "carried": "Credit carried in",
+            "carried": "Carried balance in your favour",
             "net": "Net",
             "status": "Status",
             "filedAt": "Filed on",
-            "creditTag": "credit",
+            "creditTag": "in your favour",
             "export": "Export Excel",
             "file": "File the return",
             "pay": "Pay VAT",
             "unfile": "Unfile",
-            "creditForward": "Credit carried forward",
+            "creditForward": "Balance carried forward in your favour",
             "payable": "Payable",
             "paid": "Paid",
             "remaining": "Remaining",
@@ -2143,12 +2153,12 @@
             "posting": "The entry that will be posted",
             "debit": "Dr VAT payable (22)",
             "credit": "Cr Recoverable input VAT (115)",
-            "creditNote": "Input VAT is larger: the difference stays on account 115 as a credit and carries to next month.",
+            "creditNote": "Input VAT is larger: the difference stays on account 115 as a debit balance (in the shop’s favour, not a credit) and carries to next month.",
             "payableNote": "What is left after the offset stays payable on account 22 until it is paid.",
             "confirm": "Confirm filing",
             "debitInput": "Dr Recoverable input VAT (115)",
             "creditPayable": "Cr VAT payable (22)",
-            "negativeNote": "This month's returns were larger than its sales: the VAT taken back moves from payable to a credit on account 115 and carries to next month."
+            "negativeNote": "This month’s returns were larger than its sales: the VAT taken back moves from payable to a debit balance in your favour on account 115 and carries to next month."
         },
         "pay": {
             "title": "Pay the {{period}} VAT",
@@ -2774,6 +2784,7 @@
       "linesChanged": "{{n}} item(s) changed",
       "chooseCourier": "Choose the courier",
       "noCouriers": "No couriers yet. Add one on the couriers page first.",
+      "noOtherCourier": "No other courier is available",
       "withReturns": "The customer sent some items back",
       "returnQty": "Returned qty",
       "useRefuse": "Every item returned? That is a refusal. Use the \"Customer refused\" button.",
@@ -3006,7 +3017,16 @@
       "MAIN_BOX": "The main cash box cannot be stopped.",
       "SHIFT_DEPOSIT": "A shift deposit cannot be cancelled on its own: it is part of the shift report.",
       "REFUND_EXCEEDS_DUE": "The amount is more than the supplier owes us.",
-      "FORBIDDEN": "You do not have permission for this."
+      "FORBIDDEN": "You do not have permission for this.",
+      "INSUFFICIENT_BALANCE": "The box does not hold enough for the money to leave it.",
+      "PERIOD_LOCKED": "This period is closed. You cannot do this today.",
+      "PAYMENT_USED_BY_RETURN": "A return on the invoice already gave part of the paid money back (as customer credit or onto other invoices), so the payment cannot be cancelled. If the payment was a mistake: pay the credit out to the customer from their page, or set it against their invoices.",
+      "INVOICE_CLOSED": "The invoice was cancelled or fully returned.",
+      "WRITTEN_OFF": "The invoice debt was written off by a manual entry. Reverse the entry first.",
+      "RECEIPT_OF_WEB_ORDER": "This is a website order collection by the courier, tied to the order. It cannot be cancelled here.",
+      "USE_INVOICE_CANCEL": "This is a down payment. To give it back, cancel the invoice (return of the down payment).",
+      "NOTHING_TO_UNDO": "This payment is not recorded against any invoice, so it cannot be cancelled.",
+      "PRE_LEDGER_RECEIPT": "This payment is from before the books started and has no entry to reverse."
     }
   },
   "customerPhone": {

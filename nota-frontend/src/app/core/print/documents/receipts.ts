@@ -122,12 +122,15 @@ export interface PaymentReceiptData {
   journalNumber?: string | null;
   /** Down payment taken with a credit invoice. */
   downPayment?: boolean;
+  /** Fixes 1: the payment was cancelled (a reprint carries the «ملغي» stamp). */
+  cancelled?: { reason?: string | null; at?: string | Date | null; by?: string | null } | null;
 }
 
 export function paymentReceipt(ctx: PrintContext, data: PaymentReceiptData): PrintDocument {
   const body = `${receiptHeader(ctx)}
   <div class="center" style="font-size:15px;font-weight:800" data-title>${data.downPayment ? pick(ctx, 'سند قبض · مقدم', 'Receipt · down payment') : pick(ctx, 'سند قبض', 'Payment receipt')}</div>
   ${copyMark(ctx)}
+  ${data.cancelled ? cancelBox(ctx, data.cancelled) : ''}
   ${receiptRow(pick(ctx, 'رقم', 'No.'), ltrText(data.number), 'style="font-size:12px"')}
   ${receiptRow(pick(ctx, 'التاريخ', 'Date'), escapeHtml(formatDateTime(data.date, ctx.lang)), 'style="font-size:12px"')}
   ${data.cashier ? receiptRow(pick(ctx, 'الكاشير', 'Cashier'), escapeHtml(data.cashier), 'style="font-size:12px"') : ''}
@@ -146,7 +149,7 @@ export function paymentReceipt(ctx: PrintContext, data: PaymentReceiptData): Pri
   <div class="sigline"><span>${pick(ctx, 'توقيع المستلم', 'Receiver signature')}</span><span>.................</span></div>
   <div class="barcode" data-barcode-box>${barcodeSvg(data.number)}</div>
   ${receiptFooter(ctx, 'receipt', true)}`;
-  return { paper: '80mm', title: data.number, body: receiptPage(body) };
+  return { paper: '80mm', title: data.number, body: receiptPage(body), cancelled: data.cancelled || null };
 }
 
 // ---------------------------------------------------------------- PrReturnReceipt

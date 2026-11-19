@@ -46,6 +46,8 @@ const getReceiptPrintData = async (req, res) => {
     receipt: {
       _id: receipt._id, number: receipt.number, amount: receipt.amount, paymentDate: receipt.paymentDate, note: receipt.note || "", kind: receipt.kind,
       boxName: box ? box.name : null, createdByName: receipt.createdByName || null, createdAt: receipt.createdAt,
+      // Fixes 1: a cancelled payment is reprinted with a «ملغي» stamp.
+      status: receipt.status || "posted", cancelledAt: receipt.cancelledAt || null, cancelReason: receipt.cancelReason || null,
       allocations: receipt.allocations.map((row) => ({ amount: row.amount, invoiceNumber: row.creditSale ? numberOf.get(String(row.creditSale)) || null : null, opening: Boolean(row.opening) })),
     },
     customer: customer ? { _id: customer._id, name: customer.name, phone: customer.phone || "", taxNumber: customer.taxNumber || "" } : null,

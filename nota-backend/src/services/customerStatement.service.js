@@ -44,6 +44,8 @@ function computeCustomerStatement({ invoices, returnById, opening = null, payout
     for (const payment of opening.payments || []) {
       if (SKIPPED_PAYMENT_SOURCES.has(payment.source)) continue;
       add({ date: payment.paymentDate, type: "payment", number: payment.number, description: "دفعة عميل", debit: 0, credit: payment.amount });
+      // Fixes 1: a cancelled receipt keeps its credit line and adds its own debit line on the cancel day.
+      if (payment.cancelledAt) add({ date: businessDay(payment.cancelledAt), type: "payment_cancel", number: payment.number, description: "إلغاء دفعة عميل", debit: payment.amount, credit: 0 });
     }
   }
 
@@ -61,6 +63,7 @@ function computeCustomerStatement({ invoices, returnById, opening = null, payout
         description: payment.source === "down_payment" ? "دفعة مقدمة" : "دفعة عميل",
         debit: 0, credit: payment.amount,
       });
+      if (payment.cancelledAt) add({ date: businessDay(payment.cancelledAt), type: "payment_cancel", number: payment.number, description: "إلغاء دفعة عميل", debit: payment.amount, credit: 0 });
     }
     for (const refund of invoice.refunds || []) {
       const returnLog = refund.returnLog ? returnById.get(refund.returnLog.toString()) : null;

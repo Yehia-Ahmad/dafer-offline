@@ -21,6 +21,7 @@ const toCreditSalePayment = (payment) => ({
   note: payment.note ?? null,
   number: payment.number ?? null,
   source: payment.source ?? "receipt",
+  cancelledAt: payment.cancelledAt ?? null,
   ...actorFields(payment),
 });
 

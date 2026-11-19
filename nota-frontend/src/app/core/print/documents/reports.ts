@@ -321,10 +321,10 @@ export function vatReturn(ctx: PrintContext, data: VatReturnDetail): PrintDocume
   const summary = [
     [pick(ctx, 'ضريبة المخرجات (المبيعات − المرتجعات)', 'Output VAT (sales − returns)'), data.output],
     [pick(ctx, 'ضريبة المدخلات (مشتريات ومصروفات)', 'Input VAT (purchases and expenses)'), data.input],
-    [pick(ctx, 'رصيد دائن مرحَّل من الإقرار السابق', 'Credit carried in from the previous return'), data.carriedIn],
+    [pick(ctx, 'رصيد مرحَّل لصالحك من الإقرار السابق', 'Balance carried in your favour from the previous return'), data.carriedIn],
     [pick(ctx, 'الصافي (مخرجات − مدخلات − مرحَّل)', 'Net (output − input − carried in)'), data.net],
     [pick(ctx, 'المستحق السداد', 'Payable'), data.payable],
-    [pick(ctx, 'رصيد دائن يُرحَّل للشهر التالي', 'Credit carried forward'), data.credit],
+    [pick(ctx, 'رصيد يُرحَّل للشهر التالي لصالحك', 'Balance carried forward in your favour'), data.credit],
     [pick(ctx, 'المسدَّد', 'Paid'), data.paid],
     [pick(ctx, 'المتبقي', 'Remaining'), data.remaining],
   ] as Array<[string, number]>;

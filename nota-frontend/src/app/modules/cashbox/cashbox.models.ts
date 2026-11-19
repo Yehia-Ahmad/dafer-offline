@@ -235,6 +235,21 @@ export interface CustomerPayoutRow {
   cancelReason?: string;
 }
 
+/** Fixes 1: one customer payment (RC-…) as GET /customers/:id/receipts lists it, cancelled ones included. */
+export interface CustomerReceiptRow {
+  _id: string;
+  number: string;
+  kind: 'payment' | 'down_payment';
+  amount: number;
+  paymentDate: string;
+  note: string;
+  status: 'posted' | 'cancelled';
+  cancelReason: string | null;
+  cancelledAt: string | null;
+  boxName: string | null;
+  allocations: Array<{ amount: number; invoiceNumber: string | null; opening: boolean }>;
+}
+
 /** Error codes the cash endpoints send in `error.code`. */
 export type CashErrorCode =
   | 'BOX_INACTIVE' | 'NO_OPEN_SHIFT' | 'BOX_NOT_ALLOWED' | 'INSUFFICIENT_BALANCE' | 'BOX_NOT_EMPTY' | 'BOX_HAS_OPEN_SHIFT'

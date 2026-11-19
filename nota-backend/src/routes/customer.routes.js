@@ -33,6 +33,9 @@ router.get("/:id/receipts/:number/print-data", requireAnyPermission("customers.v
 router.get("/:id/statement", requirePermission("customers.view"), getCustomerStatement);
 // Stage 19: a credit balance (we owe the customer): pay it out of a box, or set it against open items.
 router.get("/:id/credit", requirePermission("customers.view"), asyncHandler(credit.getCredit));
+// Fixes 1: the customer's payments (receipts) and cancelling one (a reversal; owner and manager only).
+router.get("/:id/receipts", requireAnyPermission("customers.view", "credit.collect"), asyncHandler(credit.listReceipts));
+router.post("/:id/receipts/:receiptId/cancel", requirePermission("credit.payment.cancel"), asyncHandler(credit.cancelReceipt));
 router.post("/:id/payouts", requirePermission("credit.collect"), asyncHandler(credit.createPayout));
 router.post("/:id/payouts/:payoutId/cancel", requirePermission("credit.collect"), asyncHandler(credit.cancelPayout));
 router.post("/:id/apply-credit", requirePermission("credit.collect"), asyncHandler(credit.applyCredit));

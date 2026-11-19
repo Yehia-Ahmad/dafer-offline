@@ -16,6 +16,8 @@ const paymentSchema = new mongoose.Schema({
   source: { type: String, enum: ["return_reallocation", "credit_application", "manual_entry"], default: undefined },
   // Stage 22: the manual entry that set a customer credit against this opening (a reversal removes exactly this payment).
   manualEntryId: { type: mongoose.Schema.Types.ObjectId, default: undefined },
+  // Fixes 1: set when the receipt that made this payment was cancelled (the row stays, it no longer counts as collected).
+  cancelledAt: { type: Date, default: undefined },
 }, { _id: true });
 
 const partyOpeningSchema = new mongoose.Schema({
@@ -30,7 +32,7 @@ const partyOpeningSchema = new mongoose.Schema({
 
 partyOpeningSchema.index({ partyType: 1, partyId: 1 }, { unique: true });
 partyOpeningSchema.virtual("collected").get(function collected() {
-  return Math.round(this.payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0) * 100) / 100;
+  return Math.round(this.payments.filter((payment) => !payment.cancelledAt).reduce((sum, payment) => sum + Number(payment.amount || 0), 0) * 100) / 100;
 });
 partyOpeningSchema.plugin(auditFieldsPlugin);
 module.exports = mongoose.model("PartyOpening", partyOpeningSchema);

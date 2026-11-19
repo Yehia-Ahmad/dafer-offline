@@ -29,7 +29,7 @@ const STORE_SECRET = "store-0123456789abcdef0123456789abcdef-test";
 
 const EXPECTED_CATALOG = [
   "sales.create", "sales.view", "sales.edit", "sales.delete", "sales.discount", "sales.priceBelowCost",
-  "credit.create", "credit.view", "credit.edit", "credit.delete", "credit.collect",
+  "credit.create", "credit.view", "credit.edit", "credit.delete", "credit.collect", "credit.payment.cancel",
   "returns.create", "returns.view",
   "customers.view", "customers.manage",
   "suppliers.view", "suppliers.manage", "suppliers.pay", "purchases.view", "purchases.create", "purchases.cancel",
@@ -160,6 +160,8 @@ const EXPECTED_ROUTES = {
   "POST /api/customers/:id/payments": "credit.collect",
   "GET /api/customers/:id/statement": "customers.view",
   "GET /api/customers/:id/credit": "customers.view",
+  "GET /api/customers/:id/receipts": "customers.view | credit.collect",
+  "POST /api/customers/:id/receipts/:receiptId/cancel": "credit.payment.cancel",
   "POST /api/customers/:id/payouts": "credit.collect",
   "POST /api/customers/:id/payouts/:payoutId/cancel": "credit.collect",
   "POST /api/customers/:id/apply-credit": "credit.collect",

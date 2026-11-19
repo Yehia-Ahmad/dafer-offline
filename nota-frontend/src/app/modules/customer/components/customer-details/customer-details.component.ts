@@ -36,7 +36,7 @@ import {
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
 import { LockedActionComponent } from '../../../../core/auth/locked-action.component';
 import { CashboxService } from '../../../cashbox/cashbox.service';
-import { CustomerCredit, CustomerPayoutRow } from '../../../cashbox/cashbox.models';
+import { CustomerCredit, CustomerPayoutRow, CustomerReceiptRow } from '../../../cashbox/cashbox.models';
 import { PaymentBoxSelectComponent } from '../../../cashbox/payment-box-select.component';
 import { PaymentBoxService } from '../../../cashbox/payment-box.service';
 
@@ -52,7 +52,7 @@ type CustomerDetailsView = CustomerDetails & {
 
 interface CustomerStatement {
   rows: Array<{
-    kind: 'opening' | 'opening_balance' | 'invoice' | 'payment' | 'refund' | 'cancel' | 'payout' | 'payout_cancel';
+    kind: 'opening' | 'opening_balance' | 'invoice' | 'payment' | 'refund' | 'cancel' | 'payout' | 'payout_cancel' | 'payment_cancel';
     date: string | null;
     invoiceId: string;
     number: string | null;
@@ -142,6 +142,47 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     this.cashbox.customerCredit(this.currentCustomerId).subscribe({
       next: (result) => { this.payouts = result.payouts ?? []; this.cdr.detectChanges(); },
       error: () => undefined,
+    });
+  }
+
+  // ---- Fixes 1: the payments (receipts) list with 'إلغاء الدفعة' (POST /customers/:id/receipts/:receiptId/cancel, credit.payment.cancel).
+  receipts: CustomerReceiptRow[] = [];
+  receiptCancel = { target: null as CustomerReceiptRow | null, busy: false, error: '' };
+
+  private loadReceipts(): void {
+    if (!this.currentCustomerId) return;
+    this.cashbox.customerReceipts(this.currentCustomerId).subscribe({
+      next: (result) => { this.receipts = result.data ?? []; this.cdr.detectChanges(); },
+      error: () => undefined,
+    });
+  }
+
+  startReceiptCancel(row: CustomerReceiptRow): void {
+    this.receiptCancel = { target: row, busy: false, error: '' };
+  }
+
+  closeReceiptCancel(): void {
+    this.receiptCancel = { target: null, busy: false, error: '' };
+  }
+
+  confirmReceiptCancel(reason: string): void {
+    const row = this.receiptCancel.target;
+    if (!row || !this.currentCustomerId) return;
+    const customerId = this.currentCustomerId;
+    this.receiptCancel = { ...this.receiptCancel, busy: true, error: '' };
+    this.cashbox.cancelReceipt(customerId, row._id, reason).subscribe({
+      next: () => {
+        this.closeReceiptCancel();
+        this.payment.load(true);
+        this.loadStatement(customerId);
+        this.loadReceipts();
+        this.loadCustomer(customerId);
+        this.cdr.detectChanges();
+      },
+      error: (error: unknown) => {
+        this.receiptCancel = { ...this.receiptCancel, busy: false, error: correctionErrorText(error, this.translate) };
+        this.cdr.detectChanges();
+      },
     });
   }
 
@@ -292,7 +333,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   setTab(tab: CustomerTab): void {
     this.activeTab = tab;
     // Online Fixes 1: the payouts list (with its cancel) is read when the payments tab opens, not with every statement.
-    if (tab === 'payments') this.loadPayouts();
+    if (tab === 'payments') { this.loadPayouts(); this.loadReceipts(); }
   }
 
   applyStatementFilters(): void {

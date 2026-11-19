@@ -82,7 +82,11 @@ async function boxEvents(box, { from = null, to = null, ledgerStartAt, session =
   }
   for (const log of returns) if (inLedger(log)) push("refunds", -Number(log.finalReturnedAmount || 0), log.createdAt, log._id, "return");
   for (const invoice of credits) if (cancelledInLedger(invoice)) push("refunds", -Number(invoice.cancelRefundAmount || 0), invoice.cancelledAt, invoice._id);
-  for (const receipt of receipts) if (inLedger(receipt)) push("receipts", Number(receipt.amount || 0), receipt.createdAt, receipt._id);
+  for (const receipt of receipts) {
+    if (inLedger(receipt)) push("receipts", Number(receipt.amount || 0), receipt.createdAt, receipt._id);
+    // Fixes 1: a cancelled receipt is its original event plus a reversing one at the cancel time (like a transfer or a payout).
+    if (receipt.status === "cancelled" && cancelledInLedger(receipt)) push("receipts", -Number(receipt.amount || 0), receipt.cancelledAt, receipt._id);
+  }
 
   for (const transfer of transfers) {
     const sign = String(transfer.toBoxId) === String(id) ? 1 : -1;

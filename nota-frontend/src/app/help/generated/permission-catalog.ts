@@ -25,6 +25,7 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
     "credit.edit",
     "credit.delete",
     "credit.collect",
+    "credit.payment.cancel",
     "returns.create",
     "returns.view",
     "customers.view",
@@ -119,6 +120,11 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
       "group": "credit",
       "ar": "تحصيل الدفعات",
       "en": "Collect payments"
+    },
+    "credit.payment.cancel": {
+      "group": "credit",
+      "ar": "إلغاء تحصيل من عميل",
+      "en": "Cancel a customer payment"
     },
     "returns.create": {
       "group": "returns",
@@ -366,6 +372,7 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
       "credit.edit",
       "credit.delete",
       "credit.collect",
+      "credit.payment.cancel",
       "returns.create",
       "returns.view",
       "customers.view",
@@ -417,6 +424,7 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
       "credit.edit",
       "credit.delete",
       "credit.collect",
+      "credit.payment.cancel",
       "returns.create",
       "returns.view",
       "customers.view",

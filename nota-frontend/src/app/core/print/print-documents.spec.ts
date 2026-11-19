@@ -836,3 +836,16 @@ describe('Stage 23 last review fixes', () => {
     }
   });
 });
+
+describe('a cancelled customer payment (Fixes 1)', () => {
+  const base = { number: 'RC-000041', date: new Date(2026, 10, 5, 13, 15), customerName: 'م. سامي', invoiceNumbers: ['CR-000032'], amount: 100 };
+  it('the 80mm receipt and the A5 voucher carry the «ملغي» stamp with the reason; a posted one does not', () => {
+    const cancelled = { reason: 'المبلغ اتكتب غلط', at: '2026-11-06T09:00:00.000Z' };
+    const receipt = html(paymentReceipt(ctxOf(), { ...base, cancelled }));
+    expect(receipt).toContain('data-cancel-reason'); expect(receipt).toContain('المبلغ اتكتب غلط'); expect(receipt).toContain('data-cancelled-watermark');
+    const voucherHtml = html(receiptVoucher(ctxOf(), { ...base, cancelled }));
+    expect(voucherHtml).toContain('data-cancel-reason'); expect(voucherHtml).toContain('المبلغ اتكتب غلط');
+    expect(html(paymentReceipt(ctxOf(), base))).not.toContain('data-cancel-reason');
+    expect(html(receiptVoucher(ctxOf(), base))).not.toContain('data-cancel-reason');
+  });
+});

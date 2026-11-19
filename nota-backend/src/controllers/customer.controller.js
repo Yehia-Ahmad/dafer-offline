@@ -286,7 +286,7 @@ const getCustomerById = asyncHandler(async (req, res) => {
   const lastCreditSalePaymentDate = getLatestDate(
     creditHistory.flatMap((creditSale) =>
       Array.isArray(creditSale.payments)
-        ? creditSale.payments.map((payment) => payment.paymentDate)
+        ? creditSale.payments.filter((payment) => !payment.cancelledAt).map((payment) => payment.paymentDate)
         : []
     )
   );
@@ -298,7 +298,7 @@ const getCustomerById = asyncHandler(async (req, res) => {
     ...customer.toObject(),
     opening: openingDoc ? {
       amount: openingDoc.amount, date: openingDoc.date, number: openingDoc.number || null,
-      collected: roundMoney((openingDoc.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0)),
+      collected: roundMoney((openingDoc.payments || []).filter((payment) => !payment.cancelledAt).reduce((sum, payment) => sum + Number(payment.amount || 0), 0)),
       remaining: openingRemaining(openingDoc),
     } : null,
     outstanding: roundMoney(openItems.items.reduce((sum, item) => sum + item.remaining, 0)),

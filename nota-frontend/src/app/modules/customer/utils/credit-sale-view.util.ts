@@ -52,6 +52,8 @@ export type CreditSaleView = {
     note: string;
     /** Stage 22: "manual_entry" = a bad-debt write-off (a manual entry's customer-credit allocation). */
     source?: string;
+    /** Fixes 1: the receipt of this payment was cancelled (the row stays as history and no longer counts as paid). */
+    cancelledAt?: string;
   }>;
   /** Stage 22: an unreversed write-off sits on the invoice, so a return or a cancel is refused until the entry is reversed. */
   writtenOff: boolean;
@@ -133,7 +135,7 @@ function normalizePayments(source: any): CreditSaleView['payments'] {
       const paymentDate = payment?.paymentDate ? String(payment.paymentDate) : null;
       const note = String(payment?.note || '').trim();
       if (amount <= 0 && !paymentDate && !note) return null;
-      return { id: String(payment?._id || `${index}`), number: String(payment?.number || ''), amount, paymentDate, note, ...(payment?.source ? { source: String(payment.source) } : {}) };
+      return { id: String(payment?._id || `${index}`), number: String(payment?.number || ''), amount, paymentDate, note, ...(payment?.source ? { source: String(payment.source) } : {}), ...(payment?.cancelledAt ? { cancelledAt: String(payment.cancelledAt) } : {}) };
     })
     .filter((item): item is CreditSaleView['payments'][number] => item !== null);
 }
