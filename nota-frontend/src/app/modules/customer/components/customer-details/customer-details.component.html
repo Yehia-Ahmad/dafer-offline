@@ -62,7 +62,7 @@
   <div class="m-chips" role="tablist">
     <button type="button" role="tab" class="m-chip" [class.is-active]="activeTab === 'statement'" [attr.aria-selected]="activeTab === 'statement'" (click)="setTab('statement')">{{ 'customerDetailsPage.s10.tabs.statement' | translate }}</button>
     <button type="button" role="tab" class="m-chip" [class.is-active]="activeTab === 'invoices'" [attr.aria-selected]="activeTab === 'invoices'" (click)="setTab('invoices')">{{ 'customerDetailsPage.s10.tabs.invoices' | translate }} ({{ customer.creditHistory.length | notaNumber }})</button>
-    <button type="button" role="tab" class="m-chip" [class.is-active]="activeTab === 'payments'" [attr.aria-selected]="activeTab === 'payments'" (click)="setTab('payments')">{{ 'customerDetailsPage.s10.tabs.payments' | translate }} ({{ allPayments.length | notaNumber }})</button>
+    <button type="button" role="tab" class="m-chip" [class.is-active]="activeTab === 'payments'" [attr.aria-selected]="activeTab === 'payments'" (click)="setTab('payments')">{{ 'customerDetailsPage.s10.tabs.payments' | translate }} ({{ livePaymentsCount | notaNumber }})</button>
     <button type="button" role="tab" class="m-chip" [class.is-active]="activeTab === 'returns'" [attr.aria-selected]="activeTab === 'returns'" (click)="setTab('returns')">{{ 'customerDetailsPage.s10.tabs.returns' | translate }} ({{ allRefunds.length | notaNumber }})</button>
   </div>
 
@@ -502,7 +502,7 @@
       <div class="cd__tabs" role="tablist">
         <button type="button" role="tab" class="cd__tab" [class.is-on]="activeTab === 'statement'" [attr.aria-selected]="activeTab === 'statement'" (click)="setTab('statement')">{{ 'customerDetailsPage.s10.tabs.statement' | translate }}</button>
         <button type="button" role="tab" class="cd__tab" [class.is-on]="activeTab === 'invoices'" [attr.aria-selected]="activeTab === 'invoices'" (click)="setTab('invoices')">{{ 'customerDetailsPage.s10.tabs.invoices' | translate }} ({{ customer.creditHistory.length | notaNumber }})</button>
-        <button type="button" role="tab" class="cd__tab" [class.is-on]="activeTab === 'payments'" [attr.aria-selected]="activeTab === 'payments'" (click)="setTab('payments')">{{ 'customerDetailsPage.s10.tabs.payments' | translate }} ({{ allPayments.length | notaNumber }})</button>
+        <button type="button" role="tab" class="cd__tab" [class.is-on]="activeTab === 'payments'" [attr.aria-selected]="activeTab === 'payments'" (click)="setTab('payments')">{{ 'customerDetailsPage.s10.tabs.payments' | translate }} ({{ livePaymentsCount | notaNumber }})</button>
         <button type="button" role="tab" class="cd__tab" [class.is-on]="activeTab === 'returns'" [attr.aria-selected]="activeTab === 'returns'" (click)="setTab('returns')">{{ 'customerDetailsPage.s10.tabs.returns' | translate }} ({{ allRefunds.length | notaNumber }})</button>
       </div>
 

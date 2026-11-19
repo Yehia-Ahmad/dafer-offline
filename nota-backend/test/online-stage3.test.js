@@ -27,6 +27,7 @@ const { storeSlug } = require("../src/utils/storeSlug");
 const { resetDeviceThrottle } = require("../src/middlewares/device.middleware");
 const { forgetBoxes } = require("./helpers/oldData");
 const { startMongod, clearDatabase, mongodSkipReason } = require("./helpers/mongod");
+const { setClock } = require("../src/utils/clock");
 
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 const PNG_URI = `data:image/png;base64,${PNG}`;
@@ -271,6 +272,10 @@ const enableVat = async ({ rate = 14, includes = true } = {}) => ok(await staff(
 
 for (const includes of [true, false]) {
   it(`VAT on order lines matches what a cash sale of the same lines computes (prices ${includes ? "include" : "exclude"} VAT)`, async () => {
+    // A fixed business day: VAT starts on the shop's LOCAL day, so the comparison sale must carry that same day (not the UTC date, which is
+    // yesterday between 00:00 and 02:00 in Cairo).
+    setClock(() => new Date(2026, 10, 16, 12, 0, 0));
+    try {
     await startLedger();
     await enableVat({ includes });
     await openSite();
@@ -284,7 +289,7 @@ for (const includes of [true, false]) {
 
     const price = (id) => order.items.find((item) => String(item.productId) === id).unitPrice;
     const sale = ok(await staff("POST", "/api/sellings", {
-      customerName: "نقدي", customerPhone: "01017171718", sellingDate: new Date().toISOString().slice(0, 10),
+      customerName: "نقدي", customerPhone: "01017171718", sellingDate: "2026-11-16",
       // Online Stage 4 (decision 9): the delivery fee is part of the sale's VAT base, so the comparison sale carries it as shippingFees.
       shippingFees: order.deliveryFee,
       items: lines.map((line) => ({ productId: line.productId, quantity: line.qty, price: price(line.productId) })),
@@ -300,6 +305,7 @@ for (const includes of [true, false]) {
     assert.deepEqual(product.vat, { rate: 14, included: includes, exempt: false });
     assert.equal(ok(await store("GET", `/api/store/products/${c.id}`)).vat.rate, 0);
     assert.deepEqual(ok(await store("GET", "/api/store/settings")).vat, { rate: 14, pricesIncludeVat: includes });
+    } finally { setClock(null); }
   });
 }
 

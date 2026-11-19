@@ -214,8 +214,9 @@ it("unfile reverses a real offset entry", async () => {
 });
 
 it("health vat can fail: a hand-made VAT entry and a deleted event are caught; netSales and COGS stay 0 with VAT on", async () => {
+  atClock(2026, 11, 16); // a fixed business day (VAT starts on the shop's LOCAL day; the UTC date is yesterday between 00:00 and 02:00 in Cairo)
   const s = await shop();
-  ok(await sale(s, new Date().toISOString().slice(0, 10), design(s), { discountAmount: 20 }), 201);
+  ok(await sale(s, "2026-11-16", design(s), { discountAmount: 20 }), 201);
   const clean = await assertHealthy();
   assert.equal(clean.vat.payable.expected, 30.7); assert.equal(clean.netSales.difference, 0); assert.equal(clean.cogs.difference, 0);
   const session = await mongoose.startSession();

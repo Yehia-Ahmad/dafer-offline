@@ -245,6 +245,24 @@ describe('Stage 19 — customer credit buttons', () => {
       expect(rows[2].querySelector('[data-action="cancel-receipt"]')).toBeNull();
     });
 
+    it('the «الدفعات (n)» tab counts live payments only: the rows of a cancelled receipt stay in the list but are not counted', async () => {
+      const fixture = await openPayments();
+      const history = (payments: object[]) => [{ invoiceId: 'i1', number: 'CR-000001', payments, refunds: [], remainingAmount: 0 }];
+      const live = { id: 'p1', number: 'RC-000001', amount: 100, paymentDate: '2026-11-06T08:00:00.000Z', note: '' };
+      const gone = { id: 'p2', number: 'RC-000002', amount: 50, paymentDate: '2026-11-05T08:00:00.000Z', note: '', cancelledAt: '2026-11-06T09:00:00.000Z' };
+      component.customer = { ...(component.customer as object), creditHistory: history([live, gone]) } as never;
+      (component as unknown as { rebuildDerivedViews(): void }).rebuildDerivedViews();
+      fixture.detectChanges();
+      expect(component.allPayments.length).toBe(2); // both rows are listed (history)
+      expect(component.livePaymentsCount).toBe(1);
+      const tab = Array.from(el(fixture).querySelectorAll('[role="tab"]')).find((node) => node.textContent?.includes('customerDetailsPage.s10.tabs.payments'))!;
+      expect(tab.textContent).toContain('(1)');
+      component.customer = { ...(component.customer as object), creditHistory: history([{ ...live, cancelledAt: '2026-11-06T09:00:00.000Z' }, gone]) } as never;
+      (component as unknown as { rebuildDerivedViews(): void }).rebuildDerivedViews();
+      fixture.detectChanges();
+      expect(component.livePaymentsCount).toBe(0);
+    });
+
     it('a cashier or an accountant (who may collect) does not see the button: it needs credit.payment.cancel', async () => {
       const fixture = await openPayments(() => signInWith(['customers.view', 'credit.collect']));
       expect(el(fixture).querySelectorAll('[data-test="receipt-row"]').length).toBe(3);

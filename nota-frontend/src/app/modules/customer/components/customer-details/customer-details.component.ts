@@ -89,6 +89,8 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
   statementLoading = true;
   statementError = '';
   allPayments: Array<CustomerHistoryView['payments'][number] & { invoiceId: string; invoiceNumber: string }> = [];
+  /** The «الدفعات (n)» tab count: the payments that still count (the rows of a cancelled receipt stay in the list as history but are not counted). */
+  livePaymentsCount = 0;
   allRefunds: Array<CustomerHistoryView['refunds'][number] & { invoiceId: string; invoiceNumber: string }> = [];
   direction: 'rtl' | 'ltr' = 'ltr';
   customer: CustomerDetailsView | null = null;
@@ -907,6 +909,7 @@ export class CustomerDetailsComponent implements OnInit, OnDestroy {
     this.allPayments = history
       .flatMap((entry) => entry.payments.map((payment) => ({ ...payment, invoiceId: entry.invoiceId, invoiceNumber: entry.number })))
       .sort((a, b) => String(b.paymentDate || '').localeCompare(String(a.paymentDate || '')));
+    this.livePaymentsCount = this.allPayments.filter((payment) => !payment.cancelledAt).length;
     this.allRefunds = history
       .flatMap((entry) => entry.refunds.map((refund) => ({ ...refund, invoiceId: entry.invoiceId, invoiceNumber: entry.number })))
       .sort((a, b) => String(b.refundDate || '').localeCompare(String(a.refundDate || '')));
