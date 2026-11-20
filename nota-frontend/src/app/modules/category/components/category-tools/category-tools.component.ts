@@ -20,6 +20,7 @@ import { CatalogStateService } from '../../../layout/nav/catalog-state.service';
  * The list and the product-exists flag live in CatalogStateService (shared with the POS category chips).
  */
 import { NotaCanDirective } from '../../../../core/auth/nota-can.directive';
+import { localDateKey } from '../../../../core/utilities/local-date';
 
 @Component({
   selector: 'app-category-tools',
@@ -247,7 +248,7 @@ export class CategoryToolsComponent implements OnInit {
     this._productsService.exportProductsExcel().subscribe({
       next: (blob) => {
         this.isExportingProducts.set(false);
-        this.downloadBlob(blob, `products-${new Date().toISOString().slice(0, 10)}.xlsx`);
+        this.downloadBlob(blob, `products-${localDateKey()}.xlsx`);
       },
       error: (err) => {
         this.isExportingProducts.set(false);

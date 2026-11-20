@@ -1,4 +1,5 @@
 const asyncHandler = require("../utils/asyncHandler");
+const { localDayString } = require("../utils/clock");
 const {
   exportCategories,
   importCategories,
@@ -11,7 +12,7 @@ const { audit } = require("../auth/audit");
 
 const exportCategoriesExcel = asyncHandler(async (_req, res) => {
   const workbookBuffer = await exportCategories();
-  const date = new Date().toISOString().slice(0, 10);
+  const date = localDayString();
 
   res.set({
     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

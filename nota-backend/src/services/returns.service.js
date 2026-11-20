@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { filterBoundary } = require("../utils/clock");
 const ReturnLog = require("../models/returnLog.model");
 const { PREFIXES, normalizeNumberSearch } = require("../utils/documentNumber");
 
@@ -7,9 +8,9 @@ const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const parseDate = (value, name, endOfDay = false) => {
   if (typeof value !== "string" || !value.trim()) throw badRequest(`تنسيق ${name} غير صالح`);
-  const date = new Date(value.trim());
+  // A date-only value is a LOCAL day: a return stamped at an instant (00:30 Cairo is the previous UTC day) belongs to the shop's day.
+  const date = filterBoundary(value, endOfDay);
   if (Number.isNaN(date.getTime())) throw badRequest(`تنسيق ${name} غير صالح`);
-  if (endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) date.setUTCHours(23, 59, 59, 999);
   return date;
 };
 

@@ -3,6 +3,14 @@
 Every version has a section. The Arabic and English lists are what the "what's new" window shows once after an upgrade
 (electron-offline/lib/whats-new.js). The build refuses to release a version that has no section here.
 
+## 1.1.1 - 2026-11-20
+
+### ar
+- إصلاح: بين 12 بعد منتصف الليل و2 صباحًا (بتوقيت القاهرة) كان تاريخ المرتجع وتاريخ البيع في فلتر الفواتير واسم ملف التصدير ومنحنى الأرباح السنوي يطلعوا بتاريخ امبارح؛ دلوقتي كلهم بيوم المحل الفعلي، وفلتر المشتريات والمرتجعات بالتاريخ بيلقى مستندات أول اليوم.
+
+### en
+- Fix: between 00:00 and 02:00 Cairo time the return date, the invoice selling-date filter, export file names and the yearly profit chart used yesterday's date; they now use the shop's own day, and the purchases and returns date filters find documents stamped just after midnight.
+
 ## 1.1.0 - 2026-11-15
 
 ### ar

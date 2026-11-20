@@ -172,4 +172,11 @@ describe('InvoiceHistoryComponent payloads (Stage 10 safety)', () => {
     expect([invoice.totalPrice, invoice.refundedAmount, invoice.netTotal]).toEqual([300, 300, 0]);
     expect(component.canReturnSelling(invoice)).toBeFalse();
   });
+
+  it('the cash-return date and the selling-date filter send the LOCAL day: 00:30 on 2026-11-16 is 2026-11-16, never the UTC day before', () => {
+    // 00:30 local on the 16th: in Cairo that is 22:30 UTC of the 15th, where toISOString() would give 2026-11-15.
+    expect(component['formatDateParam'](new Date(2026, 10, 16, 0, 30))).toBe('2026-11-16');
+    expect(component['formatDateParam'](new Date(2026, 10, 16))).toBe('2026-11-16');
+    expect(component['formatDateParam'](null)).toBeUndefined();
+  });
 });

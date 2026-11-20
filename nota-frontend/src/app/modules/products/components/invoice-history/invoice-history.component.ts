@@ -8,6 +8,7 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { LockDateService } from '../../../../core/accounting-lock/lock-date.service';
+import { localDateKey } from '../../../../core/utilities/local-date';
 import { CateoryService } from '../../../category/services/cateory.service';
 import {
   NotaButtonDirective,
@@ -276,7 +277,7 @@ export class InvoiceHistoryComponent implements OnInit {
     if (!value) return undefined;
     const date = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(date.getTime())) return undefined;
-    return date.toISOString().split('T')[0];
+    return localDateKey(date);
   }
 
   private loadCategories(): void {

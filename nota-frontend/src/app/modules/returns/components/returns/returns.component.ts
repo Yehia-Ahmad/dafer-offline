@@ -1,4 +1,5 @@
 import { LockDateService } from '../../../../core/accounting-lock/lock-date.service';
+import { localDateKey } from '../../../../core/utilities/local-date';
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -672,12 +673,12 @@ export class ReturnsComponent implements OnInit {
     };
   }
 
-  /** Same date format the invoice-history cash return sends (ISO date part). */
+  /** Same date format the invoice-history cash return sends: the LOCAL day (toISOString() is yesterday between 00:00 and 02:00 in Cairo). */
   private toIsoDate(value: Date | null): string | undefined {
     if (!value) return undefined;
     const date = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(date.getTime())) return undefined;
-    return date.toISOString().split('T')[0];
+    return localDateKey(date);
   }
 
   private loadReturns(): void {

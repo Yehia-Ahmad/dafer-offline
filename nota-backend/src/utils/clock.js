@@ -25,4 +25,23 @@ const businessDay = (value) => {
   return date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0 ? date : localDayAsUtc(date);
 };
 
-module.exports = { now, setClock, endOfLocalDay, localDayAsUtc, businessDay };
+/** The LOCAL calendar day of an instant as YYYY-MM-DD (the shop's day: Africa/Cairo on its server). toISOString() would give the UTC day, which is yesterday between 00:00 and 02:00 in Cairo. */
+const localDayString = (date = now()) => localDayAsUtc(date).toISOString().slice(0, 10);
+
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+/**
+ * A list filter boundary. A date-only value ("2026-11-16") is a LOCAL business day: its first (or, with endOfDay, last) instant, so a
+ * document stamped at an instant (a web order at 00:30 Cairo is 22:30 UTC of the day before) falls in the day the shop calls it, and a
+ * business date stored as the UTC midnight of its day (02:00/03:00 local) falls in it too. Anything else is parsed as given.
+ * Returns an Invalid Date for an invalid value (the caller checks).
+ */
+const filterBoundary = (value, endOfDay = false) => {
+  const text = String(value).trim();
+  const match = DATE_ONLY.exec(text);
+  if (!match) return new Date(text);
+  const year = Number(match[1]); const month = Number(match[2]) - 1; const day = Number(match[3]);
+  const date = endOfDay ? new Date(year, month, day, 23, 59, 59, 999) : new Date(year, month, day, 0, 0, 0, 0);
+  return date.getMonth() === month && date.getDate() === day ? date : new Date(NaN);
+};
+
+module.exports = { now, setClock, endOfLocalDay, localDayAsUtc, localDayString, filterBoundary, businessDay };

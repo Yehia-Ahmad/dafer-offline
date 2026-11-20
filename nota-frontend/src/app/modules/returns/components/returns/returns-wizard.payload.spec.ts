@@ -141,4 +141,10 @@ describe('ReturnsComponent new-return wizard (Stage 10)', () => {
     component.confirmWizardReturn();
     http.expectNone(`${base}returns`);
   });
+
+  it('the return date is the LOCAL day: 00:30 on 2026-11-16 is 2026-11-16, never the UTC day before', () => {
+    expect(component['toIsoDate'](new Date(2026, 10, 16, 0, 30))).toBe('2026-11-16');
+    expect(component['toIsoDate'](new Date(2026, 10, 16))).toBe('2026-11-16');
+    expect(component['toIsoDate'](null)).toBeUndefined();
+  });
 });
