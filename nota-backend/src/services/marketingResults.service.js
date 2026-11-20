@@ -23,6 +23,8 @@ const Campaign = require("../models/campaign.model");
 const { CampaignClick, CampaignVisit } = require("../models/campaignStat.model");
 const { roundMoney, buildInvoiceTotals } = require("../utils/invoicePricing");
 const clock = require("../utils/clock");
+const { metaFigures } = require("./meta/metaResults.service");
+const { toMoney } = require("./meta/metaMoney");
 
 const COMPLETED_STATUSES = ["delivered", "picked_up"];
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -76,9 +78,43 @@ const invoiceFigures = (invoice) => {
 
 const emptyBucket = () => ({
   clicks: 0, visits: 0, ordersPlaced: 0, ordersCompleted: 0, ordersCancelled: 0, ordersRejected: 0, ordersRefused: 0, sales: 0, grossProfit: 0, deliveryRevenue: 0, spend: 0,
+  // Stage 7B (only used when the bucket has a Meta-linked campaign in it)
+  hasMeta: false, recordedSpend: 0, metaEgpMinor: 0, metaOriginalMinor: 0, needsRate: false, impressions: 0, reach: 0, linkClicks: 0,
 });
 
-const finish = (bucket, { includeProfit, hasVisits = true, hasSpend = true }) => {
+const finish = (bucket, { includeProfit, hasVisits = true, hasSpend = true, currency = "EGP" }) => {
+  const out = finishBase(bucket, { includeProfit, hasVisits, hasSpend });
+  if (!bucket.hasMeta || !hasSpend) return out;
+  // Stage 7B: a bucket with Meta-linked campaigns. `spend` is the Meta spend (converted) plus the recorded spend of its UNLINKED
+  // campaigns; the recorded expenses of the linked ones are shown separately and never added (no double counting).
+  const spendMoney = money(bucket.spend);
+  const metaMoneyEgp = toMoney(bucket.metaEgpMinor);
+  out.recordedSpend = money(bucket.recordedSpend);
+  out.meta = {
+    spend: metaMoneyEgp,
+    originalSpend: toMoney(bucket.metaOriginalMinor),
+    originalCurrency: currency,
+    needsRate: bucket.needsRate,
+    impressions: bucket.impressions,
+    reach: bucket.reach,
+    linkClicks: bucket.linkClicks,
+    ctr: bucket.impressions > 0 ? Math.round((bucket.linkClicks / bucket.impressions) * 10000) / 10000 : null,
+    cpc: !bucket.needsRate ? divide(metaMoneyEgp, bucket.linkClicks) : null,
+    cpm: !bucket.needsRate && bucket.impressions > 0 ? roundMoney((metaMoneyEgp / bucket.impressions) * 1000) : null,
+  };
+  out.needsRate = bucket.needsRate;
+  if (bucket.needsRate) {
+    // Part of the spend has no exchange rate: no ratio built on it is honest.
+    out.costPerOrder = null;
+    out.returnOnSpend = null;
+    if (includeProfit) out.profitAfterAds = null;
+  } else {
+    out.spend = spendMoney;
+  }
+  return out;
+};
+
+const finishBase = (bucket, { includeProfit, hasVisits = true, hasSpend = true }) => {
   const out = {
     clicks: bucket.clicks,
     visits: hasVisits ? bucket.visits : null,
@@ -193,10 +229,42 @@ const campaignResults = async (query, { includeProfit }) => {
     apply(visit.campaignId, (bucket) => { bucket.visits += 1; });
     dayOf(visit.day).visits += 1;
   }
-  for (const expense of expenses) apply(expense.campaignId, (bucket) => { bucket.spend += money(Number(expense.amount || 0) - Number(expense.vatAmount || 0)); });
+  // Stage 7B: synced Meta numbers. A campaign linked to Meta takes its spend from Meta; its recorded expenses are shown apart as
+  // «المدفوع المسجّل» and NOT added. Campaigns not linked keep the 7A rule (spend = linked expenses).
+  const meta = await metaFigures(range, { campaignIds: campaigns.map((campaign) => campaign._id), withUnlinked: !only });
+  const linkedIds = new Set(meta ? meta.linked.keys() : []);
+  for (const expense of expenses) {
+    const net = money(Number(expense.amount || 0) - Number(expense.vatAmount || 0));
+    const linked = expense.campaignId && linkedIds.has(String(expense.campaignId));
+    apply(expense.campaignId, (bucket) => { bucket.recordedSpend += net; if (!linked) bucket.spend += net; });
+  }
+  const metaDaily = new Map();
+  if (meta) {
+    for (const [campaignId, figures] of meta.linked) {
+      apply(campaignId, (bucket) => {
+        bucket.hasMeta = true;
+        bucket.spend += toMoney(figures.egpMinor);
+        bucket.metaEgpMinor += figures.egpMinor;
+        bucket.metaOriginalMinor += figures.originalMinor;
+        bucket.needsRate = bucket.needsRate || figures.missingRateMinor > 0;
+        bucket.impressions += figures.impressions;
+        bucket.reach += figures.reach;
+        bucket.linkClicks += figures.linkClicks;
+      });
+      for (const [day, value] of figures.perDay) {
+        const current = metaDaily.get(day) || { egpMinor: 0, missingRate: false };
+        current.egpMinor += value.egpMinor;
+        current.missingRate = current.missingRate || value.missingRate;
+        metaDaily.set(day, current);
+      }
+    }
+  }
+  const currency = meta ? meta.state.currency : "EGP";
 
-  const out = (bucket, flags) => finish(bucket, { includeProfit, ...flags });
+  const out = (bucket, flags) => finish(bucket, { includeProfit, currency, ...flags });
+  const dayKeys = new Set([...buckets.days.keys(), ...metaDaily.keys()]);
   return {
+    ...(meta ? { meta: { ...meta.state, unlinked: meta.unlinked, unlinkedSpend: money(meta.unlinked.reduce((sum, row) => sum + row.spend, 0)) } } : {}),
     range: { from: range.from, to: range.to },
     includeProfit,
     totals: out(buckets.total),
@@ -207,7 +275,12 @@ const campaignResults = async (query, { includeProfit }) => {
     platforms: [...buckets.platforms.entries()].map(([platform, bucket]) => ({ platform, ...out(bucket) })),
     direct: out(buckets.direct, { hasVisits: false, hasSpend: false }),
     heardFrom: [...buckets.heard.entries()].map(([answer, bucket]) => ({ answer, ...out(bucket, { hasVisits: false, hasSpend: false }) })),
-    daily: [...buckets.days.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([day, bucket]) => ({ day, visits: bucket.visits, orders: bucket.ordersPlaced, sales: money(bucket.sales) })),
+    daily: [...dayKeys].sort().map((day) => {
+      const bucket = buckets.days.get(day) || emptyBucket();
+      const row = { day, visits: bucket.visits, orders: bucket.ordersPlaced, sales: money(bucket.sales) };
+      if (metaDaily.has(day)) { row.metaSpend = toMoney(metaDaily.get(day).egpMinor); if (metaDaily.get(day).missingRate) row.metaNeedsRate = true; }
+      return row;
+    }),
   };
 };
 

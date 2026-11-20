@@ -110,6 +110,21 @@ ensure_vapid() {
   return 0
 }
 
+# ensure_secrets_key: Online Stage 7B. NOTA_SECRETS_KEY (64 hex chars = 32 random bytes) encrypts the secrets Nota stores for the
+# shop (the Meta ad account token). Generated once, only when missing: replacing it would make every stored token unreadable (the
+# owner would have to reconnect). It lives only in the backend env file. backup.sh does not save that file, so copy it with your backup.
+ensure_secrets_key() {
+  local key
+  if [ -z "$(env_get NOTA_SECRETS_KEY "$NOTA_BACKEND_ENV")" ]; then
+    key="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('hex'))" 2>/dev/null || true)"
+    case "$key" in
+      [0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) env_set NOTA_SECRETS_KEY "$key" "$NOTA_BACKEND_ENV"; log "NOTA_SECRETS_KEY generated" ;;
+      *) log "WARNING: could not generate NOTA_SECRETS_KEY; connecting the ad account stays off until the next update" ;;
+    esac
+  fi
+  return 0
+}
+
 backend_port() {
   local port
   port="$(env_get PORT "$NOTA_BACKEND_ENV")"

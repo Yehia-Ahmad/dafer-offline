@@ -3,8 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
-  AdCategory, Campaign, CampaignList, CampaignPayload, CampaignResults, ImportMapping, ImportPreview, ImportResult, Lead, LeadDetail, LeadList, LeadPayload,
-  MarketingSettings, MarketingSettingsPayload, Results, SpendList,
+  AdCategory, Campaign, CampaignList, CampaignPayload, CampaignResults, ExchangeRateRow, ExchangeRates, ImportMapping, ImportPreview, ImportResult, Lead, LeadDetail, LeadList, LeadPayload,
+  MarketingSettings, MarketingSettingsPayload, MetaCampaignRow, MetaConnectPayload, MetaConnectionView, MetaTestResult, Results, SpendList,
 } from './marketing.models';
 
 const params = (query: Record<string, string | number | null | undefined>): HttpParams => {
@@ -50,6 +50,22 @@ export class MarketingService {
   importMapping(headers: string[]): Observable<{ mapping: ImportMapping; maxRows: number }> { return this.http.post<{ mapping: ImportMapping; maxRows: number }>(`${this.api}leads/import/mapping`, { headers }); }
   importPreview(body: ImportBody): Observable<ImportPreview> { return this.http.post<ImportPreview>(`${this.api}leads/import/preview`, body); }
   importCommit(body: ImportBody): Observable<ImportResult> { return this.http.post<ImportResult>(`${this.api}leads/import`, body); }
+
+  // --- Online Stage 7B: Meta ad account (connection: marketing.connect, owner only), linking, exchange rates
+  metaConnection(): Observable<MetaConnectionView> { return this.http.get<MetaConnectionView>(`${this.api}website/meta-connection`); }
+  metaTest(payload: MetaConnectPayload): Observable<MetaTestResult> { return this.http.post<MetaTestResult>(`${this.api}website/meta-connection/test`, payload); }
+  metaConnect(payload: MetaConnectPayload): Observable<MetaConnectionView> { return this.http.put<MetaConnectionView>(`${this.api}website/meta-connection`, payload); }
+  metaDisconnect(): Observable<MetaConnectionView> { return this.http.delete<MetaConnectionView>(`${this.api}website/meta-connection`); }
+  metaSyncNow(): Observable<MetaConnectionView> { return this.http.post<MetaConnectionView>(`${this.api}website/meta-connection/sync`, {}); }
+  exchangeRates(): Observable<ExchangeRates> { return this.http.get<ExchangeRates>(`${this.api}website/exchange-rates`); }
+  saveExchangeRate(payload: { rate: number; effectiveFrom: string }): Observable<ExchangeRateRow> { return this.http.post<ExchangeRateRow>(`${this.api}website/exchange-rates`, payload); }
+  deleteExchangeRate(id: string): Observable<{ ok: boolean }> { return this.http.delete<{ ok: boolean }>(`${this.api}website/exchange-rates/${id}`); }
+  metaCampaigns(query: { campaignId?: string; search?: string; status?: string; unlinked?: string } = {}): Observable<{ data: MetaCampaignRow[] }> {
+    return this.http.get<{ data: MetaCampaignRow[] }>(`${this.api}campaigns/meta-campaigns`, { params: params(query) });
+  }
+  metaLinks(id: string): Observable<{ data: MetaCampaignRow[] }> { return this.http.get<{ data: MetaCampaignRow[] }>(`${this.api}campaigns/${id}/meta-links`); }
+  linkMeta(id: string, metaId: string): Observable<MetaCampaignRow> { return this.http.post<MetaCampaignRow>(`${this.api}campaigns/${id}/meta-links`, { metaId }); }
+  unlinkMeta(id: string, metaId: string): Observable<{ ok: boolean }> { return this.http.delete<{ ok: boolean }>(`${this.api}campaigns/${id}/meta-links/${metaId}`); }
 
   // --- settings
   settings(): Observable<MarketingSettings> { return this.http.get<MarketingSettings>(`${this.api}website/marketing-settings`); }

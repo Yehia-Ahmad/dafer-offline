@@ -6,6 +6,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { LayoutService } from '../../core/layout/layout.service';
 import { MarketingSettings } from './marketing.models';
 import { MarketingService } from './marketing.service';
+import { MetaConnectionComponent } from './meta-connection/meta-connection.component';
 
 const ERRORS = ['INVALID_VALUE'];
 
@@ -15,7 +16,7 @@ const ERRORS = ['INVALID_VALUE'];
  */
 @Component({
   selector: 'app-marketing-settings',
-  imports: [FormsModule, TranslatePipe, NotaCanDirective],
+  imports: [FormsModule, TranslatePipe, NotaCanDirective, MetaConnectionComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (!allowed()) {
@@ -70,6 +71,7 @@ const ERRORS = ['INVALID_VALUE'];
     } @else if (loadError()) {
       <p class="nota-error" role="alert">{{ 'marketing.loadFailed' | translate }}</p>
     }
+    @if (canConnect()) { <app-meta-connection /> }
   `,
   styles: [`
     :host { display: flex; flex-direction: column; gap: 16px; }
@@ -91,6 +93,8 @@ export class MarketingSettingsComponent implements OnInit {
 
   protected readonly allowed = computed(() => this.auth.has('marketing.view') || this.auth.has('marketing.manage'));
   protected readonly canManage = computed(() => this.auth.has('marketing.manage'));
+  // Online Stage 7B: the ad account connection card (owner only by default).
+  protected readonly canConnect = computed(() => this.auth.has('marketing.connect'));
   protected readonly loaded = signal(false);
   protected readonly loadError = signal(false);
   protected readonly saving = signal(false);

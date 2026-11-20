@@ -21,7 +21,8 @@ if (!mongodPath || (process.env.NOTA_TEST_MONGOD && !fs.existsSync(mongodPath)))
 
 // Online Stage 3: app.js refuses to start without NOTA_STORE_JWT_SECRET. The test files set their own NOTA_JWT_SECRET; this gives
 // them a (test-only) customer-website secret as well, unless the caller set one.
-const testEnv = { NOTA_STORE_JWT_SECRET: "test-only-store-secret-0123456789abcdef-0123456789", ...process.env };
+// Online Stage 7B: a test-only NOTA_SECRETS_KEY (64 hex chars) for the Meta token encryption.
+const testEnv = { NOTA_STORE_JWT_SECRET: "test-only-store-secret-0123456789abcdef-0123456789", NOTA_SECRETS_KEY: "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff", ...process.env };
 const child = spawn(process.execPath, ["--test", ...process.argv.slice(2)], { stdio: ["inherit", "pipe", "inherit"], env: testEnv });
 let output = "";
 child.stdout.on("data", (chunk) => { output += chunk; process.stdout.write(chunk); });

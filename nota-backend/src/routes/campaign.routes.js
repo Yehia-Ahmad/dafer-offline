@@ -2,6 +2,7 @@
 // POST /api/expenses (expenses.create); only the category lookup lives here.
 const express = require("express");
 const c = require("../controllers/campaign.controller");
+const metaLinks = require("../controllers/metaLinks.controller");
 const { requirePermission } = require("../auth/middleware");
 const { auditOnSuccess } = require("../auth/audit");
 
@@ -14,7 +15,12 @@ router.post("/", manage, auditOnSuccess("campaign.created", "Campaign", (_req, b
 // Fixed paths before /:id.
 router.get("/results", view, c.results);
 router.get("/ad-category", requirePermission("expenses.create", "marketing.view"), c.adCategory);
+// Online Stage 7B: linking Meta campaigns (read-only data synced from Meta).
+router.get("/meta-campaigns", manage, metaLinks.listMeta);
 router.get("/:id", view, c.get);
+router.get("/:id/meta-links", view, metaLinks.listLinks);
+router.post("/:id/meta-links", manage, auditOnSuccess("campaign.meta.linked", "Campaign", (req) => ({ metaId: req.body && req.body.metaId })), metaLinks.link);
+router.delete("/:id/meta-links/:metaId", manage, auditOnSuccess("campaign.meta.unlinked", "Campaign", (req) => ({ metaId: req.params.metaId })), metaLinks.unlink);
 router.put("/:id", manage, auditOnSuccess("campaign.updated", "Campaign", (req) => ({ fields: Object.keys(req.body || {}) })), c.update);
 router.get("/:id/results", view, c.campaignOnlyResults);
 router.get("/:id/spend", view, c.spendList);

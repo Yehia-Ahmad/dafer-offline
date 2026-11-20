@@ -22,11 +22,60 @@ export interface ResultsRow {
   deliveryRevenue: number;
   conversionRate: number | null;
   averageOrderValue: number | null;
+  /** For a campaign linked to Meta this is Meta's spend (converted to EGP); otherwise the recorded expenses (7A). */
   spend: number;
   costPerOrder: number | null;
   returnOnSpend: number | null;
   grossProfit?: number;
   profitAfterAds?: number;
+  // Online Stage 7B: only present when the row holds a campaign linked to Meta.
+  /** «المدفوع المسجّل»: the expenses linked to the campaign. Never added to the Meta spend. */
+  recordedSpend?: number;
+  meta?: MetaFigures;
+  /** Part of the Meta spend has no exchange rate: cost per order, return and profit after ads are null. */
+  needsRate?: boolean;
+}
+
+/** Online Stage 7B: the synced Meta numbers of a row (read-only; nothing here is posted). */
+export interface MetaFigures {
+  spend: number;
+  originalSpend: number;
+  originalCurrency: string;
+  needsRate: boolean;
+  impressions: number;
+  reach: number;
+  linkClicks: number;
+  ctr: number | null;
+  cpc: number | null;
+  cpm: number | null;
+}
+
+export interface UnlinkedMetaCampaign {
+  metaId: string;
+  name: string;
+  status: string;
+  spend: number;
+  originalSpend: number;
+  originalCurrency: string;
+  needsRate: boolean;
+  impressions: number;
+  linkClicks: number;
+}
+
+/** What the marketing pages need to show the banners and the unlinked list. */
+export interface MetaState {
+  connected: boolean;
+  currency: string;
+  timezoneName: string;
+  timezoneNote: boolean;
+  accountStatus: number | null;
+  lastSyncAt: string | null;
+  lastSyncOkAt: string | null;
+  lastError: { code: string; message: string; at: string } | null;
+  paused: boolean;
+  needsRate: boolean;
+  unlinked?: UnlinkedMetaCampaign[];
+  unlinkedSpend?: number;
 }
 
 export interface Campaign {
@@ -61,11 +110,12 @@ export interface CampaignPayload {
   code?: string;
 }
 
-export interface CampaignList { range: { from: string; to: string }; data: Campaign[] }
+export interface CampaignList { range: { from: string; to: string }; data: Campaign[]; meta?: MetaState }
 
 export interface CampaignResultsRow extends ResultsRow { campaignId: string; name: string; code: string; platform: Platform; type: CampaignType; status: CampaignStatus }
-export interface DailyPoint { day: string; visits: number; orders: number; sales: number }
+export interface DailyPoint { day: string; visits: number; orders: number; sales: number; metaSpend?: number; metaNeedsRate?: boolean }
 export interface Results {
+  meta?: MetaState;
   range: { from: string; to: string };
   includeProfit: boolean;
   totals: ResultsRow;
@@ -75,7 +125,7 @@ export interface Results {
   heardFrom: (ResultsRow & { answer: string })[];
   daily: DailyPoint[];
 }
-export interface CampaignResults { range: { from: string; to: string }; includeProfit: boolean; campaign: CampaignResultsRow | null; daily: DailyPoint[] }
+export interface CampaignResults { range: { from: string; to: string }; includeProfit: boolean; campaign: CampaignResultsRow | null; daily: DailyPoint[]; meta?: MetaState }
 
 export interface SpendRow { _id: string; number: string; date: string; amount: number; vatAmount: number; net: number; note: string; status: 'posted' | 'cancelled' }
 export interface SpendList { range: { from: string; to: string }; data: SpendRow[]; total: number }
@@ -135,3 +185,36 @@ export interface MarketingSettings {
   feeds: { meta: string; tiktok: string };
 }
 export type MarketingSettingsPayload = Partial<Omit<MarketingSettings, 'feeds'>>;
+
+// --- Online Stage 7B: the Meta ad account connection (never carries the token or app secret, only their last 4 characters)
+export interface MetaAccountInfo { name: string; currency: string; timezoneName: string; accountStatus: number; disableReason?: number }
+export interface MetaConnectionView {
+  connected: boolean;
+  adAccountId: string | null;
+  tokenLast4: string | null;
+  hasAppSecret: boolean;
+  appSecretLast4: string | null;
+  account: MetaAccountInfo | null;
+  accountStatusWarning: boolean;
+  scopes: string[];
+  connectedAt: string | null;
+  lastSyncAt: string | null;
+  lastSyncOkAt: string | null;
+  lastError: { code: string; message: string; at: string } | null;
+  paused: boolean;
+  syncing: boolean;
+  nextManualSyncAt: string | null;
+}
+export interface MetaTestResult {
+  ok: boolean;
+  account: MetaAccountInfo;
+  accountStatusWarning: boolean;
+  scopes: string[];
+  hasAdsRead: boolean;
+  neverExpires: boolean;
+  expiresAt: string | null;
+}
+export interface MetaConnectPayload { adAccountId: string; token?: string; appSecret?: string }
+export interface MetaCampaignRow { metaId: string; name: string; status: string; objective: string; campaignId: string | null; linkedAt: string | null; suggested: boolean }
+export interface ExchangeRateRow { _id: string; currency: string; rate: number; effectiveFrom: string; createdByName: string }
+export interface ExchangeRates { currency: string | null; required: boolean; data: ExchangeRateRow[] }

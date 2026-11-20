@@ -1,0 +1,9 @@
+[Unit]
+Description=Nota Meta ad account sync daily at 06:15 (server time zone: Africa/Cairo)
+
+[Timer]
+OnCalendar=*-*-* 06:15:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,8 @@
+[Unit]
+Description=Nota Meta ad account sync (read-only)
+After=mongod.service nota-backend.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/nota/bin/nota-meta-sync.sh
+Nice=10

@@ -50,7 +50,7 @@ const EXPECTED_CATALOG = [
   // Online Stage 4
   "orders.view", "orders.manage", "orders.dispatch",
   // Online Stage 7A
-  "marketing.view", "marketing.manage", "leads.manage",
+  "marketing.view", "marketing.manage", "marketing.connect", "leads.manage",
 ];
 
 test("catalog: exactly the Stage 13 keys, each with an Arabic and English label and a group", () => {
@@ -64,7 +64,7 @@ test("catalog: exactly the Stage 13 keys, each with an Arabic and English label 
 test("role templates match the spec", () => {
   const sorted = (list) => [...list].sort();
   assert.deepEqual(sorted(ROLE_TEMPLATES.owner), sorted(EXPECTED_CATALOG));
-  assert.deepEqual(sorted(ROLE_TEMPLATES.manager), sorted(EXPECTED_CATALOG.filter((k) => !["users.manage", "backup.manage", "accounting.manage", "accounting.close", "owner.drawings"].includes(k))));
+  assert.deepEqual(sorted(ROLE_TEMPLATES.manager), sorted(EXPECTED_CATALOG.filter((k) => !["users.manage", "backup.manage", "accounting.manage", "accounting.close", "owner.drawings", "marketing.connect"].includes(k))));
   assert.deepEqual(sorted(ROLE_TEMPLATES.cashier), sorted([
     "sales.create", "sales.view", "credit.create", "credit.view", "credit.collect",
     "returns.create", "customers.view", "products.view", "dashboard.view",
@@ -297,6 +297,19 @@ const EXPECTED_ROUTES = {
   "PUT /api/campaigns/:id": "marketing.manage",
   "GET /api/campaigns/:id/results": "marketing.view",
   "GET /api/campaigns/:id/spend": "marketing.view",
+  // Online Stage 7B
+  "GET /api/campaigns/meta-campaigns": "marketing.manage",
+  "GET /api/campaigns/:id/meta-links": "marketing.view",
+  "POST /api/campaigns/:id/meta-links": "marketing.manage",
+  "DELETE /api/campaigns/:id/meta-links/:metaId": "marketing.manage",
+  "GET /api/website/meta-connection": "marketing.connect",
+  "POST /api/website/meta-connection/test": "marketing.connect",
+  "POST /api/website/meta-connection/sync": "marketing.connect",
+  "PUT /api/website/meta-connection": "marketing.connect",
+  "DELETE /api/website/meta-connection": "marketing.connect",
+  "GET /api/website/exchange-rates": "marketing.view",
+  "POST /api/website/exchange-rates": "marketing.connect",
+  "DELETE /api/website/exchange-rates/:id": "marketing.connect",
   "GET /api/leads": "leads.manage | marketing.view",
   "POST /api/leads": "leads.manage",
   "POST /api/leads/import/mapping": "leads.manage",

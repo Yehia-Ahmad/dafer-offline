@@ -75,6 +75,7 @@ const PERMISSIONS = {
   // Online Stage 7A: campaigns and their results, pixel/catalog settings, and the leads list.
   "marketing.view": { group: "marketing", ar: "عرض الحملات ونتائجها", en: "View campaigns and results" },
   "marketing.manage": { group: "marketing", ar: "إدارة الحملات وإعدادات البكسل والكتالوج", en: "Manage campaigns, pixel and catalog settings" },
+  "marketing.connect": { group: "marketing", ar: "ربط حساب الإعلانات", en: "Connect the ad account" },
   "leads.manage": { group: "marketing", ar: "إدارة العملاء المحتملين (إضافة وتعديل واستيراد)", en: "Manage leads (add, edit, import)" },
 };
 
@@ -125,7 +126,7 @@ const VIEW_PERMISSIONS = ["sales.view", "credit.view", "returns.view", "customer
 
 const ROLE_TEMPLATES = Object.freeze({
   owner: ALL_PERMISSIONS,
-  manager: Object.freeze(ALL_PERMISSIONS.filter((key) => key !== "users.manage" && key !== "backup.manage" && key !== "accounting.manage" && key !== "accounting.close" && key !== "owner.drawings")),
+  manager: Object.freeze(ALL_PERMISSIONS.filter((key) => key !== "users.manage" && key !== "backup.manage" && key !== "accounting.manage" && key !== "accounting.close" && key !== "owner.drawings" && key !== "marketing.connect")),
   cashier: Object.freeze([
     "sales.create",
     "sales.view",

@@ -42,6 +42,7 @@ fi
 
 for f in nota-lib.sh backup.sh restore.sh update.sh nota-owner.sh \
   templates/nota-backend.service templates/nota-storefront.service templates/nota-backup.service templates/nota-backup.timer \
+  templates/nota-meta-sync.service templates/nota-meta-sync.timer nota-meta-sync.sh \
   templates/nginx-nota.conf.template templates/nginx-nota-http.conf.template \
   templates/nginx-security-headers.conf templates/nginx-proxy-api.conf templates/nginx-proxy-storefront.conf templates/nginx-ratelimit.conf \
   templates/backup.env.example; do
@@ -113,10 +114,11 @@ install -d -o root -g nota -m 750 "$NOTA_ETC"
 install -d -o root -g root -m 700 "$NOTA_BACKUP_DIR"
 
 log "setup: installing scripts into $NOTA_ROOT/bin"
-for f in nota-lib.sh backup.sh restore.sh update.sh nota-owner.sh; do
+for f in nota-lib.sh backup.sh restore.sh update.sh nota-owner.sh nota-meta-sync.sh; do
   install -o root -g root -m 755 "$SCRIPT_DIR/$f" "$NOTA_ROOT/bin/$f"
 done
 ln -sfn "$NOTA_ROOT/bin/nota-owner.sh" /usr/local/bin/nota-owner
+ln -sfn "$NOTA_ROOT/bin/nota-meta-sync.sh" /usr/local/bin/nota-meta-sync
 
 # --- 5. generated secrets (only when missing) -------------------------------------------------------------------
 umask 077
@@ -228,6 +230,8 @@ env_set MONGO_URI "mongodb://nota_app:${app_pass}@127.0.0.1:27017/${DB_NAME}?rep
 [ -n "$(env_get NOTA_STORE_JWT_SECRET "$NOTA_BACKEND_ENV")" ] || env_set NOTA_STORE_JWT_SECRET "$(rand_hex 48)" "$NOTA_BACKEND_ENV"
 # Online Stage 6A: the VAPID key pair for phone notifications (only generated when missing; same function update.sh uses).
 ensure_vapid
+# Online Stage 7B: the key that encrypts the stored Meta token (only generated when missing).
+ensure_secrets_key
 PORT="$(backend_port)"
 
 # Online Stage 5B: the storefront's environment. It calls the backend on loopback and never needs a secret. Existing values
@@ -253,10 +257,14 @@ install -m 644 "$SCRIPT_DIR/templates/nota-backend.service" /etc/systemd/system/
 install -m 644 "$SCRIPT_DIR/templates/nota-storefront.service" /etc/systemd/system/nota-storefront.service
 install -m 644 "$SCRIPT_DIR/templates/nota-backup.service" /etc/systemd/system/nota-backup.service
 install -m 644 "$SCRIPT_DIR/templates/nota-backup.timer" /etc/systemd/system/nota-backup.timer
+# Online Stage 7B: the daily Meta ad account sync (does nothing until the owner connects the account in the app).
+install -m 644 "$SCRIPT_DIR/templates/nota-meta-sync.service" /etc/systemd/system/nota-meta-sync.service
+install -m 644 "$SCRIPT_DIR/templates/nota-meta-sync.timer" /etc/systemd/system/nota-meta-sync.timer
 systemctl daemon-reload
 # The backend and the storefront are enabled now but started by the first update.sh (there is no release yet).
 systemctl enable nota-backend nota-storefront
 systemctl enable --now nota-backup.timer
+systemctl enable --now nota-meta-sync.timer
 
 # --- 9. nginx and HTTPS ----------------------------------------------------------------------------------------------
 # Sequence (nginx is never given a config that points at certificate files that do not exist):

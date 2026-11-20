@@ -66,6 +66,7 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
     "orders.dispatch",
     "marketing.view",
     "marketing.manage",
+    "marketing.connect",
     "leads.manage"
   ],
   "permissions": {
@@ -329,6 +330,11 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
       "ar": "إدارة الحملات وإعدادات البكسل والكتالوج",
       "en": "Manage campaigns, pixel and catalog settings"
     },
+    "marketing.connect": {
+      "group": "marketing",
+      "ar": "ربط حساب الإعلانات",
+      "en": "Connect the ad account"
+    },
     "leads.manage": {
       "group": "marketing",
       "ar": "إدارة العملاء المحتملين (إضافة وتعديل واستيراد)",
@@ -433,6 +439,7 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
       "orders.dispatch",
       "marketing.view",
       "marketing.manage",
+      "marketing.connect",
       "leads.manage"
     ],
     "manager": [

@@ -107,7 +107,7 @@ const list = asyncHandler(async (req, res) => {
   const results = await campaignResults({ from: req.query.from, to: req.query.to }, { includeProfit: canSeeProfit(req) });
   if (!results) throw httpError(400, "INVALID_RANGE", "الفترة غير صالحة");
   const kpis = new Map(results.campaigns.map((row) => [String(row.campaignId), row]));
-  res.json({ range: results.range, data: await Promise.all(rows.map(async (row) => ({ ...(await view(row, req)), kpis: kpis.get(String(row._id)) || null }))) });
+  res.json({ range: results.range, ...(results.meta ? { meta: results.meta } : {}), data: await Promise.all(rows.map(async (row) => ({ ...(await view(row, req)), kpis: kpis.get(String(row._id)) || null }))) });
 });
 
 const loadOr404 = async (id) => {
@@ -166,7 +166,7 @@ const campaignOnlyResults = asyncHandler(async (req, res) => {
   const campaign = await loadOr404(req.params.id);
   const data = await campaignResults({ from: req.query.from, to: req.query.to, campaignId: String(campaign._id) }, { includeProfit: canSeeProfit(req) });
   if (!data) throw httpError(400, "INVALID_RANGE", "الفترة غير صالحة");
-  res.json({ range: data.range, includeProfit: data.includeProfit, campaign: data.campaigns[0] || null, daily: data.daily });
+  res.json({ range: data.range, includeProfit: data.includeProfit, campaign: data.campaigns[0] || null, daily: data.daily, ...(data.meta ? { meta: data.meta } : {}) });
 });
 
 // GET /api/campaigns/:id/spend?from=&to=  (the expenses linked to the campaign, cancelled ones marked)

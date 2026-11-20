@@ -7,8 +7,9 @@ import { NotaCanDirective } from '../../../core/auth/nota-can.directive';
 import { LayoutService } from '../../../core/layout/layout.service';
 import { localDateKey } from '../../../core/utilities/local-date';
 import { NotaButtonDirective, NotaPageHeaderComponent } from '../../shared/ui';
-import { CAMPAIGN_STATUSES, Campaign, PLATFORMS } from '../marketing.models';
+import { CAMPAIGN_STATUSES, Campaign, MetaState, PLATFORMS } from '../marketing.models';
 import { MarketingService } from '../marketing.service';
+import { MetaBannersComponent } from '../meta-banners.component';
 
 const daysAgo = (days: number): string => {
   const date = new Date();
@@ -19,7 +20,7 @@ const daysAgo = (days: number): string => {
 /** Online Stage 7A: /marketing/campaigns. Campaigns with status chips, a platform filter, a date range and the KPIs of each row. */
 @Component({
   selector: 'app-campaigns',
-  imports: [FormsModule, RouterLink, DecimalPipe, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaPageHeaderComponent],
+  imports: [FormsModule, RouterLink, DecimalPipe, TranslatePipe, NotaCanDirective, NotaButtonDirective, NotaPageHeaderComponent, MetaBannersComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 @if (layout.isMobile()) {
@@ -37,6 +38,7 @@ const daysAgo = (days: number): string => {
         <input class="m-input nota-num" style="flex:1;min-width:0" type="date" name="toM" data-test="range-to" [ngModel]="to()" (ngModelChange)="setRange(from(), $event)" />
       </div>
       @if (loadError()) { <p class="nota-error m-note" role="alert">{{ 'marketing.loadFailed' | translate }}</p> }
+      <app-meta-banners [meta]="meta()" />
       <div class="m-card m-card--flush">
         @for (c of rows(); track c._id) {
           <a class="m-row" data-test="campaign-row" [routerLink]="['/marketing/campaigns', c._id]">
@@ -82,6 +84,7 @@ const daysAgo = (days: number): string => {
         </label>
       </div>
       @if (loadError()) { <div class="cmp__alert" role="alert">{{ 'marketing.loadFailed' | translate }}</div> }
+      <app-meta-banners [meta]="meta()" />
       <div class="nota-table-wrap">
         <table class="nota-table" data-test="campaigns-table">
           <thead><tr>
@@ -99,7 +102,7 @@ const daysAgo = (days: number): string => {
                 <td class="nota-num">{{ c.kpis?.ordersCompleted ?? 0 }}</td>
                 <td class="nota-num">{{ c.kpis?.sales ?? 0 | number: '1.0-2' }}</td>
                 <td class="nota-num">{{ c.kpis?.spend ?? 0 | number: '1.0-2' }}</td>
-                <td class="nota-num">{{ c.kpis?.returnOnSpend ?? '—' }}</td>
+                <td class="nota-num">@if (c.kpis?.needsRate) { <small data-test="needs-rate">{{ 'marketing.meta.needsRateShort' | translate }}</small> } @else { {{ c.kpis?.returnOnSpend ?? '—' }} }</td>
               </tr>
             } @empty {
               @if (!loading()) { <tr><td colspan="8" class="cmp__empty">{{ 'marketing.campaigns.empty' | translate }}</td></tr> }
@@ -126,6 +129,7 @@ export class CampaignsComponent implements OnInit {
   protected readonly platforms = PLATFORMS;
 
   protected readonly rows = signal<Campaign[]>([]);
+  protected readonly meta = signal<MetaState | undefined>(undefined);
   protected readonly loading = signal(true);
   protected readonly loadError = signal(false);
   protected readonly status = signal('');
@@ -146,7 +150,7 @@ export class CampaignsComponent implements OnInit {
     this.loading.set(true);
     this.loadError.set(false);
     this.marketing.campaigns({ status: this.status(), platform: this.platform(), from: this.from(), to: this.to() }).subscribe({
-      next: (response) => { this.rows.set(response.data); this.loading.set(false); },
+      next: (response) => { this.rows.set(response.data); this.meta.set(response.meta); this.loading.set(false); },
       error: () => { this.loadError.set(true); this.loading.set(false); },
     });
   }

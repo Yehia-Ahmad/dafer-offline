@@ -135,6 +135,7 @@ describe('campaign page', () => {
       { _id: 'e1', number: 'EX-1', date: '2026-11-16T00:00:00.000Z', amount: 40, vatAmount: 0, net: 40, note: 'إعلان', status: 'posted' },
       { _id: 'e2', number: 'EX-2', date: '2026-11-16T00:00:00.000Z', amount: 10, vatAmount: 0, net: 10, note: 'غلط', status: 'cancelled' },
     ] });
+    http.expectOne((r) => r.url === `${api}campaigns/c1/meta-links`).flush({ data: [] }); // Online Stage 7B
   };
 
   for (const mobile of [false, true]) {

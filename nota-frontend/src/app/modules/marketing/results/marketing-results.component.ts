@@ -8,6 +8,7 @@ import { localDateKey } from '../../../core/utilities/local-date';
 import { NotaPageHeaderComponent } from '../../shared/ui';
 import { ResultsRow, Results } from '../marketing.models';
 import { MarketingService } from '../marketing.service';
+import { MetaBannersComponent } from '../meta-banners.component';
 
 const daysAgo = (days: number): string => {
   const date = new Date();
@@ -21,7 +22,7 @@ interface Section { key: string; titleKey: string; lines: Line[] }
 /** Online Stage 7A: /marketing/results. Every campaign, the platforms side by side, direct orders, "عرفتنا منين؟" and a daily chart. */
 @Component({
   selector: 'app-marketing-results',
-  imports: [FormsModule, NgTemplateOutlet, RouterLink, DecimalPipe, TranslatePipe, NotaPageHeaderComponent],
+  imports: [FormsModule, NgTemplateOutlet, RouterLink, DecimalPipe, TranslatePipe, NotaPageHeaderComponent, MetaBannersComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ng-template #range>
@@ -40,24 +41,41 @@ interface Section { key: string; titleKey: string; lines: Line[] }
                 <span class="mr__bar mr__bar--visits" [style.height.%]="pct(d.visits, maxVisits())"></span>
                 <span class="mr__bar mr__bar--orders" [style.height.%]="pct(d.orders, maxOrders())"></span>
                 <span class="mr__bar mr__bar--sales" [style.height.%]="pct(d.sales, maxSales())"></span>
+                @if (hasMeta()) { <span class="mr__bar mr__bar--meta" data-test="meta-bar" [style.height.%]="pct(d.metaSpend ?? 0, maxMeta())"></span> }
               </div>
               <small class="nota-num">{{ d.day.slice(5) }}</small>
             </div>
           }
         </div>
-        <p class="mr__legend"><span class="mr__dot mr__dot--visits"></span>{{ 'marketing.kpi.visits' | translate }} <span class="mr__dot mr__dot--orders"></span>{{ 'marketing.kpi.ordersPlaced' | translate }} <span class="mr__dot mr__dot--sales"></span>{{ 'marketing.kpi.sales' | translate }}</p>
+        <p class="mr__legend"><span class="mr__dot mr__dot--visits"></span>{{ 'marketing.kpi.visits' | translate }} <span class="mr__dot mr__dot--orders"></span>{{ 'marketing.kpi.ordersPlaced' | translate }} <span class="mr__dot mr__dot--sales"></span>{{ 'marketing.kpi.sales' | translate }} @if (hasMeta()) { <span class="mr__dot mr__dot--meta"></span>{{ 'marketing.kpi.metaSpend' | translate }} }</p>
       } @else { <p class="mr__muted">{{ 'marketing.results.empty' | translate }}</p> }
+    </ng-template>
+
+    <ng-template #unlinked>
+      @if (data()?.meta?.unlinked?.length) {
+        <div data-test="meta-unlinked">
+          @for (u of data()!.meta!.unlinked!; track u.metaId) {
+            <div class="mr__unl" data-test="meta-unlinked-row">
+              <span dir="auto">{{ u.name || u.metaId }}</span>
+              <small>{{ u.status }}</small>
+              <strong class="nota-num">{{ u.originalSpend | number: '1.0-2' }} {{ u.originalCurrency }}</strong>
+            </div>
+          }
+          <p class="mr__muted">{{ 'marketing.meta.unlinkedNote' | translate }}</p>
+        </div>
+      }
     </ng-template>
 
     @if (layout.isMobile()) {
       <div class="m-page">
         <div class="m-card"><ng-container *ngTemplateOutlet="range" /></div>
         @if (loadError()) { <p class="nota-error m-note" role="alert">{{ 'marketing.loadFailed' | translate }}</p> }
+        <app-meta-banners [meta]="data()?.meta" />
         @if (data(); as d) {
           <div class="m-card" data-test="totals">
             <span class="m-row__sub">{{ 'marketing.results.totals' | translate }}</span>
             <strong class="nota-num" style="font-size:22px;display:block">{{ d.totals.sales | number: '1.0-2' }}</strong>
-            <span class="m-row__sub">{{ 'marketing.kpi.orders' | translate }} {{ d.totals.ordersCompleted }} / {{ d.totals.ordersPlaced }} · {{ 'marketing.kpi.spend' | translate }} {{ d.totals.spend | number: '1.0-2' }} · {{ 'marketing.kpi.deliveryRevenue' | translate }} {{ d.totals.deliveryRevenue | number: '1.0-2' }}
+            <span class="m-row__sub" style="display:block;white-space:normal">{{ 'marketing.kpi.orders' | translate }} {{ d.totals.ordersCompleted }} / {{ d.totals.ordersPlaced }} · {{ 'marketing.kpi.spend' | translate }} {{ d.totals.spend | number: '1.0-2' }} · {{ 'marketing.kpi.deliveryRevenue' | translate }} {{ d.totals.deliveryRevenue | number: '1.0-2' }}
               @if (d.totals.grossProfit !== undefined) { · {{ 'marketing.kpi.grossProfit' | translate }} {{ d.totals.grossProfit | number: '1.0-2' }} }</span>
           </div>
           @for (section of sections(); track section.key) {
@@ -66,12 +84,17 @@ interface Section { key: string; titleKey: string; lines: Line[] }
               @for (line of section.lines; track line.label) {
                 <a class="m-row" [routerLink]="line.link ?? null" data-test="result-row">
                   <span class="m-row__body"><span class="m-row__title" dir="auto" style="display:block">{{ line.label }}</span>
-                    <span class="m-row__sub" style="display:block">{{ 'marketing.kpi.orders' | translate }} {{ line.row.ordersCompleted }} · {{ 'marketing.kpi.spend' | translate }} {{ line.row.spend | number: '1.0-2' }}
-                      @if (line.row.returnOnSpend !== null) { · {{ 'marketing.kpi.returnOnSpend' | translate }} {{ line.row.returnOnSpend }} }</span></span>
+                    <span class="m-row__sub" style="display:block;white-space:normal">{{ 'marketing.kpi.orders' | translate }} {{ line.row.ordersCompleted }} · {{ (line.row.meta ? 'marketing.kpi.metaSpend' : 'marketing.kpi.spend') | translate }} {{ line.row.spend | number: '1.0-2' }}
+                      @if (line.row.needsRate) { · {{ 'marketing.meta.needsRateShort' | translate }} } @else if (line.row.returnOnSpend !== null) { · {{ 'marketing.kpi.returnOnSpend' | translate }} {{ line.row.returnOnSpend }} }
+                      @if (line.row.meta) { · {{ 'marketing.kpi.linkClicks' | translate }} {{ line.row.meta.linkClicks }} }</span></span>
                   <strong class="nota-num">{{ line.row.sales | number: '1.0-2' }}</strong>
                 </a>
               } @empty { <div class="m-empty">{{ 'marketing.results.empty' | translate }}</div> }
             </div>
+          }
+          @if (d.meta?.unlinked?.length) {
+            <div class="m-section-label">{{ 'marketing.meta.unlinkedTitle' | translate }}</div>
+            <div class="m-card"><ng-container *ngTemplateOutlet="unlinked" /></div>
           }
           <div class="m-section-label">{{ 'marketing.results.daily' | translate }}</div>
           <div class="m-card"><ng-container *ngTemplateOutlet="chart" /></div>
@@ -82,6 +105,7 @@ interface Section { key: string; titleKey: string; lines: Line[] }
         <nota-page-header [title]="'marketing.results.title' | translate" [subtitle]="'marketing.results.subtitle' | translate" />
         <section class="nota-card"><ng-container *ngTemplateOutlet="range" /></section>
         @if (loadError()) { <p class="nota-error" role="alert">{{ 'marketing.loadFailed' | translate }}</p> }
+        <app-meta-banners [meta]="data()?.meta" />
         @if (data(); as d) {
           @for (section of sections(); track section.key) {
             <section class="nota-card" [attr.data-section]="section.key">
@@ -97,6 +121,10 @@ interface Section { key: string; titleKey: string; lines: Line[] }
                     <th class="nota-num">{{ 'marketing.kpi.conversionRate' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.averageOrderValue' | translate }}</th>
                     <th class="nota-num">{{ 'marketing.kpi.spend' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.costPerOrder' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.returnOnSpend' | translate }}</th>
                     @if (d.includeProfit) { <th class="nota-num">{{ 'marketing.kpi.profitAfterAds' | translate }}</th> }
+                    @if (hasMeta()) {
+                      <th class="nota-num">{{ 'marketing.kpi.recordedSpend' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.impressions' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.reach' | translate }}</th>
+                      <th class="nota-num">{{ 'marketing.kpi.linkClicks' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.ctr' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.cpc' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.cpm' | translate }}</th>
+                    }
                   </tr></thead>
                   <tbody>
                     @for (line of section.lines; track line.label) {
@@ -108,14 +136,23 @@ interface Section { key: string; titleKey: string; lines: Line[] }
                         <td class="nota-num">{{ line.row.sales | number: '1.0-2' }}</td><td class="nota-num" data-test="delivery-revenue">{{ line.row.deliveryRevenue | number: '1.0-2' }}</td>
                         @if (d.includeProfit) { <td class="nota-num" data-test="gross-profit">{{ line.row.grossProfit | number: '1.0-2' }}</td> }
                         <td class="nota-num">{{ pctText(line.row.conversionRate) }}</td><td class="nota-num">{{ line.row.averageOrderValue ?? '—' }}</td>
-                        <td class="nota-num">{{ line.row.spend | number: '1.0-2' }}</td><td class="nota-num">{{ line.row.costPerOrder ?? '—' }}</td><td class="nota-num">{{ line.row.returnOnSpend ?? '—' }}</td>
-                        @if (d.includeProfit) { <td class="nota-num">{{ line.row.profitAfterAds | number: '1.0-2' }}</td> }
+                        <td class="nota-num" data-test="row-spend">{{ line.row.spend | number: '1.0-2' }}@if (line.row.meta) { <small data-test="meta-spend-mark"> {{ 'marketing.meta.fromMeta' | translate }}</small> }</td>
+                        <td class="nota-num">{{ line.row.needsRate ? ('marketing.meta.needsRateShort' | translate) : (line.row.costPerOrder ?? '—') }}</td><td class="nota-num">{{ line.row.needsRate ? ('marketing.meta.needsRateShort' | translate) : (line.row.returnOnSpend ?? '—') }}</td>
+                        @if (d.includeProfit) { <td class="nota-num">@if (line.row.needsRate) { {{ 'marketing.meta.needsRateShort' | translate }} } @else { {{ line.row.profitAfterAds | number: '1.0-2' }} }</td> }
+                        @if (hasMeta()) {
+                          <td class="nota-num" data-test="recorded-spend">{{ line.row.meta ? (line.row.recordedSpend ?? 0 | number: '1.0-2') : '—' }}</td>
+                          <td class="nota-num">{{ line.row.meta?.impressions ?? '—' }}</td><td class="nota-num">{{ line.row.meta?.reach ?? '—' }}</td><td class="nota-num">{{ line.row.meta?.linkClicks ?? '—' }}</td>
+                          <td class="nota-num">{{ line.row.meta ? pctText(line.row.meta.ctr) : '—' }}</td><td class="nota-num">{{ line.row.meta?.cpc ?? '—' }}</td><td class="nota-num">{{ line.row.meta?.cpm ?? '—' }}</td>
+                        }
                       </tr>
-                    } @empty { <tr><td colspan="15" class="mr__muted">{{ 'marketing.results.empty' | translate }}</td></tr> }
+                    } @empty { <tr><td [attr.colspan]="hasMeta() ? 22 : 15" class="mr__muted">{{ 'marketing.results.empty' | translate }}</td></tr> }
                   </tbody>
                 </table>
               </div>
             </section>
+          }
+          @if (d.meta?.unlinked?.length) {
+            <section class="nota-card" data-section="meta-unlinked"><h2 class="mr__h">{{ 'marketing.meta.unlinkedTitle' | translate }}</h2><ng-container *ngTemplateOutlet="unlinked" /></section>
           }
           <section class="nota-card"><h2 class="mr__h">{{ 'marketing.results.daily' | translate }}</h2><ng-container *ngTemplateOutlet="chart" /></section>
         }
@@ -135,6 +172,8 @@ interface Section { key: string; titleKey: string; lines: Line[] }
     .mr__bar--visits, .mr__dot--visits { background: #94a3b8; }
     .mr__bar--orders, .mr__dot--orders { background: #0e7490; }
     .mr__bar--sales, .mr__dot--sales { background: #15803d; }
+    .mr__bar--meta, .mr__dot--meta { background: #1d4ed8; }
+    .mr__unl { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border, #e5e7eb); }
     .mr__dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline: 8px 4px; }
     .mr__legend { font-size: 12px; margin: 8px 0 0; }
   `],
@@ -153,6 +192,12 @@ export class MarketingResultsComponent implements OnInit {
   protected readonly maxVisits = computed(() => Math.max(1, ...this.daily().map((d) => d.visits)));
   protected readonly maxOrders = computed(() => Math.max(1, ...this.daily().map((d) => d.orders)));
   protected readonly maxSales = computed(() => Math.max(1, ...this.daily().map((d) => d.sales)));
+  protected readonly maxMeta = computed(() => Math.max(1, ...this.daily().map((d) => d.metaSpend ?? 0)));
+  /** Any Meta-linked row (or Meta spend on a day): shows the Meta columns and the Meta bar. */
+  protected readonly hasMeta = computed(() => {
+    const d = this.data();
+    return !!d && (d.totals.meta !== undefined || d.daily.some((day) => day.metaSpend !== undefined));
+  });
 
   protected readonly sections = computed<Section[]>(() => {
     const d = this.data();

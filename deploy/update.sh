@@ -79,6 +79,8 @@ fi
 
 # 2b2. Online Stage 6A: the VAPID key pair for phone notifications, generated once when missing (see ensure_vapid).
 ensure_vapid
+# 2b3. Online Stage 7B: the key that encrypts the stored Meta token, generated once when missing (see ensure_secrets_key).
+ensure_secrets_key
 
 # 2c. The storefront's environment is written by setup-server.sh; if it is missing, setup was not re-run.
 [ -f "$NOTA_STOREFRONT_ENV" ] || die "$NOTA_STOREFRONT_ENV is missing: run setup-server.sh again (see above)"
