@@ -105,6 +105,15 @@ const websiteSettingsSchema = new mongoose.Schema(
     },
     // Orders: the WhatsApp confirmation message ({الاسم} {رقم الطلب} {الإجمالي} {مدة التوصيل}).
     whatsappConfirmTemplate: { type: String, trim: true, maxlength: 1000 },
+    // Online Stage 7A: pixels, consent, attribution window and "عرفتنا منين؟". No defaults here: catalog.effectiveSettings applies them.
+    marketing: {
+      metaPixelId: { type: String, trim: true, match: /^\d{15,16}$/ },
+      tiktokPixelId: { type: String, trim: true, match: /^[A-Za-z0-9]{8,32}$/ },
+      requireConsent: { type: Boolean },
+      attributionDays: { type: Number, min: 1, max: 90 },
+      askHeardFrom: { type: Boolean },
+      heardFromOptions: { type: [{ type: String, trim: true, maxlength: 40 }], default: undefined },
+    },
   },
   { timestamps: true }
 );

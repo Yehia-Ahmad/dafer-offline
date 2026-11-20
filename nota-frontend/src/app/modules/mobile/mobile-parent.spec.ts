@@ -9,6 +9,15 @@ describe('parentRoute (Online Stage 6B)', () => {
     expect(parentRoute('/purchases/abc?x=1')).toBe('/purchases');
     expect(parentRoute('/cashbox/abc')).toBe('/cashbox');
     expect(parentRoute('/website/couriers/abc')).toBe('/website/couriers');
+    // Online Stage 7A: a campaign, its form and the results go back to the campaigns list; a lead, its form and the import to the leads list.
+    expect(parentRoute('/marketing/campaigns/c1')).toBe('/marketing/campaigns');
+    expect(parentRoute('/marketing/campaigns/new')).toBe('/marketing/campaigns');
+    expect(parentRoute('/marketing/campaigns/c1/edit')).toBe('/marketing/campaigns');
+    expect(parentRoute('/marketing/leads/l1')).toBe('/marketing/leads');
+    expect(parentRoute('/marketing/leads/new')).toBe('/marketing/leads');
+    expect(parentRoute('/marketing/leads/import')).toBe('/marketing/leads');
+    expect(parentRoute('/marketing/leads/l1/edit')).toBe('/marketing/leads');
+    expect(parentRoute('/marketing/campaigns')).toBe('/more');
     expect(parentRoute('/orders/abc')).toBe('/orders');
     expect(parentRoute('/accounting/journal/abc')).toBe('/accounting/journal');
     expect(parentRoute('/accounting/accounts/abc/ledger')).toBe('/accounting/accounts');

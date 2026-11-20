@@ -13,6 +13,8 @@ export interface ExpenseFilters {
 
 export interface CreateExpensePayload {
   accountId: string;
+  /** Online Stage 7A: the campaign this ad spend belongs to (a label; posting never reads it). */
+  campaignId?: string;
   amount: number;
   boxId?: string;
   date?: string;

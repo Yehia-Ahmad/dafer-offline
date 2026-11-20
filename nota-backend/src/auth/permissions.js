@@ -71,6 +71,11 @@ const PERMISSIONS = {
   "orders.view": { group: "website", ar: "عرض طلبات الموقع", en: "View website orders" },
   "orders.manage": { group: "website", ar: "إدارة طلبات الموقع (تأكيد وتعديل ورفض وإلغاء)", en: "Manage website orders (confirm, edit, reject, cancel)" },
   "orders.dispatch": { group: "website", ar: "تسليم الطلبات للمندوب وتسجيل التسليم والمرتجع", en: "Dispatch orders, record delivery and refusals" },
+
+  // Online Stage 7A: campaigns and their results, pixel/catalog settings, and the leads list.
+  "marketing.view": { group: "marketing", ar: "عرض الحملات ونتائجها", en: "View campaigns and results" },
+  "marketing.manage": { group: "marketing", ar: "إدارة الحملات وإعدادات البكسل والكتالوج", en: "Manage campaigns, pixel and catalog settings" },
+  "leads.manage": { group: "marketing", ar: "إدارة العملاء المحتملين (إضافة وتعديل واستيراد)", en: "Manage leads (add, edit, import)" },
 };
 
 const PERMISSION_GROUPS = {
@@ -85,6 +90,7 @@ const PERMISSION_GROUPS = {
   accounting: { ar: "الحسابات", en: "Accounting" },
   cashbox: { ar: "الخزنة", en: "Cash" },
   website: { ar: "الموقع", en: "Website" },
+  marketing: { ar: "التسويق", en: "Marketing" },
 };
 
 const ALL_PERMISSIONS = Object.freeze(Object.keys(PERMISSIONS));
@@ -135,6 +141,7 @@ const ROLE_TEMPLATES = Object.freeze({
     "orders.view",
     "orders.manage",
     "orders.dispatch",
+    "leads.manage",
   ]),
   storekeeper: Object.freeze(["products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view", "purchases.view", "purchases.create"]),
   accountant: Object.freeze([...VIEW_PERMISSIONS, "reports.profit", "products.viewCost", "credit.collect", "audit.view", "accounting.view", "suppliers.view", "purchases.view", "suppliers.pay", "cashbox.view", "expenses.create", "expenses.manage", "vat.file", "reports.financial"]),

@@ -184,6 +184,14 @@ const publicSettings = (settings, extras) => {
     sameDayCutoff: text(settings.sameDayCutoff) || null,
     highlights: publicHighlights(settings, rules, enabledMethods),
     vat: extras.vat ? { rate: extras.vat.rate, pricesIncludeVat: extras.vat.included } : null,
+    // Online Stage 7A: pixel ids are public by nature (they ship in the page); nothing else of the marketing settings is.
+    marketing: {
+      metaPixelId: rules.marketing.metaPixelId,
+      tiktokPixelId: rules.marketing.tiktokPixelId,
+      requireConsent: rules.marketing.requireConsent,
+      attributionDays: rules.marketing.attributionDays,
+      heardFromOptions: rules.marketing.askHeardFrom ? rules.marketing.heardFromOptions : [],
+    },
     shop,
   };
   return out;

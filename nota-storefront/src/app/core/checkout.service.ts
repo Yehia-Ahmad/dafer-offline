@@ -1,5 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { ApiError, ApiService } from './api.service';
+import { AttributionService } from './attribution.service';
+import { SettingsStore } from './settings.store';
 import { LineProblem, OrderRequest, OrderView, Quote } from './models';
 import { storage } from './storage';
 import { AR } from './i18n/ar';
@@ -35,6 +37,8 @@ export const mapFailure = (error: unknown): CheckoutFailure => {
 @Injectable({ providedIn: 'root' })
 export class CheckoutService {
   private readonly api = inject(ApiService);
+  private readonly attribution = inject(AttributionService);
+  private readonly settings = inject(SettingsStore);
 
   key(): string {
     const stored = storage.get(CHECKOUT_KEY);
@@ -53,7 +57,9 @@ export class CheckoutService {
    * so nothing was created for this one) starts a new key, once. A success clears the key.
    */
   async place(request: OrderRequest, signedIn: boolean): Promise<OrderView> {
-    const attempt = async (): Promise<OrderView> => this.api.placeOrder({ ...request, idempotencyKey: this.key() }, signedIn);
+    // Online Stage 7A: the campaign the visitor came from (code + landing time) rides along; the server decides if it still counts.
+    const attribution = this.attribution.forOrder(this.settings.settings()?.marketing?.attributionDays);
+    const attempt = async (): Promise<OrderView> => this.api.placeOrder({ ...request, ...(attribution ? { attribution } : {}), idempotencyKey: this.key() }, signedIn);
     let order: OrderView;
     try {
       order = await attempt();

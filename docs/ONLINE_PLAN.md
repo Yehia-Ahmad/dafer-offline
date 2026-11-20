@@ -309,3 +309,41 @@ Five fixes found while writing the help center. Backend change is additive; mone
 - **VAT wording.** The carried input-VAT difference is a **debit** balance on account 115 in the shop's favour, not a credit: the screen column is now «رصيد مرحّل لصالحك» (`vat.returns.carried`), the VAT screen notes, the printed VAT return and the help say so.
 - **Change courier.** When the only active courier is the current one the dialog says «مفيش مندوب تاني متاح».
 - **The shop's local business day, everywhere.** A date-only filter value is a LOCAL day (`utils/clock.js` `filterBoundary`: its first and last local instant), so a purchase, return or website order stamped at 00:30 Cairo (22:30 UTC of the day before) is found by its own day; the default year of the profit chart, the export file names and the expenses month default use the local clock; the cash-return date, the new-return wizard date and the selling-date filter on the admin app send the local day (`localDateKey`), not `toISOString()`. Backend tests build "today" with `test/helpers/shopDay.js` (never the UTC date), and `test/local-day.test.js` pins 00:30 local on 2026-11-16.
+
+## Stage 7A — campaigns, results, pixels, catalog and leads
+
+Shop owners can create campaigns with their own tracking links, see visits, orders, sales and real profit per campaign, record ad spend (as an ordinary expense), add the Meta and TikTok pixels, publish a catalog feed and keep a list of leads. No platform API is used. **Nothing about how sales, orders, returns, payments or stock are priced or posted changed**: results are read-only aggregations; ad spend goes through `POST /api/expenses`.
+
+### What was added
+- **Backend.** Models `Campaign`, `CampaignClick`, `CampaignVisit` (anonymous: campaign, local day, device type, random session id; no IP, no user agent), `Lead`. `WebOrder.attribution { code, campaignId, source, medium, landedAt }` and `WebOrder.heardFrom`; `Expense.campaignId` (a label, never read by posting). Routes `/api/campaigns` (list, CRUD, `/results`, `/:id/results`, `/:id/spend`, `/ad-category`), `/api/leads` (list, CRUD, notes, `/import/mapping|preview|` import), `GET|PUT /api/website/marketing-settings`, and the public `POST /api/store/visits` and `POST /api/store/go/:code`. Permissions `marketing.view`, `marketing.manage`, `leads.manage` (owner and manager all, cashier `leads.manage` only; 53 keys now). New profit keys (`grossProfit`, `profitAfterAds`, `profitPerOrder`) are in `COST_FIELDS` and are also left out of the response by the service without `products.viewCost`.
+- **Storefront.** `/go/:code` (302, never cached, device type from the User-Agent which is not forwarded), `/feeds/catalog.csv` (Meta) and `/feeds/tiktok.csv` (TikTok), 1 hour cache with the last good copy served while the API is down. `AttributionService` (utm landing, last click wins, attribution window, one visit per campaign per local day per browser), `PixelsService` + consent bar (never on the server, never before the page is idle, and with consent on never before the visitor accepts), the checkout "عرفتنا منين؟" select, events ViewContent / AddToCart / InitiateCheckout / Purchase.
+- **nginx.** Zones `nota_store_visits` (POST key) and `nota_go` (client address) at 60 r/m; `= /api/store/visits`, `^~ /go/`, `^~ /feeds/` locations with their cache headers.
+- **Admin.** Campaigns list / form / page (copy buttons, QR with `angularx-qrcode`, results, spend, leads link), results page (campaigns, platforms, direct, "عرفتنا منين؟", daily bars), spend dialog, leads list / form / page / import (CSV and XLSX, mapping, preview, skip or update, campaign, 5,000 rows), the «التسويق» tab of the website settings (own save, `marketing.manage`), a campaign column in the expenses list, nav group, phone back-button rules, 3 help sections, role help lines, audit labels, `HELP_AR.md`.
+
+### Where each result number comes from
+Orders belong to the **local day of their creation** (cohort rule), so clicks, visits, orders, sales and spend of a campaign line up.
+- clicks `CampaignClick.count`; visits unique `CampaignVisit` documents; orders placed / cancelled / rejected / refused `WebOrder` (`attribution.campaignId`, `status`).
+- **completed** = status `delivered` or `picked_up`, an invoice (`creditSaleId` or `cashSaleId`) that is not cancelled and not fully returned. (A staff-cancelled invoice leaves the order `delivered`, so the invoice is checked.)
+- **sales** = invoice `totalPrice` − `refundedAmount`; **gross profit** = per line `(profitAmount − discount share) × (1 − returned share) − VAT inside`, plus the delivery fee (net of its VAT) while any line is kept (the product profit report's math, plus shipping income).
+- **ad spend** = posted expenses with the campaign, `amount − vatAmount` (cancelled ones drop out). Conversion = completed ÷ visits, AOV = sales ÷ completed, cost per order, return on spend (sales ÷ spend), profit after ads.
+- `test/online-stage7a.test.js` builds delivered, refused, partly returned, wallet, pickup, cancelled, rejected, direct, courier-change-free and staff-cancelled-invoice orders through the real flows, checks every number by hand, and checks `sales = ledger revenue + VAT` and `profit = ledger revenue − COGS` to the piastre with VAT off, included and excluded.
+
+### Decisions taken while building (not in the brief)
+- **`/go` uses one backend call**, `POST /api/store/go/:code`, which counts the click and answers the landing path (no separate clicks route).
+- **Two feed files** (Meta `id` / TikTok `sku_id` columns and a different `utm_source`), no `.xml`; products without an image are skipped (both platforms refuse them); brand = the shop name (products have no brand).
+- **TikTok purchase event is `Purchase`** (TikTok's current name; `CompletePayment` is the legacy one). Meta Purchase carries `contents`, `content_type`, `value`, `currency` and `eventID` = the order number.
+- **Attribution is not part of the idempotency hash**: a retry after the window closes returns the same order.
+- **Ad-spend category** is found or created by `GET /api/campaigns/ad-category` (needs `expenses.create` + `marketing.view`) so a user without `expenses.manage` can record spend; the account is created exactly like `POST /api/expenses/categories`.
+- **Marketing settings are saved by their own endpoint** (`marketing.manage`), not by the website settings form (`website.manage`).
+- **`marketing.view` also reads leads**; only `leads.manage` writes them.
+- `verify-desktop-markup`: the only desktop template edits are the expenses table's new column and the website settings' new tab.
+
+### Needs a real server
+Pixels in Meta Events Manager and TikTok Events Manager (event names, `eventID` deduplication), the feeds in Commerce Manager and TikTok Catalog Manager (column acceptance), nginx rate limits (nginx is not installed on this PC, the templates were not syntax-checked with `nginx -t`), and Lighthouse mobile ≥ 90 on home and product with both pixels set (no Lighthouse tooling in the repo; the smoke test's `--keep` leaves a seeded storefront running for it).
+
+### Noticed, not done
+- Meta and TikTok scripts still receive the visitor's IP, user agent and cookies by the nature of loading; only consent and the payload (ids, values, order number) are in our hands.
+- A visit is counted from a client-generated session id, so a determined client can inflate visits (rate-limited in nginx).
+- `Customer`, `Selling` and `CreditSale` phones are stored un-normalized in old data; "اشترى؟" matches the common spellings (01x, 1x, 20…, +20…, 0020…), very old odd formats may miss, and a walk-in cash sale has no phone to match.
+- The website settings page's main save bar stays visible on the «التسويق» tab although that tab saves with its own button.
+- The expense list is month-based; a campaign's own spend list takes a date range (`/api/campaigns/:id/spend`).

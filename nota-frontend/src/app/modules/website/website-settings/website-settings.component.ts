@@ -13,14 +13,15 @@ import {
   WebsiteSettingsPayload,
 } from '../website.models';
 import { WebsiteService } from '../website.service';
+import { MarketingSettingsComponent } from '../../marketing/marketing-settings.component';
 import { LayoutService } from '../../../core/layout/layout.service';
 import { MobBarComponent, MobSheetComponent } from '../../mobile/mob-sheet.component';
 
 type Outcome = { kind: 'saved' } | { kind: 'error'; message: string };
 
 /** Online Stage 5A: the tabs of the page (the labels are website.settings.tabs.*). */
-export type SettingsTab = 'general' | 'look' | 'delivery' | 'payment' | 'products';
-export const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'look', 'delivery', 'payment', 'products'];
+export type SettingsTab = 'general' | 'look' | 'delivery' | 'payment' | 'products' | 'marketing';
+export const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'look', 'delivery', 'payment', 'products', 'marketing'];
 
 const URL_PATTERN = /^https?:\/\/\S+$/i;
 const MONEY_PATTERN = /^\d{1,9}(\.\d{1,2})?$/;
@@ -35,7 +36,7 @@ interface WalletBox { _id: string; name: string; type: string }
  */
 @Component({
   selector: 'app-website-settings',
-  imports: [TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent, NotaStatusPillComponent, DeliveryZonesComponent, MobBarComponent, MobSheetComponent],
+  imports: [TranslatePipe, ReactiveFormsModule, NotaButtonDirective, NotaFormFieldComponent, NotaPageHeaderComponent, NotaStatusPillComponent, DeliveryZonesComponent, MarketingSettingsComponent, MobBarComponent, MobSheetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './website-settings.component.html',
   styleUrl: './website-settings.component.scss',

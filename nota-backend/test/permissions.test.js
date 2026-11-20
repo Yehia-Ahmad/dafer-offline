@@ -49,6 +49,8 @@ const EXPECTED_CATALOG = [
   "website.manage",
   // Online Stage 4
   "orders.view", "orders.manage", "orders.dispatch",
+  // Online Stage 7A
+  "marketing.view", "marketing.manage", "leads.manage",
 ];
 
 test("catalog: exactly the Stage 13 keys, each with an Arabic and English label and a group", () => {
@@ -66,7 +68,7 @@ test("role templates match the spec", () => {
   assert.deepEqual(sorted(ROLE_TEMPLATES.cashier), sorted([
     "sales.create", "sales.view", "credit.create", "credit.view", "credit.collect",
     "returns.create", "customers.view", "products.view", "dashboard.view",
-    "shift.operate", "expenses.create", "orders.view", "orders.manage", "orders.dispatch",
+    "shift.operate", "expenses.create", "orders.view", "orders.manage", "orders.dispatch", "leads.manage",
   ]));
   assert.deepEqual(sorted(ROLE_TEMPLATES.storekeeper), sorted([
     "products.view", "products.manage", "categories.manage", "products.importExport", "products.viewCost", "suppliers.view",
@@ -264,6 +266,8 @@ const EXPECTED_ROUTES = {
   "PUT /api/website/products/:id": "website.manage",
   "PUT /api/website/categories/:id": "website.manage",
   // Online Stage 4: website customers, orders, couriers
+  "GET /api/website/marketing-settings": "marketing.view",
+  "PUT /api/website/marketing-settings": "marketing.manage",
   "GET /api/website/customers": "website.manage",
   "PUT /api/website/customers/:id": "website.manage",
   "POST /api/website/customers/:id/reset-password": "website.manage",
@@ -285,6 +289,22 @@ const EXPECTED_ROUTES = {
   "POST /api/orders/:id/deliver": "orders.dispatch",
   "POST /api/orders/:id/refuse": "orders.dispatch + returns.create",
   "POST /api/orders/:id/change-courier": "orders.dispatch",
+  "GET /api/campaigns": "marketing.view",
+  "POST /api/campaigns": "marketing.manage",
+  "GET /api/campaigns/results": "marketing.view",
+  "GET /api/campaigns/ad-category": "expenses.create + marketing.view",
+  "GET /api/campaigns/:id": "marketing.view",
+  "PUT /api/campaigns/:id": "marketing.manage",
+  "GET /api/campaigns/:id/results": "marketing.view",
+  "GET /api/campaigns/:id/spend": "marketing.view",
+  "GET /api/leads": "leads.manage | marketing.view",
+  "POST /api/leads": "leads.manage",
+  "POST /api/leads/import/mapping": "leads.manage",
+  "POST /api/leads/import/preview": "leads.manage",
+  "POST /api/leads/import": "leads.manage",
+  "GET /api/leads/:id": "leads.manage | marketing.view",
+  "PUT /api/leads/:id": "leads.manage",
+  "POST /api/leads/:id/notes": "leads.manage",
   "GET /api/couriers": "orders.view | website.manage",
   "POST /api/couriers": "website.manage + customers.manage",
   "GET /api/couriers/:id": "orders.view | website.manage",
@@ -304,6 +324,8 @@ const EXPECTED_ROUTES = {
   "GET /api/store/images/logo": "STORE",
   "POST /api/store/auth/register": "STORE",
   "POST /api/store/auth/login": "STORE",
+  "POST /api/store/visits": "STORE",
+  "POST /api/store/go/:code": "STORE",
   "POST /api/store/orders": "STORE",
   "POST /api/store/orders/quote": "STORE",
   "GET /api/store/orders/track/:token": "STORE",

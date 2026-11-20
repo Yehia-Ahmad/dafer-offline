@@ -877,6 +877,7 @@
             "treasury": "Treasury",
             "accounting": "Accounting",
             "website": "Website",
+            "marketing": "Marketing",
             "admin": "Administration"
         },
         "items": {
@@ -904,7 +905,10 @@
             "orders": "Orders",
             "couriers": "Couriers",
             "websiteCustomers": "Website customers",
-            "opening": "Opening balances"
+            "opening": "Opening balances",
+            "campaigns": "Campaigns",
+            "marketingResults": "Campaign results",
+            "leads": "Leads"
         },
         "collapse": "Collapse menu",
         "expand": "Expand menu",
@@ -1289,6 +1293,12 @@
           "website.customer.password_reset": "Website customer password reset",
           "website.product.updated": "Product website settings updated",
           "website.settings.updated": "Website settings updated",
+          "campaign.created": "Campaign created",
+          "campaign.updated": "Campaign updated",
+          "lead.created": "Lead created",
+          "lead.imported": "Leads imported",
+          "lead.updated": "Lead updated",
+          "marketing.settings.updated": "Marketing settings updated",
           "website.zone.created": "Delivery zone created",
           "website.zone.deleted": "Delivery zone deleted",
           "website.zone.updated": "Delivery zone updated",
@@ -2455,7 +2465,7 @@
       "loadFailed": "Could not load the website settings",
       "openSite": "Open the website",
       "soon": "Coming soon",
-      "tabs": { "general": "General", "look": "Look", "delivery": "Delivery", "payment": "Payment", "products": "Products and orders" },
+      "tabs": { "general": "General", "look": "Look", "delivery": "Delivery", "payment": "Payment", "products": "Products and orders", "marketing": "Marketing" },
       "preview": { "title": "Quick preview", "noTitle": "Website name", "button": "Order now" },
       "look": {
         "brandTitle": "Website color",
@@ -3046,5 +3056,264 @@
     "entryHint": "An SR refund voucher and an entry are made: Dr the cash box / Cr the supplier.",
     "save": "Save the refund",
     "failed": "Could not save the refund."
+  },
+  "marketing": {
+    "expenseCampaign": "Campaign",
+    "loadFailed": "Could not load the data. Try again.",
+    "status": {
+      "active": "Active",
+      "ended": "Ended",
+      "archived": "Archived"
+    },
+    "platform": {
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "tiktok": "TikTok",
+      "whatsapp": "WhatsApp",
+      "messenger": "Messenger",
+      "other": "Other"
+    },
+    "type": {
+      "paid": "Paid",
+      "organic": "Organic"
+    },
+    "landing": {
+      "home": "Home page",
+      "product": "Product",
+      "category": "Category",
+      "path": "Custom link",
+      "searchProduct": "Search for the product (2 letters or more)",
+      "pathLabel": "Path inside the website",
+      "pathHint": "Must start with / and stay on your own website, e.g. /search?q=offers"
+    },
+    "range": {
+      "from": "From",
+      "to": "To"
+    },
+    "kpi": {
+      "clicks": "Short-link clicks",
+      "visits": "Visits",
+      "ordersPlaced": "Orders",
+      "orders": "Completed orders",
+      "notCompleted": "Cancelled, rejected or refused",
+      "sales": "Sales",
+      "conversionRate": "Conversion rate",
+      "averageOrderValue": "Average order",
+      "spend": "Ad spend",
+      "costPerOrder": "Cost per order",
+      "returnOnSpend": "Return on spend",
+      "grossProfit": "Gross profit",
+      "profitAfterAds": "Profit after ads"
+    },
+    "campaigns": {
+      "title": "Campaigns",
+      "subtitle": "Every campaign has its own tracking link; see its visits, orders and sales.",
+      "new": "New campaign",
+      "empty": "No campaigns yet.",
+      "all": "All",
+      "status": "Status",
+      "platform": "Platform",
+      "name": "Campaign"
+    },
+    "form": {
+      "newTitle": "New campaign",
+      "editTitle": "Edit campaign",
+      "name": "Campaign name",
+      "type": "Campaign type",
+      "landing": "Where does the customer land?",
+      "startDate": "Start date",
+      "endDate": "End date (optional)",
+      "plannedBudget": "Planned budget (optional)",
+      "code": "Campaign code",
+      "codeAuto": "Generated automatically",
+      "codeHint": "Lowercase English letters, digits and dashes. You can change it until the link is first used.",
+      "codeLocked": "the link was already used, so the code cannot change",
+      "notes": "Notes"
+    },
+    "page": {
+      "fullLink": "Full link",
+      "shortLink": "Short link",
+      "copy": "Copy",
+      "copied": "Copied",
+      "qr": "QR code of the short link",
+      "qrHint": "Print it or put it on your leaflets. It opens the short link.",
+      "links": "Links",
+      "spend": "Ad spend",
+      "spendTotal": "Total spend",
+      "noSpend": "No spend recorded on this campaign yet.",
+      "leads": "Leads",
+      "edit": "Edit"
+    },
+    "spend": {
+      "title": "Record ad spend",
+      "amount": "Amount paid",
+      "record": "Record the spend",
+      "errors": {
+        "category": "Could not prepare the \"Advertising\" category. Try again.",
+        "campaign": "The campaign does not exist."
+      }
+    },
+    "results": {
+      "title": "Campaign results",
+      "subtitle": "Visits, orders, sales and profit for every campaign and platform.",
+      "totals": "Total",
+      "byCampaign": "By campaign",
+      "byPlatform": "By platform",
+      "direct": "Direct orders (no campaign)",
+      "directLabel": "Direct",
+      "byHeard": "By \"How did you hear about us?\"",
+      "noAnswer": "No answer",
+      "daily": "Day by day",
+      "empty": "No data in this period."
+    },
+    "leadStatus": {
+      "new": "New",
+      "contacted": "Contacted",
+      "interested": "Interested",
+      "not_interested": "Not interested"
+    },
+    "leadSource": {
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "tiktok": "TikTok",
+      "whatsapp": "WhatsApp",
+      "messenger": "Messenger",
+      "website": "Website",
+      "walk_in": "Walk-in",
+      "other": "Other"
+    },
+    "leads": {
+      "title": "Leads",
+      "subtitle": "People who asked about your products in a message or a lead-form ad.",
+      "new": "New lead",
+      "import": "Import from a file",
+      "search": "Search by name or phone",
+      "searchAction": "Search",
+      "empty": "No leads yet.",
+      "name": "Name",
+      "phone": "Phone",
+      "source": "Source",
+      "campaign": "Campaign",
+      "status": "Status",
+      "allCampaigns": "All campaigns",
+      "profileLink": "Profile link (optional)",
+      "profileLinkHint": "Facebook, Instagram, TikTok, WhatsApp (wa.me) or Messenger (m.me) only.",
+      "lastContact": "Last contact",
+      "notes": "Notes",
+      "newTitle": "New lead",
+      "editTitle": "Edit lead",
+      "openExisting": "Open the existing lead",
+      "whatsapp": "WhatsApp",
+      "call": "Call",
+      "profile": "Profile",
+      "created": "Added on",
+      "bought": "Bought?",
+      "boughtYes": "Bought",
+      "boughtNo": "Has not bought yet (since being added).",
+      "boughtSummary": "{{count}} documents, total {{total}} EGP",
+      "docType": {
+        "web_order": "Website order",
+        "credit_sale": "Credit sale",
+        "cash_sale": "Cash sale"
+      },
+      "openDoc": "Open",
+      "noteHistory": "Notes history",
+      "noNotes": "No notes.",
+      "addNote": "Write a note",
+      "addNoteAction": "Add"
+    },
+    "import": {
+      "title": "Import leads",
+      "intro": "Upload a CSV or XLSX exported from Meta Lead Ads or TikTok lead forms. Up to {{max}} rows.",
+      "file": "File",
+      "mapping": "Map the columns",
+      "notMapped": "Not mapped",
+      "field": {
+        "name": "Name",
+        "phone": "Phone",
+        "createdTime": "Created time",
+        "campaignName": "Campaign name",
+        "adName": "Ad name",
+        "platform": "Platform",
+        "profileLink": "Profile link"
+      },
+      "defaultSource": "Source when the file has no platform",
+      "existing": "When the phone already exists",
+      "skip": "Skip it",
+      "update": "Update its details",
+      "attach": "Attach all to a Nota campaign (optional)",
+      "preview": "Preview",
+      "previewTitle": "Preview (first 200 rows)",
+      "summary": "Imported {{imported}} · updated {{updated}} · skipped {{skipped}} · invalid {{invalid}} (of {{total}})",
+      "confirm": "Confirm the import",
+      "done": "Import finished",
+      "toLeads": "Open the list",
+      "status": {
+        "new": "New",
+        "update": "Update",
+        "skip": "Skip",
+        "invalid": "Invalid"
+      },
+      "reason": {
+        "NAME_REQUIRED": "Name missing",
+        "INVALID_PHONE": "Invalid phone",
+        "CONTACT_REQUIRED": "No phone or link",
+        "INVALID_PROFILE_LINK": "Link not allowed",
+        "EXISTS": "Already exists",
+        "DUPLICATE_IN_FILE": "Duplicate in the file"
+      },
+      "errors": {
+        "EMPTY": "The file is empty or has no rows.",
+        "TOO_MANY_ROWS": "The file has more than 5000 rows.",
+        "UNSUPPORTED": "The file must be CSV or XLSX.",
+        "UNREADABLE": "Could not read the file.",
+        "NO_ROWS": "The file is empty.",
+        "MAPPING_REQUIRED": "Map the name and phone columns.",
+        "INVALID_CAMPAIGN": "The campaign does not exist.",
+        "INVALID_SOURCE": "Invalid source."
+      }
+    },
+    "errors": {
+      "GENERIC": "Something went wrong. Try again.",
+      "CODE_TAKEN": "This code is used by another campaign.",
+      "CODE_LOCKED": "The code was already used and cannot change.",
+      "INVALID_CODE": "The code is lowercase English letters, digits and dashes (3 to 32).",
+      "INVALID_LANDING": "Invalid landing page.",
+      "INVALID_DATE": "Invalid date.",
+      "INVALID_NAME": "The name is required.",
+      "INVALID_BUDGET": "Invalid budget.",
+      "INVALID_PHONE": "Invalid phone number.",
+      "INVALID_PROFILE_LINK": "The link must be from Facebook, Instagram, TikTok, WhatsApp or Messenger.",
+      "INVALID_SOURCE": "Invalid source.",
+      "CONTACT_REQUIRED": "Enter a phone number or a profile link.",
+      "INVALID_CAMPAIGN": "The campaign does not exist.",
+      "DUPLICATE_PHONE": "This phone is already saved as a lead."
+    },
+    "settings": {
+      "noAccess": "You do not have permission to see the marketing settings.",
+      "pixels": "Meta and TikTok pixels",
+      "metaPixel": "Meta Pixel ID",
+      "metaPixelHint": "15 or 16 digits. Leave empty if you do not use it.",
+      "tiktokPixel": "TikTok Pixel ID",
+      "tiktokPixelHint": "English letters and digits. Leave empty if you do not use it.",
+      "requireConsent": "Ask the customer to accept cookies before the pixels run",
+      "noPersonalData": "The website never sends the customer's name, phone or address to any platform. It only sends product ids, values and the order number.",
+      "attribution": "Campaign attribution and \"How did you hear about us?\"",
+      "attributionDays": "How long an order counts for a campaign (days)",
+      "askHeardFrom": "Ask the customer \"How did you hear about us?\" at checkout",
+      "heardOptions": "Available answers",
+      "heardOptionsHint": "One answer per line (up to 12).",
+      "feeds": "Product catalog",
+      "saved": "Marketing settings saved.",
+      "feed": {
+        "meta": "Facebook and Instagram catalog (Meta)",
+        "tiktok": "TikTok catalog"
+      },
+      "feedHelp": {
+        "meta": "In Commerce Manager: Catalog > Data sources > Add items > Data feed > Scheduled feed, and paste the link. Columns: id, title, description, availability, condition, price, sale_price, link, image_link, additional_image_link, brand, product_type.",
+        "tiktok": "In TikTok Catalog Manager: Add catalog > Scheduled feed, and paste the link. Columns: sku_id, title, description, availability, condition, price, sale_price, link, image_link, additional_image_link, brand, product_type."
+      },
+      "feedNote": "The catalog refreshes every hour and holds only the products shown on the website. Availability is \"in stock\" or \"out of stock\", never a stock number."
+    }
   }
 }

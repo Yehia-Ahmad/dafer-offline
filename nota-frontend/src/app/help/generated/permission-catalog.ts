@@ -63,7 +63,10 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
     "website.manage",
     "orders.view",
     "orders.manage",
-    "orders.dispatch"
+    "orders.dispatch",
+    "marketing.view",
+    "marketing.manage",
+    "leads.manage"
   ],
   "permissions": {
     "sales.create": {
@@ -315,6 +318,21 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
       "group": "website",
       "ar": "تسليم الطلبات للمندوب وتسجيل التسليم والمرتجع",
       "en": "Dispatch orders, record delivery and refusals"
+    },
+    "marketing.view": {
+      "group": "marketing",
+      "ar": "عرض الحملات ونتائجها",
+      "en": "View campaigns and results"
+    },
+    "marketing.manage": {
+      "group": "marketing",
+      "ar": "إدارة الحملات وإعدادات البكسل والكتالوج",
+      "en": "Manage campaigns, pixel and catalog settings"
+    },
+    "leads.manage": {
+      "group": "marketing",
+      "ar": "إدارة العملاء المحتملين (إضافة وتعديل واستيراد)",
+      "en": "Manage leads (add, edit, import)"
     }
   },
   "groups": {
@@ -328,7 +346,8 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
     "admin": "الإدارة",
     "accounting": "الحسابات",
     "cashbox": "الخزنة",
-    "website": "الموقع"
+    "website": "الموقع",
+    "marketing": "التسويق"
   },
   "roles": {
     "owner": "المالك",
@@ -349,7 +368,8 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
     "admin": "Administration",
     "accounting": "Accounting",
     "cashbox": "Cash",
-    "website": "Website"
+    "website": "Website",
+    "marketing": "Marketing"
   },
   "rolesEn": {
     "owner": "Owner",
@@ -410,7 +430,10 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
       "website.manage",
       "orders.view",
       "orders.manage",
-      "orders.dispatch"
+      "orders.dispatch",
+      "marketing.view",
+      "marketing.manage",
+      "leads.manage"
     ],
     "manager": [
       "sales.create",
@@ -457,7 +480,10 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
       "website.manage",
       "orders.view",
       "orders.manage",
-      "orders.dispatch"
+      "orders.dispatch",
+      "marketing.view",
+      "marketing.manage",
+      "leads.manage"
     ],
     "cashier": [
       "sales.create",
@@ -473,7 +499,8 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
       "expenses.create",
       "orders.view",
       "orders.manage",
-      "orders.dispatch"
+      "orders.dispatch",
+      "leads.manage"
     ],
     "storekeeper": [
       "products.view",

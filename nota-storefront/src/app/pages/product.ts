@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { PixelsService } from '../core/pixels.service';
 import { RouterLink } from '@angular/router';
 import { CartService, MAX_QTY } from '../core/cart.service';
 import { money, whatsappLink } from '../core/format';
@@ -136,6 +137,7 @@ export class ProductPage {
   protected readonly settings = inject(SettingsStore);
   private readonly cart = inject(CartService);
   private readonly seo = inject(SeoService);
+  private readonly pixels = inject(PixelsService);
 
   readonly loaded = input.required<Loaded<ProductData>>({ alias: 'product' });
   protected readonly data = computed(() => { const l = this.loaded(); return l.state === 'ok' ? l.data : null; });
@@ -161,6 +163,11 @@ export class ProductPage {
   });
 
   constructor() {
+    // Online Stage 7A: ViewContent once per product shown (id and price only). A no-op on the server.
+    effect(() => {
+      const d = this.data();
+      if (d) untracked(() => this.pixels.track({ name: 'ViewContent', id: d.product.id, value: d.product.finalPrice }));
+    });
     effect(() => {
       const d = this.data();
       this.index.set(0);

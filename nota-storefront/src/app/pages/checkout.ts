@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, signal, untracked } from '@angular/core';
+import { PixelsService } from '../core/pixels.service';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../core/api.service';
@@ -97,6 +98,14 @@ const METHODS: PaymentMethod[] = ['cod', 'instapay', 'vodafone_cash'];
               <label class="lb">{{ t.checkout.notes }} ({{ t.checkout.notesHint }})
                 <textarea class="in" name="notes" maxlength="500" [ngModel]="form().notes" (ngModelChange)="set('notes', $event)"></textarea>
               </label>
+              @if (heardOptions().length) {
+                <label class="lb">{{ t.checkout.heardFrom }} ({{ t.checkout.notesHint }})
+                  <select class="in" name="heardFrom" [ngModel]="form().heardFrom ?? ''" (ngModelChange)="set('heardFrom', $event)">
+                    <option value="">{{ t.checkout.heardFromNone }}</option>
+                    @for (o of heardOptions(); track o) { <option [value]="o">{{ o }}</option> }
+                  </select>
+                </label>
+              }
               @if (settings.settings()?.orderNote; as n) { <p class="note">{{ n }}</p> }
             </section>
           </div>
@@ -144,6 +153,7 @@ export class CheckoutPage {
   private readonly api = inject(ApiService);
   private readonly checkout = inject(CheckoutService);
   private readonly router = inject(Router);
+  private readonly pixels = inject(PixelsService);
   protected fmt = money;
 
   protected readonly form = signal<CheckoutForm>({ name: '', phone: '', fulfillment: 'delivery', zoneId: '', address: '', landmark: '', notes: '', addressId: '', paymentMethod: 'cod' });
@@ -168,6 +178,7 @@ export class CheckoutPage {
     if (s.freeDeliveryFrom && this.form().fulfillment === 'delivery' && (q?.deliveryFee ?? 1) > 0) return AR.checkout.freeFrom(money(s.freeDeliveryFrom));
     return '';
   });
+  protected readonly heardOptions = computed(() => this.settings.settings()?.marketing?.heardFromOptions ?? []);
   protected readonly canSubmit = computed(() => this.settings.orderingOn() && !this.placing() && !this.cart.isEmpty());
 
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -176,6 +187,12 @@ export class CheckoutPage {
   constructor() {
     inject(SeoService).set({ title: AR.checkout.title, path: '/checkout', noindex: true });
     void this.api.zones().then((r) => this.zones.set(r.data)).catch(() => this.zones.set([]));
+
+    // Online Stage 7A: InitiateCheckout once per visit to this page (ids, quantities and the cart value only).
+    afterNextRender(() => {
+      const lines = this.cart.lines();
+      if (lines.length) this.pixels.track({ name: 'InitiateCheckout', lines: lines.map((l) => ({ id: l.productId, qty: l.qty, price: l.price })), value: this.cart.subtotal() });
+    });
 
     // The checkout only offers what the shop enabled.
     effect(() => {
@@ -264,6 +281,13 @@ export class CheckoutPage {
       if (signedIn && this.saveAddress() && !f.addressId && f.fulfillment === 'delivery') {
         void this.api.addAddress({ label: '', zoneId: f.zoneId, address: f.address, notes: '' }).then(() => this.auth.refresh()).catch(() => undefined);
       }
+      // Online Stage 7A: Purchase once per placed order (value = the order total, event id = the order number). No contact data.
+      this.pixels.trackPurchase({
+        name: 'Purchase',
+        orderNumber: order.number,
+        value: order.total,
+        lines: (order.items ?? this.cart.lines().map((l) => ({ productId: l.productId, qty: l.qty, unitPrice: l.price }))).map((i) => ({ id: i.productId, qty: i.qty, price: i.unitPrice })),
+      });
       this.cart.clear();
       await this.router.navigate(['/order', order.trackingToken]);
     } catch (error) {

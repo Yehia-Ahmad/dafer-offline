@@ -248,6 +248,57 @@ export const routes: Routes = [
         loadComponent: () => import('./modules/website/website-customers/website-customers.component').then(m => m.WebsiteCustomersComponent)
     },
     {
+        // Online Stage 7A: campaigns (marketing.view; new/edit need marketing.manage), their results and the leads list.
+        path: 'marketing/campaigns',
+        canActivate: [permissionGuard(ROUTE_RULES.marketing)],
+        loadComponent: () => import('./modules/marketing/campaigns/campaigns.component').then(m => m.CampaignsComponent)
+    },
+    {
+        path: 'marketing/campaigns/new',
+        canActivate: [permissionGuard(ROUTE_RULES.marketingManage)],
+        loadComponent: () => import('./modules/marketing/campaigns/campaign-form.component').then(m => m.CampaignFormComponent)
+    },
+    {
+        path: 'marketing/campaigns/:id/edit',
+        canActivate: [permissionGuard(ROUTE_RULES.marketingManage)],
+        loadComponent: () => import('./modules/marketing/campaigns/campaign-form.component').then(m => m.CampaignFormComponent)
+    },
+    {
+        path: 'marketing/campaigns/:id',
+        canActivate: [permissionGuard(ROUTE_RULES.marketing)],
+        loadComponent: () => import('./modules/marketing/campaigns/campaign-page.component').then(m => m.CampaignPageComponent)
+    },
+    {
+        path: 'marketing/results',
+        canActivate: [permissionGuard(ROUTE_RULES.marketing)],
+        loadComponent: () => import('./modules/marketing/results/marketing-results.component').then(m => m.MarketingResultsComponent)
+    },
+    {
+        path: 'marketing/leads',
+        canActivate: [permissionGuard(ROUTE_RULES.leads)],
+        loadComponent: () => import('./modules/marketing/leads/leads.component').then(m => m.LeadsComponent)
+    },
+    {
+        path: 'marketing/leads/new',
+        canActivate: [permissionGuard(ROUTE_RULES.leadsManage)],
+        loadComponent: () => import('./modules/marketing/leads/lead-form.component').then(m => m.LeadFormComponent)
+    },
+    {
+        path: 'marketing/leads/import',
+        canActivate: [permissionGuard(ROUTE_RULES.leadsManage)],
+        loadComponent: () => import('./modules/marketing/leads/lead-import.component').then(m => m.LeadImportComponent)
+    },
+    {
+        path: 'marketing/leads/:id/edit',
+        canActivate: [permissionGuard(ROUTE_RULES.leadsManage)],
+        loadComponent: () => import('./modules/marketing/leads/lead-form.component').then(m => m.LeadFormComponent)
+    },
+    {
+        path: 'marketing/leads/:id',
+        canActivate: [permissionGuard(ROUTE_RULES.leads)],
+        loadComponent: () => import('./modules/marketing/leads/lead-page.component').then(m => m.LeadPageComponent)
+    },
+    {
         path: 'users',
         canDeactivate: [unsavedWorkGuard],
         canActivate: [permissionGuard(ROUTE_RULES.users)],

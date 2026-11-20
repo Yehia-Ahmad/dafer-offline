@@ -124,6 +124,16 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { key: 'website-settings', labelKey: 'nav.items.websiteSettings', route: '/website/settings', icon: NAV_ICONS.website, visible: allowed(ROUTE_RULES.websiteSettings) },    ],
   },
   {
+    // Online Stage 7A: campaigns, their results and the leads list.
+    key: 'marketing',
+    labelKey: 'nav.groups.marketing',
+    items: [
+      { key: 'campaigns', labelKey: 'nav.items.campaigns', route: '/marketing/campaigns', icon: NAV_ICONS.website, visible: allowed(ROUTE_RULES.marketing), activePaths: ['/marketing/campaigns/'] },
+      { key: 'marketing-results', labelKey: 'nav.items.marketingResults', route: '/marketing/results', icon: NAV_ICONS.reports, visible: allowed(ROUTE_RULES.marketing) },
+      { key: 'leads', labelKey: 'nav.items.leads', route: '/marketing/leads', icon: NAV_ICONS.customers, visible: allowed(ROUTE_RULES.leads), activePaths: ['/marketing/leads/'] },
+    ],
+  },
+  {
     key: 'admin',
     labelKey: 'nav.groups.admin',
     items: [

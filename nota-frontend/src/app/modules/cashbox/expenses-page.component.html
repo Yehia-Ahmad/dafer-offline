@@ -106,6 +106,7 @@
         <div class="m-row"><span class="m-row__body">{{ 'cashbox.expenses.box' | translate }}</span><span>{{ row.boxName }}</span></div>
         <div class="m-row"><span class="m-row__body">{{ 'cashbox.expenses.by' | translate }}</span><span>{{ row.createdByName }}</span></div>
         @if (row.note) { <div class="m-row"><span class="m-row__body">{{ 'cashbox.expenses.note' | translate }}</span><span style="white-space:normal">{{ row.note }}</span></div> }
+        @if (row.campaignName) { <div class="m-row" data-test="expense-campaign"><span class="m-row__body">{{ 'marketing.expenseCampaign' | translate }}</span><span style="white-space:normal">{{ row.campaignName }}</span></div> }
       </div>
       @if (row.status === 'cancelled') { <p class="m-pill m-pill--warn" style="white-space:normal">{{ 'cashbox.expenses.cancelled' | translate }}@if (row.cancelReason) { : {{ row.cancelReason }} }</p> }
       <nota-print-actions [items]="printItems(row)" />
@@ -230,7 +231,7 @@
         <div class="nota-table-wrap">
           <table class="nota-table" data-test="expenses-table">
             <thead><tr>
-              <th>{{ 'cashbox.expenses.date' | translate }}</th><th>{{ 'cashbox.expenses.category' | translate }}</th><th>{{ 'cashbox.expenses.note' | translate }}</th>
+              <th>{{ 'cashbox.expenses.date' | translate }}</th><th>{{ 'cashbox.expenses.category' | translate }}</th><th>{{ 'cashbox.expenses.note' | translate }}</th><th>{{ 'marketing.expenseCampaign' | translate }}</th>
               <th>{{ 'cashbox.expenses.box' | translate }}</th><th class="nota-num">{{ 'cashbox.expenses.amount' | translate }}</th><th>{{ 'cashbox.expenses.by' | translate }}</th><th></th>
             </tr></thead>
             <tbody>
@@ -239,6 +240,7 @@
                   <td class="nota-num">{{ row.date | date: 'd / M' }}</td>
                   <td>{{ row.categoryName }}</td>
                   <td>{{ row.note }}</td>
+                  <td data-test="expense-campaign">{{ row.campaignName }}</td>
                   <td>{{ row.boxName }}</td>
                   <td class="nota-num"><strong>{{ row.amount | notaMoney }}</strong>
                     @if (row.vatAmount) { <small class="ex__vat" data-test="expense-row-vat">{{ 'vat.expense.inside' | translate: { vat: (row.vatAmount | notaMoney) } }}</small> }</td>
@@ -253,7 +255,7 @@
                   </td>
                 </tr>
               } @empty {
-                <tr><td colspan="7" class="ex__empty" data-test="empty">{{ 'cashbox.expenses.empty' | translate }}</td></tr>
+                <tr><td colspan="8" class="ex__empty" data-test="empty">{{ 'cashbox.expenses.empty' | translate }}</td></tr>
               }
             </tbody>
           </table>

@@ -16,6 +16,8 @@ describe('nav menu config', () => {
       // Online Fixes 1: the fixtures are the real backend templates now (the owner holds every accounting permission).
       ['accounting', ['accounts', 'opening', 'journal', 'vat', 'reports', 'closing', 'profit']],
       ['website', ['orders', 'couriers', 'website-customers', 'website-settings']],
+      // Online Stage 7A: campaigns, their results and the leads list (marketing.view / leads.manage).
+      ['marketing', ['campaigns', 'marketing-results', 'leads']],
       ['admin', ['users', 'audit', 'shop']],
     ]);
   });
@@ -29,6 +31,7 @@ describe('nav menu config', () => {
       // the manager template lacks accounting.manage (no opening wizard)
       ['accounting', ['accounts', 'journal', 'vat', 'reports', 'closing', 'profit']],
       ['website', ['orders', 'couriers', 'website-customers', 'website-settings']],
+      ['marketing', ['campaigns', 'marketing-results', 'leads']],
       ['admin', ['audit', 'shop']],
     ]);
   });
@@ -41,6 +44,8 @@ describe('nav menu config', () => {
       ['treasury', ['expenses']],
       // Online Stage 4: the cashier template handles website orders (orders.view); couriers read-only.
       ['website', ['orders', 'couriers']],
+      // Online Stage 7A: the cashier template holds leads.manage only.
+      ['marketing', ['leads']],
     ]);
   });
 

@@ -196,7 +196,7 @@ test("passwords: bcrypt cost 10, 6–128 characters, Arabic and spaces allowed; 
   const me = await call(on, "GET", "/api/auth/me", { token: created.json.token });
   assert.equal(me.status, 200);
   assert.equal(me.text.includes("passwordHash"), false);
-  assert.equal(me.json.permissions.length, 50); // 45 + website.manage (Online Stage 3) + orders.view/manage/dispatch (Online Stage 4)
+  assert.equal(me.json.permissions.length, 53); // 45 + website.manage (Online Stage 3) + orders.view/manage/dispatch (Online Stage 4) + marketing.view/manage, leads.manage (Online Stage 7A)
 });
 
 test("login: success; wrong password, unknown user and disabled user get the same 401", skip, async () => {

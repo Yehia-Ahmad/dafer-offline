@@ -18,6 +18,7 @@ const catalog = require("../store/catalog");
 const wl = require("../store/whitelist");
 const { withAvailableStock } = require("../store/reservations");
 const pushService = require("../push/pushService");
+const { resolveAttribution } = require("../services/campaigns.service");
 
 const MAX_LINES = 50;
 const MAX_QTY = 99;
@@ -76,6 +77,12 @@ const readOrderRequest = (body, customer, { quote = false } = {}) => {
     }
     return { items, zoneId, fulfillment, paymentMethod };
   }
+  // Online Stage 7A: read here, resolved against the Campaign when the order is created. Deliberately NOT part of the request hash,
+  // so a retry of the same key after the attribution window closed still returns the same order instead of IDEMPOTENCY_MISMATCH.
+  const attribution = input.attribution && typeof input.attribution === "object" && !Array.isArray(input.attribution)
+    ? { code: str(input.attribution.code, 40), landedAt: input.attribution.landedAt }
+    : null;
+  const heardFrom = str(input.heardFrom, 60);
   let contact;
   if (input.addressId !== undefined && input.addressId !== null && input.addressId !== "") {
     const saved = customer && mongoose.Types.ObjectId.isValid(input.addressId) ? customer.addresses.id(input.addressId) : null;
@@ -93,7 +100,7 @@ const readOrderRequest = (body, customer, { quote = false } = {}) => {
     ...(fulfillment !== "delivery" ? { fulfillment } : {}),
     ...(paymentMethod !== "cod" ? { paymentMethod } : {}),
   };
-  return { idempotencyKey: input.idempotencyKey.toLowerCase(), items, zoneId, fulfillment, paymentMethod, contact, requestHash: sha256(JSON.stringify(canonical)) };
+  return { idempotencyKey: input.idempotencyKey.toLowerCase(), items, zoneId, fulfillment, paymentMethod, contact, attribution, heardFrom, requestHash: sha256(JSON.stringify(canonical)) };
 };
 
 const createStoreOrderController = ({ secret }) => {
@@ -161,14 +168,18 @@ const createStoreOrderController = ({ secret }) => {
       error.responseData.minOrderAmount = Number(settings.minOrderAmount);
       throw error;
     }
-    return { zone, pickup, priced };
+    return { zone, pickup, priced, rules };
   };
 
   const buildOrder = async (request, customer, session) => {
     const existing = await findExisting(request, customer, session);
     if (existing) return { order: existing, created: false };
 
-    const { zone, pickup, priced } = await validateAndPrice(request, session);
+    const { zone, pickup, priced, rules } = await validateAndPrice(request, session);
+
+    // Online Stage 7A: a label on the order, never read by pricing or posting. Bad or expired input = a direct order.
+    const attribution = await resolveAttribution(request.attribution, { windowDays: rules.marketing.attributionDays, session });
+    const heardFrom = rules.marketing.askHeardFrom && rules.marketing.heardFromOptions.includes(request.heardFrom) ? request.heardFrom : "";
 
     const number = await nextDocumentNumber(PREFIXES.WEB_ORDER, session);
     const at = new Date();
@@ -189,6 +200,8 @@ const createStoreOrderController = ({ secret }) => {
       contact: request.contact,
       ...(customer ? { storeCustomer: customer._id } : {}),
       statusHistory: [{ status: "new", at, by: customer ? `customer:${customer._id}` : "guest" }],
+      ...(attribution ? { attribution } : {}),
+      ...(heardFrom ? { heardFrom } : {}),
       idempotencyKey: request.idempotencyKey,
       requestHash: request.requestHash,
       trackingTokenHash: sha256(trackingTokenFor(secret, request.idempotencyKey)),

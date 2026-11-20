@@ -2,6 +2,7 @@
 const express = require("express");
 const c = require("../controllers/website.controller");
 const customers = require("../controllers/websiteCustomers.controller");
+const marketingSettings = require("../controllers/marketingSettings.controller");
 const { requirePermission } = require("../auth/middleware");
 const { auditOnSuccess } = require("../auth/audit");
 
@@ -21,6 +22,10 @@ router
   .route("/delivery-zones/:id")
   .put(manage, auditOnSuccess("website.zone.updated", "DeliveryZone"), c.updateZone)
   .delete(manage, auditOnSuccess("website.zone.deleted", "DeliveryZone"), c.deleteZone);
+
+// Online Stage 7A: pixels, consent, attribution window, "عرفتنا منين؟" and the feed links (marketing permissions, not website.manage).
+router.get("/marketing-settings", requirePermission("marketing.view"), marketingSettings.get);
+router.put("/marketing-settings", requirePermission("marketing.manage"), auditOnSuccess("marketing.settings.updated", "WebsiteSettings", (req) => ({ fields: Object.keys(req.body || {}) })), marketingSettings.update);
 
 router.get("/products/:id", manage, c.getProductWebsite);
 router.put("/products/:id", manage, auditOnSuccess("website.product.updated", "Product"), c.updateProductWebsite);

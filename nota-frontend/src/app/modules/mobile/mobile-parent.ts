@@ -12,6 +12,11 @@ const RULES: readonly { test: RegExp; parent: string }[] = [
   { test: /^\/purchases\/(new|[^/]+)$/, parent: '/purchases' },
   { test: /^\/cashbox\/[^/]+$/, parent: '/cashbox' },
   { test: /^\/website\/couriers\/[^/]+$/, parent: '/website/couriers' },
+  // Online Stage 7A: a campaign (and its form) goes back to the campaigns list; a lead, its form and the import to the leads list.
+  { test: /^\/marketing\/campaigns\/[^/]+\/edit$/, parent: '/marketing/campaigns' },
+  { test: /^\/marketing\/campaigns\/(new|[^/]+)$/, parent: '/marketing/campaigns' },
+  { test: /^\/marketing\/leads\/(import|new|[^/]+)$/, parent: '/marketing/leads' },
+  { test: /^\/marketing\/leads\/[^/]+\/edit$/, parent: '/marketing/leads' },
   { test: /^\/accounting\/accounts\/[^/]+\/ledger$/, parent: '/accounting/accounts' },
   { test: /^\/accounting\/journal\/[^/]+$/, parent: '/accounting/journal' },
   { test: /^\/accounting\/manual-entry(\/[^/]+)?$/, parent: '/accounting/journal' },

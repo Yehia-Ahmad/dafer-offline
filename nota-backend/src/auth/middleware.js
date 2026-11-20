@@ -204,7 +204,8 @@ const requireDiscountPermission = (Model) => async (req, _res, next) => {
 };
 
 // Purchase price and profit, removed from every JSON response for users without products.viewCost.
-const COST_FIELDS = new Set(["purchasePrice", "profitAmount", "totalProfit", "profitValue", "profit"]);
+// Online Stage 7A: the campaign results' profit numbers use these keys, so they are stripped the same way.
+const COST_FIELDS = new Set(["purchasePrice", "profitAmount", "totalProfit", "profitValue", "profit", "grossProfit", "profitAfterAds", "profitPerOrder"]);
 
 const stripCost = (value) => {
   if (Array.isArray(value)) return value.map(stripCost);

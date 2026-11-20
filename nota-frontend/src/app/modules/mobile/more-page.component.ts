@@ -14,7 +14,7 @@ import { PushToggleComponent } from './push-toggle.component';
 import { HelpButtonComponent } from '../../help/components/help-button.component';
 
 /** The order of the groups on the phone (the design lists الموقع right after المبيعات). */
-export const MORE_GROUP_ORDER = ['sales', 'website', 'inventory', 'treasury', 'accounting', 'admin'] as const;
+export const MORE_GROUP_ORDER = ['sales', 'website', 'marketing', 'inventory', 'treasury', 'accounting', 'admin'] as const;
 
 /** Pure: the grouped grid of المزيد, filtered by permission (every admin page is reachable from here). */
 export function moreGroups(has: (key: string) => boolean): NavGroup[] {

@@ -3,6 +3,8 @@ import express from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import { join } from 'node:path';
 import { ServerApi } from './server/api-client';
+import { catalogFeed, type FeedPlatform } from './server/catalog-feed';
+import { resolveGo } from './server/go-redirect';
 import { isPrivatePath, robotsTxt, sitemapXml } from './server/seo-files';
 import { slugRedirectFor } from './server/slug-redirect';
 
@@ -56,6 +58,38 @@ app.get('/sitemap.xml', async (req, res) => {
     res.status(503).set('Retry-After', '60').type('text/plain').send('unavailable');
   }
 });
+
+// Online Stage 7A: the short tracking link. 302 (never cached: every click must reach the counter), always lands somewhere.
+app.get('/go/:code', async (req, res) => {
+  const path = await resolveGo(String(req.params['code'] ?? ''), req.headers['user-agent'], api);
+  res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' }).redirect(302, path);
+});
+
+// Online Stage 7A: the product feeds for Meta Commerce Manager and TikTok Catalog Manager, cached for an hour per origin. When the API is
+// down the last good copy is served instead of an error (the platforms fetch on a schedule and would otherwise drop the catalog).
+const FEED_TTL_MS = 60 * 60 * 1000;
+const feedCache = new Map<string, { exp: number; csv: string }>();
+const FEEDS: Record<string, FeedPlatform> = { '/feeds/catalog.csv': 'meta', '/feeds/tiktok.csv': 'tiktok' };
+for (const [route, platform] of Object.entries(FEEDS)) {
+  app.get(route, async (req, res) => {
+    const origin = originOf(req);
+    const key = `${platform}|${origin}`;
+    const hit = feedCache.get(key);
+    try {
+      let csv = hit && hit.exp > Date.now() ? hit.csv : undefined;
+      if (csv === undefined) {
+        const built = await catalogFeed(platform, origin, api);
+        if (built === null) { res.status(503).set({ 'Retry-After': '3600', 'X-Nota-Closed': '1' }).type('text/plain').send('closed'); return; }
+        csv = built;
+        feedCache.set(key, { exp: Date.now() + FEED_TTL_MS, csv });
+      }
+      res.type('text/csv; charset=utf-8').set({ 'Cache-Control': 'public, max-age=3600', 'X-Robots-Tag': 'noindex' }).send(csv);
+    } catch {
+      if (hit) { res.type('text/csv; charset=utf-8').set({ 'Cache-Control': 'public, max-age=300', 'X-Robots-Tag': 'noindex' }).send(hit.csv); return; }
+      res.status(503).set('Retry-After', '60').type('text/plain').send('unavailable');
+    }
+  });
+}
 
 // The visitor's own pages are never indexed or cached by shared caches; the order page also sends no Referer (its URL holds the tracking token).
 app.use((req, res, next) => {

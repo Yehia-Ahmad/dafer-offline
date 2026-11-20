@@ -189,6 +189,9 @@ export interface ExpenseRow {
   boxId: string;
   boxName: string | null;
   note?: string;
+  /** Online Stage 7A: the campaign an ad expense is linked to. */
+  campaignId?: string;
+  campaignName?: string | null;
   status: 'posted' | 'cancelled';
   cancelReason?: string;
   createdByName?: string;

@@ -1,6 +1,9 @@
 // The Arabic help, in reading order (the brief's section list). One file per section.
 import { HelpSection } from '../../help.models';
 import { ACCOUNTS } from './accounts';
+import { CAMPAIGNS } from './campaigns';
+import { LEADS } from './leads';
+import { MARKETING_RESULTS } from './marketing-results';
 import { AUDIT } from './audit';
 import { CASHBOX } from './cashbox';
 import { CLOSING } from './closing';
@@ -56,6 +59,9 @@ export const HELP_SECTIONS_AR: readonly HelpSection[] = [
   ORDERS,
   COURIERS,
   WEBSITE_CUSTOMERS,
+  CAMPAIGNS,
+  MARKETING_RESULTS,
+  LEADS,
   STOREFRONT,
   USERS,
   SHOP_PROFILE,

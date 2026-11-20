@@ -13,6 +13,8 @@ export interface CheckoutForm {
   /** '' = type the address, otherwise the id of a saved address (signed-in customers only). */
   addressId: string;
   paymentMethod: PaymentMethod;
+  /** Online Stage 7A: the "عرفتنا منين؟" answer ('' = not answered). */
+  heardFrom?: string;
 }
 
 export type FormErrors = Partial<Record<'name' | 'phone' | 'zone' | 'address' | 'items', string>>;
@@ -49,7 +51,7 @@ export const quoteRequest = (form: CheckoutForm, items: OrderRequest['items'], s
 
 /** The order request: the quote plus the contact (or the saved address). The idempotency key is added by CheckoutService. */
 export const orderRequest = (form: CheckoutForm, items: OrderRequest['items'], signedIn: boolean): OrderRequest => {
-  const base = quoteRequest(form, items, signedIn);
+  const base = { ...quoteRequest(form, items, signedIn), ...(form.heardFrom ? { heardFrom: form.heardFrom } : {}) };
   if (signedIn && form.addressId) return { ...base, contact: { name: '', phone: '', notes: form.notes.trim() } };
   return {
     ...base,

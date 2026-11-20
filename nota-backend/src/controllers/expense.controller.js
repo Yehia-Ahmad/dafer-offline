@@ -3,6 +3,7 @@ const clock = require("../utils/clock");
 const Account = require("../models/account.model");
 const CashBox = require("../models/cashBox.model");
 const Expense = require("../models/expense.model");
+const Campaign = require("../models/campaign.model");
 const JournalEntry = require("../models/journalEntry.model");
 const { postEntry, line, boxAccount, accountMap } = require("../accounting/posting");
 const { nextDocumentNumber, PREFIXES } = require("../utils/documentNumber");
@@ -112,8 +113,9 @@ const breakdown = async (filter) => {
   return { total: roundMoney(byCategory.reduce((sum, row) => sum + row.total, 0)), count: byCategory.reduce((sum, row) => sum + row.count, 0), byCategory };
 };
 
-const expenseView = (expense, categories, boxNames) => ({
+const expenseView = (expense, categories, boxNames, campaignNames = new Map()) => ({
   ...expense,
+  campaignName: expense.campaignId ? campaignNames.get(String(expense.campaignId)) || null : null,
   categoryName: categories.get(String(expense.accountId))?.nameAr || null, categoryCode: categories.get(String(expense.accountId))?.code || null,
   boxName: boxNames.get(String(expense.boxId)) || null,
 });
@@ -132,6 +134,10 @@ const getExpenses = async (req, res) => {
     if (!isId(req.query.box)) { res.status(400); throw new Error("الخزنة غير صالحة"); }
     filter.boxId = new mongoose.Types.ObjectId(req.query.box);
   }
+  if (req.query.campaign) {
+    if (!isId(req.query.campaign)) { res.status(400); throw new Error("الحملة غير صالحة"); }
+    filter.campaignId = new mongoose.Types.ObjectId(req.query.campaign);
+  }
   // A cashier who may only record expenses sees their own.
   if (req.user && !can(req, "expenses.manage") && !can(req, "cashbox.view")) filter.createdBy = req.user._id;
   const page = Math.max(1, Number(req.query.page) || 1);
@@ -146,8 +152,10 @@ const getExpenses = async (req, res) => {
   ]);
   const categoryById = new Map(categories.map((category) => [String(category._id), category]));
   const boxNames = new Map(boxList.map((box) => [String(box._id), box.name]));
+  const campaignIds = [...new Set(rows.filter((row) => row.campaignId).map((row) => String(row.campaignId)))];
+  const campaignNames = new Map((campaignIds.length ? await Campaign.find({ _id: { $in: campaignIds } }).select("name").lean() : []).map((campaign) => [String(campaign._id), campaign.name]));
   res.json({
-    month: range.key, data: rows.map((row) => expenseView(row, categoryById, boxNames)), total: current.total, count: current.count, byCategory: current.byCategory,
+    month: range.key, data: rows.map((row) => expenseView(row, categoryById, boxNames, campaignNames)), total: current.total, count: current.count, byCategory: current.byCategory,
     previous: { month: previous.key, total: last.total, count: last.count, byCategory: last.byCategory },
     pagination: { page, limit, totalItems, totalPages: Math.ceil(totalItems / limit) },
   });
@@ -168,6 +176,13 @@ const createExpense = async (req, res) => {
     const vatCtx = vatContext(await loadVatSettings(session), date);
     if (vat > 0 && !vatCtx) throw httpError(400, "VAT_NOT_ENABLED", "الضريبة غير مفعّلة");
     if (vat >= amount) throw httpError(400, "VAT_TOO_LARGE", "الضريبة لازم تكون أقل من إجمالي الفاتورة");
+    // Online Stage 7A: an optional label linking the spend to a campaign. Validated here, never read by the posting below.
+    let campaign = null;
+    if (body.campaignId !== undefined && body.campaignId !== null && body.campaignId !== "") {
+      if (!isId(body.campaignId)) throw httpError(400, "INVALID_CAMPAIGN", "الحملة غير صالحة");
+      campaign = await Campaign.findById(body.campaignId).select("_id").session(session).lean();
+      if (!campaign) throw httpError(400, "INVALID_CAMPAIGN", "الحملة غير موجودة");
+    }
     const parent = await loadParent(session);
     const category = await Account.findById(body.accountId).session(session).lean();
     if (!category || !parent || String(category.parentId) !== String(parent._id) || category.isGroup || category.isActive === false) {
@@ -178,7 +193,7 @@ const createExpense = async (req, res) => {
     const balance = await boxes.boxBalance(box, session);
     if (roundMoney(balance - amount) < 0) throw httpError(409, "INSUFFICIENT_BALANCE", "رصيد الخزنة مش كفاية", { boxId: box._id, balance, required: amount });
     const number = await nextDocumentNumber(PREFIXES.EXPENSE, session);
-    const [created] = await Expense.create([{ number, date, accountId: category._id, amount, boxId: box._id, note, ...(vat > 0 ? { vatAmount: vat, vatPeriod: await periodFor(date, session) } : {}) }], { session });
+    const [created] = await Expense.create([{ number, date, accountId: category._id, amount, boxId: box._id, note, ...(campaign ? { campaignId: campaign._id } : {}), ...(vat > 0 ? { vatAmount: vat, vatPeriod: await periodFor(date, session) } : {}) }], { session });
     // Dr category (net) [+ Dr VAT_INPUT = the VAT on the bill] / Cr box = amount (the cash that left).
     const vatAccount = vat > 0 ? (await accountMap(["VAT_INPUT"], session)).get("VAT_INPUT") : null;
     await postEntry({ date, source: { type: "expense", id: created._id, number }, memo: note || category.nameAr, session, lines: [

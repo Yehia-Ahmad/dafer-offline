@@ -5,6 +5,7 @@ const express = require("express");
 const catalogController = require("../controllers/storeCatalog.controller");
 const { createStoreAccountController } = require("../controllers/storeAccount.controller");
 const { createStoreOrderController } = require("../controllers/storeOrder.controller");
+const marketingPublic = require("../controllers/marketingPublic.controller");
 const asyncHandler = require("../utils/asyncHandler");
 const { httpError } = require("../auth/middleware");
 const { storeCustomerOnly, storeOptional, storePublic } = require("../auth/storeAuth");
@@ -47,6 +48,10 @@ const createStoreRouter = ({ secret }) => {
   router.get("/images/product/:id/:index", pub, catalogController.getProductImage);
   router.get("/images/category/:id", pub, catalogController.getCategoryImage);
   router.get("/images/banner/:id", pub, catalogController.getBannerImage);
+
+  // Online Stage 7A: anonymous campaign counters (visits) and the /go/<code> click + landing lookup.
+  router.post("/visits", pub, marketingPublic.recordVisit);
+  router.post("/go/:code", pub, marketingPublic.recordClick);
 
   router.post("/auth/register", pub, account.register);
   router.post("/auth/login", pub, account.login);

@@ -38,6 +38,9 @@ const routes = [
   '/cashbox', `/cashbox/${id('box')}`, '/expenses',
   '/shop-profile', '/website/settings', '/orders', `/orders/${id('order')}`,
   '/website/couriers', `/website/couriers/${id('courier')}`, '/website/customers',
+  // Online Stage 7A
+  '/marketing/campaigns', '/marketing/campaigns/new', `/marketing/campaigns/${id('campaign')}`, `/marketing/campaigns/${id('campaign')}/edit`, '/marketing/results',
+  '/marketing/leads', '/marketing/leads/new', '/marketing/leads/import', `/marketing/leads/${id('lead')}`, `/marketing/leads/${id('lead')}/edit`,
   '/users', '/audit',
 ];
 // Elements inside these are meant to scroll sideways (and may extend past the screen): the clip check skips their descendants.

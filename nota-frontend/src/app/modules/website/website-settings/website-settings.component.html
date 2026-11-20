@@ -286,6 +286,9 @@
         }
 
         <!-- ============================== المنتجات والطلبات ============================== -->
+        <!-- ============================== التسويق (Online Stage 7A) ============================== -->
+        @if (tab() === 'marketing') { <app-marketing-settings /> }
+
         @if (tab() === 'products') {
           <section class="m-card ws__card" data-test="visibility-card">
             <h2 class="m-card__title">{{ 'website.settings.products.visibilityTitle' | translate }}</h2>
@@ -672,6 +675,9 @@
         }
 
         <!-- ============================== المنتجات والطلبات ============================== -->
+        <!-- ============================== التسويق (Online Stage 7A) ============================== -->
+        @if (tab() === 'marketing') { <app-marketing-settings /> }
+
         @if (tab() === 'products') {
           <section class="nota-card ws__card" data-test="visibility-card">
             <h2 class="nota-section-title">{{ 'website.settings.products.visibilityTitle' | translate }}</h2>

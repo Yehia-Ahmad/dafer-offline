@@ -150,6 +150,45 @@ async function main() {
       assert.equal(d.status, 200); assert.ok(d.text.includes("حي الجامعة"));
     });
 
+    // Online Stage 7A: campaigns, the /go redirect, the feeds, and pixels that never appear in the server HTML.
+    await call("PUT", "/api/website/marketing-settings", token, { metaPixelId: "123456789012345", tiktokPixelId: "CABCDEF123456", requireConsent: true });
+    const campaign = await call("POST", "/api/campaigns", token, { name: "حملة السمر", platform: "facebook", type: "paid", landing: { kind: "product", ref: lamp } });
+    check("pixels are never in the server HTML (home and product), even with both ids set; the ids ride only in the settings", async () => {
+      for (const url of [`${B}/`, `${B}/p/${lamp}/${slug}`]) {
+        const r = await get(url);
+        assert.equal(r.status, 200);
+        assert.ok(!/fbevents\.js|connect\.facebook\.net|analytics\.tiktok\.com|fbq\(|ttq\./.test(r.text), `${url} loads a pixel on the server`);
+      }
+    });
+    check("/go/<code>: 302 to the landing with the utm parameters, never cached, the click is counted; unknown code lands on the home page", async () => {
+      const r = await get(`${B}/go/${campaign.code}`, { headers: { "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Mobile/15E148" } });
+      assert.equal(r.status, 302);
+      assert.equal(r.headers.get("location"), `/p/${lamp}?utm_source=facebook&utm_medium=paid&utm_campaign=${campaign.code}`);
+      assert.match(r.headers.get("cache-control") || "", /no-store/);
+      const results = await call("GET", "/api/campaigns/results", token);
+      assert.equal(results.campaigns.find((row) => row.code === campaign.code).clicks, 1);
+      const unknown = await get(`${B}/go/nope1234`);
+      assert.equal(unknown.status, 302); assert.equal(unknown.headers.get("location"), "/");
+      assert.equal((await get(`${B}/go/..%2Fetc`)).headers.get("location"), "/");
+      const landed = await get(`${B}${r.headers.get("location")}`);
+      assert.ok([200, 301].includes(landed.status), `landing answered ${landed.status}`);
+    });
+    check("feeds: Meta and TikTok CSV with the right columns, utm per platform, in/out of stock words, absolute image URLs; robots disallows them", async () => {
+      const meta = await get(`${B}/feeds/catalog.csv`);
+      assert.equal(meta.status, 200); assert.match(meta.headers.get("content-type"), /text\/csv/); assert.match(meta.headers.get("cache-control") || "", /max-age=3600/);
+      const lines = meta.text.trim().split("\r\n");
+      assert.equal(lines[0], "id,title,description,availability,condition,price,sale_price,link,image_link,additional_image_link,brand,product_type");
+      assert.equal(lines.length, 4, "three visible products");
+      assert.ok(meta.text.includes("utm_source=facebook&utm_medium=catalog")); assert.ok(meta.text.includes(",out of stock,new,")); assert.ok(meta.text.includes(",in stock,new,"));
+      assert.ok(meta.text.includes("80.00 EGP"), "sale price of the discounted lamp");
+      assert.match(meta.text, /,http:\/\/localhost:\d+\/api\/store\/images\/product\//);
+      assert.ok(!/inventory|remaining/i.test(meta.text));
+      const tiktok = await get(`${B}/feeds/tiktok.csv`);
+      assert.equal(tiktok.status, 200); assert.ok(tiktok.text.startsWith("sku_id,title,")); assert.ok(tiktok.text.includes("utm_source=tiktok&utm_medium=catalog"));
+      const robots = await get(`${B}/robots.txt`);
+      assert.ok(robots.text.includes("Disallow: /go/") && robots.text.includes("Disallow: /feeds/"));
+    });
+
     let failed = 0;
     let total = 0;
     const runAll = async () => {

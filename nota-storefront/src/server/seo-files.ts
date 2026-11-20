@@ -2,11 +2,13 @@ import { storeSlug } from '../app/core/slug';
 import { ServerApi } from './api-client';
 
 export const PRIVATE_PATHS = ['/cart', '/checkout', '/account', '/order/', '/admin/'];
+// Online Stage 7A: tracking redirects and the product feeds are for ad platforms, not for search engines.
+const ROBOTS_ONLY = ['/go/', '/feeds/'];
 
 const escapeXml = (value: string): string => value.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c] as string);
 
 export const robotsTxt = (origin: string): string =>
-  ['User-agent: *', ...PRIVATE_PATHS.map((p) => `Disallow: ${p}`), '', `Sitemap: ${origin}/sitemap.xml`, ''].join('\n');
+  ['User-agent: *', ...[...PRIVATE_PATHS, ...ROBOTS_ONLY].map((p) => `Disallow: ${p}`), '', `Sitemap: ${origin}/sitemap.xml`, ''].join('\n');
 
 /** Is this request path one the visitor owns (cart, checkout, account, order tracking)? They get X-Robots-Tag: noindex. */
 export const isPrivatePath = (pathname: string): boolean =>

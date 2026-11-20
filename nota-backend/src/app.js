@@ -102,6 +102,8 @@ app.use("/api/supplier-payments", supplierPaymentRoutes);
 app.use("/api/website", websiteRoutes); // Online Stage 3: website.manage
 app.use("/api/orders", require("./routes/orders.routes")); // Online Stage 4: orders.view / orders.manage / orders.dispatch
 app.use("/api/couriers", require("./routes/couriers.routes")); // Online Stage 4: couriers
+app.use("/api/campaigns", require("./routes/campaign.routes")); // Online Stage 7A: marketing.view / marketing.manage
+app.use("/api/leads", require("./routes/lead.routes")); // Online Stage 7A: leads.manage
 app.use("/api/push", require("./routes/push.routes")); // Online Stage 6A: Web Push subscriptions (signed-in, own only)
 
 app.use(notFound);

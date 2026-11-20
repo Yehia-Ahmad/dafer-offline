@@ -138,6 +138,8 @@ export const AR = {
     walletSub: 'هتحوّل وتبعت صورة التحويل على واتساب',
     notes: 'ملاحظات للمحل',
     notesHint: 'اختياري',
+    heardFrom: 'عرفتنا منين؟',
+    heardFromNone: 'اختار (اختياري)',
     summary: 'طلبك',
     items: 'المنتجات',
     deliveryFee: 'التوصيل',
@@ -282,6 +284,14 @@ export const AR = {
     freeFrom: (from: string) => `التوصيل مجاني للطلبات من ${from}`,
     sameDay: (cutoff: string) => `الطلب قبل ${cutoff} بيوصل في نفس اليوم`,
     noZones: 'مفيش مناطق توصيل دلوقتي.',
+  },
+
+  // Online Stage 7A
+  consent: {
+    title: 'ملفات تعريف الارتباط',
+    text: 'بنستخدم ملفات تعريف الارتباط عشان نعرف الإعلانات اللي بتوصّلك لينا. مبنبعتش اسمك ولا رقمك ولا عنوانك لأي حد.',
+    accept: 'موافق',
+    decline: 'لا، شكرًا',
   },
 
   seo: {

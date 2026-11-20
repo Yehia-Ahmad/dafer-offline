@@ -17,6 +17,8 @@ const isId = (value) => typeof value === "string" && mongoose.Types.ObjectId.isV
 const loadWebsiteSettings = (session) => WebsiteSettings.findOne({ key: "default" }).session(session || null).lean();
 
 const DEFAULT_REMAINING_THRESHOLD = 5;
+const DEFAULT_ATTRIBUTION_DAYS = 7;
+const DEFAULT_HEARD_FROM = ["فيسبوك", "إنستجرام", "تيك توك", "صديق أو قريب", "جوجل", "زرت المحل", "أخرى"];
 
 /**
  * The settings with their documented defaults applied (a settings document saved before Stage 5A has none of the new fields).
@@ -29,7 +31,18 @@ const effectiveSettings = (settings) => {
   const vodafone = payments.vodafoneCash || {};
   const stock = s.stock || {};
   const remaining = stock.showRemaining || {};
+  const marketing = s.marketing || {};
+  const options = Array.isArray(marketing.heardFromOptions) ? marketing.heardFromOptions.filter(Boolean) : DEFAULT_HEARD_FROM;
   return {
+    // Online Stage 7A.
+    marketing: {
+      metaPixelId: marketing.metaPixelId || "",
+      tiktokPixelId: marketing.tiktokPixelId || "",
+      requireConsent: marketing.requireConsent !== false,
+      attributionDays: Number.isInteger(marketing.attributionDays) && marketing.attributionDays >= 1 ? marketing.attributionDays : DEFAULT_ATTRIBUTION_DAYS,
+      askHeardFrom: marketing.askHeardFrom !== false,
+      heardFromOptions: options,
+    },
     fulfillment: { delivery: !(s.fulfillment && s.fulfillment.delivery === false), pickup: Boolean(s.fulfillment && s.fulfillment.pickup === true) },
     payments: {
       cod: { enabled: !(payments.cod && payments.cod.enabled === false) },

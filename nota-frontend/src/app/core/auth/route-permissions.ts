@@ -31,6 +31,11 @@ export const ROUTE_RULES = {
   orders: { all: ['orders.view'] },
   couriers: { any: ['orders.view', 'website.manage'] },
   websiteCustomers: { all: ['website.manage'] },
+  /** Online Stage 7A: campaigns and their results (marketing.view; creating/editing needs marketing.manage), and the leads list. */
+  marketing: { all: ['marketing.view'] },
+  marketingManage: { all: ['marketing.manage'] },
+  leads: { any: ['leads.manage', 'marketing.view'] },
+  leadsManage: { all: ['leads.manage'] },
   users: { all: ['users.manage'] },
   audit: { all: ['audit.view'] },
   accounting: { all: ['accounting.view'] },

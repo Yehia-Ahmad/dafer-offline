@@ -12,6 +12,8 @@ const expenseSchema = new mongoose.Schema({
   vatPeriod: { type: String, match: /^\d{4}-\d{2}$/ },
   boxId: { type: mongoose.Schema.Types.ObjectId, ref: "CashBox", required: true, index: true },
   note: { type: String, trim: true, maxlength: 500 },
+  // Online Stage 7A: the campaign this ad spend belongs to. A label only: posting never reads it.
+  campaignId: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign", index: true, sparse: true },
   status: { type: String, enum: ["posted", "cancelled"], default: "posted", index: true },
   cancelReason: { type: String, trim: true, maxlength: 500 },
   cancelledAt: Date,

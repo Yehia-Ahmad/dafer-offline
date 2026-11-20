@@ -105,6 +105,8 @@ export class ApiService {
   // --- orders
   quote(order: OrderRequest, withAuth: boolean): Promise<Quote> { return this.request('POST', '/orders/quote', order, withAuth); }
   placeOrder(order: OrderRequest & { idempotencyKey: string }, withAuth: boolean): Promise<OrderView> { return this.request('POST', '/orders', order, withAuth); }
+  /** Online Stage 7A: an anonymous campaign visit (code + random session id). */
+  visit(code: string, sessionId: string): Promise<{ ok: boolean }> { return this.request('POST', '/visits', { code, sessionId }); }
   track(token: string): Promise<OrderView> { return this.request('GET', `/orders/track/${encodeURIComponent(token)}`); }
 
   // --- customer

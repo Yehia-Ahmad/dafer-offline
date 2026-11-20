@@ -92,6 +92,17 @@ const webOrderSchema = new mongoose.Schema(
     // When the shop confirmed it: the queue position for stock at dispatch (the earlier confirmation keeps its stock).
     confirmedAt: { type: Date },
     reason: { type: String },
+    // Online Stage 7A: which campaign brought the order (last click inside the attribution window). A snapshot, never read by
+    // pricing or posting. Absent = a direct order. source/medium come from the Campaign, not from the browser.
+    attribution: {
+      code: { type: String },
+      campaignId: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign" },
+      source: { type: String },
+      medium: { type: String },
+      landedAt: { type: Date },
+    },
+    // Online Stage 7A: the answer to "عرفتنا منين؟" (one of the shop's options).
+    heardFrom: { type: String, maxlength: 60 },
     // The same client key twice must give the same order. A hash of the request body tells a retry from a different request.
     idempotencyKey: { type: String, required: true, unique: true },
     requestHash: { type: String, required: true },
@@ -104,6 +115,7 @@ const webOrderSchema = new mongoose.Schema(
 // Reservation lookups (confirmed/preparing quantities per product) and the admin list filters.
 webOrderSchema.index({ status: 1, "items.productId": 1 });
 webOrderSchema.index({ status: 1, createdAt: -1 });
+webOrderSchema.index({ "attribution.campaignId": 1, createdAt: -1 }, { sparse: true });
 
 module.exports = mongoose.model("WebOrder", webOrderSchema);
 module.exports.ORDER_STATUSES = ORDER_STATUSES;

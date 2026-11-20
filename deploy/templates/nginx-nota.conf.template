@@ -93,6 +93,16 @@ server {
         proxy_pass http://127.0.0.1:@@PORT@@;
     }
 
+    # Online Stage 7A: a campaign visit (counted anonymously). 60 POSTs per minute per IP, burst 20, then 429 (zone nota_store_visits).
+    location = /api/store/visits {
+        client_max_body_size 4k;
+        limit_req zone=nota_store_visits burst=20 nodelay;
+        limit_req_status 429;
+        limit_req_log_level warn;
+        include /etc/nginx/snippets/nota-proxy-api.conf;
+        proxy_pass http://127.0.0.1:@@PORT@@;
+    }
+
     # Customer sign-in and registration: 10 POSTs per minute per IP each, burst 5, then 429 (zone nota_store_auth).
     # The app's own lockout (5 failures per phone + IP) still applies on top.
     location = /api/store/auth/login {
@@ -177,6 +187,32 @@ server {
         proxy_pass http://127.0.0.1:@@STOREFRONT_PORT@@;
         proxy_hide_header Cache-Control;
         add_header Cache-Control "public, max-age=31536000, immutable" always;
+        include /etc/nginx/snippets/nota-security-headers.conf;
+    }
+
+    # Online Stage 7A: the short tracking link /go/<code> (the storefront counts the click and redirects). 60 per minute per IP,
+    # burst 20, then 429. Never cached: every click must reach the counter.
+    location ^~ /go/ {
+        limit_req zone=nota_go burst=20 nodelay;
+        limit_req_status 429;
+        limit_req_log_level warn;
+        include /etc/nginx/snippets/nota-proxy-storefront.conf;
+        proxy_pass http://127.0.0.1:@@STOREFRONT_PORT@@;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "no-store" always;
+        include /etc/nginx/snippets/nota-security-headers.conf;
+    }
+
+    # Online Stage 7A: the product feeds for Meta Commerce Manager and TikTok Catalog Manager (/feeds/catalog.csv, /feeds/tiktok.csv).
+    # The storefront caches them for an hour; the platforms and shared caches may keep them for the same time.
+    location ^~ /feeds/ {
+        limit_req zone=nota_go burst=20 nodelay;
+        limit_req_status 429;
+        limit_req_log_level warn;
+        include /etc/nginx/snippets/nota-proxy-storefront.conf;
+        proxy_pass http://127.0.0.1:@@STOREFRONT_PORT@@;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=3600" always;
         include /etc/nginx/snippets/nota-security-headers.conf;
     }
 

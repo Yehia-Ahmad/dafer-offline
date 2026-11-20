@@ -40,6 +40,27 @@ export class ServerApi {
     }
   }
 
+  /** A POST is never retried (it is not idempotent: a retried click would count twice). */
+  async post<T>(path: string, body: unknown): Promise<T> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await this.fetchImpl(`${this.base}/api/store${path}`, {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new UpstreamError(response.status);
+      return (await response.json()) as T;
+    } catch (error) {
+      if (error instanceof UpstreamError) throw error;
+      throw new UpstreamError(0, 'unreachable');
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async get<T>(path: string, ttlSeconds = 0): Promise<T> {
     const hit = this.cache.get(path);
     if (hit && hit.exp > this.now()) return hit.value as T;

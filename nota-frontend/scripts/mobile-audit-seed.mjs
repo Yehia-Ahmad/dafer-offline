@@ -66,6 +66,9 @@ await step('expense category + expense', async () => {
   await call('POST', '/expenses', { accountId: c.id ?? idOf(c), amount: 5, date: today, note: 'audit' });
 });
 await step('courier', async () => { const c = await call('POST', '/couriers', { name: 'مندوب تجريبي', phone: '01000000003' }); ids.courier = c.id ?? idOf(c); });
+// Online Stage 7A: a campaign and a lead for the marketing screens.
+await step('campaign', async () => { const c = await call('POST', '/campaigns', { name: 'حملة تجريبية', platform: 'facebook', type: 'paid', landing: { kind: 'home' } }); ids.campaign = idOf(c); });
+await step('lead', async () => { const l = await call('POST', '/leads', { name: 'عميل محتمل تجريبي', phone: '01000000009', source: 'facebook', campaignId: ids.campaign }); ids.lead = idOf(l); });
 await step('accounts', async () => { ids.accounts = list(await call('GET', '/accounting/accounts')).map(idOf); ids.account = ids.accounts[0]; const main = list(await call('GET', '/cashbox/boxes'))[0]; if (main?.accountId) ids.account = main.accountId; /* the main drawer's account has movements */ });
 await step('journal', async () => { ids.journal = idOf(list(await call('GET', '/accounting/journal'))[0]); });
 await step('manual entry (draft)', async () => {

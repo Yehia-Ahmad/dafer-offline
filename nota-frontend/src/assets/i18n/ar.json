@@ -877,6 +877,7 @@
       "treasury": "الخزنة",
       "accounting": "الحسابات",
       "website": "الموقع",
+      "marketing": "التسويق",
       "admin": "الإدارة"
     },
     "items": {
@@ -904,7 +905,10 @@
       "orders": "الطلبات",
       "couriers": "المناديب",
       "websiteCustomers": "عملاء الموقع",
-      "opening": "رصيد بداية المحل"
+      "opening": "رصيد بداية المحل",
+      "campaigns": "الحملات",
+      "marketingResults": "نتائج الحملات",
+      "leads": "العملاء المحتملين"
     },
     "collapse": "طي القائمة",
     "expand": "توسيع القائمة",
@@ -1289,6 +1293,12 @@
       "website.customer.password_reset": "إعادة تعيين كلمة مرور عميل موقع",
       "website.product.updated": "تعديل ظهور صنف على الموقع",
       "website.settings.updated": "تعديل إعدادات الموقع",
+      "campaign.created": "إضافة حملة تسويقية",
+      "campaign.updated": "تعديل حملة تسويقية",
+      "lead.created": "إضافة عميل محتمل",
+      "lead.imported": "استيراد عملاء محتملين",
+      "lead.updated": "تعديل عميل محتمل",
+      "marketing.settings.updated": "تعديل إعدادات التسويق",
       "website.zone.created": "إضافة منطقة توصيل",
       "website.zone.deleted": "حذف منطقة توصيل",
       "website.zone.updated": "تعديل منطقة توصيل",
@@ -2455,7 +2465,7 @@
       "loadFailed": "تعذّر تحميل إعدادات الموقع",
       "openSite": "افتح الموقع",
       "soon": "قريبًا",
-      "tabs": { "general": "عام", "look": "الشكل", "delivery": "التوصيل", "payment": "الدفع", "products": "المنتجات والطلبات" },
+      "tabs": { "general": "عام", "look": "الشكل", "delivery": "التوصيل", "payment": "الدفع", "products": "المنتجات والطلبات", "marketing": "التسويق" },
       "preview": { "title": "معاينة سريعة", "noTitle": "اسم الموقع", "button": "اطلب دلوقتي" },
       "look": {
         "brandTitle": "لون الموقع",
@@ -3046,5 +3056,264 @@
     "entryHint": "هيتعمل سند استرداد (SR) وقيد: من ح/ الخزنة إلى ح/ المورد.",
     "save": "حفظ الاسترداد",
     "failed": "مقدرناش نحفظ الاسترداد."
+  },
+  "marketing": {
+    "expenseCampaign": "الحملة",
+    "loadFailed": "مقدرناش نحمّل البيانات. جرّب تاني.",
+    "status": {
+      "active": "شغّالة",
+      "ended": "انتهت",
+      "archived": "مؤرشفة"
+    },
+    "platform": {
+      "facebook": "فيسبوك",
+      "instagram": "إنستجرام",
+      "tiktok": "تيك توك",
+      "whatsapp": "واتساب",
+      "messenger": "ماسنجر",
+      "other": "أخرى"
+    },
+    "type": {
+      "paid": "مدفوعة",
+      "organic": "مجانية"
+    },
+    "landing": {
+      "home": "الصفحة الرئيسية",
+      "product": "منتج",
+      "category": "قسم",
+      "path": "رابط مخصص",
+      "searchProduct": "ابحث عن المنتج (حرفين على الأقل)",
+      "pathLabel": "المسار داخل الموقع",
+      "pathHint": "لازم يبدأ بعلامة / ويكون جوه موقعك، مثال: /search?q=عروض"
+    },
+    "range": {
+      "from": "من",
+      "to": "إلى"
+    },
+    "kpi": {
+      "clicks": "ضغطات الرابط القصير",
+      "visits": "الزيارات",
+      "ordersPlaced": "الطلبات",
+      "orders": "الطلبات المكتملة",
+      "notCompleted": "ملغي أو مرفوض أو مرتجع",
+      "sales": "المبيعات",
+      "conversionRate": "نسبة التحويل",
+      "averageOrderValue": "متوسط الطلب",
+      "spend": "مصروف الإعلان",
+      "costPerOrder": "تكلفة الطلب",
+      "returnOnSpend": "العائد على المصروف",
+      "grossProfit": "مجمل الربح",
+      "profitAfterAds": "الربح بعد الإعلانات"
+    },
+    "campaigns": {
+      "title": "الحملات",
+      "subtitle": "كل حملة ليها رابط تتبّع، وبتشوف منها كام زيارة وطلب ومبيعات.",
+      "new": "حملة جديدة",
+      "empty": "مفيش حملات لسه.",
+      "all": "الكل",
+      "status": "الحالة",
+      "platform": "المنصة",
+      "name": "الحملة"
+    },
+    "form": {
+      "newTitle": "حملة جديدة",
+      "editTitle": "تعديل حملة",
+      "name": "اسم الحملة",
+      "type": "نوع الحملة",
+      "landing": "الزبون يوصل لأنهي صفحة؟",
+      "startDate": "تاريخ البداية",
+      "endDate": "تاريخ النهاية (اختياري)",
+      "plannedBudget": "الميزانية المخططة (اختياري)",
+      "code": "كود الحملة",
+      "codeAuto": "يتولّد تلقائي",
+      "codeHint": "حروف إنجليزي صغيرة وأرقام وشرطة. تقدر تغيّره قبل ما حد يستخدم الرابط.",
+      "codeLocked": "الرابط اتستخدم فمينفعش الكود يتغير",
+      "notes": "ملاحظات"
+    },
+    "page": {
+      "fullLink": "الرابط الكامل",
+      "shortLink": "الرابط القصير",
+      "copy": "نسخ",
+      "copied": "اتنسخ",
+      "qr": "رمز QR للرابط القصير",
+      "qrHint": "اطبعه أو حطه على مطبوعاتك. بيفتح الرابط القصير.",
+      "links": "الروابط",
+      "spend": "مصروف الإعلان",
+      "spendTotal": "إجمالي المصروف",
+      "noSpend": "لسه مسجلتش مصروف على الحملة دي.",
+      "leads": "العملاء المحتملين",
+      "edit": "تعديل"
+    },
+    "spend": {
+      "title": "تسجيل مصروف إعلان",
+      "amount": "المبلغ المدفوع",
+      "record": "تسجيل المصروف",
+      "errors": {
+        "category": "مقدرناش نجهّز بند «دعاية وإعلان». جرّب تاني.",
+        "campaign": "الحملة مش موجودة."
+      }
+    },
+    "results": {
+      "title": "نتائج الحملات",
+      "subtitle": "الزيارات والطلبات والمبيعات والربح لكل حملة ولكل منصة.",
+      "totals": "الإجمالي",
+      "byCampaign": "حسب الحملة",
+      "byPlatform": "حسب المنصة",
+      "direct": "طلبات مباشرة (من غير حملة)",
+      "directLabel": "مباشر",
+      "byHeard": "حسب «عرفتنا منين؟»",
+      "noAnswer": "من غير إجابة",
+      "daily": "يوم بيوم",
+      "empty": "مفيش بيانات في الفترة دي."
+    },
+    "leadStatus": {
+      "new": "جديد",
+      "contacted": "اتكلمنا معاه",
+      "interested": "مهتم",
+      "not_interested": "مش مهتم"
+    },
+    "leadSource": {
+      "facebook": "فيسبوك",
+      "instagram": "إنستجرام",
+      "tiktok": "تيك توك",
+      "whatsapp": "واتساب",
+      "messenger": "ماسنجر",
+      "website": "الموقع",
+      "walk_in": "زار المحل",
+      "other": "أخرى"
+    },
+    "leads": {
+      "title": "العملاء المحتملين",
+      "subtitle": "ناس سألوا عن منتجاتك في رسالة أو إعلان نموذج.",
+      "new": "عميل محتمل جديد",
+      "import": "استيراد من ملف",
+      "search": "ابحث بالاسم أو الموبايل",
+      "searchAction": "بحث",
+      "empty": "مفيش عملاء محتملين لسه.",
+      "name": "الاسم",
+      "phone": "الموبايل",
+      "source": "المصدر",
+      "campaign": "الحملة",
+      "status": "الحالة",
+      "allCampaigns": "كل الحملات",
+      "profileLink": "رابط الحساب (اختياري)",
+      "profileLinkHint": "فيسبوك أو إنستجرام أو تيك توك أو واتساب (wa.me) أو ماسنجر (m.me) فقط.",
+      "lastContact": "آخر تواصل",
+      "notes": "ملاحظات",
+      "newTitle": "عميل محتمل جديد",
+      "editTitle": "تعديل عميل محتمل",
+      "openExisting": "افتح العميل المسجل",
+      "whatsapp": "واتساب",
+      "call": "اتصال",
+      "profile": "الحساب",
+      "created": "تاريخ الإضافة",
+      "bought": "اشترى؟",
+      "boughtYes": "اشترى",
+      "boughtNo": "لسه ما اشترى (من يوم ما اتضاف).",
+      "boughtSummary": "{{count}} مستند بإجمالي {{total}} جنيه",
+      "docType": {
+        "web_order": "طلب موقع",
+        "credit_sale": "بيع آجل",
+        "cash_sale": "بيع نقدي"
+      },
+      "openDoc": "فتح",
+      "noteHistory": "سجل الملاحظات",
+      "noNotes": "مفيش ملاحظات.",
+      "addNote": "اكتب ملاحظة",
+      "addNoteAction": "إضافة"
+    },
+    "import": {
+      "title": "استيراد العملاء المحتملين",
+      "intro": "ارفع ملف CSV أو XLSX نازل من إعلانات نموذج العملاء في ميتا أو تيك توك. الحد الأقصى {{max}} صف.",
+      "file": "الملف",
+      "mapping": "ربط الأعمدة",
+      "notMapped": "غير مربوط",
+      "field": {
+        "name": "الاسم",
+        "phone": "الموبايل",
+        "createdTime": "وقت التسجيل",
+        "campaignName": "اسم الحملة",
+        "adName": "اسم الإعلان",
+        "platform": "المنصة",
+        "profileLink": "رابط الحساب"
+      },
+      "defaultSource": "المصدر لو الملف مفيهوش منصة",
+      "existing": "لو الموبايل مسجل قبل كده",
+      "skip": "تخطّيه",
+      "update": "حدّث بياناته",
+      "attach": "اربط الكل بحملة من نوتة (اختياري)",
+      "preview": "معاينة",
+      "previewTitle": "المعاينة (أول 200 صف)",
+      "summary": "تمت إضافة {{imported}} · تحديث {{updated}} · تخطّي {{skipped}} · غلط {{invalid}} (من {{total}})",
+      "confirm": "تأكيد الاستيراد",
+      "done": "تم الاستيراد",
+      "toLeads": "افتح القائمة",
+      "status": {
+        "new": "جديد",
+        "update": "تحديث",
+        "skip": "تخطّي",
+        "invalid": "غلط"
+      },
+      "reason": {
+        "NAME_REQUIRED": "الاسم ناقص",
+        "INVALID_PHONE": "رقم الموبايل غلط",
+        "CONTACT_REQUIRED": "مفيش موبايل ولا رابط",
+        "INVALID_PROFILE_LINK": "الرابط مش مسموح",
+        "EXISTS": "مسجل قبل كده",
+        "DUPLICATE_IN_FILE": "مكرر في الملف"
+      },
+      "errors": {
+        "EMPTY": "الملف فاضي أو من غير صفوف.",
+        "TOO_MANY_ROWS": "الملف أكبر من 5000 صف.",
+        "UNSUPPORTED": "الملف لازم يكون CSV أو XLSX.",
+        "UNREADABLE": "مقدرناش نقرأ الملف.",
+        "NO_ROWS": "الملف فاضي.",
+        "MAPPING_REQUIRED": "اربط عمود الاسم وعمود الموبايل.",
+        "INVALID_CAMPAIGN": "الحملة مش موجودة.",
+        "INVALID_SOURCE": "المصدر غلط."
+      }
+    },
+    "errors": {
+      "GENERIC": "حصل خطأ. جرّب تاني.",
+      "CODE_TAKEN": "الكود ده مستخدم في حملة تانية.",
+      "CODE_LOCKED": "الكود اتستخدم قبل كده ومينفعش يتغير.",
+      "INVALID_CODE": "الكود حروف إنجليزي صغيرة وأرقام وشرطة (3 إلى 32).",
+      "INVALID_LANDING": "صفحة الوصول غير صالحة.",
+      "INVALID_DATE": "التاريخ غير صالح.",
+      "INVALID_NAME": "الاسم مطلوب.",
+      "INVALID_BUDGET": "الميزانية غير صالحة.",
+      "INVALID_PHONE": "رقم الموبايل غير صالح.",
+      "INVALID_PROFILE_LINK": "الرابط لازم يكون من فيسبوك أو إنستجرام أو تيك توك أو واتساب أو ماسنجر.",
+      "INVALID_SOURCE": "المصدر غير صالح.",
+      "CONTACT_REQUIRED": "اكتب رقم الموبايل أو رابط الحساب.",
+      "INVALID_CAMPAIGN": "الحملة غير موجودة.",
+      "DUPLICATE_PHONE": "الرقم ده مسجل قبل كده كعميل محتمل."
+    },
+    "settings": {
+      "noAccess": "مفيش عندك صلاحية تشوف إعدادات التسويق.",
+      "pixels": "بكسل ميتا وتيك توك",
+      "metaPixel": "رقم بكسل ميتا (Meta Pixel ID)",
+      "metaPixelHint": "15 أو 16 رقم. سيبه فاضي لو مش بتستخدمه.",
+      "tiktokPixel": "رقم بكسل تيك توك (TikTok Pixel ID)",
+      "tiktokPixelHint": "حروف إنجليزي وأرقام. سيبه فاضي لو مش بتستخدمه.",
+      "requireConsent": "اطلب موافقة الزبون على الكوكيز قبل تشغيل البكسل",
+      "noPersonalData": "الموقع مبيبعتش اسم الزبون ولا موبايله ولا عنوانه لأي منصة. بيبعت بس أرقام المنتجات والقيم ورقم الطلب.",
+      "attribution": "حساب الحملات و«عرفتنا منين؟»",
+      "attributionDays": "مدة حساب الطلب للحملة (بالأيام)",
+      "askHeardFrom": "اسأل الزبون «عرفتنا منين؟» وقت الطلب",
+      "heardOptions": "الإجابات المتاحة",
+      "heardOptionsHint": "إجابة في كل سطر (حتى 12).",
+      "feeds": "كتالوج المنتجات",
+      "saved": "اتحفظت إعدادات التسويق.",
+      "feed": {
+        "meta": "كتالوج فيسبوك وإنستجرام (Meta)",
+        "tiktok": "كتالوج تيك توك"
+      },
+      "feedHelp": {
+        "meta": "في Commerce Manager: Catalog ← Data sources ← Add items ← Data feed ← Scheduled feed، وألصق الرابط. الأعمدة: id, title, description, availability, condition, price, sale_price, link, image_link, additional_image_link, brand, product_type.",
+        "tiktok": "في TikTok Catalog Manager: Add catalog ← Scheduled feed، وألصق الرابط. الأعمدة: sku_id, title, description, availability, condition, price, sale_price, link, image_link, additional_image_link, brand, product_type."
+      },
+      "feedNote": "الكتالوج بيتحدّث كل ساعة، وفيه المنتجات الظاهرة على الموقع بس. حالة التوفر «متاح» أو «غير متاح» من غير أي أرقام مخزون."
+    }
   }
 }

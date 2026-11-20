@@ -32,6 +32,8 @@ export interface StoreSettings {
   sameDayCutoff?: string | null;
   highlights?: Highlight[];
   vat?: { rate: number; pricesIncludeVat: boolean } | null;
+  /** Online Stage 7A: pixel ids (public by nature), consent, attribution window and the "عرفتنا منين؟" options ([] = do not ask). */
+  marketing?: { metaPixelId: string; tiktokPixelId: string; requireConsent: boolean; attributionDays: number; heardFromOptions: string[] };
 }
 
 export interface Category { id: string; name: string; imageUrl: string | null; image: string | null; productCount: number }
@@ -101,4 +103,7 @@ export interface OrderRequest {
   zoneId?: string | null;
   addressId?: string | null;
   contact?: { name: string; phone: string; address?: string; notes?: string };
+  /** Online Stage 7A: the campaign code and when the visitor landed (the server checks both), and the "عرفتنا منين؟" answer. */
+  attribution?: { code: string; landedAt: string };
+  heardFrom?: string;
 }

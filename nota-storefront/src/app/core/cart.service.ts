@@ -1,5 +1,6 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { LineProblem, Product } from './models';
+import { PixelsService } from './pixels.service';
 import { storage } from './storage';
 
 export const CART_KEY = 'nota.store.cart';
@@ -29,6 +30,7 @@ export const clampQty = (qty: number, max: number): number => {
  */
 @Injectable({ providedIn: 'root' })
 export class CartService {
+  private readonly pixels = inject(PixelsService);
   private readonly state = signal<CartLine[]>([]);
   readonly lines = this.state.asReadonly();
   readonly count = computed(() => this.state().reduce((sum, line) => sum + line.qty, 0));
@@ -56,6 +58,14 @@ export class CartService {
 
   /** Adds `qty`, merging with an existing line and never going over the product's maxOrderQty. Returns the quantity now in the cart. */
   add(product: Product, qty = 1): number {
+    const before = this.qtyOf(product.id);
+    const next = this.addLine(product, qty);
+    // Online Stage 7A: a pixel event only when the cart really grew (id, value and quantity only).
+    if (next > before) this.pixels.track({ name: 'AddToCart', id: product.id, qty: next - before, value: product.finalPrice * (next - before) });
+    return next;
+  }
+
+  private addLine(product: Product, qty: number): number {
     const max = product.maxOrderQty > 0 ? product.maxOrderQty : 0;
     if (max === 0 || product.availability === 'out_of_stock') return this.qtyOf(product.id);
     const existing = this.state().find((line) => line.productId === product.id);
