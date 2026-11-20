@@ -3097,6 +3097,7 @@
       "orders": "الطلبات المكتملة",
       "notCompleted": "ملغي أو مرفوض أو مرتجع",
       "sales": "المبيعات",
+      "deliveryRevenue": "إيراد التوصيل",
       "conversionRate": "نسبة التحويل",
       "averageOrderValue": "متوسط الطلب",
       "spend": "مصروف الإعلان",

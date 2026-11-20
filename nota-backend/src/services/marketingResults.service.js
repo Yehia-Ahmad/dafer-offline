@@ -10,8 +10,9 @@
 //   cancelled / rejected / refused   WebOrder.status
 //   completed     status delivered|picked_up AND an invoice (creditSaleId|cashSaleId) that is not cancelled and not fully returned
 //   sales         invoice.totalPrice - invoice.refundedAmount
-//   grossProfit   per invoice line (profitAmount - discount share) * remaining share - VAT inside, plus the delivery fee (net of its
-//                 VAT) while the invoice is not fully returned: the same math as the product profit report, plus shipping income
+//   grossProfit   product revenue - cost of goods, per invoice line (profitAmount - discount share) * remaining share - VAT inside:
+//                 the product profit report's math. The delivery fee is NOT in it (most shops pay it to the courier).
+//   deliveryRevenue  the delivery fee of the completed invoices, net of its VAT, while any line of the invoice is kept: shown on its own
 //   spend         Expense (campaignId, status posted, date in range): amount - vatAmount
 const mongoose = require("mongoose");
 const WebOrder = require("../models/webOrder.model");
@@ -47,7 +48,7 @@ const allocateItemDiscounts = (items, discountAmount) => {
 const vatInsideLine = (invoice, item, ratio) =>
   invoice.vatRate !== undefined && invoice.vatRate !== null && invoice.vatIncluded !== false ? money(Number(item.vatAmount || 0) * ratio) : 0;
 
-/** { sales, grossProfit } of one posted invoice, net of its returns. Pure. */
+/** { sales, grossProfit, deliveryRevenue } of one posted invoice, net of its returns. Pure. */
 const invoiceFigures = (invoice) => {
   const items = Array.isArray(invoice.items) ? invoice.items : [];
   const { discountAmount } = buildInvoiceTotals(items, { discountAmount: invoice.discountAmount, discountPercentage: invoice.discountPercentage, shippingFees: invoice.shippingFees });
@@ -64,16 +65,17 @@ const invoiceFigures = (invoice) => {
       ? money((Number(item.profitAmount || 0) - Number(discounts[index] || 0)) * ratio - vatInside)
       : money(revenue - Number(item.purchasePrice || 0) * remaining);
   });
-  // Delivery income (net of its VAT when prices include VAT) stays while anything of the invoice is kept.
+  // Delivery income (net of its VAT when prices include VAT) stays while anything of the invoice is kept. It is reported on its own:
+  // gross profit stays product revenue minus cost.
   const shipping = money(invoice.shippingFees);
   const shippingVat = invoice.vatRate !== undefined && invoice.vatRate !== null && invoice.vatIncluded !== false ? money(invoice.shippingVat) : 0;
   const kept = items.some((item) => Number(item.quantity || 0) - Number(item.returnedQuantity || 0) > 0);
-  if (kept) profit += money(shipping - shippingVat);
-  return { sales: money(Number(invoice.totalPrice || 0) - Number(invoice.refundedAmount || 0)), grossProfit: money(profit) };
+  const deliveryRevenue = kept ? money(shipping - shippingVat) : 0;
+  return { sales: money(Number(invoice.totalPrice || 0) - Number(invoice.refundedAmount || 0)), grossProfit: money(profit), deliveryRevenue };
 };
 
 const emptyBucket = () => ({
-  clicks: 0, visits: 0, ordersPlaced: 0, ordersCompleted: 0, ordersCancelled: 0, ordersRejected: 0, ordersRefused: 0, sales: 0, grossProfit: 0, spend: 0,
+  clicks: 0, visits: 0, ordersPlaced: 0, ordersCompleted: 0, ordersCancelled: 0, ordersRejected: 0, ordersRefused: 0, sales: 0, grossProfit: 0, deliveryRevenue: 0, spend: 0,
 });
 
 const finish = (bucket, { includeProfit, hasVisits = true, hasSpend = true }) => {
@@ -86,6 +88,7 @@ const finish = (bucket, { includeProfit, hasVisits = true, hasSpend = true }) =>
     ordersRejected: bucket.ordersRejected,
     ordersRefused: bucket.ordersRefused,
     sales: money(bucket.sales),
+    deliveryRevenue: money(bucket.deliveryRevenue),
     conversionRate: hasVisits && bucket.visits > 0 ? Math.round((bucket.ordersCompleted / bucket.visits) * 10000) / 10000 : null,
     averageOrderValue: divide(bucket.sales, bucket.ordersCompleted),
     spend: hasSpend ? money(bucket.spend) : 0,
@@ -164,17 +167,18 @@ const campaignResults = async (query, { includeProfit }) => {
     const day = clock.localDayString(order.createdAt);
     let sales = 0;
     let grossProfit = 0;
+    let deliveryRevenue = 0;
     let completed = false;
     if (COMPLETED_STATUSES.includes(order.status)) {
       const invoice = invoices.get(String(order.creditSaleId || order.cashSaleId || ""));
       if (invoice && invoice.status !== "cancelled" && invoice.refundStatus !== "full") {
         completed = true;
-        ({ sales, grossProfit } = invoiceFigures(invoice));
+        ({ sales, grossProfit, deliveryRevenue } = invoiceFigures(invoice));
       }
     }
     const count = (bucket) => {
       bucket.ordersPlaced += 1;
-      if (completed) { bucket.ordersCompleted += 1; bucket.sales += sales; bucket.grossProfit += grossProfit; }
+      if (completed) { bucket.ordersCompleted += 1; bucket.sales += sales; bucket.grossProfit += grossProfit; bucket.deliveryRevenue += deliveryRevenue; }
       if (order.status === "cancelled") bucket.ordersCancelled += 1;
       if (order.status === "rejected") bucket.ordersRejected += 1;
       if (order.status === "refused") bucket.ordersRefused += 1;

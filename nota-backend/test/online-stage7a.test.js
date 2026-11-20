@@ -117,7 +117,7 @@ async function ledger() {
   const net = (key, side) => entries.flatMap((entry) => entry.lines).filter((line) => String(line.accountId) === byKey[key])
     .reduce((sum, line) => sum + (side === "credit" ? line.credit - line.debit : line.debit - line.credit), 0);
   const revenue = net("SALES", "credit") + net("SALES_DISCOUNT", "credit") + net("SALES_RETURNS", "credit") + net("SHIPPING_INCOME", "credit");
-  return { revenue: cents(revenue) / 100, vat: cents(byKey.VAT_PAYABLE ? net("VAT_PAYABLE", "credit") : 0) / 100, cogs: cents(net("COGS", "debit")) / 100 };
+  return { revenue: cents(revenue) / 100, shipping: cents(net("SHIPPING_INCOME", "credit")) / 100, vat: cents(byKey.VAT_PAYABLE ? net("VAT_PAYABLE", "credit") : 0) / 100, cogs: cents(net("COGS", "debit")) / 100 };
 }
 
 /** The shop: ledger, site open (pickup + wallet on), one zone (fee 30), one product (100, cost 50), a courier. */
@@ -254,6 +254,10 @@ it("go: counts a click per local day and device, answers the landing path with t
   const clicks = await CampaignClick.find({}).lean();
   assert.equal(clicks.find((row) => row.device === "mobile").count, 2); assert.equal(clicks.find((row) => row.device === "other").count, 1);
   assert.deepEqual(Object.keys(clicks[0]).sort(), ["__v", "_id", "campaignId", "count", "day", "device"].sort());
+  // count:false (the storefront throttle is over its limit): the landing path is still answered, nothing is counted
+  const before = (await CampaignClick.find({}).lean()).reduce((sum, row) => sum + row.count, 0);
+  assert.equal(ok(await go(campaign.code, { device: "mobile", count: false })).path, first.path);
+  assert.equal((await CampaignClick.find({}).lean()).reduce((sum, row) => sum + row.count, 0), before);
   assert.deepEqual(ok(await go("nothere", {})), { path: "/" });
   ok(await staff("PUT", `/api/campaigns/${campaign._id}`, { status: "archived" }));
   assert.deepEqual(ok(await go(campaign.code, {})), { path: "/" });
@@ -321,22 +325,23 @@ it("results: every number of a campaign, by hand (delivered, refused, partly ret
   assert.equal(row.ordersCompleted, 4, "a c d e");
   assert.equal(row.ordersCancelled, 1); assert.equal(row.ordersRejected, 1); assert.equal(row.ordersRefused, 1);
   assert.equal(row.sales, 790, "230 + (430-100) + 130 + 100");
-  assert.equal(row.grossProfit, 440, "130 + 180 + 80 + 50 (cost 50 per unit kept, delivery fee kept)");
+  assert.equal(row.grossProfit, 350, "100 + 150 + 50 + 50: product revenue - cost of the units kept; the delivery fee is not in it");
+  assert.equal(row.deliveryRevenue, 90, "30 + 30 + 30 (a, c, d); the pickup order has none; the refused order's fee came back");
   assert.equal(row.conversionRate, 0.8); assert.equal(row.averageOrderValue, 197.5);
   assert.equal(row.spend, 40, "the cancelled expense drops out");
-  assert.equal(row.costPerOrder, 10); assert.equal(row.returnOnSpend, 19.75); assert.equal(row.profitAfterAds, 400);
+  assert.equal(row.costPerOrder, 10); assert.equal(row.returnOnSpend, 19.75); assert.equal(row.profitAfterAds, 310, "350 - 40");
 
   const idle = results.campaigns.find((item) => item.code === other.code);
   assert.equal(idle.ordersPlaced, 0); assert.equal(idle.sales, 0); assert.equal(idle.conversionRate, null); assert.equal(idle.returnOnSpend, null);
 
-  assert.equal(results.direct.ordersPlaced, 1); assert.equal(results.direct.ordersCompleted, 1); assert.equal(results.direct.sales, 130); assert.equal(results.direct.grossProfit, 80);
+  assert.equal(results.direct.ordersPlaced, 1); assert.equal(results.direct.ordersCompleted, 1); assert.equal(results.direct.sales, 130); assert.equal(results.direct.grossProfit, 50); assert.equal(results.direct.deliveryRevenue, 30);
   assert.equal(results.direct.visits, null);
   const facebook = results.platforms.find((item) => item.platform === "facebook");
-  assert.equal(facebook.sales, 790); assert.equal(facebook.spend, 40);
+  assert.equal(facebook.sales, 790); assert.equal(facebook.spend, 40); assert.equal(facebook.grossProfit, 350); assert.equal(facebook.deliveryRevenue, 90);
   const heard = results.heardFrom.find((item) => item.answer === "فيسبوك");
   assert.equal(heard.ordersPlaced, 7); assert.equal(heard.sales, 790);
   assert.equal(results.heardFrom.find((item) => item.answer === "").ordersPlaced, 1, "no answer");
-  assert.equal(results.totals.sales, 920); assert.equal(results.totals.ordersPlaced, 8);
+  assert.equal(results.totals.sales, 920); assert.equal(results.totals.ordersPlaced, 8); assert.equal(results.totals.grossProfit, 400); assert.equal(results.totals.deliveryRevenue, 120);
   assert.deepEqual(results.daily, [{ day: today(), visits: 5, orders: 8, sales: 920 }]);
 
   const single = ok(await staff("GET", `/api/campaigns/${campaign._id}/results?${resultsQuery()}`));
@@ -360,8 +365,9 @@ for (const mode of ["none", "inclusive", "exclusive"]) {
     const books = await ledger();
     const results = ok(await staff("GET", `/api/campaigns/results?${resultsQuery()}`));
     assert.equal(cents(results.totals.sales), cents(books.revenue + books.vat), "sales = invoice totals minus returns = revenue + VAT in the ledger");
-    assert.equal(cents(results.totals.grossProfit), cents(books.revenue - books.cogs), "profit = revenue - COGS in the ledger");
-    if (mode === "none") { assert.equal(results.totals.sales, 920); assert.equal(books.cogs, 400); }
+    assert.equal(cents(results.totals.deliveryRevenue), cents(books.shipping), "delivery revenue = SHIPPING_INCOME in the ledger");
+    assert.equal(cents(results.totals.grossProfit), cents(books.revenue - books.shipping - books.cogs), "profit = product revenue - COGS in the ledger (no delivery fee)");
+    if (mode === "none") { assert.equal(results.totals.sales, 920); assert.equal(books.cogs, 400); assert.equal(books.shipping, 120); }
   });
 }
 
@@ -411,7 +417,8 @@ it("profit numbers need the cost/profit permission (they are not even in the res
   assert.equal(JSON.stringify(hidden).includes("grossProfit"), false); assert.equal(JSON.stringify(hidden).includes("profitAfterAds"), false);
   assert.equal(hidden.totals.sales, 920, "sales are still shown");
   const shown = ok(await staff("GET", `/api/campaigns/results?${resultsQuery()}`, undefined, full));
-  assert.equal(shown.totals.grossProfit, 520);
+  assert.equal(shown.totals.grossProfit, 400);
+  assert.equal(hidden.totals.deliveryRevenue, 120, "delivery revenue is revenue, not profit: shown without the profit permission");
   assert.equal(JSON.stringify(ok(await staff("GET", `/api/campaigns?${resultsQuery()}`, undefined, viewer))).includes("grossProfit"), false);
   assert.doesNotMatch(JSON.stringify(ok(await staff("GET", `/api/campaigns/${campaign._id}/results?${resultsQuery()}`, undefined, viewer))), /grossProfit|profitAfterAds/);
 });

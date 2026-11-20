@@ -13,6 +13,13 @@ describe('/go redirect', () => {
     expect(calls).toEqual([{ url: 'http://api.test/api/store/go/camp123', body: { device: 'mobile' } }]);
   });
 
+  it('over the throttle: still resolves the landing path, but tells the backend not to count the click', async () => {
+    const bodies: unknown[] = [];
+    const api = apiWith(async (_url, init) => { bodies.push(JSON.parse(String(init?.body))); return json({ path: '/p/abc?utm_campaign=camp123' }); });
+    expect(await resolveGo('camp123', 'Mozilla/5.0 (Windows NT 10.0)', api, { count: false })).toBe('/p/abc?utm_campaign=camp123');
+    expect(bodies).toEqual([{ device: 'desktop', count: false }]);
+  });
+
   it('sends no IP and no user agent to the backend, only the device type', async () => {
     let seen = '';
     const api = apiWith(async (_url, init) => { seen = JSON.stringify(init); return json({ path: '/' }); });

@@ -4,6 +4,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { join } from 'node:path';
 import { ServerApi } from './server/api-client';
 import { catalogFeed, type FeedPlatform } from './server/catalog-feed';
+import { ClickThrottle } from './server/click-throttle';
 import { resolveGo } from './server/go-redirect';
 import { isPrivatePath, robotsTxt, sitemapXml } from './server/seo-files';
 import { slugRedirectFor } from './server/slug-redirect';
@@ -60,8 +61,14 @@ app.get('/sitemap.xml', async (req, res) => {
 });
 
 // Online Stage 7A: the short tracking link. 302 (never cached: every click must reach the counter), always lands somewhere.
+// The visitor is ALWAYS redirected. Over NOTA_GO_COUNT_PER_MINUTE clicks per client address and code per minute the click is simply not
+// counted (many customers can share one carrier address), so a successful ad never shows an error page.
+const goThrottle = new ClickThrottle(Number(process.env['NOTA_GO_COUNT_PER_MINUTE']) || 1200);
+const clientOf = (req: Request): string => String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
 app.get('/go/:code', async (req, res) => {
-  const path = await resolveGo(String(req.params['code'] ?? ''), req.headers['user-agent'], api);
+  const code = String(req.params['code'] ?? '');
+  const count = goThrottle.allow(`${clientOf(req)}|${code.toLowerCase()}`);
+  const path = await resolveGo(code, req.headers['user-agent'], api, { count });
   res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' }).redirect(302, path);
 });
 

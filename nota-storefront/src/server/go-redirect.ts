@@ -19,11 +19,14 @@ export const safeLocalPath = (value: unknown): string => {
   return value;
 };
 
-/** The path to redirect to (the home page for an unknown code, a malformed one or any upstream problem). */
-export const resolveGo = async (code: string, userAgent: string | undefined, api: ServerApi): Promise<string> => {
+/**
+ * The path to redirect to (the home page for an unknown code, a malformed one or any upstream problem). `count: false` (the per-IP throttle
+ * is over its cap) still asks for the landing path but tells the backend not to count the click: the visitor is always sent on.
+ */
+export const resolveGo = async (code: string, userAgent: string | undefined, api: ServerApi, { count = true }: { count?: boolean } = {}): Promise<string> => {
   if (!CODE.test(code)) return '/';
   try {
-    const answer = await api.post<{ path?: string }>(`/go/${encodeURIComponent(code)}`, { device: deviceOf(userAgent) });
+    const answer = await api.post<{ path?: string }>(`/go/${encodeURIComponent(code)}`, count ? { device: deviceOf(userAgent) } : { device: deviceOf(userAgent), count: false });
     return safeLocalPath(answer.path);
   } catch {
     return '/';

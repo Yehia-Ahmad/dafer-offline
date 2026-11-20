@@ -151,7 +151,7 @@ export class CampaignPageComponent implements OnInit {
     const num = (v: number | null) => (v === null ? '—' : v);
     const out: Kpi[] = [
       { key: 'clicks', value: r.clicks }, { key: 'visits', value: num(r.visits) }, { key: 'ordersPlaced', value: r.ordersPlaced }, { key: 'orders', value: r.ordersCompleted },
-      { key: 'notCompleted', value: r.ordersCancelled + r.ordersRejected + r.ordersRefused }, { key: 'sales', value: r.sales },
+      { key: 'notCompleted', value: r.ordersCancelled + r.ordersRejected + r.ordersRefused }, { key: 'sales', value: r.sales }, { key: 'deliveryRevenue', value: r.deliveryRevenue },
       { key: 'conversionRate', value: r.conversionRate === null ? '—' : `${Math.round(r.conversionRate * 1000) / 10}%` }, { key: 'averageOrderValue', value: num(r.averageOrderValue) },
       { key: 'spend', value: r.spend }, { key: 'costPerOrder', value: num(r.costPerOrder) }, { key: 'returnOnSpend', value: num(r.returnOnSpend) },
     ];

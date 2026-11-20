@@ -3097,6 +3097,7 @@
       "orders": "Completed orders",
       "notCompleted": "Cancelled, rejected or refused",
       "sales": "Sales",
+      "deliveryRevenue": "Delivery revenue",
       "conversionRate": "Conversion rate",
       "averageOrderValue": "Average order",
       "spend": "Ad spend",

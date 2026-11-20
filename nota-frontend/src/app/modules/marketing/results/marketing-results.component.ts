@@ -57,7 +57,7 @@ interface Section { key: string; titleKey: string; lines: Line[] }
           <div class="m-card" data-test="totals">
             <span class="m-row__sub">{{ 'marketing.results.totals' | translate }}</span>
             <strong class="nota-num" style="font-size:22px;display:block">{{ d.totals.sales | number: '1.0-2' }}</strong>
-            <span class="m-row__sub">{{ 'marketing.kpi.orders' | translate }} {{ d.totals.ordersCompleted }} / {{ d.totals.ordersPlaced }} · {{ 'marketing.kpi.spend' | translate }} {{ d.totals.spend | number: '1.0-2' }}
+            <span class="m-row__sub">{{ 'marketing.kpi.orders' | translate }} {{ d.totals.ordersCompleted }} / {{ d.totals.ordersPlaced }} · {{ 'marketing.kpi.spend' | translate }} {{ d.totals.spend | number: '1.0-2' }} · {{ 'marketing.kpi.deliveryRevenue' | translate }} {{ d.totals.deliveryRevenue | number: '1.0-2' }}
               @if (d.totals.grossProfit !== undefined) { · {{ 'marketing.kpi.grossProfit' | translate }} {{ d.totals.grossProfit | number: '1.0-2' }} }</span>
           </div>
           @for (section of sections(); track section.key) {
@@ -92,7 +92,7 @@ interface Section { key: string; titleKey: string; lines: Line[] }
                     <th></th>
                     <th class="nota-num">{{ 'marketing.kpi.clicks' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.visits' | translate }}</th>
                     <th class="nota-num">{{ 'marketing.kpi.ordersPlaced' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.orders' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.notCompleted' | translate }}</th>
-                    <th class="nota-num">{{ 'marketing.kpi.sales' | translate }}</th>
+                    <th class="nota-num">{{ 'marketing.kpi.sales' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.deliveryRevenue' | translate }}</th>
                     @if (d.includeProfit) { <th class="nota-num">{{ 'marketing.kpi.grossProfit' | translate }}</th> }
                     <th class="nota-num">{{ 'marketing.kpi.conversionRate' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.averageOrderValue' | translate }}</th>
                     <th class="nota-num">{{ 'marketing.kpi.spend' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.costPerOrder' | translate }}</th><th class="nota-num">{{ 'marketing.kpi.returnOnSpend' | translate }}</th>
@@ -105,13 +105,13 @@ interface Section { key: string; titleKey: string; lines: Line[] }
                         <td class="nota-num">{{ line.row.clicks }}</td><td class="nota-num">{{ line.row.visits ?? '—' }}</td>
                         <td class="nota-num">{{ line.row.ordersPlaced }}</td><td class="nota-num">{{ line.row.ordersCompleted }}</td>
                         <td class="nota-num">{{ line.row.ordersCancelled + line.row.ordersRejected + line.row.ordersRefused }}</td>
-                        <td class="nota-num">{{ line.row.sales | number: '1.0-2' }}</td>
+                        <td class="nota-num">{{ line.row.sales | number: '1.0-2' }}</td><td class="nota-num" data-test="delivery-revenue">{{ line.row.deliveryRevenue | number: '1.0-2' }}</td>
                         @if (d.includeProfit) { <td class="nota-num" data-test="gross-profit">{{ line.row.grossProfit | number: '1.0-2' }}</td> }
                         <td class="nota-num">{{ pctText(line.row.conversionRate) }}</td><td class="nota-num">{{ line.row.averageOrderValue ?? '—' }}</td>
                         <td class="nota-num">{{ line.row.spend | number: '1.0-2' }}</td><td class="nota-num">{{ line.row.costPerOrder ?? '—' }}</td><td class="nota-num">{{ line.row.returnOnSpend ?? '—' }}</td>
                         @if (d.includeProfit) { <td class="nota-num">{{ line.row.profitAfterAds | number: '1.0-2' }}</td> }
                       </tr>
-                    } @empty { <tr><td colspan="14" class="mr__muted">{{ 'marketing.results.empty' | translate }}</td></tr> }
+                    } @empty { <tr><td colspan="15" class="mr__muted">{{ 'marketing.results.empty' | translate }}</td></tr> }
                   </tbody>
                 </table>
               </div>

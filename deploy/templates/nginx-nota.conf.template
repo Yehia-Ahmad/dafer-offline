@@ -93,10 +93,11 @@ server {
         proxy_pass http://127.0.0.1:@@PORT@@;
     }
 
-    # Online Stage 7A: a campaign visit (counted anonymously). 60 POSTs per minute per IP, burst 20, then 429 (zone nota_store_visits).
+    # Online Stage 7A: a campaign visit (counted anonymously). A flood guard only: 3000 POSTs per minute per IP, burst 500 (many real
+    # customers share one carrier address), then 429 (zone nota_store_visits). A 429 here loses one visit count, nothing else.
     location = /api/store/visits {
         client_max_body_size 4k;
-        limit_req zone=nota_store_visits burst=20 nodelay;
+        limit_req zone=nota_store_visits burst=500 nodelay;
         limit_req_status 429;
         limit_req_log_level warn;
         include /etc/nginx/snippets/nota-proxy-api.conf;
@@ -190,10 +191,11 @@ server {
         include /etc/nginx/snippets/nota-security-headers.conf;
     }
 
-    # Online Stage 7A: the short tracking link /go/<code> (the storefront counts the click and redirects). 60 per minute per IP,
-    # burst 20, then 429. Never cached: every click must reach the counter.
+    # Online Stage 7A: the short tracking link /go/<code> (the storefront counts the click and ALWAYS redirects). A flood guard only:
+    # 3000 per minute per IP, burst 1000 (carriers put thousands of customers behind one address, and an ad must never show an error page).
+    # The cap on counted clicks per address is in the storefront. Never cached: every click must reach the counter.
     location ^~ /go/ {
-        limit_req zone=nota_go burst=20 nodelay;
+        limit_req zone=nota_go burst=1000 nodelay;
         limit_req_status 429;
         limit_req_log_level warn;
         include /etc/nginx/snippets/nota-proxy-storefront.conf;
@@ -206,7 +208,7 @@ server {
     # Online Stage 7A: the product feeds for Meta Commerce Manager and TikTok Catalog Manager (/feeds/catalog.csv, /feeds/tiktok.csv).
     # The storefront caches them for an hour; the platforms and shared caches may keep them for the same time.
     location ^~ /feeds/ {
-        limit_req zone=nota_go burst=20 nodelay;
+        limit_req zone=nota_go burst=100 nodelay;
         limit_req_status 429;
         limit_req_log_level warn;
         include /etc/nginx/snippets/nota-proxy-storefront.conf;

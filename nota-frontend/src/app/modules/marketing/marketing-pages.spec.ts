@@ -24,7 +24,7 @@ import { MarketingResultsComponent } from './results/marketing-results.component
 const api = environment.api_base_url;
 const phone = { provide: LayoutService, useValue: { isMobile: signal(true) } };
 const row = (over = {}) => ({
-  clicks: 3, visits: 5, ordersPlaced: 7, ordersCompleted: 4, ordersCancelled: 1, ordersRejected: 1, ordersRefused: 1, sales: 790, conversionRate: 0.8, averageOrderValue: 197.5,
+  clicks: 3, visits: 5, ordersPlaced: 7, ordersCompleted: 4, ordersCancelled: 1, ordersRejected: 1, ordersRefused: 1, sales: 790, deliveryRevenue: 90, conversionRate: 0.8, averageOrderValue: 197.5,
   spend: 40, costPerOrder: 10, returnOnSpend: 19.75, ...over,
 });
 const campaign = (over = {}) => ({
@@ -130,7 +130,7 @@ describe('campaign form', () => {
 describe('campaign page', () => {
   const load = (http: HttpTestingController, profit: boolean) => {
     http.expectOne((r) => r.url === `${api}campaigns/c1`).flush(campaign());
-    http.expectOne((r) => r.url === `${api}campaigns/c1/results`).flush({ range: { from: '', to: '' }, includeProfit: profit, campaign: { campaignId: 'c1', ...campaign(), ...row(profit ? { grossProfit: 440, profitAfterAds: 400 } : {}) }, daily: [] });
+    http.expectOne((r) => r.url === `${api}campaigns/c1/results`).flush({ range: { from: '', to: '' }, includeProfit: profit, campaign: { campaignId: 'c1', ...campaign(), ...row(profit ? { grossProfit: 350, profitAfterAds: 310 } : {}) }, daily: [] });
     http.expectOne((r) => r.url === `${api}campaigns/c1/spend`).flush({ range: { from: '', to: '' }, total: 40, data: [
       { _id: 'e1', number: 'EX-1', date: '2026-11-16T00:00:00.000Z', amount: 40, vatAmount: 0, net: 40, note: 'إعلان', status: 'posted' },
       { _id: 'e2', number: 'EX-2', date: '2026-11-16T00:00:00.000Z', amount: 10, vatAmount: 0, net: 10, note: 'غلط', status: 'cancelled' },
@@ -152,7 +152,8 @@ describe('campaign page', () => {
       await fixture.whenStable();
       expect(writeText).toHaveBeenCalledWith('https://shop.test/go/ram123');
       expect(el.querySelector('[data-test="campaign-kpis"]')!.textContent).toContain('790');
-      expect(el.querySelector('[data-test="campaign-kpis"]')!.textContent).toContain('440');
+      expect(el.querySelector('[data-test="campaign-kpis"]')!.textContent).toContain('350');
+      expect(el.querySelector('[data-test="campaign-kpis"]')!.textContent).toContain('marketing.kpi.deliveryRevenue'); // its own number
       expect(el.querySelectorAll('[data-test="spend-row"]').length).toBe(2);
       expect(el.querySelector('[data-test="spend-total"]')!.textContent).toContain('40');
       expect(el.querySelector('[data-action="record-spend"]')).not.toBeNull();
@@ -244,7 +245,12 @@ describe('results page', () => {
       for (const section of ['campaigns', 'platforms', 'direct', 'heard']) expect(el.querySelector(`[data-section="${section}"]`)).withContext(section).not.toBeNull();
       expect(el.querySelector('[data-section="campaigns"]')!.textContent).toContain('حملة رمضان');
       expect(el.querySelector('[data-test="daily-chart"]')).not.toBeNull();
-      if (!mobile) expect(el.querySelectorAll('[data-test="gross-profit"]').length).toBeGreaterThan(0);
+      if (!mobile) {
+        expect(el.querySelectorAll('[data-test="gross-profit"]').length).toBeGreaterThan(0);
+        expect(el.querySelectorAll('[data-test="delivery-revenue"]').length).toBeGreaterThan(0);
+      } else {
+        expect(el.querySelector('[data-test="totals"]')!.textContent).toContain('marketing.kpi.deliveryRevenue');
+      }
       expect(el.textContent).toContain('marketing.results.noAnswer');
     });
   }
@@ -258,6 +264,7 @@ describe('results page', () => {
     expect(el.textContent).not.toContain('marketing.kpi.grossProfit');
     expect(el.textContent).not.toContain('marketing.kpi.profitAfterAds');
     expect(el.textContent).toContain('marketing.kpi.sales');
+    expect(el.querySelectorAll('[data-test="delivery-revenue"]').length).toBeGreaterThan(0); // revenue, not profit: still shown
   });
 });
 

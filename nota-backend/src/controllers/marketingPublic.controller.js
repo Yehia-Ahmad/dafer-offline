@@ -24,10 +24,13 @@ const recordVisit = asyncHandler(async (req, res) => {
   res.json({ ok: true });
 });
 
-// POST /api/store/go/:code { device }: counts a click and says where to send the visitor. Unknown or archived code = the home page.
+// POST /api/store/go/:code { device, count? }: counts a click and says where to send the visitor. Unknown or archived code = the home page.
+// count:false (the storefront's per-IP throttle is over its limit) still answers the landing path but counts nothing: the visitor is
+// ALWAYS sent on, only the number is capped.
 const recordClick = asyncHandler(async (req, res) => {
   const campaign = await liveCampaign(codeOf(req.params.code));
   if (!campaign) return res.json({ path: "/" });
+  if (req.body && req.body.count === false) return res.json({ path: fullPath(campaign) });
   const input = req.body && typeof req.body.device === "string" ? req.body.device : "other";
   const device = DEVICES.includes(input) ? input : "other";
   await CampaignClick.updateOne(

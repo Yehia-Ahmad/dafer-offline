@@ -18,6 +18,8 @@ export interface ResultsRow {
   ordersRejected: number;
   ordersRefused: number;
   sales: number;
+  /** The delivery fee of the completed orders (net of its VAT): revenue on its own, never part of gross profit. */
+  deliveryRevenue: number;
   conversionRate: number | null;
   averageOrderValue: number | null;
   spend: number;

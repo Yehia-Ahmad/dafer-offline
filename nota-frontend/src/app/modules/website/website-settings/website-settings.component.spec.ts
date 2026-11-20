@@ -76,6 +76,21 @@ describe('WebsiteSettingsComponent (Online Stage 3)', () => {
     expect(root.querySelectorAll('[data-test="banner-row"]').length).toBe(2);
   });
 
+  it('Online Stage 7A: the page save bar is hidden on the «التسويق» tab (it has its own save) and back on every other tab', () => {
+    open();
+    const root: HTMLElement = fixture.nativeElement;
+    expect(root.querySelector('.ws__footer [data-action="save"]')).not.toBeNull();
+    component.setTab('marketing');
+    fixture.detectChanges();
+    expect(root.querySelector('app-marketing-settings')).not.toBeNull();
+    expect(root.querySelector('.ws__footer')).toBeNull();
+    expect(root.querySelector('[data-action="save"]')).toBeNull();
+    expect(root.querySelector('[data-action="cancel"]')).toBeNull();
+    component.setTab('look');
+    fixture.detectChanges();
+    expect(root.querySelector('.ws__footer [data-action="save"]')).not.toBeNull();
+  });
+
   /** The التوصيل tab embeds the delivery zones, which load their own list. */
   const flushZones = () => http.match((r) => r.url.endsWith('website/delivery-zones') && r.method === 'GET').forEach((r) => r.flush({ data: [] }));
 

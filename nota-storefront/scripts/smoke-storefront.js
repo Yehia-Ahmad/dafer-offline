@@ -94,7 +94,7 @@ async function main() {
     const slug = encodeURIComponent(lampProduct.slug);
 
     const port = await freePort();
-    const open = await startStorefront({ api: apiUrl, port });
+    const open = await startStorefront({ api: apiUrl, port, extraEnv: { NOTA_GO_COUNT_PER_MINUTE: "5" } });
     const B = open.base;
 
     check("/health answers without the backend", async () => { const r = await get(`${B}/health`); assert.equal(r.status, 200); assert.match(r.text, /"ok":true/); });
@@ -172,6 +172,16 @@ async function main() {
       assert.equal((await get(`${B}/go/..%2Fetc`)).headers.get("location"), "/");
       const landed = await get(`${B}${r.headers.get("location")}`);
       assert.ok([200, 301].includes(landed.status), `landing answered ${landed.status}`);
+    });
+    check("/go never refuses a visitor: a burst from one address always gets its 302, only the COUNT stops at the cap", async () => {
+      const burst = await Promise.all(Array.from({ length: 40 }, () => get(`${B}/go/${campaign.code}`, { headers: { "x-forwarded-for": "41.130.0.7" } })));
+      assert.ok(burst.every((r) => r.status === 302), `statuses: ${[...new Set(burst.map((r) => r.status))]}`);
+      assert.ok(burst.every((r) => r.headers.get("location") === `/p/${lamp}?utm_source=facebook&utm_medium=paid&utm_campaign=${campaign.code}`), "every one lands on the campaign page");
+      const clicks = (await call("GET", "/api/campaigns/results", token)).campaigns.find((row) => row.code === campaign.code).clicks;
+      assert.ok(clicks > 1 && clicks <= 1 + 5 + 1, `clicks counted ${clicks}: capped at 5 for that address (+ the first test's click)`);
+      const other = await get(`${B}/go/${campaign.code}`, { headers: { "x-forwarded-for": "197.50.0.9" } });
+      assert.equal(other.status, 302);
+      assert.equal((await call("GET", "/api/campaigns/results", token)).campaigns.find((row) => row.code === campaign.code).clicks, clicks + 1, "another address still counts");
     });
     check("feeds: Meta and TikTok CSV with the right columns, utm per platform, in/out of stock words, absolute image URLs; robots disallows them", async () => {
       const meta = await get(`${B}/feeds/catalog.csv`);
