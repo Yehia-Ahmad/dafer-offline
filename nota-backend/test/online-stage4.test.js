@@ -5,6 +5,7 @@ process.env.NOTA_JWT_SECRET = "online-stage4-staff-secret-0123456789abcdef-01234
 process.env.NOTA_STORE_JWT_SECRET = "online-stage4-store-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
+const { today } = require("./helpers/shopDay");
 const test = require("node:test");
 
 const app = require("../src/app");
@@ -247,7 +248,7 @@ it("reservation: confirmed/preparing quantities leave the website and limit conf
   assert.equal((await staff("PUT", `/api/orders/${one.id}`, { items: [{ productId: product.id, qty: 11 }] })).status, 409);
   ok(await staff("PUT", `/api/orders/${one.id}`, { items: [{ productId: product.id, qty: 6 }] }));
   // the POS can still sell reserved stock
-  const cash = await staff("POST", "/api/sellings", { customerName: "نقدي", customerPhone: "01017171718", sellingDate: new Date().toISOString().slice(0, 10), items: [{ productId: product.id, quantity: 8, price: 100 }] });
+  const cash = await staff("POST", "/api/sellings", { customerName: "نقدي", customerPhone: "01017171718", sellingDate: today(), items: [{ productId: product.id, quantity: 8, price: 100 }] });
   assert.equal(cash.status, 201, cash.text);
   assert.equal(await stockOf(product.id), 2);
   // dispatch now fails for lack of stock: per-line problem, nothing created, the order stays as it was
@@ -463,7 +464,7 @@ it("the summary counts new orders only; the list filters by status, search, cour
   assert.equal(ok(await staff("GET", `/api/orders?courierId=${courier.id}`)).data[0].courierName, "أحمد");
   assert.equal(ok(await staff("GET", "/api/orders?q=سعيد")).data.length, 1);
   assert.equal(ok(await staff("GET", "/api/orders?q=0155")).data.length, 1);
-  const day = new Date().toISOString().slice(0, 10);
+  const day = today();
   assert.equal(ok(await staff("GET", `/api/orders?from=${day}&to=${day}`)).data.length, 2);
   assert.equal(ok(await staff("GET", "/api/orders?from=2001-01-01&to=2001-01-02")).data.length, 0);
   assert.deepEqual(ok(await staff("GET", "/api/orders/delivery-zones")).data.map((zone) => zone.name), ["القاهرة"], "the edit form's zones need orders.manage only");
@@ -481,7 +482,7 @@ it("dispatch queue: the order confirmed first keeps its stock when the POS sold 
   ok(await act(first.id, "confirm")); ok(await act(second.id, "confirm"));
   assert.ok((await WebOrder.findById(first.id).lean()).confirmedAt <= (await WebOrder.findById(second.id).lean()).confirmedAt);
   // the POS sells reserved stock: product A 10 → 7 (confirm refused nothing: reservations never block the POS)
-  assert.equal((await staff("POST", "/api/sellings", { customerName: "نقدي", customerPhone: "01017171718", sellingDate: new Date().toISOString().slice(0, 10), items: [{ productId: a.id, quantity: 3, price: 100 }] })).status, 201);
+  assert.equal((await staff("POST", "/api/sellings", { customerName: "نقدي", customerPhone: "01017171718", sellingDate: today(), items: [{ productId: a.id, quantity: 3, price: 100 }] })).status, 201);
   const before = await CreditSale.countDocuments({});
   const refused = await act(second.id, "dispatch", { courierId: courier.id });
   assert.equal(refused.status, 409); assert.equal(refused.json.code, "ORDER_ITEMS_INVALID");
@@ -505,7 +506,7 @@ it("a courier's customer account cannot be deleted (CUSTOMER_IS_COURIER); every 
   ok(await staff("DELETE", `/api/customers/${plain._id || plain.customer?._id}`));
   const withInvoice = ok(await staff("POST", "/api/customers", { name: "بفواتير", phone: "01066666666" }), 201);
   const product = await seedProduct({ code: "D1", stock: 5 });
-  ok(await staff("POST", "/api/credit-sales", { customerId: withInvoice._id || withInvoice.customer?._id, sellingDate: new Date().toISOString().slice(0, 10), items: [{ productId: product.id, quantity: 1, price: 100 }] }), 201);
+  ok(await staff("POST", "/api/credit-sales", { customerId: withInvoice._id || withInvoice.customer?._id, sellingDate: today(), items: [{ productId: product.id, quantity: 1, price: 100 }] }), 201);
   assert.equal((await staff("DELETE", `/api/customers/${withInvoice._id || withInvoice.customer?._id}`)).json.code, "CUSTOMER_HAS_INVOICES");
   // the courier's customer is still listed (with its label flag), viewable and editable
   const listed = ok(await staff("GET", "/api/customers")).find((row) => row._id === courier.customerId);

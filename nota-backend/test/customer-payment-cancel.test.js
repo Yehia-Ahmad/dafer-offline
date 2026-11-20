@@ -5,6 +5,7 @@ process.env.NOTA_JWT_SECRET = "payment-cancel-staff-secret-0123456789abcdef-0123
 process.env.NOTA_STORE_JWT_SECRET = "payment-cancel-store-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
+const { businessDayOf, dayString, today } = require("./helpers/shopDay");
 const test = require("node:test");
 const mongoose = require("mongoose");
 
@@ -53,8 +54,6 @@ async function call(method, path, { token, body, headers = {} } = {}) {
 }
 const staff = (method, path, body, token = ownerToken, headers = {}) => call(method, path, { token, body, headers });
 const ok = (response, status = 200) => { assert.equal(response.status, status, response.text); return response.json; };
-const localDay = () => new Date().toLocaleDateString("en-CA"); // the statement dates lines by the LOCAL business day
-const dayString = (offset = 0) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
 const idOf = (row) => String(row?._id ?? row?.id ?? row?.creditSale?._id ?? row?.invoice?._id);
 const DEVICE_A = "device-pcancel-0001";
 const asDevice = (id, name = "PC") => ({ "X-Nota-Device-Id": id, "X-Nota-Device-Name": encodeURIComponent(name) });
@@ -134,7 +133,7 @@ it("a payment is cancelled: the invoice owes it again, the box gives it back, th
   const entries = await JournalEntry.find({ "source.type": "receipt", "source.id": receipt._id }).sort({ createdAt: 1 }).lean();
   assert.equal(entries.length, 2, "the original entry and its reversal");
   assert.equal(entries[1].type, "reversal"); assert.equal(String(entries[1].reversalOf), String(entries[0]._id));
-  assert.equal(entries[1].date.toISOString().slice(0, 10), dayString(), "the reversal is dated today");
+  assert.equal(businessDayOf(entries[1].date), dayString(), "the reversal is dated today");
   assert.ok(await AuditLog.findOne({ action: "credit.payment.cancelled" }).lean(), "audited");
   await assertHealthy();
 });
@@ -340,13 +339,13 @@ it("closed period: a payment dated in a closed month can be cancelled; the rever
   await Meta.updateOne({ _id: "schema" }, { $set: { "closing.lockedThrough": new Date(`${dayString(-20)}T00:00:00Z`) } });
   ok(await cancel(customer, receipt));
   const reversal = await JournalEntry.findOne({ "source.id": receipt._id, type: "reversal" }).lean();
-  assert.equal(reversal.date.toISOString().slice(0, 10), dayString(), "dated today, in the open period");
+  assert.equal(businessDayOf(reversal.date), dayString(), "dated today, in the open period");
   const statement = ok(await staff("GET", `/api/customers/${customer._id}/statement`));
   assert.equal(statement.lines.find((line) => line.type === "payment").date.slice(0, 10), oldDay, "the original line keeps its date");
-  assert.equal(statement.lines.find((line) => line.type === "payment_cancel").date.slice(0, 10), localDay());
+  assert.equal(statement.lines.find((line) => line.type === "payment_cancel").date.slice(0, 10), today());
 
   const again = await pay(customer, 40);
-  await Meta.updateOne({ _id: "schema" }, { $set: { "closing.lockedThrough": new Date(`${localDay()}T00:00:00Z`) } });
+  await Meta.updateOne({ _id: "schema" }, { $set: { "closing.lockedThrough": new Date(`${today()}T00:00:00Z`) } });
   const response = await cancel(customer, again);
   assert.equal(response.status, 409); assert.equal(response.json.code, "PERIOD_LOCKED");
   assert.equal((await Receipt.findById(again._id).lean()).status || "posted", "posted");

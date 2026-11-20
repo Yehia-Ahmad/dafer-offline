@@ -116,7 +116,7 @@ const seedCatalog = async (token, { purchasePrice = 73.5 } = {}) => {
   return { categoryId: category.json._id, productId: product.json._id };
 };
 
-const today = new Date().toISOString().slice(0, 10);
+const today = require("./helpers/shopDay").today();
 const sale = (productId, price = 120, extra = {}) => ({
   customerName: "عميل",
   customerPhone: "01000000001",

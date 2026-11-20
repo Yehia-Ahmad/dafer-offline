@@ -112,7 +112,7 @@ const seedProduct = async (token) => {
   return product.json._id;
 };
 
-const today = new Date().toISOString().slice(0, 10);
+const today = require("./helpers/shopDay").today();
 let phone = 200;
 const sale = (productId, extra = {}) => {
   phone += 1;

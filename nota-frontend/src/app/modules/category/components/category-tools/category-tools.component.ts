@@ -1,4 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { localDateKey } from '../../../../core/utilities/local-date';
 import { ChangeDetectorRef, Component, DestroyRef, Inject, inject, input, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -252,7 +253,7 @@ export class CategoryToolsComponent implements OnInit {
     this._productsService.exportProductsExcel().subscribe({
       next: (blob) => {
         this.isExportingProducts.set(false);
-        this.downloadBlob(blob, `products-${new Date().toISOString().slice(0, 10)}.xlsx`);
+        this.downloadBlob(blob, `products-${localDateKey()}.xlsx`);
       },
       error: (err) => {
         this.isExportingProducts.set(false);

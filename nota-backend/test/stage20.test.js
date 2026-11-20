@@ -2,6 +2,7 @@ process.env.NODE_ENV = "test";
 process.env.NOTA_JWT_SECRET = "stage20-test-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
+const { dayString, today } = require("./helpers/shopDay");
 const test = require("node:test");
 const app = require("../src/app");
 const Account = require("../src/models/account.model");
@@ -517,9 +518,9 @@ it("statement: lines oldest first with running balance, totals, cancel lines, ag
   const s = await shop();
   const longAgo = new Date(Date.now() - 200 * 86400000);
   await PartyOpening.updateOne({ partyType: "supplier" }, { $set: { date: longAgo } }); await Meta.updateOne({ _id: "schema" }, { $set: { ledgerStartAt: longAgo } });
-  const old = new Date(Date.now() - 100 * 86400000).toISOString().slice(0, 10);
+  const old = dayString(-100);
   await buy(designInvoice(s, { date: old, paidAmount: 0, boxId: undefined, supplierInvoiceNo: "OLD-1", items: [{ productId: s.led._id, qty: 1, unitPrice: 5000 }] })); // 5,000 due 70 days ago
-  const second = await buy(designInvoice(s, { paidAmount: 3000, supplierInvoiceNo: "EL-8841", date: new Date().toISOString().slice(0, 10) }));
+  const second = await buy(designInvoice(s, { paidAmount: 3000, supplierInvoiceNo: "EL-8841", date: today() }));
   const statement = (await call("GET", `/api/suppliers/${s.supplier._id}/statement`)).json;
   assert.deepEqual(statement.lines.map((row) => row.type), ["opening_balance", "purchase", "purchase", "payment"]);
   assert.deepEqual(statement.lines.map((row) => row.balance), [4200, 9200, 14650, 11650]);
@@ -532,7 +533,7 @@ it("statement: lines oldest first with running balance, totals, cancel lines, ag
   assert.equal(statement.aging.d90plus, 1200); assert.equal(statement.aging.d61_90, 5000); assert.equal(statement.aging.d1_30 + statement.aging.d31_60, 0);
   assert.equal(statement.aging.current, 5450, "due in 30 days: not overdue yet");
   // period filter keeps the balance forward
-  const period = (await call("GET", `/api/suppliers/${s.supplier._id}/statement?from=${new Date().toISOString().slice(0, 10)}`)).json;
+  const period = (await call("GET", `/api/suppliers/${s.supplier._id}/statement?from=${today()}`)).json;
   assert.deepEqual(period.lines.map((row) => row.type), ["purchase", "payment"]); assert.equal(period.openingBalance, 9200); assert.equal(period.totals.balance, 11650);
   // cancel lines
   await call("POST", `/api/purchases/${second._id}/cancel`, { reason: "cancel for statement" });

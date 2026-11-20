@@ -2,6 +2,7 @@ process.env.NODE_ENV = "test";
 process.env.NOTA_JWT_SECRET = "stage18-test-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
+const { dayString } = require("./helpers/shopDay");
 const { forgetBoxes } = require("./helpers/oldData");
 const test = require("node:test");
 const app = require("../src/app");
@@ -298,7 +299,7 @@ it("statement, outstanding, aging, customer list and dashboard include the custo
 it("aging buckets use the opening date and invoice dueDate (or sellingDate)", async () => {
   const c = await openingCustomer(100);
   const p = await product({ code: "AGING", stock: 10, cost: 5 });
-  const daysAgo = (days) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  const daysAgo = (days) => dayString(-days);
   for (const [days, due] of [[10, daysAgo(5)], [100, null], [40, daysAgo(40)]]) {
     const invoice = await call("POST", "/api/credit-sales", { customerId: String(c._id), sellingDate: daysAgo(days), ...(due ? { dueDate: due } : {}), items: [{ productId: p._id, quantity: 1, price: 10 }] });
     assert.equal(invoice.status, 201, JSON.stringify(invoice.json));

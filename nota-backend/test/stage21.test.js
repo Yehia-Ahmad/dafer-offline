@@ -2,6 +2,7 @@ process.env.NODE_ENV = "test";
 process.env.NOTA_JWT_SECRET = "stage21-test-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
+const { storedDay, today } = require("./helpers/shopDay");
 const test = require("node:test");
 const app = require("../src/app");
 const Account = require("../src/models/account.model");
@@ -55,7 +56,7 @@ async function startLedger() {
 }
 const pad = (value) => String(value).padStart(2, "0");
 const localDate = (date = new Date()) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-const TODAY = localDate();
+const TODAY = today();
 const THIS_MONTH = TODAY.slice(0, 7);
 
 async function product({ code, stock = 100, cost = 20, exempt = false } = {}) {
@@ -133,7 +134,7 @@ it("settings: tax number required to turn VAT on; rate 0-100 with 2 decimals; st
   }
   const on = await enableVat({ rate: 14.5 });
   assert.equal(on.vat.enabled, true); assert.equal(on.vat.rate, 14.5); assert.equal(on.vat.pricesIncludeVat, true);
-  assert.equal(new Date(on.vat.startDate).toISOString().slice(0, 10), TODAY);
+  assert.equal(storedDay(on.vat.startDate), TODAY);
   // An older screen (no vat block) keeps the settings.
   const older = ok(await call("PUT", "/api/shop-profile", { name: "متجر", taxNumber: "123-456-789" }));
   assert.equal(older.vat.enabled, true); assert.equal(older.vat.rate, 14.5);

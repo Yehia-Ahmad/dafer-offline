@@ -5,6 +5,7 @@ process.env.NOTA_JWT_SECRET = "online-stage5a-staff-secret-0123456789abcdef-0123
 process.env.NOTA_STORE_JWT_SECRET = "online-stage5a-store-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
+const { today } = require("./helpers/shopDay");
 const test = require("node:test");
 
 const app = require("../src/app");
@@ -749,7 +750,7 @@ it("a cash sale made for an order that cannot be invoiced (stock sold elsewhere)
   const { product } = await shop({ stock: 3 });
   const placed = await place(pickupBody([{ productId: product.id, qty: 3 }]));
   ok(await act(placed.id, "confirm")); ok(await act(placed.id, "prepare")); ok(await act(placed.id, "ready"));
-  const sold = await staff("POST", "/api/sellings", { customerName: "نقدي", customerPhone: "01017171718", sellingDate: new Date().toISOString().slice(0, 10), items: [{ productId: product.id, quantity: 2, price: 100 }] });
+  const sold = await staff("POST", "/api/sellings", { customerName: "نقدي", customerPhone: "01017171718", sellingDate: today(), items: [{ productId: product.id, quantity: 2, price: 100 }] });
   assert.equal(sold.status, 201, sold.text);
   const before = await Selling.countDocuments({});
   const failed = await act(placed.id, "pickup");
@@ -788,7 +789,7 @@ it("a website order never creates or renames a shop Customer: a sale for the pho
   assert.equal(await Customer.countDocuments({}), before, "no customer was created");
   assert.equal(await Customer.countDocuments({ name: "اسم تاني خالص" }), 0);
   // the POS keeps its own behavior: a request body cannot ask for a walk-in sale
-  const pos = await staff("POST", "/api/sellings", { customerName: "عميل جديد", customerPhone: "01066666666", sellingDate: new Date().toISOString().slice(0, 10), items: [{ productId: product.id, quantity: 1, price: 100 }], walkIn: true, sourceRef: "x" });
+  const pos = await staff("POST", "/api/sellings", { customerName: "عميل جديد", customerPhone: "01066666666", sellingDate: today(), items: [{ productId: product.id, quantity: 1, price: 100 }], walkIn: true, sourceRef: "x" });
   assert.equal(pos.status, 201, pos.text);
   assert.equal(pos.json.customerName, "عميل جديد"); assert.equal(pos.json.sourceRef, null);
   assert.equal(await Customer.countDocuments({ phone: "01066666666" }), 1);

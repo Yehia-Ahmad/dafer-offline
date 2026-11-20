@@ -5,6 +5,7 @@ process.env.NOTA_JWT_SECRET = "online-fixes1-staff-secret-0123456789abcdef-01234
 process.env.NOTA_STORE_JWT_SECRET = "online-fixes1-store-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
+const { dayString } = require("./helpers/shopDay");
 const test = require("node:test");
 
 const app = require("../src/app");
@@ -58,7 +59,6 @@ const staff = (method, path, body, token = ownerToken) => call(method, path, { t
 const store = (method, path, body, token) => call(method, path, { token, body });
 const ok = (response, status = 200) => { assert.equal(response.status, status, response.text); return response.json; };
 const uuid = () => require("node:crypto").randomUUID();
-const dayString = (offset = 0) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
 
 async function makeStaff(username, role, permissions) {
   ok(await staff("POST", "/api/users", { name: username, username, password: "secret-pass-1", role, ...(permissions ? { permissions } : {}) }), 201);

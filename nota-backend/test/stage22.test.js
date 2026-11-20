@@ -2,6 +2,7 @@ process.env.NODE_ENV = "test";
 process.env.NOTA_JWT_SECRET = "stage22-test-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
+const { storedDay, today } = require("./helpers/shopDay");
 const test = require("node:test");
 const ExcelJS = require("exceljs");
 const mongoose = require("mongoose");
@@ -61,7 +62,7 @@ async function startLedger() {
 }
 const pad = (value) => String(value).padStart(2, "0");
 const localDate = (date = new Date()) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-const TODAY = localDate();
+const TODAY = today();
 // "last month" of the real clock: the design's October
 const lastMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
 const LM_YEAR = lastMonth.getFullYear(); const LM_MONTH = lastMonth.getMonth() + 1;
@@ -540,7 +541,7 @@ it("manual reversal: linked both ways, dated today or a chosen open date (not th
   assert.equal((await call("POST", `${MANUAL}/${draft._id}/reverse`, { reason: "غلط", date: dayAfter(dayAfter(TODAY)) })).json.code, "FUTURE_DATE");
   const reversed = ok(await call("POST", `${MANUAL}/${draft._id}/reverse`, { reason: "غلط في الحساب", date: inLastMonth(20) }));
   const mirror = await JournalEntry.findById(reversed.reversal._id).lean();
-  assert.equal(localDate(new Date(mirror.date)).slice(0, 10) === inLastMonth(20) || mirror.date.toISOString().slice(0, 10) === inLastMonth(20), true);
+  assert.equal(localDate(new Date(mirror.date)).slice(0, 10) === inLastMonth(20) || storedDay(mirror.date) === inLastMonth(20), true);
   assert.equal(rowOf(ok(await call("GET", `/api/reports/income-statement?from=${FROM}&to=${TO}`)), "netProfit").amount, 0);
   assert.equal((await ManualEntryDraft.findById(draft._id).lean()).reversal.number, mirror.number);
   assert.equal((await JournalEntry.findById(posted.entry._id).lean()).reversedBy.toString(), String(mirror._id));
@@ -548,7 +549,7 @@ it("manual reversal: linked both ways, dated today or a chosen open date (not th
   // today is the default
   const second = await postManual([{ accountId: await accountId("523"), debit: 10 }, { accountId: await accountId("23"), credit: 10 }]);
   const todayReversal = ok(await call("POST", `${MANUAL}/${second.draft._id}/reverse`, { reason: "اختبار اليوم" }));
-  assert.equal((await JournalEntry.findById(todayReversal.reversal._id).lean()).date.toISOString().slice(0, 10), TODAY);
+  assert.equal(storedDay((await JournalEntry.findById(todayReversal.reversal._id).lean()).date), TODAY);
 });
 
 it("health fails (can-fail) when a manual entry is missing its draft or a draft claims an entry that is gone", async () => {
@@ -875,7 +876,7 @@ it("year-end: the closing entry zeroes revenue, expenses and drawings into 32; l
   assert.equal(december.close.yearEnd, true); assert.equal(december.close.netProfit, 300); assert.equal(december.lockedThrough, `${LAST_YEAR}-12-31`);
   assert.ok(december.entry.number.startsWith("JE-"));
   const entry = await entryByNumber(december.entry.number);
-  assert.equal(entry.type, "closing"); assert.equal(entry.source.type, "period_close"); assert.equal(entry.date.toISOString().slice(0, 10), `${LAST_YEAR}-12-31`);
+  assert.equal(entry.type, "closing"); assert.equal(entry.source.type, "period_close"); assert.equal(storedDay(entry.date), `${LAST_YEAR}-12-31`);
   assert.equal(entry.totalDebit, 1050); assert.equal(entry.totalCredit, 1050);
   const lines = {}; for (const line of entry.lines) lines[`${line.accountCode}${line.debit ? "D" : "C"}`] = (lines[`${line.accountCode}${line.debit ? "D" : "C"}`] || 0) + (line.debit || line.credit);
   assert.deepEqual(lines, { "410D": 1000, "510C": 600, "523C": 100, "33C": 50, "32C": 300, "32D": 50 });
@@ -932,7 +933,7 @@ it("reopen: owner only, a reason, only the latest closed period; the lock moves 
   assert.ok(reopened.reversal.number.startsWith("JE-"));
   // the closing entry is reversed, linked both ways, and dated the year end: the P&L accounts are back as of that day
   const original = await entryByNumber(december.entry.number); const mirror = await entryByNumber(reopened.reversal.number);
-  assert.equal(String(original.reversedBy), String(mirror._id)); assert.equal(String(mirror.reversalOf), String(original._id)); assert.equal(mirror.date.toISOString().slice(0, 10), `${LAST_YEAR}-12-31`);
+  assert.equal(String(original.reversedBy), String(mirror._id)); assert.equal(String(mirror.reversalOf), String(original._id)); assert.equal(storedDay(mirror.date), `${LAST_YEAR}-12-31`);
   const trial = ok(await call("GET", `/api/reports/trial-balance?from=${LAST_YEAR}-01-01&to=${LAST_YEAR}-12-31`));
   const leaf = (code) => flat(trial.rows).find((row) => row.code === code);
   assert.equal(leaf("410").closingCredit, 1000); assert.equal(leaf("510").closingDebit, 600); assert.equal(leaf("33").closingDebit, 50); assert.equal(leaf("32").closingCredit, 0);
@@ -991,7 +992,7 @@ it("a fiscal year that starts in July: the period ending June 30 is the year end
   assert.equal(state.next.start, `${LAST_YEAR - 1}-07-01`); assert.equal(state.next.end, `${LAST_YEAR}-06-30`); assert.equal(state.next.yearEnd, true); assert.equal(state.next.label, `FY${LAST_YEAR}`);
   const done = ok(await closeNext());
   assert.equal(done.lockedThrough, `${LAST_YEAR}-06-30`); assert.equal(done.close.netProfit, 60);
-  const entry = await entryByNumber(done.entry.number); assert.equal(entry.date.toISOString().slice(0, 10), `${LAST_YEAR}-06-30`);
+  const entry = await entryByNumber(done.entry.number); assert.equal(storedDay(entry.date), `${LAST_YEAR}-06-30`);
   await assertHealthy();
 });
 

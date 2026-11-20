@@ -1,4 +1,5 @@
 import { LockDateService } from '../../../../core/accounting-lock/lock-date.service';
+import { localDateKey } from '../../../../core/utilities/local-date';
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -667,7 +668,8 @@ export class ReturnsComponent implements OnInit {
     if (!value) return undefined;
     const date = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(date.getTime())) return undefined;
-    return date.toISOString().split('T')[0];
+    // The picked day as the SHOP's local day: a datepicker value is local midnight, and toISOString() would give the day before in Cairo.
+    return localDateKey(date);
   }
 
   private loadReturns(): void {

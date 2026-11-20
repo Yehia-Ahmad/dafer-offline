@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { filterBoundary } = require("../utils/clock");
 const Supplier = require("../models/supplier.model");
 const Product = require("../models/product.model");
 const Purchase = require("../models/purchase.model");
@@ -155,9 +156,9 @@ const getPurchases = async (req, res) => {
   if (req.query.status) { if (!["posted", "cancelled"].includes(req.query.status)) throw httpError(400, "INVALID_STATUS", "الحالة غير صالحة"); filter.status = req.query.status; }
   for (const [key, op] of [["from", "$gte"], ["to", "$lte"]]) {
     if (!req.query[key]) continue;
-    const date = new Date(req.query[key]);
+    // A date-only value is a LOCAL day: a purchase dated by default with an instant (00:30 Cairo is the previous UTC day) belongs to the shop's day.
+    const date = filterBoundary(req.query[key], key === "to");
     if (Number.isNaN(date.getTime())) throw httpError(400, "INVALID_DATE", "التاريخ غير صالح");
-    if (key === "to" && /^\d{4}-\d{2}-\d{2}$/.test(req.query.to)) date.setUTCHours(23, 59, 59, 999);
     filter.date = { ...(filter.date || {}), [op]: date };
   }
   const search = typeof req.query.search === "string" ? req.query.search.trim() : "";

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const clock = require("../utils/clock");
 const Account = require("../models/account.model");
 const CashBox = require("../models/cashBox.model");
 const Expense = require("../models/expense.model");
@@ -91,7 +92,7 @@ const updateCategory = async (req, res) => {
 
 const monthRange = (value) => {
   const match = /^(\d{4})-(\d{2})$/.exec(String(value || ""));
-  const now = new Date();
+  const now = clock.now(); // the shop's clock (a test can pin it)
   const year = match ? Number(match[1]) : now.getFullYear();
   const month = match ? Number(match[2]) : now.getMonth() + 1;
   if (month < 1 || month > 12) return null;

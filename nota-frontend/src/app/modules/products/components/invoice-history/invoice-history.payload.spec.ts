@@ -82,6 +82,24 @@ describe('InvoiceHistoryComponent payloads (Stage 10 safety)', () => {
     });
   });
 
+  it('at 00:30 Africa/Cairo on 2026-11-16 the cash return and the selling-date filter send 2026-11-16 (not the UTC day before)', () => {
+    jasmine.clock().install();
+    try {
+      jasmine.clock().mockDate(new Date(2026, 10, 16, 0, 30));
+      component.openReturnDialog(component.sellings[0]);
+      component.cashReturnDate = new Date(); // the dialog's default: now
+      component.cashReturnItems[0].quantity = 1;
+      component.createCashReturn();
+      const req = http.expectOne(`${base}returns`);
+      expect(req.request.body.returnDate).toBe('2026-11-16');
+      req.flush({});
+      http.match((r) => r.url === `${base}sellings`).forEach((r) => r.flush(page([selling], 1)));
+      component.filterSellingDate = new Date(2026, 10, 16); // a datepicker value: local midnight
+      component.applyFilters();
+      expectSellings({ sellingDate: '2026-11-16', page: '1', limit: '10' });
+    } finally { jasmine.clock().uninstall(); }
+  });
+
   it('reset clears every filter', () => {
     component.filterCustomerName = 'x';
     component.resetFilters();

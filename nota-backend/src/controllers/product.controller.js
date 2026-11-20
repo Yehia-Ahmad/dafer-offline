@@ -13,7 +13,7 @@ const { withTransaction } = require("../utils/transaction");
 const { postCostSync, getLedgerStartAt, isLedgerDocument, returnedUnits } = require("../accounting/posting");
 const { postStockAdjustment } = require("../accounting/opening");
 const { getLockedThrough } = require("../accounting/period");
-const { businessDay } = require("../utils/clock");
+const { businessDay, now: clockNow, localDayString } = require("../utils/clock");
 const { audit } = require("../auth/audit");
 const { hasPermission } = require("../auth/middleware");
 const { reservedByProduct } = require("../store/reservations");
@@ -155,7 +155,7 @@ const cloneSpecifications = (specifications = []) =>
 
 const normalizeYear = (value, res) => {
   if (value === undefined) {
-    return new Date().getUTCFullYear();
+    return clockNow().getFullYear(); // the shop's local year (the UTC year is still last year for the first 2-3 hours of January 1st in Cairo)
   }
 
   const parsed = Number(value);
@@ -610,7 +610,7 @@ const exportProductsExcel = asyncHandler(async (req, res) => {
     row.alignment = { vertical: "middle", horizontal: "left" };
   });
 
-  const dateTag = new Date().toISOString().slice(0, 10);
+  const dateTag = localDayString();
   const filename = `products-${dateTag}.xlsx`;
 
   res.setHeader(

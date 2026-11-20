@@ -80,6 +80,16 @@ describe('ReturnsComponent new-return wizard (Stage 10)', () => {
     expect(component.view).toBe('log');
   });
 
+  it('at 00:30 Africa/Cairo on 2026-11-16 the wizard default return date is 2026-11-16 (not the UTC day before)', () => {
+    jasmine.clock().install();
+    try {
+      jasmine.clock().mockDate(new Date(2026, 10, 16, 0, 30));
+      component.wizardDate = new Date(); // the wizard's default: now
+      expect((component as unknown as { toIsoDate(value: Date | null): string | undefined }).toIsoDate(component.wizardDate)).toBe('2026-11-16');
+      expect((component as unknown as { toIsoDate(value: Date | null): string | undefined }).toIsoDate(new Date(2026, 10, 16))).toBe('2026-11-16'); // a datepicker value
+    } finally { jasmine.clock().uninstall(); }
+  });
+
   it('credit: GET credit-sales by phone → POST returns with the customer-page body (refundDate, note undefined)', () => {
     component.setWizardType('credit');
     component.wizardQuery = '0122 555';

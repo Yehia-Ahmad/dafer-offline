@@ -1,5 +1,6 @@
 // Online Stage 4: the admin API of website orders (/api/orders). Views are built field by field: the idempotency key, request
 // hash and tracking token hash never leave the server.
+const { filterBoundary } = require("../utils/clock");
 const mongoose = require("mongoose");
 const WebOrder = require("../models/webOrder.model");
 const Courier = require("../models/courier.model");
@@ -54,9 +55,9 @@ const buildFilter = (query, { withStatus }) => {
   const range = {};
   for (const [key, op, end] of [["from", "$gte", false], ["to", "$lte", true]]) {
     if (typeof query[key] === "string" && query[key]) {
-      const date = new Date(query[key]);
+      // A date-only value is a LOCAL day (an order placed at 00:30 Cairo is still the previous UTC day).
+      const date = filterBoundary(query[key], end);
       if (Number.isNaN(date.getTime())) throw httpError(400, "INVALID_DATE", "تاريخ غير صالح");
-      if (end && /^\d{4}-\d{2}-\d{2}$/.test(query[key])) date.setUTCHours(23, 59, 59, 999);
       range[op] = date;
     }
   }

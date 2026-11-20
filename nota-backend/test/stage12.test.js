@@ -2,6 +2,7 @@ process.env.NODE_ENV = "test";
 process.env.NOTA_JWT_SECRET = "stage12-test-secret-0123456789abcdef-0123456789";
 
 const assert = require("node:assert/strict");
+const { storedDay } = require("./helpers/shopDay");
 const test = require("node:test");
 const mongoose = require("mongoose");
 
@@ -84,7 +85,7 @@ const credit = async (sellingDate, totalPrice, remainingAmount, extra = {}) => {
 it("dashboard summary on an empty database: zeros, 7 empty days, no lists", async () => {
   const { status, json } = await call("GET", "/api/dashboard/summary");
   assert.equal(status, 200);
-  assert.equal(json.date, today.toISOString().slice(0, 10));
+  assert.equal(json.date, storedDay(today));
   assert.ok(json.timeZone);
   assert.deepEqual(json.today, { cash: { total: 0, count: 0 }, credit: { total: 0, count: 0 } });
   assert.deepEqual(json.yesterday, { cash: { total: 0, count: 0 }, credit: { total: 0, count: 0 } });
@@ -109,7 +110,7 @@ it("dashboard summary: today / yesterday split and the 7-day series (older days 
   assert.deepEqual(json.today, { cash: { total: 350.5, count: 2 }, credit: { total: 300, count: 1 } });
   assert.deepEqual(json.yesterday, { cash: { total: 80, count: 1 }, credit: { total: 120, count: 1 } });
   assert.deepEqual(json.last7Days.map((day) => [day.cash, day.credit]), [[0, 0], [0, 0], [0, 0], [40, 0], [0, 0], [80, 120], [350.5, 300]]);
-  assert.equal(json.last7Days[0].date, daysAgo(6).toISOString().slice(0, 10));
+  assert.equal(json.last7Days[0].date, storedDay(daysAgo(6)));
 });
 
 it("dashboard summary: a cash invoice with a return counts net of the returned items, as the invoice screens show it", async () => {

@@ -1,4 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { localDateKey } from '../../../../core/utilities/local-date';
 import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { ProductsService } from '../../services/products.service';
@@ -320,7 +321,8 @@ export class InvoiceHistoryComponent implements OnInit {
     if (!value) return undefined;
     const date = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(date.getTime())) return undefined;
-    return date.toISOString().split('T')[0];
+    // The picked day as the SHOP's local day: a datepicker value is local midnight, and toISOString() would give the day before in Cairo.
+    return localDateKey(date);
   }
 
   private loadCategories(): void {
