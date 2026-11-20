@@ -76,6 +76,8 @@ const PERMISSIONS = {
   "marketing.view": { group: "marketing", ar: "عرض الحملات ونتائجها", en: "View campaigns and results" },
   "marketing.manage": { group: "marketing", ar: "إدارة الحملات وإعدادات البكسل والكتالوج", en: "Manage campaigns, pixel and catalog settings" },
   "marketing.connect": { group: "marketing", ar: "ربط حساب الإعلانات", en: "Connect the ad account" },
+  // Online Stage 7C: creating, switching on/off and changing budgets of Facebook/Instagram campaigns from Nota (the first permission that can spend money).
+  "marketing.publish": { group: "marketing", ar: "نشر وتشغيل إعلانات فيسبوك", en: "Publish and run Facebook ads" },
   "leads.manage": { group: "marketing", ar: "إدارة العملاء المحتملين (إضافة وتعديل واستيراد)", en: "Manage leads (add, edit, import)" },
 };
 
@@ -126,7 +128,7 @@ const VIEW_PERMISSIONS = ["sales.view", "credit.view", "returns.view", "customer
 
 const ROLE_TEMPLATES = Object.freeze({
   owner: ALL_PERMISSIONS,
-  manager: Object.freeze(ALL_PERMISSIONS.filter((key) => key !== "users.manage" && key !== "backup.manage" && key !== "accounting.manage" && key !== "accounting.close" && key !== "owner.drawings" && key !== "marketing.connect")),
+  manager: Object.freeze(ALL_PERMISSIONS.filter((key) => key !== "users.manage" && key !== "backup.manage" && key !== "accounting.manage" && key !== "accounting.close" && key !== "owner.drawings" && key !== "marketing.connect" && key !== "marketing.publish")),
   cashier: Object.freeze([
     "sales.create",
     "sales.view",

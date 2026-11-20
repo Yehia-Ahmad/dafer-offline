@@ -29,7 +29,8 @@ const state = (over = {}) => ({
 const view = (over = {}) => ({
   connected: true, adAccountId: 'act_1234567890', tokenLast4: TOKEN.slice(-4), hasAppSecret: false, appSecretLast4: null,
   account: { name: 'حساب المحل', currency: 'EGP', timezoneName: 'Africa/Cairo', accountStatus: 1 }, accountStatusWarning: false, scopes: ['ads_read'],
-  connectedAt: '2026-11-20T00:00:00Z', lastSyncAt: '2026-11-20T04:15:00Z', lastSyncOkAt: '2026-11-20T04:15:00Z', lastError: null, paused: false, syncing: false, nextManualSyncAt: null, ...over,
+  connectedAt: '2026-11-20T00:00:00Z', lastSyncAt: '2026-11-20T04:15:00Z', lastSyncOkAt: '2026-11-20T04:15:00Z', lastError: null, paused: false, syncing: false, nextManualSyncAt: null,
+  mode: 'read', missingPublishScopes: ['ads_management', 'pages_manage_ads', 'pages_read_engagement', 'pages_show_list'], currencySupportedForPublish: true, page: null, instagram: null, ...over,
 });
 const disconnected = () => view({ connected: false, adAccountId: null, tokenLast4: null, account: null, scopes: [], lastSyncAt: null, lastSyncOkAt: null, connectedAt: null });
 const testOk = (over = {}) => ({ ok: true, account: { name: 'حساب المحل', currency: 'EGP', timezoneName: 'Africa/Cairo', accountStatus: 1 }, accountStatusWarning: false, scopes: ['ads_read', 'public_profile'], hasAdsRead: true, neverExpires: true, expiresAt: null, ...over });

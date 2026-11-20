@@ -67,6 +67,7 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
     "marketing.view",
     "marketing.manage",
     "marketing.connect",
+    "marketing.publish",
     "leads.manage"
   ],
   "permissions": {
@@ -335,6 +336,11 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
       "ar": "ربط حساب الإعلانات",
       "en": "Connect the ad account"
     },
+    "marketing.publish": {
+      "group": "marketing",
+      "ar": "نشر وتشغيل إعلانات فيسبوك",
+      "en": "Publish and run Facebook ads"
+    },
     "leads.manage": {
       "group": "marketing",
       "ar": "إدارة العملاء المحتملين (إضافة وتعديل واستيراد)",
@@ -440,6 +446,7 @@ export const PERMISSION_CATALOG: HelpPermissionCatalog = {
       "marketing.view",
       "marketing.manage",
       "marketing.connect",
+      "marketing.publish",
       "leads.manage"
     ],
     "manager": [

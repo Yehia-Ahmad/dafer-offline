@@ -32,6 +32,10 @@ router.put("/marketing-settings", requirePermission("marketing.manage"), auditOn
 // Audit details never carry the request body: the body holds the token.
 const connect = requirePermission("marketing.connect");
 router.get("/meta-connection", connect, metaConnection.get);
+// Online Stage 7C: the Page / Instagram account ads are published as.
+router.get("/meta-connection/pages", connect, metaConnection.listPages);
+router.get("/meta-connection/instagram-accounts", connect, metaConnection.listInstagram);
+router.put("/meta-connection/publish-target", connect, auditOnSuccess("meta.publish_target", "MetaConnection", (req) => ({ pageId: req.body && req.body.pageId, instagramId: req.body && req.body.instagramId })), metaConnection.savePublishTarget);
 router.post("/meta-connection/test", connect, metaConnection.test);
 router.post("/meta-connection/sync", connect, metaConnection.syncNow);
 router.put("/meta-connection", connect, auditOnSuccess("meta.connected", "MetaConnection", (_req, body) => ({ adAccountId: body && body.adAccountId })), metaConnection.save);

@@ -42,6 +42,9 @@ const effectiveSettings = (settings) => {
       attributionDays: Number.isInteger(marketing.attributionDays) && marketing.attributionDays >= 1 ? marketing.attributionDays : DEFAULT_ATTRIBUTION_DAYS,
       askHeardFrom: marketing.askHeardFrom !== false,
       heardFromOptions: options,
+      // Online Stage 7C: the ceiling for ads created from Nota (EGP). Defaults 1000 a day, 10000 in total.
+      maxDailyBudgetEgp: Number(marketing.maxDailyBudgetEgp) > 0 ? Number(marketing.maxDailyBudgetEgp) : 1000,
+      maxTotalBudgetEgp: Number(marketing.maxTotalBudgetEgp) > 0 ? Number(marketing.maxTotalBudgetEgp) : 10000,
     },
     fulfillment: { delivery: !(s.fulfillment && s.fulfillment.delivery === false), pickup: Boolean(s.fulfillment && s.fulfillment.pickup === true) },
     payments: {

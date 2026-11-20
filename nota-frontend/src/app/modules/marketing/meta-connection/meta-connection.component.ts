@@ -8,7 +8,7 @@ import { ExchangeRateRow, MetaConnectionView, MetaTestResult } from '../marketin
 import { MarketingService } from '../marketing.service';
 import { META_ERROR_CODES } from '../meta-banners.component';
 
-const FORM_ERRORS = [...META_ERROR_CODES, 'INVALID_ACCOUNT_ID', 'INVALID_TOKEN', 'INVALID_APP_SECRET', 'SYNC_TOO_SOON', 'SYNC_RUNNING', 'NOT_CONNECTED', 'RATE_NOT_NEEDED', 'INVALID_RATE', 'INVALID_DATE'];
+const FORM_ERRORS = [...META_ERROR_CODES, 'INVALID_ACCOUNT_ID', 'INVALID_TOKEN', 'INVALID_APP_SECRET', 'SYNC_TOO_SOON', 'SYNC_RUNNING', 'NOT_CONNECTED', 'RATE_NOT_NEEDED', 'INVALID_RATE', 'INVALID_DATE', 'PAGE_NOT_ALLOWED', 'INSTAGRAM_NOT_FOUND'];
 const OK_STATUSES = [1, 9];
 
 /**
@@ -36,6 +36,32 @@ const OK_STATUSES = [1, 9];
             <span data-test="last-sync">{{ 'marketing.meta.lastSync' | translate }}: @if (v.lastSyncOkAt) { <b class="nota-num">{{ v.lastSyncOkAt | date: 'd/M HH:mm' }}</b> } @else { — }
               @if (v.syncing) { · {{ 'marketing.meta.syncing' | translate }} }</span>
           </div>
+          <div class="mc__box" data-test="meta-mode">
+            <span>{{ 'marketing.meta.mode.label' | translate }}: <b data-test="meta-mode-value" [attr.data-mode]="v.mode">{{ (v.mode === 'readwrite' ? 'marketing.meta.mode.readwrite' : 'marketing.meta.mode.read') | translate }}</b></span>
+            @if (v.mode === 'read') {
+              <small class="mc__muted" data-test="meta-mode-missing">{{ 'marketing.meta.mode.missing' | translate }}: <b dir="ltr">{{ v.missingPublishScopes.join(', ') }}</b>. {{ 'marketing.meta.mode.missingHelp' | translate }}</small>
+            } @else if (!v.currencySupportedForPublish) {
+              <small class="mc__warn" data-test="meta-mode-currency">{{ 'marketing.publish.errors.CURRENCY_NOT_SUPPORTED' | translate }}</small>
+            }
+          </div>
+          @if (v.mode === 'readwrite') {
+            <div class="mc__form" data-test="meta-target">
+              <label class="mc__f">{{ 'marketing.meta.target.page' | translate }}
+                <select [class]="input()" name="metaPage" data-test="meta-page" [ngModel]="pageId()" (ngModelChange)="pickPage($event)">
+                  <option value="">{{ 'marketing.meta.target.choose' | translate }}</option>
+                  @for (p of pages(); track p.id) { <option [value]="p.id">{{ p.name }}</option> }
+                </select>
+                @if (pagesLoaded() && !pages().length) { <small class="mc__warn" data-test="meta-no-pages">{{ 'marketing.meta.target.noPages' | translate }}</small> }
+              </label>
+              <label class="mc__f">{{ 'marketing.meta.target.instagram' | translate }}
+                <select [class]="input()" name="metaInstagram" data-test="meta-instagram" [ngModel]="instagramId()" (ngModelChange)="instagramId.set($event)">
+                  <option value="">{{ 'marketing.meta.target.none' | translate }}</option>
+                  @for (i of instagramAccounts(); track i.id) { <option [value]="i.id">{{ i.name }}</option> }
+                </select>
+              </label>
+              <div class="mc__actions"><button type="button" [class]="btnPrimary()" data-action="meta-save-target" [disabled]="busy() || !pageId()" (click)="saveTarget()">{{ 'marketing.meta.target.save' | translate }}</button></div>
+            </div>
+          }
           @if (v.lastError) { <p class="nota-error" role="alert" data-test="meta-last-error">{{ errorKey(v.lastError.code) | translate }}@if (v.paused) { {{ 'marketing.meta.paused' | translate }} }</p> }
           @if (v.accountStatusWarning) { <p class="mc__warn" data-test="meta-status-warning">{{ 'marketing.meta.banner.accountStatus' | translate }}</p> }
           <div class="mc__actions">
@@ -69,6 +95,7 @@ const OK_STATUSES = [1, 9];
           </label>
         </div>
         <p class="mc__muted">{{ 'marketing.meta.readOnlyNote' | translate }}</p>
+        <p class="mc__muted">{{ 'marketing.meta.publishNote' | translate }}</p>
 
         @if (error()) { <p class="nota-error" role="alert" data-test="meta-error">{{ error() | translate }}</p> }
         @if (tested(); as t) {
@@ -156,6 +183,12 @@ export class MetaConnectionComponent implements OnInit, OnDestroy {
   /** One exchange-rate list per non-EGP currency in the synced numbers (a replaced ad account can leave days in another currency). */
   protected readonly groups = signal<{ currency: string; data: ExchangeRateRow[] }[]>([]);
   protected readonly rateCurrency = signal('');
+  /** Online Stage 7C: the Page and Instagram account ads are published as (Meta's own lists). */
+  protected readonly pages = signal<{ id: string; name: string }[]>([]);
+  protected readonly pagesLoaded = signal(false);
+  protected readonly instagramAccounts = signal<{ id: string; name: string }[]>([]);
+  protected readonly pageId = signal('');
+  protected readonly instagramId = signal('');
 
   protected readonly accountId = signal('');
   protected readonly token = signal('');
@@ -188,8 +221,33 @@ export class MetaConnectionComponent implements OnInit, OnDestroy {
 
   private load(): void {
     this.marketing.metaConnection().subscribe({
-      next: (v) => { this.view.set(v); if (v.connected && !this.accountId()) this.accountId.set(v.adAccountId ?? ''); this.loadRates(v); this.pollWhileSyncing(v); },
+      next: (v) => { this.view.set(v); if (v.connected && !this.accountId()) this.accountId.set(v.adAccountId ?? ''); this.loadRates(v); this.loadTarget(v); this.pollWhileSyncing(v); },
       error: () => this.loadError.set(true),
+    });
+  }
+
+  private loadTarget(v: MetaConnectionView): void {
+    this.pageId.set(v.page?.id ?? ''); this.instagramId.set(v.instagram?.id ?? '');
+    if (!v.connected || v.mode !== 'readwrite') { this.pages.set([]); this.instagramAccounts.set([]); this.pagesLoaded.set(false); return; }
+    this.marketing.metaPages().subscribe({ next: (r) => { this.pages.set(r.data); this.pagesLoaded.set(true); }, error: () => { this.pages.set([]); this.pagesLoaded.set(true); } });
+    this.loadInstagram(v.page?.id ?? '');
+  }
+
+  private loadInstagram(pageId: string): void {
+    this.marketing.metaInstagram(pageId).subscribe({ next: (r) => this.instagramAccounts.set(r.data), error: () => this.instagramAccounts.set([]) });
+  }
+
+  protected pickPage(id: string): void {
+    this.pageId.set(id); this.instagramId.set(''); this.error.set('');
+    if (id) this.loadInstagram(id);
+  }
+
+  protected saveTarget(): void {
+    if (this.busy() || !this.pageId()) return;
+    this.busy.set(true); this.error.set('');
+    this.marketing.saveMetaTarget({ pageId: this.pageId(), ...(this.instagramId() ? { instagramId: this.instagramId() } : {}) }).subscribe({
+      next: (v) => { this.busy.set(false); this.view.set(v); this.saved.set(true); },
+      error: (response) => this.fail(response),
     });
   }
 

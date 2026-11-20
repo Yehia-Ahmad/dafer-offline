@@ -36,6 +36,18 @@ const ERRORS = ['INVALID_VALUE'];
         <p class="ms__muted">{{ 'marketing.settings.noPersonalData' | translate }}</p>
       </section>
 
+      <section [class]="card()" data-test="marketing-ceiling">
+        <h2 class="ms__h">{{ 'marketing.settings.ceiling' | translate }}</h2>
+        <p class="ms__muted">{{ 'marketing.settings.ceilingHint' | translate }}</p>
+        <label class="ms__f">{{ 'marketing.settings.maxDaily' | translate }}
+          <input [class]="input() + ' nota-num'" type="number" inputmode="decimal" min="1" name="maxDailyBudgetEgp" data-test="max-daily" [disabled]="!canPublish()" [ngModel]="maxDaily()" (ngModelChange)="maxDaily.set($event)" />
+        </label>
+        <label class="ms__f">{{ 'marketing.settings.maxTotal' | translate }}
+          <input [class]="input() + ' nota-num'" type="number" inputmode="decimal" min="1" name="maxTotalBudgetEgp" data-test="max-total" [disabled]="!canPublish()" [ngModel]="maxTotal()" (ngModelChange)="maxTotal.set($event)" />
+        </label>
+        @if (!canPublish()) { <p class="ms__muted" data-test="ceiling-readonly">{{ 'marketing.settings.ceilingNeedsPublish' | translate }}</p> }
+      </section>
+
       <section [class]="card()" data-test="marketing-attribution">
         <h2 class="ms__h">{{ 'marketing.settings.attribution' | translate }}</h2>
         <label class="ms__f">{{ 'marketing.settings.attributionDays' | translate }}
@@ -95,6 +107,10 @@ export class MarketingSettingsComponent implements OnInit {
   protected readonly canManage = computed(() => this.auth.has('marketing.manage'));
   // Online Stage 7B: the ad account connection card (owner only by default).
   protected readonly canConnect = computed(() => this.auth.has('marketing.connect'));
+  // Online Stage 7C: «أقصى ميزانية» for ads created from Nota (editing it needs marketing.publish).
+  protected readonly canPublish = computed(() => this.auth.has('marketing.publish'));
+  protected readonly maxDaily = signal<number>(1000);
+  protected readonly maxTotal = signal<number>(10000);
   protected readonly loaded = signal(false);
   protected readonly loadError = signal(false);
   protected readonly saving = signal(false);
@@ -125,6 +141,7 @@ export class MarketingSettingsComponent implements OnInit {
     this.tiktokPixelId.set(s.tiktokPixelId);
     this.requireConsent.set(s.requireConsent);
     this.attributionDays.set(s.attributionDays);
+    this.maxDaily.set(s.maxDailyBudgetEgp); this.maxTotal.set(s.maxTotalBudgetEgp);
     this.askHeardFrom.set(s.askHeardFrom);
     this.optionsText.set(s.heardFromOptions.join('\n'));
     this.feeds.set([{ key: 'meta', url: s.feeds.meta }, { key: 'tiktok', url: s.feeds.tiktok }]);
@@ -137,6 +154,8 @@ export class MarketingSettingsComponent implements OnInit {
     this.marketing.saveSettings({
       metaPixelId: this.metaPixelId().trim(), tiktokPixelId: this.tiktokPixelId().trim(), requireConsent: this.requireConsent(),
       attributionDays: Number(this.attributionDays()), askHeardFrom: this.askHeardFrom(),
+      // Only sent with marketing.publish: the server refuses the keys without it.
+      ...(this.canPublish() ? { maxDailyBudgetEgp: Number(this.maxDaily()), maxTotalBudgetEgp: Number(this.maxTotal()) } : {}),
       heardFromOptions: this.optionsText().split('\n').map((line) => line.trim()).filter(Boolean),
     }).subscribe({
       next: (s) => { this.apply(s); this.saving.set(false); this.savedOk.set(true); },

@@ -3,6 +3,7 @@
 const asyncHandler = require("../utils/asyncHandler");
 const WebsiteSettings = require("../models/websiteSettings.model");
 const { httpError } = require("../auth/middleware");
+const { hasPermission } = require("../auth/permissions");
 const { effectiveSettings } = require("../store/catalog");
 
 const SETTINGS_KEY = "default";
@@ -58,6 +59,14 @@ const update = asyncHandler(async (req, res) => {
       if (!options.includes(text)) options.push(text);
     }
     marketing.heardFromOptions = options;
+  }
+  // Online Stage 7C: the money ceiling needs marketing.publish (marketing.manage alone cannot raise it).
+  for (const [key, label, max] of [["maxDailyBudgetEgp", "أقصى ميزانية يومية", 10000000], ["maxTotalBudgetEgp", "أقصى ميزانية إجمالية", 100000000]]) {
+    if (body[key] === undefined) continue;
+    if (!hasPermission(req.user, "marketing.publish")) throw httpError(403, "FORBIDDEN", "تعديل أقصى ميزانية محتاج صلاحية نشر وتشغيل إعلانات فيسبوك");
+    const value = body[key];
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 1 || value > max || Math.round(value * 100) / 100 !== value) throw bad(`${label} غير صالحة (رقم من 1 لحد ${max})`);
+    marketing[key] = value;
   }
   settings.marketing = marketing;
   settings.markModified("marketing");

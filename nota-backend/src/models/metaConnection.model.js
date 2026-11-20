@@ -19,6 +19,13 @@ const schema = new mongoose.Schema({
     disableReason: Number,
   },
   scopes: [String],
+  // Online Stage 7C: the Facebook Page (and optionally the Instagram account) the ads are published as. Chosen from Meta's own lists.
+  pageId: { type: String },
+  pageName: { type: String },
+  instagramId: { type: String },
+  instagramName: { type: String },
+  // Online Stage 7C: the ad account's minimum daily budget in minor units, when Meta exposes it.
+  minDailyBudgetMinor: { type: Number },
   connectedAt: Date,
   lastSyncAt: Date,
   lastSyncOkAt: Date,

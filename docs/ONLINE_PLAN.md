@@ -381,3 +381,27 @@ The shop connects its own Meta ad account with a token it creates itself (a syst
 
 ### Needs a real ad account
 The real response shapes, whether `debug_token` accepts a system user token, `appsecret_proof` with «Require App Secret» on, the real throttle headers, and the exact Business Settings screen labels used in the help (the docs describe system users and tokens through the API; the help names the screens as best known and says to look for the same meaning). Run `NOTA_META_TOKEN=… NOTA_META_ACCOUNT_ID=act_… node nota-backend/scripts/meta-check.mjs`.
+
+## Stage 7C — creating Facebook/Instagram campaigns from Nota
+
+**This is the first code that can make the shop spend money.** The owner (permission `marketing.publish`, the 55th, owner only) creates one Meta campaign, one ad set and 1 to 5 single-image link ads from the page of a Nota campaign. Everything is created **PAUSED at the campaign**; the ad set and ads are ACTIVE under it, so one switch (with a confirmation that states the money) starts or stops it all. Meta takes the money from the ad account's card in Ads Manager; Nota sends no payment data and calls no billing endpoint.
+
+### What was added
+- `services/meta/metaWriter.js`: the only code that sends a POST. Allowlist: `POST act_<id>/campaigns | adsets | adcreatives | ads | adimages`, and `POST <id>` only for an id found in a `MetaPublish` record and only with `status, daily_budget, lifetime_budget, end_time, name`. No DELETE (removing is `status=DELETED`). One write at a time, a pause between writes. `metaClient.js` stays GET only (its test stays); it only gained GET methods (pages, Instagram accounts, pixels, geo search, previews, creative read-back, search by tag).
+- `MetaPublish` (+ `MetaPublishImage` for uploaded bytes until the publish ends): the confirmed spec, the Meta id of every step saved the moment Meta returns it, a lease lock, a state per step. Steps: validate (`validate_only`), campaign, images, ad set (validated first), creatives (validated first, then read back), ads, link + a 7B sync. A retry continues from the first unfinished step; after an unknown result (timeout) the parent is searched for the hidden tag `[nota:<publishId>]` before anything is sent again.
+- Money ceiling: marketing settings `maxDailyBudgetEgp` (default 1000) and `maxTotalBudgetEgp` (10000), edited with `marketing.publish`, enforced by the server on create, on a budget change and again when switching on (7B rate when the account is not EGP; refused without a rate). Only offset-100 currencies publish.
+- Admin: the wizard «حملة فيسبوك جديدة», the «تشغيل» confirmation (checkbox), the list of Nota-created campaigns (switch on/off, budget, end date, archive), the ceiling in the marketing settings, the connection card's mode («قراءة بس» / «قراءة ونشر») and the Page / Instagram pickers. Campaigns not created by Nota stay read-only.
+- `scripts/meta-publish-check.mjs` (live check with the owner's token; `--create` makes one PAUSED campaign with no ad set and deletes it), `mobile-audit.mjs` scenarios (marketing tab, list, confirmation, every wizard step), the help (updated connection guide, new guide «عمل حملة فيسبوك من نوتا», role help).
+
+### Decisions taken while building (not in the brief)
+- The four publishing scopes are `ads_management, pages_manage_ads, pages_read_engagement, pages_show_list`. Devices: no `user_device` / `user_os` / `individual_setting.device` is ever sent (a test proves it); a stage that adds device targeting must send `device: 0`.
+- Advantage+ audience is always explicit (`1` or `0`); on, only `age_min` (18–25) is sent, never `age_max`.
+- Creative opt-outs: `product_extensions` (the v27 changelog's shape) and, by their names, the features that act on text (`text_optimizations`, `description_automation`, `text_translation`). Meta's docs do not say which features rewrite text, so `validate_only` runs on every creative before it is created. What Meta applied is read back and stored.
+- Draft first, run second: the wizard stores a draft (no call to Meta), previews upload the image once (no spend), and an abandoned draft is dropped when a new one is made. Writes with a draft up to 5 uploaded images need a 56 MB body on that one endpoint, parsed only after the session check.
+- Audit codes are lowercase (`meta.publish.created`, `meta.publish.cancelled`, `meta.campaign.status`, `meta.campaign.budget`, `meta.campaign.end_time`, `meta.campaign.archived`, `meta.publish_target`): never the token, image bytes or ad text (only its length).
+
+### Not in v1 (later)
+WhatsApp / Messenger message ads, video and carousel, catalog ads, custom and lookalike audiences, editing an ad's text or image after creation (Meta needs a new ad), A/B tests, TikTok ads, device / OS targeting, other currency offsets.
+
+### Needs a real ad account
+Everything above was tested against a fake transport only. Still to confirm with the owner's own token (`meta-publish-check.mjs`): that `pages_manage_ads` works at Standard/Limited access for the shop's own Page, that a Development-mode app cannot deliver (Live is treated as required), the exact creative-feature names and shapes (`validate_only` will say), the payment-error code (none is documented, so it is mapped from the account status), `min_daily_budget` on the account, and the Instagram edge `connected_instagram_accounts`.

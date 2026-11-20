@@ -5,6 +5,7 @@ import { CAMPAIGNS } from './campaigns';
 import { LEADS } from './leads';
 import { MARKETING_RESULTS } from './marketing-results';
 import { META_CONNECTION } from './meta-connection';
+import { META_PUBLISH } from './meta-publish';
 import { AUDIT } from './audit';
 import { CASHBOX } from './cashbox';
 import { CLOSING } from './closing';
@@ -63,6 +64,7 @@ export const HELP_SECTIONS_AR: readonly HelpSection[] = [
   CAMPAIGNS,
   MARKETING_RESULTS,
   META_CONNECTION,
+  META_PUBLISH,
   LEADS,
   STOREFRONT,
   USERS,

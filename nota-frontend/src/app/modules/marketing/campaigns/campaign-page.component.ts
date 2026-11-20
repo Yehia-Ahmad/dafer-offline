@@ -12,7 +12,9 @@ import { NotaButtonDirective, NotaKpiCardComponent, NotaPageHeaderComponent } fr
 import { Campaign, CampaignResultsRow, MetaCampaignRow, MetaState, SpendRow } from '../marketing.models';
 import { MarketingService } from '../marketing.service';
 import { MetaBannersComponent } from '../meta-banners.component';
+import { MetaCreatedListComponent } from './meta-created-list.component';
 import { MetaLinkDialogComponent } from './meta-link-dialog.component';
+import { MetaPublishWizardComponent } from './meta-publish-wizard.component';
 import { SpendDialogComponent } from './spend-dialog.component';
 
 const daysAgo = (days: number): string => {
@@ -26,7 +28,7 @@ interface Kpi { key: string; value: string | number; tone?: 'danger' | 'success'
 /** Online Stage 7A: /marketing/campaigns/:id. Links (copy + QR), the results of the campaign, its ad spend and its leads. */
 @Component({
   selector: 'app-campaign-page',
-  imports: [FormsModule, NgTemplateOutlet, RouterLink, DatePipe, DecimalPipe, TranslatePipe, QRCodeComponent, NotaCanDirective, NotaButtonDirective, NotaKpiCardComponent, NotaPageHeaderComponent, SpendDialogComponent, MetaBannersComponent, MetaLinkDialogComponent],
+  imports: [FormsModule, NgTemplateOutlet, RouterLink, DatePipe, DecimalPipe, TranslatePipe, QRCodeComponent, NotaCanDirective, NotaButtonDirective, NotaKpiCardComponent, NotaPageHeaderComponent, SpendDialogComponent, MetaBannersComponent, MetaLinkDialogComponent, MetaCreatedListComponent, MetaPublishWizardComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ng-template #links>
@@ -61,14 +63,16 @@ interface Kpi { key: string; value: string | number; tone?: 'danger' | 'success'
     </ng-template>
 
     <ng-template #metaLinks>
-      @for (row of metaLinked(); track row.metaId) {
+      @if (metaCreated().length) { <app-meta-created-list [campaignId]="campaign()!._id" [rows]="metaCreated()" (changed)="reload()" /> }
+      @for (row of metaForeign(); track row.metaId) {
         <div class="cp__spend cp__meta" data-test="meta-linked-row">
           <span dir="auto">{{ row.name || row.metaId }}</span>
           <small>{{ row.status }}</small>
           <button *notaCan="'marketing.manage'" type="button" [class]="btn()" data-action="unlink-meta" (click)="unlink(row.metaId)">{{ 'marketing.meta.link.unlink' | translate }}</button>
         </div>
-      } @empty { <p class="cp__muted" data-test="meta-links-empty">{{ 'marketing.meta.link.none' | translate }}</p> }
+      } @empty { @if (!metaCreated().length) { <p class="cp__muted" data-test="meta-links-empty">{{ 'marketing.meta.link.none' | translate }}</p> } }
       @if (canLink()) {
+        <div><button *notaCan="'marketing.publish'" type="button" [class]="layout.isMobile() ? 'm-btn m-btn--primary' : 'nota-btn nota-btn--primary'" data-action="new-facebook-campaign" (click)="publishOpen.set(true)">{{ 'marketing.publish.open' | translate }}</button></div>
         <div><button *notaCan="'marketing.manage'" type="button" [class]="layout.isMobile() ? 'm-btn m-btn--primary' : 'nota-btn nota-btn--primary'" data-action="link-facebook" (click)="linkOpen.set(true)">{{ 'marketing.meta.link.open' | translate }}</button></div>
       }
     </ng-template>
@@ -131,6 +135,7 @@ interface Kpi { key: string; value: string | number; tone?: 'danger' | 'success'
       }
       <app-spend-dialog [campaignId]="c._id" [campaignName]="c.name" [(visible)]="spendOpen" (saved)="reload()" />
       <app-meta-link-dialog [campaignId]="c._id" [(visible)]="linkOpen" (changed)="reload()" />
+      <app-meta-publish-wizard [campaignId]="c._id" [(visible)]="publishOpen" (published)="reload()" />
     } @else if (loadError()) {
       <p class="nota-error" role="alert">{{ 'marketing.loadFailed' | translate }}</p>
     }
@@ -165,8 +170,12 @@ export class CampaignPageComponent implements OnInit {
   protected readonly copied = signal<'full' | 'short' | ''>('');
   protected readonly spendOpen = signal(false);
   protected readonly linkOpen = signal(false);
+  protected readonly publishOpen = signal(false);
   protected readonly metaState = signal<MetaState | undefined>(undefined);
   protected readonly metaLinked = signal<MetaCampaignRow[]>([]);
+  /** Online Stage 7C: the ones Nota created (switch on/off, budget, end date, archive) and the ones only synced from Meta (read-only). */
+  protected readonly metaCreated = computed(() => this.metaLinked().filter((row) => row.createdByNota));
+  protected readonly metaForeign = computed(() => this.metaLinked().filter((row) => !row.createdByNota));
   /** The Meta section shows for a Facebook/Instagram campaign once Meta was ever connected (or when it already has links). */
   protected readonly canLink = computed(() => ['facebook', 'instagram'].includes(this.campaign()?.platform ?? ''));
   protected readonly showMetaSection = computed(() => this.canLink() && (Boolean(this.metaState()) || this.metaLinked().length > 0));

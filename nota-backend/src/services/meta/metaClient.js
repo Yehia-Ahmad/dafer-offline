@@ -25,14 +25,31 @@ const FAILURES = {
   NETWORK: "تعذر الاتصال بميتا. هنحاول تاني.",
   META_ERROR: "ميتا رجّعت خطأ غير متوقع.",
   SECRETS_KEY_MISSING: "مفتاح تشفير السيرفر (NOTA_SECRETS_KEY) مش مظبوط.",
+  // Online Stage 7C: errors of the writes (metaWriter.js). Fixed texts only: Meta's own text is never shown.
+  PUBLISH_PERMISSION_MISSING: "التوكن ناقصه صلاحيات النشر (ads_management و pages_manage_ads و pages_read_engagement و pages_show_list) أو الصفحة مش مضافة للمستخدم. راجع الربط.",
+  BUDGET_TOO_LOW: "الميزانية أقل من الحد الأدنى اللي ميتا بتقبله. زوّدها.",
+  BUDGET_CONFLICT: "ميتا مش بتقبل ميزانية على الحملة وعلى المجموعة الإعلانية مع بعض. جرب تاني أو كلمنا.",
+  PAYMENT_REQUIRED: "حساب الإعلانات مش قادر يشغّل إعلانات: طريقة الدفع ناقصة أو الحساب متوقف. راجع Ads Manager.",
+  PAGE_NOT_ALLOWED: "الصفحة المختارة مش مسموح تعلن بيها من الحساب ده. راجع صلاحيات الصفحة للمستخدم.",
+  IMAGE_REJECTED: "ميتا رفضت الصورة. جرب صورة تانية (jpg أو png، مقاس مناسب).",
+  AD_POLICY: "ميتا رفضت الإعلان لمخالفة سياسات الإعلانات. عدّل النص أو الصورة.",
+  APP_NOT_LIVE: "تطبيق ميتا لسه في وضع التطوير. حوّله لوضع Live عشان الإعلانات تشتغل (شوف الخطوة في المساعدة).",
+  INVALID_PARAMETER: "في قيمة مش مقبولة عند ميتا.",
+  PUBLISH_NOT_ALLOWED: "العملية دي مش مسموحة من نوتا.",
 };
 
+const FIELD_NAME = /^[A-Za-z0-9_.\[\]]{1,60}$/;
+
 class MetaError extends Error {
-  constructor(code, { retryAfterSeconds = 0 } = {}) {
-    super(FAILURES[code] || FAILURES.META_ERROR);
+  // `field` (INVALID_PARAMETER only) is the name of the offending field, the one detail of Meta's answer we pass on.
+  constructor(code, { retryAfterSeconds = 0, field = "" } = {}) {
+    const base = FAILURES[code] || FAILURES.META_ERROR;
+    const safeField = code === "INVALID_PARAMETER" && FIELD_NAME.test(String(field)) ? String(field) : "";
+    super(safeField ? `${base} (الحقل: ${safeField})` : base);
     this.name = "MetaError";
     this.code = code;
     this.retryAfterSeconds = retryAfterSeconds;
+    this.field = safeField;
   }
   /** These two stop the daily sync until the owner reconnects. */
   get pausesSync() { return this.code === "TOKEN_INVALID" || this.code === "PERMISSION_MISSING"; }
@@ -166,6 +183,60 @@ const createClient = ({ adAccountId, token, appSecret, onUsage }) => {
       return { scopes, expiresAt: 0, source: "me/permissions" };
     },
 
+    // ----- Online Stage 7C: more GETs for the wizard (still reads only; every write is in metaWriter.js) -----
+
+    /** GET /act_<id>/promote_pages: the Pages this ad account may advertise as. */
+    promotePages: () => getAll(`${adAccountId}/promote_pages`, { fields: "id,name", limit: 100 }),
+
+    /** GET /act_<id>/connected_instagram_accounts (named in Meta's "Use posts as Instagram ads" guide). */
+    instagramAccounts: () => getAll(`${adAccountId}/connected_instagram_accounts`, { fields: "id,username", limit: 100 }),
+
+    /** Fallback: GET /<page>?fields=instagram_business_account{id,username}. Returns [] when the Page has none. */
+    pageInstagram: async (pageId) => {
+      const { body } = await request(String(pageId), { fields: "instagram_business_account{id,username}" });
+      const account = body && body.instagram_business_account;
+      return account && account.id ? [{ id: String(account.id), username: account.username }] : [];
+    },
+
+    /** GET /act_<id>/adspixels: the pixels this ad account can see (last_fired_time when Meta gives it). */
+    pixels: () => getAll(`${adAccountId}/adspixels`, { fields: "id,name,last_fired_time", limit: 100 }),
+
+    /** GET /act_<id>?fields=min_daily_budget. Not every account exposes it, so a refusal is just "unknown" (null). */
+    minDailyBudget: async () => {
+      try {
+        const { body } = await request(adAccountId, { fields: "min_daily_budget" });
+        const value = Number(body && body.min_daily_budget);
+        return Number.isFinite(value) && value > 0 ? value : null;
+      } catch (error) {
+        if (error instanceof MetaError && (error.code === "TOKEN_INVALID" || error.code === "NETWORK" || error.code === "RATE_LIMITED")) throw error;
+        return null;
+      }
+    },
+
+    /** GET /search?type=adgeolocation: Egyptian governorates and cities only. */
+    geoSearch: async (query) => {
+      const { body } = await request("search", { type: "adgeolocation", q: String(query || "").slice(0, 60), country_code: "EG", location_types: ["region", "city"], limit: 25 });
+      return Array.isArray(body.data) ? body.data : [];
+    },
+
+    /** GET /act_<id>/generatepreviews for one creative spec and one ad_format. Returns the iframe html Meta renders. */
+    previews: async (creative, adFormat) => {
+      const { body } = await request(`${adAccountId}/generatepreviews`, { creative, ad_format: adFormat });
+      return Array.isArray(body.data) ? body.data.map((row) => String(row.body || "")) : [];
+    },
+
+    /** GET /<creative id>?fields=degrees_of_freedom_spec (what Meta applied after creating it). */
+    creative: async (creativeId) => (await request(String(creativeId), { fields: "id,degrees_of_freedom_spec" })).body,
+
+    /** GET /<campaign|adset|ad id>?fields=status,effective_status[,daily_budget,lifetime_budget,end_time,name]. */
+    object: async (objectId, fields) => (await request(String(objectId), { fields })).body,
+
+    /** The unknown-result search: objects of a parent edge whose name carries the tag `[nota:<publishId>]`. */
+    findByTag: async (edgePath, tag, fields = "id,name") => {
+      const rows = await getAll(edgePath, { fields, limit: 100, filtering: [{ field: "name", operator: "CONTAIN", value: tag }] });
+      return rows.filter((row) => String(row.name || "").includes(tag));
+    },
+
     /** GET /act_<id>/campaigns (every status, so archived campaigns keep their name for old insights). */
     campaigns: (options) => getAll(`${adAccountId}/campaigns`, {
       fields: "id,name,status,effective_status,objective,created_time",
@@ -184,4 +255,4 @@ const createClient = ({ adAccountId, token, appSecret, onUsage }) => {
   };
 };
 
-module.exports = { createClient, setTransport, MetaError, FAILURES, normalizeAccountId, graphVersion, readUsage, classify, proofOf, DEFAULT_VERSION };
+module.exports = { createClient, setTransport, MetaError, FAILURES, normalizeAccountId, graphVersion, readUsage, classify, proofOf, DEFAULT_VERSION, BASE_URL, REQUEST_TIMEOUT_MS, parseJson };

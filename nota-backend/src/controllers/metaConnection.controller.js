@@ -10,6 +10,7 @@ const secretBox = require("../utils/secretBox");
 const clock = require("../utils/clock");
 const { createClient, normalizeAccountId, MetaError } = require("../services/meta/metaClient");
 const sync = require("../services/meta/metaSync.service");
+const { hasPublishScopes, missingScopes, currencySupported } = require("../services/meta/metaPublish.service");
 const { rateCurrencies } = require("../services/meta/metaResults.service");
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -37,6 +38,12 @@ const view = (connection) => {
     account: c.connected && c.account ? { name: c.account.name, currency: c.account.currency, timezoneName: c.account.timezoneName, accountStatus: c.account.accountStatus, disableReason: c.account.disableReason } : null,
     accountStatusWarning: Boolean(c.connected && c.account && Number.isFinite(c.account.accountStatus) && !ACTIVE_STATUSES.has(c.account.accountStatus)),
     scopes: c.connected ? c.scopes || [] : [],
+    // Online Stage 7C: «قراءة بس» or «قراءة ونشر», from the stored scopes; what is missing for publishing; the chosen Page / Instagram account.
+    mode: c.connected && hasPublishScopes(c.scopes) ? "readwrite" : "read",
+    missingPublishScopes: c.connected ? missingScopes(c.scopes) : [],
+    currencySupportedForPublish: Boolean(c.connected && c.account && currencySupported(c.account.currency)),
+    page: c.connected && c.pageId ? { id: c.pageId, name: c.pageName || "" } : null,
+    instagram: c.connected && c.instagramId ? { id: c.instagramId, name: c.instagramName || "" } : null,
     connectedAt: c.connectedAt || null,
     lastSyncAt: c.lastSyncAt || null,
     lastSyncOkAt: c.lastSyncOkAt || null,
@@ -82,6 +89,12 @@ const probe = async (credentials) => {
   };
 };
 
+// Online Stage 7C: the ad account's minimum daily budget when Meta exposes it (GET). Never blocks connecting.
+const minBudgetField = async (credentials, scopes) => {
+  if (!hasPublishScopes(scopes)) return { minDailyBudgetMinor: null };
+  try { return { minDailyBudgetMinor: await createClient(credentials).minDailyBudget() }; } catch { return { minDailyBudgetMinor: null }; }
+};
+
 const get = asyncHandler(async (_req, res) => res.json(view(await MetaConnection.findById("default").lean())));
 
 // POST /api/website/meta-connection/test  { adAccountId, token?, appSecret? }  ("اختبار الربط"). Nothing is saved.
@@ -110,12 +123,14 @@ const save = asyncHandler(async (req, res) => {
   const sameAccount = previous && previous.adAccountId === credentials.adAccountId;
   await MetaConnection.findOneAndUpdate({ _id: "default" }, {
     // A different ad account starts clean: its first sync is a backfill (and stays one until it completes).
-    ...(previous && !sameAccount ? { $unset: { lastBackfillAt: "", lastSyncOkAt: "", lastSyncAt: "" } } : {}),
-    $set: {
+      $set: {
       connected: true, adAccountId: credentials.adAccountId, tokenSealed, tokenLast4: secretBox.last4(credentials.token),
       appSecretSealed: appSecretSealed || null, appSecretLast4: credentials.appSecret ? secretBox.last4(credentials.appSecret) : null,
       account: result.account, scopes: result.scopes, connectedAt: now, paused: false, lastError: null, retryAfter: null,
+      ...(await minBudgetField(credentials, result.scopes)),
     },
+    // A different ad account has different Pages: the choice starts again.
+    ...(previous && !sameAccount ? { $unset: { pageId: "", pageName: "", instagramId: "", instagramName: "", lastBackfillAt: "", lastSyncOkAt: "", lastSyncAt: "" } } : {}),
   }, { upsert: true, new: true });
   // A first connection (or a different account) backfills 90 days; reconnecting the same account only re-syncs the last days.
   sync.startInBackground(sameAccount && previous.lastBackfillAt ? "manual" : "backfill");
@@ -189,7 +204,57 @@ const deleteRate = asyncHandler(async (req, res) => {
   res.json({ ok: true });
 });
 
+// ----- Online Stage 7C: the Page (and Instagram account) the ads are published as. Both lists come from Meta (GET), nothing else is accepted.
+const connectedClient = async () => {
+  const connection = await MetaConnection.findById("default").lean();
+  if (!connection || !connection.connected || !connection.tokenSealed) throw httpError(409, "NOT_CONNECTED", "حساب الإعلانات غير مربوط");
+  return { connection, client: createClient(sync.credentialsOf(connection)) };
+};
+
+// GET /api/website/meta-connection/pages  (marketing.connect): GET /act_<id>/promote_pages
+const listPages = asyncHandler(async (_req, res) => {
+  const { client } = await connectedClient();
+  let rows;
+  try { rows = await client.promotePages(); } catch (error) { throw metaFailure(error); }
+  res.json({ data: rows.filter((row) => row && /^\d{1,30}$/.test(String(row.id))).map((row) => ({ id: String(row.id), name: String(row.name || "").slice(0, 120) })) });
+});
+
+// GET /api/website/meta-connection/instagram-accounts?pageId=  (marketing.connect): connected_instagram_accounts, then the Page's instagram_business_account.
+const listInstagram = asyncHandler(async (req, res) => {
+  const { connection, client } = await connectedClient();
+  let rows;
+  try {
+    rows = await client.instagramAccounts();
+    const pageId = String(req.query.pageId || connection.pageId || "");
+    if (!rows.length && /^\d{1,30}$/.test(pageId)) rows = await client.pageInstagram(pageId);
+  } catch (error) { throw metaFailure(error); }
+  res.json({ data: rows.filter((row) => row && /^\d{1,30}$/.test(String(row.id))).map((row) => ({ id: String(row.id), name: String(row.username || row.name || "").slice(0, 120) })) });
+});
+
+// PUT /api/website/meta-connection/publish-target  { pageId, instagramId? }  (marketing.connect): the ids must be in Meta's own lists.
+const savePublishTarget = asyncHandler(async (req, res) => {
+  const { connection, client } = await connectedClient();
+  const pageId = text(req.body && req.body.pageId, 30);
+  const instagramId = text(req.body && req.body.instagramId, 30);
+  let page; let instagram = null;
+  try {
+    page = (await client.promotePages()).find((row) => String(row.id) === pageId);
+    if (instagramId) {
+      let accounts = await client.instagramAccounts();
+      if (!accounts.some((row) => String(row.id) === instagramId)) accounts = await client.pageInstagram(pageId).catch(() => []);
+      instagram = accounts.find((row) => String(row.id) === instagramId) || null;
+    }
+  } catch (error) { throw metaFailure(error); }
+  if (!page) throw httpError(400, "PAGE_NOT_ALLOWED", new MetaError("PAGE_NOT_ALLOWED").message);
+  if (instagramId && !instagram) throw httpError(400, "INSTAGRAM_NOT_FOUND", "حساب إنستجرام غير موجود في حسابات الصفحة");
+  await MetaConnection.updateOne({ _id: connection._id }, {
+    $set: { pageId: String(page.id), pageName: String(page.name || "").slice(0, 120), ...(instagram ? { instagramId: String(instagram.id), instagramName: String(instagram.username || instagram.name || "").slice(0, 120) } : {}) },
+    ...(instagram ? {} : { $unset: { instagramId: "", instagramName: "" } }),
+  });
+  res.json(view(await MetaConnection.findById("default").lean()));
+});
+
 /** Connect / disconnect are logged by the route (key names only). The daily CLI has no request, so it writes directly when needed. */
 const auditDirect = (entry) => AuditLog.create({ at: new Date(), ...entry }).catch(() => {});
 
-module.exports = { get, test, save, disconnect, syncNow, listRates, saveRate, deleteRate, view, auditDirect };
+module.exports = { listPages, listInstagram, savePublishTarget, get, test, save, disconnect, syncNow, listRates, saveRate, deleteRate, view, auditDirect };

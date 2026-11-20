@@ -50,7 +50,7 @@ const EXPECTED_CATALOG = [
   // Online Stage 4
   "orders.view", "orders.manage", "orders.dispatch",
   // Online Stage 7A
-  "marketing.view", "marketing.manage", "marketing.connect", "leads.manage",
+  "marketing.view", "marketing.manage", "marketing.connect", "marketing.publish", "leads.manage",
 ];
 
 test("catalog: exactly the Stage 13 keys, each with an Arabic and English label and a group", () => {
@@ -64,7 +64,7 @@ test("catalog: exactly the Stage 13 keys, each with an Arabic and English label 
 test("role templates match the spec", () => {
   const sorted = (list) => [...list].sort();
   assert.deepEqual(sorted(ROLE_TEMPLATES.owner), sorted(EXPECTED_CATALOG));
-  assert.deepEqual(sorted(ROLE_TEMPLATES.manager), sorted(EXPECTED_CATALOG.filter((k) => !["users.manage", "backup.manage", "accounting.manage", "accounting.close", "owner.drawings", "marketing.connect"].includes(k))));
+  assert.deepEqual(sorted(ROLE_TEMPLATES.manager), sorted(EXPECTED_CATALOG.filter((k) => !["users.manage", "backup.manage", "accounting.manage", "accounting.close", "owner.drawings", "marketing.connect", "marketing.publish"].includes(k))));
   assert.deepEqual(sorted(ROLE_TEMPLATES.cashier), sorted([
     "sales.create", "sales.view", "credit.create", "credit.view", "credit.collect",
     "returns.create", "customers.view", "products.view", "dashboard.view",
@@ -302,6 +302,21 @@ const EXPECTED_ROUTES = {
   "GET /api/campaigns/:id/meta-links": "marketing.view",
   "POST /api/campaigns/:id/meta-links": "marketing.manage",
   "DELETE /api/campaigns/:id/meta-links/:metaId": "marketing.manage",
+  "GET /api/campaigns/meta-geo": "marketing.publish",
+  "GET /api/campaigns/:id/publish/options": "marketing.publish",
+  "POST /api/campaigns/:id/publish": "marketing.publish",
+  "GET /api/campaigns/:id/publish/:publishId": "marketing.publish",
+  "POST /api/campaigns/:id/publish/:publishId/preview": "marketing.publish",
+  "POST /api/campaigns/:id/publish/:publishId/run": "marketing.publish",
+  "POST /api/campaigns/:id/publish/:publishId/cancel": "marketing.publish",
+  "POST /api/campaigns/:id/meta-links/:metaId/status": "marketing.publish",
+  "POST /api/campaigns/:id/meta-links/:metaId/budget": "marketing.publish",
+  "POST /api/campaigns/:id/meta-links/:metaId/end-time": "marketing.publish",
+  "POST /api/campaigns/:id/meta-links/:metaId/archive": "marketing.publish",
+  "POST /api/campaigns/:id/meta-links/:metaId/refresh": "marketing.publish",
+  "GET /api/website/meta-connection/pages": "marketing.connect",
+  "GET /api/website/meta-connection/instagram-accounts": "marketing.connect",
+  "PUT /api/website/meta-connection/publish-target": "marketing.connect",
   "GET /api/website/meta-connection": "marketing.connect",
   "POST /api/website/meta-connection/test": "marketing.connect",
   "POST /api/website/meta-connection/sync": "marketing.connect",

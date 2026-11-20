@@ -6,7 +6,7 @@ import { roleDescription } from './role-description';
 describe('role descriptions and fixtures (Online Fixes 1)', () => {
   it('«المدير» lists exactly what it cannot do, taken from its template', () => {
     const missing = PERMISSION_CATALOG.keys.filter((key) => !PERMISSION_CATALOG.templates['manager'].includes(key));
-    expect(missing.sort()).toEqual(['accounting.close', 'accounting.manage', 'backup.manage', 'marketing.connect', 'owner.drawings', 'users.manage']);
+    expect(missing.sort()).toEqual(['accounting.close', 'accounting.manage', 'backup.manage', 'marketing.connect', 'marketing.publish', 'owner.drawings', 'users.manage']);
     const text = roleDescription('manager', 'ar');
     expect(text.startsWith('كل حاجة ما عدا')).toBeTrue();
     for (const key of missing) expect(text).withContext(key).toContain(PERMISSION_CATALOG.permissions[key].ar);

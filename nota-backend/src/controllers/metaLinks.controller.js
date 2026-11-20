@@ -16,6 +16,8 @@ const rowView = (row, campaign) => ({
   metaId: row.metaId, name: row.name, status: row.effectiveStatus || row.status || "", objective: row.objective || "",
   campaignId: row.campaignId || null, linkedAt: row.linkedAt || null,
   suggested: Boolean(campaign && !row.campaignId && String(row.name || "").toLowerCase().includes(campaign.code)),
+  // Online Stage 7C: only campaigns Nota created can be switched on/off or changed from Nota (the rest stay read-only).
+  createdByNota: Boolean(row.createdByNota), dailyBudgetMinor: row.dailyBudgetMinor || null, lifetimeBudgetMinor: row.lifetimeBudgetMinor || null, endTime: row.endTime || null,
 });
 
 const loadCampaign = async (id) => {

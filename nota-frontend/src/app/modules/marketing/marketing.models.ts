@@ -182,6 +182,9 @@ export interface MarketingSettings {
   attributionDays: number;
   askHeardFrom: boolean;
   heardFromOptions: string[];
+  /** Online Stage 7C: «أقصى ميزانية» in EGP for ads created from Nota (marketing.publish edits them). */
+  maxDailyBudgetEgp: number;
+  maxTotalBudgetEgp: number;
   feeds: { meta: string; tiktok: string };
 }
 export type MarketingSettingsPayload = Partial<Omit<MarketingSettings, 'feeds'>>;
@@ -204,6 +207,12 @@ export interface MetaConnectionView {
   paused: boolean;
   syncing: boolean;
   nextManualSyncAt: string | null;
+  /** Online Stage 7C: «قراءة بس» / «قراءة ونشر», what publishing still needs, and the Page / Instagram account ads are published as. */
+  mode: 'read' | 'readwrite';
+  missingPublishScopes: string[];
+  currencySupportedForPublish: boolean;
+  page: { id: string; name: string } | null;
+  instagram: { id: string; name: string } | null;
 }
 export interface MetaTestResult {
   ok: boolean;
@@ -215,6 +224,57 @@ export interface MetaTestResult {
   expiresAt: string | null;
 }
 export interface MetaConnectPayload { adAccountId: string; token?: string; appSecret?: string }
-export interface MetaCampaignRow { metaId: string; name: string; status: string; objective: string; campaignId: string | null; linkedAt: string | null; suggested: boolean }
+export interface MetaCampaignRow {
+  metaId: string; name: string; status: string; objective: string; campaignId: string | null; linkedAt: string | null; suggested: boolean;
+  /** Online Stage 7C: only campaigns Nota created can be switched on/off or changed from Nota. */
+  createdByNota?: boolean; dailyBudgetMinor?: number | null; lifetimeBudgetMinor?: number | null; endTime?: string | null;
+}
+
+// --- Online Stage 7C: creating Facebook/Instagram campaigns from Nota
+export type PublishGoal = 'traffic' | 'sales';
+export type PublishCta = 'SHOP_NOW' | 'ORDER_NOW' | 'LEARN_MORE' | 'CONTACT_US' | 'GET_OFFER';
+export interface PublishBlocker { code: string; missing?: string[]; currency?: string; help?: string }
+export interface PublishOptions {
+  ready: boolean;
+  blockers: PublishBlocker[];
+  mode: 'read' | 'readwrite';
+  currency: string;
+  timezoneName: string;
+  page: { id: string; name: string } | null;
+  instagram: { id: string; name: string } | null;
+  ceiling: { dailyEgp: number; totalEgp: number };
+  rate: number | null;
+  needsRate: boolean;
+  minDailyBudgetMinor: number | null;
+  pixel: { configured: boolean; visible: boolean; lastFiredTime: string | null };
+  salesAllowed: boolean;
+  ctas: PublishCta[];
+}
+export interface GeoPlace { key: string; type: 'region' | 'city'; name: string; region?: string }
+export interface PublishAdInput {
+  primaryText: string; headline: string; description: string; cta: PublishCta;
+  image: { kind: 'upload'; data: string } | { kind: 'product'; productId: string; index: number };
+  landing: { kind: 'campaign' } | { kind: 'product'; productId: string };
+}
+export interface PublishSpecInput {
+  goal: PublishGoal;
+  budget: { type: 'daily' | 'lifetime'; amount: number; startTime?: string; endTime?: string };
+  audience: { advantage: boolean; ageMin: number; ageMax?: number; gender?: 'all' | 'male' | 'female'; locations: GeoPlace[] };
+  ads: PublishAdInput[];
+}
+export type PublishStepName = 'validate' | 'campaign' | 'images' | 'adset' | 'creatives' | 'ads' | 'link';
+export interface PublishView {
+  publishId: string;
+  campaignId: string;
+  status: 'draft' | 'running' | 'failed' | 'published' | 'cancelled';
+  goal: PublishGoal;
+  steps: Partial<Record<PublishStepName, { state: 'pending' | 'done' | 'failed'; errorCode: string | null; errorMessage: string | null }>>;
+  metaCampaignId: string | null;
+  ads: { index: number; hasImage: boolean; creativeId: string | null; adId: string | null; appliedFeatures: unknown }[];
+  lastError: { step: string; code: string; message: string } | null;
+  publishedAt: string | null;
+  warnings?: string[];
+}
+export interface SwitchSummary { type: 'daily' | 'lifetime'; amountMinor: number; currency: string; endTime: string | null }
 export interface ExchangeRateRow { _id: string; currency: string; rate: number; effectiveFrom: string; createdByName: string }
 export interface ExchangeRates { currency: string | null; required: boolean; data: ExchangeRateRow[]; groups: { currency: string; data: ExchangeRateRow[] }[] }

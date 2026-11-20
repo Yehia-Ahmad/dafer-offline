@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   AdCategory, Campaign, CampaignList, CampaignPayload, CampaignResults, ExchangeRateRow, ExchangeRates, ImportMapping, ImportPreview, ImportResult, Lead, LeadDetail, LeadList, LeadPayload,
-  MarketingSettings, MarketingSettingsPayload, MetaCampaignRow, MetaConnectPayload, MetaConnectionView, MetaTestResult, Results, SpendList,
+  GeoPlace, MarketingSettings, MarketingSettingsPayload, MetaCampaignRow, PublishOptions, PublishSpecInput, PublishView, SwitchSummary, MetaConnectPayload, MetaConnectionView, MetaTestResult, Results, SpendList,
 } from './marketing.models';
 
 const params = (query: Record<string, string | number | null | undefined>): HttpParams => {
@@ -66,6 +66,29 @@ export class MarketingService {
   metaLinks(id: string): Observable<{ data: MetaCampaignRow[] }> { return this.http.get<{ data: MetaCampaignRow[] }>(`${this.api}campaigns/${id}/meta-links`); }
   linkMeta(id: string, metaId: string): Observable<MetaCampaignRow> { return this.http.post<MetaCampaignRow>(`${this.api}campaigns/${id}/meta-links`, { metaId }); }
   unlinkMeta(id: string, metaId: string): Observable<{ ok: boolean }> { return this.http.delete<{ ok: boolean }>(`${this.api}campaigns/${id}/meta-links/${metaId}`); }
+
+  // --- Online Stage 7C: the Page / Instagram account ads are published as (marketing.connect), creating and managing campaigns (marketing.publish)
+  metaPages(): Observable<{ data: { id: string; name: string }[] }> { return this.http.get<{ data: { id: string; name: string }[] }>(`${this.api}website/meta-connection/pages`); }
+  metaInstagram(pageId: string): Observable<{ data: { id: string; name: string }[] }> {
+    return this.http.get<{ data: { id: string; name: string }[] }>(`${this.api}website/meta-connection/instagram-accounts`, { params: params({ pageId }) });
+  }
+  saveMetaTarget(payload: { pageId: string; instagramId?: string }): Observable<MetaConnectionView> { return this.http.put<MetaConnectionView>(`${this.api}website/meta-connection/publish-target`, payload); }
+  publishOptions(id: string): Observable<PublishOptions> { return this.http.get<PublishOptions>(`${this.api}campaigns/${id}/publish/options`); }
+  geoSearch(q: string): Observable<{ data: GeoPlace[] }> { return this.http.get<{ data: GeoPlace[] }>(`${this.api}campaigns/meta-geo`, { params: params({ q }) }); }
+  publishDraft(id: string, spec: PublishSpecInput): Observable<PublishView> { return this.http.post<PublishView>(`${this.api}campaigns/${id}/publish`, spec); }
+  publishPreview(id: string, publishId: string, index: number, format: 'feed' | 'mobile' | 'instagram'): Observable<{ frames: string[] }> {
+    return this.http.post<{ frames: string[] }>(`${this.api}campaigns/${id}/publish/${publishId}/preview`, { index, format });
+  }
+  publishRun(id: string, publishId: string): Observable<PublishView> { return this.http.post<PublishView>(`${this.api}campaigns/${id}/publish/${publishId}/run`, {}); }
+  publishCancel(id: string, publishId: string): Observable<PublishView> { return this.http.post<PublishView>(`${this.api}campaigns/${id}/publish/${publishId}/cancel`, {}); }
+  metaSetStatus(id: string, metaId: string, status: 'ACTIVE' | 'PAUSED', confirmSpend = false): Observable<{ status: string; summary: SwitchSummary | null }> {
+    return this.http.post<{ status: string; summary: SwitchSummary | null }>(`${this.api}campaigns/${id}/meta-links/${metaId}/status`, { status, ...(confirmSpend ? { confirmSpend: true } : {}) });
+  }
+  metaSetBudget(id: string, metaId: string, amount: number): Observable<{ type: 'daily' | 'lifetime'; oldMinor: number | null; newMinor: number }> {
+    return this.http.post<{ type: 'daily' | 'lifetime'; oldMinor: number | null; newMinor: number }>(`${this.api}campaigns/${id}/meta-links/${metaId}/budget`, { amount });
+  }
+  metaSetEndTime(id: string, metaId: string, endTime: string): Observable<{ newEndTime: string }> { return this.http.post<{ newEndTime: string }>(`${this.api}campaigns/${id}/meta-links/${metaId}/end-time`, { endTime }); }
+  metaArchive(id: string, metaId: string): Observable<{ status: string }> { return this.http.post<{ status: string }>(`${this.api}campaigns/${id}/meta-links/${metaId}/archive`, {}); }
 
   // --- settings
   settings(): Observable<MarketingSettings> { return this.http.get<MarketingSettings>(`${this.api}website/marketing-settings`); }

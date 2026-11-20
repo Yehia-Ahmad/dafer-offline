@@ -101,7 +101,7 @@ describe('help coverage (Online Stage Help)', () => {
     const usersText = sectionStrings(byId.get('users')!).join('\n');
     const notInTable = PERMISSION_CATALOG.keys.filter((key) => !usersText.includes(PERMISSION_CATALOG.permissions[key].ar));
     expect(notInTable).toEqual([]);
-    expect(PERMISSION_CATALOG.keys.length).toBe(54);
+    expect(PERMISSION_CATALOG.keys.length).toBe(55);
   });
 
   it('section permission rules only use real permission keys', () => {

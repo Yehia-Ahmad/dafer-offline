@@ -15,6 +15,13 @@ const schema = new mongoose.Schema({
   campaignId: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign", index: true },
   linkedAt: { type: Date },
   linkedByName: { type: String },
+  // Online Stage 7C: set only when Nota created this campaign (MetaPublish). Only those can be switched on/off or changed from Nota.
+  createdByNota: { type: Boolean, default: false },
+  publishId: { type: String },
+  // Read back from Meta after a change (minor units of the account currency).
+  dailyBudgetMinor: { type: Number },
+  lifetimeBudgetMinor: { type: Number },
+  endTime: { type: Date },
 }, { timestamps: true });
 
 module.exports = mongoose.model("MetaCampaign", schema);

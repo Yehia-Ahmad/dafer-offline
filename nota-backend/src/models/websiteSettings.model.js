@@ -113,6 +113,9 @@ const websiteSettingsSchema = new mongoose.Schema(
       attributionDays: { type: Number, min: 1, max: 90 },
       askHeardFrom: { type: Boolean },
       heardFromOptions: { type: [{ type: String, trim: true, maxlength: 40 }], default: undefined },
+      // Online Stage 7C: «أقصى ميزانية» for ads created from Nota, in EGP (marketing.publish edits them).
+      maxDailyBudgetEgp: { type: Number, min: 1, max: 10000000 },
+      maxTotalBudgetEgp: { type: Number, min: 1, max: 100000000 },
     },
   },
   { timestamps: true }
