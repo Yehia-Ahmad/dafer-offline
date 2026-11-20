@@ -5,7 +5,9 @@ const asyncHandler = require("../utils/asyncHandler");
 const { httpError } = require("../auth/middleware");
 const Campaign = require("../models/campaign.model");
 const MetaCampaign = require("../models/metaCampaign.model");
+const MetaConnection = require("../models/metaConnection.model");
 const clock = require("../utils/clock");
+const { currentAccountFilter } = require("../services/meta/metaResults.service");
 
 const LINKABLE_PLATFORMS = ["facebook", "instagram"];
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -27,7 +29,9 @@ const loadCampaign = async (id) => {
 // Suggested ones come first. Linked ones are shown too (marked), so the owner sees why they cannot be taken.
 const listMeta = asyncHandler(async (req, res) => {
   const campaign = req.query.campaignId ? await loadCampaign(req.query.campaignId) : null;
-  const filter = {};
+  // Only campaigns of the CURRENT ad account (rows without an account id count as current); an old account's linked ones are listed
+  // on their Nota campaign (`listLinks`) and keep counting there.
+  const filter = currentAccountFilter(await MetaConnection.findById("default").select("adAccountId").lean());
   const search = String(req.query.search || "").trim().slice(0, 80);
   if (search) filter.name = { $regex: escapeRegex(search), $options: "i" };
   if (req.query.status) filter.effectiveStatus = String(req.query.status).toUpperCase().slice(0, 30);

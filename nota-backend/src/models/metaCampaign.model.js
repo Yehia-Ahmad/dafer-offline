@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 
 const schema = new mongoose.Schema({
   metaId: { type: String, required: true, unique: true },
+  // The ad account it was synced from (rows without it count as the current account).
+  adAccountId: { type: String, index: true },
   name: { type: String, default: "" },
   status: { type: String },
   effectiveStatus: { type: String },

@@ -101,6 +101,7 @@ function freshWorld() {
     token: TOKEN,
     debugTokenFails: false,
     stall: null,
+    accountId: ACCOUNT,
   };
 }
 
@@ -124,14 +125,14 @@ async function fakeMeta(url, { method, headers }) {
     const more = start + size < rows.length;
     return { status: 200, headers: {}, body: { data: slice, paging: { cursors: { before: "0", after: String(start + size) }, ...(more ? { next: `https://graph.facebook.com/leak?access_token=${world.token}` } : {}) } } };
   };
-  if (path === ACCOUNT) return { status: 200, headers: {}, body: world.account };
+  if (path === world.accountId) return { status: 200, headers: {}, body: world.account };
   if (path === "debug_token") {
     if (world.debugTokenFails) return { status: 400, headers: {}, body: metaError(100) };
     return { status: 200, headers: {}, body: { data: { is_valid: true, scopes: world.scopes, expires_at: 0, app_id: "1" } } };
   }
   if (path === "me/permissions") return { status: 200, headers: {}, body: { data: world.scopes.map((permission) => ({ permission, status: "granted" })) } };
-  if (path === `${ACCOUNT}/campaigns`) return page(world.campaigns);
-  if (path === `${ACCOUNT}/insights`) {
+  if (path === `${world.accountId}/campaigns`) return page(world.campaigns);
+  if (path === `${world.accountId}/insights`) {
     const range = JSON.parse(params.time_range);
     return page(world.insights.filter((row) => row.date_start >= range.since && row.date_start <= range.until).map((row) => ({ date_stop: row.date_start, ...row })));
   }
@@ -191,10 +192,11 @@ it("money from Meta is parsed from the string into integer minor units with no f
   assert.equal(rateOn(rates, "2026-10-31"), null);
   assert.equal(rateOn(rates, "2026-11-09").rate, 48);
   assert.equal(rateOn(rates, "2026-11-10").rate, 50);
-  const folded = foldDays([{ day: "2026-11-09", spendMinor: 1000, impressions: 1, reach: 1, clicks: 1, linkClicks: 1 }, { day: "2026-11-10", spendMinor: 1000, impressions: 1, reach: 1, clicks: 1, linkClicks: 1 }, { day: "2026-10-01", spendMinor: 500, impressions: 0, reach: 0, clicks: 0, linkClicks: 0 }], rates, false);
+  const folded = foldDays([{ day: "2026-11-09", spendMinor: 1000, impressions: 1, reach: 1, clicks: 1, linkClicks: 1 }, { day: "2026-11-10", spendMinor: 1000, impressions: 1, reach: 1, clicks: 1, linkClicks: 1 }, { day: "2026-10-01", spendMinor: 500, impressions: 0, reach: 0, clicks: 0, linkClicks: 0 }], { USD: rates }, "USD");
   assert.equal(folded.egpMinor, 48000 + 50000, "each day converted with the rate of that day");
   assert.equal(folded.missingRateMinor, 500, "the day before any rate is not converted");
-  assert.equal(folded.originalMinor, 2500);
+  assert.deepEqual(folded.originals, { USD: 2500 });
+  assert.deepEqual(folded.missing, { USD: 500 });
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -736,6 +738,125 @@ it("after disconnecting, the synced numbers still show in the results", async ()
   const results = ok(await staff("GET", "/api/campaigns/results"));
   assert.equal(results.meta.connected, false);
   assert.equal(results.campaigns.find((item) => item.code === "keep-1").meta.spend, 15);
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// review fixes: ads_management, gaps, another ad account
+
+it("a token with ads_management but without ads_read is accepted (it includes read access); with neither it is refused", async () => {
+  world.scopes = ["ads_management"];
+  const result = ok(await staff("POST", "/api/website/meta-connection/test", connectBody()));
+  assert.equal(result.ok, true); assert.equal(result.hasAdsRead, true); assert.deepEqual(result.scopes, ["ads_management"]);
+  world.campaigns = [metaCampaign(1, "حملة")]; world.insights = [insight(1, day(-1), "5")];
+  const view = await connect();
+  assert.equal(view.connected, true); assert.equal(await MetaInsightDay.countDocuments({}), 1);
+  world.scopes = ["ads_read", "ads_management"];
+  assert.equal(ok(await staff("POST", "/api/website/meta-connection/test", connectBody())).ok, true);
+  world.scopes = ["public_profile", "pages_show_list"];
+  assert.equal(ok(await staff("POST", "/api/website/meta-connection/test", connectBody())).ok, false);
+  const refused = await staff("PUT", "/api/website/meta-connection", connectBody());
+  assert.equal(refused.status, 400); assert.equal(refused.json.code, "PERMISSION_MISSING");
+});
+
+it("gaps: a daily run with no completed backfill is a backfill (the first one failed half way)", async () => {
+  world.campaigns = [metaCampaign(1, "حملة")]; world.insights = [insight(1, day(-80), "5"), insight(1, day(-1), "6")];
+  fail("insights", metaError(613), { times: 1 });
+  await connect(); // the backfill hits a rate limit
+  let stored = await connection();
+  assert.equal(stored.lastError.code, "RATE_LIMITED"); assert.equal(stored.lastBackfillAt, undefined);
+  assert.equal(await MetaInsightDay.countDocuments({}), 0);
+  setClock(() => new Date(Date.now() + 25 * 60 * 1000));
+  world.calls.length = 0;
+  const result = await metaSync.runSync({ mode: "daily" });
+  assert.equal(result.status, "ok");
+  assert.equal(world.calls.filter((c) => c.path === `${ACCOUNT}/insights`).length, 3, "90 days, not 7");
+  assert.equal(await MetaInsightDay.countDocuments({}), 2, "the old day is filled in");
+  stored = await connection();
+  assert.ok(stored.lastBackfillAt);
+  // now it is an ordinary 7-day run
+  world.calls.length = 0;
+  await metaSync.runSync({ mode: "daily" });
+  assert.equal(world.calls.filter((c) => c.path === `${ACCOUNT}/insights`).length, 1);
+});
+
+it("gaps: the daily window reaches back to the last successful sync + 7 days (at least 7, at most 90)", async () => {
+  const ago = (days) => new Date(Date.now() - days * 86400000);
+  const plan = (lastSyncOkAt, extra = {}) => metaSync.syncPlan({ lastBackfillAt: new Date(), lastSyncOkAt, ...extra }, "daily");
+  assert.deepEqual(plan(new Date()), { mode: "daily", days: 7 });
+  assert.deepEqual(plan(ago(1)), { mode: "daily", days: 8 });
+  assert.deepEqual(plan(ago(14)), { mode: "daily", days: 21 });
+  assert.equal(plan(ago(200)).days, 90);
+  assert.equal(plan(undefined).days, 90, "never synced ok: as far back as allowed");
+  assert.deepEqual(metaSync.syncPlan({ lastSyncOkAt: new Date() }, "daily"), { mode: "backfill", days: 90 });
+  assert.deepEqual(metaSync.syncPlan({ lastBackfillAt: new Date(), lastSyncOkAt: new Date() }, "backfill"), { mode: "backfill", days: 90 });
+
+  // end to end: a server that was off for 14 days
+  world.campaigns = [metaCampaign(1, "حملة")]; world.insights = [insight(1, day(-1), "5")];
+  await connect();
+  world.insights = [insight(1, day(-1), "5"), insight(1, day(-15), "9"), insight(1, day(-25), "4")];
+  await MetaConnection.updateOne({ _id: "default" }, { $set: { lastSyncOkAt: ago(14) } });
+  world.calls.length = 0;
+  assert.equal((await metaSync.runSync({ mode: "daily" })).status, "ok");
+  const calls = world.calls.filter((c) => c.path === `${ACCOUNT}/insights`);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(JSON.parse(calls[0].params.time_range), { since: day(-20), until: day(0) });
+  assert.ok(await MetaInsightDay.findOne({ metaId: "1", day: day(-15) }), "the gap day was filled");
+  assert.equal(await MetaInsightDay.findOne({ metaId: "1", day: day(-25) }), null, "older than the window: not touched");
+});
+
+it("another ad account: old days keep their own currency and rate, only the new account's campaigns are listed, linked old ones still count", async () => {
+  const linked = await newCampaign({ code: "old-usd" });
+  world.account.currency = "USD";
+  world.campaigns = [metaCampaign(1, "old-usd one"), metaCampaign(2, "old unlinked")];
+  world.insights = [insight(1, day(-2), "10.00"), insight(1, day(-1), "10.00"), insight(2, day(-1), "3.00")];
+  await connect();
+  ok(await staff("POST", `/api/campaigns/${linked._id}/meta-links`, { metaId: "1" }), 201);
+  ok(await staff("POST", "/api/website/exchange-rates", { rate: 48, effectiveFrom: day(-5) }), 201);
+  const q = `from=${day(-5)}&to=${today()}`;
+  let results = ok(await staff("GET", `/api/campaigns/results?${q}`));
+  assert.equal(results.campaigns.find((item) => item.code === "old-usd").meta.spend, 960);
+  assert.deepEqual(results.meta.unlinked.map((row) => row.metaId), ["2"]);
+  assert.equal((await MetaCampaign.findOne({ metaId: "1" }).lean()).adAccountId, ACCOUNT);
+  assert.equal((await MetaInsightDay.findOne({ metaId: "1", day: day(-1) }).lean()).adAccountId, ACCOUNT);
+
+  // the shop replaces the disabled USD account with an EGP one
+  const NEW = "act_9876543210";
+  world.accountId = NEW; world.account = { id: NEW, name: "حساب جديد", currency: "EGP", timezone_name: "Africa/Cairo", account_status: 1, disable_reason: 0 };
+  world.campaigns = [metaCampaign(5, "new account campaign")];
+  world.insights = [insight(5, day(-1), "7.00")];
+  const view = await connect({ adAccountId: NEW });
+  assert.equal(view.adAccountId, NEW); assert.equal(view.account.currency, "EGP");
+  assert.equal((await MetaCampaign.findOne({ metaId: "5" }).lean()).adAccountId, NEW);
+  assert.equal((await MetaInsightDay.findOne({ metaId: "5" }).lean()).adAccountId, NEW);
+  assert.equal((await MetaInsightDay.findOne({ metaId: "5" }).lean()).currency, "EGP");
+  assert.equal((await MetaInsightDay.findOne({ metaId: "1", day: day(-1) }).lean()).currency, "USD", "old rows keep their own currency");
+
+  results = ok(await staff("GET", `/api/campaigns/results?${q}`));
+  const row = results.campaigns.find((item) => item.code === "old-usd");
+  assert.equal(row.meta.spend, 960, "old USD days still convert with the USD rate, not as EGP");
+  assert.equal(row.meta.originalCurrency, "USD"); assert.equal(row.meta.originalSpend, 20); assert.equal(row.needsRate, false);
+  assert.deepEqual(results.meta.unlinked.map((item) => item.metaId), ["5"], "the old account's unlinked campaign is gone from the list");
+  assert.equal(results.meta.currency, "EGP");
+  assert.deepEqual(ok(await staff("GET", "/api/campaigns/meta-campaigns")).data.map((item) => item.metaId), ["5"], "the picker shows the new account only");
+  assert.deepEqual(ok(await staff("GET", `/api/campaigns/${linked._id}/meta-links`)).data.map((item) => item.metaId), ["1"], "the old linked campaign stays on its Nota campaign");
+
+  // a new EGP campaign linked to the same Nota campaign adds in EGP at 1:1, the USD ones at their rate
+  ok(await staff("POST", `/api/campaigns/${linked._id}/meta-links`, { metaId: "5" }), 201);
+  results = ok(await staff("GET", `/api/campaigns/results?${q}`));
+  assert.equal(results.campaigns.find((item) => item.code === "old-usd").meta.spend, 967, "960 (USD at 48) + 7 (EGP)");
+  assert.deepEqual(results.campaigns.find((item) => item.code === "old-usd").meta.originals, { USD: 20, EGP: 7 });
+
+  // one rate list per currency in the synced insights, even though the current account is EGP
+  const rates = ok(await staff("GET", "/api/website/exchange-rates"));
+  assert.equal(rates.currency, "EGP"); assert.equal(rates.required, false);
+  assert.deepEqual(rates.groups.map((group) => group.currency), ["USD"]);
+  assert.equal(rates.groups[0].data.length, 1);
+  ok(await staff("POST", "/api/website/exchange-rates", { currency: "USD", rate: 50, effectiveFrom: day(-1) }), 201);
+  assert.equal(ok(await staff("GET", "/api/website/exchange-rates")).groups[0].data.length, 2);
+  assert.equal((await staff("POST", "/api/website/exchange-rates", { currency: "EUR", rate: 50, effectiveFrom: day(-1) })).json.code, "RATE_NOT_NEEDED", "a currency not in the numbers needs no rate");
+  assert.equal((await staff("POST", "/api/website/exchange-rates", { currency: "EGP", rate: 1, effectiveFrom: day(-1) })).json.code, "RATE_NOT_NEEDED");
+  results = ok(await staff("GET", `/api/campaigns/results?${q}`));
+  assert.equal(results.campaigns.find((item) => item.code === "old-usd").meta.spend, 480 + 500 + 7, "day -2 at 48, day -1 at 50, plus the EGP 7");
 });
 
 it("the new permission is in the catalog, owner only", () => {

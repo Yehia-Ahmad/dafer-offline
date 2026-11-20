@@ -217,4 +217,4 @@ export interface MetaTestResult {
 export interface MetaConnectPayload { adAccountId: string; token?: string; appSecret?: string }
 export interface MetaCampaignRow { metaId: string; name: string; status: string; objective: string; campaignId: string | null; linkedAt: string | null; suggested: boolean }
 export interface ExchangeRateRow { _id: string; currency: string; rate: number; effectiveFrom: string; createdByName: string }
-export interface ExchangeRates { currency: string | null; required: boolean; data: ExchangeRateRow[] }
+export interface ExchangeRates { currency: string | null; required: boolean; data: ExchangeRateRow[]; groups: { currency: string; data: ExchangeRateRow[] }[] }

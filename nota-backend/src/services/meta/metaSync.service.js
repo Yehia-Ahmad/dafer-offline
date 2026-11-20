@@ -63,29 +63,42 @@ const credentialsOf = (connection) => ({
 
 const clientFor = (connection, options = {}) => createClient({ ...credentialsOf(connection), ...options });
 
-const upsertCampaigns = async (rows) => {
+/**
+ * How far back this run reads. A run with no completed backfill (the first one failed half way, for example on a rate limit) is a
+ * backfill. Otherwise the window reaches back to the last successful sync plus 7 days (Meta revises recent numbers), at least 7 and at most
+ * 90 days, so a server that was off for two weeks catches up.
+ */
+const syncPlan = (connection, mode) => {
+  if (mode === "backfill" || !connection.lastBackfillAt) return { mode: "backfill", days: BACKFILL_DAYS };
+  const today = clock.localDayString(clock.now());
+  const last = connection.lastSyncOkAt ? clock.localDayString(connection.lastSyncOkAt) : null;
+  const gap = last ? Math.max(0, Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${last}T00:00:00Z`)) / 86400000)) : BACKFILL_DAYS;
+  return { mode, days: Math.min(BACKFILL_DAYS, Math.max(RESYNC_DAYS, gap + RESYNC_DAYS)) };
+};
+
+const upsertCampaigns = async (rows, adAccountId) => {
   if (!rows.length) return;
   const syncedAt = clock.now();
   await MetaCampaign.bulkWrite(rows.filter((row) => row && row.id).map((row) => ({
     updateOne: {
       filter: { metaId: String(row.id) },
-      update: { $set: { name: String(row.name || ""), status: row.status, effectiveStatus: row.effective_status, objective: row.objective, createdTime: row.created_time ? new Date(row.created_time) : undefined, syncedAt } },
+      update: { $set: { adAccountId, name: String(row.name || ""), status: row.status, effectiveStatus: row.effective_status, objective: row.objective, createdTime: row.created_time ? new Date(row.created_time) : undefined, syncedAt } },
       upsert: true,
     },
   })));
 };
 
-const upsertInsights = async (rows, currency) => {
+const upsertInsights = async (rows, currency, adAccountId) => {
   const valid = rows.filter((row) => row && row.campaign_id && DAY_RE.test(String(row.date_start || "")));
   if (!valid.length) return 0;
   // A campaign seen only in insights (not in the campaigns list) still gets a row, so its spend is never hidden.
   await MetaCampaign.bulkWrite(valid.map((row) => ({
-    updateOne: { filter: { metaId: String(row.campaign_id) }, update: { $setOnInsert: { metaId: String(row.campaign_id), name: String(row.campaign_name || "") } }, upsert: true },
+    updateOne: { filter: { metaId: String(row.campaign_id) }, update: { $setOnInsert: { metaId: String(row.campaign_id), adAccountId, name: String(row.campaign_name || "") } }, upsert: true },
   })));
   await MetaInsightDay.bulkWrite(valid.map((row) => ({
     updateOne: {
       filter: { metaId: String(row.campaign_id), day: row.date_start },
-      update: { $set: { currency, spendMinor: parseMinor(row.spend) || 0, impressions: parseCount(row.impressions), reach: parseCount(row.reach), clicks: parseCount(row.clicks), linkClicks: parseCount(row.inline_link_clicks) } },
+      update: { $set: { adAccountId, currency, spendMinor: parseMinor(row.spend) || 0, impressions: parseCount(row.impressions), reach: parseCount(row.reach), clicks: parseCount(row.clicks), linkClicks: parseCount(row.inline_link_clicks) } },
       upsert: true,
     },
   })));
@@ -122,14 +135,15 @@ const runSync = async ({ mode = "daily" } = {}) => {
     // The account status never pauses the sync: insights of a disabled or unsettled account are still wanted. It shows as a banner.
     await MetaConnection.updateOne({ _id: "default" }, { $set: { account: info } });
 
-    await upsertCampaigns(await client.campaigns({ pageDelay }));
+    const plan = syncPlan(connection, mode);
+    await upsertCampaigns(await client.campaigns({ pageDelay }), connection.adAccountId);
     let rows = 0;
-    for (const window of windowsFor(mode === "backfill" ? BACKFILL_DAYS : RESYNC_DAYS)) {
-      rows += await upsertInsights(await client.insights(window.since, window.until, { pageDelay }), info.currency);
+    for (const window of windowsFor(plan.days)) {
+      rows += await upsertInsights(await client.insights(window.since, window.until, { pageDelay }), info.currency, connection.adAccountId);
     }
     const now = clock.now();
     await MetaConnection.updateOne({ _id: "default" }, {
-      $set: { lastSyncAt: now, lastSyncOkAt: now, lastError: null, retryAfter: null, ...(mode === "backfill" ? { lastBackfillAt: now } : {}) },
+      $set: { lastSyncAt: now, lastSyncOkAt: now, lastError: null, retryAfter: null, ...(plan.mode === "backfill" ? { lastBackfillAt: now } : {}) },
     });
     return { status: "ok", rows };
   } catch (error) {
@@ -153,4 +167,4 @@ const startInBackground = (mode) => {
 };
 const idle = async () => { await inflight; };
 
-module.exports = { runSync, startInBackground, idle, setSleep, windowsFor, addDays, credentialsOf, clientFor, MANUAL_GAP_MS, BACKFILL_DAYS, RESYNC_DAYS, WINDOW_DAYS };
+module.exports = { runSync, startInBackground, idle, setSleep, windowsFor, syncPlan, addDays, credentialsOf, clientFor, MANUAL_GAP_MS, BACKFILL_DAYS, RESYNC_DAYS, WINDOW_DAYS };

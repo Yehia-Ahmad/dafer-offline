@@ -10,6 +10,7 @@ const secretBox = require("../utils/secretBox");
 const clock = require("../utils/clock");
 const { createClient, normalizeAccountId, MetaError } = require("../services/meta/metaClient");
 const sync = require("../services/meta/metaSync.service");
+const { rateCurrencies } = require("../services/meta/metaResults.service");
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ACTIVE_STATUSES = new Set([1, 9]); // ACTIVE, IN_GRACE_PERIOD
@@ -65,7 +66,8 @@ const probe = async (credentials) => {
   const client = createClient(credentials);
   const account = await client.account();
   const permissions = await client.permissions();
-  const hasAdsRead = permissions.scopes.includes("ads_read");
+  // ads_management includes read access, so a token with either is enough (the field keeps its name for the admin app).
+  const hasAdsRead = permissions.scopes.includes("ads_read") || permissions.scopes.includes("ads_management");
   return {
     account: {
       name: String(account.name || ""),
@@ -107,6 +109,8 @@ const save = asyncHandler(async (req, res) => {
   const previous = await MetaConnection.findById("default").lean();
   const sameAccount = previous && previous.adAccountId === credentials.adAccountId;
   await MetaConnection.findOneAndUpdate({ _id: "default" }, {
+    // A different ad account starts clean: its first sync is a backfill (and stays one until it completes).
+    ...(previous && !sameAccount ? { $unset: { lastBackfillAt: "", lastSyncOkAt: "", lastSyncAt: "" } } : {}),
     $set: {
       connected: true, adAccountId: credentials.adAccountId, tokenSealed, tokenLast4: secretBox.last4(credentials.token),
       appSecretSealed: appSecretSealed || null, appSecretLast4: credentials.appSecret ? secretBox.last4(credentials.appSecret) : null,
@@ -156,15 +160,21 @@ const accountCurrency = async () => {
   return connection && connection.account && connection.account.currency ? connection.account.currency : null;
 };
 
+// Every non-EGP currency of the synced insights (a replaced ad account can leave days in another currency) and of the current account
+// may need a rate: one list per currency in `groups`. `currency`/`required`/`data` describe the current account.
 const listRates = asyncHandler(async (_req, res) => {
-  const currency = await accountCurrency();
-  const rows = currency ? await ExchangeRate.find({ currency }).sort({ effectiveFrom: -1 }).lean() : [];
-  res.json({ currency, required: Boolean(currency && currency !== "EGP"), data: rows.map(rateView) });
+  const current = await accountCurrency();
+  const currencies = await rateCurrencies();
+  const rows = currencies.length ? await ExchangeRate.find({ currency: { $in: currencies } }).sort({ effectiveFrom: -1 }).lean() : [];
+  const groups = currencies.map((currency) => ({ currency, data: rows.filter((row) => row.currency === currency).map(rateView) }));
+  const own = groups.find((group) => group.currency === current);
+  res.json({ currency: current, required: Boolean(current && current !== "EGP"), data: own ? own.data : [], groups });
 });
 
 const saveRate = asyncHandler(async (req, res) => {
-  const currency = await accountCurrency();
-  if (!currency || currency === "EGP") throw httpError(409, "RATE_NOT_NEEDED", "حساب الإعلانات بالجنيه، مفيش حاجة لسعر الصرف");
+  const current = await accountCurrency();
+  const currency = String((req.body && req.body.currency) || current || "").trim().toUpperCase();
+  if (!currency || currency === "EGP" || !(await rateCurrencies()).includes(currency)) throw httpError(409, "RATE_NOT_NEEDED", "مفيش حاجة لسعر الصرف للعملة دي (الصرف بالجنيه أو العملة مش موجودة في الأرقام)");
   const rate = Number(req.body && req.body.rate);
   if (!Number.isFinite(rate) || rate <= 0 || rate > 1e6 || Math.round(rate * 1e6) / 1e6 !== rate) throw httpError(400, "INVALID_RATE", "سعر الصرف غير صالح (رقم موجب، لحد 6 أرقام عشرية)");
   const effectiveFrom = text(req.body && req.body.effectiveFrom, 10);

@@ -58,7 +58,7 @@ export class MarketingService {
   metaDisconnect(): Observable<MetaConnectionView> { return this.http.delete<MetaConnectionView>(`${this.api}website/meta-connection`); }
   metaSyncNow(): Observable<MetaConnectionView> { return this.http.post<MetaConnectionView>(`${this.api}website/meta-connection/sync`, {}); }
   exchangeRates(): Observable<ExchangeRates> { return this.http.get<ExchangeRates>(`${this.api}website/exchange-rates`); }
-  saveExchangeRate(payload: { rate: number; effectiveFrom: string }): Observable<ExchangeRateRow> { return this.http.post<ExchangeRateRow>(`${this.api}website/exchange-rates`, payload); }
+  saveExchangeRate(payload: { currency?: string; rate: number; effectiveFrom: string }): Observable<ExchangeRateRow> { return this.http.post<ExchangeRateRow>(`${this.api}website/exchange-rates`, payload); }
   deleteExchangeRate(id: string): Observable<{ ok: boolean }> { return this.http.delete<{ ok: boolean }>(`${this.api}website/exchange-rates/${id}`); }
   metaCampaigns(query: { campaignId?: string; search?: string; status?: string; unlinked?: string } = {}): Observable<{ data: MetaCampaignRow[] }> {
     return this.http.get<{ data: MetaCampaignRow[] }>(`${this.api}campaigns/meta-campaigns`, { params: params(query) });

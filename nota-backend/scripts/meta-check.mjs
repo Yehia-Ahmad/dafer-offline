@@ -43,7 +43,8 @@ await step("Account", async () => {
 await step("Token permissions", async () => {
   const permissions = await client.permissions();
   console.log({ source: permissions.source, scopes: permissions.scopes, neverExpires: !permissions.expiresAt, expiresAt: permissions.expiresAt ? new Date(permissions.expiresAt * 1000).toISOString() : null });
-  if (!permissions.scopes.includes("ads_read")) console.log("WARNING: ads_read is missing. Nota cannot connect without it.");
+  // ads_management includes read access, so Nota accepts a token with either.
+  if (!permissions.scopes.includes("ads_read") && !permissions.scopes.includes("ads_management")) console.log("WARNING: neither ads_read nor ads_management is granted. Nota cannot connect without one of them.");
 });
 
 await step("Campaigns", async () => {

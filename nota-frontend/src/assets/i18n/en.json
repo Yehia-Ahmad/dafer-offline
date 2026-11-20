@@ -3365,6 +3365,9 @@
         "INVALID_DATE": "The effective date is not valid."
       },
       "rates": {
+        "hintMany": "Each day is converted in its own currency with the rate in force that day (EGP per 1 unit). If you replaced the ad account, the old account's numbers need a rate for their currency too.",
+        "current": "current account currency",
+        "currency": "Currency",
         "title": "Exchange rate",
         "hint": "Each day is converted with the rate in force that day (EGP per 1 {{currency}}).",
         "delete": "Delete",

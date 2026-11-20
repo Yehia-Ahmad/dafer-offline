@@ -23,7 +23,7 @@ const Campaign = require("../models/campaign.model");
 const { CampaignClick, CampaignVisit } = require("../models/campaignStat.model");
 const { roundMoney, buildInvoiceTotals } = require("../utils/invoicePricing");
 const clock = require("../utils/clock");
-const { metaFigures } = require("./meta/metaResults.service");
+const { metaFigures, pickOriginal } = require("./meta/metaResults.service");
 const { toMoney } = require("./meta/metaMoney");
 
 const COMPLETED_STATUSES = ["delivered", "picked_up"];
@@ -79,7 +79,7 @@ const invoiceFigures = (invoice) => {
 const emptyBucket = () => ({
   clicks: 0, visits: 0, ordersPlaced: 0, ordersCompleted: 0, ordersCancelled: 0, ordersRejected: 0, ordersRefused: 0, sales: 0, grossProfit: 0, deliveryRevenue: 0, spend: 0,
   // Stage 7B (only used when the bucket has a Meta-linked campaign in it)
-  hasMeta: false, recordedSpend: 0, metaEgpMinor: 0, metaOriginalMinor: 0, needsRate: false, impressions: 0, reach: 0, linkClicks: 0,
+  hasMeta: false, recordedSpend: 0, metaEgpMinor: 0, metaOriginals: {}, metaMissing: {}, needsRate: false, impressions: 0, reach: 0, linkClicks: 0,
 });
 
 const finish = (bucket, { includeProfit, hasVisits = true, hasSpend = true, currency = "EGP" }) => {
@@ -89,11 +89,14 @@ const finish = (bucket, { includeProfit, hasVisits = true, hasSpend = true, curr
   // campaigns; the recorded expenses of the linked ones are shown separately and never added (no double counting).
   const spendMoney = money(bucket.spend);
   const metaMoneyEgp = toMoney(bucket.metaEgpMinor);
+  const original = pickOriginal(bucket.metaOriginals, bucket.metaMissing, currency);
   out.recordedSpend = money(bucket.recordedSpend);
   out.meta = {
     spend: metaMoneyEgp,
-    originalSpend: toMoney(bucket.metaOriginalMinor),
-    originalCurrency: currency,
+    originalSpend: original.amount,
+    originalCurrency: original.currency,
+    // Every currency the spend came in (a replaced ad account can have another one): { USD: 30, EGP: 12.5 }
+    originals: Object.fromEntries(Object.entries(bucket.metaOriginals).map(([code, minor]) => [code, toMoney(minor)])),
     needsRate: bucket.needsRate,
     impressions: bucket.impressions,
     reach: bucket.reach,
@@ -245,7 +248,8 @@ const campaignResults = async (query, { includeProfit }) => {
         bucket.hasMeta = true;
         bucket.spend += toMoney(figures.egpMinor);
         bucket.metaEgpMinor += figures.egpMinor;
-        bucket.metaOriginalMinor += figures.originalMinor;
+        for (const [code, minor] of Object.entries(figures.originals)) bucket.metaOriginals[code] = (bucket.metaOriginals[code] || 0) + minor;
+        for (const [code, minor] of Object.entries(figures.missing)) bucket.metaMissing[code] = (bucket.metaMissing[code] || 0) + minor;
         bucket.needsRate = bucket.needsRate || figures.missingRateMinor > 0;
         bucket.impressions += figures.impressions;
         bucket.reach += figures.reach;

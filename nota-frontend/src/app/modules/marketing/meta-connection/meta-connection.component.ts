@@ -89,19 +89,29 @@ const OK_STATUSES = [1, 9];
         </div>
         <p class="mc__muted">{{ 'marketing.meta.saveNeedsTest' | translate }}</p>
 
-        @if (v.connected && v.account && v.account.currency !== 'EGP') {
+        @if (v.connected && groups().length) {
           <h3 class="mc__h3">{{ 'marketing.meta.rates.title' | translate }}</h3>
-          <p class="mc__muted">{{ 'marketing.meta.rates.hint' | translate: { currency: v.account.currency } }}</p>
-          <div class="mc__rates">
-            @for (r of rates(); track r._id) {
-              <div class="mc__rate" data-test="rate-row">
-                <span class="nota-num">{{ r.effectiveFrom }}</span>
-                <strong class="nota-num">1 {{ r.currency }} = {{ r.rate }} EGP</strong>
-                <button type="button" [class]="btn()" data-action="delete-rate" [disabled]="busy()" (click)="deleteRate(r)">{{ 'marketing.meta.rates.delete' | translate }}</button>
-              </div>
-            } @empty { <p class="mc__muted" data-test="rates-empty">{{ 'marketing.meta.rates.empty' | translate }}</p> }
-          </div>
+          <p class="mc__muted">{{ 'marketing.meta.rates.hintMany' | translate }}</p>
+          @for (g of groups(); track g.currency) {
+            <div class="mc__rates" [attr.data-currency]="g.currency" data-test="rate-group">
+              <strong>{{ g.currency }}{{ g.currency === v.account?.currency ? ' (' + ('marketing.meta.rates.current' | translate) + ')' : '' }}</strong>
+              @for (r of g.data; track r._id) {
+                <div class="mc__rate" data-test="rate-row">
+                  <span class="nota-num">{{ r.effectiveFrom }}</span>
+                  <strong class="nota-num">1 {{ r.currency }} = {{ r.rate }} EGP</strong>
+                  <button type="button" [class]="btn()" data-action="delete-rate" [disabled]="busy()" (click)="deleteRate(r)">{{ 'marketing.meta.rates.delete' | translate }}</button>
+                </div>
+              } @empty { <p class="mc__muted" data-test="rates-empty">{{ 'marketing.meta.rates.empty' | translate }}</p> }
+            </div>
+          }
           <div class="mc__form mc__form--row">
+            @if (groups().length > 1) {
+              <label class="mc__f">{{ 'marketing.meta.rates.currency' | translate }}
+                <select [class]="input()" name="rateCurrency" data-test="rate-currency" [ngModel]="rateCurrency()" (ngModelChange)="rateCurrency.set($event)">
+                  @for (g of groups(); track g.currency) { <option [value]="g.currency">{{ g.currency }}</option> }
+                </select>
+              </label>
+            }
             <label class="mc__f">{{ 'marketing.meta.rates.rate' | translate }}
               <input [class]="input() + ' nota-num'" type="number" inputmode="decimal" min="0" step="0.0001" name="rateValue" data-test="rate-value" [ngModel]="rateValue()" (ngModelChange)="rateValue.set($event)" />
             </label>
@@ -143,7 +153,9 @@ export class MetaConnectionComponent implements OnInit, OnDestroy {
   protected readonly saved = signal(false);
   protected readonly tested = signal<MetaTestResult | null>(null);
   protected readonly confirmDisconnect = signal(false);
-  protected readonly rates = signal<ExchangeRateRow[]>([]);
+  /** One exchange-rate list per non-EGP currency in the synced numbers (a replaced ad account can leave days in another currency). */
+  protected readonly groups = signal<{ currency: string; data: ExchangeRateRow[] }[]>([]);
+  protected readonly rateCurrency = signal('');
 
   protected readonly accountId = signal('');
   protected readonly token = signal('');
@@ -182,8 +194,15 @@ export class MetaConnectionComponent implements OnInit, OnDestroy {
   }
 
   private loadRates(v: MetaConnectionView): void {
-    if (!v.connected || !v.account || v.account.currency === 'EGP') { this.rates.set([]); return; }
-    this.marketing.exchangeRates().subscribe({ next: (r) => this.rates.set(r.data), error: () => this.rates.set([]) });
+    if (!v.connected) { this.groups.set([]); return; }
+    this.marketing.exchangeRates().subscribe({
+      next: (r) => {
+        const groups = r.groups ?? [];
+        this.groups.set(groups);
+        if (!groups.some((g) => g.currency === this.rateCurrency())) this.rateCurrency.set(groups.find((g) => g.currency === v.account?.currency)?.currency ?? groups[0]?.currency ?? '');
+      },
+      error: () => this.groups.set([]),
+    });
   }
 
   // After connecting or «مزامنة دلوقتي» the sync runs on the server: look again a few times until it is done.
@@ -231,7 +250,7 @@ export class MetaConnectionComponent implements OnInit, OnDestroy {
     if (this.busy()) return;
     this.busy.set(true); this.error.set('');
     this.marketing.metaDisconnect().subscribe({
-      next: (v) => { this.busy.set(false); this.confirmDisconnect.set(false); this.view.set(v); this.rates.set([]); this.token.set(''); this.appSecret.set(''); this.tested.set(null); this.saved.set(false); },
+      next: (v) => { this.busy.set(false); this.confirmDisconnect.set(false); this.view.set(v); this.groups.set([]); this.token.set(''); this.appSecret.set(''); this.tested.set(null); this.saved.set(false); },
       error: (response) => { this.confirmDisconnect.set(false); this.fail(response); },
     });
   }
@@ -249,7 +268,7 @@ export class MetaConnectionComponent implements OnInit, OnDestroy {
     const rate = Number(this.rateValue());
     if (this.busy() || !(rate > 0) || !this.rateFrom()) return;
     this.busy.set(true); this.error.set('');
-    this.marketing.saveExchangeRate({ rate, effectiveFrom: this.rateFrom() }).subscribe({
+    this.marketing.saveExchangeRate({ currency: this.rateCurrency(), rate, effectiveFrom: this.rateFrom() }).subscribe({
       next: () => { this.busy.set(false); this.rateValue.set(null); this.load(); },
       error: (response) => this.fail(response),
     });

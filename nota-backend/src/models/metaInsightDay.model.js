@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const schema = new mongoose.Schema({
   metaId: { type: String, required: true },
   day: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+  adAccountId: { type: String },
   currency: { type: String },
   spendMinor: { type: Number, default: 0 },
   impressions: { type: Number, default: 0 },

@@ -62,6 +62,8 @@ const type = (el: HTMLElement, selector: string, value: string) => {
   input.value = value;
   input.dispatchEvent(new Event('input'));
 };
+// A connected card also asks for the exchange-rate lists (one per currency in the numbers).
+const flushRates = (http: HttpTestingController, groups: unknown[] = []) => http.match((r) => r.url === `${api}website/exchange-rates` && r.method === 'GET').forEach((r) => r.flush({ currency: 'EGP', required: false, data: [], groups }));
 const click = (el: HTMLElement, selector: string) => (el.querySelector(selector) as HTMLElement).click();
 
 describe('Meta connection card (Online Stage 7B)', () => {
@@ -106,6 +108,7 @@ describe('Meta connection card (Online Stage 7B)', () => {
       const put = http.expectOne((r) => r.url === `${api}website/meta-connection` && r.method === 'PUT');
       expect(put.request.body).toEqual({ adAccountId: '1234567890', token: TOKEN });
       put.flush(view());
+      flushRates(http);
       fixture.detectChanges();
       await fixture.whenStable(); // ngModel writes the cleared value into the input asynchronously
       expect(el.querySelector('[data-test="meta-saved"]')).not.toBeNull();
@@ -143,6 +146,7 @@ describe('Meta connection card (Online Stage 7B)', () => {
     const { http, fixture, el } = await setup(MetaConnectionComponent);
     fixture.detectChanges();
     http.expectOne((r) => r.url === `${api}website/meta-connection`).flush(view({ hasAppSecret: true, appSecretLast4: 'abcd', nextManualSyncAt: '2099-01-01T00:00:00Z' }));
+    flushRates(http);
     fixture.detectChanges();
     const box = el.querySelector('[data-test="meta-connected"]')!.textContent!;
     expect(box).toContain('حساب المحل'); expect(box).toContain('act_1234567890'); expect(box).toContain(TOKEN.slice(-4));
@@ -166,6 +170,7 @@ describe('Meta connection card (Online Stage 7B)', () => {
     const { http, fixture, el } = await setup(MetaConnectionComponent);
     fixture.detectChanges();
     http.expectOne((r) => r.url === `${api}website/meta-connection`).flush(view({ lastError: { code: 'TOKEN_INVALID', message: 'm', at: '2026-11-20T00:00:00Z' }, paused: true }));
+    flushRates(http);
     fixture.detectChanges();
     expect(el.querySelector('[data-test="meta-last-error"]')!.textContent).toContain('marketing.meta.errors.TOKEN_INVALID');
     expect(el.querySelector('[data-test="meta-last-error"]')!.textContent).toContain('marketing.meta.paused');
@@ -181,7 +186,7 @@ describe('Meta connection card (Online Stage 7B)', () => {
     fixture.detectChanges();
     const usd = view({ account: { name: 'حساب', currency: 'USD', timezoneName: 'America/Los_Angeles', accountStatus: 1 } });
     http.expectOne((r) => r.url === `${api}website/meta-connection`).flush(usd);
-    http.expectOne((r) => r.url === `${api}website/exchange-rates`).flush({ currency: 'USD', required: true, data: [{ _id: 'r1', currency: 'USD', rate: 48.5, effectiveFrom: '2026-11-01', createdByName: 'x' }] });
+    http.expectOne((r) => r.url === `${api}website/exchange-rates`).flush({ currency: 'USD', required: true, data: [], groups: [{ currency: 'USD', data: [{ _id: 'r1', currency: 'USD', rate: 48.5, effectiveFrom: '2026-11-01', createdByName: 'x' }] }] });
     fixture.detectChanges();
     expect(el.querySelectorAll('[data-test="rate-row"]').length).toBe(1);
     expect(el.querySelector('[data-test="rate-row"]')!.textContent).toContain('48.5');
@@ -190,22 +195,45 @@ describe('Meta connection card (Online Stage 7B)', () => {
     fixture.detectChanges();
     click(el, '[data-action="save-rate"]');
     const post = http.expectOne((r) => r.url === `${api}website/exchange-rates` && r.method === 'POST');
-    expect(post.request.body).toEqual({ rate: 50, effectiveFrom: '2026-11-10' });
+    expect(post.request.body).toEqual({ currency: 'USD', rate: 50, effectiveFrom: '2026-11-10' });
     post.flush({});
     http.expectOne((r) => r.url === `${api}website/meta-connection`).flush(usd);
-    http.expectOne((r) => r.url === `${api}website/exchange-rates`).flush({ currency: 'USD', required: true, data: [] });
+    http.expectOne((r) => r.url === `${api}website/exchange-rates`).flush({ currency: 'USD', required: true, data: [], groups: [{ currency: 'USD', data: [] }] });
     fixture.detectChanges();
     expect(el.querySelector('[data-test="rates-empty"]')).not.toBeNull();
     http.verify();
   });
 
-  it('an EGP account shows no exchange-rate section and asks for no rates', async () => {
+  it('an EGP account with no foreign-currency numbers shows no exchange-rate section', async () => {
     const { http, fixture, el } = await setup(MetaConnectionComponent);
     fixture.detectChanges();
     http.expectOne((r) => r.url === `${api}website/meta-connection`).flush(view());
+    http.expectOne((r) => r.url === `${api}website/exchange-rates`).flush({ currency: 'EGP', required: false, data: [], groups: [] });
     fixture.detectChanges();
     expect(el.querySelector('[data-test="rate-value"]')).toBeNull();
-    http.expectNone((r) => r.url === `${api}website/exchange-rates`);
+    expect(el.querySelector('[data-test="rate-group"]')).toBeNull();
+  });
+
+  it('after replacing a USD account by an EGP one: one rate list per currency in the numbers, the currency is chosen when adding', async () => {
+    const { http, fixture, el } = await setup(MetaConnectionComponent);
+    fixture.detectChanges();
+    http.expectOne((r) => r.url === `${api}website/meta-connection`).flush(view());
+    http.expectOne((r) => r.url === `${api}website/exchange-rates`).flush({
+      currency: 'EGP', required: false, data: [],
+      groups: [{ currency: 'EUR', data: [] }, { currency: 'USD', data: [{ _id: 'r1', currency: 'USD', rate: 48.5, effectiveFrom: '2026-11-01', createdByName: 'x' }] }],
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(el.querySelectorAll('[data-test="rate-group"]').length).toBe(2);
+    expect(el.querySelector('[data-currency="USD"]')!.textContent).toContain('48.5');
+    expect(el.querySelector('[data-currency="EUR"] [data-test="rates-empty"]')).not.toBeNull();
+    const select = el.querySelector('[data-test="rate-currency"]') as HTMLSelectElement;
+    select.value = 'USD'; select.dispatchEvent(new Event('change'));
+    type(el, '[data-test="rate-value"]', '50'); type(el, '[data-test="rate-from"]', '2026-11-10');
+    fixture.detectChanges();
+    click(el, '[data-action="save-rate"]');
+    const post = http.expectOne((r) => r.url === `${api}website/exchange-rates` && r.method === 'POST');
+    expect(post.request.body).toEqual({ currency: 'USD', rate: 50, effectiveFrom: '2026-11-10' });
   });
 
   it('inside the marketing settings tab: only with marketing.connect (owner), never for a manager', async () => {
