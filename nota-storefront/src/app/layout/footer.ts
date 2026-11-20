@@ -27,6 +27,7 @@ import { SettingsStore } from '../core/settings.store';
             <strong class="ft-h">{{ t.footer.info }}</strong>
             <a class="ft-a" routerLink="/policies/returns">{{ t.footer.returns }}</a>
             <a class="ft-a" routerLink="/policies/terms">{{ t.footer.terms }}</a>
+            <a class="ft-a" routerLink="/privacy" data-test="footer-privacy">{{ t.footer.privacy }}</a>
             <a class="ft-a" routerLink="/delivery">{{ t.footer.delivery }}</a>
           </div>
         </div>

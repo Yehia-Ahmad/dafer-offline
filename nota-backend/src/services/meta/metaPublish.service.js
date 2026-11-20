@@ -250,7 +250,7 @@ const options = async ({ checkPixel = true } = {}) => {
 
 /**
  * Validates and normalises the wizard's input into the spec stored on the publish record. Throws a 400/409 with a fixed Arabic message.
- * Returns { spec, uploads: [{ index, buffer, mime }], warnings }.
+ * Returns { spec, uploads: [{ index, imageId }], warnings }.
  */
 const normalizeSpec = async (input, { campaign, connection, pixelOk }) => {
   const body = input && typeof input === "object" ? input : {};
@@ -334,15 +334,19 @@ const normalizeSpec = async (input, { campaign, connection, pixelOk }) => {
       buffer = Buffer.from(base64, "base64");
       imageSpec = { kind: "product", productId: String(image.productId), index: Number(image.index) || 0 };
     } else if (image.kind === "upload") {
-      const base64 = stripDataUri(image.data);
-      buffer = Buffer.from(base64, "base64");
-      imageSpec = { kind: "upload" };
+      // Uploaded on its own first (POST .../publish/images, one request per image): the draft only names it.
+      const staged = /^[a-f0-9]{32}$/.test(String(image.imageId))
+        ? await MetaPublishImage.findOne({ imageId: String(image.imageId), campaignId: campaign._id, publishId: { $regex: "^stage-" } }).lean()
+        : null;
+      if (!staged) throw bad(`${label}: الصورة لازم تترفع الأول`, "IMAGE_INVALID");
+      buffer = Buffer.from(staged.bytesBase64, "base64");
+      imageSpec = { kind: "upload", imageId: staged.imageId };
     } else {
       throw bad(`${label}: اختار صورة`, "IMAGE_INVALID");
     }
     const checked = checkImage(buffer, label);
     warnings.push(...checked.warnings);
-    if (imageSpec.kind === "upload") uploads.push({ index: i, buffer, mime: checked.info.mime });
+    if (imageSpec.kind === "upload") uploads.push({ index: i, imageId: imageSpec.imageId });
     let landing = { kind: "campaign" };
     if (ad.landing && ad.landing.kind === "product") {
       if (!/^[a-f0-9]{24}$/i.test(String(ad.landing.productId))) throw bad(`${label}: منتج الصفحة غير صالح`, "INVALID_ADS");
@@ -502,10 +506,23 @@ const createDraft = async ({ campaignId, input, user }) => {
     status: "draft", ads: spec.ads.map((_ad, index) => ({ index })),
     createdById: user && user._id, createdByName: user && user.name,
   });
+  // Claim the staged images: they now belong to this draft (and go with it when it is finished, cancelled or dropped).
   for (const upload of uploads) {
-    await MetaPublishImage.create({ publishId, index: upload.index, mime: upload.mime, bytesBase64: upload.buffer.toString("base64") });
+    await MetaPublishImage.updateOne({ imageId: upload.imageId, campaignId: campaign._id }, { $set: { publishId, index: upload.index } });
   }
   return { publish: publish.toObject(), warnings };
+};
+
+/** One uploaded image (raw jpg/png bytes, one request each, at most 8 MB): checked, then staged until a draft claims it. */
+const STAGED_KEEP_MS = 24 * 60 * 60 * 1000;
+const stageImage = async ({ campaignId, buffer }) => {
+  const campaign = await loadCampaign(campaignId);
+  const checked = checkImage(buffer, "الصورة");
+  const stale = new Date(clock.now().getTime() - STAGED_KEEP_MS);
+  await MetaPublishImage.deleteMany({ publishId: { $regex: "^stage-" }, createdAt: { $lt: stale } });
+  const imageId = crypto.randomBytes(16).toString("hex");
+  await MetaPublishImage.create({ publishId: `stage-${imageId}`, index: 0, imageId, campaignId: campaign._id, mime: checked.info.mime, bytesBase64: buffer.toString("base64") });
+  return { imageId, mime: checked.info.mime, width: checked.info.width, height: checked.info.height, bytes: buffer.length, warnings: checked.warnings };
 };
 
 const metaFailure = (error) => {
@@ -844,7 +861,7 @@ const refresh = async ({ campaignId, metaId }) => {
 module.exports = {
   PUBLISH_SCOPES, CTAS, CREATIVE_OPT_OUT, OFFSET_100,
   hasPublishScopes, missingScopes, currencySupported, publicSiteBase, zonedLocalToDate, imageInfo, checkImage,
-  checkCeiling, options, createDraft, preview, run, cancel, getPublish, view,
+  checkCeiling, options, createDraft, stageImage, preview, run, cancel, getPublish, view,
   setStatus, setBudget, setEndTime, archive, refresh, ownsObject, spendSummary,
   campaignBody, adSetBody, creativeBody, adBody, targetingOf,
 };

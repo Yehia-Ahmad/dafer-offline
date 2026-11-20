@@ -64,17 +64,11 @@ app.locals.store = storeRouter.controller; // the customer lockout counters, for
 app.use("/api/store", express.json({ limit: "64kb" }), storeRouter);
 
 // The staff API: 10mb JSON bodies (product images), then the session token.
-// Online Stage 7C: the publish wizard's draft carries up to 5 uploaded images (8 MB each, base64). Only that one endpoint gets the larger
-// limit, and only AFTER the session check, so an anonymous caller can never make the server parse a big body.
-const PUBLISH_DRAFT_PATH = /^\/api\/campaigns\/[a-f0-9]{24}\/publish\/?$/i;
-const isPublishDraft = (req) => req.method === "POST" && PUBLISH_DRAFT_PATH.test(req.originalUrl.split("?")[0]);
 const smallJson = express.json({ limit: "10mb" });
-app.use("/api", (req, res, next) => (isPublishDraft(req) ? next() : smallJson(req, res, next)));
+app.use("/api", smallJson);
 // Every /api request needs the session token, except the login screen's own endpoints
 // (bootstrap, login).
 app.use("/api", requireAuth(jwtSecret, { sessionsValidAfter: sessionsValidAfter() }));
-const publishJson = express.json({ limit: "56mb" });
-app.use("/api", (req, res, next) => (isPublishDraft(req) ? publishJson(req, res, next) : next()));
 app.use("/api", costStrip());
 const authRouter = createAuthRouter({ secret: jwtSecret });
 app.locals.auth = authRouter.controller; // the lockout counters, for tests

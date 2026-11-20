@@ -110,14 +110,25 @@ describe('«حملة فيسبوك جديدة» wizard (Online Stage 7C)', () => 
     // 4. ads: the text is required
     expect(nextBtn().disabled).toBeTrue();
     const c = ctx.c;
-    c.patchAd(0, { primaryText: 'عرض الجمعة', headline: 'اشتري دلوقتي', uploadData: 'AAAA', imageKind: 'upload' });
+    c.patchAd(0, { primaryText: 'عرض الجمعة', headline: 'اشتري دلوقتي', imageKind: 'upload' });
+    fixture.detectChanges();
+    expect(nextBtn().disabled).toBeTrue(); // no image yet
+    // The image goes up on its own: one request, the file itself (not base64 inside the draft).
+    const file = new File([new Uint8Array(1000)], 'ad.png', { type: 'image/png' });
+    c.pickFile(0, { target: { files: [file] } } as unknown as Event);
+    fixture.detectChanges();
+    expect(nextBtn().disabled).toBeTrue(); // still uploading
+    const up = http.expectOne((r) => r.url === `${api}campaigns/c1/publish/images` && r.method === 'POST');
+    expect(up.request.body).toBe(file);
+    expect(up.request.headers.get('Content-Type')).toBe('image/png');
+    up.flush({ imageId: 'a'.repeat(32), mime: 'image/png', width: 1200, height: 1200, bytes: 1000, warnings: [] }, { status: 201, statusText: 'Created' });
     fixture.detectChanges();
     expect(nextBtn().disabled).toBeFalse();
     next(ctx);
     const draft = http.expectOne((r) => r.url === `${api}campaigns/c1/publish` && r.method === 'POST');
     expect(draft.request.body).toEqual({
       goal: 'traffic', budget: { type: 'daily', amount: 300 }, audience: { advantage: true, ageMin: 18, locations: [] },
-      ads: [{ primaryText: 'عرض الجمعة', headline: 'اشتري دلوقتي', description: '', cta: 'SHOP_NOW', image: { kind: 'upload', data: 'AAAA' }, landing: { kind: 'campaign' } }],
+      ads: [{ primaryText: 'عرض الجمعة', headline: 'اشتري دلوقتي', description: '', cta: 'SHOP_NOW', image: { kind: 'upload', imageId: 'a'.repeat(32) }, landing: { kind: 'campaign' } }],
     });
     draft.flush({ ...view(), warnings: ['إعلان 1: الصورة أقل من 1080×1080 وممكن تطلع أقل وضوح'] }, { status: 201, statusText: 'Created' });
     fixture.detectChanges();
@@ -126,6 +137,22 @@ describe('«حملة فيسبوك جديدة» wizard (Online Stage 7C)', () => 
     expect(document.body.querySelectorAll('[data-test="publish-warning"]').length).toBe(1);
     expect(q('[data-test="paused-note"]')).not.toBeNull();
     expect(q('[data-action="preview-feed"]')).not.toBeNull();
+  });
+
+  it('an image over 8 MB or not jpg/png is never sent; a refused upload clears the ad image and shows the fixed message', async () => {
+    const ctx = await open();
+    const { http, fixture, c } = ctx;
+    c.step.set(4); fixture.detectChanges();
+    const big = new File([new Uint8Array(8 * 1024 * 1024 + 1)], 'big.png', { type: 'image/png' });
+    c.pickFile(0, { target: { files: [big] } } as unknown as Event);
+    c.pickFile(0, { target: { files: [new File(['x'], 'a.gif', { type: 'image/gif' })] } } as unknown as Event);
+    http.expectNone((r) => r.url.endsWith('/publish/images'));
+    expect(c.error()).toBe('marketing.publish.errors.IMAGE_INVALID');
+    c.pickFile(0, { target: { files: [new File([new Uint8Array(10)], 'a.png', { type: 'image/png' })] } } as unknown as Event);
+    http.expectOne((r) => r.url.endsWith('/publish/images')).flush({ code: 'IMAGE_INVALID' }, { status: 400, statusText: 'Bad Request' });
+    expect(c.ads()[0].imageId).toBe('');
+    expect(c.ads()[0].uploading).toBeFalse();
+    expect(c.error()).toBe('marketing.publish.errors.IMAGE_INVALID');
   });
 
   it('a failed step shows which step failed with the fixed message; «حاول تاني» continues and «إلغاء» cancels; success is paused', async () => {

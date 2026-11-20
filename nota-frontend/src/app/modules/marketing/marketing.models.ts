@@ -251,9 +251,10 @@ export interface PublishOptions {
   ctas: PublishCta[];
 }
 export interface GeoPlace { key: string; type: 'region' | 'city'; name: string; region?: string }
+export interface PublishImageView { imageId: string; mime: string; width: number; height: number; bytes: number; warnings: string[] }
 export interface PublishAdInput {
   primaryText: string; headline: string; description: string; cta: PublishCta;
-  image: { kind: 'upload'; data: string } | { kind: 'product'; productId: string; index: number };
+  image: { kind: 'upload'; imageId: string } | { kind: 'product'; productId: string; index: number };
   landing: { kind: 'campaign' } | { kind: 'product'; productId: string };
 }
 export interface PublishSpecInput {

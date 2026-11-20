@@ -46,6 +46,7 @@ export interface WebsiteSettings {
   orderNote: string;
   returnsPolicy: string;
   terms: string;
+  privacyPolicy: string;
   // Online Stage 5A
   fulfillment: { delivery: boolean; pickup: boolean };
   payments: {
@@ -126,6 +127,7 @@ export const WEBSITE_LIMITS = {
   orderNote: 1000,
   returnsPolicy: 5000,
   terms: 10000,
+  privacyPolicy: 10000,
   zoneName: 120,
   zoneTime: 120,
   // Online Stage 5A
@@ -157,6 +159,7 @@ export const EMPTY_WEBSITE_SETTINGS: WebsiteSettings = {
   orderNote: '',
   returnsPolicy: '',
   terms: '',
+  privacyPolicy: '',
   fulfillment: { delivery: true, pickup: false },
   payments: { cod: { enabled: true }, instapay: { enabled: false, address: '', boxId: null }, vodafoneCash: { enabled: false, number: '', boxId: null } },
   stock: { showOutOfStock: true, showRemaining: { enabled: true, threshold: 5 } },

@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   AdCategory, Campaign, CampaignList, CampaignPayload, CampaignResults, ExchangeRateRow, ExchangeRates, ImportMapping, ImportPreview, ImportResult, Lead, LeadDetail, LeadList, LeadPayload,
-  GeoPlace, MarketingSettings, MarketingSettingsPayload, MetaCampaignRow, PublishOptions, PublishSpecInput, PublishView, SwitchSummary, MetaConnectPayload, MetaConnectionView, MetaTestResult, Results, SpendList,
+  GeoPlace, MarketingSettings, MarketingSettingsPayload, MetaCampaignRow, PublishImageView, PublishOptions, PublishSpecInput, PublishView, SwitchSummary, MetaConnectPayload, MetaConnectionView, MetaTestResult, Results, SpendList,
 } from './marketing.models';
 
 const params = (query: Record<string, string | number | null | undefined>): HttpParams => {
@@ -75,6 +75,10 @@ export class MarketingService {
   saveMetaTarget(payload: { pageId: string; instagramId?: string }): Observable<MetaConnectionView> { return this.http.put<MetaConnectionView>(`${this.api}website/meta-connection/publish-target`, payload); }
   publishOptions(id: string): Observable<PublishOptions> { return this.http.get<PublishOptions>(`${this.api}campaigns/${id}/publish/options`); }
   geoSearch(q: string): Observable<{ data: GeoPlace[] }> { return this.http.get<{ data: GeoPlace[] }>(`${this.api}campaigns/meta-geo`, { params: params({ q }) }); }
+  /** One ad image per request: the file itself (jpg/png, at most 8 MB), not base64 inside the draft. */
+  publishUploadImage(id: string, file: Blob): Observable<PublishImageView> {
+    return this.http.post<PublishImageView>(`${this.api}campaigns/${id}/publish/images`, file, { headers: { 'Content-Type': file.type } });
+  }
   publishDraft(id: string, spec: PublishSpecInput): Observable<PublishView> { return this.http.post<PublishView>(`${this.api}campaigns/${id}/publish`, spec); }
   publishPreview(id: string, publishId: string, index: number, format: 'feed' | 'mobile' | 'instagram'): Observable<{ frames: string[] }> {
     return this.http.post<{ frames: string[] }>(`${this.api}campaigns/${id}/publish/${publishId}/preview`, { index, format });

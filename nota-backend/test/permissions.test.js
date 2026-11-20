@@ -308,6 +308,7 @@ const EXPECTED_ROUTES = {
   "GET /api/campaigns/:id/publish/:publishId": "marketing.publish",
   "POST /api/campaigns/:id/publish/:publishId/preview": "marketing.publish",
   "POST /api/campaigns/:id/publish/:publishId/run": "marketing.publish",
+  "POST /api/campaigns/:id/publish/images": "marketing.publish",
   "POST /api/campaigns/:id/publish/:publishId/cancel": "marketing.publish",
   "POST /api/campaigns/:id/meta-links/:metaId/status": "marketing.publish",
   "POST /api/campaigns/:id/meta-links/:metaId/budget": "marketing.publish",

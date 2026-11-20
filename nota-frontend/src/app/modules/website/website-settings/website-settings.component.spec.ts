@@ -20,7 +20,7 @@ describe('WebsiteSettingsComponent (Online Stage 3)', () => {
       { _id: 'b1', image: 'data:image/png;base64,AAAA', linkType: 'none', sortOrder: 0 },
     ],
     featuredCategoryIds: ['c1'], whatsapp: '01012345678', facebook: '', instagram: '', tiktok: '',
-    minOrderAmount: 100, freeDeliveryFrom: null, orderNote: '', returnsPolicy: '', terms: '',
+    minOrderAmount: 100, freeDeliveryFrom: null, orderNote: '', returnsPolicy: '', terms: '', privacyPolicy: '',
   };
 
   const open = (settings: unknown = stored) => {
@@ -108,7 +108,7 @@ describe('WebsiteSettingsComponent (Online Stage 3)', () => {
         { image: 'data:image/png;base64,CCCC', linkType: 'product', linkId: 'p9', sortOrder: 2 },
       ],
       featuredCategoryIds: ['c1'], whatsapp: '01012345678', facebook: 'https://facebook.com/shop', instagram: '', tiktok: '',
-      minOrderAmount: null, freeDeliveryFrom: 500, orderNote: '', returnsPolicy: '', terms: '',
+      minOrderAmount: null, freeDeliveryFrom: 500, orderNote: '', returnsPolicy: '', terms: '', privacyPolicy: '',
       // Online Stage 5A: the defaults of everything the saved document did not have
       fulfillment: { delivery: true, pickup: false },
       payments: { cod: { enabled: true }, instapay: { enabled: false, address: '', boxId: '' }, vodafoneCash: { enabled: false, number: '', boxId: '' } },

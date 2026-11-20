@@ -84,6 +84,8 @@ ensure_secrets_key
 
 # 2c. The storefront's environment is written by setup-server.sh; if it is missing, setup was not re-run.
 [ -f "$NOTA_STOREFRONT_ENV" ] || die "$NOTA_STOREFRONT_ENV is missing: run setup-server.sh again (see above)"
+# 2d. Online Stage 7C: a server set up before publishing ads has NOTA_PUBLIC_URL only in the storefront env; copy it to the backend env once.
+ensure_public_url
 
 # 3. Switch and restart. Migrations run when the backend starts.
 switch_to() {

@@ -62,6 +62,7 @@ async function mockMeta(context) {
   await context.route('**/api/campaigns/*/meta-links', (route) => (route.request().method() === 'GET' ? json(route, { data: [NOTA_CREATED, FROM_ADS_MANAGER] }) : route.continue()));
   await context.route('**/api/campaigns/*/publish/options', (route) => json(route, PUBLISH_OPTIONS));
   await context.route('**/api/campaigns/meta-geo**', (route) => json(route, { data: [{ key: '2420', type: 'region', name: 'القاهرة' }] }));
+  await context.route('**/api/campaigns/*/publish/images', (route) => json(route, { imageId: 'a'.repeat(32), mime: 'image/png', width: 1200, height: 1200, bytes: 70, warnings: [] }, 201));
   await context.route('**/api/campaigns/*/publish', (route) => json(route, { publishId: 'abcabcabcabc', campaignId: 'x', status: 'draft', goal: 'traffic', steps: {}, metaCampaignId: null, ads: [], lastError: null, publishedAt: null, warnings: ['إعلان 1: الصورة أقل من 1080×1080 وممكن تطلع أقل وضوح'] }, 201));
 }
 const campaignRoute = () => `/marketing/campaigns/${id('campaign')}`;

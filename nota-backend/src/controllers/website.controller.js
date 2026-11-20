@@ -58,7 +58,7 @@ const readWhatsapp = (value) => {
 const SETTINGS_KEY = "default";
 const EMPTY_SETTINGS = Object.freeze({
   enabled: false, orderingEnabled: true, closedMessage: "", title: "", about: "", banners: [], featuredCategoryIds: [],
-  whatsapp: "", facebook: "", instagram: "", tiktok: "", minOrderAmount: null, freeDeliveryFrom: null, orderNote: "", returnsPolicy: "", terms: "",
+  whatsapp: "", facebook: "", instagram: "", tiktok: "", minOrderAmount: null, freeDeliveryFrom: null, orderNote: "", returnsPolicy: "", terms: "", privacyPolicy: "",
   // Online Stage 5A (the documented defaults: delivery on, pickup off, cash on delivery on, stock rules, "marked" mode)
   fulfillment: { delivery: true, pickup: false },
   payments: { cod: { enabled: true }, instapay: { enabled: false, address: "", boxId: null }, vodafoneCash: { enabled: false, number: "", boxId: null } },
@@ -87,8 +87,8 @@ const getSettings = asyncHandler(async (_req, res) => {
   res.json(merged);
 });
 
-const TEXT_FIELDS = { closedMessage: 500, title: 150, about: 5000, orderNote: 1000, returnsPolicy: 5000, terms: 10000, seoDescription: 300, openingHours: 500, whatsappConfirmTemplate: 1000 };
-const TEXT_LABELS = { closedMessage: "رسالة الإغلاق", title: "العنوان", about: "نص عن المتجر", orderNote: "ملاحظة الطلب", returnsPolicy: "سياسة الإرجاع", terms: "الشروط", seoDescription: "وصف الموقع لمحركات البحث", openingHours: "مواعيد العمل", whatsappConfirmTemplate: "رسالة تأكيد واتساب" };
+const TEXT_FIELDS = { closedMessage: 500, title: 150, about: 5000, orderNote: 1000, returnsPolicy: 5000, terms: 10000, privacyPolicy: 10000, seoDescription: 300, openingHours: 500, whatsappConfirmTemplate: 1000 };
+const TEXT_LABELS = { closedMessage: "رسالة الإغلاق", title: "العنوان", about: "نص عن المتجر", orderNote: "ملاحظة الطلب", returnsPolicy: "سياسة الإرجاع", terms: "الشروط", privacyPolicy: "سياسة الخصوصية", seoDescription: "وصف الموقع لمحركات البحث", openingHours: "مواعيد العمل", whatsappConfirmTemplate: "رسالة تأكيد واتساب" };
 
 const readObject = (value, field) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw bad("INVALID_VALUE", `قيمة ${field} غير صالحة`);

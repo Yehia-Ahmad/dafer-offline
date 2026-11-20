@@ -190,7 +190,25 @@ async function connect() {
 const newCampaign = async (extra = {}) => ok(await staff("POST", "/api/campaigns", { name: `حملة الجمعة ${++codeSeq}`, platform: "facebook", type: "paid", landing: { kind: "home" }, startDate: today(), ...extra }), 201);
 const ad = (extra = {}) => ({ primaryText: MY_TEXT, headline: "اشتري دلوقتي", description: "شحن لكل مصر", cta: "SHOP_NOW", image: { kind: "upload", data: png64() }, ...extra });
 const specOf = (extra = {}) => ({ goal: "traffic", budget: { type: "daily", amount: 300 }, audience: { advantage: true, ageMin: 20, locations: [{ key: "2420", type: "region", name: "القاهرة" }] }, ads: [ad()], ...extra });
-const draft = async (campaign, spec = specOf()) => ok(await staff("POST", `/api/campaigns/${campaign._id}/publish`, spec), 201);
+// Images go up on their own first (one raw request each, at most 8 MB); the draft then names them by imageId.
+async function uploadRaw(campaign, buffer, type = "image/png", token = ownerToken) {
+  const response = await fetch(`${baseUrl}/api/campaigns/${campaign._id}/publish/images`, { method: "POST", headers: { "Content-Type": type, Authorization: `Bearer ${token}` }, body: buffer });
+  const text = await response.text();
+  let json = null; try { json = text ? JSON.parse(text) : null; } catch { /* not json */ }
+  return { status: response.status, json, text };
+}
+async function postDraft(campaign, spec, token = ownerToken) {
+  const ads = [];
+  for (const entry of spec.ads || []) {
+    if (entry && entry.image && entry.image.kind === "upload" && entry.image.data !== undefined) {
+      const sent = await uploadRaw(campaign, Buffer.from(entry.image.data, "base64"), "image/png", token);
+      if (sent.status !== 201) return sent;
+      ads.push({ ...entry, image: { kind: "upload", imageId: sent.json.imageId } });
+    } else ads.push(entry);
+  }
+  return staff("POST", `/api/campaigns/${campaign._id}/publish`, { ...spec, ads }, token);
+}
+const draft = async (campaign, spec = specOf()) => ok(await postDraft(campaign, spec), 201);
 const runIt = async (campaign, publishId) => staff("POST", `/api/campaigns/${campaign._id}/publish/${publishId}/run`, {});
 async function publishFully(campaign, spec) {
   const created = await draft(campaign, spec);
@@ -309,14 +327,14 @@ it("no ad set body carries device or OS targeting (v27's device expansion does n
   assert.equal(adSet.form.targeting.publisher_platforms, undefined, "Advantage+ placements: nothing sent");
   // Advantage+ on: age_min only 18-25
   const second = await newCampaign();
-  assert.equal((await staff("POST", `/api/campaigns/${second._id}/publish`, specOf({ audience: { advantage: true, ageMin: 30 } }))).status, 400);
+  assert.equal((await postDraft(second, specOf({ audience: { advantage: true, ageMin: 30 } }))).status, 400);
 });
 
 it("a total budget needs an end date, goes on the campaign as lifetime_budget and the ad set carries end_time", async () => {
   await connect();
   const campaign = await newCampaign();
   const end = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
-  assert.equal((await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ budget: { type: "lifetime", amount: 2000 } }))).status, 400, "no end date");
+  assert.equal((await postDraft(campaign, specOf({ budget: { type: "lifetime", amount: 2000 } }))).status, 400, "no end date");
   await publishFully(campaign, specOf({ budget: { type: "lifetime", amount: 2000, endTime: `${end}T23:00` } }));
   const [metaCampaign] = createsOf("/campaigns"); const [adSet] = createsOf("/adsets");
   assert.equal(metaCampaign.form.lifetime_budget, "200000"); assert.equal(metaCampaign.form.daily_budget, undefined);
@@ -413,40 +431,40 @@ it("«إلغاء» sets the created campaign to DELETED and marks the record can
 it("ceiling: above is refused, at is allowed; non-EGP converts with the 7B rate, without a rate it is refused; offset != 100 disables publishing", async () => {
   await connect();
   const campaign = await newCampaign();
-  const over = await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ budget: { type: "daily", amount: 1000.01 } }));
+  const over = await postDraft(campaign, specOf({ budget: { type: "daily", amount: 1000.01 } }));
   assert.equal(over.status, 409); assert.equal(over.json.code, "BUDGET_OVER_CEILING");
-  ok(await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ budget: { type: "daily", amount: 1000 } })), 201);
-  assert.equal((await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ budget: { type: "lifetime", amount: 10000.01, endTime: `${new Date(Date.now() + 9 * 86400000).toISOString().slice(0, 10)}T20:00` } }))).json.code, "BUDGET_OVER_CEILING");
+  ok(await postDraft(campaign, specOf({ budget: { type: "daily", amount: 1000 } })), 201);
+  assert.equal((await postDraft(campaign, specOf({ budget: { type: "lifetime", amount: 10000.01, endTime: `${new Date(Date.now() + 9 * 86400000).toISOString().slice(0, 10)}T20:00` } }))).json.code, "BUDGET_OVER_CEILING");
 
   // the ceiling is a setting that needs marketing.publish
   const manager = await makeStaff("mgr", "manager");
   assert.equal((await staff("PUT", "/api/website/marketing-settings", { maxDailyBudgetEgp: 5 }, manager)).status, 403);
   ok(await staff("PUT", "/api/website/marketing-settings", { maxDailyBudgetEgp: 50 }));
-  assert.equal((await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ budget: { type: "daily", amount: 51 } }))).json.code, "BUDGET_OVER_CEILING");
+  assert.equal((await postDraft(campaign, specOf({ budget: { type: "daily", amount: 51 } }))).json.code, "BUDGET_OVER_CEILING");
   assert.equal(ok(await staff("GET", `/api/campaigns/${campaign._id}/publish/options`)).ceiling.dailyEgp, 50);
 
   // a USD account
   ok(await staff("PUT", "/api/website/marketing-settings", { maxDailyBudgetEgp: 1000 }));
   world.account.currency = "USD";
   await connect();
-  const noRate = await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ budget: { type: "daily", amount: 5 } }));
+  const noRate = await postDraft(campaign, specOf({ budget: { type: "daily", amount: 5 } }));
   assert.equal(noRate.status, 409); assert.equal(noRate.json.code, "RATE_REQUIRED");
   await ExchangeRate.create({ currency: "USD", rate: 50, effectiveFrom: "2020-01-01" });
-  ok(await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ budget: { type: "daily", amount: 20 } })), 201); // 20 USD = 1000 EGP: at the ceiling
-  assert.equal((await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ budget: { type: "daily", amount: 20.01 } }))).json.code, "BUDGET_OVER_CEILING");
+  ok(await postDraft(campaign, specOf({ budget: { type: "daily", amount: 20 } })), 201); // 20 USD = 1000 EGP: at the ceiling
+  assert.equal((await postDraft(campaign, specOf({ budget: { type: "daily", amount: 20.01 } }))).json.code, "BUDGET_OVER_CEILING");
 
   // a currency with another offset
   world.account.currency = "JPY";
   await connect();
   const options = ok(await staff("GET", `/api/campaigns/${campaign._id}/publish/options`));
   assert.equal(options.ready, false); assert.ok(options.blockers.some((b) => b.code === "CURRENCY_NOT_SUPPORTED"));
-  assert.equal((await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf())).json.code, "CURRENCY_NOT_SUPPORTED");
+  assert.equal((await postDraft(campaign, specOf())).json.code, "CURRENCY_NOT_SUPPORTED");
 });
 
 it("the sales goal is refused without a pixel or with a pixel the ad account cannot see; allowed with a visible one", async () => {
   await connect();
   const campaign = await newCampaign();
-  const sales = () => staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ goal: "sales" }));
+  const sales = () => postDraft(campaign, specOf({ goal: "sales" }));
   assert.equal((await sales()).json.code, "PIXEL_REQUIRED", "no pixel id in the settings");
   ok(await staff("PUT", "/api/website/marketing-settings", { metaPixelId: "999999999999999" }));
   assert.equal((await sales()).json.code, "PIXEL_REQUIRED", "the account cannot see this pixel");
@@ -473,7 +491,7 @@ it("a non-public site URL is refused; the link is the UTM link, never /go/", asy
     for (const url of ["http://shop-nota.com", "https://localhost:3000", "https://192.168.1.5", "https://shop.local", "", "https://intranet"]) {
       process.env.NOTA_PUBLIC_URL = url;
       assert.equal(ok(await staff("GET", `/api/campaigns/${campaign._id}/publish/options`)).blockers.some((b) => b.code === "SITE_NOT_PUBLIC"), true, url || "(empty)");
-      const refused = await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf());
+      const refused = await postDraft(campaign, specOf());
       assert.equal(refused.status, 409, url); assert.equal(refused.json.code, "SITE_NOT_PUBLIC");
       assert.equal(await MetaPublish.countDocuments({}), 0, "no draft for a non-public site");
     }
@@ -489,14 +507,14 @@ it("a non-public site URL is refused; the link is the UTM link, never /go/", asy
 it("images: at most 8 MB, jpg/png only, at least 600x600, 1 to 5 ads, text limits; a product's website image works", async () => {
   await connect();
   const campaign = await newCampaign();
-  const tryAd = (extra) => staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ ads: [ad(extra)] }));
+  const tryAd = (extra) => postDraft(campaign, specOf({ ads: [ad(extra)] }));
   assert.equal((await tryAd({ image: { kind: "upload", data: png64(500) } })).json.code, "IMAGE_INVALID", "under 600x600");
   assert.equal((await tryAd({ image: { kind: "upload", data: Buffer.from("not an image at all").toString("base64") } })).json.code, "IMAGE_INVALID");
-  assert.equal((await tryAd({ image: { kind: "upload", data: Buffer.concat([PNG(), Buffer.alloc(8 * 1024 * 1024)]).toString("base64") } })).json.code, "IMAGE_INVALID", "over 8 MB");
+  assert.equal((await uploadRaw(campaign, Buffer.concat([PNG(), Buffer.alloc(8 * 1024 * 1024)]))).status, 413, "over 8 MB: refused before it is read");
   assert.equal((await tryAd({ primaryText: "" })).status, 400);
   assert.equal((await tryAd({ primaryText: "ا".repeat(501) })).status, 400);
-  assert.equal((await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ ads: [] }))).status, 400);
-  assert.equal((await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ ads: [ad(), ad(), ad(), ad(), ad(), ad()] }))).status, 400);
+  assert.equal((await postDraft(campaign, specOf({ ads: [] }))).status, 400);
+  assert.equal((await postDraft(campaign, specOf({ ads: [ad(), ad(), ad(), ad(), ad(), ad()] }))).status, 400);
   const warned = ok(await tryAd({ headline: "ع".repeat(41), image: { kind: "upload", data: png64(700) } }), 201);
   assert.equal(warned.warnings.length, 2, "headline over 40 and an image under 1080x1080 only warn");
   // inserted raw: this test is about the image, not the product's required fields
@@ -505,6 +523,51 @@ it("images: at most 8 MB, jpg/png only, at least 600x600, 1 to 5 ads, text limit
   ok(await tryAd({ image: { kind: "product", productId, index: 0 } }), 201);
   ok(await tryAd({ image: { kind: "product", productId, index: 1 } }), 201);
   assert.equal((await tryAd({ image: { kind: "product", productId, index: 3 } })).json.code, "IMAGE_INVALID");
+});
+
+it("each image is its own request (raw bytes, at most 8 MB), staged, then claimed by the draft that names it; the normal body limit stays elsewhere", async () => {
+  await connect();
+  const campaign = await newCampaign();
+  const other = await newCampaign();
+  const one = ok(await uploadRaw(campaign, PNG(1200)), 201);
+  assert.match(one.imageId, /^[a-f0-9]{32}$/); assert.equal(one.mime, "image/png"); assert.equal(one.width, 1200); assert.equal(one.bytes, PNG(1200).length);
+  assert.equal(await MetaPublishImage.countDocuments({ imageId: one.imageId, publishId: new RegExp("^stage-") }), 1, "staged");
+  assert.equal(world.posts.length, 0, "an upload to Nota sends nothing to Meta");
+  // exactly 8 MB goes through; over it is refused; jpg too; anything else is refused
+  const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x04, 0x38, 0x04, 0x38, 0x03]), Buffer.alloc(30)]);
+  assert.equal(ok(await uploadRaw(campaign, jpg, "image/jpeg"), 201).mime, "image/jpeg");
+  const big = Buffer.concat([PNG(), Buffer.alloc(8 * 1024 * 1024 - PNG().length)]);
+  assert.equal(big.length, 8 * 1024 * 1024);
+  ok(await uploadRaw(campaign, big), 201);
+  assert.equal((await uploadRaw(campaign, Buffer.concat([big, Buffer.alloc(1)]))).status, 413);
+  assert.equal((await uploadRaw(campaign, Buffer.from("not an image at all"))).json.code, "IMAGE_INVALID");
+  assert.equal((await uploadRaw(campaign, PNG(500))).json.code, "IMAGE_INVALID", "under 600x600");
+  assert.equal((await uploadRaw(campaign, PNG(), "application/octet-stream")).json.code, "IMAGE_INVALID", "only image/jpeg and image/png are read");
+  // session and permission come first
+  assert.equal((await call("POST", `/api/campaigns/${campaign._id}/publish/images`, {})).status, 401);
+  const salesToken = await makeStaff("mgr1", "manager");
+  assert.equal((await uploadRaw(campaign, PNG(), "image/png", salesToken)).status, 403);
+  // a draft names its images; unknown, malformed and other-campaign ids are refused; the claimed image leaves the staging area
+  const second = ok(await uploadRaw(campaign, PNG(1080)), 201);
+  const created = ok(await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ ads: [ad({ image: { kind: "upload", imageId: one.imageId } }), ad({ image: { kind: "upload", imageId: second.imageId } })] })), 201);
+  assert.equal(await MetaPublishImage.countDocuments({ publishId: created.publishId }), 2);
+  assert.equal(await MetaPublishImage.countDocuments({ imageId: one.imageId, publishId: new RegExp("^stage-") }), 0, "no longer staged");
+  for (const image of [{ kind: "upload", imageId: "f".repeat(32) }, { kind: "upload", imageId: "nope" }, { kind: "upload" }, { kind: "upload", data: png64() }]) {
+    assert.equal((await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ ads: [ad({ image })] }))).json.code, "IMAGE_INVALID", JSON.stringify(image).slice(0, 40));
+  }
+  const foreign = ok(await uploadRaw(other, PNG()), 201);
+  assert.equal((await staff("POST", `/api/campaigns/${campaign._id}/publish`, specOf({ ads: [ad({ image: { kind: "upload", imageId: foreign.imageId } })] }))).json.code, "IMAGE_INVALID", "another campaign's upload");
+  // it publishes with those bytes and the bytes are dropped afterwards
+  ok(await runIt(campaign, created.publishId));
+  assert.equal(await MetaPublishImage.countDocuments({ publishId: created.publishId }), 0);
+  // a staged image nobody claimed is dropped after a day (on the next upload)
+  await MetaPublishImage.collection.updateOne({ imageId: foreign.imageId }, { $set: { createdAt: new Date(Date.now() - 25 * 3600 * 1000) } });
+  ok(await uploadRaw(other, PNG()), 201);
+  assert.equal(await MetaPublishImage.countDocuments({ imageId: foreign.imageId }), 0);
+  // the normal limit still applies to the draft itself: no endpoint takes the old 56 MB body
+  const huge = await staff("POST", `/api/campaigns/${campaign._id}/publish`, { ...specOf(), padding: "x".repeat(11 * 1024 * 1024) });
+  assert.equal(huge.status, 413);
+  assert.ok(!require("node:fs").readFileSync(require.resolve("../src/app.js"), "utf8").includes("56mb"));
 });
 
 it("the preview uploads the ad's image once (no spend) and returns Meta's own frame through the reader", async () => {
@@ -678,7 +741,7 @@ it("every write error maps to a fixed message; no Meta text, URL, field text or 
   world.account.account_status = 3;
   await connect();
   const third = await newCampaign();
-  assert.equal((await staff("POST", `/api/campaigns/${third._id}/publish`, specOf())).json.code, "PAYMENT_REQUIRED");
+  assert.equal((await postDraft(third, specOf())).json.code, "PAYMENT_REQUIRED");
 
   const everything = [...logged, JSON.stringify(await AuditLog.find({}).lean()), JSON.stringify(await MetaPublish.find({}).lean())].join("\n");
   assert.ok(!everything.includes(TOKEN), "the token is in no log, audit entry or publish record");
@@ -699,4 +762,27 @@ it("the reader's new GETs and the geo search: only Egyptian governorates/cities,
   assert.equal(world.gets.find((g) => g.path === "search").params.country_code, "EG");
   assert.ok(campaign);
   for (const get of world.gets) assert.equal(get.method, "GET");
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// the public /privacy text (owner-editable like the other texts)
+
+it("the privacy text is saved like the other editable texts (trimmed, plain, at most 10000), blank clears it, and the public settings carry it", async () => {
+  const put = (body) => staff("PUT", "/api/website/settings", { enabled: true, orderingEnabled: true, title: "متجر", ...body });
+  assert.equal(ok(await call("GET", "/api/store/settings")).privacyPolicy, undefined, "closed or empty settings: nothing to read yet");
+  ok(await put({ privacyPolicy: "  سياسة الخصوصية بتاعتنا\nمفيش بيانات بتتباع.  " }));
+  assert.equal(ok(await staff("GET", "/api/website/settings")).privacyPolicy, "سياسة الخصوصية بتاعتنا\nمفيش بيانات بتتباع.");
+  assert.equal(ok(await call("GET", "/api/store/settings")).privacyPolicy, "سياسة الخصوصية بتاعتنا\nمفيش بيانات بتتباع.");
+  // markup stays text: it is stored as typed and the storefront prints it with interpolation (no innerHTML), checked below
+  ok(await put({ privacyPolicy: "<script>alert(1)</script> نص" }));
+  assert.equal(ok(await call("GET", "/api/store/settings")).privacyPolicy, "<script>alert(1)</script> نص");
+  const source = require("node:fs").readFileSync(require.resolve("../../nota-storefront/src/app/pages/policy.ts"), "utf8");
+  assert.ok(!/innerHTML|bypassSecurityTrust|\[innerHtml\]/i.test(source), "the storefront never renders the text as HTML");
+  // over the limit / not a string
+  assert.equal((await put({ privacyPolicy: "ا".repeat(10001) })).status, 400);
+  assert.equal((await put({ privacyPolicy: { a: 1 } })).status, 400);
+  ok(await put({ privacyPolicy: "ا".repeat(10000) }));
+  // blank clears it (the storefront then writes its own text)
+  ok(await put({ privacyPolicy: "   " }));
+  assert.equal(ok(await call("GET", "/api/store/settings")).privacyPolicy, "");
 });

@@ -22,6 +22,8 @@ router.get("/meta-campaigns", manage, metaLinks.listMeta);
 // Online Stage 7C: publishing and managing Facebook/Instagram campaigns (marketing.publish, owner only by default).
 router.get("/meta-geo", publishPermission, metaPublish.geo);
 router.get("/:id/publish/options", publishPermission, metaPublish.options);
+// One request per image: raw jpg/png bytes (not base64 JSON), at most 8 MB, parsed only here and only after the session and permission checks.
+router.post("/:id/publish/images", publishPermission, express.raw({ type: ["image/jpeg", "image/png"], limit: "8mb" }), metaPublish.uploadImage);
 router.post("/:id/publish", publishPermission, metaPublish.createDraft);
 router.get("/:id/publish/:publishId", publishPermission, metaPublish.getOne);
 router.post("/:id/publish/:publishId/preview", publishPermission, metaPublish.preview);

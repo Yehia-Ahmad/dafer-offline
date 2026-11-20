@@ -27,6 +27,7 @@ export const routes: Routes = [
   },
   { path: 'policies/returns', loadComponent: () => import('./pages/policy').then((m) => m.PolicyPage), data: { kind: 'returns' } },
   { path: 'policies/terms', loadComponent: () => import('./pages/policy').then((m) => m.PolicyPage), data: { kind: 'terms' } },
+  { path: 'privacy', loadComponent: () => import('./pages/policy').then((m) => m.PrivacyPage) },
   { path: 'delivery', loadComponent: () => import('./pages/policy').then((m) => m.DeliveryPage), resolve: { zones: zonesResolver } },
   { path: '**', loadComponent: () => import('./pages/policy').then((m) => m.NotFoundPage) },
 ];

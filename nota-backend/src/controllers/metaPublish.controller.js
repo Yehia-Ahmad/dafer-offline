@@ -23,6 +23,11 @@ const createDraft = asyncHandler(async (req, res) => {
   res.status(201).json({ ...publish.view(draft), warnings });
 });
 
+// POST /api/campaigns/:id/publish/images  (body: the raw image, Content-Type image/jpeg or image/png)
+const uploadImage = asyncHandler(async (req, res) => {
+  res.status(201).json(await publish.stageImage({ campaignId: req.params.id, buffer: Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0) }));
+});
+
 const getOne = asyncHandler(async (req, res) => res.json(await publish.getPublish({ publishId: req.params.publishId, campaignId: req.params.id })));
 
 // POST /api/campaigns/:id/publish/:publishId/preview  { index, format }
@@ -94,4 +99,4 @@ const archive = manage({
 });
 const refresh = asyncHandler(async (req, res) => res.json(await publish.refresh({ campaignId: req.params.id, metaId: req.params.metaId })));
 
-module.exports = { options, createDraft, getOne, preview, run, cancel, geo, setStatus, setBudget, setEndTime, archive, refresh };
+module.exports = { options, createDraft, uploadImage, getOne, preview, run, cancel, geo, setStatus, setBudget, setEndTime, archive, refresh };

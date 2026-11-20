@@ -342,6 +342,9 @@
             <nota-form-field [label]="'website.settings.texts.terms' | translate" forId="ws-terms">
               <textarea id="ws-terms" rows="4" class="nota-textarea" formControlName="terms" [maxLength]="limits.terms"></textarea>
             </nota-form-field>
+            <nota-form-field [label]="'website.settings.texts.privacyPolicy' | translate" forId="ws-privacy" [hint]="'website.settings.texts.privacyPolicyHint' | translate">
+              <textarea id="ws-privacy" rows="4" class="nota-textarea" formControlName="privacyPolicy" [maxLength]="limits.privacyPolicy"></textarea>
+            </nota-form-field>
           </section>
         }
 
@@ -733,6 +736,9 @@
             </nota-form-field>
             <nota-form-field [label]="'website.settings.texts.terms' | translate" forId="ws-terms">
               <textarea id="ws-terms" rows="4" class="nota-textarea" formControlName="terms" [maxLength]="limits.terms"></textarea>
+            </nota-form-field>
+            <nota-form-field [label]="'website.settings.texts.privacyPolicy' | translate" forId="ws-privacy" [hint]="'website.settings.texts.privacyPolicyHint' | translate">
+              <textarea id="ws-privacy" rows="4" class="nota-textarea" formControlName="privacyPolicy" [maxLength]="limits.privacyPolicy"></textarea>
             </nota-form-field>
           </section>
         }

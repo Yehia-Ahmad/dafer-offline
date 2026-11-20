@@ -144,6 +144,25 @@ async function main() {
       assert.match((await get(`${B}/order/sometoken`)).headers.get("referrer-policy") || "", /no-referrer/);
       assert.equal((await get(`${B}/no/such/page`)).status, 404);
     });
+    check("/privacy (Online Stage 7C): server-rendered Arabic text from the shop, linked from the footer and the sitemap, indexable; the owner's own text replaces it", async () => {
+      const p = await get(`${B}/privacy`);
+      assert.equal(p.status, 200);
+      assert.ok(!(p.headers.get("x-robots-tag") || "").includes("noindex"), "public page, not noindex");
+      assert.ok(p.text.includes("سياسة الخصوصية — النور للأدوات الكهربائية"), "title from the shop");
+      for (const topic of ["الطلبات", "الحساب (اختياري)", "إزاي تطلب مسح بياناتك"]) assert.ok(p.text.includes(topic), topic);
+      assert.ok(p.text.includes('rel="canonical"') && p.text.includes("/privacy"));
+      const home = await get(`${B}/`);
+      assert.match(home.text, /href="\/privacy"/, "footer link");
+      assert.ok((await get(`${B}/sitemap.xml`)).text.includes("/privacy</loc>"));
+      assert.ok(!(await get(`${B}/robots.txt`)).text.includes("/privacy"));
+      await call("PUT", "/api/website/settings", token, { ...settingsBody, privacyPolicy: "نص الخصوصية بتاع صاحب المحل <b>مش HTML</b>" });
+      const fresh = await startStorefront({ api: apiUrl, port: await freePort() });
+      const own = await get(`${fresh.base}/privacy`);
+      assert.ok(own.text.includes("نص الخصوصية بتاع صاحب المحل"), "the owner's text");
+      assert.ok(!own.text.includes("إزاي تطلب مسح بياناتك"), "replaces the generated text");
+      assert.ok(own.text.includes("&lt;b&gt;مش HTML&lt;/b&gt;") && !own.text.includes("<b>مش HTML</b>"), "markup is escaped, never rendered");
+      await call("PUT", "/api/website/settings", token, settingsBody);
+    });
     check("search and the delivery page render", async () => {
       assert.equal((await get(`${B}/search?q=${encodeURIComponent("لمبة")}`)).status, 200);
       const d = await get(`${B}/delivery`);

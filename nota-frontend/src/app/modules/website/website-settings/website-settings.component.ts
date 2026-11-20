@@ -99,6 +99,7 @@ export class WebsiteSettingsComponent implements OnInit {
     orderNote: ['', Validators.maxLength(WEBSITE_LIMITS.orderNote)],
     returnsPolicy: ['', Validators.maxLength(WEBSITE_LIMITS.returnsPolicy)],
     terms: ['', Validators.maxLength(WEBSITE_LIMITS.terms)],
+    privacyPolicy: ['', Validators.maxLength(WEBSITE_LIMITS.privacyPolicy)],
     // Online Stage 5A
     seoDescription: ['', Validators.maxLength(WEBSITE_LIMITS.seoDescription)],
     openingHours: ['', Validators.maxLength(WEBSITE_LIMITS.openingHours)],
@@ -364,6 +365,7 @@ export class WebsiteSettingsComponent implements OnInit {
       orderNote: raw.orderNote.trim(),
       returnsPolicy: raw.returnsPolicy.trim(),
       terms: raw.terms.trim(),
+      privacyPolicy: raw.privacyPolicy.trim(),
       // Online Stage 5A
       fulfillment: { delivery: raw.fulfillmentDelivery, pickup: raw.fulfillmentPickup },
       payments: {
@@ -430,6 +432,7 @@ export class WebsiteSettingsComponent implements OnInit {
       orderNote: merged.orderNote || '',
       returnsPolicy: merged.returnsPolicy || '',
       terms: merged.terms || '',
+      privacyPolicy: merged.privacyPolicy || '',
       seoDescription: merged.seoDescription || '',
       openingHours: merged.openingHours || '',
       brandColor: merged.brandColor || DEFAULT_BRAND_COLOR,

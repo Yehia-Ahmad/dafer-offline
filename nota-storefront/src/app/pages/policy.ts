@@ -4,6 +4,7 @@ import { AR } from '../core/i18n/ar';
 import { PageStatus } from '../core/page-status.service';
 import { Loaded } from '../core/resolvers';
 import { Zone } from '../core/models';
+import { privacyText, privacyTitle } from '../core/privacy';
 import { SeoService } from '../core/seo.service';
 import { SettingsStore } from '../core/settings.store';
 import { StateViewComponent } from '../ui/state-view';
@@ -30,6 +31,28 @@ export class PolicyPage {
 
   constructor() {
     effect(() => this.seo.set({ title: this.title(), description: this.text(), path: `/policies/${this.kind()}` }));
+  }
+}
+
+/** /privacy: the owner's own text, or the one written from the shop's name, phone and address (core/privacy.ts). Public: Meta's Live mode asks for this address. */
+@Component({
+  selector: 'app-privacy',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <div class="wrap page narrow">
+      <h1 class="h1" data-test="privacy-title">{{ title() }}</h1>
+      <div class="prose" data-test="privacy-text">{{ text() }}</div>
+    </div>
+  `,
+})
+export class PrivacyPage {
+  private readonly settings = inject(SettingsStore);
+  private readonly seo = inject(SeoService);
+  protected readonly title = computed(() => privacyTitle(this.settings.settings()));
+  protected readonly text = computed(() => privacyText(this.settings.settings()));
+
+  constructor() {
+    effect(() => this.seo.set({ title: this.title(), description: this.text().replace(/\s+/g, ' ').slice(0, 160), path: '/privacy' }));
   }
 }
 

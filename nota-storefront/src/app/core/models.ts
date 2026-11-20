@@ -21,6 +21,7 @@ export interface StoreSettings {
   orderNote?: string;
   returnsPolicy?: string;
   terms?: string;
+  privacyPolicy?: string;
   paymentMethods?: PaymentMethod[];
   paymentDetails?: { instapay?: { address: string }; vodafoneCash?: { number: string } };
   fulfillment?: { delivery: boolean; pickup: boolean };

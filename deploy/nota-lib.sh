@@ -138,3 +138,19 @@ shop_domain() {
   origin="${origin#https://}"
   printf '%s' "${origin%%,*}"
 }
+
+# ensure_public_url: Online Stage 7C. The backend reads NOTA_PUBLIC_URL too (publishing an ad needs the shop's public https address for
+# the ad's link; Nota refuses to publish without it). setup-server.sh writes it to both env files; an older server has it only in the
+# storefront's, so update.sh copies it over once, only when the backend has none (never replaces a value that is already there).
+ensure_public_url() {
+  local url
+  [ -z "$(env_get NOTA_PUBLIC_URL "$NOTA_BACKEND_ENV")" ] || return 0
+  url="$(env_get NOTA_PUBLIC_URL "$NOTA_STOREFRONT_ENV")"
+  if [ -n "$url" ]; then
+    env_set NOTA_PUBLIC_URL "$url" "$NOTA_BACKEND_ENV"
+    log "NOTA_PUBLIC_URL copied from the storefront env to the backend env"
+  else
+    log "WARNING: NOTA_PUBLIC_URL is in neither env file; publishing ads stays off until setup-server.sh is run again"
+  fi
+  return 0
+}

@@ -99,5 +99,19 @@ section("App mode");
 console.log("Check in the Meta App Dashboard that the app is in LIVE mode (not Development). Ads created by an app in Development mode may not deliver.");
 console.log("Nota cannot read the app mode from the Graph API with a system-user token, so it is not checked here.");
 
+section("Privacy policy URL (Live mode asks for one)");
+const publicUrl = String(process.env.NOTA_PUBLIC_URL || "").trim().replace(/\/+$/, "");
+if (!publicUrl) {
+  console.log("NOTA_PUBLIC_URL is not set in this environment: use https://<your shop domain>/privacy as the app's Privacy Policy URL.");
+} else {
+  console.log(`Use ${publicUrl}/privacy as the app's Privacy Policy URL (Settings > Basic in the App Dashboard).`);
+  try {
+    const answer = await fetch(`${publicUrl}/privacy`, { signal: AbortSignal.timeout(8000) });
+    console.log(answer.status === 200 ? "The page answers 200: Meta can read it." : `NOTE: the page answered ${answer.status}. Meta needs 200 (a closed website answers 503).`);
+  } catch {
+    console.log("NOTE: could not reach that address from here (it only has to be reachable from the internet).");
+  }
+}
+
 console.log(failed ? "\nDone with problems (see above)." : "\nAll checks passed.");
 process.exit(failed ? 1 : 0);

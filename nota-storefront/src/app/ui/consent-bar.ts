@@ -1,15 +1,17 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { AR } from '../core/i18n/ar';
 import { PixelsService } from '../core/pixels.service';
 
 /** Online Stage 7A: the small cookie bar. Rendered only in the browser after start() (never part of the server HTML). */
 @Component({
   selector: 'app-consent-bar',
+  imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (pixels.needsConsent()) {
       <div class="bar" role="dialog" aria-live="polite" [attr.aria-label]="t.consent.title">
-        <p>{{ t.consent.text }}</p>
+        <p>{{ t.consent.text }} <a routerLink="/privacy" data-test="consent-privacy">{{ t.consent.privacy }}</a></p>
         <div class="actions">
           <button type="button" class="btn" (click)="pixels.accept()">{{ t.consent.accept }}</button>
           <button type="button" class="btn ghost" (click)="pixels.decline()">{{ t.consent.decline }}</button>

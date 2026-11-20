@@ -2619,7 +2619,9 @@
         "orderNote": "Note shown at checkout",
         "orderNoteHint": "For example delivery times",
         "returnsPolicy": "Returns policy",
-        "terms": "Terms and conditions"
+        "terms": "Terms and conditions",
+        "privacyPolicy": "Privacy policy",
+        "privacyPolicyHint": "Leave empty and the site writes a ready text from the shop name, phone and address, shown at /privacy."
       }
     },
     "zones": {
@@ -3480,6 +3482,7 @@
         "upload": "Upload an image",
         "fromProduct": "From a product's images",
         "imageRules": "jpg or png, at least 600×600 and at most 8 MB. 1080×1080 or larger is best.",
+        "uploading": "Uploading the image…",
         "searchProduct": "Search a product",
         "whichImage": "Which image",
         "mainImage": "Main image",

@@ -64,6 +64,8 @@ const websiteSettingsSchema = new mongoose.Schema(
     orderNote: { type: String, trim: true, maxlength: 1000 },
     returnsPolicy: { type: String, trim: true, maxlength: 5000 },
     terms: { type: String, trim: true, maxlength: 10000 },
+    // Online Stage 7C: the owner's own privacy text for /privacy. Empty = the storefront writes one from the shop name, phone and address.
+    privacyPolicy: { type: String, trim: true, maxlength: 10000 },
 
     // ---- Online Stage 5A. No schema defaults: a missing value means the documented default (see store/catalog.js `withDefaults`).
     // How the customer gets the order. At least one on (checked when saving).

@@ -33,6 +33,6 @@ export const sitemapXml = async (origin: string, api: ServerApi): Promise<string
     pages = result.pagination.totalPages;
     page += 1;
   } while (page <= pages && page <= MAX_PAGES);
-  urls.push(`${origin}/delivery`, `${origin}/policies/returns`, `${origin}/policies/terms`);
+  urls.push(`${origin}/delivery`, `${origin}/policies/returns`, `${origin}/policies/terms`, `${origin}/privacy`);
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${escapeXml(u)}</loc></url>`).join('\n')}\n</urlset>\n`;
 };

@@ -24,12 +24,12 @@ const MAX_ADS = 5;
 interface AdDraft {
   primaryText: string; headline: string; description: string; cta: PublishCta;
   imageKind: 'upload' | 'product';
-  uploadData: string; uploadName: string; thumb: string;
+  imageId: string; uploading: boolean; uploadName: string; thumb: string;
   productId: string; productName: string; productImageIndex: number;
   landingKind: 'campaign' | 'product'; landingProductId: string; landingProductName: string;
 }
 const blankAd = (): AdDraft => ({
-  primaryText: '', headline: '', description: '', cta: 'SHOP_NOW', imageKind: 'upload', uploadData: '', uploadName: '', thumb: '',
+  primaryText: '', headline: '', description: '', cta: 'SHOP_NOW', imageKind: 'upload', imageId: '', uploading: false, uploadName: '', thumb: '',
   productId: '', productName: '', productImageIndex: 0, landingKind: 'campaign', landingProductId: '', landingProductName: '',
 });
 
@@ -144,6 +144,7 @@ const blankAd = (): AdDraft => ({
                       @if (ad.imageKind === 'upload') {
                         <input type="file" accept="image/jpeg,image/png" [attr.data-test]="'image-file-' + i" (change)="pickFile(i, $event)" />
                         @if (ad.thumb) { <img class="pw__thumb" [src]="ad.thumb" alt="" /> }
+                        @if (ad.uploading) { <small class="pw__muted" data-test="image-uploading">{{ 'marketing.publish.ads.uploading' | translate }}</small> }
                         <small class="pw__muted">{{ 'marketing.publish.ads.imageRules' | translate }}</small>
                       } @else {
                         <input [class]="input()" type="search" [name]="'productSearch' + i" data-test="product-search" [placeholder]="'marketing.publish.ads.searchProduct' | translate" (ngModelChange)="searchProduct(i, 'image', $event)" ngModel />
@@ -396,7 +397,7 @@ export class MetaPublishWizardComponent {
         if (this.advantage()) return this.ageMin() >= 18 && this.ageMin() <= 25;
         return this.ageMin() >= 18 && this.ageMax() <= 65 && this.ageMin() <= this.ageMax();
       }
-      case 4: return this.ads().every((a) => a.primaryText.trim().length > 0 && a.primaryText.length <= 500 && (a.imageKind === 'upload' ? Boolean(a.uploadData) : Boolean(a.productId)) && (a.landingKind === 'campaign' || Boolean(a.landingProductId)));
+      case 4: return this.ads().every((a) => a.primaryText.trim().length > 0 && a.primaryText.length <= 500 && (a.imageKind === 'upload' ? Boolean(a.imageId) && !a.uploading : Boolean(a.productId)) && (a.landingKind === 'campaign' || Boolean(a.landingProductId)));
       default: return true;
     }
   });
@@ -432,17 +433,20 @@ export class MetaPublishWizardComponent {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
     if (!['image/jpeg', 'image/png'].includes(file.type) || file.size > MAX_IMAGE_BYTES) {
-      this.patchAd(index, { uploadData: '', uploadName: '', thumb: '' });
+      this.patchAd(index, { imageId: '', uploading: false, uploadName: '', thumb: '' });
       this.error.set('marketing.publish.errors.IMAGE_INVALID');
       return;
     }
     this.error.set('');
+    // One request per image (the file itself, at most 8 MB): the server stages it and the draft only names it by id.
+    this.patchAd(index, { imageId: '', uploading: true, uploadName: file.name, thumb: '' });
     const reader = new FileReader();
-    reader.onload = () => {
-      const url = String(reader.result || '');
-      this.patchAd(index, { uploadData: url.slice(url.indexOf(',') + 1), uploadName: file.name, thumb: url });
-    };
+    reader.onload = () => this.patchAd(index, { thumb: String(reader.result || '') });
     reader.readAsDataURL(file);
+    this.marketing.publishUploadImage(this.campaignId(), file).subscribe({
+      next: (uploaded) => { this.patchAd(index, { imageId: uploaded.imageId, uploading: false }); },
+      error: (response) => { this.patchAd(index, { imageId: '', uploading: false, uploadName: '', thumb: '' }); this.error.set(this.errorKey(response)); },
+    });
   }
 
   protected searchProduct(index: number, purpose: 'image' | 'landing', value: string): void {
@@ -462,7 +466,7 @@ export class MetaPublishWizardComponent {
       : { advantage: false, ageMin: this.ageMin(), ageMax: this.ageMax(), gender: this.gender(), locations: this.locations() };
     const ads: PublishAdInput[] = this.ads().map((a) => ({
       primaryText: a.primaryText.trim(), headline: a.headline.trim(), description: a.description.trim(), cta: a.cta,
-      image: a.imageKind === 'upload' ? { kind: 'upload', data: a.uploadData } : { kind: 'product', productId: a.productId, index: a.productImageIndex },
+      image: a.imageKind === 'upload' ? { kind: 'upload', imageId: a.imageId } : { kind: 'product', productId: a.productId, index: a.productImageIndex },
       landing: a.landingKind === 'product' ? { kind: 'product', productId: a.landingProductId } : { kind: 'campaign' },
     }));
     return { goal: this.goal(), budget, audience, ads };

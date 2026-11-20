@@ -168,6 +168,7 @@ const publicSettings = (settings, extras) => {
     orderNote: settings.orderNote || "",
     returnsPolicy: settings.returnsPolicy || "",
     terms: settings.terms || "",
+    privacyPolicy: settings.privacyPolicy || "",
     // Online Stage 5A. Never a box id. paymentMethods stays an array of method keys; the public transfer details are separate.
     paymentMethods: enabledMethods,
     paymentDetails: {
