@@ -98,7 +98,7 @@ const OK_STATUSES = [1, 9];
               @for (r of g.data; track r._id) {
                 <div class="mc__rate" data-test="rate-row">
                   <span class="nota-num">{{ r.effectiveFrom }}</span>
-                  <strong class="nota-num">1 {{ r.currency }} = {{ r.rate }} EGP</strong>
+                  <strong class="nota-num" dir="ltr">1 {{ r.currency }} = {{ r.rate }} EGP</strong>
                   <button type="button" [class]="btn()" data-action="delete-rate" [disabled]="busy()" (click)="deleteRate(r)">{{ 'marketing.meta.rates.delete' | translate }}</button>
                 </div>
               } @empty { <p class="mc__muted" data-test="rates-empty">{{ 'marketing.meta.rates.empty' | translate }}</p> }
